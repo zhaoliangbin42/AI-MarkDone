@@ -231,9 +231,9 @@ class ContentScript {
                 // Show edit modal
                 bookmarkEditModal.show(
                     userMessage,
-                    async (title: string, notes: string) => {
+                    async (title: string) => {
                         // Save with custom title, notes, and AI response
-                        await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, notes, platform);
+                        await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, platform);
                         this.bookmarkedPositions.add(position);
                         this.updateToolbarState(messageElement, true);
                         logger.info(`[handleBookmark] Saved bookmark at position ${position}`);

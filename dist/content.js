@@ -22502,7 +22502,7 @@ class SimpleBookmarkStorage {
   /**
    * Save a bookmark
    */
-  static async save(url, position, userMessage, aiResponse, title, notes, platform) {
+  static async save(url, position, userMessage, aiResponse, title, platform, timestamp) {
     try {
       const key = this.getKey(url, position);
       const urlWithoutProtocol = url.replace(/^https?:\/\//, "");
@@ -22512,9 +22512,8 @@ class SimpleBookmarkStorage {
         position,
         userMessage,
         aiResponse,
-        timestamp: Date.now(),
+        timestamp: timestamp || Date.now(),
         title: title || userMessage.substring(0, 50) + (userMessage.length > 50 ? "..." : ""),
-        notes,
         platform
       };
       await chrome.storage.local.set({ [key]: value });
@@ -23067,7 +23066,20 @@ class SimpleBookmarkPanel {
                             <option value="ChatGPT">ChatGPT</option>
                             <option value="Gemini">Gemini</option>
                         </select>
-                        <button class="export-btn">📤 Export</button>
+                        <button class="export-btn" title="Export bookmarks">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </button>
+                        <button class="import-btn" title="Import bookmarks">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </button>
                         <button class="batch-delete-btn" style="display: none;">🗑 Delete Selected (<span class="selected-count">0</span>)</button>
                     </div>
 
@@ -23247,6 +23259,9 @@ class SimpleBookmarkPanel {
     }
     this.shadowRoot?.querySelector(".export-btn")?.addEventListener("click", () => {
       this.handleExport();
+    });
+    this.shadowRoot?.querySelector(".import-btn")?.addEventListener("click", () => {
+      this.handleImport();
     });
     this.shadowRoot?.querySelector(".batch-delete-btn")?.addEventListener("click", () => {
       this.handleBatchDelete();
@@ -23530,6 +23545,173 @@ Tip: You can export your bookmarks first to create a backup.`
     a.click();
     URL.revokeObjectURL(url);
     logger.info("[SimpleBookmarkPanel] Exported bookmarks");
+  }
+  /**
+   * Handle import
+   */
+  async handleImport() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const bookmarks = this.validateImportData(data);
+        logger.info(`[Import] Validated ${bookmarks.length} bookmarks`);
+        const conflicts = await this.detectConflicts(bookmarks);
+        if (conflicts.length > 0) {
+          const shouldMerge = await this.showConflictDialog(conflicts, bookmarks);
+          if (!shouldMerge) {
+            logger.info("[Import] User cancelled import");
+            return;
+          }
+        }
+        await this.importBookmarks(bookmarks, false);
+        await this.refresh();
+        alert(`✅ Successfully imported ${bookmarks.length} bookmark(s)!`);
+        logger.info(`[Import] Successfully imported ${bookmarks.length} bookmarks`);
+      } catch (error) {
+        logger.error("[Import] Failed:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        alert(`❌ Import failed: ${errorMessage}`);
+      }
+    };
+    input.click();
+  }
+  /**
+   * Validate import data
+   */
+  validateImportData(data) {
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid format: expected an array of bookmarks");
+    }
+    const validBookmarks = [];
+    const errors = [];
+    data.forEach((item, index) => {
+      if (SimpleBookmarkStorage.validateBookmark(item)) {
+        validBookmarks.push(item);
+      } else {
+        errors.push(`Invalid bookmark at index ${index}`);
+        logger.warn(`[Import] Invalid bookmark at index ${index}:`, item);
+      }
+    });
+    if (errors.length > 0) {
+      logger.warn(`[Import] ${errors.length} invalid bookmarks skipped`);
+    }
+    if (validBookmarks.length === 0) {
+      throw new Error("No valid bookmarks found in file");
+    }
+    return validBookmarks;
+  }
+  /**
+   * Detect conflicts (existing bookmarks with same url+position)
+   */
+  async detectConflicts(bookmarks) {
+    const conflicts = [];
+    for (const bookmark of bookmarks) {
+      const exists = await SimpleBookmarkStorage.isBookmarked(
+        bookmark.url,
+        bookmark.position
+      );
+      if (exists) {
+        conflicts.push(bookmark);
+      }
+    }
+    return conflicts;
+  }
+  /**
+   * Show conflict resolution dialog
+   * Returns: true (merge) or false (cancel)
+   */
+  async showConflictDialog(conflicts, allBookmarks) {
+    return new Promise((resolve) => {
+      const modalOverlay = document.createElement("div");
+      modalOverlay.className = "conflict-dialog-overlay";
+      const modal = document.createElement("div");
+      modal.className = "conflict-dialog";
+      modal.innerHTML = `
+                <div class="conflict-header">
+                    <h3>⚠️ Duplicate Bookmarks Detected</h3>
+                </div>
+
+                <div class="conflict-body">
+                    <p>Found <strong>${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p>Total bookmarks to import: <strong>${allBookmarks.length}</strong></p>
+                    <p style="margin-top: 16px; color: #6b7280;">Click <strong>Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+
+                    <div class="conflict-list">
+                        ${conflicts.slice(0, 5).map((b) => `
+                            <div class="conflict-item">
+                                <span class="platform-badge ${b.platform?.toLowerCase() || "chatgpt"}">
+                                    ${this.getPlatformIcon(b.platform)} ${b.platform || "ChatGPT"}
+                                </span>
+                                <span class="conflict-title">${this.escapeHtml(this.truncate(b.title || b.userMessage, 50))}</span>
+                            </div>
+                        `).join("")}
+                        ${conflicts.length > 5 ? `<div class="conflict-more">... and ${conflicts.length - 5} more</div>` : ""}
+                    </div>
+                </div>
+
+                <div class="conflict-footer">
+                    <button class="conflict-btn cancel-btn">Cancel</button>
+                    <button class="conflict-btn merge-btn">Merge</button>
+                </div>
+            `;
+      modalOverlay.appendChild(modal);
+      this.shadowRoot?.appendChild(modalOverlay);
+      modal.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+      modal.querySelector(".merge-btn")?.addEventListener("click", () => {
+        modalOverlay.remove();
+        resolve(true);
+      });
+      modal.querySelector(".cancel-btn")?.addEventListener("click", () => {
+        modalOverlay.remove();
+        resolve(false);
+      });
+      modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) {
+          modalOverlay.remove();
+          resolve(false);
+        }
+      });
+    });
+  }
+  /**
+   * Import bookmarks (batch save)
+   */
+  async importBookmarks(bookmarks, skipDuplicates) {
+    const promises = [];
+    for (const bookmark of bookmarks) {
+      if (skipDuplicates) {
+        const exists = await SimpleBookmarkStorage.isBookmarked(
+          bookmark.url,
+          bookmark.position
+        );
+        if (exists) {
+          logger.debug(`[Import] Skipping duplicate: ${bookmark.url}:${bookmark.position}`);
+          continue;
+        }
+      }
+      promises.push(
+        SimpleBookmarkStorage.save(
+          bookmark.url,
+          bookmark.position,
+          bookmark.userMessage,
+          bookmark.aiResponse,
+          bookmark.title,
+          bookmark.platform,
+          bookmark.timestamp
+          // Preserve original timestamp from JSON
+        )
+      );
+    }
+    await Promise.all(promises);
+    logger.info(`[Import] Imported ${promises.length} bookmarks`);
   }
   /**
    * Setup storage change listener - AITimeline pattern
@@ -23891,20 +24073,158 @@ Tip: You can export your bookmarks first to create a backup.`
                 color: #6b7280;
                 margin: 0 0 24px 0;
             }
-
+            /* Support button */
             .support-btn {
                 display: inline-block;
                 padding: 12px 24px;
-                background: #3b82f6;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 text-decoration: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 font-weight: 500;
-                transition: all 0.2s;
+                transition: transform 0.2s ease;
             }
 
             .support-btn:hover {
+                transform: translateY(-2px);
+            }
+
+            /* Conflict Dialog Styles */
+            .conflict-dialog-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2147483648;
+            }
+
+            .conflict-dialog {
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .conflict-header {
+                padding: 20px 24px;
+                border-bottom: 1px solid #e5e7eb;
+                background: #fef3c7;
+            }
+
+            .conflict-header h3 {
+                margin: 0;
+                font-size: 18px;
+                font-weight: 600;
+                color: #92400e;
+            }
+
+            .conflict-body {
+                padding: 24px;
+                overflow-y: auto;
+                flex: 1;
+            }
+
+            .conflict-body p {
+                margin: 0 0 16px 0;
+                color: #374151;
+                font-size: 14px;
+            }
+
+            .conflict-list {
+                margin-top: 16px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+
+            .conflict-item {
+                padding: 12px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .conflict-item:last-child {
+                border-bottom: none;
+            }
+
+            .conflict-title {
+                flex: 1;
+                font-size: 13px;
+                color: #374151;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .conflict-more {
+                padding: 12px;
+                text-align: center;
+                font-size: 13px;
+                color: #6b7280;
+                font-style: italic;
+            }
+
+            .conflict-footer {
+                padding: 16px 24px;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+                background: #f9fafb;
+            }
+
+            .toolbar button {
+                padding: 8px 12px;
+                border: 1px solid #e5e7eb;
+                background: #f3f4f6;
+                border-radius: 6px;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                color: #6b7280;
+            }
+
+            .toolbar button:hover {
+                background: #e5e7eb;
+                border-color: #9ca3af;
+                color: #374151;
+            }
+
+            .toolbar button svg {
+                display: block;
+            }
+
+            .merge-btn {
+                background: #3b82f6;
+                color: white;
+            }
+
+            .merge-btn:hover {
                 background: #2563eb;
+            }
+
+            .cancel-btn {
+                background: #e5e7eb;
+                color: #374151;
+            }
+
+            .cancel-btn:hover {
+                background: #d1d5db;
             }
 
             /* Detail Modal */
@@ -24456,8 +24776,8 @@ class ContentScript {
         const aiResponse = this.getAiResponse(messageElement);
         bookmarkEditModal.show(
           userMessage,
-          async (title, notes) => {
-            await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, notes, platform);
+          async (title) => {
+            await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, platform);
             this.bookmarkedPositions.add(position);
             this.updateToolbarState(messageElement, true);
             logger.info(`[handleBookmark] Saved bookmark at position ${position}`);

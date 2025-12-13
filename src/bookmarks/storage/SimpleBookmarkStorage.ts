@@ -27,8 +27,8 @@ export class SimpleBookmarkStorage {
         userMessage: string,
         aiResponse?: string,
         title?: string,
-        notes?: string,
-        platform?: 'ChatGPT' | 'Gemini'
+        platform?: 'ChatGPT' | 'Gemini',
+        timestamp?: number
     ): Promise<void> {
         try {
             const key = this.getKey(url, position);
@@ -40,9 +40,8 @@ export class SimpleBookmarkStorage {
                 position,
                 userMessage,
                 aiResponse,
-                timestamp: Date.now(),
+                timestamp: timestamp || Date.now(),
                 title: title || userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
-                notes,
                 platform
             };
 
