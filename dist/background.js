@@ -3,6 +3,11 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 chrome.runtime.onStartup.addListener(() => {
 });
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.id) {
+    chrome.tabs.sendMessage(tab.id, { action: "openBookmarkPanel" });
+  }
+});
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
     case "ping":

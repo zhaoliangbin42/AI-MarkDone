@@ -759,6 +759,17 @@ const toolbarStyles = `
   cursor: not-allowed;
 }
 
+/* Bookmarked state - highlighted with theme color */
+.aicopy-button.bookmarked {
+  background: linear-gradient(135deg, var(--gradient-light-from), var(--gradient-light-to));
+  color: var(--theme-color);
+}
+
+.aicopy-button.bookmarked:hover {
+  background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
+  color: white;
+}
+
 /* Tooltip on hover */
 .aicopy-button::after {
   content: attr(aria-label);
@@ -937,6 +948,12 @@ class Toolbar {
   createUI() {
     const wrapper = document.createElement("div");
     wrapper.className = "aicopy-toolbar";
+    const bookmarkBtn = this.createIconButton(
+      "bookmark-btn",
+      this.getBookmarkIcon(),
+      "Bookmark",
+      () => this.handleBookmark()
+    );
     const copyBtn = this.createIconButton(
       "copy-md-btn",
       this.getClipboardIcon(),
@@ -961,6 +978,7 @@ class Toolbar {
     stats.textContent = "Loading...";
     const buttonGroup = document.createElement("div");
     buttonGroup.className = "aicopy-button-group";
+    buttonGroup.appendChild(bookmarkBtn);
     buttonGroup.appendChild(copyBtn);
     buttonGroup.appendChild(sourceBtn);
     buttonGroup.appendChild(reRenderBtn);
@@ -1064,6 +1082,16 @@ class Toolbar {
     `;
   }
   /**
+   * Get bookmark icon SVG
+   */
+  getBookmarkIcon() {
+    return `
+      <svg class="aicopy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+    `;
+  }
+  /**
    * Handle Copy Markdown button click
    */
   async handleCopyMarkdown() {
@@ -1110,6 +1138,15 @@ class Toolbar {
     if (btn) this.showFeedback(btn, "Source Opened");
   }
   /**
+   * Handle Bookmark button click
+   */
+  handleBookmark() {
+    logger.debug("Bookmark clicked");
+    if (this.callbacks.onBookmark) {
+      this.callbacks.onBookmark();
+    }
+  }
+  /**
    * Show floating feedback tooltip on button click
    */
   showFeedback(button, message) {
@@ -1121,6 +1158,22 @@ class Toolbar {
     setTimeout(() => {
       feedback.remove();
     }, 1500);
+  }
+  /**
+   * Set bookmark button state (highlighted when bookmarked)
+   */
+  setBookmarkState(isBookmarked) {
+    const bookmarkBtn = this.shadowRoot.querySelector("#bookmark-btn");
+    if (!bookmarkBtn) return;
+    if (isBookmarked) {
+      bookmarkBtn.classList.add("bookmarked");
+      bookmarkBtn.title = "Remove Bookmark";
+      bookmarkBtn.setAttribute("aria-label", "Remove Bookmark");
+    } else {
+      bookmarkBtn.classList.remove("bookmarked");
+      bookmarkBtn.title = "Bookmark";
+      bookmarkBtn.setAttribute("aria-label", "Bookmark");
+    }
   }
   /**
    * Get the toolbar container element
@@ -22438,6 +22491,1710 @@ class DeepResearchHandler {
   }
 }
 
+class SimpleBookmarkStorage {
+  /**
+   * Generate storage key - AITimeline format
+   */
+  static getKey(url, position) {
+    const urlWithoutProtocol = url.replace(/^https?:\/\//, "");
+    return `bookmark:${urlWithoutProtocol}:${position}`;
+  }
+  /**
+   * Save a bookmark
+   */
+  static async save(url, position, userMessage, aiResponse, title, notes, platform) {
+    try {
+      const key = this.getKey(url, position);
+      const urlWithoutProtocol = url.replace(/^https?:\/\//, "");
+      const value = {
+        url,
+        urlWithoutProtocol,
+        position,
+        userMessage,
+        aiResponse,
+        timestamp: Date.now(),
+        title: title || userMessage.substring(0, 50) + (userMessage.length > 50 ? "..." : ""),
+        notes,
+        platform
+      };
+      await chrome.storage.local.set({ [key]: value });
+      logger.info(`[SimpleBookmarkStorage] Saved bookmark at position ${position}`);
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to save bookmark:", error);
+      throw error;
+    }
+  }
+  /**
+   * Remove a bookmark
+   */
+  static async remove(url, position) {
+    try {
+      const key = this.getKey(url, position);
+      await chrome.storage.local.remove(key);
+      logger.info(`[SimpleBookmarkStorage] Removed bookmark at position ${position}`);
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to remove bookmark:", error);
+      throw error;
+    }
+  }
+  /**
+   * Check if a position is bookmarked
+   */
+  static async isBookmarked(url, position) {
+    try {
+      const key = this.getKey(url, position);
+      const result = await chrome.storage.local.get(key);
+      return !!result[key];
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to check bookmark:", error);
+      return false;
+    }
+  }
+  /**
+   * Load all bookmarked positions for current URL
+   * Returns a Set of positions - AITimeline pattern
+   */
+  static async loadAllPositions(url) {
+    try {
+      const urlWithoutProtocol = url.replace(/^https?:\/\//, "");
+      const prefix = `bookmark:${urlWithoutProtocol}:`;
+      const all = await chrome.storage.local.get(null);
+      const positions = /* @__PURE__ */ new Set();
+      Object.keys(all).forEach((key) => {
+        if (key.startsWith(prefix)) {
+          const posStr = key.substring(prefix.length);
+          const pos = parseInt(posStr, 10);
+          if (!isNaN(pos)) {
+            positions.add(pos);
+          }
+        }
+      });
+      logger.info(`[SimpleBookmarkStorage] Loaded ${positions.size} bookmarks for current page`);
+      return positions;
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to load bookmarks:", error);
+      return /* @__PURE__ */ new Set();
+    }
+  }
+  /**
+   * Update an existing bookmark
+   */
+  static async updateBookmark(url, position, updates) {
+    try {
+      const key = this.getKey(url, position);
+      const result = await chrome.storage.local.get(key);
+      const existing = result[key];
+      if (!existing) {
+        throw new Error(`Bookmark not found at position ${position}`);
+      }
+      const updated = {
+        ...existing,
+        ...updates
+      };
+      await chrome.storage.local.set({ [key]: updated });
+      logger.info(`[SimpleBookmarkStorage] Updated bookmark at position ${position}`);
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to update bookmark:", error);
+      throw error;
+    }
+  }
+  /**
+   * Get all bookmarks across all URLs
+   */
+  static async getAllBookmarks() {
+    try {
+      const all = await chrome.storage.local.get(null);
+      const bookmarks = [];
+      Object.keys(all).forEach((key) => {
+        if (key.startsWith("bookmark:")) {
+          bookmarks.push(all[key]);
+        }
+      });
+      bookmarks.sort((a, b) => b.timestamp - a.timestamp);
+      logger.info(`[SimpleBookmarkStorage] Loaded ${bookmarks.length} total bookmarks`);
+      return bookmarks;
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to get all bookmarks:", error);
+      return [];
+    }
+  }
+  /**
+   * Check storage quota usage
+   */
+  static async checkStorageQuota() {
+    try {
+      const used = await chrome.storage.local.getBytesInUse();
+      const limit = 5 * 1024 * 1024;
+      const percentage = used / limit * 100;
+      logger.info(`[SimpleBookmarkStorage] Storage usage: ${used} bytes (${percentage.toFixed(2)}%)`);
+      return { used, limit, percentage };
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to check storage quota:", error);
+      return { used: 0, limit: 5 * 1024 * 1024, percentage: 0 };
+    }
+  }
+  /**
+   * Validate bookmark data
+   */
+  static validateBookmark(bookmark) {
+    return typeof bookmark === "object" && bookmark !== null && typeof bookmark.url === "string" && typeof bookmark.urlWithoutProtocol === "string" && typeof bookmark.position === "number" && typeof bookmark.userMessage === "string" && typeof bookmark.timestamp === "number" && (bookmark.aiResponse === void 0 || typeof bookmark.aiResponse === "string") && (bookmark.title === void 0 || typeof bookmark.title === "string") && (bookmark.notes === void 0 || typeof bookmark.notes === "string") && (bookmark.platform === void 0 || bookmark.platform === "ChatGPT" || bookmark.platform === "Gemini");
+  }
+  /**
+   * Repair corrupted bookmarks
+   */
+  static async repairBookmarks() {
+    try {
+      const all = await chrome.storage.local.get(null);
+      let repaired = 0;
+      let removed = 0;
+      for (const key of Object.keys(all)) {
+        if (!key.startsWith("bookmark:")) continue;
+        const bookmark = all[key];
+        if (!this.validateBookmark(bookmark)) {
+          logger.warn(`[SimpleBookmarkStorage] Invalid bookmark found: ${key}`);
+          if (typeof bookmark === "object" && bookmark !== null) {
+            const repairedBookmark = {
+              url: bookmark.url || "",
+              urlWithoutProtocol: bookmark.urlWithoutProtocol || bookmark.url?.replace(/^https?:\/\//, "") || "",
+              position: bookmark.position || 0,
+              userMessage: bookmark.userMessage || "",
+              aiResponse: bookmark.aiResponse,
+              timestamp: bookmark.timestamp || Date.now(),
+              title: bookmark.title,
+              notes: bookmark.notes,
+              platform: bookmark.platform
+            };
+            if (this.validateBookmark(repairedBookmark)) {
+              await chrome.storage.local.set({ [key]: repairedBookmark });
+              repaired++;
+              logger.info(`[SimpleBookmarkStorage] Repaired bookmark: ${key}`);
+            } else {
+              await chrome.storage.local.remove(key);
+              removed++;
+              logger.warn(`[SimpleBookmarkStorage] Removed irreparable bookmark: ${key}`);
+            }
+          } else {
+            await chrome.storage.local.remove(key);
+            removed++;
+          }
+        }
+      }
+      logger.info(`[SimpleBookmarkStorage] Repair complete: ${repaired} repaired, ${removed} removed`);
+      return { repaired, removed };
+    } catch (error) {
+      logger.error("[SimpleBookmarkStorage] Failed to repair bookmarks:", error);
+      return { repaired: 0, removed: 0 };
+    }
+  }
+}
+
+class SimpleBookmarkPanel {
+  overlay = null;
+  shadowRoot = null;
+  bookmarks = [];
+  filteredBookmarks = [];
+  searchQuery = "";
+  platformFilter = "";
+  storageListener = null;
+  /**
+   * Show the bookmark panel
+   */
+  async show() {
+    if (this.overlay) {
+      this.overlay.style.display = "flex";
+      await this.refresh();
+      return;
+    }
+    this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+    this.filteredBookmarks = [...this.bookmarks];
+    logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks`);
+    this.overlay = document.createElement("div");
+    this.overlay.className = "simple-bookmark-panel-overlay";
+    this.shadowRoot = this.overlay.attachShadow({ mode: "open" });
+    const styles = document.createElement("style");
+    styles.textContent = this.getStyles();
+    this.shadowRoot.appendChild(styles);
+    const panel = this.createPanel();
+    this.shadowRoot.appendChild(panel);
+    this.overlay.addEventListener("click", (e) => {
+      if (e.target === this.overlay) {
+        this.hide();
+      }
+    });
+    document.body.appendChild(this.overlay);
+    this.setupStorageListener();
+    this.bindEventListeners();
+  }
+  /**
+   * Hide the bookmark panel
+   */
+  hide() {
+    if (this.overlay) {
+      this.overlay.style.display = "none";
+    }
+  }
+  /**
+   * Toggle panel visibility
+   */
+  async toggle() {
+    if (this.overlay && this.overlay.style.display !== "none") {
+      this.hide();
+    } else {
+      await this.show();
+    }
+  }
+  /**
+   * Create panel structure with sidebar tabs
+   */
+  createPanel() {
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    panel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    panel.innerHTML = `
+            <div class="sidebar">
+                <button class="tab-btn active" data-tab="bookmarks">
+                    <span class="tab-icon">📌</span>
+                    <span class="tab-label">Bookmarks</span>
+                </button>
+                <button class="tab-btn" data-tab="settings">
+                    <span class="tab-icon">⚙️</span>
+                    <span class="tab-label">Settings</span>
+                </button>
+                <button class="tab-btn" data-tab="support">
+                    <span class="tab-icon">☕</span>
+                    <span class="tab-label">Buy Me a Coffee</span>
+                </button>
+            </div>
+
+            <div class="main">
+                <div class="header">
+                    <h2>📌 Bookmarks (${this.bookmarks.length})</h2>
+                    <button class="close-btn" aria-label="Close">×</button>
+                </div>
+
+                <div class="tab-content bookmarks-tab active">
+                    <div class="toolbar">
+                        <input 
+                            type="search" 
+                            class="search-input" 
+                            placeholder="🔍 Search bookmarks..."
+                        />
+                        <select class="platform-filter">
+                            <option value="">All Platforms</option>
+                            <option value="ChatGPT">ChatGPT</option>
+                            <option value="Gemini">Gemini</option>
+                        </select>
+                        <button class="export-btn">📤 Export</button>
+                    </div>
+
+                    <div class="content">
+                        ${this.renderBookmarkList()}
+                    </div>
+                </div>
+
+                <div class="tab-content settings-tab">
+                    <div class="settings-content">
+                        <h3>Settings</h3>
+                        <p>Settings panel coming soon...</p>
+                    </div>
+                </div>
+
+                <div class="tab-content support-tab">
+                    <div class="support-content">
+                        <h3>☕ Buy Me a Coffee</h3>
+                        <p>If you find this extension helpful, consider supporting the development!</p>
+                        <a href="https://www.buymeacoffee.com/yourusername" target="_blank" class="support-btn">
+                            Support Development
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    return panel;
+  }
+  /**
+   * Render bookmark list (flex rows)
+   */
+  renderBookmarkList() {
+    if (this.filteredBookmarks.length === 0) {
+      return '<div class="empty">No bookmarks found.</div>';
+    }
+    return `
+            <div class="bookmark-list">
+                ${this.filteredBookmarks.map((b) => `
+                    <div class="bookmark-item" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}">
+                        <span class="platform-badge ${b.platform?.toLowerCase() || "chatgpt"}">
+                            ${this.getPlatformIcon(b.platform)} ${b.platform || "ChatGPT"}
+                        </span>
+                        <span class="title" title="${this.escapeHtml(b.title || b.userMessage)}">
+                            ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
+                        </span>
+                        <span class="response" title="${this.escapeHtml(b.aiResponse || "")}">
+                            ${this.escapeHtml(this.truncate(b.aiResponse || "", 50))}
+                        </span>
+                        <span class="notes" title="${this.escapeHtml(b.notes || "")}">
+                            ${this.escapeHtml(this.truncate(b.notes || "", 20))}
+                        </span>
+                        <span class="time">${this.formatTimestamp(b.timestamp)}</span>
+                        <div class="actions">
+                            <button class="action-btn preview-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Preview">👁</button>
+                            <button class="action-btn edit-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Edit">✏️</button>
+                            <button class="action-btn delete-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Delete">🗑</button>
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+  }
+  /**
+   * Get platform icon
+   */
+  getPlatformIcon(platform) {
+    switch (platform) {
+      case "ChatGPT":
+        return "🤖";
+      case "Gemini":
+        return "✨";
+      default:
+        return "🤖";
+    }
+  }
+  /**
+   * Format timestamp to relative time
+   */
+  formatTimestamp(timestamp) {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1e3);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 7) {
+      return new Date(timestamp).toLocaleDateString();
+    } else if (days > 0) {
+      return `${days}d`;
+    } else if (hours > 0) {
+      return `${hours}h`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return "now";
+    }
+  }
+  /**
+   * Truncate text
+   */
+  truncate(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  }
+  /**
+   * Filter bookmarks based on search and platform
+   */
+  filterBookmarks() {
+    this.filteredBookmarks = this.bookmarks.filter((b) => {
+      if (this.platformFilter && b.platform !== this.platformFilter) {
+        return false;
+      }
+      if (this.searchQuery) {
+        const query = this.searchQuery.toLowerCase();
+        const matchesTitle = b.title?.toLowerCase().includes(query);
+        const matchesMessage = b.userMessage.toLowerCase().includes(query);
+        const matchesResponse = b.aiResponse?.toLowerCase().includes(query);
+        return matchesTitle || matchesMessage || matchesResponse;
+      }
+      return true;
+    });
+  }
+  /**
+   * Refresh panel content
+   */
+  async refresh() {
+    this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+    this.filterBookmarks();
+    logger.debug(`[SimpleBookmarkPanel] Refreshed: ${this.bookmarks.length} bookmarks`);
+    this.refreshContent();
+  }
+  /**
+   * Refresh only the content area
+   */
+  refreshContent() {
+    if (this.shadowRoot) {
+      const content = this.shadowRoot.querySelector(".bookmarks-tab .content");
+      if (content) {
+        content.innerHTML = this.renderBookmarkList();
+        this.bindBookmarkListeners();
+      }
+      const header = this.shadowRoot.querySelector("h2");
+      if (header) {
+        header.textContent = `📌 Bookmarks (${this.bookmarks.length})`;
+      }
+    }
+  }
+  /**
+   * Bind event listeners to buttons
+   */
+  bindEventListeners() {
+    this.shadowRoot?.querySelector(".close-btn")?.addEventListener("click", () => this.hide());
+    this.shadowRoot?.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-tab");
+        if (tab) this.switchTab(tab);
+      });
+    });
+    const searchInput = this.shadowRoot?.querySelector(".search-input");
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        this.searchQuery = e.target.value;
+        this.filterBookmarks();
+        this.refreshContent();
+      });
+    }
+    const platformFilter = this.shadowRoot?.querySelector(".platform-filter");
+    if (platformFilter) {
+      platformFilter.addEventListener("change", (e) => {
+        this.platformFilter = e.target.value;
+        this.filterBookmarks();
+        this.refreshContent();
+      });
+    }
+    this.shadowRoot?.querySelector(".export-btn")?.addEventListener("click", () => {
+      this.handleExport();
+    });
+    this.bindBookmarkListeners();
+  }
+  /**
+   * Bind listeners for bookmark list items
+   */
+  bindBookmarkListeners() {
+    this.shadowRoot?.querySelectorAll(".preview-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const url = btn.getAttribute("data-url");
+        const position = parseInt(btn.getAttribute("data-position") || "0");
+        if (url && position) {
+          this.showDetailModal(url, position);
+        }
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".edit-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const url = btn.getAttribute("data-url");
+        const position = parseInt(btn.getAttribute("data-position") || "0");
+        if (url && position) {
+          this.handleEdit(url, position);
+        }
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".delete-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const url = btn.getAttribute("data-url");
+        const position = parseInt(btn.getAttribute("data-position") || "0");
+        if (url && position) {
+          await this.handleDelete(url, position);
+        }
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".bookmark-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const url = item.getAttribute("data-url");
+        const position = parseInt(item.getAttribute("data-position") || "0");
+        if (url && position) {
+          this.showDetailModal(url, position);
+        }
+      });
+    });
+  }
+  /**
+   * Switch tab
+   */
+  switchTab(tab) {
+    this.shadowRoot?.querySelectorAll(".tab-btn").forEach((btn) => {
+      if (btn.getAttribute("data-tab") === tab) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+    this.shadowRoot?.querySelectorAll(".tab-content").forEach((content) => {
+      content.classList.remove("active");
+    });
+    const activeContent = this.shadowRoot?.querySelector(`.${tab}-tab`);
+    if (activeContent) {
+      activeContent.classList.add("active");
+    }
+  }
+  /**
+   * Show detail modal
+   */
+  showDetailModal(url, position) {
+    const bookmark = this.filteredBookmarks.find(
+      (b) => b.url === url && b.position === position
+    );
+    if (!bookmark) return;
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "detail-modal-overlay";
+    const modal = document.createElement("div");
+    modal.className = "detail-modal";
+    modal.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    modal.innerHTML = `
+            <div class="detail-header">
+                <h3>${this.escapeHtml(bookmark.title || bookmark.userMessage.substring(0, 50))}</h3>
+                <button class="close-btn">×</button>
+            </div>
+
+            <div class="detail-meta">
+                <span class="platform-badge ${bookmark.platform?.toLowerCase() || "chatgpt"}">
+                    ${this.getPlatformIcon(bookmark.platform)} ${bookmark.platform || "ChatGPT"}
+                </span>
+                <span class="timestamp">${this.formatTimestamp(bookmark.timestamp)}</span>
+            </div>
+
+            <div class="detail-url">
+                URL: <a href="${this.escapeHtml(bookmark.url)}" target="_blank">${this.escapeHtml(bookmark.urlWithoutProtocol)}</a>
+            </div>
+
+            <div class="detail-content">
+                <div class="detail-section">
+                    <h4>📝 User Message</h4>
+                    <div class="detail-text">${this.escapeHtml(bookmark.userMessage)}</div>
+                </div>
+
+                ${bookmark.aiResponse ? `
+                    <div class="detail-section">
+                        <h4>🤖 AI Response</h4>
+                        <div class="detail-text">${this.escapeHtml(bookmark.aiResponse)}</div>
+                    </div>
+                ` : ""}
+
+                ${bookmark.notes ? `
+                    <div class="detail-section">
+                        <h4>📌 Notes</h4>
+                        <div class="detail-text">${this.escapeHtml(bookmark.notes)}</div>
+                    </div>
+                ` : ""}
+            </div>
+
+            <div class="detail-footer">
+                <button class="open-conversation-btn" data-url="${this.escapeHtml(bookmark.url)}">
+                    Open in Conversation
+                </button>
+            </div>
+        `;
+    modalOverlay.appendChild(modal);
+    this.shadowRoot?.appendChild(modalOverlay);
+    modal.querySelector(".close-btn")?.addEventListener("click", () => {
+      modalOverlay.remove();
+    });
+    modal.querySelector(".open-conversation-btn")?.addEventListener("click", () => {
+      window.open(bookmark.url, "_blank");
+      modalOverlay.remove();
+    });
+    modalOverlay.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (e.target === modalOverlay) {
+        modalOverlay.remove();
+      }
+    });
+    const detailEscHandler = (e) => {
+      if (e.key === "Escape") {
+        if (modalOverlay.parentNode) {
+          e.stopPropagation();
+          modalOverlay.remove();
+        }
+        document.removeEventListener("keydown", detailEscHandler);
+      }
+    };
+    document.addEventListener("keydown", detailEscHandler);
+  }
+  /**
+   * Handle edit
+   */
+  handleEdit(url, position) {
+    logger.info(`[SimpleBookmarkPanel] Edit bookmark: ${url}:${position}`);
+  }
+  /**
+   * Handle delete
+   */
+  async handleDelete(url, position) {
+    try {
+      await SimpleBookmarkStorage.remove(url, position);
+      logger.info(`[SimpleBookmarkPanel] Deleted bookmark at position ${position}`);
+      await this.refresh();
+    } catch (error) {
+      logger.error("[SimpleBookmarkPanel] Failed to delete bookmark:", error);
+    }
+  }
+  /**
+   * Handle export
+   */
+  handleExport() {
+    const data = JSON.stringify(this.bookmarks, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bookmarks-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    logger.info("[SimpleBookmarkPanel] Exported bookmarks");
+  }
+  /**
+   * Setup storage change listener - AITimeline pattern
+   */
+  setupStorageListener() {
+    if (this.storageListener) return;
+    this.storageListener = (changes, areaName) => {
+      if (areaName === "local") {
+        const bookmarkChanged = Object.keys(changes).some(
+          (key) => key.startsWith("bookmark:")
+        );
+        if (bookmarkChanged && this.overlay?.style.display !== "none") {
+          this.refresh();
+          logger.debug("[SimpleBookmarkPanel] Auto-refreshed due to storage change");
+        }
+      }
+    };
+    chrome.storage.onChanged.addListener(this.storageListener);
+    logger.info("[SimpleBookmarkPanel] Storage listener setup");
+  }
+  /**
+   * Cleanup
+   */
+  destroy() {
+    if (this.storageListener) {
+      chrome.storage.onChanged.removeListener(this.storageListener);
+      this.storageListener = null;
+    }
+    if (this.overlay) {
+      this.overlay.remove();
+      this.overlay = null;
+      this.shadowRoot = null;
+    }
+  }
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  /**
+   * Get panel styles
+   */
+  getStyles() {
+    return `
+            :host {
+                all: initial;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            .panel {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 90%;
+                max-width: 900px;
+                max-height: 80vh;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                display: flex;
+                z-index: 2147483647;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                overflow: hidden;
+            }
+
+            /* Sidebar */
+            .sidebar {
+                width: 120px;
+                background: #f9fafb;
+                border-right: 1px solid #e5e7eb;
+                display: flex;
+                flex-direction: column;
+                padding: 16px 0;
+            }
+
+            .tab-btn {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                padding: 16px 12px;
+                border: none;
+                background: transparent;
+                cursor: pointer;
+                transition: all 0.2s;
+                color: #6b7280;
+                font-size: 12px;
+            }
+
+            .tab-btn:hover {
+                background: #f3f4f6;
+                color: #111827;
+            }
+
+            .tab-btn.active {
+                background: white;
+                color: #3b82f6;
+                font-weight: 500;
+            }
+
+            .tab-icon {
+                font-size: 24px;
+            }
+
+            .tab-label {
+                text-align: center;
+                line-height: 1.2;
+            }
+
+            /* Main content */
+            .main {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .header {
+                padding: 20px 24px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .header h2 {
+                margin: 0;
+                font-size: 20px;
+                font-weight: 600;
+                color: #111827;
+            }
+
+            .close-btn {
+                background: none;
+                border: none;
+                font-size: 28px;
+                color: #6b7280;
+                cursor: pointer;
+                padding: 0;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 6px;
+                transition: all 0.2s;
+            }
+
+            .close-btn:hover {
+                background: #f3f4f6;
+                color: #111827;
+            }
+
+            /* Tab content */
+            .tab-content {
+                display: none;
+                flex: 1;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .tab-content.active {
+                display: flex;
+            }
+
+            /* Toolbar */
+            .toolbar {
+                padding: 12px 24px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+            }
+
+            .search-input {
+                flex: 1;
+                padding: 8px 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 14px;
+                font-family: inherit;
+            }
+
+            .search-input:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+
+            .platform-filter {
+                padding: 8px 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 14px;
+                background: white;
+                cursor: pointer;
+            }
+
+            .export-btn {
+                padding: 8px 16px;
+                background: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .export-btn:hover {
+                background: #2563eb;
+            }
+
+            /* Content */
+            .content {
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px 24px;
+            }
+
+            .empty {
+                text-align: center;
+                padding: 60px 20px;
+                color: #6b7280;
+                font-size: 15px;
+            }
+
+            /* Bookmark list */
+            .bookmark-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .bookmark-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 16px;
+                background: #f9fafb;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                transition: all 0.2s ease;
+                cursor: pointer;
+            }
+
+            .bookmark-item:hover {
+                background: #f3f4f6;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            }
+
+            .platform-badge {
+                flex-shrink: 0;
+                padding: 4px 10px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 500;
+                min-width: 90px;
+                text-align: center;
+            }
+
+            .platform-badge.chatgpt {
+                background: #d1fae5;
+                color: #065f46;
+            }
+
+            .platform-badge.gemini {
+                background: #dbeafe;
+                color: #1e40af;
+            }
+
+            .title {
+                flex: 2;
+                font-size: 14px;
+                font-weight: 500;
+                color: #111827;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .response {
+                flex: 3;
+                font-size: 13px;
+                color: #6b7280;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .notes {
+                flex: 1;
+                font-size: 13px;
+                color: #9ca3af;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .time {
+                flex-shrink: 0;
+                font-size: 12px;
+                color: #9ca3af;
+                min-width: 40px;
+            }
+
+            .actions {
+                flex-shrink: 0;
+                display: flex;
+                gap: 4px;
+            }
+
+            .action-btn {
+                width: 24px;
+                height: 24px;
+                border: none;
+                background: transparent;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                transition: all 0.2s ease;
+            }
+
+            .action-btn:hover {
+                background: rgba(0, 0, 0, 0.05);
+                transform: scale(1.1);
+            }
+
+            .delete-btn:hover {
+                background: rgba(220, 38, 38, 0.1);
+            }
+
+            /* Settings content */
+            .settings-content,
+            .support-content {
+                padding: 40px;
+                text-align: center;
+            }
+
+            .settings-content h3,
+            .support-content h3 {
+                margin: 0 0 16px 0;
+                font-size: 18px;
+                color: #111827;
+            }
+
+            .settings-content p,
+            .support-content p {
+                color: #6b7280;
+                margin: 0 0 24px 0;
+            }
+
+            .support-btn {
+                display: inline-block;
+                padding: 12px 24px;
+                background: #3b82f6;
+                color: white;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: 500;
+                transition: all 0.2s;
+            }
+
+            .support-btn:hover {
+                background: #2563eb;
+            }
+
+            /* Detail Modal */
+            .detail-modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2147483648;
+            }
+
+            .detail-modal {
+                background: white;
+                border-radius: 12px;
+                width: 90%;
+                max-width: 700px;
+                max-height: 80vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            }
+
+            .detail-header {
+                padding: 20px 24px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .detail-header h3 {
+                margin: 0;
+                font-size: 18px;
+                font-weight: 600;
+                color: #111827;
+            }
+
+            .detail-meta {
+                padding: 12px 24px;
+                background: #f9fafb;
+                display: flex;
+                gap: 16px;
+                align-items: center;
+            }
+
+            .detail-url {
+                padding: 12px 24px;
+                font-size: 13px;
+                color: #6b7280;
+            }
+
+            .detail-url a {
+                color: #3b82f6;
+                text-decoration: none;
+            }
+
+            .detail-content {
+                flex: 1;
+                overflow-y: auto;
+                padding: 24px;
+            }
+
+            .detail-section {
+                margin-bottom: 24px;
+            }
+
+            .detail-section h4 {
+                margin: 0 0 12px 0;
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+            }
+
+            .detail-text {
+                line-height: 1.6;
+                color: #111827;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .detail-footer {
+                padding: 16px 24px;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            .open-conversation-btn {
+                padding: 10px 20px;
+                background: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .open-conversation-btn:hover {
+                background: #2563eb;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                .panel {
+                    background: #1f2937;
+                }
+
+                .sidebar {
+                    background: #111827;
+                    border-color: #374151;
+                }
+
+                .tab-btn.active {
+                    background: #1f2937;
+                }
+
+                .header {
+                    border-color: #374151;
+                }
+
+                .header h2 {
+                    color: #f9fafb;
+                }
+
+                .close-btn {
+                    color: #9ca3af;
+                }
+
+                .close-btn:hover {
+                    background: #374151;
+                    color: #f9fafb;
+                }
+
+                .toolbar {
+                    border-color: #374151;
+                }
+
+                .search-input,
+                .platform-filter {
+                    background: #111827;
+                    border-color: #374151;
+                    color: #f9fafb;
+                }
+
+                .bookmark-item {
+                    background: #111827;
+                    border-color: #374151;
+                }
+
+                .bookmark-item:hover {
+                    background: #1f2937;
+                    border-color: #4b5563;
+                }
+
+                .title {
+                    color: #f9fafb;
+                }
+
+                .response {
+                    color: #9ca3af;
+                }
+
+                .detail-modal {
+                    background: #1f2937;
+                }
+
+                .detail-header {
+                    border-color: #374151;
+                }
+
+                .detail-header h3 {
+                    color: #f9fafb;
+                }
+
+                .detail-meta {
+                    background: #111827;
+                }
+
+                .detail-text {
+                    color: #f9fafb;
+                }
+
+                .detail-footer {
+                    border-color: #374151;
+                }
+            }
+        `;
+  }
+}
+const simpleBookmarkPanel = new SimpleBookmarkPanel();
+
+class PageHeaderIcon {
+  button = null;
+  observer = null;
+  /**
+   * Initialize and inject the header icon
+   */
+  init() {
+    this.injectButton();
+    this.startObserver();
+    logger.info("[PageHeaderIcon] Initialized");
+  }
+  /**
+   * Inject bookmark button into header
+   */
+  injectButton() {
+    const header = document.querySelector("#page-header");
+    if (!header) {
+      logger.debug("[PageHeaderIcon] Header not found, will retry");
+      return;
+    }
+    const actionsContainer = header.querySelector("#conversation-header-actions");
+    if (!actionsContainer) {
+      logger.debug("[PageHeaderIcon] Actions container not found");
+      return;
+    }
+    if (document.querySelector("#ai-copy-enhance-bookmark-btn")) {
+      return;
+    }
+    this.button = this.createButton();
+    actionsContainer.insertBefore(this.button, actionsContainer.firstChild);
+    logger.info("[PageHeaderIcon] Button injected into header");
+  }
+  /**
+   * Create the archive button element matching ChatGPT style
+   */
+  createButton() {
+    const button = document.createElement("button");
+    button.id = "ai-copy-enhance-bookmark-btn";
+    button.className = "text-token-text-primary no-draggable hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover touch:h-10 touch:w-10 flex h-9 w-9 items-center justify-center rounded-lg focus:outline-none disabled:opacity-50";
+    button.setAttribute("aria-label", "View Archive");
+    button.setAttribute("type", "button");
+    button.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="icon">
+                <path d="M3 5C3 3.89543 3.89543 3 5 3H15C16.1046 3 17 3.89543 17 5V6H3V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3 6H17V16C17 17.1046 16.1046 18 15 18H5C3.89543 18 3 17.1046 3 16V6Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 10H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+    button.addEventListener("click", () => this.handleClick());
+    return button;
+  }
+  /**
+   * Handle button click
+   */
+  async handleClick() {
+    try {
+      await simpleBookmarkPanel.toggle();
+    } catch (error) {
+      logger.error("[PageHeaderIcon] Failed to open panel:", error);
+    }
+  }
+  /**
+   * Start observing for header changes
+   */
+  startObserver() {
+    this.observer = new MutationObserver(() => {
+      if (!document.querySelector("#ai-copy-enhance-bookmark-btn")) {
+        this.injectButton();
+      }
+    });
+    this.observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+  /**
+   * Remove the button and stop observing
+   */
+  destroy() {
+    if (this.button) {
+      this.button.remove();
+      this.button = null;
+    }
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+  }
+}
+const pageHeaderIcon = new PageHeaderIcon();
+
+class GeminiPanelButton {
+  button = null;
+  observer = null;
+  /**
+   * Initialize and inject the header button
+   */
+  init() {
+    logger.info("[GeminiPanelButton] Initializing...");
+    if (!this.injectButton()) {
+      this.retryInjection();
+    }
+    this.startObserver();
+  }
+  /**
+   * Retry injection with exponential backoff
+   */
+  retryInjection(attempt = 1, maxAttempts = 10) {
+    if (attempt > maxAttempts) {
+      logger.error("[GeminiPanelButton] Failed to inject after maximum attempts");
+      return;
+    }
+    const delay = Math.min(1e3 * attempt, 5e3);
+    logger.debug(`[GeminiPanelButton] Retrying injection in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+    setTimeout(() => {
+      if (!this.injectButton()) {
+        this.retryInjection(attempt + 1, maxAttempts);
+      }
+    }, delay);
+  }
+  /**
+   * Inject bookmark panel button into Gemini header
+   * @returns true if injection succeeded, false otherwise
+   */
+  injectButton() {
+    const logoContainer = document.querySelector("span.bard-logo-container.logo-only");
+    if (!logoContainer) {
+      logger.debug("[GeminiPanelButton] Logo container not found");
+      return false;
+    }
+    if (document.querySelector("#gemini-bookmark-panel-btn")) {
+      logger.debug("[GeminiPanelButton] Button already exists");
+      return true;
+    }
+    this.button = this.createButton();
+    logoContainer.appendChild(this.button);
+    logger.info("[GeminiPanelButton] Button injected successfully");
+    return true;
+  }
+  /**
+   * Create the bookmark panel button matching Gemini Material Design style
+   */
+  createButton() {
+    const button = document.createElement("button");
+    button.id = "gemini-bookmark-panel-btn";
+    button.className = "mdc-icon-button mat-mdc-icon-button mat-mdc-button-base";
+    button.setAttribute("aria-label", "View Bookmarks");
+    button.setAttribute("type", "button");
+    button.style.cssText = "margin-left: 12px; color: var(--gem-sys-color--on-surface);";
+    button.innerHTML = `
+            <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
+            <mat-icon role="img" class="mat-icon notranslate gds-icon-l google-symbols mat-ligature-font mat-icon-no-color" 
+                      aria-hidden="true" data-mat-icon-type="font" data-mat-icon-name="bookmark" 
+                      fonticon="bookmark"></mat-icon>
+            <span class="mat-focus-indicator"></span>
+            <span class="mat-mdc-button-touch-target"></span>
+        `;
+    button.addEventListener("click", () => this.handleClick());
+    return button;
+  }
+  /**
+   * Handle button click - open bookmark panel
+   */
+  async handleClick() {
+    try {
+      await simpleBookmarkPanel.toggle();
+    } catch (error) {
+      logger.error("[GeminiPanelButton] Failed to open panel:", error);
+    }
+  }
+  /**
+   * Start observing for header changes
+   */
+  startObserver() {
+    this.observer = new MutationObserver(() => {
+      if (!document.querySelector("#gemini-bookmark-panel-btn")) {
+        this.injectButton();
+      }
+    });
+    this.observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+  /**
+   * Remove the button and stop observing
+   */
+  destroy() {
+    if (this.button) {
+      this.button.remove();
+      this.button = null;
+    }
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+  }
+}
+const geminiPanelButton = new GeminiPanelButton();
+
+class BookmarkEditModal {
+  overlay = null;
+  modal = null;
+  onSave = null;
+  onCancel = null;
+  escKeyHandler = null;
+  /**
+   * Show edit modal
+   */
+  show(userMessage, onSave, onCancel) {
+    this.onSave = onSave;
+    this.onCancel = onCancel;
+    this.overlay = document.createElement("div");
+    this.overlay.className = "bookmark-edit-modal-overlay";
+    this.overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2147483646;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+    this.modal = this.createModal(userMessage);
+    this.overlay.appendChild(this.modal);
+    document.body.appendChild(this.overlay);
+    this.overlay.addEventListener("click", (e) => {
+      if (e.target === this.overlay) {
+        this.handleCancel();
+      }
+    });
+    this.escKeyHandler = (e) => {
+      if (e.key === "Escape") {
+        this.handleCancel();
+      }
+    };
+    document.addEventListener("keydown", this.escKeyHandler);
+    setTimeout(() => {
+      const titleInput = this.modal?.querySelector("#bookmark-title");
+      if (titleInput) {
+        titleInput.focus();
+        titleInput.select();
+      }
+    }, 100);
+  }
+  /**
+   * Create modal structure
+   */
+  createModal(userMessage) {
+    const modal = document.createElement("div");
+    modal.className = "bookmark-edit-modal";
+    modal.style.cssText = `
+            position: relative;
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        `;
+    modal.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? "..." : "");
+    modal.innerHTML = `
+            <style>
+                .bookmark-edit-modal * {
+                    box-sizing: border-box;
+                }
+                .bookmark-edit-modal-header {
+                    padding: 20px 24px;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .bookmark-edit-modal-header h2 {
+                    margin: 0;
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #111827;
+                }
+                .bookmark-edit-modal-close-btn {
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    color: #6b7280;
+                    cursor: pointer;
+                    padding: 0;
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 6px;
+                    transition: all 0.2s;
+                }
+                .bookmark-edit-modal-close-btn:hover {
+                    background: #f3f4f6;
+                    color: #111827;
+                }
+                .bookmark-edit-modal-body {
+                    padding: 24px;
+                }
+                .bookmark-edit-modal-form-group {
+                    margin-bottom: 20px;
+                }
+                .bookmark-edit-modal-form-group label {
+                    display: block;
+                    margin-bottom: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #374151;
+                }
+                .bookmark-edit-modal-form-group input,
+                .bookmark-edit-modal-form-group textarea {
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-family: inherit;
+                    transition: all 0.2s;
+                }
+                .bookmark-edit-modal-form-group input:focus,
+                .bookmark-edit-modal-form-group textarea:focus {
+                    outline: none;
+                    border-color: #3b82f6;
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                }
+                .bookmark-edit-modal-preview-group {
+                    margin-top: 20px;
+                    padding: 16px;
+                    background: #f9fafb;
+                    border-radius: 8px;
+                }
+                .bookmark-edit-modal-preview-group label {
+                    display: block;
+                    margin-bottom: 8px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    color: #6b7280;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .bookmark-edit-modal-preview-text {
+                    font-size: 14px;
+                    color: #374151;
+                    line-height: 1.5;
+                    max-height: 100px;
+                    overflow-y: auto;
+                }
+                .bookmark-edit-modal-footer {
+                    padding: 16px 24px;
+                    border-top: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 12px;
+                }
+                .bookmark-edit-modal-btn {
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    border: none;
+                }
+                .bookmark-edit-modal-btn-cancel {
+                    background: #f3f4f6;
+                    color: #374151;
+                }
+                .bookmark-edit-modal-btn-cancel:hover {
+                    background: #e5e7eb;
+                }
+                .bookmark-edit-modal-btn-save {
+                    background: #3b82f6;
+                    color: white;
+                }
+                .bookmark-edit-modal-btn-save:hover {
+                    background: #2563eb;
+                }
+            </style>
+            <div class="bookmark-edit-modal-header">
+                <h2>📌 Save Bookmark</h2>
+                <button class="bookmark-edit-modal-close-btn" aria-label="Close">×</button>
+            </div>
+            <div class="bookmark-edit-modal-body">
+                <div class="bookmark-edit-modal-form-group">
+                    <label for="bookmark-title">Title</label>
+                    <input 
+                        type="text" 
+                        id="bookmark-title" 
+                        value="${this.escapeHtml(defaultTitle)}"
+                        placeholder="Enter bookmark title..."
+                    />
+                </div>
+                <div class="bookmark-edit-modal-form-group">
+                    <label for="bookmark-notes">Notes (Optional)</label>
+                    <textarea 
+                        id="bookmark-notes" 
+                        rows="3"
+                        placeholder="Add any notes about this bookmark..."
+                    ></textarea>
+                </div>
+                <div class="bookmark-edit-modal-preview-group">
+                    <label>User Message Preview</label>
+                    <div class="bookmark-edit-modal-preview-text">${this.escapeHtml(userMessage)}</div>
+                </div>
+            </div>
+            <div class="bookmark-edit-modal-footer">
+                <button class="bookmark-edit-modal-btn bookmark-edit-modal-btn-cancel">Cancel</button>
+                <button class="bookmark-edit-modal-btn bookmark-edit-modal-btn-save">Save Bookmark</button>
+            </div>
+        `;
+    this.bindEvents(modal);
+    return modal;
+  }
+  /**
+   * Bind event listeners
+   */
+  bindEvents(modal) {
+    modal.querySelector(".bookmark-edit-modal-close-btn")?.addEventListener("click", () => this.handleCancel());
+    modal.querySelector(".bookmark-edit-modal-btn-cancel")?.addEventListener("click", () => this.handleCancel());
+    modal.querySelector(".bookmark-edit-modal-btn-save")?.addEventListener("click", () => this.handleSave());
+    modal.querySelector("#bookmark-title")?.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") this.handleSave();
+    });
+  }
+  /**
+   * Handle save
+   */
+  handleSave() {
+    const titleInput = this.modal?.querySelector("#bookmark-title");
+    const notesTextarea = this.modal?.querySelector("#bookmark-notes");
+    const title = titleInput?.value.trim() || "";
+    const notes = notesTextarea?.value.trim() || "";
+    if (this.onSave) {
+      this.onSave(title, notes);
+    }
+    this.close();
+  }
+  /**
+   * Handle cancel
+   */
+  handleCancel() {
+    if (this.onCancel) {
+      this.onCancel();
+    }
+    this.close();
+  }
+  /**
+   * Close modal
+   */
+  close() {
+    if (this.escKeyHandler) {
+      document.removeEventListener("keydown", this.escKeyHandler);
+      this.escKeyHandler = null;
+    }
+    if (this.overlay) {
+      this.overlay.remove();
+      this.overlay = null;
+      this.modal = null;
+    }
+  }
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+}
+const bookmarkEditModal = new BookmarkEditModal();
+
 class ContentScript {
   observer = null;
   injector = null;
@@ -22445,6 +24202,8 @@ class ContentScript {
   mathClickHandler;
   reRenderPanel;
   deepResearchHandler;
+  // Simple Set-based bookmark state tracking - AITimeline pattern
+  bookmarkedPositions = /* @__PURE__ */ new Set();
   constructor() {
     logger.setLevel(LogLevel.ERROR);
     this.markdownParser = new MarkdownParser();
@@ -22474,8 +24233,24 @@ class ContentScript {
       logger.info("Enabling Deep Research handler for Gemini");
       this.deepResearchHandler = new DeepResearchHandler();
       this.deepResearchHandler.enable();
+      geminiPanelButton.init();
+    } else {
+      pageHeaderIcon.init();
     }
+    this.loadBookmarks();
     this.observer.start();
+  }
+  /**
+   * Load bookmarked positions for current page
+   */
+  async loadBookmarks() {
+    try {
+      const url = window.location.href;
+      this.bookmarkedPositions = await SimpleBookmarkStorage.loadAllPositions(url);
+      logger.info(`[ContentScript] Loaded ${this.bookmarkedPositions.size} bookmarks for current page`);
+    } catch (error) {
+      logger.error("[ContentScript] Failed to load bookmarks:", error);
+    }
   }
   /**
    * Handle new message detected
@@ -22495,12 +24270,22 @@ class ContentScript {
       },
       onReRender: () => {
         this.showReRenderPanel(messageElement);
+      },
+      onBookmark: async () => {
+        await this.handleBookmark(messageElement);
       }
     };
     const toolbar = new Toolbar(callbacks);
     if (this.injector) {
       this.injector.inject(messageElement, toolbar.getElement());
     }
+    const toolbarContainer = messageElement.querySelector(".aicopy-toolbar-container");
+    if (toolbarContainer) {
+      toolbarContainer.__toolbar = toolbar;
+    }
+    const position = this.getMessagePosition(messageElement);
+    const isBookmarked = this.bookmarkedPositions.has(position);
+    toolbar.setBookmarkState(isBookmarked);
     this.mathClickHandler.enable(messageElement);
   }
   /**
@@ -22536,6 +24321,107 @@ class ContentScript {
   showReRenderPanel(messageElement) {
     const markdown = this.getMarkdown(messageElement);
     this.reRenderPanel.show(markdown);
+  }
+  /**
+   * Handle bookmark toggle - AITimeline pattern with edit modal
+   */
+  async handleBookmark(messageElement) {
+    const url = window.location.href;
+    const position = this.getMessagePosition(messageElement);
+    if (position === -1) {
+      logger.error("[handleBookmark] Failed to get message position");
+      return;
+    }
+    try {
+      if (this.bookmarkedPositions.has(position)) {
+        await SimpleBookmarkStorage.remove(url, position);
+        this.bookmarkedPositions.delete(position);
+        this.updateToolbarState(messageElement, false);
+        logger.info(`[handleBookmark] Removed bookmark at position ${position}`);
+      } else {
+        const userMessage = this.getUserMessage(messageElement);
+        if (!userMessage) {
+          logger.error("[handleBookmark] Failed to extract user message");
+          return;
+        }
+        const adapter = adapterRegistry.getAdapter();
+        const platform = adapter && "isGemini" in adapter && typeof adapter.isGemini === "function" && adapter.isGemini() ? "Gemini" : "ChatGPT";
+        const aiResponse = this.getAiResponse(messageElement);
+        bookmarkEditModal.show(
+          userMessage,
+          async (title, notes) => {
+            await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, notes, platform);
+            this.bookmarkedPositions.add(position);
+            this.updateToolbarState(messageElement, true);
+            logger.info(`[handleBookmark] Saved bookmark at position ${position}`);
+          },
+          () => {
+            logger.info("[handleBookmark] Bookmark save cancelled");
+          }
+        );
+      }
+    } catch (error) {
+      logger.error("[handleBookmark] Failed to toggle bookmark:", error);
+    }
+  }
+  /**
+   * Get message position in conversation (1-indexed)
+   */
+  getMessagePosition(messageElement) {
+    const adapter = adapterRegistry.getAdapter();
+    if (!adapter) return -1;
+    const messageSelector = adapter.getMessageSelector();
+    const allMessages = Array.from(document.querySelectorAll(messageSelector));
+    const index = allMessages.indexOf(messageElement);
+    return index === -1 ? -1 : index + 1;
+  }
+  /**
+   * Get user message text from message element
+   */
+  getUserMessage(messageElement) {
+    const adapter = adapterRegistry.getAdapter();
+    if (!adapter) return "";
+    const messageSelector = adapter.getMessageSelector();
+    const contentSelector = adapter.getMessageContentSelector();
+    if (!contentSelector) return "";
+    const currentContent = messageElement.querySelector(contentSelector);
+    if (currentContent) {
+      const text = currentContent.textContent?.trim() || "";
+      if (text && text.length < 5e3) {
+        return text;
+      }
+    }
+    const allMessages = Array.from(document.querySelectorAll(messageSelector));
+    const currentIndex = allMessages.indexOf(messageElement);
+    if (currentIndex <= 0) return "";
+    const prevMessage = allMessages[currentIndex - 1];
+    const prevContent = prevMessage.querySelector(contentSelector);
+    if (!prevContent) return "";
+    return prevContent.textContent?.trim() || "";
+  }
+  /**
+   * Get AI response text from message element
+   */
+  getAiResponse(messageElement) {
+    const adapter = adapterRegistry.getAdapter();
+    if (!adapter) return "";
+    const contentSelector = adapter.getMessageContentSelector();
+    if (!contentSelector) return "";
+    const content = messageElement.querySelector(contentSelector);
+    if (!content) return "";
+    return content.textContent?.trim() || "";
+  }
+  /**
+   * Update toolbar bookmark state
+   */
+  updateToolbarState(messageElement, isBookmarked) {
+    const toolbarContainer = messageElement.querySelector(".aicopy-toolbar-container");
+    if (toolbarContainer) {
+      const toolbar = toolbarContainer.__toolbar;
+      if (toolbar && typeof toolbar.setBookmarkState === "function") {
+        toolbar.setBookmarkState(isBookmarked);
+      }
+    }
   }
   /**
    * Stop the extension

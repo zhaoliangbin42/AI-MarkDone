@@ -7,6 +7,7 @@ export interface ToolbarCallbacks {
     onCopyMarkdown: () => Promise<string>;
     onViewSource: () => void;
     onReRender: () => void;
+    onBookmark?: () => void;
 }
 
 /**
@@ -46,6 +47,14 @@ export class Toolbar {
         const wrapper = document.createElement('div');
         wrapper.className = 'aicopy-toolbar';
 
+        // Bookmark button (bookmark icon)
+        const bookmarkBtn = this.createIconButton(
+            'bookmark-btn',
+            this.getBookmarkIcon(),
+            'Bookmark',
+            () => this.handleBookmark()
+        );
+
         // Copy Markdown button (clipboard icon)
         const copyBtn = this.createIconButton(
             'copy-md-btn',
@@ -79,6 +88,7 @@ export class Toolbar {
         // Button group for left-aligned buttons
         const buttonGroup = document.createElement('div');
         buttonGroup.className = 'aicopy-button-group';
+        buttonGroup.appendChild(bookmarkBtn);
         buttonGroup.appendChild(copyBtn);
         buttonGroup.appendChild(sourceBtn);
         buttonGroup.appendChild(reRenderBtn);
@@ -210,6 +220,18 @@ export class Toolbar {
     }
 
     /**
+     * Get bookmark icon SVG
+     */
+    private getBookmarkIcon(): string {
+        return `
+      <svg class="aicopy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+    `;
+    }
+
+
+    /**
      * Handle Copy Markdown button click
      */
     private async handleCopyMarkdown(): Promise<void> {
@@ -272,6 +294,19 @@ export class Toolbar {
     }
 
     /**
+     * Handle Bookmark button click
+     */
+    private handleBookmark(): void {
+        logger.debug('Bookmark clicked');
+        if (this.callbacks.onBookmark) {
+            this.callbacks.onBookmark();
+            // Note: Feedback is now handled by the parent component
+            // to show context-aware messages (Saving/Removing)
+        }
+    }
+
+
+    /**
      * Show floating feedback tooltip on button click
      */
     private showFeedback(button: HTMLButtonElement, message: string): void {
@@ -288,6 +323,25 @@ export class Toolbar {
         setTimeout(() => {
             feedback.remove();
         }, 1500);
+    }
+
+    /**
+     * Set bookmark button state (highlighted when bookmarked)
+     */
+    setBookmarkState(isBookmarked: boolean): void {
+        const bookmarkBtn = this.shadowRoot.querySelector('#bookmark-btn') as HTMLButtonElement;
+        if (!bookmarkBtn) return;
+
+        if (isBookmarked) {
+            // Add bookmarked class for visual feedback
+            bookmarkBtn.classList.add('bookmarked');
+            bookmarkBtn.title = 'Remove Bookmark';
+            bookmarkBtn.setAttribute('aria-label', 'Remove Bookmark');
+        } else {
+            bookmarkBtn.classList.remove('bookmarked');
+            bookmarkBtn.title = 'Bookmark';
+            bookmarkBtn.setAttribute('aria-label', 'Bookmark');
+        }
     }
 
     /**

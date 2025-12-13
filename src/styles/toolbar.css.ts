@@ -75,6 +75,17 @@ export const toolbarStyles = `
   cursor: not-allowed;
 }
 
+/* Bookmarked state - highlighted with theme color */
+.aicopy-button.bookmarked {
+  background: linear-gradient(135deg, var(--gradient-light-from), var(--gradient-light-to));
+  color: var(--theme-color);
+}
+
+.aicopy-button.bookmarked:hover {
+  background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
+  color: white;
+}
+
 /* Tooltip on hover */
 .aicopy-button::after {
   content: attr(aria-label);

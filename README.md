@@ -3,7 +3,7 @@
   <h1>AI Copy Enhance</h1>
   <p><strong>Effortless Markdown Copy for ChatGPT & Gemini ✨</strong></p>
 
-  [Chinese](./README_CN.md) | English
+  [Chinese](./README.zh-CN.md) | English
 </div>
 
 ---
