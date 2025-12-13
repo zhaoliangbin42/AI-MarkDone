@@ -27,9 +27,12 @@ class ContentScript {
     // Simple Set-based bookmark state tracking - AITimeline pattern
     private bookmarkedPositions: Set<number> = new Set();
 
+    // Navigation check flag - AITimeline pattern
+    private navigationChecked: boolean = false;
+
     constructor() {
         // Set log level (change to DEBUG for development)
-        logger.setLevel(LogLevel.ERROR);
+        logger.setLevel(LogLevel.DEBUG);
 
         // Initialize components
         this.markdownParser = new MarkdownParser();
@@ -99,10 +102,25 @@ class ContentScript {
     }
 
     /**
+     * Check for cross-page bookmark navigation - AITimeline pattern
+     */
+    private async checkBookmarkNavigation(): Promise<void> {
+        const { simpleBookmarkPanel } = await import('../bookmarks/components/SimpleBookmarkPanel');
+        await simpleBookmarkPanel.checkNavigationTarget();
+    }
+
+    /**
      * Handle new message detected
      */
     private handleNewMessage(messageElement: HTMLElement): void {
         logger.debug('Handling new message');
+
+        // ✅ AITimeline pattern: Check navigation target on first message detection
+        if (!this.navigationChecked) {
+            this.navigationChecked = true;
+            logger.info('[ContentScript] First message detected, checking bookmark navigation');
+            this.checkBookmarkNavigation();
+        }
 
         // CRITICAL: Check if toolbar already exists BEFORE creating new one
         // This prevents creating orphaned toolbar objects with wrong messageElement bindings

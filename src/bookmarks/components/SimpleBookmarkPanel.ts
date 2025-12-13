@@ -411,10 +411,10 @@ export class SimpleBookmarkPanel {
             });
         });
 
-        // Row click for detail modal
+        // Row click for navigation (Go To)
         this.shadowRoot?.querySelectorAll('.bookmark-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                // Don't open detail if clicking checkbox or action buttons
+            item.addEventListener('click', async (e) => {
+                // Don't navigate if clicking checkbox or action buttons
                 const target = e.target as HTMLElement;
                 if (target.classList.contains('bookmark-checkbox') ||
                     target.closest('.actions') ||
@@ -425,7 +425,7 @@ export class SimpleBookmarkPanel {
                 const url = item.getAttribute('data-url');
                 const position = parseInt(item.getAttribute('data-position') || '0');
                 if (url && position) {
-                    this.showDetailModal(url, position);
+                    await this.handleGoTo(url, position);
                 }
             });
         });
@@ -969,6 +969,221 @@ export class SimpleBookmarkPanel {
 
         chrome.storage.onChanged.addListener(this.storageListener);
         logger.info('[SimpleBookmarkPanel] Storage listener setup');
+    }
+
+    /**
+     * Smooth scroll to target element - EXACT AITimeline implementation
+     */
+    private smoothScrollTo(targetElement: HTMLElement): void {
+        if (!targetElement) return;
+
+        console.log('[smoothScrollTo] Scrolling to element:', targetElement);
+
+        // AITimeline uses scrollIntoView with smooth behavior
+        targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+
+        // Add highlight after a short delay to ensure scroll has started
+        setTimeout(() => {
+            this.highlightElement(targetElement);
+        }, 100);
+    }
+
+
+
+    /**
+     * Highlight element briefly
+     */
+    private highlightElement(element: HTMLElement): void {
+        console.log('[highlightElement] Adding highlight to element:', element);
+        element.classList.add('bookmark-highlight');
+
+        setTimeout(() => {
+            console.log('[highlightElement] Removing highlight from element');
+            element.classList.remove('bookmark-highlight');
+        }, 3000);  // 3 秒
+    }
+
+    /**
+     * Handle bookmark navigation - Go To
+     */
+    private async handleGoTo(url: string, position: number): Promise<void> {
+        console.log(`[handleGoTo] Starting navigation to ${url} position ${position}`);
+
+        const currentUrl = window.location.href;
+        const targetUrl = url;
+
+        // 判断是否为当前页面
+        const isCurrentPage = this.isSamePage(currentUrl, targetUrl);
+        console.log(`[handleGoTo] isCurrentPage: ${isCurrentPage}`);
+
+        if (isCurrentPage) {
+            // 当前页面，直接滚动
+            console.log('[handleGoTo] Same page - closing panel and scrolling');
+            this.hide(); // 关闭书签面板
+            await this.smoothScrollToPosition(position);
+            console.log(`[handleGoTo] Scrolled to position ${position} on current page`);
+        } else {
+            // 跨页面跳转
+            console.log('[handleGoTo] Cross-page - navigating with window.location.href');
+            await this.setNavigateData('targetPosition', position);
+            window.location.href = targetUrl;
+            console.log(`[handleGoTo] Navigating to ${targetUrl} with target position ${position}`);
+        }
+    }
+
+    /**
+     * Check if two URLs are the same page
+     */
+    private isSamePage(url1: string, url2: string): boolean {
+        const normalize = (url: string) => {
+            return url
+                .replace(/^https?:\/\//, '')  // 移除协议
+                .replace(/\/$/, '')            // 移除尾部斜杠
+                .replace(/#.*$/, '')           // 移除 hash
+                .replace(/\?.*$/, '');         // 移除 query
+        };
+        return normalize(url1) === normalize(url2);
+    }
+
+    /**
+     * Smooth scroll to bookmark position
+     */
+    private async smoothScrollToPosition(position: number): Promise<void> {
+        console.log(`[smoothScrollToPosition] Starting scroll to position ${position}`);
+
+        // Platform detection - check current URL
+        const isGemini = window.location.href.includes('gemini.google.com');
+        const isChatGPT = window.location.href.includes('chatgpt.com');
+
+        // Platform-specific selectors (MUST match adapter selectors)
+        let messageSelector: string;
+        if (isGemini) {
+            messageSelector = 'model-response';  // Gemini adapter selector
+            console.log('[smoothScrollToPosition] Platform: Gemini');
+        } else if (isChatGPT) {
+            messageSelector = 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
+            console.log('[smoothScrollToPosition] Platform: ChatGPT');
+        } else {
+            console.error('[smoothScrollToPosition] Unknown platform');
+            return;
+        }
+
+        console.log(`[smoothScrollToPosition] Using selector: ${messageSelector}`);
+
+        const messages = document.querySelectorAll(messageSelector);
+        console.log(`[smoothScrollToPosition] Found ${messages.length} messages`);
+
+        const targetIndex = position - 1;
+        if (targetIndex >= 0 && targetIndex < messages.length) {
+            const targetElement = messages[targetIndex] as HTMLElement;
+            console.log('[smoothScrollToPosition] Target element found, starting smooth scroll');
+            this.smoothScrollTo(targetElement);
+        } else {
+            console.error(`[smoothScrollToPosition] Invalid position: ${position} (messages: ${messages.length})`);
+        }
+    }
+
+    /**
+     * Storage helpers - AITimeline pattern
+     */
+    // @ts-ignore - Used in handleGoTo
+    private async setNavigateData(key: string, value: any): Promise<void> {
+        try {
+            const storageKey = `bookmarkNavigate:${key}`;
+            await chrome.storage.local.set({ [storageKey]: value });
+            console.log(`[setNavigateData] Set ${storageKey} = ${value}`);
+        } catch (error) {
+            console.error('[setNavigateData] Error:', error);
+        }
+    }
+
+    private async getNavigateData(key: string): Promise<any> {
+        try {
+            const storageKey = `bookmarkNavigate:${key}`;
+            const result = await chrome.storage.local.get(storageKey);
+            const value = result[storageKey];
+
+            if (value !== undefined) {
+                // Clear after reading
+                await chrome.storage.local.remove(storageKey);
+                console.log(`[getNavigateData] Got ${storageKey} = ${value}`);
+                return value;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('[getNavigateData] Error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Check for navigation target on page load - AITimeline pattern
+     */
+    async checkNavigationTarget(): Promise<void> {
+        console.log('=== [checkNavigationTarget] START ===');
+
+        try {
+            const targetPosition = await this.getNavigateData('targetPosition');
+            console.log('[checkNavigationTarget] targetPosition from storage:', targetPosition);
+
+            if (targetPosition !== null) {
+                console.log(`[checkNavigationTarget] Found target position: ${targetPosition}`);
+
+                // AITimeline pattern: Use requestAnimationFrame
+                requestAnimationFrame(async () => {
+                    console.log('[checkNavigationTarget] In requestAnimationFrame callback');
+
+                    // Platform detection - check current URL
+                    const isGemini = window.location.href.includes('gemini.google.com');
+                    const isChatGPT = window.location.href.includes('chatgpt.com');
+
+                    // Platform-specific selectors (MUST match adapter selectors)
+                    let messageSelector: string;
+                    if (isGemini) {
+                        messageSelector = 'model-response';  // Gemini adapter selector
+                        console.log('[checkNavigationTarget] Platform: Gemini');
+                    } else if (isChatGPT) {
+                        messageSelector = 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
+                        console.log('[checkNavigationTarget] Platform: ChatGPT');
+                    } else {
+                        console.error('[checkNavigationTarget] Unknown platform');
+                        return;
+                    }
+
+                    console.log('[checkNavigationTarget] Using selector:', messageSelector);
+
+                    const messages = document.querySelectorAll(messageSelector);
+                    console.log('[checkNavigationTarget] Found messages:', messages.length);
+
+                    const targetIndex = targetPosition - 1;
+                    console.log('[checkNavigationTarget] Target index (0-based):', targetIndex);
+
+                    if (targetIndex >= 0 && targetIndex < messages.length) {
+                        const targetElement = messages[targetIndex] as HTMLElement;
+                        console.log('[checkNavigationTarget] Target element:', targetElement);
+
+                        if (targetElement) {
+                            console.log(`[checkNavigationTarget] Calling smoothScrollTo for position ${targetPosition}`);
+                            this.smoothScrollTo(targetElement);
+                        } else {
+                            console.error('[checkNavigationTarget] Target element is null');
+                        }
+                    } else {
+                        console.error(`[checkNavigationTarget] Invalid position: ${targetPosition} (messages: ${messages.length})`);
+                    }
+
+                    console.log('=== [checkNavigationTarget] END ===');
+                });
+            } else {
+                console.log('[checkNavigationTarget] No navigation target found in storage');
+            }
+        } catch (error) {
+            console.error('[checkNavigationTarget] Error:', error);
+        }
     }
 
     /**
