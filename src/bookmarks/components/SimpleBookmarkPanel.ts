@@ -200,10 +200,23 @@ export class SimpleBookmarkPanel {
                         <div class="toolbar-divider"></div>
                         <button class="export-btn" title="Export bookmarks">📥 Export</button>
                         <button class="import-btn" title="Import bookmarks">📤 Import</button>
-                        <button class="batch-delete-btn" style="display: none;">🗑 Delete Selected (<span class="selected-count">0</span>)</button>
                     </div>
                     <div class="content">
                         ${this.renderTreeView()}
+                    </div>
+                    
+                    <!-- Batch Actions Bar (Gmail-style floating) -->
+                    <div class="batch-actions-bar">
+                        <div class="batch-info">
+                            <input type="checkbox" class="select-all-checkbox" title="Select all" aria-label="Select all items" />
+                            <span class="selected-count">0 selected</span>
+                        </div>
+                        <div class="batch-buttons">
+                            <button class="batch-delete-btn" title="Delete selected items">🗑 Delete</button>
+                            <button class="batch-move-btn" title="Move selected items">📁 Move To</button>
+                            <button class="batch-export-btn" title="Export selected items">📤 Export</button>
+                            <button class="batch-clear-btn" title="Clear selection">✕ Clear</button>
+                        </div>
                     </div>
                 </div>
 
@@ -455,9 +468,11 @@ export class SimpleBookmarkPanel {
      * Refresh panel content
      */
     async refresh(): Promise<void> {
+        // Reload both folders and bookmarks
+        this.folders = await FolderStorage.getAll();
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
         this.filterBookmarks();
-        logger.debug(`[SimpleBookmarkPanel] Refreshed: ${this.bookmarks.length} bookmarks`);
+        logger.debug(`[SimpleBookmarkPanel] Refreshed: ${this.folders.length} folders, ${this.bookmarks.length} bookmarks`);
 
         this.refreshContent();
     }
@@ -528,10 +543,28 @@ export class SimpleBookmarkPanel {
             this.handleImport();
         });
 
-        // Batch delete button
+        // Batch action listeners
+        this.shadowRoot?.querySelector('.select-all-checkbox')?.addEventListener('change', (e) => {
+            const checked = (e.target as HTMLInputElement).checked;
+            this.handleSelectAllClick(checked);
+        });
+
         this.shadowRoot?.querySelector('.batch-delete-btn')?.addEventListener('click', () => {
             this.handleBatchDelete();
         });
+
+        this.shadowRoot?.querySelector('.batch-move-btn')?.addEventListener('click', () => {
+            this.handleBatchMove();
+        });
+
+        this.shadowRoot?.querySelector('.batch-export-btn')?.addEventListener('click', () => {
+            this.handleBatchExport();
+        });
+
+        this.shadowRoot?.querySelector('.batch-clear-btn')?.addEventListener('click', () => {
+            this.clearSelection();
+        });
+
 
         // New Folder button
         this.shadowRoot?.querySelector('.new-folder-btn')?.addEventListener('click', () => {
@@ -1541,80 +1574,727 @@ export class SimpleBookmarkPanel {
         }
     }
 
+
     /**
-     * Update batch actions bar visibility and count
-     * T3.3: Batch actions bar logic
+     * Handle batch delete
+     */
+    /**
+     * Get all items (folders + bookmarks) for select-all
+     * Task 3.2.1
+     */
+    private getAllItems(): string[] {
+        const items: string[] = [];
+
+        for (const folder of this.folders) {
+            items.push(`folder:${folder.path}`);
+        }
+
+        for (const bookmark of this.bookmarks) {
+            items.push(`${bookmark.urlWithoutProtocol}:${bookmark.position}`);
+        }
+
+        return items;
+    }
+
+    /**
+     * Handle select-all checkbox click (smart mode)
+     * Task 3.2.2
+     */
+    private handleSelectAllClick(checked: boolean): void {
+        if (checked) {
+            const isSearching = this.searchQuery.trim() !== '';
+            if (isSearching) {
+                this.selectAllVisible();
+            } else {
+                this.selectAllItems();
+            }
+        } else {
+            this.clearSelection();
+        }
+    }
+
+    /**
+     * Select all items (folders + bookmarks)
+     * Task 3.2.3
+     */
+    private selectAllItems(): void {
+        for (const folder of this.folders) {
+            this.selectedItems.add(`folder:${folder.path}`);
+        }
+
+        for (const bookmark of this.bookmarks) {
+            this.selectedItems.add(`${bookmark.urlWithoutProtocol}:${bookmark.position}`);
+        }
+
+        this.updateBatchActionsBar();
+        this.updateAllCheckboxes();
+    }
+
+    /**
+     * Select all visible items (for search mode)
+     * Task 3.2.4
+     */
+    private selectAllVisible(): void {
+        for (const bookmark of this.filteredBookmarks) {
+            this.selectedItems.add(`${bookmark.urlWithoutProtocol}:${bookmark.position}`);
+        }
+
+        this.updateBatchActionsBar();
+        this.updateAllCheckboxes();
+    }
+
+    /**
+     * Clear all selections
+     * Task 3.2.5
+     */
+    private clearSelection(): void {
+        this.selectedItems.clear();
+        this.updateBatchActionsBar();
+        this.updateAllCheckboxes();
+    }
+
+    /**
+     * Update all checkboxes in the UI
+     * Task 3.2.6
+     */
+    private updateAllCheckboxes(): void {
+        this.shadowRoot?.querySelectorAll('.folder-checkbox').forEach(checkbox => {
+            const path = (checkbox as HTMLElement).dataset.path;
+            if (path) {
+                const key = `folder:${path}`;
+                (checkbox as HTMLInputElement).checked = this.selectedItems.has(key);
+            }
+        });
+
+        this.shadowRoot?.querySelectorAll('.bookmark-checkbox').forEach(checkbox => {
+            const key = (checkbox as HTMLElement).dataset.key;
+            if (key) {
+                (checkbox as HTMLInputElement).checked = this.selectedItems.has(key);
+            }
+        });
+    }
+
+    /**
+     * Update batch actions bar visibility and state
+     * Task 3.2.7 - Enhanced with CSS classes and checkbox states
      */
     private updateBatchActionsBar(): void {
         const bar = this.shadowRoot?.querySelector('.batch-actions-bar') as HTMLElement;
-        const countSpan = this.shadowRoot?.querySelector('.selected-count');
+        const countSpan = this.shadowRoot?.querySelector('.batch-actions-bar .selected-count');
+        const selectAllCheckbox = this.shadowRoot?.querySelector('.select-all-checkbox') as HTMLInputElement;
 
         if (!bar) return;
 
         const count = this.selectedItems.size;
 
         if (count > 0) {
-            bar.style.display = 'flex';
+            bar.classList.add('visible');
+
             if (countSpan) {
-                countSpan.textContent = `${count} selected`;
+                // Count only bookmarks, not folders
+                const bookmarkCount = this.getSelectedBookmarks().length;
+                countSpan.textContent = `${bookmarkCount} bookmarks selected`;
+            }
+
+            if (selectAllCheckbox) {
+                const allItems = this.getAllItems();
+                if (count === allItems.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
             }
         } else {
-            bar.style.display = 'none';
+            bar.classList.remove('visible');
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            }
         }
     }
 
     /**
-     * Handle batch delete
+     * Find bookmark by key
+     * Task 3.3.1
+     */
+    private findBookmarkByKey(key: string): Bookmark | null {
+        const lastColonIndex = key.lastIndexOf(':');
+        if (lastColonIndex === -1) return null;
+
+        const urlWithoutProtocol = key.substring(0, lastColonIndex);
+        const position = parseInt(key.substring(lastColonIndex + 1));
+
+        return this.bookmarks.find(b =>
+            b.urlWithoutProtocol === urlWithoutProtocol &&
+            b.position === position
+        ) || null;
+    }
+
+    /**
+     * Get selected bookmarks (with recursive folder traversal)
+     * Task 3.3.2
+     */
+    private getSelectedBookmarks(): Bookmark[] {
+        const bookmarks: Bookmark[] = [];
+        const seen = new Set<string>();
+
+        for (const key of this.selectedItems) {
+            if (key.startsWith('folder:')) {
+                const path = key.substring(7);
+                const folderBookmarks = this.bookmarks.filter(b =>
+                    b.folderPath === path || b.folderPath?.startsWith(path + '/')
+                );
+
+                for (const bookmark of folderBookmarks) {
+                    const bookmarkKey = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+                    if (!seen.has(bookmarkKey)) {
+                        bookmarks.push(bookmark);
+                        seen.add(bookmarkKey);
+                    }
+                }
+            } else {
+                const bookmark = this.findBookmarkByKey(key);
+                if (bookmark && !seen.has(key)) {
+                    bookmarks.push(bookmark);
+                    seen.add(key);
+                }
+            }
+        }
+
+        return bookmarks;
+    }
+
+    /**
+     * Handle batch export
+     * Task 3.3.3
+     */
+    private async handleBatchExport(): Promise<void> {
+        if (this.selectedItems.size === 0) {
+            alert('Please select items to export');
+            return;
+        }
+
+        const selectedBookmarks = this.getSelectedBookmarks();
+
+        if (selectedBookmarks.length === 0) {
+            alert('No bookmarks selected');
+            return;
+        }
+
+        // Show export options dialog
+        const preserveStructure = await this.showExportOptionsDialog();
+        if (preserveStructure === null) return; // Cancelled
+
+        // Prepare bookmarks for export
+        const bookmarksToExport = preserveStructure
+            ? selectedBookmarks
+            : selectedBookmarks.map(b => ({ ...b, folderPath: null }));
+
+        const exportData = {
+            version: '2.0',
+            exportDate: new Date().toISOString(),
+            bookmarks: bookmarksToExport
+        };
+
+        const data = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bookmarks-selected-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        logger.info(`[Batch Export] Exported ${bookmarksToExport.length} bookmarks (structure: ${preserveStructure})`);
+    }
+
+    /**
+     * Analyze selected items into categories
+     * Task 3.4.1
+     */
+    private analyzeSelection(): {
+        folders: Folder[];
+        subfolders: Folder[];
+        bookmarks: Bookmark[];
+    } {
+        const folders: Folder[] = [];
+        const subfolders: Folder[] = [];
+        const bookmarks: Bookmark[] = [];
+
+        for (const key of this.selectedItems) {
+            if (key.startsWith('folder:')) {
+                const path = key.substring(7);
+                const folder = this.folders.find(f => f.path === path);
+                if (folder) {
+                    if (folder.depth === 1) {
+                        folders.push(folder);
+                    } else {
+                        subfolders.push(folder);
+                    }
+                }
+            } else {
+                const bookmark = this.findBookmarkByKey(key);
+                if (bookmark) {
+                    bookmarks.push(bookmark);
+                }
+            }
+        }
+
+        return { folders, subfolders, bookmarks };
+    }
+
+    /**
+     * Show custom delete confirmation modal
+     * Task 3.4.2
+     */
+    private async showBatchDeleteConfirmation(analysis: {
+        folders: Folder[];
+        subfolders: Folder[];
+        bookmarks: Bookmark[];
+    }): Promise<boolean> {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2),
+                            0 24px 38px 3px rgba(0,0,0,0.14),
+                            0 9px 46px 8px rgba(0,0,0,0.12);
+                max-width: 400px;
+                width: 90%;
+            `;
+
+            modal.innerHTML = `
+                <div style="padding: 24px 24px 20px;">
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                        <span style="font-size: 24px;">⚠️</span>
+                        <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: #202124;">
+                            Delete Selected Items
+                        </h3>
+                    </div>
+                    <div style="color: #5f6368; font-size: 14px; line-height: 1.5;">
+                        <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
+                        <ul style="margin: 0; padding-left: 24px;">
+                            ${analysis.folders.length > 0 ? `<li>📁 ${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</li>` : ''}
+                            ${analysis.subfolders.length > 0 ? `<li>📁 ${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? 's' : ''}</li>` : ''}
+                            ${analysis.bookmarks.length > 0 ? `<li>🔖 ${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? 's' : ''}</li>` : ''}
+                        </ul>
+                        <p style="margin: 16px 0 0 0; font-weight: 500; color: #d93025;">
+                            This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+                <div style="padding: 8px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e8eaed;">
+                    <button class="cancel-btn" style="
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 4px;
+                        background: transparent;
+                        color: #1a73e8;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">Cancel</button>
+                    <button class="delete-btn" style="
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 4px;
+                        background: #d93025;
+                        color: white;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">Delete</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
+            const deleteBtn = modal.querySelector('.delete-btn') as HTMLElement;
+
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = '#f1f3f4';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = 'transparent';
+            });
+
+            deleteBtn.addEventListener('mouseenter', () => {
+                deleteBtn.style.background = '#c5221f';
+            });
+            deleteBtn.addEventListener('mouseleave', () => {
+                deleteBtn.style.background = '#d93025';
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(false);
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(true);
+            });
+
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    resolve(false);
+                }
+            });
+
+            const handleEscape = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', handleEscape);
+                    resolve(false);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
+    }
+
+    /**
+     * Execute batch delete with proper order and error handling
+     * Task 3.4.4
+     */
+    private async executeBatchDelete(analysis: {
+        folders: Folder[];
+        subfolders: Folder[];
+        bookmarks: Bookmark[];
+    }): Promise<void> {
+        const errors: string[] = [];
+
+        // Step 1: Delete all bookmarks first
+        logger.info(`[Batch Delete] Deleting ${analysis.bookmarks.length} bookmarks...`);
+        for (const bookmark of analysis.bookmarks) {
+            try {
+                await SimpleBookmarkStorage.remove(
+                    bookmark.urlWithoutProtocol,
+                    bookmark.position
+                );
+            } catch (error) {
+                errors.push(`Failed to delete bookmark: ${bookmark.title}`);
+                logger.error('[Batch Delete] Bookmark error:', error);
+            }
+        }
+
+        // Step 2: Delete folders (deepest first)
+        const allFolders = [...analysis.folders, ...analysis.subfolders];
+        const sortedFolders = allFolders.sort((a, b) => b.depth - a.depth);
+
+        logger.info(`[Batch Delete] Deleting ${sortedFolders.length} folders (deepest first)...`);
+        for (const folder of sortedFolders) {
+            try {
+                await FolderStorage.delete(folder.path);
+            } catch (error) {
+                errors.push(`Failed to delete folder: ${folder.name}`);
+                logger.error('[Batch Delete] Folder error:', error);
+            }
+        }
+
+        // Step 3: Show results
+        if (errors.length > 0) {
+            this.showErrorSummary(errors);
+        } else {
+            const totalDeleted = analysis.bookmarks.length + sortedFolders.length;
+            logger.info(`[Batch Delete] Successfully deleted ${totalDeleted} items`);
+        }
+
+        // Step 4: Cleanup
+        this.selectedItems.clear();
+        await this.refresh();
+    }
+
+    /**
+     * Show error summary modal
+     * Task 3.4.5
+     */
+    private showErrorSummary(errors: string[]): void {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2),
+                        0 24px 38px 3px rgba(0,0,0,0.14),
+                        0 9px 46px 8px rgba(0,0,0,0.12);
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        `;
+
+        modal.innerHTML = `
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: #202124;">
+                        Deletion Completed with Errors
+                    </h3>
+                </div>
+                <div style="color: #5f6368; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0;">
+                        Completed with <strong>${errors.length}</strong> error${errors.length > 1 ? 's' : ''}:
+                    </p>
+                    <div style="
+                        max-height: 300px;
+                        overflow-y: auto;
+                        background: #f8f9fa;
+                        border-radius: 4px;
+                        padding: 12px;
+                    ">
+                        <ul style="margin: 0; padding-left: 20px;">
+                            ${errors.map(err => `<li style="margin-bottom: 8px;">${err}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 8px; display: flex; justify-content: flex-end; border-top: 1px solid #e8eaed;">
+                <button class="ok-btn" style="
+                    padding: 8px 24px;
+                    border: none;
+                    border-radius: 4px;
+                    background: #1a73e8;
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">OK</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        const okBtn = modal.querySelector('.ok-btn') as HTMLElement;
+        okBtn.addEventListener('mouseenter', () => {
+            okBtn.style.background = '#1765cc';
+        });
+        okBtn.addEventListener('mouseleave', () => {
+            okBtn.style.background = '#1a73e8';
+        });
+
+        okBtn.addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        });
+    }
+
+    /**
+     * Handle batch delete (main orchestration)
+     * Task 3.4.6
      */
     private async handleBatchDelete(): Promise<void> {
         if (this.selectedItems.size === 0) return;
 
-        // Show confirmation dialog
-        const confirmed = confirm(
-            `Delete ${this.selectedItems.size} selected bookmark(s)?\\n\\n` +
-            `Tip: You can export your bookmarks first to create a backup.`
-        );
-
+        const analysis = this.analyzeSelection();
+        const confirmed = await this.showBatchDeleteConfirmation(analysis);
         if (!confirmed) return;
 
-        try {
-            // Parse keys and delete each bookmark
-            const deletePromises: Promise<void>[] = [];
-
-            for (const key of this.selectedItems) {
-                // Key format is "url:position", but url may contain "://"
-                // So we need to find the last ":" to split correctly
-                const lastColonIndex = key.lastIndexOf(':');
-                if (lastColonIndex === -1) continue;
-
-                const url = key.substring(0, lastColonIndex);
-                const posStr = key.substring(lastColonIndex + 1);
-                const position = parseInt(posStr);
-
-                if (url && !isNaN(position)) {
-                    deletePromises.push(SimpleBookmarkStorage.remove(url, position));
-                }
-            }
-
-            await Promise.all(deletePromises);
-
-            logger.info(`[SimpleBookmarkPanel] Batch deleted ${this.selectedItems.size} bookmarks`);
-
-            // Clear selection
-            this.selectedItems.clear();
-
-            // Refresh panel
-            await this.refresh();
-        } catch (error) {
-            logger.error('[SimpleBookmarkPanel] Failed to batch delete bookmarks:', error);
-        }
+        await this.executeBatchDelete(analysis);
     }
+
+    /**
+     * Handle batch move (placeholder)
+     * Task 3.5.1
+     */
+    private async handleBatchMove(): Promise<void> {
+        if (this.selectedItems.size === 0) {
+            alert('Please select items to move');
+            return;
+        }
+
+        alert('Batch move feature coming soon!\n\nThis will allow you to move selected bookmarks to a different folder.');
+        logger.info('[Batch Move] Feature not yet implemented');
+    }
+
+    /**
+     * Show export options dialog
+     * Returns: true = preserve structure, false = remove structure, null = cancelled
+     */
+    private async showExportOptionsDialog(): Promise<boolean | null> {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2),
+                            0 24px 38px 3px rgba(0,0,0,0.14),
+                            0 9px 46px 8px rgba(0,0,0,0.12);
+                max-width: 400px;
+                width: 90%;
+                padding: 24px;
+            `;
+
+            modal.innerHTML = `
+                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: #202124;">
+                    导出选项
+                </h3>
+                <div style="margin-bottom: 24px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="preserve-structure" checked 
+                               style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-size: 14px; color: #5f6368;">
+                            同时保留文件夹结构
+                        </span>
+                    </label>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button class="cancel-btn" style="
+                        padding: 8px 16px;
+                        border: 1px solid #ddd;
+                        border-radius: 4px;
+                        background: white;
+                        color: #5f6368;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">取消</button>
+                    <button class="export-btn" style="
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 4px;
+                        background: #1a73e8;
+                        color: white;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">导出</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            const checkbox = modal.querySelector('#preserve-structure') as HTMLInputElement;
+            const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
+            const exportBtn = modal.querySelector('.export-btn') as HTMLElement;
+
+            // Hover effects
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = '#f1f3f4';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = 'white';
+            });
+
+            exportBtn.addEventListener('mouseenter', () => {
+                exportBtn.style.background = '#1765cc';
+            });
+            exportBtn.addEventListener('mouseleave', () => {
+                exportBtn.style.background = '#1a73e8';
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(null); // Cancelled
+            });
+
+            exportBtn.addEventListener('click', () => {
+                const preserveStructure = checkbox.checked;
+                overlay.remove();
+                resolve(preserveStructure);
+            });
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    resolve(null);
+                }
+            });
+
+            // Close on Escape key
+            const handleEscape = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', handleEscape);
+                    resolve(null);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
+    }
+
 
     /**
      * Handle export
      */
-    private handleExport(): void {
-        const data = JSON.stringify(this.bookmarks, null, 2);
+    private async handleExport(): Promise<void> {
+        // Show export options dialog
+        const preserveStructure = await this.showExportOptionsDialog();
+        if (preserveStructure === null) return; // Cancelled
+
+        // Prepare bookmarks for export
+        const bookmarksToExport = preserveStructure
+            ? this.bookmarks
+            : this.bookmarks.map(b => ({ ...b, folderPath: null }));
+
+        const exportData = {
+            version: '2.0',
+            exportDate: new Date().toISOString(),
+            bookmarks: bookmarksToExport
+        };
+
+        const data = JSON.stringify(exportData, null, 2);
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1622,7 +2302,7 @@ export class SimpleBookmarkPanel {
         a.download = `bookmarks-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        logger.info('[SimpleBookmarkPanel] Exported bookmarks');
+        logger.info(`[Export] Exported ${bookmarksToExport.length} bookmarks (structure: ${preserveStructure})`);
     }
 
     /**
@@ -1648,12 +2328,58 @@ export class SimpleBookmarkPanel {
                 const bookmarks = this.validateImportData(data);
                 logger.info(`[Import] Validated ${bookmarks.length} bookmarks`);
 
+                // Analyze import data for folder path issues (Issue 2)
+                const analysis = this.analyzeImportData(bookmarks);
+
+                // Show summary if there are folder path issues
+                if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
+                    const shouldProceed = await this.showImportSummary(analysis);
+                    if (!shouldProceed) {
+                        logger.info('[Import] User cancelled import');
+                        return;
+                    }
+
+                    // Adjust folder paths for problematic bookmarks
+                    analysis.noFolder.forEach(b => b.folderPath = 'Import');
+                    analysis.tooDeep.forEach(b => b.folderPath = 'Import');
+                }
+
+                // Combine all bookmarks
+                const allBookmarks = [...analysis.valid, ...analysis.noFolder, ...analysis.tooDeep];
+
+                // Create all missing folders before importing
+                const folderPathsNeeded = new Set<string>();
+                for (const bookmark of allBookmarks) {
+                    if (bookmark.folderPath && bookmark.folderPath.trim()) {
+                        folderPathsNeeded.add(bookmark.folderPath);
+                    }
+                }
+
+                logger.info(`[Import] Checking ${folderPathsNeeded.size} unique folder paths`);
+                for (const folderPath of folderPathsNeeded) {
+                    const exists = this.folders.some(f => f.path === folderPath);
+                    if (!exists) {
+                        logger.info(`[Import] Creating missing folder: ${folderPath}`);
+                        try {
+                            await FolderStorage.create(folderPath);
+                        } catch (error) {
+                            logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
+                        }
+                    } else {
+                        logger.info(`[Import] Folder already exists: ${folderPath}`);
+                    }
+                }
+
+                // Refresh folders to load newly created folders
+                this.folders = await FolderStorage.getAll();
+                logger.info(`[Import] Loaded ${this.folders.length} folders after creation`);
+
                 // Detect conflicts
-                const conflicts = await this.detectConflicts(bookmarks);
+                const conflicts = await this.detectConflicts(allBookmarks);
 
                 // Handle conflicts if any
                 if (conflicts.length > 0) {
-                    const shouldMerge = await this.showConflictDialog(conflicts, bookmarks);
+                    const shouldMerge = await this.showConflictDialog(conflicts, allBookmarks);
                     if (!shouldMerge) {
                         logger.info('[Import] User cancelled import');
                         return;
@@ -1661,7 +2387,7 @@ export class SimpleBookmarkPanel {
                 }
 
                 // Import all bookmarks (merge will overwrite duplicates)
-                await this.importBookmarks(bookmarks, false);
+                await this.importBookmarks(allBookmarks, false);
 
                 // Refresh panel
                 await this.refresh();
@@ -1681,17 +2407,206 @@ export class SimpleBookmarkPanel {
     }
 
     /**
+     * Analyze import data for folder path issues
+     * Issue 2: Categorize bookmarks by folder path validity
+     */
+    private analyzeImportData(bookmarks: Bookmark[]): {
+        valid: Bookmark[];
+        noFolder: Bookmark[];
+        tooDeep: Bookmark[];
+    } {
+        const valid: Bookmark[] = [];
+        const noFolder: Bookmark[] = [];
+        const tooDeep: Bookmark[] = [];
+
+        logger.info(`[Import Analysis] Analyzing ${bookmarks.length} bookmarks`);
+        logger.info(`[Import Analysis] MAX_DEPTH = ${PathUtils.MAX_DEPTH}`);
+
+        for (const bookmark of bookmarks) {
+            const folderPath = bookmark.folderPath;
+
+            if (!folderPath || folderPath.trim() === '') {
+                logger.info(`[Import Analysis] No folder: ${bookmark.title?.substring(0, 50)}`);
+                noFolder.push(bookmark);
+            } else {
+                const depth = PathUtils.getDepth(folderPath);
+                logger.info(`[Import Analysis] Folder "${folderPath}" depth=${depth}, title="${bookmark.title?.substring(0, 50)}"`);
+
+                if (depth > PathUtils.MAX_DEPTH) {
+                    logger.info(`[Import Analysis] Too deep (${depth} > ${PathUtils.MAX_DEPTH}): ${folderPath}`);
+                    tooDeep.push(bookmark);
+                } else {
+                    valid.push(bookmark);
+                }
+            }
+        }
+
+        logger.info(`[Import Analysis] Results: valid=${valid.length}, noFolder=${noFolder.length}, tooDeep=${tooDeep.length}`);
+        return { valid, noFolder, tooDeep };
+    }
+
+    /**
+     * Show import summary dialog
+     * Issue 2: Display summary and ask for confirmation
+     */
+    private async showImportSummary(analysis: {
+        valid: Bookmark[];
+        noFolder: Bookmark[];
+        tooDeep: Bookmark[];
+    }): Promise<boolean> {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2),
+                            0 24px 38px 3px rgba(0,0,0,0.14),
+                            0 9px 46px 8px rgba(0,0,0,0.12);
+                max-width: 450px;
+                width: 90%;
+                padding: 24px;
+            `;
+
+            const totalIssues = analysis.noFolder.length + analysis.tooDeep.length;
+
+            modal.innerHTML = `
+                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: #202124;">
+                    📥 导入摘要
+                </h3>
+                <div style="font-size: 14px; color: #5f6368; line-height: 1.6;">
+                    <p style="margin: 0 0 12px 0;">
+                        准备导入 <strong>${analysis.valid.length + analysis.noFolder.length + analysis.tooDeep.length}</strong> 个书签：
+                    </p>
+                    <ul style="margin: 0 0 16px 0; padding-left: 24px;">
+                        <li>✅ ${analysis.valid.length} 个书签将正常导入</li>
+                        ${analysis.noFolder.length > 0 ? `<li>📁 ${analysis.noFolder.length} 个书签无文件夹 → 将导入到 <strong>Import</strong> 文件夹</li>` : ''}
+                        ${analysis.tooDeep.length > 0 ? `<li>⚠️ ${analysis.tooDeep.length} 个书签文件夹层级过深 → 将导入到 <strong>Import</strong> 文件夹</li>` : ''}
+                    </ul>
+                    ${totalIssues > 0 ? `
+                        <div style="background: #fff3cd; border-left: 3px solid #ffc107; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                            <div style="font-weight: 500; color: #856404; margin-bottom: 4px;">ℹ️ 注意</div>
+                            <div style="color: #856404; font-size: 13px;">
+                                ${analysis.noFolder.length + analysis.tooDeep.length} 个书签将自动归类到 Import 文件夹
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                    <button class="cancel-btn" style="
+                        padding: 8px 16px;
+                        border: 1px solid #ddd;
+                        border-radius: 4px;
+                        background: white;
+                        color: #5f6368;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">取消</button>
+                    <button class="proceed-btn" style="
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 4px;
+                        background: #1a73e8;
+                        color: white;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">继续导入</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
+            const proceedBtn = modal.querySelector('.proceed-btn') as HTMLElement;
+
+            // Hover effects
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = '#f1f3f4';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = 'white';
+            });
+
+            proceedBtn.addEventListener('mouseenter', () => {
+                proceedBtn.style.background = '#1765cc';
+            });
+            proceedBtn.addEventListener('mouseleave', () => {
+                proceedBtn.style.background = '#1a73e8';
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(false);
+            });
+
+            proceedBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(true);
+            });
+
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    resolve(false);
+                }
+            });
+
+            const handleEscape = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', handleEscape);
+                    resolve(false);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
+    }
+
+    /**
+
+    /**
      * Validate import data
      */
     private validateImportData(data: any): Bookmark[] {
-        if (!Array.isArray(data)) {
-            throw new Error('Invalid format: expected an array of bookmarks');
+        // Support both formats:
+        // 1. Old format: direct array of bookmarks
+        // 2. New format: { version: "2.0", exportDate: "...", bookmarks: [...] }
+        let bookmarksArray: any[];
+
+        if (Array.isArray(data)) {
+            // Old format: direct array
+            bookmarksArray = data;
+            logger.info('[Import] Detected old format (direct array)');
+        } else if (data && typeof data === 'object' && Array.isArray(data.bookmarks)) {
+            // New format: object with bookmarks field
+            bookmarksArray = data.bookmarks;
+            logger.info(`[Import] Detected new format (version: ${data.version || 'unknown'})`);
+        } else {
+            throw new Error('Invalid format: expected an array of bookmarks or an object with bookmarks field');
         }
 
         const validBookmarks: Bookmark[] = [];
         const errors: string[] = [];
 
-        data.forEach((item, index) => {
+        bookmarksArray.forEach((item: any, index: number) => {
             if (SimpleBookmarkStorage.validateBookmark(item)) {
                 validBookmarks.push(item);
             } else {
@@ -2732,6 +3647,105 @@ export class SimpleBookmarkPanel {
 
             .open-conversation-btn:hover {
                 background: #2563eb;
+            }
+
+            /* ============================================================================
+               Batch Actions Bar (Gmail-style)
+               ============================================================================ */
+            
+            .batch-actions-bar {
+                position: fixed;
+                bottom: 0;
+                left: 80px;
+                right: 0;
+                z-index: 100;
+                
+                background: #fff3cd;
+                border-top: 1px solid #ffc107;
+                box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+                
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 24px;
+                
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+                opacity: 0;
+                pointer-events: none;
+            }
+            
+            .batch-actions-bar.visible {
+                transform: translateY(0);
+                opacity: 1;
+                pointer-events: auto;
+            }
+            
+            .batch-info {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .select-all-checkbox {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+                margin: 0;
+            }
+            
+            .batch-actions-bar .selected-count {
+                font-size: 14px;
+                font-weight: 500;
+                color: #333;
+            }
+            
+            .batch-buttons {
+                display: flex;
+                gap: 8px;
+            }
+            
+            .batch-buttons button {
+                padding: 8px 16px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                background: white;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                transition: all 0.2s;
+            }
+            
+            .batch-buttons button:hover {
+                background: #f0f0f0;
+            }
+            
+            .batch-delete-btn:hover {
+                background: #dc3545 !important;
+                color: white !important;
+                border-color: #dc3545 !important;
+            }
+            
+            .batch-move-btn:hover {
+                background: #007bff !important;
+                color: white !important;
+                border-color: #007bff !important;
+            }
+            
+            .batch-export-btn:hover {
+                background: #28a745 !important;
+                color: white !important;
+                border-color: #28a745 !important;
+            }
+            
+            .batch-clear-btn:hover {
+                background: #6c757d !important;
+                color: white !important;
+                border-color: #6c757d !important;
+            }
+            
+            .bookmarks-tab .content {
+                padding-bottom: 70px;
             }
 
             /* ============================================================================

@@ -31,7 +31,7 @@ export class PathUtils {
     static readonly SEPARATOR = '/';
 
     /** Maximum allowed folder depth */
-    static readonly MAX_DEPTH = 3;
+    static readonly MAX_DEPTH = 2;
 
     /** Maximum folder name length */
     static readonly MAX_NAME_LENGTH = 50;
