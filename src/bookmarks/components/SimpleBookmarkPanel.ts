@@ -1,8 +1,13 @@
 
 import { SimpleBookmarkStorage } from '../storage/SimpleBookmarkStorage';
-import { Bookmark } from '../storage/types';
+import { Bookmark, Folder, FolderTreeNode } from '../storage/types';
 import { logger } from '../../utils/logger';
 import { bookmarkEditModal } from './BookmarkEditModal';
+import { FolderStorage } from '../storage/FolderStorage';
+import { FolderState } from '../state/FolderState';
+import { FolderOperationsManager } from '../managers/FolderOperationsManager';
+import { TreeBuilder } from '../utils/tree-builder';
+import { PathUtils } from '../utils/path-utils';
 
 /**
  * Simple Bookmark Panel - AITimeline Pattern with Tabs
@@ -18,20 +23,35 @@ export class SimpleBookmarkPanel {
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
     private selectedBookmarks: Set<string> = new Set(); // For batch delete (stores "url:position")
 
+    // Folder tree properties
+    private folders: Folder[] = [];
+    private folderState: FolderState = new FolderState();
+    private folderOpsManager: FolderOperationsManager = new FolderOperationsManager();
+
     /**
      * Show the bookmark panel
      */
     async show(): Promise<void> {
+        // The provided snippet for `show` seems to be from a different context or an incomplete replacement.
+        // To maintain syntactical correctness and fulfill the request of adding a migration method,
+        // I will assume the user wants to integrate the migration logic into the *existing* show method
+        // and then add the `migrateLegacyBookmarks` method after it.
+
+        // Original show method logic:
         if (this.overlay) {
             this.overlay.style.display = 'flex';
-            await this.refresh();
+            await this.refresh(); // Assuming refresh() exists and updates content
             return;
         }
 
-        // Load all bookmarks
+        // Run migration before loading bookmarks
+        const migratedCount = await this.migrateLegacyBookmarks();
+
+        // Load all bookmarks and folders
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
-        this.filteredBookmarks = [...this.bookmarks];
-        logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks`);
+        this.folders = await FolderStorage.getAll();
+        this.filteredBookmarks = [...this.bookmarks]; // Re-filter after migration and load
+        logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks, ${this.folders.length} folders`);
 
         // Create overlay
         this.overlay = document.createElement('div');
@@ -63,6 +83,53 @@ export class SimpleBookmarkPanel {
 
         // Bind event listeners
         this.bindEventListeners();
+
+        // Show migration notification if bookmarks were migrated
+        if (migratedCount > 0) {
+            setTimeout(() => {
+                alert(`✅ Migrated ${migratedCount} bookmark${migratedCount > 1 ? 's' : ''} to "Import" folder`);
+            }, 100);
+        }
+    }
+
+    /**
+     * Migrate legacy bookmarks without folderPath to "Import" folder
+     * Per PRD Section 9.2
+     */
+    private async migrateLegacyBookmarks(): Promise<number> {
+        try {
+            const bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+            const needsMigration = bookmarks.filter(b => !b.folderPath);
+
+            if (needsMigration.length === 0) {
+                return 0;
+            }
+
+            logger.info(`[Migration] Found ${needsMigration.length} bookmarks without folderPath`);
+
+            // Create Import folder if not exists
+            const folders = await FolderStorage.getAll();
+            if (!folders.find(f => f.path === 'Import')) {
+                await FolderStorage.create('Import');
+                logger.info('[Migration] Created "Import" folder');
+            }
+
+            // Update bookmarks
+            for (const bookmark of needsMigration) {
+                bookmark.folderPath = 'Import';
+                await SimpleBookmarkStorage.updateBookmark(
+                    bookmark.urlWithoutProtocol,
+                    bookmark.position,
+                    bookmark
+                );
+            }
+
+            logger.info(`[Migration] Migrated ${needsMigration.length} bookmarks to "Import"`);
+            return needsMigration.length;
+        } catch (error) {
+            logger.error('[Migration] Failed:', error);
+            return 0;
+        }
     }
 
     /**
@@ -121,35 +188,20 @@ export class SimpleBookmarkPanel {
 
                 <div class="tab-content bookmarks-tab active">
                     <div class="toolbar">
-                        <input 
-                            type="search" 
-                            class="search-input" 
-                            placeholder="🔍 Search bookmarks..."
-                        />
+                        <input type="text" class="search-input" placeholder="🔍 Search...">
                         <select class="platform-filter">
                             <option value="">All Platforms</option>
                             <option value="ChatGPT">ChatGPT</option>
                             <option value="Gemini">Gemini</option>
                         </select>
-                        <button class="export-btn" title="Export bookmarks">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                        </button>
-                        <button class="import-btn" title="Import bookmarks">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                        </button>
+                        <button class="new-folder-btn" title="Create new folder">➕ New Folder</button>
+                        <div class="toolbar-divider"></div>
+                        <button class="export-btn" title="Export bookmarks">📥 Export</button>
+                        <button class="import-btn" title="Import bookmarks">📤 Import</button>
                         <button class="batch-delete-btn" style="display: none;">🗑 Delete Selected (<span class="selected-count">0</span>)</button>
                     </div>
-
                     <div class="content">
-                        ${this.renderBookmarkList()}
+                        ${this.renderTreeView()}
                     </div>
                 </div>
 
@@ -176,42 +228,153 @@ export class SimpleBookmarkPanel {
     }
 
     /**
-     * Render bookmark list (flex rows)
+     * Render tree view with folders and bookmarks
+     * Reference: VS Code Explorer rendering
      */
-    private renderBookmarkList(): string {
-        if (this.filteredBookmarks.length === 0) {
-            return '<div class="empty">No bookmarks found.</div>';
+    private renderTreeView(): string {
+        // Get hierarchical structure from TreeBuilder
+        const tree = TreeBuilder.buildTree(
+            this.folders,
+            this.filteredBookmarks,
+            this.folderState.getExpandedPaths(),
+            this.folderState.getSelectedPath()
+        );
+
+        if (tree.length === 0) {
+            return this.renderEmptyState();
         }
 
-        const bookmarkKey = (b: Bookmark) => `${b.url}:${b.position}`;
-
         return `
-            <div class="bookmark-list">
-                ${this.filteredBookmarks.map(b => `
-                    <div class="bookmark-item" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}">
-                        <input type="checkbox" class="bookmark-checkbox" data-key="${bookmarkKey(b)}" ${this.selectedBookmarks.has(bookmarkKey(b)) ? 'checked' : ''}>
-                        <span class="platform-badge ${b.platform?.toLowerCase() || 'chatgpt'}">
-                            ${this.getPlatformIcon(b.platform)} ${b.platform || 'ChatGPT'}
-                        </span>
-                        <span class="title" title="${this.escapeHtml(b.title || b.userMessage)}">
-                            ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
-                        </span>
-                        <span class="response" title="${this.escapeHtml(b.aiResponse || '')}">
-                            ${this.escapeHtml(this.truncate(b.aiResponse || '', 50))}
-                        </span>
-                        <span class="notes" title="${this.escapeHtml(b.notes || '')}">
-                            ${this.escapeHtml(this.truncate(b.notes || '', 20))}
-                        </span>
-                        <span class="time">${this.formatTimestamp(b.timestamp)}</span>
-                        <div class="actions">
-                            <button class="action-btn preview-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Preview">👁</button>
-                            <button class="action-btn edit-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Edit">✏️</button>
-                            <button class="action-btn delete-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Delete">🗑</button>
-                        </div>
-                    </div>
-                `).join('')}
+            <div class="tree-view" role="tree">
+                ${tree.map(node => this.renderTreeNode(node, 0)).join('')}
             </div>
         `;
+    }
+
+    /**
+     * Render single tree node (folder or bookmark)
+     */
+    private renderTreeNode(node: FolderTreeNode, depth: number): string {
+        // Folders render with children
+        if (node.folder) {
+            return this.renderFolderItem(node, depth);
+        }
+        return '';
+    }
+
+    /**
+     * Render folder item with expand/collapse
+     * Reference: VS Code folder rendering
+     */
+    private renderFolderItem(node: FolderTreeNode, depth: number): string {
+        const folder = node.folder;
+        const icon = node.isExpanded ? '📂' : '📁';
+        const indent = depth * 20; // 20px per level (Linear spacing)
+        const showAddSubfolder = depth < 2; // Max 3 levels
+        const selectedClass = node.isSelected ? 'selected' : '';
+        const expandedClass = node.isExpanded ? 'expanded' : '';
+
+        let html = `
+            <div class="tree-item folder-item ${selectedClass} ${expandedClass}"
+                 data-path="${this.escapeAttr(folder.path)}"
+                 data-depth="${depth}"
+                 style="padding-left: ${indent}px"
+                 role="treeitem"
+                 aria-expanded="${node.isExpanded}"
+                 aria-level="${depth + 1}"
+                 tabindex="0">
+                <input type="checkbox" 
+                       class="item-checkbox folder-checkbox" 
+                       data-path="${this.escapeAttr(folder.path)}"
+                       aria-label="Select ${folder.name} and all children">
+                <span class="folder-icon">${icon}</span>
+                <span class="folder-name">${this.escapeHtml(folder.name)}</span>
+                <div class="item-actions">
+                    ${showAddSubfolder ? `<button class="action-btn add-subfolder" data-path="${this.escapeAttr(folder.path)}" data-depth="${depth}" title="New Subfolder" aria-label="Create subfolder">➕</button>` : ''}
+                    <button class="action-btn rename-folder" title="Rename" aria-label="Rename folder">✏️</button>
+                    <button class="action-btn delete-folder" title="Delete" aria-label="Delete folder">🗑</button>
+                </div>
+            </div>
+        `;
+
+        // Render children if expanded
+        if (node.isExpanded && node.children.length > 0) {
+            html += '<div class="folder-children">';
+            for (const child of node.children) {
+                html += this.renderTreeNode(child, depth + 1);
+            }
+            html += '</div>';
+        }
+
+        // Render bookmarks in this folder
+        if (node.isExpanded && node.bookmarks.length > 0) {
+            for (const bookmark of node.bookmarks) {
+                html += this.renderBookmarkItemInTree(bookmark, depth + 1);
+            }
+        }
+
+        return html;
+    }
+
+    /**
+     * Render bookmark item in tree
+     * Reference: Notion list items, Linear task items
+     */
+    private renderBookmarkItemInTree(bookmark: Bookmark, depth: number): string {
+        const icon = bookmark.platform === 'ChatGPT' ? '🤖' : '✨';
+        const indent = depth * 20;
+        const timestamp = this.formatTimestamp(bookmark.timestamp);
+        const key = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+        const checked = this.selectedBookmarks.has(key) ? 'checked' : '';
+
+        return `
+            <div class="tree-item bookmark-item"
+                 data-url="${this.escapeAttr(bookmark.url)}"
+                 data-position="${bookmark.position}"
+                 data-depth="${depth}"
+                 style="padding-left: ${indent}px"
+                 role="treeitem"
+                 aria-level="${depth + 1}"
+                 tabindex="0">
+                <input type="checkbox" 
+                       class="item-checkbox bookmark-checkbox" 
+                       data-key="${this.escapeAttr(key)}"
+                       ${checked}
+                       aria-label="Select ${bookmark.title}">
+                <span class="platform-icon">${icon}</span>
+                <span class="bookmark-title">${this.escapeHtml(bookmark.title)}</span>
+                <span class="bookmark-timestamp">${timestamp}</span>
+                <div class="item-actions">
+                    <button class="action-btn preview-bookmark" title="Preview" aria-label="Preview bookmark">👁</button>
+                    <button class="action-btn edit-bookmark" title="Edit" aria-label="Edit bookmark">✏️</button>
+                    <button class="action-btn delete-bookmark" title="Delete" aria-label="Delete bookmark">🗑</button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render empty state when no folders exist
+     * Reference: GitHub empty repository state
+     */
+    private renderEmptyState(): string {
+        return `
+            <div class="tree-empty">
+                <div class="empty-icon">📁</div>
+                <h3>No folders yet</h3>
+                <p>Create your first folder to organize bookmarks</p>
+                <button class="btn-primary create-first-folder">
+                    ➕ Create First Folder
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * Escape HTML attribute value
+     */
+    private escapeAttr(text: string): string {
+        return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     /**
@@ -303,8 +466,8 @@ export class SimpleBookmarkPanel {
         if (this.shadowRoot) {
             const content = this.shadowRoot.querySelector('.bookmarks-tab .content');
             if (content) {
-                content.innerHTML = this.renderBookmarkList();
-                this.bindBookmarkListeners();
+                content.innerHTML = this.renderTreeView();
+                this.bindTreeEventListeners();
             }
 
             const header = this.shadowRoot.querySelector('h2');
@@ -367,8 +530,19 @@ export class SimpleBookmarkPanel {
             this.handleBatchDelete();
         });
 
+        // New Folder button
+        this.shadowRoot?.querySelector('.new-folder-btn')?.addEventListener('click', () => {
+            this.showCreateFolderInput(null);
+        });
+
         // Bookmark list listeners
         this.bindBookmarkListeners();
+
+        // Bind tree view listeners
+        this.bindTreeEventListeners();
+
+        // Setup keyboard navigation for tree
+        this.setupTreeKeyboardNavigation();
     }
 
     /**
@@ -449,6 +623,436 @@ export class SimpleBookmarkPanel {
     }
 
     /**
+     * Bind event listeners for tree interactions
+     * Reference: VS Code Explorer event handling
+     */
+    private bindTreeEventListeners(): void {
+        // Folder expand/collapse
+        this.shadowRoot?.querySelectorAll('.folder-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const target = e.target as HTMLElement;
+                // Don't toggle if clicking checkbox or action buttons
+                if (target.classList.contains('item-checkbox') ||
+                    target.closest('.item-actions')) {
+                    return;
+                }
+
+                const path = (item as HTMLElement).dataset.path!;
+                this.toggleFolder(path);
+            });
+        });
+
+        // Folder checkboxes - select all children recursively
+        this.shadowRoot?.querySelectorAll('.folder-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const path = (e.target as HTMLInputElement).dataset.path!;
+                const checked = (e.target as HTMLInputElement).checked;
+                this.selectFolderRecursive(path, checked);
+            });
+        });
+
+        // Bookmark checkboxes - individual selection
+        this.shadowRoot?.querySelectorAll('.bookmark-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const key = (e.target as HTMLInputElement).dataset.key!;
+                const checked = (e.target as HTMLInputElement).checked;
+
+                if (checked) {
+                    this.selectedBookmarks.add(key);
+                } else {
+                    this.selectedBookmarks.delete(key);
+                }
+                this.updateBatchDeleteButton();
+            });
+        });
+
+        // Add subfolder buttons
+        this.shadowRoot?.querySelectorAll('.add-subfolder').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = (btn as HTMLElement).dataset.path!;
+                const depth = parseInt((btn as HTMLElement).dataset.depth || '0');
+
+                // Check depth limit (max 3 levels, so depth 2 is the max for adding subfolders)
+                if (depth >= 2) {
+                    alert('❌ Cannot create subfolder: Maximum folder depth is 3 levels.\n\nPlease create a new root folder or organize within existing folders.');
+                    return;
+                }
+
+                this.showCreateFolderInput(path);
+            });
+        });
+
+        // Rename folder
+        this.shadowRoot?.querySelectorAll('.rename-folder').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const folderItem = (e.target as HTMLElement).closest('.folder-item')!;
+                const path = (folderItem as HTMLElement).dataset.path!;
+                this.showRenameFolderInput(path);
+            });
+        });
+
+        // Delete folder
+        this.shadowRoot?.querySelectorAll('.delete-folder').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const folderItem = (e.target as HTMLElement).closest('.folder-item')!;
+                const path = (folderItem as HTMLElement).dataset.path!;
+                await this.handleDeleteFolder(path);
+            });
+        });
+
+        // Preview bookmark
+        this.shadowRoot?.querySelectorAll('.preview-bookmark').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const bookmarkItem = (e.target as HTMLElement).closest('.bookmark-item')!;
+                const url = (bookmarkItem as HTMLElement).dataset.url!;
+                const position = parseInt((bookmarkItem as HTMLElement).dataset.position!);
+                this.showDetailModal(url, position);
+            });
+        });
+
+        // Edit bookmark
+        this.shadowRoot?.querySelectorAll('.edit-bookmark').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const bookmarkItem = (e.target as HTMLElement).closest('.bookmark-item')!;
+                const url = (bookmarkItem as HTMLElement).dataset.url!;
+                const position = parseInt((bookmarkItem as HTMLElement).dataset.position!);
+                this.handleEdit(url, position);
+            });
+        });
+
+        // Delete bookmark
+        this.shadowRoot?.querySelectorAll('.delete-bookmark').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const bookmarkItem = (e.target as HTMLElement).closest('.bookmark-item')!;
+                const url = (bookmarkItem as HTMLElement).dataset.url!;
+                const position = parseInt((bookmarkItem as HTMLElement).dataset.position!);
+                await this.handleDelete(url, position);
+            });
+        });
+
+        // Empty state - create first folder
+        this.shadowRoot?.querySelector('.create-first-folder')?.addEventListener('click', () => {
+            this.showCreateFolderInput(null);
+        });
+    }
+
+    /**
+     * Toggle folder expand/collapse
+     */
+    private async toggleFolder(path: string): Promise<void> {
+        this.folderState.toggleExpand(path);
+        this.folderState.setSelectedPath(path);
+        await this.folderState.saveLastSelected(path);
+
+        await this.refreshTreeView();
+    }
+
+    /**
+     * Select folder and all children recursively
+     * Reference: VS Code folder selection
+     */
+    private selectFolderRecursive(path: string, checked: boolean): void {
+        // Find all bookmarks in this folder and subfolders
+        const bookmarksInFolder = this.bookmarks.filter(b =>
+            b.folderPath === path || b.folderPath?.startsWith(path + '/')
+        );
+
+        bookmarksInFolder.forEach(bookmark => {
+            const key = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+            if (checked) {
+                this.selectedBookmarks.add(key);
+            } else {
+                this.selectedBookmarks.delete(key);
+            }
+        });
+
+        this.updateBatchDeleteButton();
+        this.refreshTreeView();
+    }
+
+    /**
+     * Setup keyboard navigation
+     * Reference: ARIA tree view pattern
+     */
+    private setupTreeKeyboardNavigation(): void {
+        this.shadowRoot?.addEventListener('keydown', (e) => {
+            const evt = e as KeyboardEvent;
+            const target = e.target as HTMLElement;
+            if (!target.classList.contains('tree-item')) return;
+
+            switch (evt.key) {
+                case 'ArrowDown':
+                    evt.preventDefault();
+                    this.focusNextTreeItem(target);
+                    break;
+                case 'ArrowUp':
+                    evt.preventDefault();
+                    this.focusPreviousTreeItem(target);
+                    break;
+                case 'ArrowRight':
+                    evt.preventDefault();
+                    if (target.classList.contains('folder-item')) {
+                        const path = target.dataset.path!;
+                        this.expandFolder(path);
+                    }
+                    break;
+                case 'ArrowLeft':
+                    evt.preventDefault();
+                    if (target.classList.contains('folder-item')) {
+                        const path = target.dataset.path!;
+                        this.collapseFolder(path);
+                    }
+                    break;
+                case 'Enter':
+                case ' ':
+                    evt.preventDefault();
+                    target.click();
+                    break;
+            }
+        });
+    }
+
+    private focusNextTreeItem(current: HTMLElement): void {
+        const items = Array.from(this.shadowRoot?.querySelectorAll('.tree-item') || []);
+        const currentIndex = items.indexOf(current);
+        if (currentIndex < items.length - 1) {
+            (items[currentIndex + 1] as HTMLElement).focus();
+        }
+    }
+
+    private focusPreviousTreeItem(current: HTMLElement): void {
+        const items = Array.from(this.shadowRoot?.querySelectorAll('.tree-item') || []);
+        const currentIndex = items.indexOf(current);
+        if (currentIndex > 0) {
+            (items[currentIndex - 1] as HTMLElement).focus();
+        }
+    }
+
+    private async expandFolder(path: string): Promise<void> {
+        if (!this.folderState.isExpanded(path)) {
+            this.folderState.toggleExpand(path);
+            await this.refreshTreeView();
+        }
+    }
+
+    private async collapseFolder(path: string): Promise<void> {
+        if (this.folderState.isExpanded(path)) {
+            this.folderState.toggleExpand(path);
+            await this.refreshTreeView();
+        }
+    }
+
+    /**
+     * Refresh tree view (re-render)
+     */
+    private async refreshTreeView(): Promise<void> {
+        const content = this.shadowRoot?.querySelector('.bookmarks-tab .content');
+        if (content) {
+            content.innerHTML = this.renderTreeView();
+            this.bindTreeEventListeners();
+        }
+    }
+
+    /**
+     * Show inline editing for new folder creation
+     * Reference: VS Code new folder inline creation
+     */
+    private showCreateFolderInput(parentPath: string | null): void {
+        // For root level creation, we'll use a temporary placeholder in the tree
+        // For now, use prompt as a quick implementation
+        // TODO: Implement inline creation in tree view
+        const name = prompt('Enter folder name:');
+        if (!name) return;
+
+        // Validate name
+        if (name.length > 50) {
+            alert('Folder name must be 50 characters or less');
+            return;
+        }
+
+        if (name.includes('/')) {
+            alert('Folder name cannot contain "/"');
+            return;
+        }
+
+        this.handleCreateFolder(parentPath, name);
+    }
+
+    private async handleCreateFolder(parentPath: string | null, name: string): Promise<void> {
+        // Calculate the new folder's path and depth
+        const newPath = parentPath ? `${parentPath}/${name}` : name;
+        const newDepth = PathUtils.getDepth(newPath);
+
+        // Check depth limit BEFORE calling folderOpsManager
+        if (newDepth > 3) {
+            alert(`❌ Cannot create folder: Maximum folder depth is 3 levels.\n\nCurrent path would be: ${newPath}\nDepth: ${newDepth}\n\nPlease create a new root folder or organize within existing folders.`);
+            logger.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit for path: ${newPath}`);
+            return;
+        }
+
+        const result = await this.folderOpsManager.createFolder(parentPath || '', name);
+
+        if (result.success) {
+            this.folders = await FolderStorage.getAll();
+
+            if (parentPath) {
+                this.folderState.toggleExpand(parentPath);
+            }
+
+            await this.refreshTreeView();
+            logger.info(`[Folder] Created successfully`);
+        } else {
+            alert(`Failed to create folder: ${result.error}`);
+            logger.error(`[Folder] Create failed:`, result.error);
+        }
+    }
+
+    /**
+     * Show inline editing for folder rename
+     * Reference: VS Code inline rename
+     */
+    private showRenameFolderInput(path: string): void {
+        const folder = this.folders.find(f => f.path === path);
+        if (!folder) return;
+
+        // Find the folder item in DOM
+        const folderItems = this.shadowRoot?.querySelectorAll('.folder-item');
+        if (!folderItems) return;
+
+        const items = Array.from(folderItems);
+        const targetItem = items.find(item =>
+            (item as HTMLElement).dataset.path === path
+        );
+
+        if (!targetItem) return;
+
+        // Get the folder name span
+        const nameSpan = targetItem.querySelector('.folder-name') as HTMLElement;
+        if (!nameSpan) return;
+
+        const originalName = folder.name;
+
+        // Create input element
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalName;
+        input.className = 'inline-edit-input';
+        input.style.cssText = `
+            width: 100%;
+            padding: 2px 6px;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        `;
+
+        // Replace name span with input
+        const parent = nameSpan.parentElement;
+        if (!parent) return;
+
+        parent.replaceChild(input, nameSpan);
+        input.focus();
+        input.select();
+
+        // Handle save
+        const saveEdit = async () => {
+            const newName = input.value.trim();
+
+            // Restore original if unchanged or empty
+            if (!newName || newName === originalName) {
+                parent.replaceChild(nameSpan, input);
+                return;
+            }
+
+            // Validate
+            if (newName.length > 50) {
+                alert('Folder name must be 50 characters or less');
+                input.focus();
+                return;
+            }
+
+            if (newName.includes('/')) {
+                alert('Folder name cannot contain "/"');
+                input.focus();
+                return;
+            }
+
+            // Save
+            await this.handleRenameFolder(path, newName);
+        };
+
+        // Handle cancel
+        const cancelEdit = () => {
+            parent.replaceChild(nameSpan, input);
+        };
+
+        // Event listeners
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveEdit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEdit();
+            }
+        });
+    }
+
+    private async handleRenameFolder(path: string, newName: string): Promise<void> {
+        const result = await this.folderOpsManager.renameFolder(path, newName);
+
+        if (result.success) {
+            this.folders = await FolderStorage.getAll();
+            this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+
+            await this.refreshTreeView();
+            logger.info(`[Folder] Renamed: ${path} -> ${newName}`);
+        } else {
+            alert(`Failed to rename folder: ${result.error}`);
+            logger.error(`[Folder] Rename failed:`, result.error);
+        }
+    }
+
+    private async handleDeleteFolder(path: string): Promise<void> {
+        const hasBookmarks = this.bookmarks.some(b =>
+            b.folderPath === path || b.folderPath?.startsWith(path + '/')
+        );
+
+        const hasSubfolders = this.folders.some(f =>
+            f.path.startsWith(path + '/')
+        );
+
+        if (hasBookmarks || hasSubfolders) {
+            alert('Please remove all items before deleting folder');
+            return;
+        }
+
+        if (!confirm(`Delete folder "${path}"?`)) {
+            return;
+        }
+
+        const result = await this.folderOpsManager.deleteFolder(path);
+
+        if (result.success) {
+            this.folders = await FolderStorage.getAll();
+            await this.refreshTreeView();
+            logger.info(`[Folder] Deleted: ${path}`);
+        } else {
+            alert(`Failed to delete folder: ${result.error}`);
+            logger.error(`[Folder] Delete failed:`, result.error);
+        }
+    }
+
+    /**
      * Switch tab
      */
     private switchTab(tab: 'bookmarks' | 'settings' | 'support'): void {
@@ -522,13 +1126,6 @@ export class SimpleBookmarkPanel {
                         <div class="detail-text">${this.escapeHtml(bookmark.aiResponse)}</div>
                     </div>
                 ` : ''}
-
-                ${bookmark.notes ? `
-                    <div class="detail-section">
-                        <h4>📌 Notes</h4>
-                        <div class="detail-text">${this.escapeHtml(bookmark.notes)}</div>
-                    </div>
-                ` : ''}
             </div>
 
             <div class="detail-footer">
@@ -590,11 +1187,10 @@ export class SimpleBookmarkPanel {
         // Show edit modal
         bookmarkEditModal.show(
             bookmark.userMessage,
-            async (title: string, notes: string) => {
+            async (title: string) => {
                 // Update bookmark
                 await SimpleBookmarkStorage.updateBookmark(url, position, {
-                    title,
-                    notes
+                    title
                 });
 
                 // Refresh panel
@@ -605,16 +1201,12 @@ export class SimpleBookmarkPanel {
             }
         );
 
-        // Pre-fill existing title and notes after modal is shown
+        // Pre-fill existing title after modal is shown
         setTimeout(() => {
             const titleInput = document.querySelector('#bookmark-title') as HTMLInputElement;
-            const notesInput = document.querySelector('#bookmark-notes') as HTMLTextAreaElement;
 
             if (titleInput && bookmark.title) {
                 titleInput.value = bookmark.title;
-            }
-            if (notesInput && bookmark.notes) {
-                notesInput.value = bookmark.notes;
             }
         }, 150);
     }
@@ -1241,6 +1833,53 @@ export class SimpleBookmarkPanel {
                 overflow: hidden;
             }
 
+            .toolbar {
+                display: flex;
+                gap: 8px;
+                padding: 12px;
+                background: #f9fafb;
+                border-bottom: 1px solid #e5e7eb;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .toolbar-divider {
+                width: 1px;
+                height: 24px;
+                background: #d1d5db;
+                margin: 0 4px;
+            }
+
+            .new-folder-btn,
+            .export-btn,
+            .import-btn {
+                padding: 6px 12px;
+                border: 1px solid #d1d5db;
+                background: white;
+                border-radius: 6px;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+
+            .new-folder-btn:hover,
+            .export-btn:hover,
+            .import-btn:hover {
+                background: #f3f4f6;
+                border-color: #9ca3af;
+            }
+
+            .new-folder-btn {
+                font-weight: 500;
+                color: #3b82f6;
+                border-color: #3b82f6;
+            }
+
+            .new-folder-btn:hover {
+                background: #eff6ff;
+            }
+
             /* Sidebar */
             .sidebar {
                 width: 120px;
@@ -1788,6 +2427,283 @@ export class SimpleBookmarkPanel {
 
             .open-conversation-btn:hover {
                 background: #2563eb;
+            }
+
+            /* ============================================================================
+               Tree View Styles
+               ============================================================================ */
+
+            /* Tree Container */
+            .tree-view {
+                flex: 1;
+                overflow-y: auto;
+                overflow-x: hidden;
+                background: white;
+            }
+
+            /* Custom Scrollbar (macOS-style) */
+            .tree-view::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .tree-view::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .tree-view::-webkit-scrollbar-thumb {
+                background: #d1d5db;
+                border-radius: 4px;
+            }
+
+            .tree-view::-webkit-scrollbar-thumb:hover {
+                background: #9ca3af;
+            }
+
+            /* Tree Item Base */
+            .tree-item {
+                display: flex;
+                align-items: center;
+                min-height: 36px;
+                padding: 6px 12px;
+                border-bottom: 1px solid #f3f4f6;
+                position: relative;
+                cursor: pointer;
+                transition: background-color 0.15s ease;
+                user-select: none;
+            }
+
+            .tree-item:hover {
+                background: #f9fafb;
+            }
+
+            .tree-item:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: -2px;
+                z-index: 1;
+            }
+
+            .tree-item:focus:not(:focus-visible) {
+                outline: none;
+            }
+
+            /* Folder Styles */
+            .folder-item {
+                font-weight: 500;
+                background: #fafafa;
+            }
+
+            .folder-item.selected {
+                background: #eff6ff;
+                border-left: 3px solid #3b82f6;
+            }
+
+            .folder-icon {
+                font-size: 16px;
+                margin-right: 8px;
+                flex-shrink: 0;
+            }
+
+            .folder-name {
+                flex: 1;
+                font-size: 14px;
+                color: #111827;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* Bookmark Styles */
+            .bookmark-item {
+                background: white;
+            }
+
+            .platform-icon {
+                font-size: 16px;
+                margin-right: 8px;
+                flex-shrink: 0;
+            }
+
+            .bookmark-title {
+                flex: 1;
+                font-size: 13px;
+                color: #374151;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                padding-right: 220px; /* Reserve space for timestamp + actions */
+            }
+
+            .bookmark-timestamp {
+                position: absolute;
+                right: 120px; /* Space for action buttons */
+                font-size: 11px;
+                color: #9ca3af;
+                pointer-events: none;
+                white-space: nowrap;
+            }
+
+            /* Checkboxes */
+            .item-checkbox {
+                margin-right: 8px;
+                cursor: pointer;
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+
+            .item-checkbox:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: 2px;
+            }
+
+            /* Action Buttons */
+            .item-actions {
+                display: none;
+                gap: 4px;
+                margin-left: auto;
+                flex-shrink: 0;
+            }
+
+            .tree-item:hover .item-actions {
+                display: flex;
+            }
+
+            .action-btn {
+                width: 28px;
+                height: 28px;
+                border: none;
+                background: transparent;
+                cursor: pointer;
+                border-radius: 4px;
+                font-size: 14px;
+                transition: background-color 0.15s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+            }
+
+            .action-btn:hover {
+                background: rgba(0, 0, 0, 0.05);
+            }
+
+            .action-btn:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: -2px;
+            }
+
+            .action-btn.delete-folder:hover,
+            .action-btn.delete-bookmark:hover {
+                background: rgba(239, 68, 68, 0.1);
+                color: #ef4444;
+            }
+
+            /* Empty State */
+            .tree-empty {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 64px 32px;
+                text-align: center;
+                color: #6b7280;
+            }
+
+            .empty-icon {
+                font-size: 48px;
+                margin-bottom: 16px;
+                opacity: 0.5;
+            }
+
+            .tree-empty h3 {
+                margin: 0 0 8px 0;
+                font-size: 16px;
+                font-weight: 600;
+                color: #374151;
+            }
+
+            .tree-empty p {
+                margin: 0 0 24px 0;
+                font-size: 14px;
+                color: #6b7280;
+            }
+
+            .btn-primary,
+            .create-first-folder {
+                padding: 10px 20px;
+                background: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.15s ease;
+            }
+
+            .btn-primary:hover,
+            .create-first-folder:hover {
+                background: #2563eb;
+            }
+
+            /* Responsive & Accessibility */
+            @media (prefers-reduced-motion: reduce) {
+                .tree-item,
+                .action-btn,
+                .create-first-folder {
+                    transition: none;
+                }
+            }
+
+            @media (prefers-contrast: high) {
+                .tree-item {
+                    border: 1px solid transparent;
+                }
+                
+                .tree-item:hover {
+                    border-color: currentColor;
+                }
+                
+                .tree-item.selected {
+                    border: 2px solid #3b82f6;
+                }
+            }
+
+            /* Loading State */
+            .tree-loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+                color: #6b7280;
+            }
+
+            .tree-loading::before {
+                content: '⏳';
+                font-size: 24px;
+                margin-right: 8px;
+                animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+
+            /* Fade in animation for tree items */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-4px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .tree-item {
+                animation: fadeIn 0.2s ease-out;
             }
 
             @media (prefers-color-scheme: dark) {

@@ -8,9 +8,9 @@
  * - Undo/redo support (future)
  */
 
-import { FolderStorage, FolderOperationError } from '../storage/FolderStorage';
+import { FolderStorage } from '../storage/FolderStorage';
 import { Folder } from '../storage/types';
-import { PathUtils, PathValidationError } from '../utils/path-utils';
+import { PathUtils } from '../utils/path-utils';
 
 /**
  * Operation result

@@ -96,7 +96,7 @@ class Logger {
     }
   }
 }
-const logger = new Logger();
+const logger$1 = new Logger();
 
 class ChatGPTAdapter extends SiteAdapter {
   matches(url) {
@@ -156,11 +156,11 @@ class ChatGPTAdapter extends SiteAdapter {
     for (const selector of selectors) {
       const container = document.querySelector(selector);
       if (container instanceof HTMLElement) {
-        logger.debug(`Observer container found: ${selector}`);
+        logger$1.debug(`Observer container found: ${selector}`);
         return container;
       }
     }
-    logger.warn("No suitable observer container found");
+    logger$1.warn("No suitable observer container found");
     return null;
   }
   /**
@@ -235,11 +235,11 @@ class GeminiAdapter extends SiteAdapter {
     for (const selector of selectors) {
       const container = document.querySelector(selector);
       if (container instanceof HTMLElement) {
-        logger.debug(`Observer container found: ${selector}`);
+        logger$1.debug(`Observer container found: ${selector}`);
         return container;
       }
     }
-    logger.warn("No observer container found for Gemini, falling back to body");
+    logger$1.warn("No observer container found for Gemini, falling back to body");
     return document.body;
   }
   /**
@@ -380,15 +380,15 @@ class MessageObserver {
     const container = this.adapter.getObserverContainer();
     if (!container) {
       if (attempt < 10) {
-        logger.debug(`Observer container not found, retrying (${attempt + 1}/10)...`);
+        logger$1.debug(`Observer container not found, retrying (${attempt + 1}/10)...`);
         setTimeout(() => this.startWithRetry(attempt + 1), 500);
         return;
       } else {
-        logger.warn("Observer container not found after 10 attempts");
+        logger$1.warn("Observer container not found after 10 attempts");
         return;
       }
     }
-    logger.info("Starting message observer (dual strategy: MutationObserver + Copy Button monitoring)");
+    logger$1.info("Starting message observer (dual strategy: MutationObserver + Copy Button monitoring)");
     this.observer = new MutationObserver((mutations) => {
       this.handleMutations(mutations);
     });
@@ -401,18 +401,18 @@ class MessageObserver {
     this.setupCopyButtonMonitoring();
     this.processExistingMessages();
     setTimeout(() => {
-      logger.debug("Re-processing messages after delay");
+      logger$1.debug("Re-processing messages after delay");
       this.processExistingMessages();
     }, 1e3);
     setTimeout(() => {
-      logger.debug("Re-processing messages after extended delay");
+      logger$1.debug("Re-processing messages after extended delay");
       this.processExistingMessages();
     }, 3e3);
     this.setupIntersectionObserver();
     this.periodicCheckInterval = window.setInterval(() => {
       this.processExistingMessages();
     }, 2e3);
-    logger.debug("Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver + Periodic check");
+    logger$1.debug("Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver + Periodic check");
   }
   /**
    * Setup copy button monitoring for streaming completion detection
@@ -420,11 +420,11 @@ class MessageObserver {
    */
   setupCopyButtonMonitoring() {
     this.lastCopyButtonCount = document.querySelectorAll('button[aria-label="Copy"]').length;
-    logger.debug(`Initial copy button count: ${this.lastCopyButtonCount}`);
+    logger$1.debug(`Initial copy button count: ${this.lastCopyButtonCount}`);
     const handleCopyButtonChange = debounce(() => {
       const currentCount = document.querySelectorAll('button[aria-label="Copy"]').length;
       if (currentCount > this.lastCopyButtonCount) {
-        logger.debug(`Copy button added: ${this.lastCopyButtonCount} → ${currentCount}`);
+        logger$1.debug(`Copy button added: ${this.lastCopyButtonCount} → ${currentCount}`);
         this.lastCopyButtonCount = currentCount;
         this.processLatestMessage();
       }
@@ -455,7 +455,7 @@ class MessageObserver {
       subtree: true,
       attributes: false
     });
-    logger.debug("Copy button monitoring active");
+    logger$1.debug("Copy button monitoring active");
   }
   /**
    * Process only the latest message (for streaming completion)
@@ -466,20 +466,20 @@ class MessageObserver {
     const lastArticle = articles[articles.length - 1];
     const messageId = this.adapter.getMessageId(lastArticle);
     if (!messageId) {
-      logger.debug("Latest article has no ID, processing anyway");
+      logger$1.debug("Latest article has no ID, processing anyway");
       this.onMessageDetected(lastArticle);
       return;
     }
     if (this.processedMessages.has(messageId)) {
       const hasToolbar = lastArticle.querySelector(".aicopy-toolbar-container");
       if (!hasToolbar) {
-        logger.debug("Latest message processed but toolbar missing, retrying:", messageId);
+        logger$1.debug("Latest message processed but toolbar missing, retrying:", messageId);
         this.onMessageDetected(lastArticle);
       }
       return;
     }
     this.processedMessages.add(messageId);
-    logger.debug("New streaming message completed:", messageId);
+    logger$1.debug("New streaming message completed:", messageId);
     this.onMessageDetected(lastArticle);
   }
   /**
@@ -491,7 +491,7 @@ class MessageObserver {
         if (entry.isIntersecting && entry.target instanceof HTMLElement) {
           const messageId = this.adapter.getMessageId(entry.target);
           if (messageId && !this.processedMessages.has(messageId)) {
-            logger.debug("Message entered viewport:", messageId);
+            logger$1.debug("Message entered viewport:", messageId);
             this.processedMessages.add(messageId);
             this.onMessageDetected(entry.target);
           }
@@ -529,16 +529,16 @@ class MessageObserver {
       window.clearInterval(this.periodicCheckInterval);
       this.periodicCheckInterval = null;
     }
-    logger.info("Message observer stopped");
+    logger$1.info("Message observer stopped");
   }
   /**
    * Handle DOM mutations
    */
   handleMutations(mutations) {
-    logger.debug("Processing mutations:", mutations.length);
+    logger$1.debug("Processing mutations:", mutations.length);
     const isStreaming = this.adapter.isStreamingMessage(document.body);
     if (isStreaming) {
-      logger.debug("Streaming in progress, delaying processing");
+      logger$1.debug("Streaming in progress, delaying processing");
       return;
     }
     this.processExistingMessages();
@@ -548,14 +548,14 @@ class MessageObserver {
    */
   processExistingMessages() {
     const messages = document.querySelectorAll(this.adapter.getMessageSelector());
-    logger.debug(`Found ${messages.length} messages (${this.processedMessages.size} already processed)`);
+    logger$1.debug(`Found ${messages.length} messages (${this.processedMessages.size} already processed)`);
     let newMessages = 0;
     messages.forEach((message) => {
       if (!(message instanceof HTMLElement)) return;
       const messageId = this.adapter.getMessageId(message);
       if (!messageId) {
         const fallbackId = `msg-${Array.from(messages).indexOf(message)}`;
-        logger.debug("Message has no ID, using fallback:", fallbackId);
+        logger$1.debug("Message has no ID, using fallback:", fallbackId);
         if (this.processedMessages.has(fallbackId)) {
           return;
         }
@@ -568,28 +568,28 @@ class MessageObserver {
       if (isArticle) {
         const hasActionBar = message.querySelector("div.z-0") !== null;
         if (!hasActionBar) {
-          logger.debug("Message still streaming (no action bar), skipping:", messageId);
+          logger$1.debug("Message still streaming (no action bar), skipping:", messageId);
           return;
         }
       }
       if (this.processedMessages.has(messageId)) {
         const hasToolbar = message.querySelector(".aicopy-toolbar-container");
         if (!hasToolbar) {
-          logger.debug("Message processed but toolbar missing, retrying injection:", messageId);
+          logger$1.debug("Message processed but toolbar missing, retrying injection:", messageId);
           this.onMessageDetected(message);
         }
         return;
       }
       this.processedMessages.add(messageId);
       newMessages++;
-      logger.debug("New message detected:", messageId);
+      logger$1.debug("New message detected:", messageId);
       this.onMessageDetected(message);
       if (this.intersectionObserver) {
         this.intersectionObserver.observe(message);
       }
     });
     if (newMessages > 0) {
-      logger.info(`Processed ${newMessages} new message(s)`);
+      logger$1.info(`Processed ${newMessages} new message(s)`);
     }
   }
   /**
@@ -598,7 +598,7 @@ class MessageObserver {
   reset() {
     this.processedMessages.clear();
     this.lastCopyButtonCount = 0;
-    logger.info("Observer reset");
+    logger$1.info("Observer reset");
   }
 }
 
@@ -614,11 +614,11 @@ class ToolbarInjector {
    */
   inject(messageElement, toolbar) {
     if (this.injectedElements.has(messageElement)) {
-      logger.debug("Toolbar already injected for this message");
+      logger$1.debug("Toolbar already injected for this message");
       return false;
     }
     if (messageElement.querySelector(".aicopy-toolbar-container")) {
-      logger.debug("Toolbar container already exists");
+      logger$1.debug("Toolbar container already exists");
       return false;
     }
     const isArticle = messageElement.tagName.toLowerCase() === "article";
@@ -638,10 +638,10 @@ class ToolbarInjector {
   injectArticle(article, toolbar, selector) {
     const actionBar = safeQuerySelector(article, selector);
     if (actionBar) {
-      logger.debug("Action bar found, injecting toolbar");
+      logger$1.debug("Action bar found, injecting toolbar");
       return this.doInject(article, actionBar, toolbar);
     } else {
-      logger.debug("Action bar not found, waiting for it to appear...");
+      logger$1.debug("Action bar not found, waiting for it to appear...");
       this.waitForActionBar(article, toolbar, selector);
       return false;
     }
@@ -653,10 +653,10 @@ class ToolbarInjector {
   injectGemini(modelResponse, toolbar, selector) {
     const actionBar = safeQuerySelector(modelResponse, selector);
     if (actionBar) {
-      logger.debug("Gemini action bar found, injecting toolbar");
+      logger$1.debug("Gemini action bar found, injecting toolbar");
       return this.doInject(modelResponse, actionBar, toolbar, true);
     } else {
-      logger.debug("Gemini action bar not found, waiting for it to appear...");
+      logger$1.debug("Gemini action bar not found, waiting for it to appear...");
       this.waitForActionBar(modelResponse, toolbar, selector, true);
       return false;
     }
@@ -677,12 +677,12 @@ class ToolbarInjector {
       if (actionBar) {
         window.clearInterval(checkInterval);
         this.pendingObservers.delete(article);
-        logger.debug(`Action bar appeared after ${attempts} seconds`);
+        logger$1.debug(`Action bar appeared after ${attempts} seconds`);
         this.doInject(article, actionBar, toolbar, isGemini);
       } else if (attempts >= maxAttempts) {
         window.clearInterval(checkInterval);
         this.pendingObservers.delete(article);
-        logger.warn("Action bar did not appear after 15 seconds");
+        logger$1.warn("Action bar did not appear after 15 seconds");
       }
     }, 1e3);
     this.pendingObservers.set(article, checkInterval);
@@ -693,17 +693,17 @@ class ToolbarInjector {
   injectNonArticle(messageElement, toolbar, selector) {
     const parent = messageElement.parentElement;
     if (!parent) {
-      logger.warn("Message element has no parent");
+      logger$1.warn("Message element has no parent");
       return false;
     }
     const actionBarContainer = parent.nextElementSibling;
     if (!actionBarContainer) {
-      logger.warn("No next sibling found after message parent");
+      logger$1.warn("No next sibling found after message parent");
       return false;
     }
     const actionBar = actionBarContainer.matches(selector) ? actionBarContainer : safeQuerySelector(actionBarContainer, selector);
     if (!actionBar) {
-      logger.warn("Action bar not found in expected location");
+      logger$1.warn("Action bar not found in expected location");
       return false;
     }
     return this.doInject(messageElement, actionBar, toolbar);
@@ -722,7 +722,7 @@ class ToolbarInjector {
     wrapper.appendChild(toolbar);
     actionBar.parentElement?.insertBefore(wrapper, actionBar);
     this.injectedElements.add(messageElement);
-    logger.debug("Toolbar injected successfully");
+    logger$1.debug("Toolbar injected successfully");
     return true;
   }
   /**
@@ -733,7 +733,7 @@ class ToolbarInjector {
     if (toolbar) {
       toolbar.remove();
       this.injectedElements.delete(messageElement);
-      logger.debug("Toolbar removed");
+      logger$1.debug("Toolbar removed");
       return true;
     }
     return false;
@@ -1064,13 +1064,13 @@ class Toolbar {
             const formatted = this.wordCounter.format(result);
             if (formatted !== "No content") {
               stats2.textContent = formatted;
-              logger.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
+              logger$1.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
               return;
             }
           }
         }
       } catch (error) {
-        logger.debug("[WordCount] Retry failed:", error);
+        logger$1.debug("[WordCount] Retry failed:", error);
       }
       attempt++;
       if (attempt < maxRetries) {
@@ -1078,7 +1078,7 @@ class Toolbar {
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
-    logger.warn("[WordCount] Failed after all retries");
+    logger$1.warn("[WordCount] Failed after all retries");
     const stats = this.shadowRoot.querySelector("#word-stats");
     if (stats) stats.textContent = "Click copy";
   }
@@ -1165,7 +1165,7 @@ class Toolbar {
         const originalIcon = btn.innerHTML;
         btn.innerHTML = this.getCheckIcon();
         btn.style.color = "var(--theme-color)";
-        logger.info("Markdown copied to clipboard");
+        logger$1.info("Markdown copied to clipboard");
         setTimeout(() => {
           btn.innerHTML = originalIcon;
           btn.style.color = "";
@@ -1175,7 +1175,7 @@ class Toolbar {
         throw new Error("Failed to copy");
       }
     } catch (error) {
-      logger.error("Copy failed:", error);
+      logger$1.error("Copy failed:", error);
       btn.disabled = false;
     }
   }
@@ -1183,7 +1183,7 @@ class Toolbar {
    * Handle Re-render button click
    */
   handleReRender() {
-    logger.debug("Re-render clicked");
+    logger$1.debug("Re-render clicked");
     this.callbacks.onReRender();
     const btn = this.shadowRoot.querySelector("#re-render-btn");
     if (btn) this.showFeedback(btn, "Opening Preview...");
@@ -1192,7 +1192,7 @@ class Toolbar {
    * Handle View Source button click
    */
   handleViewSource() {
-    logger.debug("View Source clicked");
+    logger$1.debug("View Source clicked");
     this.callbacks.onViewSource();
     const btn = this.shadowRoot.querySelector("#source-btn");
     if (btn) this.showFeedback(btn, "Source Opened");
@@ -1201,7 +1201,7 @@ class Toolbar {
    * Handle Bookmark button click
    */
   handleBookmark() {
-    logger.debug("Bookmark clicked");
+    logger$1.debug("Bookmark clicked");
     if (this.callbacks.onBookmark) {
       this.callbacks.onBookmark();
     }
@@ -2614,30 +2614,30 @@ class MarkdownParser {
       filter: (node) => {
         const hasCode = node.nodeName === "PRE" && node.querySelector("code") !== null;
         if (hasCode) {
-          logger.debug(`[CodeBlock] Found PRE with code: ${node.textContent?.substring(0, 50)}...`);
+          logger$1.debug(`[CodeBlock] Found PRE with code: ${node.textContent?.substring(0, 50)}...`);
         }
         return hasCode;
       },
       replacement: (content, node) => {
         const pre = node;
-        logger.debug(`[CodeBlock] Processing PRE element`);
+        logger$1.debug(`[CodeBlock] Processing PRE element`);
         const langDiv = pre.querySelector(".flex.items-center");
         let language = langDiv?.textContent?.trim() || "";
-        logger.debug(`[CodeBlock] Language from UI: "${language}"`);
+        logger$1.debug(`[CodeBlock] Language from UI: "${language}"`);
         const codeEl = pre.querySelector("code");
         if (!codeEl) {
-          logger.warn(`[CodeBlock] No code element found in PRE`);
+          logger$1.warn(`[CodeBlock] No code element found in PRE`);
           return content;
         }
         if (!language && codeEl.className) {
           const langMatch = codeEl.className.match(/language-(\w+)/);
           if (langMatch) {
             language = langMatch[1];
-            logger.debug(`[CodeBlock] Language from class: "${language}"`);
+            logger$1.debug(`[CodeBlock] Language from class: "${language}"`);
           }
         }
         const codeText = codeEl.textContent || "";
-        logger.debug(`[CodeBlock] Code length: ${codeText.length} chars`);
+        logger$1.debug(`[CodeBlock] Code length: ${codeText.length} chars`);
         return `
 
 \`\`\`${language}
@@ -2717,20 +2717,20 @@ ${content.trim()}
    * 主解析方法
    */
   parse(element) {
-    logger.debug("[MarkdownParser] Starting parse (Method C)");
-    logger.debug(`[MarkdownParser] Input element: tag=${element.tagName}, textLength=${element.textContent?.length || 0}`);
+    logger$1.debug("[MarkdownParser] Starting parse (Method C)");
+    logger$1.debug(`[MarkdownParser] Input element: tag=${element.tagName}, textLength=${element.textContent?.length || 0}`);
     const deepResearchDivs = element.querySelectorAll(".deep-research-result");
     if (deepResearchDivs.length > 0) {
-      logger.debug(`[Deep Research] Found ${deepResearchDivs.length} deep-research-result divs`);
+      logger$1.debug(`[Deep Research] Found ${deepResearchDivs.length} deep-research-result divs`);
       deepResearchDivs.forEach((div, idx) => {
-        logger.debug(`[Deep Research] Div ${idx}: textLength=${div.textContent?.length || 0}`);
+        logger$1.debug(`[Deep Research] Div ${idx}: textLength=${div.textContent?.length || 0}`);
       });
       return this.parseDeepResearch(deepResearchDivs);
     }
     const contentBlocks = this.extractContentBlocks(element);
     const markdown = this.blocksToMarkdown(contentBlocks);
     const result = this.postProcess(markdown);
-    logger.debug("[MarkdownParser] Parse complete");
+    logger$1.debug("[MarkdownParser] Parse complete");
     return result;
   }
   /**
@@ -2741,16 +2741,16 @@ ${content.trim()}
   parseDeepResearch(deepResearchDivs) {
     const parts = [];
     deepResearchDivs.forEach((div, idx) => {
-      logger.debug(`[Deep Research] Processing div ${idx + 1}/${deepResearchDivs.length}, textLength=${div.textContent?.length || 0}`);
+      logger$1.debug(`[Deep Research] Processing div ${idx + 1}/${deepResearchDivs.length}, textLength=${div.textContent?.length || 0}`);
       const clone = div.cloneNode(true);
       const katexErrors = clone.querySelectorAll(".katex-error");
       const errorBlocks = [];
-      logger.debug(`[Deep Research] Div ${idx + 1}: Found ${katexErrors.length} katex-error elements`);
+      logger$1.debug(`[Deep Research] Div ${idx + 1}: Found ${katexErrors.length} katex-error elements`);
       katexErrors.forEach((errorEl, i) => {
         const latex = errorEl.textContent?.trim() || "";
         if (latex) {
           const charCount = latex.length;
-          logger.debug(`[Deep Research] katex-error ${i}: ${charCount} chars`);
+          logger$1.debug(`[Deep Research] katex-error ${i}: ${charCount} chars`);
           const placeholder = `__KATEX_ERROR_${i}__`;
           errorBlocks.push({ placeholder, latex });
           const textNode = document.createTextNode(placeholder);
@@ -2759,18 +2759,18 @@ ${content.trim()}
       });
       const htmlBefore = clone.outerHTML.length;
       let markdown = this.turndownService.turndown(clone.outerHTML);
-      logger.debug(`[Deep Research] Div ${idx + 1}: Turndown ${htmlBefore} -> ${markdown.length} chars`);
+      logger$1.debug(`[Deep Research] Div ${idx + 1}: Turndown ${htmlBefore} -> ${markdown.length} chars`);
       errorBlocks.forEach(({ placeholder, latex }) => {
         const formatted = latex.replace(/\\\[/g, "$$\n").replace(/\\\]/g, "\n$$").replace(/\\\(/g, "$").replace(/\\\)/g, "$");
         markdown = markdown.split(placeholder).join(formatted);
       });
-      logger.debug(`[Deep Research] Div ${idx + 1}: After restore ${markdown.length} chars`);
+      logger$1.debug(`[Deep Research] Div ${idx + 1}: After restore ${markdown.length} chars`);
       markdown = this.postProcess(markdown);
-      logger.debug(`[Deep Research] Div ${idx + 1}: After postProcess ${markdown.length} chars`);
+      logger$1.debug(`[Deep Research] Div ${idx + 1}: After postProcess ${markdown.length} chars`);
       parts.push(markdown);
     });
     const result = parts.join("\n\n---\n\n");
-    logger.debug(`[Deep Research] Final result: ${result.length} chars`);
+    logger$1.debug(`[Deep Research] Final result: ${result.length} chars`);
     return result;
   }
   /**
@@ -2782,7 +2782,7 @@ ${content.trim()}
     let inlineMathCount = 0;
     const allDisplays = container.querySelectorAll(".katex-display");
     const processedDisplays = /* @__PURE__ */ new WeakSet();
-    logger.debug(`[Analysis] Found ${allDisplays.length} block formulas`);
+    logger$1.debug(`[Analysis] Found ${allDisplays.length} block formulas`);
     const processNode = (node) => {
       if (node.nodeType !== 1) return;
       if (node.classList.contains("katex-display")) {
@@ -2795,12 +2795,12 @@ ${latex}
 $$`
           });
           blockMathCount++;
-          logger.debug(`[Extract] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
+          logger$1.debug(`[Extract] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
         }
         return;
       }
       if (node.tagName.toLowerCase() === "pre" && node.querySelector("code")) {
-        logger.debug(`[Extract] Found PRE element with code`);
+        logger$1.debug(`[Extract] Found PRE element with code`);
         const langDiv = node.querySelector(".flex.items-center");
         let language = langDiv?.textContent?.trim() || "";
         const codeEl = node.querySelector("code");
@@ -2811,7 +2811,7 @@ $$`
           }
         }
         const codeText = codeEl?.textContent || "";
-        logger.debug(`[Extract] Code block: language="${language}", length=${codeText.length}`);
+        logger$1.debug(`[Extract] Code block: language="${language}", length=${codeText.length}`);
         if (codeText.trim()) {
           blocks.push({
             type: "text",
@@ -2837,7 +2837,7 @@ ${codeText.trimEnd()}
             tableMathMap.set(placeholder, `$$${latex}$$`);
             const textNode = document.createTextNode(placeholder);
             display.replaceWith(textNode);
-            logger.debug(`[Extract-Table] Block math: ${latex.substring(0, 40)}...`);
+            logger$1.debug(`[Extract-Table] Block math: ${latex.substring(0, 40)}...`);
           }
         });
         clone.querySelectorAll(".katex").forEach((katex) => {
@@ -2848,7 +2848,7 @@ ${codeText.trimEnd()}
             tableMathMap.set(placeholder, `$${latex}$`);
             const textNode = document.createTextNode(placeholder);
             katex.replaceWith(textNode);
-            logger.debug(`[Extract-Table] Inline math: ${latex.substring(0, 40)}...`);
+            logger$1.debug(`[Extract-Table] Inline math: ${latex.substring(0, 40)}...`);
           }
         });
         let markdown = this.turndownService.turndown(clone.outerHTML);
@@ -2857,7 +2857,7 @@ ${codeText.trimEnd()}
         });
         if (markdown.trim()) {
           blocks.push({ type: "text", content: markdown });
-          logger.debug(`[Extract] Table with ${tableMathMap.size} math formulas: ${markdown.substring(0, 80)}...`);
+          logger$1.debug(`[Extract] Table with ${tableMathMap.size} math formulas: ${markdown.substring(0, 80)}...`);
         }
         return;
       }
@@ -2873,7 +2873,7 @@ ${codeText.trimEnd()}
             const textNode = document.createTextNode(placeholder);
             display.replaceWith(textNode);
             blockMathCount++;
-            logger.debug(`[Extract-List] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
+            logger$1.debug(`[Extract-List] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
           }
         });
         let markdown = this.turndownService.turndown(clone.outerHTML);
@@ -2885,7 +2885,7 @@ ${codeText.trimEnd()}
         });
         if (markdown.trim()) {
           blocks.push({ type: "text", content: markdown });
-          logger.debug(`[Extract] List (${node.tagName}) with ${listMathMap.size} block formulas`);
+          logger$1.debug(`[Extract] List (${node.tagName}) with ${listMathMap.size} block formulas`);
         }
         return;
       }
@@ -2900,7 +2900,7 @@ ${codeText.trimEnd()}
 ${latex}
 $$` });
             blockMathCount++;
-            logger.debug(`[Extract-Container] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
+            logger$1.debug(`[Extract-Container] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
           }
         });
         clone.querySelectorAll(".katex-display").forEach((d) => d.remove());
@@ -2914,7 +2914,7 @@ $$` });
             const textNode = document.createTextNode(placeholder);
             katex.replaceWith(textNode);
             inlineMathCount++;
-            logger.debug(`[Extract] Inline math ${inlineMathCount}: ${latex.substring(0, 30)}...`);
+            logger$1.debug(`[Extract] Inline math ${inlineMathCount}: ${latex.substring(0, 30)}...`);
           }
         });
         let markdown = this.turndownService.turndown(clone.outerHTML);
@@ -2932,7 +2932,7 @@ $$` });
       Array.from(node.children).forEach((child) => processNode(child));
     };
     processNode(container);
-    logger.debug(`[Extract] Total: ${blockMathCount} block formulas, ${inlineMathCount} inline formulas`);
+    logger$1.debug(`[Extract] Total: ${blockMathCount} block formulas, ${inlineMathCount} inline formulas`);
     return blocks;
   }
   /**
@@ -3000,17 +3000,17 @@ $$` });
           normalizedIndent = "";
         } else if (currentIndent <= 1) {
           normalizedIndent = "  ";
-          logger.debug(`[PostProcess] Normalizing indent: ${currentIndent} → 2 spaces`);
+          logger$1.debug(`[PostProcess] Normalizing indent: ${currentIndent} → 2 spaces`);
         } else if (currentIndent <= 3) {
           normalizedIndent = "  ";
           if (currentIndent > 2) {
-            logger.debug(`[PostProcess] Normalizing indent: ${currentIndent} → 2 spaces`);
+            logger$1.debug(`[PostProcess] Normalizing indent: ${currentIndent} → 2 spaces`);
           }
         } else {
           const level = Math.round(currentIndent / 2);
           normalizedIndent = "  ".repeat(level);
           if (currentIndent !== level * 2) {
-            logger.debug(`[PostProcess] Normalizing indent: ${currentIndent} → ${level * 2} spaces`);
+            logger$1.debug(`[PostProcess] Normalizing indent: ${currentIndent} → ${level * 2} spaces`);
           }
         }
         fixedLines.push(`${normalizedIndent}${marker} ${restOfLine}`);
@@ -3070,7 +3070,7 @@ class MathClickHandler {
         if (hasNewMath) break;
       }
       if (hasNewMath) {
-        logger.debug("[MathClick] New math elements detected during streaming");
+        logger$1.debug("[MathClick] New math elements detected during streaming");
         this.processContainer(container);
       }
     });
@@ -3079,7 +3079,7 @@ class MathClickHandler {
       subtree: true
     });
     this.observers.set(container, observer);
-    logger.debug("[MathClick] Observer started for container");
+    logger$1.debug("[MathClick] Observer started for container");
   }
   /**
    * Process all math elements in a container
@@ -3092,7 +3092,7 @@ class MathClickHandler {
       this.activeElements.add(element);
     });
     if (mathElements.length > 0) {
-      logger.debug(`[MathClick] Enabled click-to-copy for ${mathElements.length} math elements`);
+      logger$1.debug(`[MathClick] Enabled click-to-copy for ${mathElements.length} math elements`);
     }
   }
   /**
@@ -3140,15 +3140,15 @@ class MathClickHandler {
   async handleClick(element) {
     const latex = this.getLatexSource(element);
     if (!latex) {
-      logger.warn("No LaTeX source found for clicked element");
+      logger$1.warn("No LaTeX source found for clicked element");
       return;
     }
     const success = await copyToClipboard(latex);
     if (success) {
-      logger.info("LaTeX copied:", latex);
+      logger$1.info("LaTeX copied:", latex);
       this.showCopyFeedback(element);
     } else {
-      logger.error("Failed to copy LaTeX");
+      logger$1.error("Failed to copy LaTeX");
     }
   }
   /**
@@ -22373,7 +22373,7 @@ class DeepResearchHandler {
    * Enable Deep Research panel detection
    */
   enable() {
-    logger.info("[DeepResearch] Enabling Deep Research handler");
+    logger$1.info("[DeepResearch] Enabling Deep Research handler");
     this.observer = new MutationObserver(() => {
       this.checkForPanel();
     });
@@ -22399,11 +22399,11 @@ class DeepResearchHandler {
   checkForPanel() {
     const panel = document.querySelector("deep-research-immersive-panel");
     if (panel && !this.activePanel) {
-      logger.info("[DeepResearch] Panel detected, injecting toolbar");
+      logger$1.info("[DeepResearch] Panel detected, injecting toolbar");
       this.injectToolbar(panel);
       this.activePanel = panel;
     } else if (!panel && this.activePanel) {
-      logger.info("[DeepResearch] Panel closed");
+      logger$1.info("[DeepResearch] Panel closed");
       this.activePanel = null;
     }
   }
@@ -22413,11 +22413,11 @@ class DeepResearchHandler {
   injectToolbar(panel) {
     const actionButtons = panel.querySelector("toolbar .action-buttons");
     if (!actionButtons) {
-      logger.warn("[DeepResearch] Action buttons container not found");
+      logger$1.warn("[DeepResearch] Action buttons container not found");
       return;
     }
     if (actionButtons.querySelector(".aicopy-dr-button")) {
-      logger.debug("[DeepResearch] Buttons already injected");
+      logger$1.debug("[DeepResearch] Buttons already injected");
       return;
     }
     const copyBtn = this.createButton("Copy Markdown", "content_copy", () => {
@@ -22434,7 +22434,7 @@ class DeepResearchHandler {
       actionButtons.appendChild(copyBtn);
       actionButtons.appendChild(previewBtn);
     }
-    logger.info("[DeepResearch] Toolbar buttons injected");
+    logger$1.info("[DeepResearch] Toolbar buttons injected");
   }
   /**
    * Create a button matching Gemini's icon-button style
@@ -22479,21 +22479,21 @@ class DeepResearchHandler {
   async handleCopy(panel) {
     const content = panel.querySelector("#extended-response-markdown-content");
     if (!content) {
-      logger.warn("[DeepResearch] Content element not found");
+      logger$1.warn("[DeepResearch] Content element not found");
       return;
     }
     try {
       const markdown = this.parser.parse(content);
       const success = await copyToClipboard(markdown);
       if (success) {
-        logger.info("[DeepResearch] Content copied to clipboard");
+        logger$1.info("[DeepResearch] Content copied to clipboard");
         this.showFeedback("已复制!");
       } else {
-        logger.error("[DeepResearch] Failed to copy to clipboard");
+        logger$1.error("[DeepResearch] Failed to copy to clipboard");
         this.showFeedback("复制失败", true);
       }
     } catch (error) {
-      logger.error("[DeepResearch] Error during copy:", error);
+      logger$1.error("[DeepResearch] Error during copy:", error);
       this.showFeedback("复制失败", true);
     }
   }
@@ -22503,15 +22503,15 @@ class DeepResearchHandler {
   handlePreview(panel) {
     const content = panel.querySelector("#extended-response-markdown-content");
     if (!content) {
-      logger.warn("[DeepResearch] Content element not found");
+      logger$1.warn("[DeepResearch] Content element not found");
       return;
     }
     try {
       const markdown = this.parser.parse(content);
       this.reRenderPanel.show(markdown);
-      logger.info("[DeepResearch] Preview panel opened");
+      logger$1.info("[DeepResearch] Preview panel opened");
     } catch (error) {
-      logger.error("[DeepResearch] Error during preview:", error);
+      logger$1.error("[DeepResearch] Error during preview:", error);
     }
   }
   /**
@@ -22562,7 +22562,7 @@ class SimpleBookmarkStorage {
   /**
    * Save a bookmark
    */
-  static async save(url, position, userMessage, aiResponse, title, platform, timestamp) {
+  static async save(url, position, userMessage, aiResponse, title, platform, timestamp, folderPath) {
     try {
       const key = this.getKey(url, position);
       const urlWithoutProtocol = url.replace(/^https?:\/\//, "");
@@ -22574,12 +22574,13 @@ class SimpleBookmarkStorage {
         aiResponse,
         timestamp: timestamp || Date.now(),
         title: title || userMessage.substring(0, 50) + (userMessage.length > 50 ? "..." : ""),
-        platform
+        platform: platform || "ChatGPT",
+        folderPath: folderPath || "Import"
       };
       await chrome.storage.local.set({ [key]: value });
-      logger.info(`[SimpleBookmarkStorage] Saved bookmark at position ${position}`);
+      logger$1.info(`[SimpleBookmarkStorage] Saved bookmark at position ${position}`);
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to save bookmark:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to save bookmark:", error);
       throw error;
     }
   }
@@ -22590,9 +22591,9 @@ class SimpleBookmarkStorage {
     try {
       const key = this.getKey(url, position);
       await chrome.storage.local.remove(key);
-      logger.info(`[SimpleBookmarkStorage] Removed bookmark at position ${position}`);
+      logger$1.info(`[SimpleBookmarkStorage] Removed bookmark at position ${position}`);
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to remove bookmark:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to remove bookmark:", error);
       throw error;
     }
   }
@@ -22605,7 +22606,7 @@ class SimpleBookmarkStorage {
       const result = await chrome.storage.local.get(key);
       return !!result[key];
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to check bookmark:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to check bookmark:", error);
       return false;
     }
   }
@@ -22628,10 +22629,10 @@ class SimpleBookmarkStorage {
           }
         }
       });
-      logger.info(`[SimpleBookmarkStorage] Loaded ${positions.size} bookmarks for current page`);
+      logger$1.info(`[SimpleBookmarkStorage] Loaded ${positions.size} bookmarks for current page`);
       return positions;
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to load bookmarks:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to load bookmarks:", error);
       return /* @__PURE__ */ new Set();
     }
   }
@@ -22651,9 +22652,9 @@ class SimpleBookmarkStorage {
         ...updates
       };
       await chrome.storage.local.set({ [key]: updated });
-      logger.info(`[SimpleBookmarkStorage] Updated bookmark at position ${position}`);
+      logger$1.info(`[SimpleBookmarkStorage] Updated bookmark at position ${position}`);
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to update bookmark:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to update bookmark:", error);
       throw error;
     }
   }
@@ -22670,10 +22671,10 @@ class SimpleBookmarkStorage {
         }
       });
       bookmarks.sort((a, b) => b.timestamp - a.timestamp);
-      logger.info(`[SimpleBookmarkStorage] Loaded ${bookmarks.length} total bookmarks`);
+      logger$1.info(`[SimpleBookmarkStorage] Loaded ${bookmarks.length} total bookmarks`);
       return bookmarks;
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to get all bookmarks:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to get all bookmarks:", error);
       return [];
     }
   }
@@ -22685,10 +22686,10 @@ class SimpleBookmarkStorage {
       const used = await chrome.storage.local.getBytesInUse();
       const limit = 5 * 1024 * 1024;
       const percentage = used / limit * 100;
-      logger.info(`[SimpleBookmarkStorage] Storage usage: ${used} bytes (${percentage.toFixed(2)}%)`);
+      logger$1.info(`[SimpleBookmarkStorage] Storage usage: ${used} bytes (${percentage.toFixed(2)}%)`);
       return { used, limit, percentage };
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to check storage quota:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to check storage quota:", error);
       return { used: 0, limit: 5 * 1024 * 1024, percentage: 0 };
     }
   }
@@ -22696,7 +22697,7 @@ class SimpleBookmarkStorage {
    * Validate bookmark data
    */
   static validateBookmark(bookmark) {
-    return typeof bookmark === "object" && bookmark !== null && typeof bookmark.url === "string" && typeof bookmark.urlWithoutProtocol === "string" && typeof bookmark.position === "number" && typeof bookmark.userMessage === "string" && typeof bookmark.timestamp === "number" && (bookmark.aiResponse === void 0 || typeof bookmark.aiResponse === "string") && (bookmark.title === void 0 || typeof bookmark.title === "string") && (bookmark.notes === void 0 || typeof bookmark.notes === "string") && (bookmark.platform === void 0 || bookmark.platform === "ChatGPT" || bookmark.platform === "Gemini");
+    return typeof bookmark === "object" && bookmark !== null && typeof bookmark.url === "string" && typeof bookmark.urlWithoutProtocol === "string" && typeof bookmark.position === "number" && typeof bookmark.userMessage === "string" && typeof bookmark.timestamp === "number" && (bookmark.aiResponse === void 0 || typeof bookmark.aiResponse === "string") && typeof bookmark.title === "string" && (bookmark.platform === "ChatGPT" || bookmark.platform === "Gemini") && typeof bookmark.folderPath === "string";
   }
   /**
    * Repair corrupted bookmarks
@@ -22710,7 +22711,7 @@ class SimpleBookmarkStorage {
         if (!key.startsWith("bookmark:")) continue;
         const bookmark = all[key];
         if (!this.validateBookmark(bookmark)) {
-          logger.warn(`[SimpleBookmarkStorage] Invalid bookmark found: ${key}`);
+          logger$1.warn(`[SimpleBookmarkStorage] Invalid bookmark found: ${key}`);
           if (typeof bookmark === "object" && bookmark !== null) {
             const repairedBookmark = {
               url: bookmark.url || "",
@@ -22719,18 +22720,18 @@ class SimpleBookmarkStorage {
               userMessage: bookmark.userMessage || "",
               aiResponse: bookmark.aiResponse,
               timestamp: bookmark.timestamp || Date.now(),
-              title: bookmark.title,
-              notes: bookmark.notes,
-              platform: bookmark.platform
+              title: bookmark.title || bookmark.userMessage?.substring(0, 50) || "Untitled",
+              platform: bookmark.platform || "ChatGPT",
+              folderPath: bookmark.folderPath || "Import"
             };
             if (this.validateBookmark(repairedBookmark)) {
               await chrome.storage.local.set({ [key]: repairedBookmark });
               repaired++;
-              logger.info(`[SimpleBookmarkStorage] Repaired bookmark: ${key}`);
+              logger$1.info(`[SimpleBookmarkStorage] Repaired bookmark: ${key}`);
             } else {
               await chrome.storage.local.remove(key);
               removed++;
-              logger.warn(`[SimpleBookmarkStorage] Removed irreparable bookmark: ${key}`);
+              logger$1.warn(`[SimpleBookmarkStorage] Removed irreparable bookmark: ${key}`);
             }
           } else {
             await chrome.storage.local.remove(key);
@@ -22738,14 +22739,64 @@ class SimpleBookmarkStorage {
           }
         }
       }
-      logger.info(`[SimpleBookmarkStorage] Repair complete: ${repaired} repaired, ${removed} removed`);
+      logger$1.info(`[SimpleBookmarkStorage] Repair complete: ${repaired} repaired, ${removed} removed`);
       return { repaired, removed };
     } catch (error) {
-      logger.error("[SimpleBookmarkStorage] Failed to repair bookmarks:", error);
+      logger$1.error("[SimpleBookmarkStorage] Failed to repair bookmarks:", error);
       return { repaired: 0, removed: 0 };
     }
   }
+  /**
+   * Get bookmarks by folder path
+   * 
+   * @param folderPath Folder path to filter by
+   * @param recursive Include bookmarks in subfolders
+   */
+  static async getBookmarksByFolder(folderPath, recursive = false) {
+    try {
+      const allBookmarks = await this.getAllBookmarks();
+      if (recursive) {
+        const { PathUtils } = await __vitePreload(async () => { const { PathUtils } = await Promise.resolve().then(() => pathUtils);return { PathUtils }},true?void 0:void 0);
+        return allBookmarks.filter(
+          (b) => b.folderPath === folderPath || PathUtils.isDescendantOf(b.folderPath, folderPath)
+        );
+      } else {
+        return allBookmarks.filter((b) => b.folderPath === folderPath);
+      }
+    } catch (error) {
+      logger$1.error(`[SimpleBookmarkStorage] Failed to get bookmarks by folder: ${folderPath}`, error);
+      return [];
+    }
+  }
+  /**
+   * Move bookmark to a different folder
+   * 
+   * @param url Bookmark URL
+   * @param position Bookmark position
+   * @param newFolderPath New folder path
+   */
+  static async moveToFolder(url, position, newFolderPath) {
+    try {
+      const key = this.getKey(url, position);
+      const result = await chrome.storage.local.get(key);
+      const bookmark = result[key];
+      if (!bookmark) {
+        throw new Error(`Bookmark not found: ${url}:${position}`);
+      }
+      bookmark.folderPath = newFolderPath;
+      await chrome.storage.local.set({ [key]: bookmark });
+      logger$1.info(`[SimpleBookmarkStorage] Moved bookmark to folder: ${newFolderPath}`);
+    } catch (error) {
+      logger$1.error("[SimpleBookmarkStorage] Failed to move bookmark to folder:", error);
+      throw error;
+    }
+  }
 }
+
+const SimpleBookmarkStorage$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  SimpleBookmarkStorage
+}, Symbol.toStringTag, { value: 'Module' }));
 
 class BookmarkEditModal {
   overlay = null;
@@ -23026,6 +23077,1346 @@ class BookmarkEditModal {
 }
 const bookmarkEditModal = new BookmarkEditModal();
 
+class PathValidationError extends Error {
+  constructor(message, path) {
+    super(message);
+    this.path = path;
+    this.name = "PathValidationError";
+  }
+}
+class PathUtils {
+  /** Path separator (forward slash for cross-platform compatibility) */
+  static SEPARATOR = "/";
+  /** Maximum allowed folder depth */
+  static MAX_DEPTH = 3;
+  /** Maximum folder name length */
+  static MAX_NAME_LENGTH = 50;
+  /** Forbidden characters in folder names (includes separator and control chars) */
+  static FORBIDDEN_CHARS = /[/\x00-\x1F\x7F<>:"|?*\\]/;
+  /** Pattern to detect directory traversal attempts */
+  static TRAVERSAL_PATTERN = /\.\./;
+  /**
+   * Normalize path to prevent directory traversal attacks
+   * 
+   * Security measures:
+   * - Removes redundant separators (// -> /)
+   * - Removes trailing separators
+   * - Validates no directory traversal sequences (..)
+   * - Ensures consistent separator usage
+   * 
+   * @throws {PathValidationError} if path contains traversal sequences
+   */
+  static normalize(path) {
+    if (!path || typeof path !== "string") {
+      throw new PathValidationError("Path must be a non-empty string", path);
+    }
+    if (this.TRAVERSAL_PATTERN.test(path)) {
+      throw new PathValidationError(
+        "Path contains directory traversal sequence (..)",
+        path
+      );
+    }
+    let normalized = path.replace(/\/+/g, this.SEPARATOR);
+    if (normalized.length > 1 && normalized.endsWith(this.SEPARATOR)) {
+      normalized = normalized.slice(0, -1);
+    }
+    if (normalized.startsWith(this.SEPARATOR)) {
+      normalized = normalized.slice(1);
+    }
+    return normalized;
+  }
+  /**
+   * Get parent path from full path
+   * 
+   * Examples:
+   * - "Work/AI Research" → "Work"
+   * - "Work" → null (root level)
+   * - "" → null
+   * 
+   * @returns Parent path or null if at root level
+   */
+  static getParentPath(path) {
+    if (!path) return null;
+    const normalized = this.normalize(path);
+    const lastSep = normalized.lastIndexOf(this.SEPARATOR);
+    if (lastSep === -1) {
+      return null;
+    }
+    return normalized.substring(0, lastSep);
+  }
+  /**
+   * Get folder name from path (last segment)
+   * 
+   * Examples:
+   * - "Work/AI Research" → "AI Research"
+   * - "Work" → "Work"
+   * - "" → ""
+   */
+  static getFolderName(path) {
+    if (!path) return "";
+    const normalized = this.normalize(path);
+    const lastSep = normalized.lastIndexOf(this.SEPARATOR);
+    return lastSep === -1 ? normalized : normalized.substring(lastSep + 1);
+  }
+  /**
+   * Calculate depth from path
+   * 
+   * Examples:
+   * - "Work" → 1
+   * - "Work/AI Research" → 2
+   * - "Work/AI Research/ChatGPT" → 3
+   * - "" → 0
+   */
+  static getDepth(path) {
+    if (!path) return 0;
+    const normalized = this.normalize(path);
+    if (!normalized) return 0;
+    return normalized.split(this.SEPARATOR).length;
+  }
+  /**
+   * Check if childPath is descendant of parentPath
+   * 
+   * Examples:
+   * - isDescendantOf("Work/AI Research", "Work") → true
+   * - isDescendantOf("Work", "Personal") → false
+   * - isDescendantOf("Work", "Work") → false (not descendant of itself)
+   */
+  static isDescendantOf(childPath, parentPath) {
+    if (!childPath || !parentPath) return false;
+    const normalizedChild = this.normalize(childPath);
+    const normalizedParent = this.normalize(parentPath);
+    return normalizedChild.startsWith(normalizedParent + this.SEPARATOR);
+  }
+  /**
+   * Join path segments safely
+   * 
+   * Examples:
+   * - join("Work", "AI Research") → "Work/AI Research"
+   * - join("Work", "", "AI Research") → "Work/AI Research" (empty segments ignored)
+   * 
+   * @throws {PathValidationError} if any segment is invalid
+   */
+  static join(...segments) {
+    const validSegments = segments.filter((s) => s && s.trim());
+    if (validSegments.length === 0) {
+      return "";
+    }
+    for (const segment of validSegments) {
+      if (this.TRAVERSAL_PATTERN.test(segment)) {
+        throw new PathValidationError(
+          "Path segment contains directory traversal sequence (..)",
+          segment
+        );
+      }
+      if (segment.includes(this.SEPARATOR)) {
+        throw new PathValidationError(
+          "Path segment cannot contain separator",
+          segment
+        );
+      }
+    }
+    const joined = validSegments.join(this.SEPARATOR);
+    return this.normalize(joined);
+  }
+  /**
+   * Update path prefix for rename/move operations
+   * 
+   * Used for recursive updates when renaming or moving folders.
+   * 
+   * Examples:
+   * - updatePathPrefix("Work", "Projects", "Work/AI Research") 
+   *   → "Projects/AI Research"
+   * - updatePathPrefix("Work", "Projects", "Work") 
+   *   → "Projects"
+   * - updatePathPrefix("Work", "Projects", "Personal/Research")
+   *   → "Personal/Research" (unchanged, not a match)
+   */
+  static updatePathPrefix(oldPrefix, newPrefix, path) {
+    if (!path) return path;
+    const normalizedPath = this.normalize(path);
+    const normalizedOld = this.normalize(oldPrefix);
+    const normalizedNew = this.normalize(newPrefix);
+    if (normalizedPath === normalizedOld) {
+      return normalizedNew;
+    }
+    if (normalizedPath.startsWith(normalizedOld + this.SEPARATOR)) {
+      return normalizedNew + normalizedPath.substring(normalizedOld.length);
+    }
+    return normalizedPath;
+  }
+  /**
+   * Validate folder name against security and business rules
+   * 
+   * Validation rules:
+   * - Non-empty after trimming
+   * - No forbidden characters (/, \, :, *, ?, ", <, >, |, control chars)
+   * - No directory traversal sequences (..)
+   * - Length <= MAX_NAME_LENGTH
+   * 
+   * @returns true if valid, false otherwise
+   */
+  static isValidFolderName(name) {
+    if (!name || typeof name !== "string") {
+      return false;
+    }
+    const trimmed = name.trim();
+    if (trimmed.length === 0) {
+      return false;
+    }
+    if (trimmed.length > this.MAX_NAME_LENGTH) {
+      return false;
+    }
+    if (this.FORBIDDEN_CHARS.test(trimmed)) {
+      return false;
+    }
+    if (this.TRAVERSAL_PATTERN.test(trimmed)) {
+      return false;
+    }
+    return true;
+  }
+  /**
+   * Validate complete folder path
+   * 
+   * Validates:
+   * - Path structure is valid
+   * - Each segment is a valid folder name
+   * - Depth does not exceed MAX_DEPTH
+   * - No directory traversal attempts
+   * 
+   * @throws {PathValidationError} with detailed error message
+   */
+  static validatePath(path) {
+    if (!path || typeof path !== "string") {
+      throw new PathValidationError("Path must be a non-empty string", path);
+    }
+    const normalized = this.normalize(path);
+    const depth = this.getDepth(normalized);
+    if (depth > this.MAX_DEPTH) {
+      throw new PathValidationError(
+        `Path depth ${depth} exceeds maximum ${this.MAX_DEPTH}`,
+        path
+      );
+    }
+    const segments = normalized.split(this.SEPARATOR);
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      if (!this.isValidFolderName(segment)) {
+        throw new PathValidationError(
+          `Invalid folder name at depth ${i + 1}: "${segment}"`,
+          path
+        );
+      }
+    }
+  }
+  /**
+   * Get all ancestor paths for a given path
+   * 
+   * Example:
+   * - getAncestors("Work/AI Research/ChatGPT") 
+   *   → ["Work", "Work/AI Research"]
+   * - getAncestors("Work")
+   *   → []
+   */
+  static getAncestors(path) {
+    if (!path) return [];
+    const normalized = this.normalize(path);
+    const ancestors = [];
+    let current = this.getParentPath(normalized);
+    while (current !== null) {
+      ancestors.unshift(current);
+      current = this.getParentPath(current);
+    }
+    return ancestors;
+  }
+  /**
+   * Check if two paths are equal (after normalization)
+   */
+  static areEqual(path1, path2) {
+    if (!path1 && !path2) return true;
+    if (!path1 || !path2) return false;
+    return this.normalize(path1) === this.normalize(path2);
+  }
+  /**
+   * Get level/depth of a path (1-indexed)
+   * Same as getDepth but 1-indexed for user-facing display
+   * 
+   * Examples:
+   * - "Work" → Level 1
+   * - "Work/AI Research" → Level 2
+   */
+  static getLevel(path) {
+    return this.getDepth(path);
+  }
+}
+
+const pathUtils = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  PathUtils,
+  PathValidationError
+}, Symbol.toStringTag, { value: 'Module' }));
+
+const logger = {
+  info: (message, ...args) => console.log(`[FolderStorage] ${message}`, ...args),
+  error: (message, ...args) => console.error(`[FolderStorage] ${message}`, ...args),
+  warn: (message, ...args) => console.warn(`[FolderStorage] ${message}`, ...args)
+};
+class FolderOperationError extends Error {
+  constructor(message, operation, path) {
+    super(message);
+    this.operation = operation;
+    this.path = path;
+    this.name = "FolderOperationError";
+  }
+}
+class FolderStorage {
+  /** Storage key prefix for folders */
+  static FOLDER_KEY_PREFIX = "folder:";
+  /** Storage key for folder index (list of all folder paths) */
+  static FOLDER_INDEX_KEY = "folderPaths";
+  /**
+   * Create a new folder
+   * 
+   * Validation:
+   * - Path is valid (no traversal, correct depth, valid names)
+   * - No duplicate at same level
+   * - Parent exists (if not root level)
+   * 
+   * @throws {PathValidationError} if path is invalid
+   * @throws {FolderOperationError} if folder already exists or parent missing
+   */
+  static async create(path) {
+    try {
+      PathUtils.validatePath(path);
+      const name = PathUtils.getFolderName(path);
+      const depth = PathUtils.getDepth(path);
+      if (name.length > PathUtils.MAX_NAME_LENGTH) {
+        throw new FolderOperationError(
+          `Folder name exceeds maximum length of ${PathUtils.MAX_NAME_LENGTH} characters`,
+          "create",
+          path
+        );
+      }
+      const existing = await this.get(path);
+      if (existing) {
+        throw new FolderOperationError(
+          `Folder already exists: ${path}`,
+          "create",
+          path
+        );
+      }
+      if (depth > 1) {
+        const parentPath = PathUtils.getParentPath(path);
+        if (parentPath) {
+          const parent = await this.get(parentPath);
+          if (!parent) {
+            throw new FolderOperationError(
+              `Parent folder does not exist: ${parentPath}`,
+              "create",
+              path
+            );
+          }
+        }
+      }
+      const siblings = await this.getSiblings(path);
+      if (siblings.some((f) => f.name === name)) {
+        throw new FolderOperationError(
+          `Folder "${name}" already exists at this level`,
+          "create",
+          path
+        );
+      }
+      const folder = {
+        path,
+        name,
+        depth,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      const key = this.getStorageKey(path);
+      await chrome.storage.local.set({ [key]: folder });
+      await this.addToIndex(path);
+      logger.info(`Created folder: ${path}`);
+      return folder;
+    } catch (error) {
+      if (error instanceof PathValidationError || error instanceof FolderOperationError) {
+        throw error;
+      }
+      throw new FolderOperationError(
+        `Failed to create folder: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "create",
+        path
+      );
+    }
+  }
+  /**
+   * Get folder by path
+   * 
+   * @returns Folder or null if not found
+   */
+  static async get(path) {
+    try {
+      const normalized = PathUtils.normalize(path);
+      const key = this.getStorageKey(normalized);
+      const result = await chrome.storage.local.get(key);
+      return result[key] || null;
+    } catch (error) {
+      logger.error(`Failed to get folder: ${path}`, error);
+      return null;
+    }
+  }
+  /**
+   * Get all folders
+   * 
+   * @returns Array of all folders, sorted by path
+   */
+  static async getAll() {
+    try {
+      const index = await this.getIndex();
+      if (index.length === 0) {
+        return [];
+      }
+      const keys = index.map((path) => this.getStorageKey(path));
+      const result = await chrome.storage.local.get(keys);
+      const folders = Object.values(result);
+      return folders.sort(
+        (a, b) => a.path.localeCompare(b.path, void 0, { sensitivity: "base" })
+      );
+    } catch (error) {
+      logger.error("Failed to get all folders", error);
+      return [];
+    }
+  }
+  /**
+   * Rename folder (recursive path update)
+   * 
+   * This is a complex operation that updates:
+   * 1. The folder itself
+   * 2. All descendant folders
+   * 3. All bookmarks in this folder and descendants
+   * 
+   * Uses validation-first approach to ensure atomicity
+   * 
+   * @throws {PathValidationError} if new name is invalid
+   * @throws {FolderOperationError} if operation fails
+   */
+  static async rename(oldPath, newName) {
+    try {
+      if (!PathUtils.isValidFolderName(newName)) {
+        throw new PathValidationError("Invalid folder name", newName);
+      }
+      const parentPath = PathUtils.getParentPath(oldPath);
+      const newPath = parentPath ? PathUtils.join(parentPath, newName) : newName;
+      PathUtils.validatePath(newPath);
+      const folder = await this.get(oldPath);
+      if (!folder) {
+        throw new FolderOperationError(
+          `Folder not found: ${oldPath}`,
+          "rename",
+          oldPath
+        );
+      }
+      const siblings = await this.getSiblings(newPath);
+      if (siblings.some((f) => f.path !== oldPath && f.name === newName)) {
+        throw new FolderOperationError(
+          `Folder "${newName}" already exists at this level`,
+          "rename",
+          oldPath
+        );
+      }
+      const affectedFolders = await this.getDescendants(oldPath, true);
+      const affectedBookmarks = await this.getBookmarksInFolder(oldPath, true);
+      logger.info(`Renaming folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`);
+      const folderUpdates = {};
+      const folderDeletes = [];
+      for (const f of affectedFolders) {
+        const updatedPath = PathUtils.updatePathPrefix(oldPath, newPath, f.path);
+        const updatedFolder = {
+          ...f,
+          path: updatedPath,
+          name: PathUtils.getFolderName(updatedPath),
+          updatedAt: Date.now()
+        };
+        folderUpdates[this.getStorageKey(updatedPath)] = updatedFolder;
+        if (f.path !== updatedPath) {
+          folderDeletes.push(this.getStorageKey(f.path));
+        }
+      }
+      const bookmarkUpdates = {};
+      for (const bookmark of affectedBookmarks) {
+        const updatedFolderPath = PathUtils.updatePathPrefix(oldPath, newPath, bookmark.folderPath);
+        const key = `bookmark:${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+        bookmarkUpdates[key] = { ...bookmark, folderPath: updatedFolderPath };
+      }
+      if (Object.keys(folderUpdates).length > 0) {
+        await chrome.storage.local.set(folderUpdates);
+      }
+      if (Object.keys(bookmarkUpdates).length > 0) {
+        await chrome.storage.local.set(bookmarkUpdates);
+      }
+      if (folderDeletes.length > 0) {
+        await chrome.storage.local.remove(folderDeletes);
+      }
+      await this.updateIndex(oldPath, newPath);
+      logger.info(`Renamed folder successfully: ${oldPath} → ${newPath}`);
+    } catch (error) {
+      if (error instanceof PathValidationError || error instanceof FolderOperationError) {
+        throw error;
+      }
+      throw new FolderOperationError(
+        `Failed to rename folder: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "rename",
+        oldPath
+      );
+    }
+  }
+  /**
+   * Delete folder (must be empty)
+   * 
+   * Validation:
+   * - Folder exists
+   * - No child folders
+   * - No bookmarks
+   * 
+   * @throws {FolderOperationError} if folder not empty or doesn't exist
+   */
+  static async delete(path) {
+    try {
+      const folder = await this.get(path);
+      if (!folder) {
+        throw new FolderOperationError(
+          `Folder not found: ${path}`,
+          "delete",
+          path
+        );
+      }
+      const hasChildren = await this.hasChildren(path);
+      const hasBookmarks = await this.hasBookmarks(path);
+      if (hasChildren || hasBookmarks) {
+        throw new FolderOperationError(
+          "Folder must be empty before deletion",
+          "delete",
+          path
+        );
+      }
+      const key = this.getStorageKey(path);
+      await chrome.storage.local.remove(key);
+      await this.removeFromIndex(path);
+      logger.info(`Deleted folder: ${path}`);
+    } catch (error) {
+      if (error instanceof FolderOperationError) {
+        throw error;
+      }
+      throw new FolderOperationError(
+        `Failed to delete folder: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "delete",
+        path
+      );
+    }
+  }
+  /**
+   * Move folder (recursive path update)
+   * 
+   * Validation:
+   * - Cannot move into itself or descendants
+   * - New depth doesn't exceed max
+   * - Target parent exists
+   * 
+   * @param sourcePath Path of folder to move
+   * @param targetParentPath Path of new parent (empty string for root)
+   */
+  static async move(sourcePath, targetParentPath) {
+    try {
+      if (targetParentPath && PathUtils.isDescendantOf(targetParentPath, sourcePath)) {
+        throw new FolderOperationError(
+          "Cannot move folder into its own descendant",
+          "move",
+          sourcePath
+        );
+      }
+      const folderName = PathUtils.getFolderName(sourcePath);
+      const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+      const newDepth = PathUtils.getDepth(newPath);
+      if (newDepth > PathUtils.MAX_DEPTH) {
+        throw new FolderOperationError(
+          `Move would exceed max depth of ${PathUtils.MAX_DEPTH}`,
+          "move",
+          sourcePath
+        );
+      }
+      if (targetParentPath) {
+        const targetParent = await this.get(targetParentPath);
+        if (!targetParent) {
+          throw new FolderOperationError(
+            `Target parent folder does not exist: ${targetParentPath}`,
+            "move",
+            sourcePath
+          );
+        }
+      }
+      await this.rename(sourcePath, folderName);
+      logger.info(`Moved folder: ${sourcePath} → ${newPath}`);
+    } catch (error) {
+      if (error instanceof FolderOperationError) {
+        throw error;
+      }
+      throw new FolderOperationError(
+        `Failed to move folder: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "move",
+        sourcePath
+      );
+    }
+  }
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+  /**
+   * Get storage key for folder path
+   */
+  static getStorageKey(path) {
+    return `${this.FOLDER_KEY_PREFIX}${path}`;
+  }
+  /**
+   * Get folder index (list of all paths)
+   */
+  static async getIndex() {
+    try {
+      const result = await chrome.storage.local.get(this.FOLDER_INDEX_KEY);
+      return result[this.FOLDER_INDEX_KEY] || [];
+    } catch (error) {
+      logger.error("Failed to get folder index", error);
+      return [];
+    }
+  }
+  /**
+   * Add path to index
+   */
+  static async addToIndex(path) {
+    const index = await this.getIndex();
+    if (!index.includes(path)) {
+      index.push(path);
+      await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: index });
+    }
+  }
+  /**
+   * Remove path from index
+   */
+  static async removeFromIndex(path) {
+    const index = await this.getIndex();
+    const updated = index.filter((p) => p !== path);
+    await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
+  }
+  /**
+   * Update index for rename/move operations
+   */
+  static async updateIndex(oldPath, newPath) {
+    const index = await this.getIndex();
+    const updated = index.map(
+      (p) => PathUtils.updatePathPrefix(oldPath, newPath, p)
+    );
+    await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
+  }
+  /**
+   * Get sibling folders (same parent)
+   */
+  static async getSiblings(path) {
+    const parentPath = PathUtils.getParentPath(path);
+    const allFolders = await this.getAll();
+    return allFolders.filter((f) => {
+      const fParent = PathUtils.getParentPath(f.path);
+      return fParent === parentPath;
+    });
+  }
+  /**
+   * Get descendant folders
+   * 
+   * @param path Parent path
+   * @param includeSelf Include the folder itself
+   */
+  static async getDescendants(path, includeSelf) {
+    const allFolders = await this.getAll();
+    return allFolders.filter(
+      (f) => includeSelf && f.path === path || PathUtils.isDescendantOf(f.path, path)
+    );
+  }
+  /**
+   * Check if folder has children
+   */
+  static async hasChildren(path) {
+    const allFolders = await this.getAll();
+    return allFolders.some((f) => PathUtils.isDescendantOf(f.path, path));
+  }
+  /**
+   * Check if folder has bookmarks
+   */
+  static async hasBookmarks(path) {
+    const bookmarks = await this.getBookmarksInFolder(path, false);
+    return bookmarks.length > 0;
+  }
+  /**
+   * Get bookmarks in folder
+   * 
+   * @param path Folder path
+   * @param recursive Include bookmarks in subfolders
+   */
+  static async getBookmarksInFolder(path, recursive) {
+    try {
+      const { SimpleBookmarkStorage } = await __vitePreload(async () => { const { SimpleBookmarkStorage } = await Promise.resolve().then(() => SimpleBookmarkStorage$1);return { SimpleBookmarkStorage }},true?void 0:void 0);
+      const bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+      if (recursive) {
+        return bookmarks.filter(
+          (b) => b.folderPath === path || PathUtils.isDescendantOf(b.folderPath, path)
+        );
+      } else {
+        return bookmarks.filter((b) => b.folderPath === path);
+      }
+    } catch (error) {
+      logger.error(`Failed to get bookmarks in folder: ${path}`, error);
+      return [];
+    }
+  }
+}
+
+class FolderState {
+  /** Storage key for last selected folder */
+  static LAST_SELECTED_KEY = "lastSelectedFolderPath";
+  /** In-memory expanded paths */
+  expandedPaths = /* @__PURE__ */ new Set();
+  /** Currently selected folder path */
+  selectedPath = null;
+  /**
+   * Load state from storage
+   * 
+   * Loads last selected folder and auto-expands path to it.
+   */
+  async load() {
+    try {
+      const result = await chrome.storage.local.get(FolderState.LAST_SELECTED_KEY);
+      this.selectedPath = result[FolderState.LAST_SELECTED_KEY] || null;
+      if (this.selectedPath) {
+        this.expandPathTo(this.selectedPath);
+      }
+    } catch (error) {
+      console.error("[FolderState] Failed to load state:", error);
+    }
+  }
+  /**
+   * Save last selected folder to storage
+   * 
+   * @param path Folder path
+   */
+  async saveLastSelected(path) {
+    try {
+      this.selectedPath = path;
+      await chrome.storage.local.set({ [FolderState.LAST_SELECTED_KEY]: path });
+    } catch (error) {
+      console.error("[FolderState] Failed to save last selected:", error);
+    }
+  }
+  /**
+   * Toggle folder expand/collapse
+   * 
+   * @param path Folder path
+   */
+  toggleExpand(path) {
+    if (this.expandedPaths.has(path)) {
+      this.expandedPaths.delete(path);
+    } else {
+      this.expandedPaths.add(path);
+    }
+  }
+  /**
+   * Expand folder
+   * 
+   * @param path Folder path
+   */
+  expand(path) {
+    this.expandedPaths.add(path);
+  }
+  /**
+   * Collapse folder
+   * 
+   * @param path Folder path
+   */
+  collapse(path) {
+    this.expandedPaths.delete(path);
+  }
+  /**
+   * Expand path to specific folder (all ancestors)
+   * 
+   * @param targetPath Path to expand to
+   */
+  expandPathTo(targetPath) {
+    const ancestors = PathUtils.getAncestors(targetPath);
+    for (const ancestor of ancestors) {
+      this.expandedPaths.add(ancestor);
+    }
+    this.expandedPaths.add(targetPath);
+  }
+  /**
+   * Collapse all folders
+   */
+  collapseAll() {
+    this.expandedPaths.clear();
+  }
+  /**
+   * Expand all folders
+   * 
+   * @param allPaths All folder paths
+   */
+  expandAll(allPaths) {
+    this.expandedPaths = new Set(allPaths);
+  }
+  /**
+   * Check if folder is expanded
+   * 
+   * @param path Folder path
+   */
+  isExpanded(path) {
+    return this.expandedPaths.has(path);
+  }
+  /**
+   * Get all expanded paths
+   */
+  getExpandedPaths() {
+    return new Set(this.expandedPaths);
+  }
+  /**
+   * Get selected path
+   */
+  getSelectedPath() {
+    return this.selectedPath;
+  }
+  /**
+   * Set selected path
+   * 
+   * @param path Folder path (null to clear)
+   */
+  setSelectedPath(path) {
+    this.selectedPath = path;
+  }
+  /**
+   * Check if folder is selected
+   * 
+   * @param path Folder path
+   */
+  isSelected(path) {
+    return this.selectedPath === path;
+  }
+  /**
+   * Clear all state
+   */
+  clear() {
+    this.expandedPaths.clear();
+    this.selectedPath = null;
+  }
+  /**
+   * Get state summary for debugging
+   */
+  getStateSummary() {
+    return {
+      expandedCount: this.expandedPaths.size,
+      selectedPath: this.selectedPath,
+      expandedPaths: Array.from(this.expandedPaths)
+    };
+  }
+}
+
+class FolderOperationsManager {
+  /** Event listeners */
+  listeners = [];
+  /**
+   * Create a new folder
+   * 
+   * @param parentPath Parent folder path (empty string for root)
+   * @param name Folder name
+   * @returns Operation result
+   */
+  async createFolder(parentPath, name) {
+    try {
+      if (!PathUtils.isValidFolderName(name)) {
+        return {
+          success: false,
+          error: "Invalid folder name. Name cannot contain special characters or be empty."
+        };
+      }
+      const path = parentPath ? PathUtils.join(parentPath, name) : name;
+      const depth = PathUtils.getDepth(path);
+      if (depth > PathUtils.MAX_DEPTH) {
+        return {
+          success: false,
+          error: `Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.`
+        };
+      }
+      const folder = await FolderStorage.create(path);
+      this.emitEvent({
+        type: "create",
+        path,
+        timestamp: Date.now()
+      });
+      return {
+        success: true,
+        data: folder
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create folder"
+      };
+    }
+  }
+  /**
+   * Rename a folder
+   * 
+   * @param path Current folder path
+   * @param newName New folder name
+   * @returns Operation result
+   */
+  async renameFolder(path, newName) {
+    try {
+      if (!PathUtils.isValidFolderName(newName)) {
+        return {
+          success: false,
+          error: "Invalid folder name. Name cannot contain special characters or be empty."
+        };
+      }
+      const parentPath = PathUtils.getParentPath(path);
+      const newPath = parentPath ? PathUtils.join(parentPath, newName) : newName;
+      await FolderStorage.rename(path, newName);
+      this.emitEvent({
+        type: "rename",
+        path,
+        newPath,
+        timestamp: Date.now()
+      });
+      return {
+        success: true,
+        data: { oldPath: path, newPath }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to rename folder"
+      };
+    }
+  }
+  /**
+   * Delete a folder
+   * 
+   * @param path Folder path
+   * @returns Operation result
+   */
+  async deleteFolder(path) {
+    try {
+      await FolderStorage.delete(path);
+      this.emitEvent({
+        type: "delete",
+        path,
+        timestamp: Date.now()
+      });
+      return {
+        success: true
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete folder"
+      };
+    }
+  }
+  /**
+   * Move a folder
+   * 
+   * @param sourcePath Source folder path
+   * @param targetParentPath Target parent path (empty for root)
+   * @returns Operation result
+   */
+  async moveFolder(sourcePath, targetParentPath) {
+    try {
+      await FolderStorage.move(sourcePath, targetParentPath);
+      const folderName = PathUtils.getFolderName(sourcePath);
+      const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+      this.emitEvent({
+        type: "move",
+        path: sourcePath,
+        newPath,
+        timestamp: Date.now()
+      });
+      return {
+        success: true,
+        data: { oldPath: sourcePath, newPath }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to move folder"
+      };
+    }
+  }
+  /**
+   * Get all folders
+   * 
+   * @returns All folders
+   */
+  async getAllFolders() {
+    return await FolderStorage.getAll();
+  }
+  /**
+   * Get folder by path
+   * 
+   * @param path Folder path
+   * @returns Folder or null
+   */
+  async getFolder(path) {
+    return await FolderStorage.get(path);
+  }
+  /**
+   * Validate folder name
+   * 
+   * @param name Folder name
+   * @returns Validation result
+   */
+  validateFolderName(name) {
+    if (!PathUtils.isValidFolderName(name)) {
+      return {
+        valid: false,
+        error: "Invalid folder name. Name cannot contain special characters, be empty, or exceed 50 characters."
+      };
+    }
+    return { valid: true };
+  }
+  /**
+   * Check if folder can be deleted
+   * 
+   * @param path Folder path
+   * @returns Check result
+   */
+  async canDelete(path) {
+    try {
+      const folder = await FolderStorage.get(path);
+      if (!folder) {
+        return { canDelete: false, reason: "Folder not found" };
+      }
+      return { canDelete: true };
+    } catch (error) {
+      return {
+        canDelete: false,
+        reason: error instanceof Error ? error.message : "Unknown error"
+      };
+    }
+  }
+  /**
+   * Check if folder can be moved
+   * 
+   * @param sourcePath Source folder path
+   * @param targetParentPath Target parent path
+   * @returns Check result
+   */
+  canMove(sourcePath, targetParentPath) {
+    if (sourcePath === targetParentPath) {
+      return { canMove: false, reason: "Cannot move folder into itself" };
+    }
+    if (targetParentPath && PathUtils.isDescendantOf(targetParentPath, sourcePath)) {
+      return { canMove: false, reason: "Cannot move folder into its own descendant" };
+    }
+    const folderName = PathUtils.getFolderName(sourcePath);
+    const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+    const newDepth = PathUtils.getDepth(newPath);
+    if (newDepth > PathUtils.MAX_DEPTH) {
+      return { canMove: false, reason: `Move would exceed maximum depth of ${PathUtils.MAX_DEPTH}` };
+    }
+    return { canMove: true };
+  }
+  /**
+   * Add event listener
+   * 
+   * @param listener Event listener function
+   */
+  addEventListener(listener) {
+    this.listeners.push(listener);
+  }
+  /**
+   * Remove event listener
+   * 
+   * @param listener Event listener function
+   */
+  removeEventListener(listener) {
+    this.listeners = this.listeners.filter((l) => l !== listener);
+  }
+  /**
+   * Emit event to all listeners
+   * 
+   * @param event Event to emit
+   */
+  emitEvent(event) {
+    for (const listener of this.listeners) {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error("[FolderOperationsManager] Event listener error:", error);
+      }
+    }
+  }
+  /**
+   * Clear all event listeners
+   */
+  clearEventListeners() {
+    this.listeners = [];
+  }
+}
+
+class TreeBuilder {
+  /**
+   * Build folder tree from flat folder list
+   * 
+   * Algorithm:
+   * 1. Sort folders alphabetically by path
+   * 2. Create tree nodes for each folder
+   * 3. Attach nodes to parents or root
+   * 4. Attach bookmarks to folders
+   * 5. Sort recursively
+   * 
+   * @param folders Flat list of folders
+   * @param bookmarks All bookmarks
+   * @param expandedPaths Set of expanded folder paths
+   * @param selectedPath Currently selected folder path
+   * @returns Root-level tree nodes
+   */
+  static buildTree(folders, bookmarks, expandedPaths = /* @__PURE__ */ new Set(), selectedPath = null) {
+    const sortedFolders = [...folders].sort(
+      (a, b) => a.path.localeCompare(b.path, void 0, { sensitivity: "base" })
+    );
+    const rootNodes = [];
+    const nodeMap = /* @__PURE__ */ new Map();
+    for (const folder of sortedFolders) {
+      const node = {
+        folder,
+        children: [],
+        bookmarks: this.getBookmarksForFolder(folder.path, bookmarks),
+        isExpanded: expandedPaths.has(folder.path),
+        isSelected: folder.path === selectedPath
+      };
+      nodeMap.set(folder.path, node);
+      const parentPath = PathUtils.getParentPath(folder.path);
+      if (parentPath && nodeMap.has(parentPath)) {
+        nodeMap.get(parentPath).children.push(node);
+      } else {
+        rootNodes.push(node);
+      }
+    }
+    this.sortTreeNodes(rootNodes);
+    return rootNodes;
+  }
+  /**
+   * Get bookmarks for a specific folder (non-recursive)
+   * 
+   * @param folderPath Folder path
+   * @param bookmarks All bookmarks
+   * @returns Bookmarks in this folder only (not subfolders)
+   */
+  static getBookmarksForFolder(folderPath, bookmarks) {
+    return bookmarks.filter((b) => b.folderPath === folderPath).sort((a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" }));
+  }
+  /**
+   * Sort tree nodes recursively (alphabetical by folder name)
+   * 
+   * @param nodes Tree nodes to sort
+   */
+  static sortTreeNodes(nodes) {
+    nodes.sort(
+      (a, b) => a.folder.name.localeCompare(b.folder.name, void 0, { sensitivity: "base" })
+    );
+    for (const node of nodes) {
+      if (node.children.length > 0) {
+        this.sortTreeNodes(node.children);
+      }
+      if (node.bookmarks.length > 0) {
+        node.bookmarks.sort(
+          (a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" })
+        );
+      }
+    }
+  }
+  /**
+   * Flatten tree to list of all nodes (depth-first)
+   * 
+   * Useful for search and filtering operations.
+   * 
+   * @param nodes Root nodes
+   * @returns Flat list of all nodes
+   */
+  static flattenTree(nodes) {
+    const result = [];
+    for (const node of nodes) {
+      result.push(node);
+      if (node.children.length > 0) {
+        result.push(...this.flattenTree(node.children));
+      }
+    }
+    return result;
+  }
+  /**
+   * Find path to a specific node (for auto-expand)
+   * 
+   * Returns array of folder paths from root to target.
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Target folder path
+   * @returns Array of paths to expand, or empty if not found
+   */
+  static findPathToNode(nodes, targetPath) {
+    for (const node of nodes) {
+      if (node.folder.path === targetPath) {
+        return [targetPath];
+      }
+      if (node.children.length > 0) {
+        const childPath = this.findPathToNode(node.children, targetPath);
+        if (childPath.length > 0) {
+          return [node.folder.path, ...childPath];
+        }
+      }
+    }
+    return [];
+  }
+  /**
+   * Find node by path
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Target folder path
+   * @returns Node or null if not found
+   */
+  static findNode(nodes, targetPath) {
+    for (const node of nodes) {
+      if (node.folder.path === targetPath) {
+        return node;
+      }
+      if (node.children.length > 0) {
+        const found = this.findNode(node.children, targetPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  /**
+   * Count total bookmarks in tree (recursive)
+   * 
+   * @param nodes Root nodes
+   * @returns Total bookmark count
+   */
+  static countBookmarks(nodes) {
+    let count = 0;
+    for (const node of nodes) {
+      count += node.bookmarks.length;
+      if (node.children.length > 0) {
+        count += this.countBookmarks(node.children);
+      }
+    }
+    return count;
+  }
+  /**
+   * Get all bookmarks from tree (flattened)
+   * 
+   * @param nodes Root nodes
+   * @returns All bookmarks in tree
+   */
+  static getAllBookmarks(nodes) {
+    const bookmarks = [];
+    for (const node of nodes) {
+      bookmarks.push(...node.bookmarks);
+      if (node.children.length > 0) {
+        bookmarks.push(...this.getAllBookmarks(node.children));
+      }
+    }
+    return bookmarks;
+  }
+  /**
+   * Filter tree by search query
+   * 
+   * Returns new tree with only matching nodes.
+   * Automatically expands paths to matching bookmarks.
+   * 
+   * @param nodes Root nodes
+   * @param query Search query (case-insensitive)
+   * @returns Filtered tree
+   */
+  static filterTree(nodes, query) {
+    if (!query || query.trim().length === 0) {
+      return nodes;
+    }
+    const lowerQuery = query.toLowerCase();
+    const filteredNodes = [];
+    for (const node of nodes) {
+      const matchingBookmarks = node.bookmarks.filter(
+        (b) => b.title.toLowerCase().includes(lowerQuery) || b.userMessage.toLowerCase().includes(lowerQuery) || b.aiResponse && b.aiResponse.toLowerCase().includes(lowerQuery)
+      );
+      const filteredChildren = this.filterTree(node.children, query);
+      if (matchingBookmarks.length > 0 || filteredChildren.length > 0) {
+        filteredNodes.push({
+          ...node,
+          bookmarks: matchingBookmarks,
+          children: filteredChildren,
+          isExpanded: true
+          // Auto-expand when filtering
+        });
+      }
+    }
+    return filteredNodes;
+  }
+  /**
+   * Update node state (expand/collapse, select)
+   * 
+   * Returns new tree with updated state.
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Path of node to update
+   * @param updates State updates
+   * @returns New tree with updated state
+   */
+  static updateNodeState(nodes, targetPath, updates) {
+    return nodes.map((node) => {
+      if (node.folder.path === targetPath) {
+        return { ...node, ...updates };
+      }
+      if (node.children.length > 0) {
+        return {
+          ...node,
+          children: this.updateNodeState(node.children, targetPath, updates)
+        };
+      }
+      return node;
+    });
+  }
+  /**
+   * Expand path to specific folder
+   * 
+   * Returns new tree with all ancestors expanded.
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Path to expand to
+   * @returns New tree with path expanded
+   */
+  static expandPathTo(nodes, targetPath) {
+    const pathToExpand = this.findPathToNode(nodes, targetPath);
+    let updatedNodes = nodes;
+    for (const path of pathToExpand) {
+      updatedNodes = this.updateNodeState(updatedNodes, path, { isExpanded: true });
+    }
+    return updatedNodes;
+  }
+  /**
+   * Collapse all nodes
+   * 
+   * @param nodes Root nodes
+   * @returns New tree with all nodes collapsed
+   */
+  static collapseAll(nodes) {
+    return nodes.map((node) => ({
+      ...node,
+      isExpanded: false,
+      children: node.children.length > 0 ? this.collapseAll(node.children) : []
+    }));
+  }
+}
+
 class SimpleBookmarkPanel {
   overlay = null;
   shadowRoot = null;
@@ -23036,6 +24427,10 @@ class SimpleBookmarkPanel {
   storageListener = null;
   selectedBookmarks = /* @__PURE__ */ new Set();
   // For batch delete (stores "url:position")
+  // Folder tree properties
+  folders = [];
+  folderState = new FolderState();
+  folderOpsManager = new FolderOperationsManager();
   /**
    * Show the bookmark panel
    */
@@ -23045,9 +24440,11 @@ class SimpleBookmarkPanel {
       await this.refresh();
       return;
     }
+    const migratedCount = await this.migrateLegacyBookmarks();
     this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+    this.folders = await FolderStorage.getAll();
     this.filteredBookmarks = [...this.bookmarks];
-    logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks`);
+    logger$1.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks, ${this.folders.length} folders`);
     this.overlay = document.createElement("div");
     this.overlay.className = "simple-bookmark-panel-overlay";
     this.shadowRoot = this.overlay.attachShadow({ mode: "open" });
@@ -23064,6 +24461,43 @@ class SimpleBookmarkPanel {
     document.body.appendChild(this.overlay);
     this.setupStorageListener();
     this.bindEventListeners();
+    if (migratedCount > 0) {
+      setTimeout(() => {
+        alert(`✅ Migrated ${migratedCount} bookmark${migratedCount > 1 ? "s" : ""} to "Import" folder`);
+      }, 100);
+    }
+  }
+  /**
+   * Migrate legacy bookmarks without folderPath to "Import" folder
+   * Per PRD Section 9.2
+   */
+  async migrateLegacyBookmarks() {
+    try {
+      const bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+      const needsMigration = bookmarks.filter((b) => !b.folderPath);
+      if (needsMigration.length === 0) {
+        return 0;
+      }
+      logger$1.info(`[Migration] Found ${needsMigration.length} bookmarks without folderPath`);
+      const folders = await FolderStorage.getAll();
+      if (!folders.find((f) => f.path === "Import")) {
+        await FolderStorage.create("Import");
+        logger$1.info('[Migration] Created "Import" folder');
+      }
+      for (const bookmark of needsMigration) {
+        bookmark.folderPath = "Import";
+        await SimpleBookmarkStorage.updateBookmark(
+          bookmark.urlWithoutProtocol,
+          bookmark.position,
+          bookmark
+        );
+      }
+      logger$1.info(`[Migration] Migrated ${needsMigration.length} bookmarks to "Import"`);
+      return needsMigration.length;
+    } catch (error) {
+      logger$1.error("[Migration] Failed:", error);
+      return 0;
+    }
   }
   /**
    * Hide the bookmark panel
@@ -23116,35 +24550,20 @@ class SimpleBookmarkPanel {
 
                 <div class="tab-content bookmarks-tab active">
                     <div class="toolbar">
-                        <input 
-                            type="search" 
-                            class="search-input" 
-                            placeholder="🔍 Search bookmarks..."
-                        />
+                        <input type="text" class="search-input" placeholder="🔍 Search...">
                         <select class="platform-filter">
                             <option value="">All Platforms</option>
                             <option value="ChatGPT">ChatGPT</option>
                             <option value="Gemini">Gemini</option>
                         </select>
-                        <button class="export-btn" title="Export bookmarks">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                        </button>
-                        <button class="import-btn" title="Import bookmarks">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                        </button>
+                        <button class="new-folder-btn" title="Create new folder">➕ New Folder</button>
+                        <div class="toolbar-divider"></div>
+                        <button class="export-btn" title="Export bookmarks">📥 Export</button>
+                        <button class="import-btn" title="Import bookmarks">📤 Import</button>
                         <button class="batch-delete-btn" style="display: none;">🗑 Delete Selected (<span class="selected-count">0</span>)</button>
                     </div>
-
                     <div class="content">
-                        ${this.renderBookmarkList()}
+                        ${this.renderTreeView()}
                     </div>
                 </div>
 
@@ -23169,40 +24588,137 @@ class SimpleBookmarkPanel {
     return panel;
   }
   /**
-   * Render bookmark list (flex rows)
+   * Render tree view with folders and bookmarks
+   * Reference: VS Code Explorer rendering
    */
-  renderBookmarkList() {
-    if (this.filteredBookmarks.length === 0) {
-      return '<div class="empty">No bookmarks found.</div>';
+  renderTreeView() {
+    const tree = TreeBuilder.buildTree(
+      this.folders,
+      this.filteredBookmarks,
+      this.folderState.getExpandedPaths(),
+      this.folderState.getSelectedPath()
+    );
+    if (tree.length === 0) {
+      return this.renderEmptyState();
     }
-    const bookmarkKey = (b) => `${b.url}:${b.position}`;
     return `
-            <div class="bookmark-list">
-                ${this.filteredBookmarks.map((b) => `
-                    <div class="bookmark-item" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}">
-                        <input type="checkbox" class="bookmark-checkbox" data-key="${bookmarkKey(b)}" ${this.selectedBookmarks.has(bookmarkKey(b)) ? "checked" : ""}>
-                        <span class="platform-badge ${b.platform?.toLowerCase() || "chatgpt"}">
-                            ${this.getPlatformIcon(b.platform)} ${b.platform || "ChatGPT"}
-                        </span>
-                        <span class="title" title="${this.escapeHtml(b.title || b.userMessage)}">
-                            ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
-                        </span>
-                        <span class="response" title="${this.escapeHtml(b.aiResponse || "")}">
-                            ${this.escapeHtml(this.truncate(b.aiResponse || "", 50))}
-                        </span>
-                        <span class="notes" title="${this.escapeHtml(b.notes || "")}">
-                            ${this.escapeHtml(this.truncate(b.notes || "", 20))}
-                        </span>
-                        <span class="time">${this.formatTimestamp(b.timestamp)}</span>
-                        <div class="actions">
-                            <button class="action-btn preview-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Preview">👁</button>
-                            <button class="action-btn edit-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Edit">✏️</button>
-                            <button class="action-btn delete-btn" data-url="${this.escapeHtml(b.url)}" data-position="${b.position}" title="Delete">🗑</button>
-                        </div>
-                    </div>
-                `).join("")}
+            <div class="tree-view" role="tree">
+                ${tree.map((node) => this.renderTreeNode(node, 0)).join("")}
             </div>
         `;
+  }
+  /**
+   * Render single tree node (folder or bookmark)
+   */
+  renderTreeNode(node, depth) {
+    if (node.folder) {
+      return this.renderFolderItem(node, depth);
+    }
+    return "";
+  }
+  /**
+   * Render folder item with expand/collapse
+   * Reference: VS Code folder rendering
+   */
+  renderFolderItem(node, depth) {
+    const folder = node.folder;
+    const icon = node.isExpanded ? "📂" : "📁";
+    const indent = depth * 20;
+    const showAddSubfolder = depth < 2;
+    const selectedClass = node.isSelected ? "selected" : "";
+    const expandedClass = node.isExpanded ? "expanded" : "";
+    let html = `
+            <div class="tree-item folder-item ${selectedClass} ${expandedClass}"
+                 data-path="${this.escapeAttr(folder.path)}"
+                 data-depth="${depth}"
+                 style="padding-left: ${indent}px"
+                 role="treeitem"
+                 aria-expanded="${node.isExpanded}"
+                 aria-level="${depth + 1}"
+                 tabindex="0">
+                <input type="checkbox" 
+                       class="item-checkbox folder-checkbox" 
+                       data-path="${this.escapeAttr(folder.path)}"
+                       aria-label="Select ${folder.name} and all children">
+                <span class="folder-icon">${icon}</span>
+                <span class="folder-name">${this.escapeHtml(folder.name)}</span>
+                <div class="item-actions">
+                    ${showAddSubfolder ? `<button class="action-btn add-subfolder" data-path="${this.escapeAttr(folder.path)}" data-depth="${depth}" title="New Subfolder" aria-label="Create subfolder">➕</button>` : ""}
+                    <button class="action-btn rename-folder" title="Rename" aria-label="Rename folder">✏️</button>
+                    <button class="action-btn delete-folder" title="Delete" aria-label="Delete folder">🗑</button>
+                </div>
+            </div>
+        `;
+    if (node.isExpanded && node.children.length > 0) {
+      html += '<div class="folder-children">';
+      for (const child of node.children) {
+        html += this.renderTreeNode(child, depth + 1);
+      }
+      html += "</div>";
+    }
+    if (node.isExpanded && node.bookmarks.length > 0) {
+      for (const bookmark of node.bookmarks) {
+        html += this.renderBookmarkItemInTree(bookmark, depth + 1);
+      }
+    }
+    return html;
+  }
+  /**
+   * Render bookmark item in tree
+   * Reference: Notion list items, Linear task items
+   */
+  renderBookmarkItemInTree(bookmark, depth) {
+    const icon = bookmark.platform === "ChatGPT" ? "🤖" : "✨";
+    const indent = depth * 20;
+    const timestamp = this.formatTimestamp(bookmark.timestamp);
+    const key = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+    const checked = this.selectedBookmarks.has(key) ? "checked" : "";
+    return `
+            <div class="tree-item bookmark-item"
+                 data-url="${this.escapeAttr(bookmark.url)}"
+                 data-position="${bookmark.position}"
+                 data-depth="${depth}"
+                 style="padding-left: ${indent}px"
+                 role="treeitem"
+                 aria-level="${depth + 1}"
+                 tabindex="0">
+                <input type="checkbox" 
+                       class="item-checkbox bookmark-checkbox" 
+                       data-key="${this.escapeAttr(key)}"
+                       ${checked}
+                       aria-label="Select ${bookmark.title}">
+                <span class="platform-icon">${icon}</span>
+                <span class="bookmark-title">${this.escapeHtml(bookmark.title)}</span>
+                <span class="bookmark-timestamp">${timestamp}</span>
+                <div class="item-actions">
+                    <button class="action-btn preview-bookmark" title="Preview" aria-label="Preview bookmark">👁</button>
+                    <button class="action-btn edit-bookmark" title="Edit" aria-label="Edit bookmark">✏️</button>
+                    <button class="action-btn delete-bookmark" title="Delete" aria-label="Delete bookmark">🗑</button>
+                </div>
+            </div>
+        `;
+  }
+  /**
+   * Render empty state when no folders exist
+   * Reference: GitHub empty repository state
+   */
+  renderEmptyState() {
+    return `
+            <div class="tree-empty">
+                <div class="empty-icon">📁</div>
+                <h3>No folders yet</h3>
+                <p>Create your first folder to organize bookmarks</p>
+                <button class="btn-primary create-first-folder">
+                    ➕ Create First Folder
+                </button>
+            </div>
+        `;
+  }
+  /**
+   * Escape HTML attribute value
+   */
+  escapeAttr(text) {
+    return text.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   /**
    * Get platform icon
@@ -23270,7 +24786,7 @@ class SimpleBookmarkPanel {
   async refresh() {
     this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
     this.filterBookmarks();
-    logger.debug(`[SimpleBookmarkPanel] Refreshed: ${this.bookmarks.length} bookmarks`);
+    logger$1.debug(`[SimpleBookmarkPanel] Refreshed: ${this.bookmarks.length} bookmarks`);
     this.refreshContent();
   }
   /**
@@ -23280,8 +24796,8 @@ class SimpleBookmarkPanel {
     if (this.shadowRoot) {
       const content = this.shadowRoot.querySelector(".bookmarks-tab .content");
       if (content) {
-        content.innerHTML = this.renderBookmarkList();
-        this.bindBookmarkListeners();
+        content.innerHTML = this.renderTreeView();
+        this.bindTreeEventListeners();
       }
       const header = this.shadowRoot.querySelector("h2");
       if (header) {
@@ -23326,7 +24842,12 @@ class SimpleBookmarkPanel {
     this.shadowRoot?.querySelector(".batch-delete-btn")?.addEventListener("click", () => {
       this.handleBatchDelete();
     });
+    this.shadowRoot?.querySelector(".new-folder-btn")?.addEventListener("click", () => {
+      this.showCreateFolderInput(null);
+    });
     this.bindBookmarkListeners();
+    this.bindTreeEventListeners();
+    this.setupTreeKeyboardNavigation();
   }
   /**
    * Bind listeners for bookmark list items
@@ -23388,6 +24909,350 @@ class SimpleBookmarkPanel {
         this.updateBatchDeleteButton();
       });
     });
+  }
+  /**
+   * Bind event listeners for tree interactions
+   * Reference: VS Code Explorer event handling
+   */
+  bindTreeEventListeners() {
+    this.shadowRoot?.querySelectorAll(".folder-item").forEach((item) => {
+      item.addEventListener("click", (e) => {
+        const target = e.target;
+        if (target.classList.contains("item-checkbox") || target.closest(".item-actions")) {
+          return;
+        }
+        const path = item.dataset.path;
+        this.toggleFolder(path);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".folder-checkbox").forEach((checkbox) => {
+      checkbox.addEventListener("change", (e) => {
+        const path = e.target.dataset.path;
+        const checked = e.target.checked;
+        this.selectFolderRecursive(path, checked);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".bookmark-checkbox").forEach((checkbox) => {
+      checkbox.addEventListener("change", (e) => {
+        const key = e.target.dataset.key;
+        const checked = e.target.checked;
+        if (checked) {
+          this.selectedBookmarks.add(key);
+        } else {
+          this.selectedBookmarks.delete(key);
+        }
+        this.updateBatchDeleteButton();
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".add-subfolder").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const path = btn.dataset.path;
+        const depth = parseInt(btn.dataset.depth || "0");
+        if (depth >= 2) {
+          alert("❌ Cannot create subfolder: Maximum folder depth is 3 levels.\n\nPlease create a new root folder or organize within existing folders.");
+          return;
+        }
+        this.showCreateFolderInput(path);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".rename-folder").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folderItem = e.target.closest(".folder-item");
+        const path = folderItem.dataset.path;
+        this.showRenameFolderInput(path);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".delete-folder").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const folderItem = e.target.closest(".folder-item");
+        const path = folderItem.dataset.path;
+        await this.handleDeleteFolder(path);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".preview-bookmark").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const bookmarkItem = e.target.closest(".bookmark-item");
+        const url = bookmarkItem.dataset.url;
+        const position = parseInt(bookmarkItem.dataset.position);
+        this.showDetailModal(url, position);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".edit-bookmark").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const bookmarkItem = e.target.closest(".bookmark-item");
+        const url = bookmarkItem.dataset.url;
+        const position = parseInt(bookmarkItem.dataset.position);
+        this.handleEdit(url, position);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".delete-bookmark").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const bookmarkItem = e.target.closest(".bookmark-item");
+        const url = bookmarkItem.dataset.url;
+        const position = parseInt(bookmarkItem.dataset.position);
+        await this.handleDelete(url, position);
+      });
+    });
+    this.shadowRoot?.querySelector(".create-first-folder")?.addEventListener("click", () => {
+      this.showCreateFolderInput(null);
+    });
+  }
+  /**
+   * Toggle folder expand/collapse
+   */
+  async toggleFolder(path) {
+    this.folderState.toggleExpand(path);
+    this.folderState.setSelectedPath(path);
+    await this.folderState.saveLastSelected(path);
+    await this.refreshTreeView();
+  }
+  /**
+   * Select folder and all children recursively
+   * Reference: VS Code folder selection
+   */
+  selectFolderRecursive(path, checked) {
+    const bookmarksInFolder = this.bookmarks.filter(
+      (b) => b.folderPath === path || b.folderPath?.startsWith(path + "/")
+    );
+    bookmarksInFolder.forEach((bookmark) => {
+      const key = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+      if (checked) {
+        this.selectedBookmarks.add(key);
+      } else {
+        this.selectedBookmarks.delete(key);
+      }
+    });
+    this.updateBatchDeleteButton();
+    this.refreshTreeView();
+  }
+  /**
+   * Setup keyboard navigation
+   * Reference: ARIA tree view pattern
+   */
+  setupTreeKeyboardNavigation() {
+    this.shadowRoot?.addEventListener("keydown", (e) => {
+      const evt = e;
+      const target = e.target;
+      if (!target.classList.contains("tree-item")) return;
+      switch (evt.key) {
+        case "ArrowDown":
+          evt.preventDefault();
+          this.focusNextTreeItem(target);
+          break;
+        case "ArrowUp":
+          evt.preventDefault();
+          this.focusPreviousTreeItem(target);
+          break;
+        case "ArrowRight":
+          evt.preventDefault();
+          if (target.classList.contains("folder-item")) {
+            const path = target.dataset.path;
+            this.expandFolder(path);
+          }
+          break;
+        case "ArrowLeft":
+          evt.preventDefault();
+          if (target.classList.contains("folder-item")) {
+            const path = target.dataset.path;
+            this.collapseFolder(path);
+          }
+          break;
+        case "Enter":
+        case " ":
+          evt.preventDefault();
+          target.click();
+          break;
+      }
+    });
+  }
+  focusNextTreeItem(current) {
+    const items = Array.from(this.shadowRoot?.querySelectorAll(".tree-item") || []);
+    const currentIndex = items.indexOf(current);
+    if (currentIndex < items.length - 1) {
+      items[currentIndex + 1].focus();
+    }
+  }
+  focusPreviousTreeItem(current) {
+    const items = Array.from(this.shadowRoot?.querySelectorAll(".tree-item") || []);
+    const currentIndex = items.indexOf(current);
+    if (currentIndex > 0) {
+      items[currentIndex - 1].focus();
+    }
+  }
+  async expandFolder(path) {
+    if (!this.folderState.isExpanded(path)) {
+      this.folderState.toggleExpand(path);
+      await this.refreshTreeView();
+    }
+  }
+  async collapseFolder(path) {
+    if (this.folderState.isExpanded(path)) {
+      this.folderState.toggleExpand(path);
+      await this.refreshTreeView();
+    }
+  }
+  /**
+   * Refresh tree view (re-render)
+   */
+  async refreshTreeView() {
+    const content = this.shadowRoot?.querySelector(".bookmarks-tab .content");
+    if (content) {
+      content.innerHTML = this.renderTreeView();
+      this.bindTreeEventListeners();
+    }
+  }
+  /**
+   * Show inline editing for new folder creation
+   * Reference: VS Code new folder inline creation
+   */
+  showCreateFolderInput(parentPath) {
+    const name = prompt("Enter folder name:");
+    if (!name) return;
+    if (name.length > 50) {
+      alert("Folder name must be 50 characters or less");
+      return;
+    }
+    if (name.includes("/")) {
+      alert('Folder name cannot contain "/"');
+      return;
+    }
+    this.handleCreateFolder(parentPath, name);
+  }
+  async handleCreateFolder(parentPath, name) {
+    const newPath = parentPath ? `${parentPath}/${name}` : name;
+    const newDepth = PathUtils.getDepth(newPath);
+    if (newDepth > 3) {
+      alert(`❌ Cannot create folder: Maximum folder depth is 3 levels.
+
+Current path would be: ${newPath}
+Depth: ${newDepth}
+
+Please create a new root folder or organize within existing folders.`);
+      logger$1.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit for path: ${newPath}`);
+      return;
+    }
+    const result = await this.folderOpsManager.createFolder(parentPath || "", name);
+    if (result.success) {
+      this.folders = await FolderStorage.getAll();
+      if (parentPath) {
+        this.folderState.toggleExpand(parentPath);
+      }
+      await this.refreshTreeView();
+      logger$1.info(`[Folder] Created successfully`);
+    } else {
+      alert(`Failed to create folder: ${result.error}`);
+      logger$1.error(`[Folder] Create failed:`, result.error);
+    }
+  }
+  /**
+   * Show inline editing for folder rename
+   * Reference: VS Code inline rename
+   */
+  showRenameFolderInput(path) {
+    const folder = this.folders.find((f) => f.path === path);
+    if (!folder) return;
+    const folderItems = this.shadowRoot?.querySelectorAll(".folder-item");
+    if (!folderItems) return;
+    const items = Array.from(folderItems);
+    const targetItem = items.find(
+      (item) => item.dataset.path === path
+    );
+    if (!targetItem) return;
+    const nameSpan = targetItem.querySelector(".folder-name");
+    if (!nameSpan) return;
+    const originalName = folder.name;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = originalName;
+    input.className = "inline-edit-input";
+    input.style.cssText = `
+            width: 100%;
+            padding: 2px 6px;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        `;
+    const parent = nameSpan.parentElement;
+    if (!parent) return;
+    parent.replaceChild(input, nameSpan);
+    input.focus();
+    input.select();
+    const saveEdit = async () => {
+      const newName = input.value.trim();
+      if (!newName || newName === originalName) {
+        parent.replaceChild(nameSpan, input);
+        return;
+      }
+      if (newName.length > 50) {
+        alert("Folder name must be 50 characters or less");
+        input.focus();
+        return;
+      }
+      if (newName.includes("/")) {
+        alert('Folder name cannot contain "/"');
+        input.focus();
+        return;
+      }
+      await this.handleRenameFolder(path, newName);
+    };
+    const cancelEdit = () => {
+      parent.replaceChild(nameSpan, input);
+    };
+    input.addEventListener("blur", saveEdit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveEdit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelEdit();
+      }
+    });
+  }
+  async handleRenameFolder(path, newName) {
+    const result = await this.folderOpsManager.renameFolder(path, newName);
+    if (result.success) {
+      this.folders = await FolderStorage.getAll();
+      this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+      await this.refreshTreeView();
+      logger$1.info(`[Folder] Renamed: ${path} -> ${newName}`);
+    } else {
+      alert(`Failed to rename folder: ${result.error}`);
+      logger$1.error(`[Folder] Rename failed:`, result.error);
+    }
+  }
+  async handleDeleteFolder(path) {
+    const hasBookmarks = this.bookmarks.some(
+      (b) => b.folderPath === path || b.folderPath?.startsWith(path + "/")
+    );
+    const hasSubfolders = this.folders.some(
+      (f) => f.path.startsWith(path + "/")
+    );
+    if (hasBookmarks || hasSubfolders) {
+      alert("Please remove all items before deleting folder");
+      return;
+    }
+    if (!confirm(`Delete folder "${path}"?`)) {
+      return;
+    }
+    const result = await this.folderOpsManager.deleteFolder(path);
+    if (result.success) {
+      this.folders = await FolderStorage.getAll();
+      await this.refreshTreeView();
+      logger$1.info(`[Folder] Deleted: ${path}`);
+    } else {
+      alert(`Failed to delete folder: ${result.error}`);
+      logger$1.error(`[Folder] Delete failed:`, result.error);
+    }
   }
   /**
    * Switch tab
@@ -23452,13 +25317,6 @@ class SimpleBookmarkPanel {
                         <div class="detail-text">${this.escapeHtml(bookmark.aiResponse)}</div>
                     </div>
                 ` : ""}
-
-                ${bookmark.notes ? `
-                    <div class="detail-section">
-                        <h4>📌 Notes</h4>
-                        <div class="detail-text">${this.escapeHtml(bookmark.notes)}</div>
-                    </div>
-                ` : ""}
             </div>
 
             <div class="detail-footer">
@@ -23503,10 +25361,9 @@ class SimpleBookmarkPanel {
     if (!bookmark) return;
     bookmarkEditModal.show(
       bookmark.userMessage,
-      async (title, notes) => {
+      async (title) => {
         await SimpleBookmarkStorage.updateBookmark(url, position, {
-          title,
-          notes
+          title
         });
         await this.refresh();
       },
@@ -23515,12 +25372,8 @@ class SimpleBookmarkPanel {
     );
     setTimeout(() => {
       const titleInput = document.querySelector("#bookmark-title");
-      const notesInput = document.querySelector("#bookmark-notes");
       if (titleInput && bookmark.title) {
         titleInput.value = bookmark.title;
-      }
-      if (notesInput && bookmark.notes) {
-        notesInput.value = bookmark.notes;
       }
     }, 150);
   }
@@ -23540,10 +25393,10 @@ Tip: You can export your bookmarks first to create a backup.`
     if (!confirmed) return;
     try {
       await SimpleBookmarkStorage.remove(url, position);
-      logger.info(`[SimpleBookmarkPanel] Deleted bookmark at position ${position}`);
+      logger$1.info(`[SimpleBookmarkPanel] Deleted bookmark at position ${position}`);
       await this.refresh();
     } catch (error) {
-      logger.error("[SimpleBookmarkPanel] Failed to delete bookmark:", error);
+      logger$1.error("[SimpleBookmarkPanel] Failed to delete bookmark:", error);
     }
   }
   /**
@@ -23585,11 +25438,11 @@ Tip: You can export your bookmarks first to create a backup.`
         }
       }
       await Promise.all(deletePromises);
-      logger.info(`[SimpleBookmarkPanel] Batch deleted ${this.selectedBookmarks.size} bookmarks`);
+      logger$1.info(`[SimpleBookmarkPanel] Batch deleted ${this.selectedBookmarks.size} bookmarks`);
       this.selectedBookmarks.clear();
       await this.refresh();
     } catch (error) {
-      logger.error("[SimpleBookmarkPanel] Failed to batch delete bookmarks:", error);
+      logger$1.error("[SimpleBookmarkPanel] Failed to batch delete bookmarks:", error);
     }
   }
   /**
@@ -23604,7 +25457,7 @@ Tip: You can export your bookmarks first to create a backup.`
     a.download = `bookmarks-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    logger.info("[SimpleBookmarkPanel] Exported bookmarks");
+    logger$1.info("[SimpleBookmarkPanel] Exported bookmarks");
   }
   /**
    * Handle import
@@ -23620,21 +25473,21 @@ Tip: You can export your bookmarks first to create a backup.`
         const text = await file.text();
         const data = JSON.parse(text);
         const bookmarks = this.validateImportData(data);
-        logger.info(`[Import] Validated ${bookmarks.length} bookmarks`);
+        logger$1.info(`[Import] Validated ${bookmarks.length} bookmarks`);
         const conflicts = await this.detectConflicts(bookmarks);
         if (conflicts.length > 0) {
           const shouldMerge = await this.showConflictDialog(conflicts, bookmarks);
           if (!shouldMerge) {
-            logger.info("[Import] User cancelled import");
+            logger$1.info("[Import] User cancelled import");
             return;
           }
         }
         await this.importBookmarks(bookmarks, false);
         await this.refresh();
         alert(`✅ Successfully imported ${bookmarks.length} bookmark(s)!`);
-        logger.info(`[Import] Successfully imported ${bookmarks.length} bookmarks`);
+        logger$1.info(`[Import] Successfully imported ${bookmarks.length} bookmarks`);
       } catch (error) {
-        logger.error("[Import] Failed:", error);
+        logger$1.error("[Import] Failed:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         alert(`❌ Import failed: ${errorMessage}`);
       }
@@ -23655,11 +25508,11 @@ Tip: You can export your bookmarks first to create a backup.`
         validBookmarks.push(item);
       } else {
         errors.push(`Invalid bookmark at index ${index}`);
-        logger.warn(`[Import] Invalid bookmark at index ${index}:`, item);
+        logger$1.warn(`[Import] Invalid bookmark at index ${index}:`, item);
       }
     });
     if (errors.length > 0) {
-      logger.warn(`[Import] ${errors.length} invalid bookmarks skipped`);
+      logger$1.warn(`[Import] ${errors.length} invalid bookmarks skipped`);
     }
     if (validBookmarks.length === 0) {
       throw new Error("No valid bookmarks found in file");
@@ -23753,7 +25606,7 @@ Tip: You can export your bookmarks first to create a backup.`
           bookmark.position
         );
         if (exists) {
-          logger.debug(`[Import] Skipping duplicate: ${bookmark.url}:${bookmark.position}`);
+          logger$1.debug(`[Import] Skipping duplicate: ${bookmark.url}:${bookmark.position}`);
           continue;
         }
       }
@@ -23771,7 +25624,7 @@ Tip: You can export your bookmarks first to create a backup.`
       );
     }
     await Promise.all(promises);
-    logger.info(`[Import] Imported ${promises.length} bookmarks`);
+    logger$1.info(`[Import] Imported ${promises.length} bookmarks`);
   }
   /**
    * Setup storage change listener - AITimeline pattern
@@ -23785,12 +25638,12 @@ Tip: You can export your bookmarks first to create a backup.`
         );
         if (bookmarkChanged && this.overlay?.style.display !== "none") {
           this.refresh();
-          logger.debug("[SimpleBookmarkPanel] Auto-refreshed due to storage change");
+          logger$1.debug("[SimpleBookmarkPanel] Auto-refreshed due to storage change");
         }
       }
     };
     chrome.storage.onChanged.addListener(this.storageListener);
-    logger.info("[SimpleBookmarkPanel] Storage listener setup");
+    logger$1.info("[SimpleBookmarkPanel] Storage listener setup");
   }
   /**
    * Smooth scroll to target element - EXACT AITimeline implementation
@@ -24007,6 +25860,53 @@ Tip: You can export your bookmarks first to create a backup.`
                 z-index: 2147483647;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 overflow: hidden;
+            }
+
+            .toolbar {
+                display: flex;
+                gap: 8px;
+                padding: 12px;
+                background: #f9fafb;
+                border-bottom: 1px solid #e5e7eb;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .toolbar-divider {
+                width: 1px;
+                height: 24px;
+                background: #d1d5db;
+                margin: 0 4px;
+            }
+
+            .new-folder-btn,
+            .export-btn,
+            .import-btn {
+                padding: 6px 12px;
+                border: 1px solid #d1d5db;
+                background: white;
+                border-radius: 6px;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+
+            .new-folder-btn:hover,
+            .export-btn:hover,
+            .import-btn:hover {
+                background: #f3f4f6;
+                border-color: #9ca3af;
+            }
+
+            .new-folder-btn {
+                font-weight: 500;
+                color: #3b82f6;
+                border-color: #3b82f6;
+            }
+
+            .new-folder-btn:hover {
+                background: #eff6ff;
             }
 
             /* Sidebar */
@@ -24558,6 +26458,283 @@ Tip: You can export your bookmarks first to create a backup.`
                 background: #2563eb;
             }
 
+            /* ============================================================================
+               Tree View Styles
+               ============================================================================ */
+
+            /* Tree Container */
+            .tree-view {
+                flex: 1;
+                overflow-y: auto;
+                overflow-x: hidden;
+                background: white;
+            }
+
+            /* Custom Scrollbar (macOS-style) */
+            .tree-view::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .tree-view::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .tree-view::-webkit-scrollbar-thumb {
+                background: #d1d5db;
+                border-radius: 4px;
+            }
+
+            .tree-view::-webkit-scrollbar-thumb:hover {
+                background: #9ca3af;
+            }
+
+            /* Tree Item Base */
+            .tree-item {
+                display: flex;
+                align-items: center;
+                min-height: 36px;
+                padding: 6px 12px;
+                border-bottom: 1px solid #f3f4f6;
+                position: relative;
+                cursor: pointer;
+                transition: background-color 0.15s ease;
+                user-select: none;
+            }
+
+            .tree-item:hover {
+                background: #f9fafb;
+            }
+
+            .tree-item:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: -2px;
+                z-index: 1;
+            }
+
+            .tree-item:focus:not(:focus-visible) {
+                outline: none;
+            }
+
+            /* Folder Styles */
+            .folder-item {
+                font-weight: 500;
+                background: #fafafa;
+            }
+
+            .folder-item.selected {
+                background: #eff6ff;
+                border-left: 3px solid #3b82f6;
+            }
+
+            .folder-icon {
+                font-size: 16px;
+                margin-right: 8px;
+                flex-shrink: 0;
+            }
+
+            .folder-name {
+                flex: 1;
+                font-size: 14px;
+                color: #111827;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* Bookmark Styles */
+            .bookmark-item {
+                background: white;
+            }
+
+            .platform-icon {
+                font-size: 16px;
+                margin-right: 8px;
+                flex-shrink: 0;
+            }
+
+            .bookmark-title {
+                flex: 1;
+                font-size: 13px;
+                color: #374151;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                padding-right: 220px; /* Reserve space for timestamp + actions */
+            }
+
+            .bookmark-timestamp {
+                position: absolute;
+                right: 120px; /* Space for action buttons */
+                font-size: 11px;
+                color: #9ca3af;
+                pointer-events: none;
+                white-space: nowrap;
+            }
+
+            /* Checkboxes */
+            .item-checkbox {
+                margin-right: 8px;
+                cursor: pointer;
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+
+            .item-checkbox:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: 2px;
+            }
+
+            /* Action Buttons */
+            .item-actions {
+                display: none;
+                gap: 4px;
+                margin-left: auto;
+                flex-shrink: 0;
+            }
+
+            .tree-item:hover .item-actions {
+                display: flex;
+            }
+
+            .action-btn {
+                width: 28px;
+                height: 28px;
+                border: none;
+                background: transparent;
+                cursor: pointer;
+                border-radius: 4px;
+                font-size: 14px;
+                transition: background-color 0.15s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+            }
+
+            .action-btn:hover {
+                background: rgba(0, 0, 0, 0.05);
+            }
+
+            .action-btn:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: -2px;
+            }
+
+            .action-btn.delete-folder:hover,
+            .action-btn.delete-bookmark:hover {
+                background: rgba(239, 68, 68, 0.1);
+                color: #ef4444;
+            }
+
+            /* Empty State */
+            .tree-empty {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 64px 32px;
+                text-align: center;
+                color: #6b7280;
+            }
+
+            .empty-icon {
+                font-size: 48px;
+                margin-bottom: 16px;
+                opacity: 0.5;
+            }
+
+            .tree-empty h3 {
+                margin: 0 0 8px 0;
+                font-size: 16px;
+                font-weight: 600;
+                color: #374151;
+            }
+
+            .tree-empty p {
+                margin: 0 0 24px 0;
+                font-size: 14px;
+                color: #6b7280;
+            }
+
+            .btn-primary,
+            .create-first-folder {
+                padding: 10px 20px;
+                background: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.15s ease;
+            }
+
+            .btn-primary:hover,
+            .create-first-folder:hover {
+                background: #2563eb;
+            }
+
+            /* Responsive & Accessibility */
+            @media (prefers-reduced-motion: reduce) {
+                .tree-item,
+                .action-btn,
+                .create-first-folder {
+                    transition: none;
+                }
+            }
+
+            @media (prefers-contrast: high) {
+                .tree-item {
+                    border: 1px solid transparent;
+                }
+                
+                .tree-item:hover {
+                    border-color: currentColor;
+                }
+                
+                .tree-item.selected {
+                    border: 2px solid #3b82f6;
+                }
+            }
+
+            /* Loading State */
+            .tree-loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+                color: #6b7280;
+            }
+
+            .tree-loading::before {
+                content: '⏳';
+                font-size: 24px;
+                margin-right: 8px;
+                animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+
+            /* Fade in animation for tree items */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-4px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .tree-item {
+                animation: fadeIn 0.2s ease-out;
+            }
+
             @media (prefers-color-scheme: dark) {
                 .panel {
                     background: #1f2937;
@@ -24662,7 +26839,7 @@ class PageHeaderIcon {
   init() {
     this.injectButton();
     this.startObserver();
-    logger.info("[PageHeaderIcon] Initialized");
+    logger$1.info("[PageHeaderIcon] Initialized");
   }
   /**
    * Inject bookmark button into header
@@ -24670,12 +26847,12 @@ class PageHeaderIcon {
   injectButton() {
     const header = document.querySelector("#page-header");
     if (!header) {
-      logger.debug("[PageHeaderIcon] Header not found, will retry");
+      logger$1.debug("[PageHeaderIcon] Header not found, will retry");
       return;
     }
     const actionsContainer = header.querySelector("#conversation-header-actions");
     if (!actionsContainer) {
-      logger.debug("[PageHeaderIcon] Actions container not found");
+      logger$1.debug("[PageHeaderIcon] Actions container not found");
       return;
     }
     if (document.querySelector("#ai-copy-enhance-bookmark-btn")) {
@@ -24683,7 +26860,7 @@ class PageHeaderIcon {
     }
     this.button = this.createButton();
     actionsContainer.insertBefore(this.button, actionsContainer.firstChild);
-    logger.info("[PageHeaderIcon] Button injected into header");
+    logger$1.info("[PageHeaderIcon] Button injected into header");
   }
   /**
    * Create the archive button element matching ChatGPT style
@@ -24711,7 +26888,7 @@ class PageHeaderIcon {
     try {
       await simpleBookmarkPanel.toggle();
     } catch (error) {
-      logger.error("[PageHeaderIcon] Failed to open panel:", error);
+      logger$1.error("[PageHeaderIcon] Failed to open panel:", error);
     }
   }
   /**
@@ -24751,7 +26928,7 @@ class GeminiPanelButton {
    * Initialize and inject the header button
    */
   init() {
-    logger.info("[GeminiPanelButton] Initializing...");
+    logger$1.info("[GeminiPanelButton] Initializing...");
     if (!this.injectButton()) {
       this.retryInjection();
     }
@@ -24762,11 +26939,11 @@ class GeminiPanelButton {
    */
   retryInjection(attempt = 1, maxAttempts = 10) {
     if (attempt > maxAttempts) {
-      logger.error("[GeminiPanelButton] Failed to inject after maximum attempts");
+      logger$1.error("[GeminiPanelButton] Failed to inject after maximum attempts");
       return;
     }
     const delay = Math.min(1e3 * attempt, 5e3);
-    logger.debug(`[GeminiPanelButton] Retrying injection in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+    logger$1.debug(`[GeminiPanelButton] Retrying injection in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
     setTimeout(() => {
       if (!this.injectButton()) {
         this.retryInjection(attempt + 1, maxAttempts);
@@ -24780,16 +26957,16 @@ class GeminiPanelButton {
   injectButton() {
     const logoContainer = document.querySelector("span.bard-logo-container.logo-only");
     if (!logoContainer) {
-      logger.debug("[GeminiPanelButton] Logo container not found");
+      logger$1.debug("[GeminiPanelButton] Logo container not found");
       return false;
     }
     if (document.querySelector("#gemini-bookmark-panel-btn")) {
-      logger.debug("[GeminiPanelButton] Button already exists");
+      logger$1.debug("[GeminiPanelButton] Button already exists");
       return true;
     }
     this.button = this.createButton();
     logoContainer.appendChild(this.button);
-    logger.info("[GeminiPanelButton] Button injected successfully");
+    logger$1.info("[GeminiPanelButton] Button injected successfully");
     return true;
   }
   /**
@@ -24820,7 +26997,7 @@ class GeminiPanelButton {
     try {
       await simpleBookmarkPanel.toggle();
     } catch (error) {
-      logger.error("[GeminiPanelButton] Failed to open panel:", error);
+      logger$1.error("[GeminiPanelButton] Failed to open panel:", error);
     }
   }
   /**
@@ -24865,32 +27042,32 @@ class ContentScript {
   // Navigation check flag - AITimeline pattern
   navigationChecked = false;
   constructor() {
-    logger.setLevel(LogLevel.DEBUG);
+    logger$1.setLevel(LogLevel.INFO);
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
     this.reRenderPanel = new ReRenderPanel();
-    logger.info("AI Copy Enhance initialized");
+    logger$1.info("AI Copy Enhance initialized");
   }
   /**
    * Start the extension
    */
   start() {
     if (!adapterRegistry.isSupported()) {
-      logger.warn("Current page is not supported");
+      logger$1.warn("Current page is not supported");
       return;
     }
     const adapter = adapterRegistry.getAdapter();
     if (!adapter) {
-      logger.error("Failed to get adapter");
+      logger$1.error("Failed to get adapter");
       return;
     }
-    logger.info("Starting extension on supported page");
+    logger$1.info("Starting extension on supported page");
     this.injector = new ToolbarInjector(adapter);
     this.observer = new MessageObserver(adapter, (messageElement) => {
       this.handleNewMessage(messageElement);
     });
     if ("isGemini" in adapter && typeof adapter.isGemini === "function" && adapter.isGemini()) {
-      logger.info("Enabling Deep Research handler for Gemini");
+      logger$1.info("Enabling Deep Research handler for Gemini");
       this.deepResearchHandler = new DeepResearchHandler();
       this.deepResearchHandler.enable();
       geminiPanelButton.init();
@@ -24907,9 +27084,9 @@ class ContentScript {
     try {
       const url = window.location.href;
       this.bookmarkedPositions = await SimpleBookmarkStorage.loadAllPositions(url);
-      logger.info(`[ContentScript] Loaded ${this.bookmarkedPositions.size} bookmarks for current page`);
+      logger$1.info(`[ContentScript] Loaded ${this.bookmarkedPositions.size} bookmarks for current page`);
     } catch (error) {
-      logger.error("[ContentScript] Failed to load bookmarks:", error);
+      logger$1.error("[ContentScript] Failed to load bookmarks:", error);
     }
   }
   /**
@@ -24923,14 +27100,14 @@ class ContentScript {
    * Handle new message detected
    */
   handleNewMessage(messageElement) {
-    logger.debug("Handling new message");
+    logger$1.debug("Handling new message");
     if (!this.navigationChecked) {
       this.navigationChecked = true;
-      logger.info("[ContentScript] First message detected, checking bookmark navigation");
+      logger$1.info("[ContentScript] First message detected, checking bookmark navigation");
       this.checkBookmarkNavigation();
     }
     if (messageElement.querySelector(".aicopy-toolbar-container")) {
-      logger.debug("Toolbar already exists, skipping");
+      logger$1.debug("Toolbar already exists, skipping");
       return;
     }
     const callbacks = {
@@ -24967,14 +27144,14 @@ class ContentScript {
     const adapter = adapterRegistry.getAdapter();
     if (!adapter) return "";
     if (messageElement.tagName.toLowerCase() === "article") {
-      logger.debug("[getMarkdown] Article element detected, parsing entire article");
+      logger$1.debug("[getMarkdown] Article element detected, parsing entire article");
       return this.markdownParser.parse(messageElement);
     }
     const contentSelector = adapter.getMessageContentSelector();
     if (!contentSelector) return "";
     const contentElement = messageElement.querySelector(contentSelector);
     if (!contentElement || !(contentElement instanceof HTMLElement)) {
-      logger.debug("[getMarkdown] Content element not found");
+      logger$1.debug("[getMarkdown] Content element not found");
       return "";
     }
     return this.markdownParser.parse(contentElement);
@@ -25001,7 +27178,7 @@ class ContentScript {
     const url = window.location.href;
     const position = this.getMessagePosition(messageElement);
     if (position === -1) {
-      logger.error("[handleBookmark] Failed to get message position");
+      logger$1.error("[handleBookmark] Failed to get message position");
       return;
     }
     try {
@@ -25009,11 +27186,11 @@ class ContentScript {
         await SimpleBookmarkStorage.remove(url, position);
         this.bookmarkedPositions.delete(position);
         this.updateToolbarState(messageElement, false);
-        logger.info(`[handleBookmark] Removed bookmark at position ${position}`);
+        logger$1.info(`[handleBookmark] Removed bookmark at position ${position}`);
       } else {
         const userMessage = this.getUserMessage(messageElement);
         if (!userMessage) {
-          logger.error("[handleBookmark] Failed to extract user message");
+          logger$1.error("[handleBookmark] Failed to extract user message");
           return;
         }
         const adapter = adapterRegistry.getAdapter();
@@ -25025,15 +27202,15 @@ class ContentScript {
             await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, platform);
             this.bookmarkedPositions.add(position);
             this.updateToolbarState(messageElement, true);
-            logger.info(`[handleBookmark] Saved bookmark at position ${position}`);
+            logger$1.info(`[handleBookmark] Saved bookmark at position ${position}`);
           },
           () => {
-            logger.info("[handleBookmark] Bookmark save cancelled");
+            logger$1.info("[handleBookmark] Bookmark save cancelled");
           }
         );
       }
     } catch (error) {
-      logger.error("[handleBookmark] Failed to toggle bookmark:", error);
+      logger$1.error("[handleBookmark] Failed to toggle bookmark:", error);
     }
   }
   /**
@@ -25103,24 +27280,29 @@ class ContentScript {
       this.observer.stop();
       this.observer = null;
     }
-    logger.info("Extension stopped");
+    if (this.deepResearchHandler) {
+      this.deepResearchHandler.disable();
+      this.deepResearchHandler = void 0;
+    }
+    logger$1.info("Extension stopped");
   }
 }
 function initExtension() {
-  logger.info("Initializing AI Copy Enhance extension");
-  logger.debug("Document readyState:", document.readyState);
-  logger.debug("Current URL:", window.location.href);
-  const contentScript = new ContentScript();
+  logger$1.info("Initializing AI Copy Enhance extension");
+  logger$1.debug("Document readyState:", document.readyState);
+  logger$1.debug("Current URL:", window.location.href);
+  let contentScript = new ContentScript();
   contentScript.start();
   let lastUrl = window.location.href;
   new MutationObserver(() => {
     const currentUrl = window.location.href;
     if (currentUrl !== lastUrl) {
       lastUrl = currentUrl;
-      logger.info("URL changed, reinitializing:", currentUrl);
+      logger$1.info("URL changed, reinitializing:", currentUrl);
       setTimeout(() => {
-        const newScript = new ContentScript();
-        newScript.start();
+        contentScript?.stop();
+        contentScript = new ContentScript();
+        contentScript.start();
       }, 500);
     }
   }).observe(document.body, { subtree: true, childList: true });
