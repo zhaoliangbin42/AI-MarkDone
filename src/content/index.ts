@@ -9,9 +9,9 @@ import { ReRenderPanel } from './features/re-render';
 import { DeepResearchHandler } from './features/deep-research-handler';
 import { logger, LogLevel } from '../utils/logger';
 import { SimpleBookmarkStorage } from '../bookmarks/storage/SimpleBookmarkStorage';
+import { BookmarkSaveModal } from '../bookmarks/components/BookmarkSaveModal';
 import { pageHeaderIcon } from './components/PageHeaderIcon';
 import { geminiPanelButton } from './components/GeminiPanelButton';
-import { bookmarkEditModal } from '../bookmarks/components/BookmarkEditModal';
 
 /**
  * Main content script controller
@@ -230,7 +230,7 @@ class ContentScript {
                 this.updateToolbarState(messageElement, false);
                 logger.info(`[handleBookmark] Removed bookmark at position ${position}`);
             } else {
-                // Add bookmark - show edit modal first
+                // Add bookmark - show unified save modal
                 const userMessage = this.getUserMessage(messageElement);
                 if (!userMessage) {
                     logger.error('[handleBookmark] Failed to extract user message');
@@ -246,21 +246,40 @@ class ContentScript {
                 // Get AI response (if this is an AI message)
                 const aiResponse = this.getAiResponse(messageElement);
 
-                // Show edit modal
-                bookmarkEditModal.show(
-                    userMessage,
-                    async (title: string) => {
-                        // Save with custom title, notes, and AI response
-                        await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, platform);
+                // Prepare default title (first 50 chars)
+                const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
+
+                // Get last used folder
+                const lastUsedFolder = localStorage.getItem('lastUsedFolder') || 'Import';
+
+                // Show unified save modal
+                const saveModal = new BookmarkSaveModal();
+                saveModal.show({
+                    defaultTitle,
+                    lastUsedFolder,
+                    onSave: async (title, folderPath) => {
+                        // Save bookmark with selected folder
+                        await SimpleBookmarkStorage.save(
+                            url,
+                            position,
+                            userMessage,
+                            aiResponse,
+                            title,
+                            platform,
+                            Date.now(),
+                            folderPath
+                        );
+
+                        // Update state
                         this.bookmarkedPositions.add(position);
                         this.updateToolbarState(messageElement, true);
-                        logger.info(`[handleBookmark] Saved bookmark at position ${position}`);
-                    },
-                    () => {
-                        // Cancelled
-                        logger.info('[handleBookmark] Bookmark save cancelled');
+
+                        // Remember folder
+                        localStorage.setItem('lastUsedFolder', folderPath);
+
+                        logger.info(`[handleBookmark] Saved "${title}" to "${folderPath}"`);
                     }
-                );
+                });
             }
         } catch (error) {
             logger.error('[handleBookmark] Failed to toggle bookmark:', error);

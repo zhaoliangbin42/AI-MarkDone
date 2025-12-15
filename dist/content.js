@@ -22798,285 +22798,6 @@ const SimpleBookmarkStorage$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.d
   SimpleBookmarkStorage
 }, Symbol.toStringTag, { value: 'Module' }));
 
-class BookmarkEditModal {
-  overlay = null;
-  modal = null;
-  onSave = null;
-  onCancel = null;
-  escKeyHandler = null;
-  /**
-   * Show edit modal
-   */
-  show(userMessage, onSave, onCancel) {
-    this.onSave = onSave;
-    this.onCancel = onCancel;
-    this.overlay = document.createElement("div");
-    this.overlay.className = "bookmark-edit-modal-overlay";
-    this.overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 2147483648;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-    this.modal = this.createModal(userMessage);
-    this.overlay.appendChild(this.modal);
-    document.body.appendChild(this.overlay);
-    this.overlay.addEventListener("click", (e) => {
-      if (e.target === this.overlay) {
-        this.handleCancel();
-      }
-    });
-    this.escKeyHandler = (e) => {
-      if (e.key === "Escape") {
-        this.handleCancel();
-      }
-    };
-    document.addEventListener("keydown", this.escKeyHandler);
-    setTimeout(() => {
-      const titleInput = this.modal?.querySelector("#bookmark-title");
-      if (titleInput) {
-        titleInput.focus();
-        titleInput.select();
-      }
-    }, 100);
-  }
-  /**
-   * Create modal structure
-   */
-  createModal(userMessage) {
-    const modal = document.createElement("div");
-    modal.className = "bookmark-edit-modal";
-    modal.style.cssText = `
-            position: relative;
-            width: 90%;
-            max-width: 500px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        `;
-    modal.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
-    const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? "..." : "");
-    modal.innerHTML = `
-            <style>
-                .bookmark-edit-modal * {
-                    box-sizing: border-box;
-                }
-                .bookmark-edit-modal-header {
-                    padding: 20px 24px;
-                    border-bottom: 1px solid #e5e7eb;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .bookmark-edit-modal-header h2 {
-                    margin: 0;
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #111827;
-                }
-                .bookmark-edit-modal-close-btn {
-                    background: none;
-                    border: none;
-                    font-size: 28px;
-                    color: #6b7280;
-                    cursor: pointer;
-                    padding: 0;
-                    width: 32px;
-                    height: 32px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 6px;
-                    transition: all 0.2s;
-                }
-                .bookmark-edit-modal-close-btn:hover {
-                    background: #f3f4f6;
-                    color: #111827;
-                }
-                .bookmark-edit-modal-body {
-                    padding: 24px;
-                }
-                .bookmark-edit-modal-form-group {
-                    margin-bottom: 20px;
-                }
-                .bookmark-edit-modal-form-group label {
-                    display: block;
-                    margin-bottom: 8px;
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: #374151;
-                }
-                .bookmark-edit-modal-form-group input,
-                .bookmark-edit-modal-form-group textarea {
-                    width: 100%;
-                    padding: 10px 12px;
-                    border: 1px solid #d1d5db;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-family: inherit;
-                    transition: all 0.2s;
-                }
-                .bookmark-edit-modal-form-group input:focus,
-                .bookmark-edit-modal-form-group textarea:focus {
-                    outline: none;
-                    border-color: #3b82f6;
-                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-                }
-                .bookmark-edit-modal-preview-group {
-                    margin-top: 20px;
-                    padding: 16px;
-                    background: #f9fafb;
-                    border-radius: 8px;
-                }
-                .bookmark-edit-modal-preview-group label {
-                    display: block;
-                    margin-bottom: 8px;
-                    font-size: 12px;
-                    font-weight: 500;
-                    color: #6b7280;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .bookmark-edit-modal-preview-text {
-                    font-size: 14px;
-                    color: #374151;
-                    line-height: 1.5;
-                    max-height: 100px;
-                    overflow-y: auto;
-                }
-                .bookmark-edit-modal-footer {
-                    padding: 16px 24px;
-                    border-top: 1px solid #e5e7eb;
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 12px;
-                }
-                .bookmark-edit-modal-btn {
-                    padding: 10px 20px;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    border: none;
-                }
-                .bookmark-edit-modal-btn-cancel {
-                    background: #f3f4f6;
-                    color: #374151;
-                }
-                .bookmark-edit-modal-btn-cancel:hover {
-                    background: #e5e7eb;
-                }
-                .bookmark-edit-modal-btn-save {
-                    background: #3b82f6;
-                    color: white;
-                }
-                .bookmark-edit-modal-btn-save:hover {
-                    background: #2563eb;
-                }
-            </style>
-            <div class="bookmark-edit-modal-header">
-                <h2>📌 Save Bookmark</h2>
-                <button class="bookmark-edit-modal-close-btn" aria-label="Close">×</button>
-            </div>
-            <div class="bookmark-edit-modal-body">
-                <div class="bookmark-edit-modal-form-group">
-                    <label for="bookmark-title">Title</label>
-                    <input 
-                        type="text" 
-                        id="bookmark-title" 
-                        value="${this.escapeHtml(defaultTitle)}"
-                        placeholder="Enter bookmark title..."
-                    />
-                </div>
-                <div class="bookmark-edit-modal-form-group">
-                    <label for="bookmark-notes">Notes (Optional)</label>
-                    <textarea 
-                        id="bookmark-notes" 
-                        rows="3"
-                        placeholder="Add any notes about this bookmark..."
-                    ></textarea>
-                </div>
-                <div class="bookmark-edit-modal-preview-group">
-                    <label>User Message Preview</label>
-                    <div class="bookmark-edit-modal-preview-text">${this.escapeHtml(userMessage)}</div>
-                </div>
-            </div>
-            <div class="bookmark-edit-modal-footer">
-                <button class="bookmark-edit-modal-btn bookmark-edit-modal-btn-cancel">Cancel</button>
-                <button class="bookmark-edit-modal-btn bookmark-edit-modal-btn-save">Save Bookmark</button>
-            </div>
-        `;
-    this.bindEvents(modal);
-    return modal;
-  }
-  /**
-   * Bind event listeners
-   */
-  bindEvents(modal) {
-    modal.querySelector(".bookmark-edit-modal-close-btn")?.addEventListener("click", () => this.handleCancel());
-    modal.querySelector(".bookmark-edit-modal-btn-cancel")?.addEventListener("click", () => this.handleCancel());
-    modal.querySelector(".bookmark-edit-modal-btn-save")?.addEventListener("click", () => this.handleSave());
-    modal.querySelector("#bookmark-title")?.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") this.handleSave();
-    });
-  }
-  /**
-   * Handle save
-   */
-  handleSave() {
-    const titleInput = this.modal?.querySelector("#bookmark-title");
-    const notesTextarea = this.modal?.querySelector("#bookmark-notes");
-    const title = titleInput?.value.trim() || "";
-    const notes = notesTextarea?.value.trim() || "";
-    if (this.onSave) {
-      this.onSave(title, notes);
-    }
-    this.close();
-  }
-  /**
-   * Handle cancel
-   */
-  handleCancel() {
-    if (this.onCancel) {
-      this.onCancel();
-    }
-    this.close();
-  }
-  /**
-   * Close modal
-   */
-  close() {
-    if (this.escKeyHandler) {
-      document.removeEventListener("keydown", this.escKeyHandler);
-      this.escKeyHandler = null;
-    }
-    if (this.overlay) {
-      this.overlay.remove();
-      this.overlay = null;
-      this.modal = null;
-    }
-  }
-  /**
-   * Escape HTML to prevent XSS
-   */
-  escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-  }
-}
-const bookmarkEditModal = new BookmarkEditModal();
-
 class PathValidationError extends Error {
   constructor(message, path) {
     super(message);
@@ -23776,6 +23497,926 @@ class FolderStorage {
   }
 }
 
+class TreeBuilder {
+  /**
+   * Build folder tree from flat folder list
+   * 
+   * Algorithm:
+   * 1. Sort folders alphabetically by path
+   * 2. Create tree nodes for each folder
+   * 3. Attach nodes to parents or root
+   * 4. Attach bookmarks to folders
+   * 5. Sort recursively
+   * 
+   * @param folders Flat list of folders
+   * @param bookmarks All bookmarks
+   * @param expandedPaths Set of expanded folder paths
+   * @param selectedPath Currently selected folder path
+   * @returns Root-level tree nodes
+   */
+  static buildTree(folders, bookmarks, expandedPaths = /* @__PURE__ */ new Set(), selectedPath = null) {
+    const sortedFolders = [...folders].sort(
+      (a, b) => a.path.localeCompare(b.path, void 0, { sensitivity: "base" })
+    );
+    const rootNodes = [];
+    const nodeMap = /* @__PURE__ */ new Map();
+    for (const folder of sortedFolders) {
+      const node = {
+        folder,
+        children: [],
+        bookmarks: this.getBookmarksForFolder(folder.path, bookmarks),
+        isExpanded: expandedPaths.has(folder.path),
+        isSelected: folder.path === selectedPath
+      };
+      nodeMap.set(folder.path, node);
+      const parentPath = PathUtils.getParentPath(folder.path);
+      if (parentPath && nodeMap.has(parentPath)) {
+        nodeMap.get(parentPath).children.push(node);
+      } else {
+        rootNodes.push(node);
+      }
+    }
+    this.sortTreeNodes(rootNodes);
+    return rootNodes;
+  }
+  /**
+   * Get bookmarks for a specific folder (non-recursive)
+   * 
+   * @param folderPath Folder path
+   * @param bookmarks All bookmarks
+   * @returns Bookmarks in this folder only (not subfolders)
+   */
+  static getBookmarksForFolder(folderPath, bookmarks) {
+    return bookmarks.filter((b) => b.folderPath === folderPath).sort((a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" }));
+  }
+  /**
+   * Sort tree nodes recursively (alphabetical by folder name)
+   * 
+   * @param nodes Tree nodes to sort
+   */
+  static sortTreeNodes(nodes) {
+    nodes.sort(
+      (a, b) => a.folder.name.localeCompare(b.folder.name, void 0, { sensitivity: "base" })
+    );
+    for (const node of nodes) {
+      if (node.children.length > 0) {
+        this.sortTreeNodes(node.children);
+      }
+      if (node.bookmarks.length > 0) {
+        node.bookmarks.sort(
+          (a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" })
+        );
+      }
+    }
+  }
+  /**
+   * Flatten tree to list of all nodes (depth-first)
+   * 
+   * Useful for search and filtering operations.
+   * 
+   * @param nodes Root nodes
+   * @returns Flat list of all nodes
+   */
+  static flattenTree(nodes) {
+    const result = [];
+    for (const node of nodes) {
+      result.push(node);
+      if (node.children.length > 0) {
+        result.push(...this.flattenTree(node.children));
+      }
+    }
+    return result;
+  }
+  /**
+   * Find path to a specific node (for auto-expand)
+   * 
+   * Returns array of folder paths from root to target.
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Target folder path
+   * @returns Array of paths to expand, or empty if not found
+   */
+  static findPathToNode(nodes, targetPath) {
+    for (const node of nodes) {
+      if (node.folder.path === targetPath) {
+        return [targetPath];
+      }
+      if (node.children.length > 0) {
+        const childPath = this.findPathToNode(node.children, targetPath);
+        if (childPath.length > 0) {
+          return [node.folder.path, ...childPath];
+        }
+      }
+    }
+    return [];
+  }
+  /**
+   * Find node by path
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Target folder path
+   * @returns Node or null if not found
+   */
+  static findNode(nodes, targetPath) {
+    for (const node of nodes) {
+      if (node.folder.path === targetPath) {
+        return node;
+      }
+      if (node.children.length > 0) {
+        const found = this.findNode(node.children, targetPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  /**
+   * Count total bookmarks in tree (recursive)
+   * 
+   * @param nodes Root nodes
+   * @returns Total bookmark count
+   */
+  static countBookmarks(nodes) {
+    let count = 0;
+    for (const node of nodes) {
+      count += node.bookmarks.length;
+      if (node.children.length > 0) {
+        count += this.countBookmarks(node.children);
+      }
+    }
+    return count;
+  }
+  /**
+   * Get all bookmarks from tree (flattened)
+   * 
+   * @param nodes Root nodes
+   * @returns All bookmarks in tree
+   */
+  static getAllBookmarks(nodes) {
+    const bookmarks = [];
+    for (const node of nodes) {
+      bookmarks.push(...node.bookmarks);
+      if (node.children.length > 0) {
+        bookmarks.push(...this.getAllBookmarks(node.children));
+      }
+    }
+    return bookmarks;
+  }
+  /**
+   * Filter tree by search query
+   * 
+   * Returns new tree with only matching nodes.
+   * Automatically expands paths to matching bookmarks.
+   * 
+   * @param nodes Root nodes
+   * @param query Search query (case-insensitive)
+   * @returns Filtered tree
+   */
+  static filterTree(nodes, query) {
+    if (!query || query.trim().length === 0) {
+      return nodes;
+    }
+    const lowerQuery = query.toLowerCase();
+    const filteredNodes = [];
+    for (const node of nodes) {
+      const matchingBookmarks = node.bookmarks.filter(
+        (b) => b.title.toLowerCase().includes(lowerQuery) || b.userMessage.toLowerCase().includes(lowerQuery) || b.aiResponse && b.aiResponse.toLowerCase().includes(lowerQuery)
+      );
+      const filteredChildren = this.filterTree(node.children, query);
+      if (matchingBookmarks.length > 0 || filteredChildren.length > 0) {
+        filteredNodes.push({
+          ...node,
+          bookmarks: matchingBookmarks,
+          children: filteredChildren,
+          isExpanded: true
+          // Auto-expand when filtering
+        });
+      }
+    }
+    return filteredNodes;
+  }
+  /**
+   * Update node state (expand/collapse, select)
+   * 
+   * Returns new tree with updated state.
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Path of node to update
+   * @param updates State updates
+   * @returns New tree with updated state
+   */
+  static updateNodeState(nodes, targetPath, updates) {
+    return nodes.map((node) => {
+      if (node.folder.path === targetPath) {
+        return { ...node, ...updates };
+      }
+      if (node.children.length > 0) {
+        return {
+          ...node,
+          children: this.updateNodeState(node.children, targetPath, updates)
+        };
+      }
+      return node;
+    });
+  }
+  /**
+   * Expand path to specific folder
+   * 
+   * Returns new tree with all ancestors expanded.
+   * 
+   * @param nodes Root nodes
+   * @param targetPath Path to expand to
+   * @returns New tree with path expanded
+   */
+  static expandPathTo(nodes, targetPath) {
+    const pathToExpand = this.findPathToNode(nodes, targetPath);
+    let updatedNodes = nodes;
+    for (const path of pathToExpand) {
+      updatedNodes = this.updateNodeState(updatedNodes, path, { isExpanded: true });
+    }
+    return updatedNodes;
+  }
+  /**
+   * Collapse all nodes
+   * 
+   * @param nodes Root nodes
+   * @returns New tree with all nodes collapsed
+   */
+  static collapseAll(nodes) {
+    return nodes.map((node) => ({
+      ...node,
+      isExpanded: false,
+      children: node.children.length > 0 ? this.collapseAll(node.children) : []
+    }));
+  }
+}
+
+class BookmarkSaveModal {
+  overlay = null;
+  modal = null;
+  // State
+  folders = [];
+  selectedPath = null;
+  expandedPaths = /* @__PURE__ */ new Set();
+  title = "";
+  titleValid = true;
+  // Callbacks
+  onSave = null;
+  escKeyHandler = null;
+  /**
+   * Show save modal
+   */
+  async show(options) {
+    const mode = options.mode || "create";
+    this.onSave = options.onSave;
+    this.title = options.defaultTitle;
+    this.selectedPath = mode === "edit" ? options.currentFolder || null : options.lastUsedFolder || null;
+    this.folders = await FolderStorage.getAll();
+    logger$1.debug(`[BookmarkSaveModal] Loaded ${this.folders.length} folders`);
+    if (this.selectedPath) {
+      this.expandPathToFolder(this.selectedPath);
+    }
+    this.overlay = document.createElement("div");
+    this.overlay.className = "bookmark-save-modal-overlay";
+    this.overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease-out;
+        `;
+    this.modal = this.createModal();
+    this.overlay.appendChild(this.modal);
+    document.body.appendChild(this.overlay);
+    this.overlay.addEventListener("click", (e) => {
+      if (e.target === this.overlay) {
+        this.hide();
+      }
+    });
+    this.escKeyHandler = (e) => {
+      if (e.key === "Escape") {
+        this.hide();
+      }
+    };
+    document.addEventListener("keydown", this.escKeyHandler);
+    this.renderFolderTree();
+    const headerText = mode === "edit" ? "Edit Bookmark" : "Save Bookmark";
+    const header = this.modal.querySelector(".save-modal-header h2");
+    if (header) {
+      header.textContent = headerText;
+    }
+    setTimeout(() => {
+      const titleInput = this.modal?.querySelector(".title-input");
+      if (titleInput) {
+        titleInput.select();
+      }
+    }, 100);
+    logger$1.info("[BookmarkSaveModal] Modal shown");
+  }
+  /**
+   * Hide and cleanup modal
+   */
+  hide() {
+    if (this.overlay && this.overlay.parentNode) {
+      this.overlay.remove();
+    }
+    if (this.escKeyHandler) {
+      document.removeEventListener("keydown", this.escKeyHandler);
+      this.escKeyHandler = null;
+    }
+    this.overlay = null;
+    this.modal = null;
+    this.onSave = null;
+    logger$1.debug("[BookmarkSaveModal] Modal hidden");
+  }
+  /**
+   * Create modal structure
+   */
+  createModal() {
+    const modal = document.createElement("div");
+    modal.className = "bookmark-save-modal";
+    modal.style.cssText = `
+            position: relative;
+            width: 90%;
+            max-width: 550px;
+            max-height: 85vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.2s ease-out;
+        `;
+    modal.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    modal.innerHTML = `
+            <style>
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                
+                @keyframes slideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-20px) scale(0.95);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+
+                .bookmark-save-modal * {
+                    box-sizing: border-box;
+                }
+
+                /* Header */
+                .save-modal-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #e5e7eb;
+                }
+
+                .save-modal-header h2 {
+                    margin: 0;
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #111827;
+                }
+
+                .save-modal-close-btn {
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    color: #6b7280;
+                    cursor: pointer;
+                    padding: 0;
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 6px;
+                    transition: all 0.15s ease;
+                }
+
+                .save-modal-close-btn:hover {
+                    background: #f3f4f6;
+                    color: #111827;
+                }
+
+                /* Body */
+                .save-modal-body {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 20px;
+                }
+
+                /* Title Section */
+                .title-section {
+                    margin-bottom: 20px;
+                }
+
+                .title-label {
+                    display: block;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #374151;
+                    margin-bottom: 8px;
+                }
+
+                .title-input {
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    transition: all 0.15s ease;
+                    outline: none;
+                }
+
+                .title-input:focus {
+                    border-color: #3b82f6;
+                }
+
+                .title-input.error {
+                    border-color: #ef4444;
+                }
+
+                .title-error {
+                    color: #ef4444;
+                    font-size: 13px;
+                    margin-top: 4px;
+                    display: none;
+                }
+
+                .title-error.visible {
+                    display: block;
+                }
+
+                /* Folder Section */
+                .folder-section {
+                    margin-bottom: 20px;
+                }
+
+                .folder-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                }
+
+                .folder-label {
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #374151;
+                }
+
+                .new-folder-btn {
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.15s ease;
+                }
+
+                .new-folder-btn:hover {
+                    background: #2563eb;
+                }
+
+                .folder-tree-container {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 6px;
+                    height: 300px;
+                    overflow-y: auto;
+                    background: #f9fafb;
+                }
+
+                .folder-tree-body {
+                    padding: 8px 0;
+                }
+
+                .folder-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 8px 12px;
+                    cursor: pointer;
+                    transition: background 0.15s ease;
+                    user-select: none;
+                    position: relative;
+                }
+
+                .folder-item:hover {
+                    background: #f3f4f6;
+                }
+
+                .folder-item.selected {
+                    background: #dbeafe;
+                }
+
+                .folder-item.selected:hover {
+                    background: #bfdbfe;
+                }
+
+                .folder-icon {
+                    margin-right: 8px;
+                    font-size: 16px;
+                }
+
+                .folder-name {
+                    flex: 1;
+                    font-size: 14px;
+                    color: #111827;
+                }
+
+                .folder-check {
+                    color: #3b82f6;
+                    font-weight: 600;
+                    margin-left: 8px;
+                }
+
+                .folder-add-btn {
+                    position: absolute;
+                    right: 8px;
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    opacity: 0;
+                    transition: opacity 0.15s;
+                    font-size: 16px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .folder-item:hover .folder-add-btn {
+                    opacity: 1;
+                }
+
+                .folder-empty {
+                    padding: 40px 20px;
+                    text-align: center;
+                    color: #6b7280;
+                }
+
+                .folder-empty-icon {
+                    font-size: 48px;
+                    margin-bottom: 12px;
+                }
+
+                .folder-empty-text {
+                    font-size: 14px;
+                }
+
+                /* Footer */
+                .save-modal-footer {
+                    display: flex;
+                    gap: 8px;
+                    justify-content: flex-end;
+                    padding: 16px 20px;
+                    border-top: 1px solid #e5e7eb;
+                }
+
+                .save-modal-btn {
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    border: none;
+                }
+
+                .save-modal-btn-cancel {
+                    background: #f3f4f6;
+                    color: #374151;
+                }
+
+                .save-modal-btn-cancel:hover {
+                    background: #e5e7eb;
+                }
+
+                .save-modal-btn-save {
+                    background: #3b82f6;
+                    color: white;
+                }
+
+                .save-modal-btn-save:hover:not(:disabled) {
+                    background: #2563eb;
+                }
+
+                .save-modal-btn-save:disabled {
+                    background: #9ca3af;
+                    cursor: not-allowed;
+                    opacity: 0.6;
+                }
+            </style>
+
+            <div class="save-modal-header">
+                <h2>Save Bookmark</h2>
+                <button class="save-modal-close-btn" aria-label="Close">×</button>
+            </div>
+
+            <div class="save-modal-body">
+                <!-- Title Section -->
+                <div class="title-section">
+                    <label class="title-label">Title</label>
+                    <input type="text" 
+                           class="title-input" 
+                           value="${this.escapeAttr(this.title)}"
+                           maxlength="100"
+                           placeholder="Enter bookmark title...">
+                    <div class="title-error"></div>
+                </div>
+
+                <!-- Folder Section -->
+                <div class="folder-section">
+                    <div class="folder-header">
+                        <span class="folder-label">Folder</span>
+                        <button class="new-folder-btn">+ New Folder</button>
+                    </div>
+                    <div class="folder-tree-container">
+                        <div class="folder-tree-body">
+                            <div class="folder-empty">
+                                <div class="folder-empty-icon">📁</div>
+                                <div class="folder-empty-text">Loading folders...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="save-modal-footer">
+                <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
+                <button class="save-modal-btn save-modal-btn-save" disabled>Save</button>
+            </div>
+        `;
+    this.bindEvents(modal);
+    return modal;
+  }
+  /**
+   * Bind event listeners
+   */
+  bindEvents(modal) {
+    const closeBtn = modal.querySelector(".save-modal-close-btn");
+    closeBtn?.addEventListener("click", () => this.hide());
+    const cancelBtn = modal.querySelector(".save-modal-btn-cancel");
+    cancelBtn?.addEventListener("click", () => this.hide());
+    const saveBtn = modal.querySelector(".save-modal-btn-save");
+    saveBtn?.addEventListener("click", () => this.handleSave());
+    const titleInput = modal.querySelector(".title-input");
+    titleInput?.addEventListener("input", (e) => this.handleTitleInput(e));
+    const newFolderBtn = modal.querySelector(".new-folder-btn");
+    newFolderBtn?.addEventListener("click", () => this.showCreateRootFolderInput());
+  }
+  /**
+   * Handle title input with validation
+   */
+  handleTitleInput(e) {
+    const input = e.target;
+    this.title = input.value;
+    const validation = this.validateTitle(this.title);
+    this.titleValid = validation.valid;
+    const errorDiv = this.modal?.querySelector(".title-error");
+    if (!errorDiv) return;
+    if (!validation.valid) {
+      input.classList.add("error");
+      errorDiv.textContent = validation.error;
+      errorDiv.classList.add("visible");
+    } else {
+      input.classList.remove("error");
+      errorDiv.classList.remove("visible");
+    }
+    this.updateSaveButtonState();
+  }
+  /**
+   * Validate title
+   */
+  validateTitle(title) {
+    if (!title || title.trim().length === 0) {
+      return { valid: false, error: "Title is required" };
+    }
+    if (title.length > 100) {
+      return { valid: false, error: `Title too long (${title.length}/100)` };
+    }
+    return { valid: true };
+  }
+  /**
+   * Expand path to folder (auto-expand parent folders)
+   */
+  expandPathToFolder(path) {
+    const segments = path.split("/");
+    let currentPath = "";
+    for (const segment of segments) {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+      this.expandedPaths.add(currentPath);
+    }
+  }
+  /**
+   * Render folder tree
+   */
+  renderFolderTree() {
+    if (!this.modal) return;
+    const treeBody = this.modal.querySelector(".folder-tree-body");
+    if (!treeBody) return;
+    const tree = TreeBuilder.buildTree(this.folders, [], /* @__PURE__ */ new Set(), null);
+    if (tree.length === 0) {
+      treeBody.innerHTML = `
+                <div class="folder-empty">
+                    <div class="folder-empty-icon">📁</div>
+                    <div class="folder-empty-text">No folders yet. Create one to get started!</div>
+                </div>
+            `;
+      return;
+    }
+    treeBody.innerHTML = this.renderTreeNodes(tree, 0);
+    this.bindFolderClickHandlers();
+    this.scrollToSelected();
+  }
+  /**
+   * Render tree nodes recursively
+   */
+  renderTreeNodes(nodes, depth) {
+    return nodes.map((node) => {
+      const isExpanded = this.expandedPaths.has(node.folder.path);
+      const isSelected = node.folder.path === this.selectedPath;
+      const icon = isExpanded ? "📂" : "📁";
+      const indent = depth * 20;
+      const showAddButton = depth < 1;
+      let html = `
+                <div class="folder-item ${isSelected ? "selected" : ""}"
+                     data-path="${this.escapeAttr(node.folder.path)}"
+                     data-depth="${depth}"
+                     style="padding-left: ${indent + 12}px">
+                    <span class="folder-icon">${icon}</span>
+                    <span class="folder-name">${this.escapeHtml(node.folder.name)}</span>
+                    ${isSelected ? '<span class="folder-check">✓</span>' : ""}
+                    ${showAddButton ? `<button class="folder-add-btn" data-parent="${this.escapeAttr(node.folder.path)}" title="Create subfolder">+</button>` : ""}
+                </div>
+            `;
+      if (isExpanded && node.children.length > 0) {
+        html += this.renderTreeNodes(node.children, depth + 1);
+      }
+      return html;
+    }).join("");
+  }
+  /**
+   * Bind folder click handlers
+   */
+  bindFolderClickHandlers() {
+    if (!this.modal) return;
+    const folderItems = this.modal.querySelectorAll(".folder-item");
+    folderItems.forEach((item) => {
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const path = item.dataset.path;
+        this.handleFolderClick(path);
+      });
+    });
+    const addBtns = this.modal.querySelectorAll(".folder-add-btn");
+    addBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const parentPath = btn.dataset.parent;
+        this.showCreateSubfolderInput(parentPath);
+      });
+    });
+  }
+  /**
+   * Handle folder click
+   */
+  handleFolderClick(path) {
+    if (this.expandedPaths.has(path)) {
+      this.expandedPaths.delete(path);
+    } else {
+      this.expandedPaths.add(path);
+    }
+    this.selectedPath = path;
+    this.renderFolderTree();
+    this.updateSaveButtonState();
+    logger$1.debug(`[BookmarkSaveModal] Folder clicked: ${path}`);
+  }
+  /**
+   * Scroll to selected folder
+   */
+  scrollToSelected() {
+    if (!this.modal) return;
+    const selectedItem = this.modal.querySelector(".folder-item.selected");
+    if (selectedItem) {
+      selectedItem.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+  /**
+   * Show create root folder input (placeholder for T3.1)
+   */
+  showCreateRootFolderInput() {
+    const name = prompt("Enter folder name:");
+    if (!name) return;
+    this.createFolder(name, null);
+  }
+  /**
+   * Show create subfolder input (placeholder for T3.3)
+   */
+  showCreateSubfolderInput(parentPath) {
+    const name = prompt("Enter folder name:");
+    if (!name) return;
+    this.createFolder(name, parentPath);
+  }
+  /**
+   * Create folder
+   */
+  async createFolder(name, parentPath) {
+    if (name.length > 50) {
+      alert("❌ Folder name too long (max 50 characters)");
+      return;
+    }
+    if (name.includes("/")) {
+      alert('❌ Folder name cannot contain "/"');
+      return;
+    }
+    const newPath = parentPath ? `${parentPath}/${name}` : name;
+    const depth = newPath.split("/").length;
+    if (depth > 2) {
+      alert("❌ Maximum folder depth is 2 levels (e.g., Work/Projects)");
+      return;
+    }
+    const exists = this.folders.find((f) => f.path === newPath);
+    if (exists) {
+      alert(`❌ Folder "${name}" already exists`);
+      return;
+    }
+    try {
+      await FolderStorage.create(newPath);
+      logger$1.info(`[BookmarkSaveModal] Created folder: ${newPath}`);
+      this.folders = await FolderStorage.getAll();
+      this.selectedPath = newPath;
+      this.expandPathToFolder(newPath);
+      this.renderFolderTree();
+      this.updateSaveButtonState();
+    } catch (error) {
+      logger$1.error("[BookmarkSaveModal] Failed to create folder:", error);
+      alert(`❌ Failed to create folder: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
+  /**
+   * Update save button state
+   */
+  updateSaveButtonState() {
+    if (!this.modal) return;
+    const saveBtn = this.modal.querySelector(".save-modal-btn-save");
+    if (saveBtn) {
+      saveBtn.disabled = !this.titleValid || !this.selectedPath;
+    }
+  }
+  /**
+   * Handle save action
+   */
+  handleSave() {
+    if (!this.titleValid || !this.selectedPath || !this.onSave) return;
+    logger$1.info(`[BookmarkSaveModal] Saving: "${this.title}" to "${this.selectedPath}"`);
+    this.onSave(this.title, this.selectedPath);
+    this.hide();
+  }
+  /**
+   * Escape HTML
+   */
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  /**
+   * Escape attribute
+   */
+  escapeAttr(text) {
+    return text.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+}
+
+const BookmarkSaveModal$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  BookmarkSaveModal
+}, Symbol.toStringTag, { value: 'Module' }));
+
 class FolderState {
   /** Storage key for last selected folder */
   static LAST_SELECTED_KEY = "lastSelectedFolderPath";
@@ -24161,259 +24802,6 @@ class FolderOperationsManager {
    */
   clearEventListeners() {
     this.listeners = [];
-  }
-}
-
-class TreeBuilder {
-  /**
-   * Build folder tree from flat folder list
-   * 
-   * Algorithm:
-   * 1. Sort folders alphabetically by path
-   * 2. Create tree nodes for each folder
-   * 3. Attach nodes to parents or root
-   * 4. Attach bookmarks to folders
-   * 5. Sort recursively
-   * 
-   * @param folders Flat list of folders
-   * @param bookmarks All bookmarks
-   * @param expandedPaths Set of expanded folder paths
-   * @param selectedPath Currently selected folder path
-   * @returns Root-level tree nodes
-   */
-  static buildTree(folders, bookmarks, expandedPaths = /* @__PURE__ */ new Set(), selectedPath = null) {
-    const sortedFolders = [...folders].sort(
-      (a, b) => a.path.localeCompare(b.path, void 0, { sensitivity: "base" })
-    );
-    const rootNodes = [];
-    const nodeMap = /* @__PURE__ */ new Map();
-    for (const folder of sortedFolders) {
-      const node = {
-        folder,
-        children: [],
-        bookmarks: this.getBookmarksForFolder(folder.path, bookmarks),
-        isExpanded: expandedPaths.has(folder.path),
-        isSelected: folder.path === selectedPath
-      };
-      nodeMap.set(folder.path, node);
-      const parentPath = PathUtils.getParentPath(folder.path);
-      if (parentPath && nodeMap.has(parentPath)) {
-        nodeMap.get(parentPath).children.push(node);
-      } else {
-        rootNodes.push(node);
-      }
-    }
-    this.sortTreeNodes(rootNodes);
-    return rootNodes;
-  }
-  /**
-   * Get bookmarks for a specific folder (non-recursive)
-   * 
-   * @param folderPath Folder path
-   * @param bookmarks All bookmarks
-   * @returns Bookmarks in this folder only (not subfolders)
-   */
-  static getBookmarksForFolder(folderPath, bookmarks) {
-    return bookmarks.filter((b) => b.folderPath === folderPath).sort((a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" }));
-  }
-  /**
-   * Sort tree nodes recursively (alphabetical by folder name)
-   * 
-   * @param nodes Tree nodes to sort
-   */
-  static sortTreeNodes(nodes) {
-    nodes.sort(
-      (a, b) => a.folder.name.localeCompare(b.folder.name, void 0, { sensitivity: "base" })
-    );
-    for (const node of nodes) {
-      if (node.children.length > 0) {
-        this.sortTreeNodes(node.children);
-      }
-      if (node.bookmarks.length > 0) {
-        node.bookmarks.sort(
-          (a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" })
-        );
-      }
-    }
-  }
-  /**
-   * Flatten tree to list of all nodes (depth-first)
-   * 
-   * Useful for search and filtering operations.
-   * 
-   * @param nodes Root nodes
-   * @returns Flat list of all nodes
-   */
-  static flattenTree(nodes) {
-    const result = [];
-    for (const node of nodes) {
-      result.push(node);
-      if (node.children.length > 0) {
-        result.push(...this.flattenTree(node.children));
-      }
-    }
-    return result;
-  }
-  /**
-   * Find path to a specific node (for auto-expand)
-   * 
-   * Returns array of folder paths from root to target.
-   * 
-   * @param nodes Root nodes
-   * @param targetPath Target folder path
-   * @returns Array of paths to expand, or empty if not found
-   */
-  static findPathToNode(nodes, targetPath) {
-    for (const node of nodes) {
-      if (node.folder.path === targetPath) {
-        return [targetPath];
-      }
-      if (node.children.length > 0) {
-        const childPath = this.findPathToNode(node.children, targetPath);
-        if (childPath.length > 0) {
-          return [node.folder.path, ...childPath];
-        }
-      }
-    }
-    return [];
-  }
-  /**
-   * Find node by path
-   * 
-   * @param nodes Root nodes
-   * @param targetPath Target folder path
-   * @returns Node or null if not found
-   */
-  static findNode(nodes, targetPath) {
-    for (const node of nodes) {
-      if (node.folder.path === targetPath) {
-        return node;
-      }
-      if (node.children.length > 0) {
-        const found = this.findNode(node.children, targetPath);
-        if (found) return found;
-      }
-    }
-    return null;
-  }
-  /**
-   * Count total bookmarks in tree (recursive)
-   * 
-   * @param nodes Root nodes
-   * @returns Total bookmark count
-   */
-  static countBookmarks(nodes) {
-    let count = 0;
-    for (const node of nodes) {
-      count += node.bookmarks.length;
-      if (node.children.length > 0) {
-        count += this.countBookmarks(node.children);
-      }
-    }
-    return count;
-  }
-  /**
-   * Get all bookmarks from tree (flattened)
-   * 
-   * @param nodes Root nodes
-   * @returns All bookmarks in tree
-   */
-  static getAllBookmarks(nodes) {
-    const bookmarks = [];
-    for (const node of nodes) {
-      bookmarks.push(...node.bookmarks);
-      if (node.children.length > 0) {
-        bookmarks.push(...this.getAllBookmarks(node.children));
-      }
-    }
-    return bookmarks;
-  }
-  /**
-   * Filter tree by search query
-   * 
-   * Returns new tree with only matching nodes.
-   * Automatically expands paths to matching bookmarks.
-   * 
-   * @param nodes Root nodes
-   * @param query Search query (case-insensitive)
-   * @returns Filtered tree
-   */
-  static filterTree(nodes, query) {
-    if (!query || query.trim().length === 0) {
-      return nodes;
-    }
-    const lowerQuery = query.toLowerCase();
-    const filteredNodes = [];
-    for (const node of nodes) {
-      const matchingBookmarks = node.bookmarks.filter(
-        (b) => b.title.toLowerCase().includes(lowerQuery) || b.userMessage.toLowerCase().includes(lowerQuery) || b.aiResponse && b.aiResponse.toLowerCase().includes(lowerQuery)
-      );
-      const filteredChildren = this.filterTree(node.children, query);
-      if (matchingBookmarks.length > 0 || filteredChildren.length > 0) {
-        filteredNodes.push({
-          ...node,
-          bookmarks: matchingBookmarks,
-          children: filteredChildren,
-          isExpanded: true
-          // Auto-expand when filtering
-        });
-      }
-    }
-    return filteredNodes;
-  }
-  /**
-   * Update node state (expand/collapse, select)
-   * 
-   * Returns new tree with updated state.
-   * 
-   * @param nodes Root nodes
-   * @param targetPath Path of node to update
-   * @param updates State updates
-   * @returns New tree with updated state
-   */
-  static updateNodeState(nodes, targetPath, updates) {
-    return nodes.map((node) => {
-      if (node.folder.path === targetPath) {
-        return { ...node, ...updates };
-      }
-      if (node.children.length > 0) {
-        return {
-          ...node,
-          children: this.updateNodeState(node.children, targetPath, updates)
-        };
-      }
-      return node;
-    });
-  }
-  /**
-   * Expand path to specific folder
-   * 
-   * Returns new tree with all ancestors expanded.
-   * 
-   * @param nodes Root nodes
-   * @param targetPath Path to expand to
-   * @returns New tree with path expanded
-   */
-  static expandPathTo(nodes, targetPath) {
-    const pathToExpand = this.findPathToNode(nodes, targetPath);
-    let updatedNodes = nodes;
-    for (const path of pathToExpand) {
-      updatedNodes = this.updateNodeState(updatedNodes, path, { isExpanded: true });
-    }
-    return updatedNodes;
-  }
-  /**
-   * Collapse all nodes
-   * 
-   * @param nodes Root nodes
-   * @returns New tree with all nodes collapsed
-   */
-  static collapseAll(nodes) {
-    return nodes.map((node) => ({
-      ...node,
-      isExpanded: false,
-      children: node.children.length > 0 ? this.collapseAll(node.children) : []
-    }));
   }
 }
 
@@ -25359,23 +25747,22 @@ Please create a new root folder or organize within existing folders.`);
       (b) => b.url === url && b.position === position
     );
     if (!bookmark) return;
-    bookmarkEditModal.show(
-      bookmark.userMessage,
-      async (title) => {
-        await SimpleBookmarkStorage.updateBookmark(url, position, {
-          title
-        });
-        await this.refresh();
-      },
-      () => {
-      }
-    );
-    setTimeout(() => {
-      const titleInput = document.querySelector("#bookmark-title");
-      if (titleInput && bookmark.title) {
-        titleInput.value = bookmark.title;
-      }
-    }, 150);
+    __vitePreload(async () => { const {BookmarkSaveModal} = await Promise.resolve().then(() => BookmarkSaveModal$1);return { BookmarkSaveModal }},true?void 0:void 0).then(({ BookmarkSaveModal }) => {
+      const saveModal = new BookmarkSaveModal();
+      saveModal.show({
+        mode: "edit",
+        defaultTitle: bookmark.title,
+        currentFolder: bookmark.folderPath,
+        onSave: async (newTitle, newFolderPath) => {
+          await SimpleBookmarkStorage.updateBookmark(url, position, {
+            title: newTitle,
+            folderPath: newFolderPath
+          });
+          logger$1.info(`[SimpleBookmarkPanel] Updated bookmark: title="${newTitle}", folder="${newFolderPath}"`);
+          await this.refresh();
+        }
+      });
+    });
   }
   /**
    * Handle delete
@@ -27196,18 +27583,29 @@ class ContentScript {
         const adapter = adapterRegistry.getAdapter();
         const platform = adapter && "isGemini" in adapter && typeof adapter.isGemini === "function" && adapter.isGemini() ? "Gemini" : "ChatGPT";
         const aiResponse = this.getAiResponse(messageElement);
-        bookmarkEditModal.show(
-          userMessage,
-          async (title) => {
-            await SimpleBookmarkStorage.save(url, position, userMessage, aiResponse, title, platform);
+        const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? "..." : "");
+        const lastUsedFolder = localStorage.getItem("lastUsedFolder") || "Import";
+        const saveModal = new BookmarkSaveModal();
+        saveModal.show({
+          defaultTitle,
+          lastUsedFolder,
+          onSave: async (title, folderPath) => {
+            await SimpleBookmarkStorage.save(
+              url,
+              position,
+              userMessage,
+              aiResponse,
+              title,
+              platform,
+              Date.now(),
+              folderPath
+            );
             this.bookmarkedPositions.add(position);
             this.updateToolbarState(messageElement, true);
-            logger$1.info(`[handleBookmark] Saved bookmark at position ${position}`);
-          },
-          () => {
-            logger$1.info("[handleBookmark] Bookmark save cancelled");
+            localStorage.setItem("lastUsedFolder", folderPath);
+            logger$1.info(`[handleBookmark] Saved "${title}" to "${folderPath}"`);
           }
-        );
+        });
       }
     } catch (error) {
       logger$1.error("[handleBookmark] Failed to toggle bookmark:", error);

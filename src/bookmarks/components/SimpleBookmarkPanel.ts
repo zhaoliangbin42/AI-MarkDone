@@ -2,7 +2,6 @@
 import { SimpleBookmarkStorage } from '../storage/SimpleBookmarkStorage';
 import { Bookmark, Folder, FolderTreeNode } from '../storage/types';
 import { logger } from '../../utils/logger';
-import { bookmarkEditModal } from './BookmarkEditModal';
 import { FolderStorage } from '../storage/FolderStorage';
 import { FolderState } from '../state/FolderState';
 import { FolderOperationsManager } from '../managers/FolderOperationsManager';
@@ -1184,31 +1183,27 @@ export class SimpleBookmarkPanel {
 
         if (!bookmark) return;
 
-        // Show edit modal
-        bookmarkEditModal.show(
-            bookmark.userMessage,
-            async (title: string) => {
-                // Update bookmark
-                await SimpleBookmarkStorage.updateBookmark(url, position, {
-                    title
-                });
+        // Import BookmarkSaveModal dynamically
+        import('./BookmarkSaveModal').then(({ BookmarkSaveModal }) => {
+            const saveModal = new BookmarkSaveModal();
+            saveModal.show({
+                mode: 'edit',
+                defaultTitle: bookmark.title,
+                currentFolder: bookmark.folderPath,
+                onSave: async (newTitle, newFolderPath) => {
+                    // Update bookmark
+                    await SimpleBookmarkStorage.updateBookmark(url, position, {
+                        title: newTitle,
+                        folderPath: newFolderPath
+                    });
 
-                // Refresh panel
-                await this.refresh();
-            },
-            () => {
-                // Cancel - do nothing
-            }
-        );
+                    logger.info(`[SimpleBookmarkPanel] Updated bookmark: title="${newTitle}", folder="${newFolderPath}"`);
 
-        // Pre-fill existing title after modal is shown
-        setTimeout(() => {
-            const titleInput = document.querySelector('#bookmark-title') as HTMLInputElement;
-
-            if (titleInput && bookmark.title) {
-                titleInput.value = bookmark.title;
-            }
-        }, 150);
+                    // Refresh panel
+                    await this.refresh();
+                }
+            });
+        });
     }
 
     /**
