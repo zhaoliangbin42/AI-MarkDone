@@ -210,12 +210,26 @@ export class SimpleBookmarkPanel {
                             <span class="search-icon">${Icons.search}</span>
                             <input type="text" class="search-input" placeholder="Search...">
                         </div>
-                        <select class="platform-filter">
-                            <option value="">All Platforms</option>
-                            <option value="ChatGPT">ChatGPT</option>
-                            <option value="Gemini">Gemini</option>
-                        </select>
-                        <button class="new-folder-btn" title="Create new folder">${Icons.plus} New Folder</button>
+                        <div class="platform-selector-wrapper">
+                            <button class="platform-selector" data-selected="all">
+                                <span class="platform-selector-label">All Platforms</span>
+                                <span class="platform-selector-icon">${Icons.chevronDown}</span>
+                            </button>
+                            <div class="platform-dropdown" style="display: none;">
+                                <div class="platform-option" data-value="" data-platform="all">
+                                    <span class="platform-option-label">All Platforms</span>
+                                </div>
+                                <div class="platform-option" data-value="ChatGPT" data-platform="chatgpt">
+                                    <span class="platform-option-icon">${Icons.chatgpt}</span>
+                                    <span class="platform-option-label">ChatGPT</span>
+                                </div>
+                                <div class="platform-option" data-value="Gemini" data-platform="gemini">
+                                    <span class="platform-option-icon">${Icons.gemini}</span>
+                                    <span class="platform-option-label">Gemini</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="toolbar-icon-btn new-folder-btn" title="Create new folder" aria-label="Create new folder">${Icons.folderPlus}</button>
                         <div class="toolbar-divider"></div>
                         <button class="toolbar-icon-btn export-btn" title="Export bookmarks" aria-label="Export bookmarks">${Icons.download}</button>
                         <button class="toolbar-icon-btn import-btn" title="Import bookmarks" aria-label="Import bookmarks">${Icons.upload}</button>
@@ -358,7 +372,7 @@ export class SimpleBookmarkPanel {
      * Reference: Notion list items, Linear task items
      */
     private renderBookmarkItemInTree(bookmark: Bookmark, depth: number): string {
-        const icon = bookmark.platform === 'ChatGPT' ? '🤖' : '✨';
+        const icon = bookmark.platform === 'ChatGPT' ? Icons.chatgpt : Icons.gemini;
         const indent = depth * 20;
         const timestamp = this.formatTimestamp(bookmark.timestamp);
         const key = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
@@ -417,11 +431,11 @@ export class SimpleBookmarkPanel {
     /**
      * Get platform icon
      */
-    private getPlatformIcon(platform?: string): string {
-        switch (platform) {
-            case 'ChatGPT':
+    private getPlatformIcon(platform: string): string {
+        switch (platform.toLowerCase()) {
+            case 'chatgpt':
                 return Icons.chatgpt;
-            case 'Gemini':
+            case 'gemini':
                 return Icons.gemini;
             default:
                 return Icons.chatgpt;
@@ -544,13 +558,64 @@ export class SimpleBookmarkPanel {
             });
         }
 
-        // Platform filter
-        const platformFilter = this.shadowRoot?.querySelector('.platform-filter') as HTMLSelectElement;
-        if (platformFilter) {
-            platformFilter.addEventListener('change', (e) => {
-                this.platformFilter = (e.target as HTMLSelectElement).value;
-                this.filterBookmarks();
-                this.refreshContent();
+        // 自定义平台选择器
+        const platformSelectorWrapper = this.shadowRoot?.querySelector('.platform-selector-wrapper');
+        const platformSelector = this.shadowRoot?.querySelector('.platform-selector') as HTMLButtonElement;
+        const platformDropdown = this.shadowRoot?.querySelector('.platform-dropdown') as HTMLElement;
+
+        if (platformSelector && platformDropdown && platformSelectorWrapper) {
+            // 点击按钮切换下拉菜单
+            platformSelector.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = platformSelectorWrapper.classList.contains('open');
+
+                if (isOpen) {
+                    platformSelectorWrapper.classList.remove('open');
+                    platformDropdown.style.display = 'none';
+                } else {
+                    platformSelectorWrapper.classList.add('open');
+                    platformDropdown.style.display = 'block';
+                }
+            });
+
+            // 选择选项
+            const options = platformDropdown.querySelectorAll('.platform-option');
+            options.forEach((option) => {
+                option.addEventListener('click', () => {
+                    const value = option.getAttribute('data-value') || '';
+                    const platform = option.getAttribute('data-platform') || 'all';
+                    const label = option.querySelector('.platform-option-label')?.textContent || 'All Platforms';
+
+                    // 更新选中状态
+                    this.platformFilter = value;
+
+                    // 更新按钮显示
+                    const selectorLabel = platformSelector.querySelector('.platform-selector-label');
+                    if (selectorLabel) {
+                        selectorLabel.textContent = label;
+                    }
+
+                    // 更新按钮背景色
+                    platformSelector.setAttribute('data-selected', platform);
+
+                    // 更新选项选中状态
+                    options.forEach(opt => opt.setAttribute('data-selected', 'false'));
+                    option.setAttribute('data-selected', 'true');
+
+                    // 关闭下拉菜单
+                    platformSelectorWrapper.classList.remove('open');
+                    platformDropdown.style.display = 'none';
+
+                    // 触发筛选
+                    this.filterBookmarks();
+                    this.refreshContent();
+                });
+            });
+
+            // 点击外部关闭下拉菜单
+            document.addEventListener('click', () => {
+                platformSelectorWrapper.classList.remove('open');
+                platformDropdown.style.display = 'none';
             });
         }
 
@@ -1534,7 +1599,7 @@ export class SimpleBookmarkPanel {
 
                 ${bookmark.aiResponse ? `
                     <div class="detail-section">
-                        <h4>🤖 AI Response</h4>
+                        <h4>AI Response</h4>
                         <div class="detail-text">${this.escapeHtml(bookmark.aiResponse)}</div>
                     </div>
                 ` : ''}
@@ -1953,7 +2018,7 @@ export class SimpleBookmarkPanel {
 
             modal.innerHTML = `
                 <div style="padding: 24px 24px 20px;">
-                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: var(--space-4);  /* 16px */ margin-bottom: 16px;">
                         <span class="warning-icon">${Icons.alertTriangle}</span>
                         <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900);">
                             Delete Selected Items
@@ -1971,7 +2036,7 @@ export class SimpleBookmarkPanel {
                         </p>
                     </div>
                 </div>
-                <div style="padding: 8px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+                <div style="padding: 8px; display: flex; justify-content: flex-end; gap: var(--space-2);  /* 8px */ border-top: 1px solid var(--gray-200);">
                     <button class="cancel-btn" style="
                         padding: 8px 16px;
                         border: none;
@@ -2130,7 +2195,7 @@ export class SimpleBookmarkPanel {
 
         modal.innerHTML = `
             <div style="padding: 24px 24px 20px;">
-                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: var(--space-4);  /* 16px */ margin-bottom: 16px;">
                     <span class="warning-icon">${Icons.alertTriangle}</span>
                     <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900);">
                         Deletion Completed with Errors
@@ -2324,7 +2389,7 @@ export class SimpleBookmarkPanel {
                         </span>
                     </label>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <div style="display: flex; justify-content: flex-end; gap: var(--space-2);  /* 8px */">
                     <button class="cancel-btn" style="
                         padding: 8px 16px;
                         border: 1px solid var(--gray-300);
@@ -2632,7 +2697,7 @@ export class SimpleBookmarkPanel {
                         </div>
                     ` : ''}
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                <div style="display: flex; justify-content: flex-end; gap: var(--space-2);  /* 8px */ margin-top: 20px;">
                     <button class="cancel-btn" style="
                         padding: 8px 16px;
                         border: 1px solid var(--gray-300);
@@ -3289,7 +3354,7 @@ export class SimpleBookmarkPanel {
 
                 /* SVG图标垂直对齐 */
                 svg {
-                    display: inline-block;
+                    display: block;
                     vertical-align: text-top;  /* 与文字顶部对齐,避免偏下 */
                 }
                 --icon-md: 20px;
@@ -3356,8 +3421,8 @@ export class SimpleBookmarkPanel {
 
             .toolbar {
                 display: flex;
-                gap: 8px;
-                padding: 12px;
+                gap: var(--space-2);  /* 8px */
+                padding: var(--space-3);  /* 12px */
                 background: var(--gray-50);
                 border-bottom: 1px solid var(--gray-200);
                 align-items: center;
@@ -3374,7 +3439,7 @@ export class SimpleBookmarkPanel {
             .new-folder-btn,
             .export-btn,
             .import-btn {
-                padding: 6px 12px;
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
                 border: 1px solid var(--gray-300);
                 background: var(--white);
                 border-radius: 6px;
@@ -3459,7 +3524,7 @@ export class SimpleBookmarkPanel {
             }
 
             .header {
-                padding: 20px 24px;
+                padding: var(--space-5) var(--space-6);  /* 20px 24px */
                 border-bottom: 1px solid var(--gray-200);
                 display: flex;
                 justify-content: space-between;
@@ -3468,9 +3533,17 @@ export class SimpleBookmarkPanel {
 
             .header h2 {
                 margin: 0;
-                font-size: 20px;
+                font-size: var(--text-xl);
                 font-weight: 600;
-                color: var(--gray-900);
+                color: var(--md-on-surface);
+                display: flex;
+                align-items: center;  /* 图标和文字垂直居中对齐 */
+                gap: var(--space-2);  /* 8px */
+                line-height: 1;  /* 移除额外行高 */
+            }
+
+            .header h2 svg {
+                flex-shrink: 0;  /* 防止图标被压缩 */
             }
 
             .close-btn {
@@ -3528,10 +3601,10 @@ export class SimpleBookmarkPanel {
 
             /* Toolbar */
             .toolbar {
-                padding: 12px 24px;
+                padding: var(--space-3) var(--space-6);  /* 12px 24px - 8px grid */
                 border-bottom: 1px solid var(--gray-200);
                 display: flex;
-                gap: 12px;
+                gap: var(--space-3);  /* 12px - 统一间距 */
                 align-items: center;
             }
 
@@ -3557,33 +3630,196 @@ export class SimpleBookmarkPanel {
 
             .search-input {
                 flex: 1;  /* 拉宽搜索框 */
-                padding: var(--space-3) var(--space-4) var(--space-3) var(--space-10);  /* 左侧留出图标空间 */
+                padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);  /* 8px 16px 8px 40px */
                 border: 1px solid var(--md-outline);
-                border-radius: var(--radius-medium);  /* Material Design 12px */
-                background: var(--md-surface-container);
-                font-size: var(--text-sm);
+                border-radius: var(--radius-small);  /* 8px */
+                background: var(--md-surface);
                 color: var(--md-on-surface);
-                transition: all var(--duration-base);
+                font-size: var(--text-sm);
+                transition: all var(--duration-base) var(--ease-out);
             }
 
             .search-input:focus {
                 outline: none;
                 border-color: var(--primary-600);
-                box-shadow: var(--shadow-focus);  /* Material Design focus ring */
-                background: var(--md-surface);
+                box-shadow: var(--shadow-focus);
+                background: var(--white);
+            }
+
+            .search-input::placeholder {
+                color: var(--gray-400);
             }
 
             .platform-filter {
-                padding: 8px 12px;
-                border: 1px solid var(--gray-300);
-                border-radius: var(--radius-sm);
-                font-size: var(--text-base);
-                background: var(--white);
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-small);  /* 8px */
+                background: var(--md-surface);
+                color: var(--md-on-surface);
+                font-size: var(--text-sm);
                 cursor: pointer;
+                transition: all var(--duration-base) var(--ease-out);
+            }
+
+            .platform-filter:hover {
+                background: var(--md-surface-container);
+                border-color: var(--primary-600);
+            }
+
+            .platform-filter:focus {
+                outline: none;
+                border-color: var(--primary-600);
+                box-shadow: var(--shadow-focus);
+            }
+
+            .toolbar-divider {
+                width: 1px;
+                height: 24px;
+                background: var(--md-outline);
+                margin: 0 var(--space-1);  /* 4px */
+            }
+
+
+
+            .toolbar-icon-btn {
+                width: 32px;
+                height: 32px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border: none;
+                border-radius: var(--radius-small);  /* 8px */
+                background: transparent;
+                color: var(--md-on-surface);
+                cursor: pointer;
+                transition: all var(--duration-base) var(--ease-out);
+            }
+
+            .toolbar-icon-btn:hover {
+                background: var(--md-surface-container);
+            }
+
+            .toolbar-icon-btn:active {
+                transform: scale(0.95);
+            }
+
+            .toolbar-icon-btn svg {
+                flex-shrink: 0;  /* 防止图标被压缩 */
+            }
+
+            /* 自定义平台选择器 */
+            .platform-selector-wrapper {
+                position: relative;
+            }
+
+            .platform-selector {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--space-2);  /* 8px */
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-small);  /* 8px */
+                background: var(--md-surface);
+                color: var(--md-on-surface);
+                font-size: var(--text-sm);
+                font-weight: 500;
+                cursor: pointer;
+                transition: all var(--duration-base) var(--ease-out);
+                min-width: 140px;
+                justify-content: space-between;
+            }
+
+            /* Mac tag风格 - 根据选中平台改变背景色 */
+            .platform-selector[data-selected="all"] {
+                background: var(--gray-100);  /* 中性灰 */
+                border-color: var(--gray-300);
+            }
+
+            .platform-selector[data-selected="chatgpt"] {
+                background: var(--success-50);  /* 浅绿色 */
+                border-color: var(--success-200);
+                color: var(--success-900);
+            }
+
+            .platform-selector[data-selected="gemini"] {
+                background: var(--primary-50);  /* 浅蓝色 */
+                border-color: var(--primary-200);
+                color: var(--primary-900);
+            }
+
+            .platform-selector:hover {
+                border-color: var(--primary-600);
+                box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+            }
+
+            .platform-selector-label {
+                flex: 1;
+                text-align: left;
+            }
+
+            .platform-selector-icon {
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                transition: transform var(--duration-base) var(--ease-out);
+            }
+
+            .platform-selector-wrapper.open .platform-selector-icon {
+                transform: rotate(180deg);
+            }
+
+            /* 下拉菜单 */
+            .platform-dropdown {
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                right: 0;
+                background: var(--md-surface);
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-small);
+                box-shadow: var(--elevation-2);
+                z-index: 1000;
+                overflow: hidden;
+            }
+
+            .platform-option {
+                display: flex;
+                align-items: center;
+                gap: var(--space-2);  /* 8px */
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                cursor: pointer;
+                transition: background var(--duration-base) var(--ease-out);
+            }
+
+            .platform-option:hover {
+                background: var(--md-surface-container);
+            }
+
+            .platform-option[data-selected="true"] {
+                background: var(--primary-100);
+                color: var(--primary-900);
+            }
+
+            .platform-option-icon {
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                width: 16px;
+                height: 16px;
+            }
+
+            .platform-option-icon svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .platform-option-label {
+                flex: 1;
+                font-size: var(--text-sm);
             }
 
             .export-btn {
-                padding: 8px 16px;
+                padding: var(--space-2) var(--space-4);  /* 8px 16px */
                 background: var(--primary-600);
                 color: var(--white);
                 border: none;
@@ -3601,12 +3837,12 @@ export class SimpleBookmarkPanel {
             .content {
                 flex: 1;
                 overflow-y: auto;
-                padding: 16px 24px;
+                padding: var(--space-4) var(--space-6);  /* 16px 24px */
             }
 
             .empty {
                 text-align: center;
-                padding: 60px 20px;
+                padding: var(--space-15) var(--space-5);  /* 60px 20px */
                 color: var(--gray-500);
                 font-size: 15px;
             }
@@ -3615,7 +3851,7 @@ export class SimpleBookmarkPanel {
             .bookmark-list {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: var(--space-2);  /* 8px */
             }
 
             .bookmark-item {
@@ -3629,7 +3865,7 @@ export class SimpleBookmarkPanel {
                 box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);  /* 纯阴影 */
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: var(--space-3);  /* 12px */
                 position: relative;  /* 为actions的absolute定位提供参考 */
             }
 
@@ -3640,7 +3876,7 @@ export class SimpleBookmarkPanel {
 
             .platform-badge {
                 flex-shrink: 0;
-                padding: 4px 10px;
+                padding: var(--space-1) var(--space-2);  /* 4px 8px */
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 500;
@@ -3696,7 +3932,7 @@ export class SimpleBookmarkPanel {
             .actions {
                 flex-shrink: 0;
                 display: flex;
-                gap: 4px;
+                gap: var(--space-1);  /* 4px */
             }
 
             .action-btn {
@@ -3725,7 +3961,7 @@ export class SimpleBookmarkPanel {
             /* Settings content */
             .settings-content,
             .support-content {
-                padding: 40px;
+                padding: var(--space-10);  /* 40px */
                 text-align: center;
             }
 
@@ -3787,7 +4023,7 @@ export class SimpleBookmarkPanel {
             }
 
             .conflict-header {
-                padding: 20px 24px;
+                padding: var(--space-5) var(--space-6);  /* 20px 24px */
                 border-bottom: 1px solid var(--gray-200);
                 background: var(--warning-100);
             }
@@ -3800,7 +4036,7 @@ export class SimpleBookmarkPanel {
             }
 
             .conflict-body {
-                padding: 24px;
+                padding: var(--space-6);  /* 24px */
                 overflow-y: auto;
                 flex: 1;
             }
@@ -3819,11 +4055,11 @@ export class SimpleBookmarkPanel {
             }
 
             .conflict-item {
-                padding: 12px;
+                padding: var(--space-3);  /* 12px */
                 border-bottom: 1px solid var(--gray-200);
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: var(--space-3);  /* 12px */
             }
 
             .conflict-item:last-child {
@@ -3840,7 +4076,7 @@ export class SimpleBookmarkPanel {
             }
 
             .conflict-more {
-                padding: 12px;
+                padding: var(--space-3);  /* 12px */
                 text-align: center;
                 font-size: 13px;
                 color: var(--gray-500);
@@ -3848,16 +4084,16 @@ export class SimpleBookmarkPanel {
             }
 
             .conflict-footer {
-                padding: 16px 24px;
+                padding: var(--space-4) var(--space-6);  /* 16px 24px */
                 border-top: 1px solid var(--gray-200);
                 display: flex;
-                gap: 12px;
+                gap: var(--space-3);  /* 12px */
                 justify-content: flex-end;
                 background: var(--gray-50);
             }
 
             .toolbar button {
-                padding: 8px 12px;
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
                 border: 1px solid var(--gray-200);
                 background: var(--gray-100);
                 border-radius: 6px;
@@ -3924,7 +4160,7 @@ export class SimpleBookmarkPanel {
             }
 
             .detail-header {
-                padding: 20px 24px;
+                padding: var(--space-5) var(--space-6);  /* 20px 24px */
                 border-bottom: 1px solid var(--gray-200);
                 display: flex;
                 justify-content: space-between;
@@ -3939,15 +4175,15 @@ export class SimpleBookmarkPanel {
             }
 
             .detail-meta {
-                padding: 12px 24px;
+                padding: var(--space-3) var(--space-6);  /* 12px 24px */
                 background: var(--gray-50);
                 display: flex;
-                gap: 16px;
+                gap: var(--space-4);  /* 16px */
                 align-items: center;
             }
 
             .detail-url {
-                padding: 12px 24px;
+                padding: var(--space-3) var(--space-6);  /* 12px 24px */
                 font-size: 13px;
                 color: var(--gray-500);
             }
@@ -3960,7 +4196,7 @@ export class SimpleBookmarkPanel {
             .detail-content {
                 flex: 1;
                 overflow-y: auto;
-                padding: 24px;
+                padding: var(--space-6);  /* 24px */
             }
 
             .detail-section {
@@ -3982,14 +4218,14 @@ export class SimpleBookmarkPanel {
             }
 
             .detail-footer {
-                padding: 16px 24px;
+                padding: var(--space-4) var(--space-6);  /* 16px 24px */
                 border-top: 1px solid var(--gray-200);
                 display: flex;
                 justify-content: flex-end;
             }
 
             .open-conversation-btn {
-                padding: 10px 20px;
+                padding: var(--space-3) var(--space-5);  /* 12px 20px */
                 background: var(--primary-600);
                 color: var(--white);
                 border: none;
@@ -4038,7 +4274,7 @@ export class SimpleBookmarkPanel {
             .batch-info {
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: var(--space-3);  /* 12px */
             }
             
             .select-all-checkbox {
@@ -4056,11 +4292,11 @@ export class SimpleBookmarkPanel {
             
             .batch-buttons {
                 display: flex;
-                gap: 8px;
+                gap: var(--space-2);  /* 8px */
             }
             
             .batch-buttons button {
-                padding: 8px 16px;
+                padding: var(--space-2) var(--space-4);  /* 8px 16px */
                 border: 1px solid var(--gray-300);
                 border-radius: var(--radius-sm);
                 background: var(--white);
@@ -4144,7 +4380,7 @@ export class SimpleBookmarkPanel {
                 display: flex;
                 align-items: center;
                 min-height: 36px;
-                padding: 6px 12px;
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
                 border-bottom: 1px solid var(--gray-100);
                 position: relative;
                 cursor: pointer;
@@ -4222,21 +4458,31 @@ export class SimpleBookmarkPanel {
             }
 
             .folder-icon {
+
                 font-size: 16px;
                 margin-right: 8px;
-                flex-shrink: 0;
             }
 
             .folder-name {
                 flex: 1;
-                font-weight: 500;
-                color: var(--gray-900);
+                font-weight: var(--font-medium);
+                color: var(--md-on-surface);
+                display: flex;
+                align-items: center;  /* 图标和文字垂直居中对齐 */
+                gap: var(--space-2);  /* 8px */
+                line-height: 16px;  /* 匹配图标高度,确保完美对齐 */
                 user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
 
+            .folder-name svg {
+                flex-shrink: 0;  /* 防止图标被压缩 */
+                display: block;  /* 移除inline默认的baseline对齐 */
+                vertical-align: middle;  /* 确保垂直居中 */
+            }
+            
             .folder-count {
                 margin-left: 6px;
                 font-size: 12px;
@@ -4356,7 +4602,7 @@ export class SimpleBookmarkPanel {
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                padding: 64px 32px;
+                padding: var(--space-16) var(--space-8);  /* 64px 32px */
                 text-align: center;
                 color: var(--gray-500);
             }
@@ -4426,11 +4672,17 @@ export class SimpleBookmarkPanel {
             }
 
             /* Loading State */
-            .tree-loading {
+            .tab-icon {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                padding: 40px;
+            }
+
+            .tab-icon svg {
+                width: 20px;  /* 放大图标 */
+                height: 20px;
+                flex-shrink: 0;
+            }    padding: var(--space-10);  /* 40px */
                 color: #6b7280;
             }
 

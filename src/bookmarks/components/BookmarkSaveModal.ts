@@ -72,7 +72,7 @@ export class BookmarkSaveModal {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.5);  /* Keep for overlay */
             backdrop-filter: blur(4px);
             z-index: 2147483647;
             display: flex;
@@ -157,9 +157,9 @@ export class BookmarkSaveModal {
             width: 90%;
             max-width: 550px;
             max-height: 85vh;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            background: var(--md-surface);
+            border-radius: var(--radius-large);
+            box-shadow: var(--elevation-3);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
@@ -173,6 +173,58 @@ export class BookmarkSaveModal {
 
         modal.innerHTML = `
             <style>
+                /* Design Tokens - Embedded for Modal */
+                :root, .bookmark-save-modal {
+                    /* Colors */
+                    --gray-50: #F9FAFB;
+                    --gray-100: #F3F4F6;
+                    --gray-200: #E5E7EB;
+                    --gray-300: #D1D5DB;
+                    --gray-400: #9CA3AF;
+                    --gray-500: #6B7280;
+                    --gray-600: #4B5563;
+                    --gray-700: #374151;
+                    --gray-800: #1F2937;
+                    --gray-900: #111827;
+                    
+                    --primary-50: #E3F2FD;
+                    --primary-100: #BBDEFB;
+                    --primary-200: #90CAF9;
+                    --primary-300: #64B5F6;
+                    --primary-400: #42A5F5;
+                    --primary-500: #2196F3;
+                    --primary-600: #1976D2;
+                    --primary-700: #1565C0;
+                    --primary-800: #0D47A1;
+                    
+                    --danger-500: #EF4444;
+                    
+                    --md-surface: #FFFFFF;
+                    --md-on-surface: #1C1B1F;
+                    
+                    /* Spacing */
+                    --space-1: 4px;
+                    --space-2: 8px;
+                    --space-3: 12px;
+                    --space-4: 16px;
+                    --space-5: 20px;
+                    
+                    /* Typography */
+                    --text-xs: 12px;
+                    --text-sm: 13px;
+                    --text-base: 14px;
+                    --text-lg: 16px;
+                    
+                    /* Border Radius */
+                    --radius-xs: 4px;
+                    --radius-sm: 8px;  /* Alias for --radius-small */
+                    --radius-small: 8px;
+                    --radius-large: 12px;
+                    
+                    /* Shadows */
+                    --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
+                }
+                
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
@@ -204,7 +256,7 @@ export class BookmarkSaveModal {
 
                 .save-modal-header h2 {
                     margin: 0;
-                    font-size: 16px;
+                    font-size: var(--text-base);
                     font-weight: 600;
                     color: var(--gray-900);
                 }
@@ -221,7 +273,7 @@ export class BookmarkSaveModal {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    border-radius: 6px;
+                    border-radius: var(--radius-small);
                     transition: all 0.15s ease;
                 }
 
@@ -244,7 +296,7 @@ export class BookmarkSaveModal {
 
                 .title-label {
                     display: block;
-                    font-size: 14px;
+                    font-size: var(--text-sm);
                     font-weight: 500;
                     color: var(--gray-700);
                     margin-bottom: 8px;
@@ -254,8 +306,8 @@ export class BookmarkSaveModal {
                     width: 100%;
                     padding: 10px 12px;
                     border: 2px solid var(--gray-200);
-                    border-radius: 6px;
-                    font-size: 14px;
+                    border-radius: var(--radius-small);
+                    font-size: var(--text-sm);
                     transition: all 0.15s ease;
                     outline: none;
                 }
@@ -270,7 +322,7 @@ export class BookmarkSaveModal {
 
                 .title-error {
                     color: var(--danger-500);
-                    font-size: 13px;
+                    font-size: var(--text-xs);
                     margin-top: 4px;
                     display: none;
                 }
@@ -292,25 +344,27 @@ export class BookmarkSaveModal {
                 }
 
                 .folder-label {
-                    font-size: 14px;
+                    font-size: var(--text-sm);
                     font-weight: 500;
                     color: var(--gray-700);
                 }
 
                 .new-folder-btn {
-                    background: var(--primary-600);
-                    color: white;
+                    background: transparent;
+                    color: var(--primary-600);
                     border: none;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    font-size: 13px;
-                    font-weight: 500;
+                    padding: var(--space-2);
+                    border-radius: var(--radius-small);
+                    font-size: var(--text-base);
                     cursor: pointer;
                     transition: background 0.15s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
 
                 .new-folder-btn:hover {
-                    background: var(--primary-700);
+                    background: var(--gray-100);
                 }
 
                 .folder-tree-container {
@@ -350,7 +404,7 @@ export class BookmarkSaveModal {
 
                 .folder-icon {
                     margin-right: 8px;
-                    font-size: 16px;
+                    font-size: var(--text-base);
                 }
 
                 .folder-toggle {
@@ -360,8 +414,8 @@ export class BookmarkSaveModal {
                     width: 16px;
                     height: 16px;
                     margin-right: 4px;
-                    font-size: 10px;
-                    color: #6b7280;
+                    font-size: 10px;  /* Small for toggle arrow */
+                    color: var(--gray-500);
                     cursor: pointer;
                     user-select: none;
                     flex-shrink: 0;
@@ -369,24 +423,24 @@ export class BookmarkSaveModal {
                 }
 
                 .folder-toggle:hover {
-                    color: #111827;
+                    color: var(--gray-900);
                 }
 
                 .folder-name {
                     flex: 1;
-                    font-size: 14px;
-                    color: #111827;
+                    font-size: var(--text-sm);
+                    color: var(--gray-900);
                 }
 
                 .folder-count {
                     margin-left: 6px;
-                    font-size: 12px;
-                    color: #6b7280;
+                    font-size: var(--text-xs);
+                    color: var(--gray-500);
                     font-weight: 400;
                 }
 
                 .folder-check {
-                    color: #3b82f6;
+                    color: var(--primary-600);
                     font-weight: 600;
                     margin-left: 8px;
                 }
@@ -394,16 +448,16 @@ export class BookmarkSaveModal {
                 .folder-add-btn {
                     position: absolute;
                     right: 8px;
-                    background: #3b82f6;
+                    background: var(--primary-600);
                     color: white;
                     border: none;
                     width: 24px;
                     height: 24px;
-                    border-radius: 4px;
+                    border-radius: var(--radius-xs);
                     cursor: pointer;
                     opacity: 0;
                     transition: opacity 0.15s;
-                    font-size: 16px;
+                    font-size: var(--text-base);
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -416,7 +470,7 @@ export class BookmarkSaveModal {
                 .folder-empty {
                     padding: 40px 20px;
                     text-align: center;
-                    color: #6b7280;
+                    color: var(--gray-500);
                 }
 
                 .folder-empty-icon {
@@ -425,7 +479,7 @@ export class BookmarkSaveModal {
                 }
 
                 .folder-empty-text {
-                    font-size: 14px;
+                    font-size: var(--text-sm);
                 }
 
                 /* Footer */
@@ -434,13 +488,13 @@ export class BookmarkSaveModal {
                     gap: 8px;
                     justify-content: flex-end;
                     padding: 16px 20px;
-                    border-top: 1px solid #e5e7eb;
+                    border-top: 1px solid var(--gray-200);
                 }
 
                 .save-modal-btn {
                     padding: 8px 16px;
-                    border-radius: 6px;
-                    font-size: 14px;
+                    border-radius: var(--radius-small);
+                    font-size: var(--text-sm);
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.15s ease;
@@ -453,20 +507,20 @@ export class BookmarkSaveModal {
                 }
 
                 .save-modal-btn-cancel:hover {
-                    background: #e5e7eb;
+                    background: var(--gray-200);
                 }
 
                 .save-modal-btn-save {
-                    background: #3b82f6;
+                    background: var(--primary-600);
                     color: white;
                 }
 
                 .save-modal-btn-save:hover:not(:disabled) {
-                    background: #2563eb;
+                    background: var(--primary-700);
                 }
 
                 .save-modal-btn-save:disabled {
-                    background: #9ca3af;
+                    background: var(--gray-400);
                     cursor: not-allowed;
                     opacity: 0.6;
                 }
@@ -493,7 +547,7 @@ export class BookmarkSaveModal {
                 <div class="folder-section">
                     <div class="folder-header">
                         <span class="folder-label">Folder</span>
-                        <button class="new-folder-btn">+ New Folder</button>
+                        <button class="new-folder-btn" title="New Folder">${Icons.folderPlus}</button>
                     </div>
                     <div class="folder-tree-container">
                         <div class="folder-tree-body">
@@ -890,7 +944,7 @@ export class BookmarkSaveModal {
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5);  /* Keep for overlay */
                 backdrop-filter: blur(4px);
                 z-index: 2147483647;
                 display: flex;
@@ -907,9 +961,9 @@ export class BookmarkSaveModal {
                 width: 90%;
                 max-width: 550px;
                 max-height: 85vh;
-                background: white;
-                border-radius: 12px;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                background: var(--md-surface);
+                border-radius: var(--radius-large);
+                box-shadow: var(--elevation-3);
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 display: flex;
                 flex-direction: column;
@@ -923,6 +977,58 @@ export class BookmarkSaveModal {
 
             modal.innerHTML = `
                 <style>
+                    /* Design Tokens - Embedded for Modal */
+                    :root, .bookmark-save-modal {
+                        /* Colors */
+                        --gray-50: #F9FAFB;
+                        --gray-100: #F3F4F6;
+                        --gray-200: #E5E7EB;
+                        --gray-300: #D1D5DB;
+                        --gray-400: #9CA3AF;
+                        --gray-500: #6B7280;
+                        --gray-600: #4B5563;
+                        --gray-700: #374151;
+                        --gray-800: #1F2937;
+                        --gray-900: #111827;
+                        
+                        --primary-50: #E3F2FD;
+                        --primary-100: #BBDEFB;
+                        --primary-200: #90CAF9;
+                        --primary-300: #64B5F6;
+                        --primary-400: #42A5F5;
+                        --primary-500: #2196F3;
+                        --primary-600: #1976D2;
+                        --primary-700: #1565C0;
+                        --primary-800: #0D47A1;
+                        
+                        --danger-500: #EF4444;
+                        
+                        --md-surface: #FFFFFF;
+                        --md-on-surface: #1C1B1F;
+                        
+                        /* Spacing */
+                        --space-1: 4px;
+                        --space-2: 8px;
+                        --space-3: 12px;
+                        --space-4: 16px;
+                        --space-5: 20px;
+                        
+                        /* Typography */
+                        --text-xs: 12px;
+                        --text-sm: 13px;
+                        --text-base: 14px;
+                        --text-lg: 16px;
+                        
+                        /* Border Radius */
+                        --radius-xs: 4px;
+                        --radius-sm: 8px;  /* Alias for --radius-small */
+                        --radius-small: 8px;
+                        --radius-large: 12px;
+                        
+                        /* Shadows */
+                        --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
+                    }
+                    
                     @keyframes fadeIn {
                         from { opacity: 0; }
                         to { opacity: 1; }
@@ -949,21 +1055,21 @@ export class BookmarkSaveModal {
                         align-items: center;
                         justify-content: space-between;
                         padding: 16px 20px;
-                        border-bottom: 1px solid #e5e7eb;
+                        border-bottom: 1px solid var(--gray-200);
                     }
 
                     .save-modal-header h2 {
                         margin: 0;
-                        font-size: 16px;
+                        font-size: var(--text-base);
                         font-weight: 600;
-                        color: #111827;
+                        color: var(--gray-900);
                     }
 
                     .save-modal-close-btn {
                         background: none;
                         border: none;
                         font-size: 24px;
-                        color: #6b7280;
+                        color: var(--gray-500);
                         cursor: pointer;
                         padding: 0;
                         width: 32px;
@@ -971,13 +1077,13 @@ export class BookmarkSaveModal {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        border-radius: 6px;
+                        border-radius: var(--radius-small);
                         transition: all 0.15s ease;
                     }
 
                     .save-modal-close-btn:hover {
-                        background: #f3f4f6;
-                        color: #111827;
+                        background: var(--gray-100);
+                        color: var(--gray-900);
                     }
 
                     /* Body */
@@ -1000,17 +1106,17 @@ export class BookmarkSaveModal {
                     }
 
                     .folder-label {
-                        font-size: 14px;
+                        font-size: var(--text-sm);
                         font-weight: 500;
-                        color: #374151;
+                        color: var(--gray-700);
                     }
 
                     .folder-tree-container {
-                        border: 1px solid #e5e7eb;
-                        border-radius: 6px;
+                        border: 1px solid var(--gray-200);
+                        border-radius: var(--radius-small);
                         height: 300px;
                         overflow-y: auto;
-                        background: #f9fafb;
+                        background: var(--gray-50);
                     }
 
                     .folder-tree-body {
@@ -1028,20 +1134,20 @@ export class BookmarkSaveModal {
                     }
 
                     .folder-item:hover {
-                        background: #f3f4f6;
+                        background: var(--gray-100);
                     }
 
                     .folder-item.selected {
-                        background: #dbeafe;
+                        background: var(--primary-100);
                     }
 
                     .folder-item.selected:hover {
-                        background: #bfdbfe;
+                        background: var(--primary-200);
                     }
 
                     .folder-icon {
                         margin-right: 8px;
-                        font-size: 16px;
+                        font-size: var(--text-base);
                     }
 
                     .folder-toggle {
@@ -1051,8 +1157,8 @@ export class BookmarkSaveModal {
                         width: 16px;
                         height: 16px;
                         margin-right: 4px;
-                        font-size: 10px;
-                        color: #6b7280;
+                        font-size: 10px;  /* Small for toggle arrow */
+                        color: var(--gray-500);
                         cursor: pointer;
                         user-select: none;
                         flex-shrink: 0;
@@ -1060,17 +1166,17 @@ export class BookmarkSaveModal {
                     }
 
                     .folder-toggle:hover {
-                        color: #111827;
+                        color: var(--gray-900);
                     }
 
                     .folder-name {
                         flex: 1;
-                        font-size: 14px;
-                        color: #111827;
+                        font-size: var(--text-sm);
+                        color: var(--gray-900);
                     }
 
                     .folder-check {
-                        color: #3b82f6;
+                        color: var(--primary-600);
                         font-weight: 600;
                         margin-left: 8px;
                     }
@@ -1078,7 +1184,7 @@ export class BookmarkSaveModal {
                     .folder-empty {
                         padding: 40px 20px;
                         text-align: center;
-                        color: #6b7280;
+                        color: var(--gray-500);
                     }
 
                     .folder-empty-icon {
@@ -1087,7 +1193,7 @@ export class BookmarkSaveModal {
                     }
 
                     .folder-empty-text {
-                        font-size: 14px;
+                        font-size: var(--text-sm);
                     }
 
                     /* Info Section */
@@ -1095,20 +1201,20 @@ export class BookmarkSaveModal {
                         display: flex;
                         align-items: center;
                         padding: 12px 16px;
-                        background: #eff6ff;
-                        border: 1px solid #bfdbfe;
-                        border-radius: 6px;
+                        background: var(--primary-50);
+                        border: 1px solid var(--primary-200);
+                        border-radius: var(--radius-small);
                         margin-bottom: 16px;
                     }
 
                     .move-info-icon {
-                        font-size: 18px;
+                        font-size: var(--text-lg);
                         margin-right: 8px;
                     }
 
                     .move-info-text {
-                        font-size: 13px;
-                        color: #1e40af;
+                        font-size: var(--text-xs);
+                        color: var(--primary-800);
                         font-weight: 500;
                     }
 
@@ -1118,13 +1224,13 @@ export class BookmarkSaveModal {
                         gap: 8px;
                         justify-content: flex-end;
                         padding: 16px 20px;
-                        border-top: 1px solid #e5e7eb;
+                        border-top: 1px solid var(--gray-200);
                     }
 
                     .save-modal-btn {
                         padding: 8px 16px;
-                        border-radius: 6px;
-                        font-size: 14px;
+                        border-radius: var(--radius-small);
+                        font-size: var(--text-sm);
                         font-weight: 500;
                         cursor: pointer;
                         transition: all 0.15s ease;
@@ -1132,25 +1238,25 @@ export class BookmarkSaveModal {
                     }
 
                     .save-modal-btn-cancel {
-                        background: #f3f4f6;
-                        color: #374151;
+                        background: var(--gray-100);
+                        color: var(--gray-700);
                     }
 
                     .save-modal-btn-cancel:hover {
-                        background: #e5e7eb;
+                        background: var(--gray-200);
                     }
 
                     .save-modal-btn-save {
-                        background: #3b82f6;
+                        background: var(--primary-600);
                         color: white;
                     }
 
                     .save-modal-btn-save:hover:not(:disabled) {
-                        background: #2563eb;
+                        background: var(--primary-700);
                     }
 
                     .save-modal-btn-save:disabled {
-                        background: #9ca3af;
+                        background: var(--gray-400);
                         cursor: not-allowed;
                         opacity: 0.6;
                     }
