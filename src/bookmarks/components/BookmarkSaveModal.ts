@@ -19,6 +19,7 @@ export class BookmarkSaveModal {
     private expandedPaths: Set<string> = new Set();
     private title: string = '';
     private titleValid: boolean = true;
+    private currentMode: 'create' | 'edit' | 'folder-select' = 'create';
 
     // Callbacks
     private onSave: ((title: string, folderPath: string) => void) | null = null;
@@ -28,15 +29,24 @@ export class BookmarkSaveModal {
      * Show save modal
      */
     async show(options: {
-        mode?: 'create' | 'edit';
-        defaultTitle: string;
+        mode?: 'create' | 'edit' | 'folder-select';
+        defaultTitle?: string;
         lastUsedFolder?: string;
         currentFolder?: string; // For edit mode
-        onSave: (title: string, folderPath: string) => void;
-    }): Promise<void> {
+        bookmarkCount?: number; // For folder-select mode
+        onSave?: (title: string, folderPath: string) => void;
+        onFolderSelect?: (folderPath: string | null) => void;
+    }): Promise<string | null | undefined | void> {
         const mode = options.mode || 'create';
-        this.onSave = options.onSave;
-        this.title = options.defaultTitle;
+        this.currentMode = mode;
+
+        if (mode === 'folder-select') {
+            // Folder selection mode for batch move - returns selected path
+            return this.showFolderSelectMode(options);
+        }
+
+        this.onSave = options.onSave || null;
+        this.title = options.defaultTitle || '';
 
         // Use currentFolder for edit mode, lastUsedFolder for create mode
         this.selectedPath = mode === 'edit'
@@ -714,8 +724,17 @@ export class BookmarkSaveModal {
         // Re-render tree
         this.renderFolderTree();
 
-        // Update save button
-        this.updateSaveButtonState();
+        // Update button state based on mode
+        if (this.currentMode === 'folder-select') {
+            // Enable Move button in folder-select mode
+            const moveBtn = this.modal?.querySelector('.save-modal-btn-save') as HTMLButtonElement;
+            if (moveBtn) {
+                moveBtn.disabled = false;
+            }
+        } else {
+            // Update Save button in create/edit mode
+            this.updateSaveButtonState();
+        }
 
         logger.debug(`[BookmarkSaveModal] Folder clicked: ${path}`);
     }
@@ -846,4 +865,375 @@ export class BookmarkSaveModal {
     private escapeAttr(text: string): string {
         return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
+
+    /**
+     * Show folder selection mode (for batch move)
+     * Returns: selected folder path, or undefined if cancelled
+     */
+    private showFolderSelectMode(options: {
+        bookmarkCount?: number;
+    }): Promise<string | null | undefined> {
+        return new Promise(async (resolve) => {
+            const bookmarkCount = options.bookmarkCount || 0;
+
+            // Load folders
+            this.folders = await FolderStorage.getAll();
+            this.selectedPath = null;
+
+            // Create overlay
+            this.overlay = document.createElement('div');
+            this.overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(4px);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.2s ease-out;
+            `;
+
+            // Create modal with EXACT SAME structure as bookmark save modal
+            const modal = document.createElement('div');
+            modal.className = 'bookmark-save-modal';
+            modal.style.cssText = `
+                position: relative;
+                width: 90%;
+                max-width: 550px;
+                max-height: 85vh;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                flex-direction: column;
+                animation: slideIn 0.2s ease-out;
+            `;
+
+            // Stop propagation on modal content
+            modal.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            modal.innerHTML = `
+                <style>
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    
+                    @keyframes slideIn {
+                        from {
+                            opacity: 0;
+                            transform: translateY(-20px) scale(0.95);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+
+                    .bookmark-save-modal * {
+                        box-sizing: border-box;
+                    }
+
+                    /* Header */
+                    .save-modal-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 16px 20px;
+                        border-bottom: 1px solid #e5e7eb;
+                    }
+
+                    .save-modal-header h2 {
+                        margin: 0;
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: #111827;
+                    }
+
+                    .save-modal-close-btn {
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        color: #6b7280;
+                        cursor: pointer;
+                        padding: 0;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 6px;
+                        transition: all 0.15s ease;
+                    }
+
+                    .save-modal-close-btn:hover {
+                        background: #f3f4f6;
+                        color: #111827;
+                    }
+
+                    /* Body */
+                    .save-modal-body {
+                        flex: 1;
+                        overflow-y: auto;
+                        padding: 20px;
+                    }
+
+                    /* Folder Section */
+                    .folder-section {
+                        margin-bottom: 20px;
+                    }
+
+                    .folder-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-bottom: 8px;
+                    }
+
+                    .folder-label {
+                        font-size: 14px;
+                        font-weight: 500;
+                        color: #374151;
+                    }
+
+                    .folder-tree-container {
+                        border: 1px solid #e5e7eb;
+                        border-radius: 6px;
+                        height: 300px;
+                        overflow-y: auto;
+                        background: #f9fafb;
+                    }
+
+                    .folder-tree-body {
+                        padding: 8px 0;
+                    }
+
+                    .folder-item {
+                        display: flex;
+                        align-items: center;
+                        padding: 8px 12px;
+                        cursor: pointer;
+                        transition: background 0.15s ease;
+                        user-select: none;
+                        position: relative;
+                    }
+
+                    .folder-item:hover {
+                        background: #f3f4f6;
+                    }
+
+                    .folder-item.selected {
+                        background: #dbeafe;
+                    }
+
+                    .folder-item.selected:hover {
+                        background: #bfdbfe;
+                    }
+
+                    .folder-icon {
+                        margin-right: 8px;
+                        font-size: 16px;
+                    }
+
+                    .folder-toggle {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 16px;
+                        height: 16px;
+                        margin-right: 4px;
+                        font-size: 10px;
+                        color: #6b7280;
+                        cursor: pointer;
+                        user-select: none;
+                        flex-shrink: 0;
+                        transition: transform 0.15s ease;
+                    }
+
+                    .folder-toggle:hover {
+                        color: #111827;
+                    }
+
+                    .folder-name {
+                        flex: 1;
+                        font-size: 14px;
+                        color: #111827;
+                    }
+
+                    .folder-check {
+                        color: #3b82f6;
+                        font-weight: 600;
+                        margin-left: 8px;
+                    }
+
+                    .folder-empty {
+                        padding: 40px 20px;
+                        text-align: center;
+                        color: #6b7280;
+                    }
+
+                    .folder-empty-icon {
+                        font-size: 48px;
+                        margin-bottom: 12px;
+                    }
+
+                    .folder-empty-text {
+                        font-size: 14px;
+                    }
+
+                    /* Info Section */
+                    .move-info {
+                        display: flex;
+                        align-items: center;
+                        padding: 12px 16px;
+                        background: #eff6ff;
+                        border: 1px solid #bfdbfe;
+                        border-radius: 6px;
+                        margin-bottom: 16px;
+                    }
+
+                    .move-info-icon {
+                        font-size: 18px;
+                        margin-right: 8px;
+                    }
+
+                    .move-info-text {
+                        font-size: 13px;
+                        color: #1e40af;
+                        font-weight: 500;
+                    }
+
+                    /* Footer */
+                    .save-modal-footer {
+                        display: flex;
+                        gap: 8px;
+                        justify-content: flex-end;
+                        padding: 16px 20px;
+                        border-top: 1px solid #e5e7eb;
+                    }
+
+                    .save-modal-btn {
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                        border: none;
+                    }
+
+                    .save-modal-btn-cancel {
+                        background: #f3f4f6;
+                        color: #374151;
+                    }
+
+                    .save-modal-btn-cancel:hover {
+                        background: #e5e7eb;
+                    }
+
+                    .save-modal-btn-save {
+                        background: #3b82f6;
+                        color: white;
+                    }
+
+                    .save-modal-btn-save:hover:not(:disabled) {
+                        background: #2563eb;
+                    }
+
+                    .save-modal-btn-save:disabled {
+                        background: #9ca3af;
+                        cursor: not-allowed;
+                        opacity: 0.6;
+                    }
+                </style>
+
+                <div class="save-modal-header">
+                    <h2>Move Bookmarks to Folder</h2>
+                    <button class="save-modal-close-btn" aria-label="Close">×</button>
+                </div>
+
+                <div class="save-modal-body">
+                    <!-- Info Section -->
+                    <div class="move-info">
+                        <span class="move-info-icon">ℹ️</span>
+                        <span class="move-info-text">Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? 's' : ''}</span>
+                    </div>
+
+                    <!-- Folder Section -->
+                    <div class="folder-section">
+                        <div class="folder-header">
+                            <span class="folder-label">Select Destination Folder</span>
+                        </div>
+                        <div class="folder-tree-container">
+                            <div class="folder-tree-body">
+                                <div class="folder-empty">
+                                    <div class="folder-empty-icon">📁</div>
+                                    <div class="folder-empty-text">Loading folders...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="save-modal-footer">
+                    <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
+                    <button class="save-modal-btn save-modal-btn-save" disabled>Move</button>
+                </div>
+            `;
+
+            this.modal = modal;
+            this.overlay.appendChild(modal);
+            document.body.appendChild(this.overlay);
+
+            // Render folder tree using EXISTING method
+            this.renderFolderTree();
+
+            // Event handlers
+            const closeBtn = modal.querySelector('.save-modal-close-btn') as HTMLButtonElement;
+            const cancelBtn = modal.querySelector('.save-modal-btn-cancel') as HTMLButtonElement;
+            const moveBtn = modal.querySelector('.save-modal-btn-save') as HTMLButtonElement;
+
+            closeBtn.addEventListener('click', () => {
+                this.hide();
+                resolve(undefined);
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                this.hide();
+                resolve(undefined);
+            });
+
+            moveBtn.addEventListener('click', () => {
+                const selected = this.selectedPath;
+                this.hide();
+                resolve(selected);
+            });
+
+            // Click outside to close
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) {
+                    this.hide();
+                    resolve(undefined);
+                }
+            });
+
+            // ESC key to close
+            this.escKeyHandler = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    this.hide();
+                    document.removeEventListener('keydown', this.escKeyHandler!);
+                    resolve(undefined);
+                }
+            };
+            document.addEventListener('keydown', this.escKeyHandler);
+        });
+    }
 }
+

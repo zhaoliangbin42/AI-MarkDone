@@ -363,7 +363,7 @@ export class SimpleBookmarkPanel {
                 <span class="bookmark-title">${this.escapeHtml(bookmark.title)}</span>
                 <span class="bookmark-timestamp">${timestamp}</span>
                 <div class="item-actions">
-                    <button class="action-btn preview-bookmark" title="Preview" aria-label="Preview bookmark">👁</button>
+                    <button class="action-btn jump-bookmark" title="Jump to Conversation" aria-label="Jump to conversation">🔗</button>
                     <button class="action-btn edit-bookmark" title="Edit" aria-label="Edit bookmark">✏️</button>
                     <button class="action-btn delete-bookmark" title="Delete" aria-label="Delete bookmark">🗑</button>
                 </div>
@@ -585,16 +585,18 @@ export class SimpleBookmarkPanel {
 
     /**
      * Bind listeners for bookmark list items
+     * NOTE: This function is NOT currently used - events are bound in bindTreeEventListeners()
      */
     private bindBookmarkListeners(): void {
-        // Preview buttons
+        // Preview buttons (NOT USED - kept for reference)
         this.shadowRoot?.querySelectorAll('.preview-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const url = btn.getAttribute('data-url');
                 const position = parseInt(btn.getAttribute('data-position') || '0');
                 if (url && position) {
-                    this.showDetailModal(url, position);
+                    // DO NOT CALL - causes duplicate modals
+                    // this.showDetailModal(url, position);
                 }
             });
         });
@@ -623,24 +625,23 @@ export class SimpleBookmarkPanel {
             });
         });
 
-        // Row click for navigation (Go To)
-        this.shadowRoot?.querySelectorAll('.bookmark-item').forEach(item => {
-            item.addEventListener('click', async (e) => {
-                // Don't navigate if clicking checkbox or action buttons
-                const target = e.target as HTMLElement;
-                if (target.classList.contains('bookmark-checkbox') ||
-                    target.closest('.actions') ||
-                    target.classList.contains('action-btn')) {
-                    return;
-                }
-
-                const url = item.getAttribute('data-url');
-                const position = parseInt(item.getAttribute('data-position') || '0');
-                if (url && position) {
-                    await this.handleGoTo(url, position);
-                }
-            });
-        });
+        // Row click opens preview (NOT USED - duplicate, see bindTreeEventListeners)
+        // DO NOT UNCOMMENT - causes duplicate event handlers
+        // this.shadowRoot?.querySelectorAll('.bookmark-item').forEach(item => {
+        //     item.addEventListener('click', (e) => {
+        //         const target = e.target as HTMLElement;
+        //         if (target.classList.contains('bookmark-checkbox') ||
+        //             target.closest('.item-actions') ||
+        //             target.classList.contains('action-btn')) {
+        //             return;
+        //         }
+        //         const url = item.getAttribute('data-url');
+        //         const position = parseInt(item.getAttribute('data-position') || '0');
+        //         if (url && position) {
+        //             this.showDetailModal(url, position);
+        //         }
+        //     });
+        // });
 
         // Checkbox change
         this.shadowRoot?.querySelectorAll('.bookmark-checkbox').forEach(checkbox => {
@@ -767,14 +768,14 @@ export class SimpleBookmarkPanel {
             });
         });
 
-        // Preview bookmark
-        this.shadowRoot?.querySelectorAll('.preview-bookmark').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        // Jump to conversation
+        this.shadowRoot?.querySelectorAll('.jump-bookmark').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const bookmarkItem = (e.target as HTMLElement).closest('.bookmark-item')!;
                 const url = (bookmarkItem as HTMLElement).dataset.url!;
                 const position = parseInt((bookmarkItem as HTMLElement).dataset.position!);
-                this.showDetailModal(url, position);
+                await this.handleGoTo(url, position);
             });
         });
 
@@ -797,6 +798,26 @@ export class SimpleBookmarkPanel {
                 const url = (bookmarkItem as HTMLElement).dataset.url!;
                 const position = parseInt((bookmarkItem as HTMLElement).dataset.position!);
                 await this.handleDelete(url, position);
+            });
+        });
+
+        // Bookmark row click opens preview
+        this.shadowRoot?.querySelectorAll('.bookmark-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                // Don't open preview if clicking checkbox or action buttons
+                const target = e.target as HTMLElement;
+                if (target.classList.contains('item-checkbox') ||
+                    target.classList.contains('bookmark-checkbox') ||
+                    target.closest('.item-actions') ||
+                    target.classList.contains('action-btn')) {
+                    return;
+                }
+
+                const url = (item as HTMLElement).dataset.url!;
+                const position = parseInt((item as HTMLElement).dataset.position!);
+                if (url && position) {
+                    this.showDetailModal(url, position);
+                }
             });
         });
 
@@ -1517,9 +1538,9 @@ export class SimpleBookmarkPanel {
             modalOverlay.remove();
         });
 
-        modal.querySelector('.open-conversation-btn')?.addEventListener('click', () => {
-            window.open(bookmark.url, '_blank');
+        modal.querySelector('.open-conversation-btn')?.addEventListener('click', async () => {
             modalOverlay.remove();
+            await this.handleGoTo(bookmark.url, bookmark.position);
         });
 
         // Click on overlay background (not modal) closes only the detail modal
@@ -2169,8 +2190,49 @@ export class SimpleBookmarkPanel {
     }
 
     /**
-     * Handle batch move (placeholder)
-     * Task 3.5.1
+     * Execute batch move operation
+     */
+    private async executeBatchMove(bookmarks: Bookmark[], targetPath: string | null): Promise<void> {
+        const errors: string[] = [];
+        let successCount = 0;
+
+        logger.info(`[Batch Move] Moving ${bookmarks.length} bookmarks to ${targetPath || 'root'}...`);
+
+        for (const bookmark of bookmarks) {
+            try {
+                // Update bookmark's folder path and save
+                await SimpleBookmarkStorage.save(
+                    bookmark.url,
+                    bookmark.position,
+                    bookmark.userMessage,
+                    bookmark.aiResponse,
+                    bookmark.title,
+                    bookmark.platform,
+                    bookmark.timestamp,
+                    targetPath || undefined
+                );
+                successCount++;
+            } catch (error) {
+                errors.push(`Failed to move bookmark: ${bookmark.title}`);
+                logger.error('[Batch Move] Error:', error);
+            }
+        }
+
+        // Show results
+        if (errors.length > 0) {
+            this.showErrorSummary(errors);
+            logger.warn(`[Batch Move] Completed with ${errors.length} errors, ${successCount} successful`);
+        } else {
+            logger.info(`[Batch Move] Successfully moved ${successCount} bookmarks`);
+        }
+
+        // Cleanup
+        this.selectedItems.clear();
+        await this.refresh();
+    }
+
+    /**
+     * Handle batch move
      */
     private async handleBatchMove(): Promise<void> {
         if (this.selectedItems.size === 0) {
@@ -2178,8 +2240,30 @@ export class SimpleBookmarkPanel {
             return;
         }
 
-        alert('Batch move feature coming soon!\n\nThis will allow you to move selected bookmarks to a different folder.');
-        logger.info('[Batch Move] Feature not yet implemented');
+        // Get only bookmarks (folders can't be moved)
+        const bookmarks = this.getSelectedBookmarks();
+        if (bookmarks.length === 0) {
+            alert('No bookmarks selected to move.\n\nNote: Folders cannot be moved, only bookmarks.');
+            return;
+        }
+
+        // Show folder picker using BookmarkSaveModal
+        const { BookmarkSaveModal } = await import('./BookmarkSaveModal');
+        const modal = new BookmarkSaveModal();
+
+        const selectedPath = await modal.show({
+            mode: 'folder-select',
+            bookmarkCount: bookmarks.length
+        }) as string | null | undefined;
+
+        // Check if user cancelled
+        if (selectedPath === undefined) {
+            logger.info('[Batch Move] Cancelled by user');
+            return;
+        }
+
+        // Execute move
+        await this.executeBatchMove(bookmarks, selectedPath);
     }
 
     /**

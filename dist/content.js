@@ -23772,6 +23772,7 @@ class BookmarkSaveModal {
   expandedPaths = /* @__PURE__ */ new Set();
   title = "";
   titleValid = true;
+  currentMode = "create";
   // Callbacks
   onSave = null;
   escKeyHandler = null;
@@ -23780,8 +23781,12 @@ class BookmarkSaveModal {
    */
   async show(options) {
     const mode = options.mode || "create";
-    this.onSave = options.onSave;
-    this.title = options.defaultTitle;
+    this.currentMode = mode;
+    if (mode === "folder-select") {
+      return this.showFolderSelectMode(options);
+    }
+    this.onSave = options.onSave || null;
+    this.title = options.defaultTitle || "";
     this.selectedPath = mode === "edit" ? options.currentFolder || null : options.lastUsedFolder || null;
     this.folders = await FolderStorage.getAll();
     logger$1.debug(`[BookmarkSaveModal] Loaded ${this.folders.length} folders`);
@@ -24365,7 +24370,14 @@ class BookmarkSaveModal {
     }
     this.selectedPath = path;
     this.renderFolderTree();
-    this.updateSaveButtonState();
+    if (this.currentMode === "folder-select") {
+      const moveBtn = this.modal?.querySelector(".save-modal-btn-save");
+      if (moveBtn) {
+        moveBtn.disabled = false;
+      }
+    } else {
+      this.updateSaveButtonState();
+    }
     logger$1.debug(`[BookmarkSaveModal] Folder clicked: ${path}`);
   }
   /**
@@ -24465,6 +24477,352 @@ class BookmarkSaveModal {
    */
   escapeAttr(text) {
     return text.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  /**
+   * Show folder selection mode (for batch move)
+   * Returns: selected folder path, or undefined if cancelled
+   */
+  showFolderSelectMode(options) {
+    return new Promise(async (resolve) => {
+      const bookmarkCount = options.bookmarkCount || 0;
+      this.folders = await FolderStorage.getAll();
+      this.selectedPath = null;
+      this.overlay = document.createElement("div");
+      this.overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(4px);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.2s ease-out;
+            `;
+      const modal = document.createElement("div");
+      modal.className = "bookmark-save-modal";
+      modal.style.cssText = `
+                position: relative;
+                width: 90%;
+                max-width: 550px;
+                max-height: 85vh;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                flex-direction: column;
+                animation: slideIn 0.2s ease-out;
+            `;
+      modal.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+      modal.innerHTML = `
+                <style>
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    
+                    @keyframes slideIn {
+                        from {
+                            opacity: 0;
+                            transform: translateY(-20px) scale(0.95);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+
+                    .bookmark-save-modal * {
+                        box-sizing: border-box;
+                    }
+
+                    /* Header */
+                    .save-modal-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 16px 20px;
+                        border-bottom: 1px solid #e5e7eb;
+                    }
+
+                    .save-modal-header h2 {
+                        margin: 0;
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: #111827;
+                    }
+
+                    .save-modal-close-btn {
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        color: #6b7280;
+                        cursor: pointer;
+                        padding: 0;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 6px;
+                        transition: all 0.15s ease;
+                    }
+
+                    .save-modal-close-btn:hover {
+                        background: #f3f4f6;
+                        color: #111827;
+                    }
+
+                    /* Body */
+                    .save-modal-body {
+                        flex: 1;
+                        overflow-y: auto;
+                        padding: 20px;
+                    }
+
+                    /* Folder Section */
+                    .folder-section {
+                        margin-bottom: 20px;
+                    }
+
+                    .folder-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-bottom: 8px;
+                    }
+
+                    .folder-label {
+                        font-size: 14px;
+                        font-weight: 500;
+                        color: #374151;
+                    }
+
+                    .folder-tree-container {
+                        border: 1px solid #e5e7eb;
+                        border-radius: 6px;
+                        height: 300px;
+                        overflow-y: auto;
+                        background: #f9fafb;
+                    }
+
+                    .folder-tree-body {
+                        padding: 8px 0;
+                    }
+
+                    .folder-item {
+                        display: flex;
+                        align-items: center;
+                        padding: 8px 12px;
+                        cursor: pointer;
+                        transition: background 0.15s ease;
+                        user-select: none;
+                        position: relative;
+                    }
+
+                    .folder-item:hover {
+                        background: #f3f4f6;
+                    }
+
+                    .folder-item.selected {
+                        background: #dbeafe;
+                    }
+
+                    .folder-item.selected:hover {
+                        background: #bfdbfe;
+                    }
+
+                    .folder-icon {
+                        margin-right: 8px;
+                        font-size: 16px;
+                    }
+
+                    .folder-toggle {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 16px;
+                        height: 16px;
+                        margin-right: 4px;
+                        font-size: 10px;
+                        color: #6b7280;
+                        cursor: pointer;
+                        user-select: none;
+                        flex-shrink: 0;
+                        transition: transform 0.15s ease;
+                    }
+
+                    .folder-toggle:hover {
+                        color: #111827;
+                    }
+
+                    .folder-name {
+                        flex: 1;
+                        font-size: 14px;
+                        color: #111827;
+                    }
+
+                    .folder-check {
+                        color: #3b82f6;
+                        font-weight: 600;
+                        margin-left: 8px;
+                    }
+
+                    .folder-empty {
+                        padding: 40px 20px;
+                        text-align: center;
+                        color: #6b7280;
+                    }
+
+                    .folder-empty-icon {
+                        font-size: 48px;
+                        margin-bottom: 12px;
+                    }
+
+                    .folder-empty-text {
+                        font-size: 14px;
+                    }
+
+                    /* Info Section */
+                    .move-info {
+                        display: flex;
+                        align-items: center;
+                        padding: 12px 16px;
+                        background: #eff6ff;
+                        border: 1px solid #bfdbfe;
+                        border-radius: 6px;
+                        margin-bottom: 16px;
+                    }
+
+                    .move-info-icon {
+                        font-size: 18px;
+                        margin-right: 8px;
+                    }
+
+                    .move-info-text {
+                        font-size: 13px;
+                        color: #1e40af;
+                        font-weight: 500;
+                    }
+
+                    /* Footer */
+                    .save-modal-footer {
+                        display: flex;
+                        gap: 8px;
+                        justify-content: flex-end;
+                        padding: 16px 20px;
+                        border-top: 1px solid #e5e7eb;
+                    }
+
+                    .save-modal-btn {
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                        border: none;
+                    }
+
+                    .save-modal-btn-cancel {
+                        background: #f3f4f6;
+                        color: #374151;
+                    }
+
+                    .save-modal-btn-cancel:hover {
+                        background: #e5e7eb;
+                    }
+
+                    .save-modal-btn-save {
+                        background: #3b82f6;
+                        color: white;
+                    }
+
+                    .save-modal-btn-save:hover:not(:disabled) {
+                        background: #2563eb;
+                    }
+
+                    .save-modal-btn-save:disabled {
+                        background: #9ca3af;
+                        cursor: not-allowed;
+                        opacity: 0.6;
+                    }
+                </style>
+
+                <div class="save-modal-header">
+                    <h2>Move Bookmarks to Folder</h2>
+                    <button class="save-modal-close-btn" aria-label="Close">×</button>
+                </div>
+
+                <div class="save-modal-body">
+                    <!-- Info Section -->
+                    <div class="move-info">
+                        <span class="move-info-icon">ℹ️</span>
+                        <span class="move-info-text">Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? "s" : ""}</span>
+                    </div>
+
+                    <!-- Folder Section -->
+                    <div class="folder-section">
+                        <div class="folder-header">
+                            <span class="folder-label">Select Destination Folder</span>
+                        </div>
+                        <div class="folder-tree-container">
+                            <div class="folder-tree-body">
+                                <div class="folder-empty">
+                                    <div class="folder-empty-icon">📁</div>
+                                    <div class="folder-empty-text">Loading folders...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="save-modal-footer">
+                    <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
+                    <button class="save-modal-btn save-modal-btn-save" disabled>Move</button>
+                </div>
+            `;
+      this.modal = modal;
+      this.overlay.appendChild(modal);
+      document.body.appendChild(this.overlay);
+      this.renderFolderTree();
+      const closeBtn = modal.querySelector(".save-modal-close-btn");
+      const cancelBtn = modal.querySelector(".save-modal-btn-cancel");
+      const moveBtn = modal.querySelector(".save-modal-btn-save");
+      closeBtn.addEventListener("click", () => {
+        this.hide();
+        resolve(void 0);
+      });
+      cancelBtn.addEventListener("click", () => {
+        this.hide();
+        resolve(void 0);
+      });
+      moveBtn.addEventListener("click", () => {
+        const selected = this.selectedPath;
+        this.hide();
+        resolve(selected);
+      });
+      this.overlay.addEventListener("click", (e) => {
+        if (e.target === this.overlay) {
+          this.hide();
+          resolve(void 0);
+        }
+      });
+      this.escKeyHandler = (e) => {
+        if (e.key === "Escape") {
+          this.hide();
+          document.removeEventListener("keydown", this.escKeyHandler);
+          resolve(void 0);
+        }
+      };
+      document.addEventListener("keydown", this.escKeyHandler);
+    });
   }
 }
 
@@ -25148,7 +25506,7 @@ class SimpleBookmarkPanel {
                 <span class="bookmark-title">${this.escapeHtml(bookmark.title)}</span>
                 <span class="bookmark-timestamp">${timestamp}</span>
                 <div class="item-actions">
-                    <button class="action-btn preview-bookmark" title="Preview" aria-label="Preview bookmark">👁</button>
+                    <button class="action-btn jump-bookmark" title="Jump to Conversation" aria-label="Jump to conversation">🔗</button>
                     <button class="action-btn edit-bookmark" title="Edit" aria-label="Edit bookmark">✏️</button>
                     <button class="action-btn delete-bookmark" title="Delete" aria-label="Delete bookmark">🗑</button>
                 </div>
@@ -25322,16 +25680,14 @@ class SimpleBookmarkPanel {
   }
   /**
    * Bind listeners for bookmark list items
+   * NOTE: This function is NOT currently used - events are bound in bindTreeEventListeners()
    */
   bindBookmarkListeners() {
     this.shadowRoot?.querySelectorAll(".preview-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const url = btn.getAttribute("data-url");
-        const position = parseInt(btn.getAttribute("data-position") || "0");
-        if (url && position) {
-          this.showDetailModal(url, position);
-        }
+        btn.getAttribute("data-url");
+        parseInt(btn.getAttribute("data-position") || "0");
       });
     });
     this.shadowRoot?.querySelectorAll(".edit-btn").forEach((btn) => {
@@ -25351,19 +25707,6 @@ class SimpleBookmarkPanel {
         const position = parseInt(btn.getAttribute("data-position") || "0");
         if (url && position) {
           await this.handleDelete(url, position);
-        }
-      });
-    });
-    this.shadowRoot?.querySelectorAll(".bookmark-item").forEach((item) => {
-      item.addEventListener("click", async (e) => {
-        const target = e.target;
-        if (target.classList.contains("bookmark-checkbox") || target.closest(".actions") || target.classList.contains("action-btn")) {
-          return;
-        }
-        const url = item.getAttribute("data-url");
-        const position = parseInt(item.getAttribute("data-position") || "0");
-        if (url && position) {
-          await this.handleGoTo(url, position);
         }
       });
     });
@@ -25464,13 +25807,13 @@ Please create a new root folder or organize within existing folders.`);
         await this.handleDeleteFolder(path);
       });
     });
-    this.shadowRoot?.querySelectorAll(".preview-bookmark").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+    this.shadowRoot?.querySelectorAll(".jump-bookmark").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const bookmarkItem = e.target.closest(".bookmark-item");
         const url = bookmarkItem.dataset.url;
         const position = parseInt(bookmarkItem.dataset.position);
-        this.showDetailModal(url, position);
+        await this.handleGoTo(url, position);
       });
     });
     this.shadowRoot?.querySelectorAll(".edit-bookmark").forEach((btn) => {
@@ -25489,6 +25832,19 @@ Please create a new root folder or organize within existing folders.`);
         const url = bookmarkItem.dataset.url;
         const position = parseInt(bookmarkItem.dataset.position);
         await this.handleDelete(url, position);
+      });
+    });
+    this.shadowRoot?.querySelectorAll(".bookmark-item").forEach((item) => {
+      item.addEventListener("click", (e) => {
+        const target = e.target;
+        if (target.classList.contains("item-checkbox") || target.classList.contains("bookmark-checkbox") || target.closest(".item-actions") || target.classList.contains("action-btn")) {
+          return;
+        }
+        const url = item.dataset.url;
+        const position = parseInt(item.dataset.position);
+        if (url && position) {
+          this.showDetailModal(url, position);
+        }
       });
     });
     this.shadowRoot?.querySelector(".create-first-folder")?.addEventListener("click", () => {
@@ -26032,9 +26388,9 @@ Please create a new root folder or organize within existing folders.`);
     modal.querySelector(".close-btn")?.addEventListener("click", () => {
       modalOverlay.remove();
     });
-    modal.querySelector(".open-conversation-btn")?.addEventListener("click", () => {
-      window.open(bookmark.url, "_blank");
+    modal.querySelector(".open-conversation-btn")?.addEventListener("click", async () => {
       modalOverlay.remove();
+      await this.handleGoTo(bookmark.url, bookmark.position);
     });
     modalOverlay.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -26575,16 +26931,63 @@ Tip: You can export your bookmarks first to create a backup.`
     await this.executeBatchDelete(analysis);
   }
   /**
-   * Handle batch move (placeholder)
-   * Task 3.5.1
+   * Execute batch move operation
+   */
+  async executeBatchMove(bookmarks, targetPath) {
+    const errors = [];
+    let successCount = 0;
+    logger$1.info(`[Batch Move] Moving ${bookmarks.length} bookmarks to ${targetPath || "root"}...`);
+    for (const bookmark of bookmarks) {
+      try {
+        await SimpleBookmarkStorage.save(
+          bookmark.url,
+          bookmark.position,
+          bookmark.userMessage,
+          bookmark.aiResponse,
+          bookmark.title,
+          bookmark.platform,
+          bookmark.timestamp,
+          targetPath || void 0
+        );
+        successCount++;
+      } catch (error) {
+        errors.push(`Failed to move bookmark: ${bookmark.title}`);
+        logger$1.error("[Batch Move] Error:", error);
+      }
+    }
+    if (errors.length > 0) {
+      this.showErrorSummary(errors);
+      logger$1.warn(`[Batch Move] Completed with ${errors.length} errors, ${successCount} successful`);
+    } else {
+      logger$1.info(`[Batch Move] Successfully moved ${successCount} bookmarks`);
+    }
+    this.selectedItems.clear();
+    await this.refresh();
+  }
+  /**
+   * Handle batch move
    */
   async handleBatchMove() {
     if (this.selectedItems.size === 0) {
       alert("Please select items to move");
       return;
     }
-    alert("Batch move feature coming soon!\n\nThis will allow you to move selected bookmarks to a different folder.");
-    logger$1.info("[Batch Move] Feature not yet implemented");
+    const bookmarks = this.getSelectedBookmarks();
+    if (bookmarks.length === 0) {
+      alert("No bookmarks selected to move.\n\nNote: Folders cannot be moved, only bookmarks.");
+      return;
+    }
+    const { BookmarkSaveModal } = await __vitePreload(async () => { const { BookmarkSaveModal } = await Promise.resolve().then(() => BookmarkSaveModal$1);return { BookmarkSaveModal }},true?void 0:void 0);
+    const modal = new BookmarkSaveModal();
+    const selectedPath = await modal.show({
+      mode: "folder-select",
+      bookmarkCount: bookmarks.length
+    });
+    if (selectedPath === void 0) {
+      logger$1.info("[Batch Move] Cancelled by user");
+      return;
+    }
+    await this.executeBatchMove(bookmarks, selectedPath);
   }
   /**
    * Show export options dialog
