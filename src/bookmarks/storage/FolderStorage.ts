@@ -205,7 +205,7 @@ export class FolderStorage {
 
             // Calculate new path
             const parentPath = PathUtils.getParentPath(oldPath);
-            const newPath = parentPath ? PathUtils.join(parentPath, newName) : newName;
+            const newPath = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${newName}` : newName;
 
             // Validate new path
             PathUtils.validatePath(newPath);
@@ -369,7 +369,7 @@ export class FolderStorage {
             }
 
             const folderName = PathUtils.getFolderName(sourcePath);
-            const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+            const newPath = targetParentPath ? `${targetParentPath}${PathUtils.SEPARATOR}${folderName}` : folderName;
             const newDepth = PathUtils.getDepth(newPath);
 
             if (newDepth > PathUtils.MAX_DEPTH) {

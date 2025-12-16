@@ -1,6 +1,7 @@
 import { Folder, FolderTreeNode } from '../storage/types';
 import { FolderStorage } from '../storage/FolderStorage';
 import { TreeBuilder } from '../utils/tree-builder';
+import { PathUtils } from '../utils/path-utils';
 import { logger } from '../../utils/logger';
 
 /**
@@ -340,10 +341,36 @@ export class BookmarkSaveModal {
                     font-size: 16px;
                 }
 
+                .folder-toggle {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 16px;
+                    height: 16px;
+                    margin-right: 4px;
+                    font-size: 10px;
+                    color: #6b7280;
+                    cursor: pointer;
+                    user-select: none;
+                    flex-shrink: 0;
+                    transition: transform 0.15s ease;
+                }
+
+                .folder-toggle:hover {
+                    color: #111827;
+                }
+
                 .folder-name {
                     flex: 1;
                     font-size: 14px;
                     color: #111827;
+                }
+
+                .folder-count {
+                    margin-left: 6px;
+                    font-size: 12px;
+                    color: #6b7280;
+                    font-weight: 400;
                 }
 
                 .folder-check {
@@ -595,15 +622,20 @@ export class BookmarkSaveModal {
             const isSelected = node.folder.path === this.selectedPath;
             const icon = isExpanded ? '📂' : '📁';
             const indent = depth * 20;
-            // Level 0 (depth=0): Level 1 folders (can have subfolders) ✓
-            // Level 1 (depth=1): Level 2 folders (CANNOT have subfolders) ✗
-            const showAddButton = depth < 1; // Only show + for level 1 folders
+            // Show + button if folder can have subfolders (depth < MAX_DEPTH - 1)
+            // Example with MAX_DEPTH=4:
+            // - depth=0 (Level 1): can add subfolder ✓
+            // - depth=1 (Level 2): can add subfolder ✓
+            // - depth=2 (Level 3): can add subfolder ✓
+            // - depth=3 (Level 4): CANNOT add subfolder ✗
+            const showAddButton = depth < PathUtils.MAX_DEPTH - 1;
 
             let html = `
                 <div class="folder-item ${isSelected ? 'selected' : ''}"
                      data-path="${this.escapeAttr(node.folder.path)}"
                      data-depth="${depth}"
                      style="padding-left: ${indent + 12}px">
+                    <span class="folder-toggle" data-path="${this.escapeAttr(node.folder.path)}" aria-label="Toggle folder">${isExpanded ? '▼' : '▶'}</span>
                     <span class="folder-icon">${icon}</span>
                     <span class="folder-name">${this.escapeHtml(node.folder.name)}</span>
                     ${isSelected ? '<span class="folder-check">✓</span>' : ''}
@@ -625,6 +657,25 @@ export class BookmarkSaveModal {
      */
     private bindFolderClickHandlers(): void {
         if (!this.modal) return;
+
+        // Bind toggle buttons
+        const toggleBtns = this.modal.querySelectorAll('.folder-toggle');
+        toggleBtns.forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = (toggle as HTMLElement).dataset.path!;
+
+                // Toggle expansion state
+                if (this.expandedPaths.has(path)) {
+                    this.expandedPaths.delete(path);
+                } else {
+                    this.expandedPaths.add(path);
+                }
+
+                // Re-render tree to update toggle icon
+                this.renderFolderTree();
+            });
+        });
 
         const folderItems = this.modal.querySelectorAll('.folder-item');
         folderItems.forEach(item => {
@@ -720,10 +771,10 @@ export class BookmarkSaveModal {
 
         const newPath = parentPath ? `${parentPath}/${name}` : name;
 
-        // Check depth limit (max 2 levels: a/b, not a/b/c)
+        // Check depth limit (max 4 levels: a/b/c/d, not a/b/c/d/e)
         const depth = newPath.split('/').length;
-        if (depth > 2) {
-            alert('❌ Maximum folder depth is 2 levels (e.g., Work/Projects)');
+        if (depth > PathUtils.MAX_DEPTH) {
+            alert(`❌ Maximum folder depth is ${PathUtils.MAX_DEPTH} levels (e.g., Work/Projects/AI/ChatGPT)`);
             return;
         }
 
@@ -740,8 +791,12 @@ export class BookmarkSaveModal {
             // Reload folders
             this.folders = await FolderStorage.getAll();
 
-            // Auto-select and expand
+            // Auto-select new folder and keep parent expanded
             this.selectedPath = newPath;
+            // Keep parent folder expanded (don't collapse it)
+            if (parentPath) {
+                this.expandedPaths.add(parentPath);
+            }
             this.expandPathToFolder(newPath);
 
             // Re-render

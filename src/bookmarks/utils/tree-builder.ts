@@ -213,6 +213,22 @@ export class TreeBuilder {
     }
 
     /**
+     * Get total bookmark count for a single node (including all descendants)
+     * 
+     * @param node Tree node
+     * @returns Total bookmark count
+     */
+    static getTotalBookmarkCount(node: FolderTreeNode): number {
+        let count = node.bookmarks.length;
+
+        if (node.children.length > 0) {
+            count += this.countBookmarks(node.children);
+        }
+
+        return count;
+    }
+
+    /**
      * Get all bookmarks from tree (flattened)
      * 
      * @param nodes Root nodes

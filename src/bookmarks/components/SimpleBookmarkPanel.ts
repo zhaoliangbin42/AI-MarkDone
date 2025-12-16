@@ -285,7 +285,8 @@ export class SimpleBookmarkPanel {
         const folder = node.folder;
         const icon = node.isExpanded ? '📂' : '📁';
         const indent = depth * 20; // 20px per level (Linear spacing)
-        const showAddSubfolder = depth < 2; // Max 3 levels
+        // Show + button if folder can have subfolders (depth < MAX_DEPTH - 1)
+        const showAddSubfolder = depth < PathUtils.MAX_DEPTH - 1;
         const selectedClass = node.isSelected ? 'selected' : '';
         const expandedClass = node.isExpanded ? 'expanded' : '';
 
@@ -298,12 +299,13 @@ export class SimpleBookmarkPanel {
                  aria-expanded="${node.isExpanded}"
                  aria-level="${depth + 1}"
                  tabindex="0">
+                <span class="folder-toggle ${node.isExpanded ? 'expanded' : ''}" aria-label="Toggle folder">▶</span>
                 <input type="checkbox" 
                        class="item-checkbox folder-checkbox" 
                        data-path="${this.escapeAttr(folder.path)}"
                        aria-label="Select ${folder.name} and all children">
                 <span class="folder-icon">${icon}</span>
-                <span class="folder-name">${this.escapeHtml(folder.name)}</span>
+                <span class="folder-name">${this.escapeHtml(folder.name)} <span class="folder-count">(${TreeBuilder.getTotalBookmarkCount(node)})</span></span>
                 <div class="item-actions">
                     ${showAddSubfolder ? `<button class="action-btn add-subfolder" data-path="${this.escapeAttr(folder.path)}" data-depth="${depth}" title="New Subfolder" aria-label="Create subfolder">➕</button>` : ''}
                     <button class="action-btn rename-folder" title="Rename" aria-label="Rename folder">✏️</button>
@@ -717,6 +719,17 @@ export class SimpleBookmarkPanel {
             });
         });
 
+        // Folder toggle (expand/collapse)
+        this.shadowRoot?.querySelectorAll('.folder-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const folderItem = (e.target as HTMLElement).closest('.folder-item')!;
+                const path = (folderItem as HTMLElement).dataset.path!;
+                this.folderState.toggleExpand(path);
+                this.refreshTreeView();
+            });
+        });
+
         // Add subfolder buttons
         this.shadowRoot?.querySelectorAll('.add-subfolder').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -724,9 +737,9 @@ export class SimpleBookmarkPanel {
                 const path = (btn as HTMLElement).dataset.path!;
                 const depth = parseInt((btn as HTMLElement).dataset.depth || '0');
 
-                // Check depth limit (max 3 levels, so depth 2 is the max for adding subfolders)
-                if (depth >= 2) {
-                    alert('❌ Cannot create subfolder: Maximum folder depth is 3 levels.\n\nPlease create a new root folder or organize within existing folders.');
+                // Check depth limit (max 4 levels, so depth 4 is the max for adding subfolders)
+                if (depth >= PathUtils.MAX_DEPTH) {
+                    alert(`❌ Cannot create subfolder: Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.\n\nPlease create a new root folder or organize within existing folders.`);
                     return;
                 }
 
@@ -806,11 +819,19 @@ export class SimpleBookmarkPanel {
         const isExpanded = this.folderState.isExpanded(path);
 
         // 3. Update DOM (no re-render!)
+        // First, remove 'selected' class from all folder items
+        this.shadowRoot?.querySelectorAll('.folder-item.selected').forEach(item => {
+            item.classList.remove('selected');
+        });
+
         const folderElement = this.shadowRoot?.querySelector(
             `.folder-item[data-path="${path}"]`
         );
 
         if (folderElement) {
+            // Add selected class to current folder
+            folderElement.classList.add('selected');
+
             // Update aria-expanded attribute
             folderElement.setAttribute('aria-expanded', String(isExpanded));
 
@@ -820,7 +841,17 @@ export class SimpleBookmarkPanel {
                 icon.textContent = isExpanded ? '📂' : '📁';
             }
 
-            // Toggle expanded class
+            // Update toggle button
+            const toggle = folderElement.querySelector('.folder-toggle');
+            if (toggle) {
+                if (isExpanded) {
+                    toggle.classList.add('expanded');
+                } else {
+                    toggle.classList.remove('expanded');
+                }
+            }
+
+            // Toggle expanded class on folder item
             if (isExpanded) {
                 folderElement.classList.add('expanded');
             } else {
@@ -1153,7 +1184,7 @@ export class SimpleBookmarkPanel {
     /**
      * Refresh tree view (re-render)
      */
-    private async refreshTreeView(): Promise<void> {
+    private refreshTreeView(): void {
         const content = this.shadowRoot?.querySelector('.bookmarks-tab .content');
         if (content) {
             content.innerHTML = this.renderTreeView();
@@ -1230,9 +1261,9 @@ export class SimpleBookmarkPanel {
         const newDepth = PathUtils.getDepth(newPath);
 
         // Check depth limit BEFORE calling folderOpsManager
-        if (newDepth > 3) {
-            alert(`❌ Cannot create folder: Maximum folder depth is 3 levels.\n\nCurrent path would be: ${newPath}\nDepth: ${newDepth}\n\nPlease create a new root folder or organize within existing folders.`);
-            logger.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit for path: ${newPath}`);
+        if (newDepth > PathUtils.MAX_DEPTH) {
+            alert(`❌ Cannot create folder: Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.\n\nCurrent path would be: ${newPath}\nDepth: ${newDepth}\n\nPlease create a new root folder or organize within existing folders.`);
+            logger.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit (${PathUtils.MAX_DEPTH}) for path: ${newPath}`);
             return;
         }
 
@@ -1241,7 +1272,8 @@ export class SimpleBookmarkPanel {
         if (result.success) {
             this.folders = await FolderStorage.getAll();
 
-            if (parentPath) {
+            // Keep parent folder expanded (don't toggle if already expanded)
+            if (parentPath && !this.folderState.isExpanded(parentPath)) {
                 this.folderState.toggleExpand(parentPath);
             }
 
@@ -3816,6 +3848,30 @@ export class SimpleBookmarkPanel {
                 border-left: 3px solid #3b82f6;
             }
 
+            .folder-toggle {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 16px;
+                height: 16px;
+                margin-right: 4px;
+                font-size: 10px;
+                color: #5f6368;
+                cursor: pointer;
+                user-select: none;
+                flex-shrink: 0;
+                transition: transform 0.15s ease;
+                transform: rotate(0deg);
+            }
+
+            .folder-toggle.expanded {
+                transform: rotate(90deg);
+            }
+
+            .folder-toggle:hover {
+                color: #202124;
+            }
+
             .folder-icon {
                 font-size: 16px;
                 margin-right: 8px;
@@ -3824,11 +3880,20 @@ export class SimpleBookmarkPanel {
 
             .folder-name {
                 flex: 1;
-                font-size: 14px;
-                color: #111827;
+                font-weight: 500;
+                color: #202124;
+                user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+
+            .folder-count {
+                margin-left: 6px;
+                font-size: 12px;
+                color: #5f6368;
+                font-weight: 400;
+                user-select: none;
             }
 
             /* VSCode-style folder children visibility */

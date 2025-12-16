@@ -56,7 +56,7 @@ export class FolderOperationsManager {
             }
 
             // Build full path
-            const path = parentPath ? PathUtils.join(parentPath, name) : name;
+            const path = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${name}` : name;
 
             // Validate depth
             const depth = PathUtils.getDepth(path);
@@ -109,7 +109,7 @@ export class FolderOperationsManager {
 
             // Calculate new path
             const parentPath = PathUtils.getParentPath(path);
-            const newPath = parentPath ? PathUtils.join(parentPath, newName) : newName;
+            const newPath = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${newName}` : newName;
 
             // Rename folder (handles recursive updates)
             await FolderStorage.rename(path, newName);
@@ -179,7 +179,7 @@ export class FolderOperationsManager {
 
             // Calculate new path
             const folderName = PathUtils.getFolderName(sourcePath);
-            const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+            const newPath = targetParentPath ? `${targetParentPath}${PathUtils.SEPARATOR}${folderName}` : folderName;
 
             // Emit event
             this.emitEvent({
@@ -283,7 +283,7 @@ export class FolderOperationsManager {
 
         // Check depth
         const folderName = PathUtils.getFolderName(sourcePath);
-        const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+        const newPath = targetParentPath ? `${targetParentPath}${PathUtils.SEPARATOR}${folderName}` : folderName;
         const newDepth = PathUtils.getDepth(newPath);
 
         if (newDepth > PathUtils.MAX_DEPTH) {

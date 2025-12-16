@@ -22809,7 +22809,7 @@ class PathUtils {
   /** Path separator (forward slash for cross-platform compatibility) */
   static SEPARATOR = "/";
   /** Maximum allowed folder depth */
-  static MAX_DEPTH = 2;
+  static MAX_DEPTH = 4;
   /** Maximum folder name length */
   static MAX_NAME_LENGTH = 50;
   /** Forbidden characters in folder names (includes separator and control chars) */
@@ -23226,7 +23226,7 @@ class FolderStorage {
         throw new PathValidationError("Invalid folder name", newName);
       }
       const parentPath = PathUtils.getParentPath(oldPath);
-      const newPath = parentPath ? PathUtils.join(parentPath, newName) : newName;
+      const newPath = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${newName}` : newName;
       PathUtils.validatePath(newPath);
       const folder = await this.get(oldPath);
       if (!folder) {
@@ -23355,7 +23355,7 @@ class FolderStorage {
         );
       }
       const folderName = PathUtils.getFolderName(sourcePath);
-      const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+      const newPath = targetParentPath ? `${targetParentPath}${PathUtils.SEPARATOR}${folderName}` : folderName;
       const newDepth = PathUtils.getDepth(newPath);
       if (newDepth > PathUtils.MAX_DEPTH) {
         throw new FolderOperationError(
@@ -23642,6 +23642,19 @@ class TreeBuilder {
       if (node.children.length > 0) {
         count += this.countBookmarks(node.children);
       }
+    }
+    return count;
+  }
+  /**
+   * Get total bookmark count for a single node (including all descendants)
+   * 
+   * @param node Tree node
+   * @returns Total bookmark count
+   */
+  static getTotalBookmarkCount(node) {
+    let count = node.bookmarks.length;
+    if (node.children.length > 0) {
+      count += this.countBookmarks(node.children);
     }
     return count;
   }
@@ -24038,10 +24051,36 @@ class BookmarkSaveModal {
                     font-size: 16px;
                 }
 
+                .folder-toggle {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 16px;
+                    height: 16px;
+                    margin-right: 4px;
+                    font-size: 10px;
+                    color: #6b7280;
+                    cursor: pointer;
+                    user-select: none;
+                    flex-shrink: 0;
+                    transition: transform 0.15s ease;
+                }
+
+                .folder-toggle:hover {
+                    color: #111827;
+                }
+
                 .folder-name {
                     flex: 1;
                     font-size: 14px;
                     color: #111827;
+                }
+
+                .folder-count {
+                    margin-left: 6px;
+                    font-size: 12px;
+                    color: #6b7280;
+                    font-weight: 400;
                 }
 
                 .folder-check {
@@ -24261,12 +24300,13 @@ class BookmarkSaveModal {
       const isSelected = node.folder.path === this.selectedPath;
       const icon = isExpanded ? "📂" : "📁";
       const indent = depth * 20;
-      const showAddButton = depth < 1;
+      const showAddButton = depth < PathUtils.MAX_DEPTH - 1;
       let html = `
                 <div class="folder-item ${isSelected ? "selected" : ""}"
                      data-path="${this.escapeAttr(node.folder.path)}"
                      data-depth="${depth}"
                      style="padding-left: ${indent + 12}px">
+                    <span class="folder-toggle" data-path="${this.escapeAttr(node.folder.path)}" aria-label="Toggle folder">${isExpanded ? "▼" : "▶"}</span>
                     <span class="folder-icon">${icon}</span>
                     <span class="folder-name">${this.escapeHtml(node.folder.name)}</span>
                     ${isSelected ? '<span class="folder-check">✓</span>' : ""}
@@ -24284,6 +24324,19 @@ class BookmarkSaveModal {
    */
   bindFolderClickHandlers() {
     if (!this.modal) return;
+    const toggleBtns = this.modal.querySelectorAll(".folder-toggle");
+    toggleBtns.forEach((toggle) => {
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const path = toggle.dataset.path;
+        if (this.expandedPaths.has(path)) {
+          this.expandedPaths.delete(path);
+        } else {
+          this.expandedPaths.add(path);
+        }
+        this.renderFolderTree();
+      });
+    });
     const folderItems = this.modal.querySelectorAll(".folder-item");
     folderItems.forEach((item) => {
       item.addEventListener("click", (e) => {
@@ -24355,8 +24408,8 @@ class BookmarkSaveModal {
     }
     const newPath = parentPath ? `${parentPath}/${name}` : name;
     const depth = newPath.split("/").length;
-    if (depth > 2) {
-      alert("❌ Maximum folder depth is 2 levels (e.g., Work/Projects)");
+    if (depth > PathUtils.MAX_DEPTH) {
+      alert(`❌ Maximum folder depth is ${PathUtils.MAX_DEPTH} levels (e.g., Work/Projects/AI/ChatGPT)`);
       return;
     }
     const exists = this.folders.find((f) => f.path === newPath);
@@ -24369,6 +24422,9 @@ class BookmarkSaveModal {
       logger$1.info(`[BookmarkSaveModal] Created folder: ${newPath}`);
       this.folders = await FolderStorage.getAll();
       this.selectedPath = newPath;
+      if (parentPath) {
+        this.expandedPaths.add(parentPath);
+      }
       this.expandPathToFolder(newPath);
       this.renderFolderTree();
       this.updateSaveButtonState();
@@ -24580,7 +24636,7 @@ class FolderOperationsManager {
           error: "Invalid folder name. Name cannot contain special characters or be empty."
         };
       }
-      const path = parentPath ? PathUtils.join(parentPath, name) : name;
+      const path = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${name}` : name;
       const depth = PathUtils.getDepth(path);
       if (depth > PathUtils.MAX_DEPTH) {
         return {
@@ -24621,7 +24677,7 @@ class FolderOperationsManager {
         };
       }
       const parentPath = PathUtils.getParentPath(path);
-      const newPath = parentPath ? PathUtils.join(parentPath, newName) : newName;
+      const newPath = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${newName}` : newName;
       await FolderStorage.rename(path, newName);
       this.emitEvent({
         type: "rename",
@@ -24675,7 +24731,7 @@ class FolderOperationsManager {
     try {
       await FolderStorage.move(sourcePath, targetParentPath);
       const folderName = PathUtils.getFolderName(sourcePath);
-      const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+      const newPath = targetParentPath ? `${targetParentPath}${PathUtils.SEPARATOR}${folderName}` : folderName;
       this.emitEvent({
         type: "move",
         path: sourcePath,
@@ -24760,7 +24816,7 @@ class FolderOperationsManager {
       return { canMove: false, reason: "Cannot move folder into its own descendant" };
     }
     const folderName = PathUtils.getFolderName(sourcePath);
-    const newPath = targetParentPath ? PathUtils.join(targetParentPath, folderName) : folderName;
+    const newPath = targetParentPath ? `${targetParentPath}${PathUtils.SEPARATOR}${folderName}` : folderName;
     const newDepth = PathUtils.getDepth(newPath);
     if (newDepth > PathUtils.MAX_DEPTH) {
       return { canMove: false, reason: `Move would exceed maximum depth of ${PathUtils.MAX_DEPTH}` };
@@ -25026,7 +25082,7 @@ class SimpleBookmarkPanel {
     const folder = node.folder;
     const icon = node.isExpanded ? "📂" : "📁";
     const indent = depth * 20;
-    const showAddSubfolder = depth < 2;
+    const showAddSubfolder = depth < PathUtils.MAX_DEPTH - 1;
     const selectedClass = node.isSelected ? "selected" : "";
     const expandedClass = node.isExpanded ? "expanded" : "";
     let html = `
@@ -25038,12 +25094,13 @@ class SimpleBookmarkPanel {
                  aria-expanded="${node.isExpanded}"
                  aria-level="${depth + 1}"
                  tabindex="0">
+                <span class="folder-toggle ${node.isExpanded ? "expanded" : ""}" aria-label="Toggle folder">▶</span>
                 <input type="checkbox" 
                        class="item-checkbox folder-checkbox" 
                        data-path="${this.escapeAttr(folder.path)}"
                        aria-label="Select ${folder.name} and all children">
                 <span class="folder-icon">${icon}</span>
-                <span class="folder-name">${this.escapeHtml(folder.name)}</span>
+                <span class="folder-name">${this.escapeHtml(folder.name)} <span class="folder-count">(${TreeBuilder.getTotalBookmarkCount(node)})</span></span>
                 <div class="item-actions">
                     ${showAddSubfolder ? `<button class="action-btn add-subfolder" data-path="${this.escapeAttr(folder.path)}" data-depth="${depth}" title="New Subfolder" aria-label="Create subfolder">➕</button>` : ""}
                     <button class="action-btn rename-folder" title="Rename" aria-label="Rename folder">✏️</button>
@@ -25368,13 +25425,24 @@ class SimpleBookmarkPanel {
         this.updateBatchActionsBar();
       });
     });
+    this.shadowRoot?.querySelectorAll(".folder-toggle").forEach((toggle) => {
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const folderItem = e.target.closest(".folder-item");
+        const path = folderItem.dataset.path;
+        this.folderState.toggleExpand(path);
+        this.refreshTreeView();
+      });
+    });
     this.shadowRoot?.querySelectorAll(".add-subfolder").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const path = btn.dataset.path;
         const depth = parseInt(btn.dataset.depth || "0");
-        if (depth >= 2) {
-          alert("❌ Cannot create subfolder: Maximum folder depth is 3 levels.\n\nPlease create a new root folder or organize within existing folders.");
+        if (depth >= PathUtils.MAX_DEPTH) {
+          alert(`❌ Cannot create subfolder: Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.
+
+Please create a new root folder or organize within existing folders.`);
           return;
         }
         this.showCreateFolderInput(path);
@@ -25435,14 +25503,26 @@ class SimpleBookmarkPanel {
     this.folderState.setSelectedPath(path);
     await this.folderState.saveLastSelected(path);
     const isExpanded = this.folderState.isExpanded(path);
+    this.shadowRoot?.querySelectorAll(".folder-item.selected").forEach((item) => {
+      item.classList.remove("selected");
+    });
     const folderElement = this.shadowRoot?.querySelector(
       `.folder-item[data-path="${path}"]`
     );
     if (folderElement) {
+      folderElement.classList.add("selected");
       folderElement.setAttribute("aria-expanded", String(isExpanded));
       const icon = folderElement.querySelector(".folder-icon");
       if (icon) {
         icon.textContent = isExpanded ? "📂" : "📁";
+      }
+      const toggle = folderElement.querySelector(".folder-toggle");
+      if (toggle) {
+        if (isExpanded) {
+          toggle.classList.add("expanded");
+        } else {
+          toggle.classList.remove("expanded");
+        }
       }
       if (isExpanded) {
         folderElement.classList.add("expanded");
@@ -25692,7 +25772,7 @@ class SimpleBookmarkPanel {
   /**
    * Refresh tree view (re-render)
    */
-  async refreshTreeView() {
+  refreshTreeView() {
     const content = this.shadowRoot?.querySelector(".bookmarks-tab .content");
     if (content) {
       content.innerHTML = this.renderTreeView();
@@ -25749,20 +25829,20 @@ class SimpleBookmarkPanel {
   async handleCreateFolder(parentPath, name) {
     const newPath = parentPath ? `${parentPath}/${name}` : name;
     const newDepth = PathUtils.getDepth(newPath);
-    if (newDepth > 3) {
-      alert(`❌ Cannot create folder: Maximum folder depth is 3 levels.
+    if (newDepth > PathUtils.MAX_DEPTH) {
+      alert(`❌ Cannot create folder: Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.
 
 Current path would be: ${newPath}
 Depth: ${newDepth}
 
 Please create a new root folder or organize within existing folders.`);
-      logger$1.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit for path: ${newPath}`);
+      logger$1.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit (${PathUtils.MAX_DEPTH}) for path: ${newPath}`);
       return;
     }
     const result = await this.folderOpsManager.createFolder(parentPath || "", name);
     if (result.success) {
       this.folders = await FolderStorage.getAll();
-      if (parentPath) {
+      if (parentPath && !this.folderState.isExpanded(parentPath)) {
         this.folderState.toggleExpand(parentPath);
       }
       await this.refreshTreeView();
@@ -27994,6 +28074,30 @@ Tip: You can export your bookmarks first to create a backup.`
                 border-left: 3px solid #3b82f6;
             }
 
+            .folder-toggle {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 16px;
+                height: 16px;
+                margin-right: 4px;
+                font-size: 10px;
+                color: #5f6368;
+                cursor: pointer;
+                user-select: none;
+                flex-shrink: 0;
+                transition: transform 0.15s ease;
+                transform: rotate(0deg);
+            }
+
+            .folder-toggle.expanded {
+                transform: rotate(90deg);
+            }
+
+            .folder-toggle:hover {
+                color: #202124;
+            }
+
             .folder-icon {
                 font-size: 16px;
                 margin-right: 8px;
@@ -28002,11 +28106,20 @@ Tip: You can export your bookmarks first to create a backup.`
 
             .folder-name {
                 flex: 1;
-                font-size: 14px;
-                color: #111827;
+                font-weight: 500;
+                color: #202124;
+                user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+
+            .folder-count {
+                margin-left: 6px;
+                font-size: 12px;
+                color: #5f6368;
+                font-weight: 400;
+                user-select: none;
             }
 
             /* VSCode-style folder children visibility */
