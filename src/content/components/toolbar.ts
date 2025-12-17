@@ -108,6 +108,7 @@ export class Toolbar {
         this.initWordCountWithRetry();
     }
 
+
     /**
      * Initialize word count with retry mechanism
      */

@@ -12,6 +12,7 @@ import { SimpleBookmarkStorage } from '../bookmarks/storage/SimpleBookmarkStorag
 import { BookmarkSaveModal } from '../bookmarks/components/BookmarkSaveModal';
 import { pageHeaderIcon } from './components/PageHeaderIcon';
 import { geminiPanelButton } from './components/GeminiPanelButton';
+import { DarkModeDetector } from '../utils/dark-mode-detector';
 
 /**
  * Main content script controller
@@ -30,6 +31,10 @@ class ContentScript {
     // Navigation check flag - AITimeline pattern
     private navigationChecked: boolean = false;
 
+    // Track messages being processed to prevent duplicate toolbar injection
+    private processingMessages: Set<string> = new Set();
+    private processingElements: WeakSet<HTMLElement> = new WeakSet();
+
     constructor() {
         // Use INFO in production; switch to DEBUG locally when needed
         logger.setLevel(LogLevel.INFO);
@@ -39,38 +44,47 @@ class ContentScript {
         this.mathClickHandler = new MathClickHandler();
         this.reRenderPanel = new ReRenderPanel();
 
+        // Initialize dark mode detector to follow host website theme
+        const darkModeDetector = DarkModeDetector.getInstance();
+        darkModeDetector.subscribe((isDark) => {
+            logger.info(`[DarkMode] Theme changed: ${isDark ? 'dark' : 'light'}`);
+
+            // CRITICAL: Actually apply/remove the 'dark' class to enable our dark mode styles
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                logger.info('[DarkMode] Applied dark class to <html>');
+            } else {
+                document.documentElement.classList.remove('dark');
+                logger.info('[DarkMode] Removed dark class from <html>');
+            }
+        });
+
         logger.info('AI-Markdone initialized');
     }
 
     /**
      * Start the extension
      */
-    start(): void {
-        // Check if current page is supported
-        if (!adapterRegistry.isSupported()) {
-            logger.warn('Current page is not supported');
-            return;
-        }
-
+    async start(): Promise<void> {
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) {
-            logger.error('Failed to get adapter');
+            logger.warn('No adapter found for current site');
             return;
         }
 
         logger.info('Starting extension on supported page');
 
-        // Initialize injector
+        // Create observer and injector
+        this.observer = new MessageObserver(
+            adapter,
+            (messageElement) => {
+                this.handleNewMessage(messageElement);
+            }
+        );
         this.injector = new ToolbarInjector(adapter);
 
-        // Initialize observer
-        this.observer = new MessageObserver(adapter, (messageElement) => {
-            this.handleNewMessage(messageElement);
-        });
-
-        // Enable Deep Research support for Gemini
+        // Initialize Deep Research handler for Gemini
         if ('isGemini' in adapter && typeof adapter.isGemini === 'function' && adapter.isGemini()) {
-            logger.info('Enabling Deep Research handler for Gemini');
             this.deepResearchHandler = new DeepResearchHandler();
             this.deepResearchHandler.enable();
 
@@ -81,10 +95,11 @@ class ContentScript {
             pageHeaderIcon.init();
         }
 
-        // Load bookmarks for current page - AITimeline pattern
-        this.loadBookmarks();
+        // Load bookmarks for current page BEFORE starting observer - AITimeline pattern
+        // This prevents race condition where messages are processed before bookmarks are loaded
+        await this.loadBookmarks();
 
-        // Start observing
+        // Start observing (now that bookmarks are loaded)
         this.observer.start();
     }
 
@@ -115,6 +130,40 @@ class ContentScript {
     private handleNewMessage(messageElement: HTMLElement): void {
         logger.debug('Handling new message');
 
+        // Get message ID for tracking
+        const adapter = adapterRegistry.getAdapter();
+        if (!adapter) return;
+
+        const messageId = adapter.getMessageId(messageElement);
+        if (!messageId) {
+            logger.warn('Message has no ID, cannot track processing state');
+
+            // Check if this element is already being processed
+            if (this.processingElements.has(messageElement)) {
+                logger.debug('Element is already being processed (no ID), skipping');
+                return;
+            }
+
+            // Fallback to DOM check
+            const hasToolbar = messageElement.querySelector('.aicopy-toolbar-container');
+            if (hasToolbar) {
+                logger.debug('Toolbar already exists (no ID), skipping');
+                return;
+            }
+
+            // Mark element as being processed
+            this.processingElements.add(messageElement);
+        } else {
+            // Check if this message is currently being processed
+            if (this.processingMessages.has(messageId)) {
+                logger.debug('Message is already being processed, skipping:', messageId);
+                return;
+            }
+
+            // Mark as being processed
+            this.processingMessages.add(messageId);
+        }
+
         // ✅ AITimeline pattern: Check navigation target on first message detection
         if (!this.navigationChecked) {
             this.navigationChecked = true;
@@ -126,6 +175,10 @@ class ContentScript {
         // This prevents creating orphaned toolbar objects with wrong messageElement bindings
         if (messageElement.querySelector('.aicopy-toolbar-container')) {
             logger.debug('Toolbar already exists, skipping');
+            // Remove from processing set since we're done
+            if (messageId) {
+                this.processingMessages.delete(messageId);
+            }
             return;
         }
 
@@ -165,8 +218,18 @@ class ContentScript {
 
         // Enable click-to-copy for math elements
         this.mathClickHandler.enable(messageElement);
-    }
 
+        // Remove from processing set after a short delay
+        // This ensures the toolbar has time to be injected into DOM
+        if (messageId) {
+            setTimeout(() => {
+                this.processingMessages.delete(messageId);
+                logger.info(`[DEBUG] ⏰ Timeout: Removed ${messageId}. Size: ${this.processingMessages.size}`);
+            }, 1000); // 1 second should be enough for toolbar injection
+        }
+
+        logger.info('=== handleNewMessage END ===');
+    }
     /**
      * Get Markdown from message element
      */
@@ -430,52 +493,221 @@ class ContentScript {
     }
 
     /**
-     * Stop the extension
+     * Stop the extension and cleanup all resources
      */
     stop(): void {
+        logger.info('Stopping extension...');
+
+        // 1. Stop MessageObserver
         if (this.observer) {
             this.observer.stop();
             this.observer = null;
         }
 
+        // 2. Cleanup MathClickHandler (disconnect observers, remove event listeners)
+        if (this.mathClickHandler) {
+            this.mathClickHandler.disable();
+        }
+
+        // 3. Cleanup ToolbarInjector (clear pending timers)
+        if (this.injector) {
+            this.injector.cleanup();
+            this.injector = null;
+        }
+
+        // 4. Cleanup DeepResearchHandler
         if (this.deepResearchHandler) {
             this.deepResearchHandler.disable();
             this.deepResearchHandler = undefined;
         }
 
-        logger.info('Extension stopped');
+        // 5. Reset state
+        this.bookmarkedPositions.clear();
+        this.navigationChecked = false;
+        this.processingMessages.clear();
+
+        logger.info('Extension stopped and all resources cleaned up');
     }
 }
 
-// Initialize and start when DOM is ready
+// ============================================================================
+// URL Change Observer - Fix Memory Leak & Performance Issues
+// ============================================================================
+
+// Global references for cleanup (prevent memory leaks)
+let urlObserver: MutationObserver | null = null;
+let reinitTimeout: number | null = null;
+let debounceTimeout: number | null = null;
+
+/**
+ * Wait for page to be ready by checking for key DOM elements
+ * Uses polling with exponential backoff instead of fixed delay
+ */
+function waitForPageReady(adapter: any): Promise<boolean> {
+    return new Promise((resolve) => {
+        const maxAttempts = 25; // Max 5 seconds (25 * 200ms)
+        let attempts = 0;
+
+        const checkReady = () => {
+            attempts++;
+
+            // Check if key elements exist (message container)
+            const messageContainer = adapter.getObserverContainer();
+            const hasMessages = document.querySelector(adapter.getMessageSelector()) !== null;
+
+            if (messageContainer && hasMessages) {
+                logger.debug(`[Navigation] Page ready after ${attempts * 200}ms`);
+                resolve(true);
+                return;
+            }
+
+            // Timeout after max attempts
+            if (attempts >= maxAttempts) {
+                logger.warn('[Navigation] Page ready timeout, proceeding anyway');
+                resolve(false);
+                return;
+            }
+
+            // Retry with 200ms interval
+            setTimeout(checkReady, 200);
+        };
+
+        checkReady();
+    });
+}
+
+/**
+ * Handle navigation/URL change
+ * Waits for page to be actually ready instead of using fixed delay
+ */
+function handleNavigation(contentScript: ContentScript | null): ContentScript | null {
+    // Clear any pending reinitialization
+    if (reinitTimeout !== null) {
+        clearTimeout(reinitTimeout);
+        logger.debug('[Navigation] Cancelled previous reinit timeout');
+    }
+
+    // Use async initialization with page ready detection
+    (async () => {
+        // Check if user has active UI (modal or panel)
+        const hasActiveModal = document.querySelector('.bookmark-save-modal-overlay') !== null;
+        const hasActivePanel = document.querySelector('.simple-bookmark-panel-overlay') !== null;
+
+        if (hasActiveModal || hasActivePanel) {
+            logger.info('[Navigation] Skipping reinit: user has active UI');
+            return;
+        }
+
+        // Get adapter to check page readiness
+        const adapter = adapterRegistry.getAdapter();
+        if (!adapter) {
+            logger.error('[Navigation] No adapter found, cannot check page readiness');
+            return;
+        }
+
+        // Wait for page to be ready (smart wait, not fixed delay)
+        logger.debug('[Navigation] Waiting for page to be ready...');
+        const isReady = await waitForPageReady(adapter);
+
+        if (!isReady) {
+            logger.warn('[Navigation] Page may not be fully ready, but proceeding');
+        }
+
+        // Double-check user hasn't opened UI during wait
+        const hasActiveModalNow = document.querySelector('.bookmark-save-modal-overlay') !== null;
+        const hasActivePanelNow = document.querySelector('.simple-bookmark-panel-overlay') !== null;
+
+        if (hasActiveModalNow || hasActivePanelNow) {
+            logger.info('[Navigation] User opened UI during wait, skipping reinit');
+            return;
+        }
+
+        // Safe to reinitialize
+        logger.info('[Navigation] Reinitializing extension');
+        contentScript?.stop();
+        const newContentScript = new ContentScript();
+        await newContentScript.start();
+
+        // Update closure reference
+        contentScript = newContentScript;
+    })();
+
+    return contentScript;
+}
+
+/**
+ * Initialize extension and setup URL change detection
+ */
 function initExtension() {
     logger.info('Initializing AI-Markdone extension');
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
 
     let contentScript: ContentScript | null = new ContentScript();
-    contentScript.start();
+    contentScript.start(); // Fire and forget - initial load
 
-    // Also listen for URL changes (for SPA navigation)
+    // Disconnect previous observer to prevent memory leak
+    if (urlObserver) {
+        urlObserver.disconnect();
+        logger.debug('[Observer] Disconnected previous URL observer');
+    }
+
+    // Setup URL change detection for SPA navigation
     let lastUrl = window.location.href;
-    new MutationObserver(() => {
-        const currentUrl = window.location.href;
-        if (currentUrl !== lastUrl) {
-            lastUrl = currentUrl;
-            logger.info('URL changed, reinitializing:', currentUrl);
-            // Small delay to let the new page render
-            setTimeout(() => {
-                contentScript?.stop();
-                contentScript = new ContentScript();
-                contentScript.start();
-            }, 500);
+
+    urlObserver = new MutationObserver(() => {
+        // Debounce: prevent excessive checks during rapid DOM changes
+        if (debounceTimeout !== null) {
+            clearTimeout(debounceTimeout);
         }
-    }).observe(document.body, { subtree: true, childList: true });
+
+        debounceTimeout = window.setTimeout(() => {
+            const currentUrl = window.location.href;
+            if (currentUrl !== lastUrl) {
+                lastUrl = currentUrl;
+                logger.info('[Observer] URL changed:', currentUrl);
+                contentScript = handleNavigation(contentScript);
+            }
+            debounceTimeout = null;
+        }, 100); // 100ms debounce
+    });
+
+    // Start observing DOM changes
+    urlObserver.observe(document.body, { subtree: true, childList: true });
+    logger.debug('[Observer] Started URL change observer');
 }
 
+/**
+ * Cleanup function - disconnect observer and clear timeouts
+ */
+function cleanupExtension() {
+    if (urlObserver) {
+        urlObserver.disconnect();
+        urlObserver = null;
+        logger.debug('[Cleanup] Disconnected URL observer');
+    }
+
+    if (reinitTimeout !== null) {
+        clearTimeout(reinitTimeout);
+        reinitTimeout = null;
+    }
+
+    if (debounceTimeout !== null) {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = null;
+    }
+
+    logger.info('[Cleanup] Extension cleanup complete');
+}
+
+// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initExtension);
 } else {
     // DOM already loaded, start immediately
     initExtension();
 }
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', cleanupExtension);
+window.addEventListener('pagehide', cleanupExtension);

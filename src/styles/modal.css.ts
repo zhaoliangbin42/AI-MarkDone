@@ -154,4 +154,67 @@ export const modalStyles = `
   background: #1D4ED8;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
+
+/* ============================================
+   DARK MODE - Shadow DOM compatible
+   ============================================ */
+
+:host-context(html.dark) .modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+:host-context(html.dark) .modal-container {
+  background: #1E1E1E;
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 16px 48px rgba(0, 0, 0, 0.6),
+    0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+:host-context(html.dark) .modal-header {
+  border-bottom-color: #3F3F46;
+}
+
+:host-context(html.dark) .modal-title {
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .modal-close {
+  color: #A1A1AA;
+}
+
+:host-context(html.dark) .modal-close:hover {
+  background: #27272A;
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .modal-content {
+  background: #1E1E1E;
+  color: #E3E3E3;
+}
+
+:host-context(html.dark) .modal-footer {
+  border-top-color: #3F3F46;
+  background: #1E1E1E;
+}
+
+:host-context(html.dark) .modal-button {
+  background: #27272A;
+  color: #E3E3E3;
+}
+
+:host-context(html.dark) .modal-button:hover {
+  background: #3F3F46;
+}
+
+:host-context(html.dark) .modal-button.primary {
+  background: #3B82F6;
+  color: white;
+}
+
+:host-context(html.dark) .modal-button.primary:hover {
+  background: #2563EB;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
 `;

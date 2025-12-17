@@ -6,8 +6,14 @@ import { logger } from '../../utils/logger';
  * Allows users to click on math formulas to copy their LaTeX source
  */
 export class MathClickHandler {
-    private activeElements = new WeakSet<Element>();
-    private observers = new WeakMap<HTMLElement, MutationObserver>();
+    private activeElements = new Set<Element>();  // Changed from WeakSet to Set for cleanup
+    private observers = new Map<HTMLElement, MutationObserver>();  // Changed from WeakMap to Map for cleanup
+    private elementListeners = new Map<Element, {
+        target: HTMLElement;
+        mouseenter: EventListener;
+        mouseleave: EventListener;
+        click: EventListener;
+    }>();
 
     /**
      * Enable click-to-copy for all math elements in a container
@@ -121,20 +127,32 @@ export class MathClickHandler {
         targetEl.style.cursor = 'pointer';
         targetEl.style.transition = 'background-color 0.2s';
 
-        targetEl.addEventListener('mouseenter', () => {
+        // Create named event listeners (so we can remove them later)
+        const mouseenterHandler = () => {
             targetEl.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-        });
+        };
 
-        targetEl.addEventListener('mouseleave', () => {
+        const mouseleaveHandler = () => {
             targetEl.style.backgroundColor = '';
-        });
+        };
 
-        // Add click handler
-        targetEl.addEventListener('click', async (e) => {
+        const clickHandler = async (e: Event) => {
             e.preventDefault();
             e.stopPropagation();
-
             await this.handleClick(element);
+        };
+
+        // Add event listeners
+        targetEl.addEventListener('mouseenter', mouseenterHandler);
+        targetEl.addEventListener('mouseleave', mouseleaveHandler);
+        targetEl.addEventListener('click', clickHandler);
+
+        // Save listener references for cleanup
+        this.elementListeners.set(element, {
+            target: targetEl,
+            mouseenter: mouseenterHandler,
+            mouseleave: mouseleaveHandler,
+            click: clickHandler
         });
     }
 
@@ -233,5 +251,39 @@ export class MathClickHandler {
                 element.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
             }
         }, 1500);
+    }
+
+    /**
+     * Disable and cleanup all resources
+     * Called when ContentScript is stopped (e.g., on page navigation)
+     */
+    disable(): void {
+        // 1. Disconnect all MutationObservers
+        this.observers.forEach((observer, _container) => {
+            observer.disconnect();
+            logger.debug('[MathClick] Disconnected observer for container');
+        });
+        this.observers.clear();
+
+        // 2. Remove all event listeners and reset styles
+        this.elementListeners.forEach((listeners, _element) => {
+            const { target, mouseenter, mouseleave, click } = listeners;
+
+            // Reset styles before removing listeners
+            target.style.backgroundColor = '';
+            target.style.cursor = '';
+            target.style.transition = '';
+
+            // Remove event listeners
+            target.removeEventListener('mouseenter', mouseenter);
+            target.removeEventListener('mouseleave', mouseleave);
+            target.removeEventListener('click', click);
+        });
+        this.elementListeners.clear();
+
+        // 3. Clear active elements
+        this.activeElements.clear();
+
+        logger.info('[MathClick] Disabled and cleaned up all resources');
     }
 }

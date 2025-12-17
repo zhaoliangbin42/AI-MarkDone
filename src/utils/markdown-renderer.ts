@@ -102,218 +102,188 @@ export class MarkdownRenderer {
      */
     static getMarkdownStyles(): string {
         return `
-body {
+/* GitHub Markdown Styles - Adapted for Extension */
+
+.markdown-body {
+  /* Light mode variables */
+  --fgColor-default: #1f2328;
+  --fgColor-muted: #59636e;
+  --fgColor-accent: #0969da;
+  --bgColor-default: #ffffff;
+  --bgColor-muted: #f6f8fa;
+  --bgColor-attention-muted: #fff8c5;
+  --borderColor-default: #d1d9e0;
+  --borderColor-muted: #d1d9e0b3;
+  
   margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  padding: 12px 16px;
+  color: var(--fgColor-default);
+  /* background-color: var(--bgColor-default); */
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  color: #37352F;
-  background: #fff;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-.markdown-content {
-  padding: 12px 16px;
-  max-width: 100%;
-}
-
-/* Limit content width in fullscreen mode for better readability */
-.aicopy-panel-fullscreen .markdown-content {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-/* Headings - Notion style: clean, no borders */
-h1, h2, h3, h4, h5, h6 {
-  margin-top: 2em;
-  margin-bottom: 4px;
+/* Headings */
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
   font-weight: 600;
-  line-height: 1.3;
-  color: #37352F;
+  line-height: 1.25;
 }
 
-h1 { 
-  font-size: 2.25em;
+.markdown-body h1 {
+  margin: .67em 0;
+  padding-bottom: .3em;
+  font-size: 2em;
+  border-bottom: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body h2 {
+  padding-bottom: .3em;
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+.markdown-body h5 { font-size: .875em; }
+.markdown-body h6 { font-size: .85em; color: var(--fgColor-muted); }
+
+/* Paragraphs */
+.markdown-body p { 
+  margin-top: 0; 
+  margin-bottom: 10px;
+}
+
+/* Links */
+.markdown-body a { color: var(--fgColor-accent); text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+
+/* Strong and emphasis */
+.markdown-body b, .markdown-body strong { font-weight: 600; }
+.markdown-body em { font-style: italic; }
+
+/* Blockquotes */
+.markdown-body blockquote {
+  margin: 0;
+  padding: 0 1em;
+  color: var(--fgColor-muted);
+  border-left: .25em solid var(--borderColor-default);
+}
+
+/* Code */
+.markdown-body code, .markdown-body kbd, .markdown-body pre {
+  font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;
+}
+
+.markdown-body code {
+  padding: .2em .4em;
+  margin: 0;
+  font-size: 85%;
+  white-space: break-spaces;
+  background-color: var(--bgColor-muted);
+  border-radius: 6px;
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown-body pre {
   margin-top: 0;
-  margin-bottom: 0.5em;
-  font-weight: 700;
-}
-
-h2 { 
-  font-size: 1.75em;
-  margin-bottom: 0.5em;
-}
-
-h3 { 
-  font-size: 1.25em; 
-}
-
-h4, h5, h6 { 
-  font-size: 1.125em; 
-}
-
-/* Paragraphs - generous spacing */
-p { 
-  margin: 0.75em 0 0.75em 0;
-  line-height: 1.7;
-}
-
-/* Blockquotes - Notion style: subtle left border, no background */
-blockquote {
-  padding: 3px 0 3px 16px;
-  margin: 1em 0;
-  color: #37352F;
-  border-left: 3px solid #E9E9E7;
-  font-size: 1em;
-}
-
-blockquote p {
-  margin: 0.5em 0;
-}
-
-/* Inline code - Notion style: vibrant red background */
-code {
-  padding: 4px 8px;
-  margin: 0 2px;
-  font-size: 0.9em;
-  background-color: #FFF3F3;
-  border-radius: 4px;
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-  color: #E03E3E;
-  font-weight: 500;
-  border: 1px solid #FFE0E0;
-}
-
-/* Code blocks - Notion style: warm background with border */
-pre {
-  padding: 20px;
-  margin: 1.5em 0;
+  margin-bottom: 16px;
+  padding: 16px;
   overflow: auto;
-  font-size: 0.875em;
-  line-height: 1.7;
-  background-color: #FAFAF9;
-  border-radius: 8px;
-  border: 1px solid #E7E5E4;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: var(--bgColor-muted);
+  border-radius: 6px;
+  border: 1px solid var(--borderColor-default);
 }
 
-pre code {
-  background: transparent;
+.markdown-body pre code {
   padding: 0;
   margin: 0;
-  font-size: 1em;
-  color: #37352F;
-  border-radius: 0;
-}
-
-/* Tables - Notion style: clean borders */
-table {
-  border-spacing: 0;
-  border-collapse: collapse;
-  margin: 1.5em 0;
-  width: 100%;
-  font-size: 0.9375em;
-}
-
-th, td {
-  padding: 8px 12px;
-  border: 1px solid #E9E9E7;
-  text-align: left;
-}
-
-th {
-  font-weight: 600;
-  background-color: #F7F6F3;
-  color: #37352F;
-}
-
-tr:hover {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Lists - Notion style: comfortable spacing */
-ul, ol {
-  padding-left: 1.625em;
-  margin: 0.75em 0;
-}
-
-ul {
-  list-style-type: disc;
-}
-
-ol {
-  list-style-type: decimal;
-}
-
-li {
-  margin: 0.25em 0;
-  line-height: 1.7;
-}
-
-li:first-child {
-  margin-top: 0;
-}
-
-li > p {
-  margin: 0.5em 0;
-}
-
-li > p:first-child {
-  margin-top: 0;
-}
-
-ul ul, 
-ul ol, 
-ol ul, 
-ol ol {
-  margin: 0.25em 0;
-}
-
-/* Horizontal rule - Notion style: subtle */
-hr {
-  height: 1px;
-  padding: 0;
-  margin: 2em 0;
-  background-color: #E9E9E7;
+  background-color: transparent;
   border: 0;
 }
 
-/* Links - Notion style: subtle underline on hover */
-a {
-  color: #0B6E99;
-  text-decoration: none;
-  border-bottom: 0.05em solid transparent;
-  transition: border-bottom-color 0.2s ease;
+/* Lists */
+.markdown-body ul, .markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 2em;
 }
 
-a:hover {
-  border-bottom-color: #0B6E99;
+.markdown-body li { margin-top: .25em; }
+.markdown-body li + li { margin-top: .25em; }
+
+/* Tables */
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.markdown-body td, .markdown-body th {
+  padding: 6px 13px;
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown-body th {
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+}
+
+.markdown-body tr {
+  background-color: var(--bgColor-default);
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body tr:nth-child(2n) {
+  background-color: var(--bgColor-muted);
+}
+
+/* Horizontal rule */
+.markdown-body hr {
+  height: .25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--borderColor-default);
+  border: 0;
 }
 
 /* Images */
-img {
+.markdown-body img {
   max-width: 100%;
-  border-radius: 3px;
-  margin: 1em 0;
+  border-style: none;
 }
 
-/* Strong and emphasis */
-strong {
-  font-weight: 600;
-  color: #37352F;
+/* Mark */
+.markdown-body mark {
+  background-color: var(--bgColor-attention-muted);
+  color: var(--fgColor-default);
 }
 
-em {
-  font-style: italic;
-  color: #37352F;
+/* Task lists */
+.markdown-body input[type="checkbox"] {
+  margin: 0 .2em .25em -1.6em;
+  vertical-align: middle;
 }
 
-/* KaTeX styles - inline to avoid loading issues */
-.katex { 
-  font-size: 1.1em; 
+/* KaTeX - Best practice from open-source projects */
+.markdown-body .katex { 
+  font-size: 1.1em;
+  display: inline-block;
+  text-indent: 0;
+  text-rendering: auto;
+  vertical-align: -0.25em;
 }
 
-.katex-display {
+.markdown-body .katex-display {
   display: block;
   margin: 1.5em 0;
   text-align: center;
@@ -321,14 +291,19 @@ em {
   overflow-y: hidden;
 }
 
-/* Task lists - Notion style */
-input[type="checkbox"] {
-  margin-right: 0.5em;
-}
+/* ============================================
+   DARK MODE - GitHub Dark (Shadow DOM compatible)
+   ============================================ */
 
-/* Selection color - Notion style */
-::selection {
-  background-color: rgba(45, 170, 219, 0.3);
+:host-context(html.dark) .markdown-body {
+  --fgColor-default: #f0f6fc;
+  --fgColor-muted: #9198a1;
+  --fgColor-accent: #4493f8;
+  --bgColor-default: #212121;
+  --bgColor-muted: #2d2d2d;
+  --bgColor-attention-muted: #bb800926;
+  --borderColor-default: #3d444d;
+  --borderColor-muted: #3d444db3;
 }
 `;
     }

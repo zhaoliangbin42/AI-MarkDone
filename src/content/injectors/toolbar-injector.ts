@@ -9,7 +9,7 @@ import { safeQuerySelector } from '../../utils/dom-utils';
 export class ToolbarInjector {
     private adapter: SiteAdapter;
     private injectedElements = new WeakSet<HTMLElement>();
-    private pendingObservers = new WeakMap<HTMLElement, number>();
+    private pendingObservers = new Map<HTMLElement, number>();  // Changed from WeakMap to Map for cleanup
 
     constructor(adapter: SiteAdapter) {
         this.adapter = adapter;
@@ -190,5 +190,22 @@ export class ToolbarInjector {
      */
     isInjected(messageElement: HTMLElement): boolean {
         return this.injectedElements.has(messageElement);
+    }
+
+    /**
+     * Cleanup all pending observers and reset state
+     * Called when ContentScript is stopped (e.g., on page navigation)
+     */
+    cleanup(): void {
+        // Clear all pending interval timers
+        this.pendingObservers.forEach((timerId) => {
+            window.clearInterval(timerId);
+            logger.debug('[Injector] Cleared pending interval timer');
+        });
+
+        this.pendingObservers.clear();
+        this.injectedElements = new WeakSet<HTMLElement>();
+
+        logger.info('[Injector] Cleaned up all pending observers');
     }
 }

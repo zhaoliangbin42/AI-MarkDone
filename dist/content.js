@@ -605,7 +605,8 @@ class MessageObserver {
 class ToolbarInjector {
   adapter;
   injectedElements = /* @__PURE__ */ new WeakSet();
-  pendingObservers = /* @__PURE__ */ new WeakMap();
+  pendingObservers = /* @__PURE__ */ new Map();
+  // Changed from WeakMap to Map for cleanup
   constructor(adapter) {
     this.adapter = adapter;
   }
@@ -744,6 +745,19 @@ class ToolbarInjector {
   isInjected(messageElement) {
     return this.injectedElements.has(messageElement);
   }
+  /**
+   * Cleanup all pending observers and reset state
+   * Called when ContentScript is stopped (e.g., on page navigation)
+   */
+  cleanup() {
+    this.pendingObservers.forEach((timerId) => {
+      window.clearInterval(timerId);
+      logger$1.debug("[Injector] Cleared pending interval timer");
+    });
+    this.pendingObservers.clear();
+    this.injectedElements = /* @__PURE__ */ new WeakSet();
+    logger$1.info("[Injector] Cleaned up all pending observers");
+  }
 }
 
 const toolbarStyles = `
@@ -760,15 +774,13 @@ const toolbarStyles = `
   --theme-color: #3b82f6;
 }
 
-/* Dark mode theme colors */
-@media (prefers-color-scheme: dark) {
-  :host {
-    --gradient-solid-from: #60a5fa;
-    --gradient-solid-to: #3b82f6;
-    --gradient-light-from: rgba(96, 165, 250, 0.25);
-    --gradient-light-to: rgba(59, 130, 246, 0.25);
-    --theme-color: #60a5fa;
-  }
+/* Dark mode theme colors - follows host website theme */
+:host-context(html.dark) :host {
+  --gradient-solid-from: #60a5fa;
+  --gradient-solid-to: #3b82f6;
+  --gradient-light-from: rgba(96, 165, 250, 0.25);
+  --gradient-light-to: rgba(59, 130, 246, 0.25);
+  --theme-color: #60a5fa;
 }
 
 /* Notion-style floating toolbar */
@@ -833,22 +845,36 @@ const toolbarStyles = `
     0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
-/* Dark mode toolbar */
-@media (prefers-color-scheme: dark) {
-  .aicopy-toolbar {
-    background: rgba(40, 40, 40, 0.98);
-    box-shadow: 
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08),  /* Border */
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 2px 4px rgba(0, 0, 0, 0.3);
-  }
-  
-  .aicopy-toolbar:hover {
-    box-shadow: 
-      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-      0 2px 4px rgba(0, 0, 0, 0.5),
-      0 4px 8px rgba(0, 0, 0, 0.4);
-  }
+/* Dark mode toolbar - follows host website theme */
+:host-context(html.dark) .aicopy-toolbar {
+  background: rgba(40, 40, 40, 0.98);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),  /* Border */
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+:host-context(html.dark) .aicopy-toolbar:hover {
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark mode bookmarked state - MUST come after general dark mode for specificity */
+:host-context(html.dark) .aicopy-toolbar.bookmarked {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.15)) !important;
+  box-shadow: 
+    inset 0 0 0 1px rgba(59, 130, 246, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context(html.dark) .aicopy-toolbar.bookmarked:hover {
+  box-shadow: 
+    inset 0 0 0 1px rgba(59, 130, 246, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.4) !important;
 }
 
 .aicopy-button-group {
@@ -866,10 +892,8 @@ const toolbarStyles = `
   flex-shrink: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  .aicopy-divider {
-    background: rgba(255, 255, 255, 0.12);
-  }
+:host-context(html.dark) .aicopy-divider {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Notion-style rounded buttons */
@@ -908,19 +932,17 @@ const toolbarStyles = `
   cursor: not-allowed;
 }
 
-@media (prefers-color-scheme: dark) {
-  .aicopy-button {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  
-  .aicopy-button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  
-  .aicopy-button:active {
-    background: rgba(255, 255, 255, 0.12);
-  }
+:host-context(html.dark) .aicopy-button {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+:host-context(html.dark) .aicopy-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:host-context(html.dark) .aicopy-button:active {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Button hover in bookmarked toolbar - light blue for visibility */
@@ -988,10 +1010,8 @@ const toolbarStyles = `
   user-select: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  .aicopy-stats {
-    color: rgba(255, 255, 255, 0.5);
-  }
+:host-context(html.dark) .aicopy-stats {
+  color: rgba(255, 255, 255, 0.5);
 }
 `;
 
@@ -1716,6 +1736,69 @@ const modalStyles = `
 .modal-button.primary:hover {
   background: #1D4ED8;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+/* ============================================
+   DARK MODE - Shadow DOM compatible
+   ============================================ */
+
+:host-context(html.dark) .modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+:host-context(html.dark) .modal-container {
+  background: #1E1E1E;
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 16px 48px rgba(0, 0, 0, 0.6),
+    0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+:host-context(html.dark) .modal-header {
+  border-bottom-color: #3F3F46;
+}
+
+:host-context(html.dark) .modal-title {
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .modal-close {
+  color: #A1A1AA;
+}
+
+:host-context(html.dark) .modal-close:hover {
+  background: #27272A;
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .modal-content {
+  background: #1E1E1E;
+  color: #E3E3E3;
+}
+
+:host-context(html.dark) .modal-footer {
+  border-top-color: #3F3F46;
+  background: #1E1E1E;
+}
+
+:host-context(html.dark) .modal-button {
+  background: #27272A;
+  color: #E3E3E3;
+}
+
+:host-context(html.dark) .modal-button:hover {
+  background: #3F3F46;
+}
+
+:host-context(html.dark) .modal-button.primary {
+  background: #3B82F6;
+  color: white;
+}
+
+:host-context(html.dark) .modal-button.primary:hover {
+  background: #2563EB;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
 }
 `;
 
@@ -3350,8 +3433,11 @@ $$` });
 }
 
 class MathClickHandler {
-  activeElements = /* @__PURE__ */ new WeakSet();
-  observers = /* @__PURE__ */ new WeakMap();
+  activeElements = /* @__PURE__ */ new Set();
+  // Changed from WeakSet to Set for cleanup
+  observers = /* @__PURE__ */ new Map();
+  // Changed from WeakMap to Map for cleanup
+  elementListeners = /* @__PURE__ */ new Map();
   /**
    * Enable click-to-copy for all math elements in a container
    * Uses MutationObserver to handle streaming updates
@@ -3428,16 +3514,25 @@ class MathClickHandler {
     const targetEl = element.classList.contains("katex-display") ? mathEl : mathEl.querySelector(".katex") || mathEl;
     targetEl.style.cursor = "pointer";
     targetEl.style.transition = "background-color 0.2s";
-    targetEl.addEventListener("mouseenter", () => {
+    const mouseenterHandler = () => {
       targetEl.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
-    });
-    targetEl.addEventListener("mouseleave", () => {
+    };
+    const mouseleaveHandler = () => {
       targetEl.style.backgroundColor = "";
-    });
-    targetEl.addEventListener("click", async (e) => {
+    };
+    const clickHandler = async (e) => {
       e.preventDefault();
       e.stopPropagation();
       await this.handleClick(element);
+    };
+    targetEl.addEventListener("mouseenter", mouseenterHandler);
+    targetEl.addEventListener("mouseleave", mouseleaveHandler);
+    targetEl.addEventListener("click", clickHandler);
+    this.elementListeners.set(element, {
+      target: targetEl,
+      mouseenter: mouseenterHandler,
+      mouseleave: mouseleaveHandler,
+      click: clickHandler
     });
   }
   /**
@@ -3509,6 +3604,29 @@ class MathClickHandler {
         element.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
       }
     }, 1500);
+  }
+  /**
+   * Disable and cleanup all resources
+   * Called when ContentScript is stopped (e.g., on page navigation)
+   */
+  disable() {
+    this.observers.forEach((observer, _container) => {
+      observer.disconnect();
+      logger$1.debug("[MathClick] Disconnected observer for container");
+    });
+    this.observers.clear();
+    this.elementListeners.forEach((listeners, _element) => {
+      const { target, mouseenter, mouseleave, click } = listeners;
+      target.style.backgroundColor = "";
+      target.style.cursor = "";
+      target.style.transition = "";
+      target.removeEventListener("mouseenter", mouseenter);
+      target.removeEventListener("mouseleave", mouseleave);
+      target.removeEventListener("click", click);
+    });
+    this.elementListeners.clear();
+    this.activeElements.clear();
+    logger$1.info("[MathClick] Disabled and cleaned up all resources");
   }
 }
 
@@ -22333,220 +22451,236 @@ const panelStyles = `
   max-width: 1000px;
   margin: 0 auto;
 }
+
+/* ============================================
+   DARK MODE - Shadow DOM compatible
+   ============================================ */
+
+:host-context(html.dark) .aicopy-panel-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+:host-context(html.dark) .aicopy-panel {
+  background: #1E1E1E;
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 16px 48px rgba(0, 0, 0, 0.6),
+    0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+:host-context(html.dark) .aicopy-panel-header {
+  background: #1E1E1E;
+  border-bottom-color: #3F3F46;
+}
+
+:host-context(html.dark) .aicopy-panel-title {
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .aicopy-panel-fullscreen-btn {
+  color: #A1A1AA;
+}
+
+:host-context(html.dark) .aicopy-panel-fullscreen-btn:hover {
+  background: #27272A;
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .aicopy-panel-close {
+  color: #A1A1AA;
+}
+
+:host-context(html.dark) .aicopy-panel-close:hover {
+  background: #27272A;
+  color: #FFFFFF;
+}
+
+:host-context(html.dark) .aicopy-panel-body {
+  background: #1E1E1E;
+}
 `;
 const markdownStyles = `
-body {
+.markdown-body {
+  /* Light mode variables */
+  --fgColor-default: #1f2328;
+  --fgColor-muted: #59636e;
+  --fgColor-accent: #0969da;
+  --bgColor-default: #ffffff;
+  --bgColor-muted: #f6f8fa;
+  --bgColor-attention-muted: #fff8c5;
+  --borderColor-default: #d1d9e0;
+  --borderColor-muted: #d1d9e0b3;
+  
   margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  padding: 12px 16px;
+  color: var(--fgColor-default);
+  /* background-color: var(--bgColor-default); */
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  color: #37352F;
-  background: #fff;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-.markdown-content {
-  padding: 12px 16px;
-  max-width: 100%;
-}
-
-/* Limit content width in fullscreen mode for better readability */
-.aicopy-panel-fullscreen .markdown-content {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-/* Headings - Notion style: clean, no borders */
-h1, h2, h3, h4, h5, h6 {
-  margin-top: 2em;
-  margin-bottom: 4px;
+/* Headings */
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
   font-weight: 600;
-  line-height: 1.3;
-  color: #37352F;
+  line-height: 1.25;
 }
 
-h1 { 
-  font-size: 2.25em;
+.markdown-body h1 {
+  margin: .67em 0;
+  padding-bottom: .3em;
+  font-size: 2em;
+  border-bottom: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body h2 {
+  padding-bottom: .3em;
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+.markdown-body h5 { font-size: .875em; }
+.markdown-body h6 { font-size: .85em; color: var(--fgColor-muted); }
+
+/* Paragraphs */
+.markdown-body p { 
+  margin-top: 0; 
+  margin-bottom: 10px;
+}
+
+/* Links */
+.markdown-body a { color: var(--fgColor-accent); text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+
+/* Strong and emphasis */
+.markdown-body b, .markdown-body strong { font-weight: 600; }
+.markdown-body em { font-style: italic; }
+
+/* Blockquotes */
+.markdown-body blockquote {
+  margin: 0;
+  padding: 0 1em;
+  color: var(--fgColor-muted);
+  border-left: .25em solid var(--borderColor-default);
+}
+
+/* Code */
+.markdown-body code, .markdown-body kbd, .markdown-body pre {
+  font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;
+}
+
+.markdown-body code {
+  padding: .2em .4em;
+  margin: 0;
+  font-size: 85%;
+  white-space: break-spaces;
+  background-color: var(--bgColor-muted);
+  border-radius: 6px;
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown-body pre {
   margin-top: 0;
-  margin-bottom: 0.5em;
-  font-weight: 700;
-}
-
-h2 { 
-  font-size: 1.75em;
-  margin-bottom: 0.5em;
-}
-
-h3 { 
-  font-size: 1.25em; 
-}
-
-h4, h5, h6 { 
-  font-size: 1.125em; 
-}
-
-/* Paragraphs - generous spacing */
-p { 
-  margin: 0.75em 0 0.75em 0;
-  line-height: 1.7;
-}
-
-/* Blockquotes - Notion style: subtle left border, no background */
-blockquote {
-  padding: 3px 0 3px 16px;
-  margin: 1em 0;
-  color: #37352F;
-  border-left: 3px solid #E9E9E7;
-  font-size: 1em;
-}
-
-blockquote p {
-  margin: 0.5em 0;
-}
-
-/* Inline code - Notion style: vibrant red background */
-code {
-  padding: 4px 8px;
-  margin: 0 2px;
-  font-size: 0.9em;
-  background-color: #FFF3F3;
-  border-radius: 4px;
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-  color: #E03E3E;
-  font-weight: 500;
-  border: 1px solid #FFE0E0;
-}
-
-/* Code blocks - Notion style: warm background with border */
-pre {
-  padding: 20px;
-  margin: 1.5em 0;
+  margin-bottom: 16px;
+  padding: 16px;
   overflow: auto;
-  font-size: 0.875em;
-  line-height: 1.7;
-  background-color: #FAFAF9;
-  border-radius: 8px;
-  border: 1px solid #E7E5E4;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: var(--bgColor-muted);
+  border-radius: 6px;
+  border: 1px solid var(--borderColor-default);
 }
 
-pre code {
-  background: transparent;
+.markdown-body pre code {
   padding: 0;
   margin: 0;
-  font-size: 1em;
-  color: #37352F;
-  border-radius: 0;
-}
-
-/* Tables - Notion style: clean borders */
-table {
-  border-spacing: 0;
-  border-collapse: collapse;
-  margin: 1.5em 0;
-  width: 100%;
-  font-size: 0.9375em;
-}
-
-th, td {
-  padding: 8px 12px;
-  border: 1px solid #E9E9E7;
-  text-align: left;
-}
-
-th {
-  font-weight: 600;
-  background-color: #F7F6F3;
-  color: #37352F;
-}
-
-tr:hover {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Lists - Notion style: comfortable spacing */
-ul, ol {
-  padding-left: 1.625em;
-  margin: 0.75em 0;
-}
-
-ul {
-  list-style-type: disc;
-}
-
-ol {
-  list-style-type: decimal;
-}
-
-li {
-  margin: 0.25em 0;
-  line-height: 1.7;
-}
-
-li:first-child {
-  margin-top: 0;
-}
-
-li > p {
-  margin: 0.5em 0;
-}
-
-li > p:first-child {
-  margin-top: 0;
-}
-
-ul ul, 
-ul ol, 
-ol ul, 
-ol ol {
-  margin: 0.25em 0;
-}
-
-/* Horizontal rule - Notion style: subtle */
-hr {
-  height: 1px;
-  padding: 0;
-  margin: 2em 0;
-  background-color: #E9E9E7;
+  background-color: transparent;
   border: 0;
 }
 
-/* Links - Notion style: subtle underline on hover */
-a {
-  color: #0B6E99;
-  text-decoration: none;
-  border-bottom: 0.05em solid transparent;
-  transition: border-bottom-color 0.2s ease;
+/* Lists */
+.markdown-body ul, .markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 2em;
 }
 
-a:hover {
-  border-bottom-color: #0B6E99;
+.markdown-body li { margin-top: .25em; }
+.markdown-body li + li { margin-top: .25em; }
+
+/* Tables */
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.markdown-body td, .markdown-body th {
+  padding: 6px 13px;
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown-body th {
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+}
+
+.markdown-body tr {
+  background-color: var(--bgColor-default);
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body tr:nth-child(2n) {
+  background-color: var(--bgColor-muted);
+}
+
+/* Horizontal rule */
+.markdown-body hr {
+  height: .25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--borderColor-default);
+  border: 0;
 }
 
 /* Images */
-img {
+.markdown-body img {
   max-width: 100%;
-  border-radius: 3px;
-  margin: 1em 0;
+  border-style: none;
 }
 
-/* Strong and emphasis */
-strong {
-  font-weight: 600;
-  color: #37352F;
+/* Mark */
+.markdown-body mark {
+  background-color: var(--bgColor-attention-muted);
+  color: var(--fgColor-default);
 }
 
-em {
-  font-style: italic;
-  color: #37352F;
+/* Task lists */
+.markdown-body input[type="checkbox"] {
+  margin: 0 .2em .25em -1.6em;
+  vertical-align: middle;
 }
 
-/* KaTeX styles - inline to avoid loading issues */
-.katex { 
-  font-size: 1.1em; 
+/* KaTeX - Best practice from open-source projects */
+.markdown-body .katex { 
+  font-size: 1.1em;
+  display: inline-block;
+  text-indent: 0;
+  text-rendering: auto;
+  vertical-align: -0.25em;
 }
 
-.katex-display {
+.markdown-body .katex-display {
   display: block;
   margin: 1.5em 0;
   text-align: center;
@@ -22554,14 +22688,19 @@ em {
   overflow-y: hidden;
 }
 
-/* Task lists - Notion style */
-input[type="checkbox"] {
-  margin-right: 0.5em;
-}
+/* ============================================
+   DARK MODE - GitHub Dark (Shadow DOM compatible)
+   ============================================ */
 
-/* Selection color - Notion style */
-::selection {
-  background-color: rgba(45, 170, 219, 0.3);
+:host-context(html.dark) .markdown-body {
+  --fgColor-default: #f0f6fc;
+  --fgColor-muted: #9198a1;
+  --fgColor-accent: #4493f8;
+  --bgColor-default: #212121;
+  --bgColor-muted: #2d2d2d;
+  --bgColor-attention-muted: #bb800926;
+  --borderColor-default: #3d444d;
+  --borderColor-muted: #3d444db3;
 }
 `;
 class ReRenderPanel {
@@ -22641,7 +22780,7 @@ class ReRenderPanel {
     const body = document.createElement("div");
     body.className = "aicopy-panel-body";
     const content = document.createElement("div");
-    content.className = "markdown-content";
+    content.className = "markdown-body";
     content.innerHTML = html;
     body.appendChild(content);
     panel.appendChild(header);
@@ -25883,218 +26022,188 @@ class MarkdownRenderer {
    */
   static getMarkdownStyles() {
     return `
-body {
+/* GitHub Markdown Styles - Adapted for Extension */
+
+.markdown-body {
+  /* Light mode variables */
+  --fgColor-default: #1f2328;
+  --fgColor-muted: #59636e;
+  --fgColor-accent: #0969da;
+  --bgColor-default: #ffffff;
+  --bgColor-muted: #f6f8fa;
+  --bgColor-attention-muted: #fff8c5;
+  --borderColor-default: #d1d9e0;
+  --borderColor-muted: #d1d9e0b3;
+  
   margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  padding: 12px 16px;
+  color: var(--fgColor-default);
+  /* background-color: var(--bgColor-default); */
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  color: #37352F;
-  background: #fff;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-.markdown-content {
-  padding: 12px 16px;
-  max-width: 100%;
-}
-
-/* Limit content width in fullscreen mode for better readability */
-.aicopy-panel-fullscreen .markdown-content {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-/* Headings - Notion style: clean, no borders */
-h1, h2, h3, h4, h5, h6 {
-  margin-top: 2em;
-  margin-bottom: 4px;
+/* Headings */
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
   font-weight: 600;
-  line-height: 1.3;
-  color: #37352F;
+  line-height: 1.25;
 }
 
-h1 { 
-  font-size: 2.25em;
+.markdown-body h1 {
+  margin: .67em 0;
+  padding-bottom: .3em;
+  font-size: 2em;
+  border-bottom: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body h2 {
+  padding-bottom: .3em;
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+.markdown-body h5 { font-size: .875em; }
+.markdown-body h6 { font-size: .85em; color: var(--fgColor-muted); }
+
+/* Paragraphs */
+.markdown-body p { 
+  margin-top: 0; 
+  margin-bottom: 10px;
+}
+
+/* Links */
+.markdown-body a { color: var(--fgColor-accent); text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+
+/* Strong and emphasis */
+.markdown-body b, .markdown-body strong { font-weight: 600; }
+.markdown-body em { font-style: italic; }
+
+/* Blockquotes */
+.markdown-body blockquote {
+  margin: 0;
+  padding: 0 1em;
+  color: var(--fgColor-muted);
+  border-left: .25em solid var(--borderColor-default);
+}
+
+/* Code */
+.markdown-body code, .markdown-body kbd, .markdown-body pre {
+  font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;
+}
+
+.markdown-body code {
+  padding: .2em .4em;
+  margin: 0;
+  font-size: 85%;
+  white-space: break-spaces;
+  background-color: var(--bgColor-muted);
+  border-radius: 6px;
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown-body pre {
   margin-top: 0;
-  margin-bottom: 0.5em;
-  font-weight: 700;
-}
-
-h2 { 
-  font-size: 1.75em;
-  margin-bottom: 0.5em;
-}
-
-h3 { 
-  font-size: 1.25em; 
-}
-
-h4, h5, h6 { 
-  font-size: 1.125em; 
-}
-
-/* Paragraphs - generous spacing */
-p { 
-  margin: 0.75em 0 0.75em 0;
-  line-height: 1.7;
-}
-
-/* Blockquotes - Notion style: subtle left border, no background */
-blockquote {
-  padding: 3px 0 3px 16px;
-  margin: 1em 0;
-  color: #37352F;
-  border-left: 3px solid #E9E9E7;
-  font-size: 1em;
-}
-
-blockquote p {
-  margin: 0.5em 0;
-}
-
-/* Inline code - Notion style: vibrant red background */
-code {
-  padding: 4px 8px;
-  margin: 0 2px;
-  font-size: 0.9em;
-  background-color: #FFF3F3;
-  border-radius: 4px;
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-  color: #E03E3E;
-  font-weight: 500;
-  border: 1px solid #FFE0E0;
-}
-
-/* Code blocks - Notion style: warm background with border */
-pre {
-  padding: 20px;
-  margin: 1.5em 0;
+  margin-bottom: 16px;
+  padding: 16px;
   overflow: auto;
-  font-size: 0.875em;
-  line-height: 1.7;
-  background-color: #FAFAF9;
-  border-radius: 8px;
-  border: 1px solid #E7E5E4;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: var(--bgColor-muted);
+  border-radius: 6px;
+  border: 1px solid var(--borderColor-default);
 }
 
-pre code {
-  background: transparent;
+.markdown-body pre code {
   padding: 0;
   margin: 0;
-  font-size: 1em;
-  color: #37352F;
-  border-radius: 0;
-}
-
-/* Tables - Notion style: clean borders */
-table {
-  border-spacing: 0;
-  border-collapse: collapse;
-  margin: 1.5em 0;
-  width: 100%;
-  font-size: 0.9375em;
-}
-
-th, td {
-  padding: 8px 12px;
-  border: 1px solid #E9E9E7;
-  text-align: left;
-}
-
-th {
-  font-weight: 600;
-  background-color: #F7F6F3;
-  color: #37352F;
-}
-
-tr:hover {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Lists - Notion style: comfortable spacing */
-ul, ol {
-  padding-left: 1.625em;
-  margin: 0.75em 0;
-}
-
-ul {
-  list-style-type: disc;
-}
-
-ol {
-  list-style-type: decimal;
-}
-
-li {
-  margin: 0.25em 0;
-  line-height: 1.7;
-}
-
-li:first-child {
-  margin-top: 0;
-}
-
-li > p {
-  margin: 0.5em 0;
-}
-
-li > p:first-child {
-  margin-top: 0;
-}
-
-ul ul, 
-ul ol, 
-ol ul, 
-ol ol {
-  margin: 0.25em 0;
-}
-
-/* Horizontal rule - Notion style: subtle */
-hr {
-  height: 1px;
-  padding: 0;
-  margin: 2em 0;
-  background-color: #E9E9E7;
+  background-color: transparent;
   border: 0;
 }
 
-/* Links - Notion style: subtle underline on hover */
-a {
-  color: #0B6E99;
-  text-decoration: none;
-  border-bottom: 0.05em solid transparent;
-  transition: border-bottom-color 0.2s ease;
+/* Lists */
+.markdown-body ul, .markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 2em;
 }
 
-a:hover {
-  border-bottom-color: #0B6E99;
+.markdown-body li { margin-top: .25em; }
+.markdown-body li + li { margin-top: .25em; }
+
+/* Tables */
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.markdown-body td, .markdown-body th {
+  padding: 6px 13px;
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown-body th {
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+}
+
+.markdown-body tr {
+  background-color: var(--bgColor-default);
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.markdown-body tr:nth-child(2n) {
+  background-color: var(--bgColor-muted);
+}
+
+/* Horizontal rule */
+.markdown-body hr {
+  height: .25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--borderColor-default);
+  border: 0;
 }
 
 /* Images */
-img {
+.markdown-body img {
   max-width: 100%;
-  border-radius: 3px;
-  margin: 1em 0;
+  border-style: none;
 }
 
-/* Strong and emphasis */
-strong {
-  font-weight: 600;
-  color: #37352F;
+/* Mark */
+.markdown-body mark {
+  background-color: var(--bgColor-attention-muted);
+  color: var(--fgColor-default);
 }
 
-em {
-  font-style: italic;
-  color: #37352F;
+/* Task lists */
+.markdown-body input[type="checkbox"] {
+  margin: 0 .2em .25em -1.6em;
+  vertical-align: middle;
 }
 
-/* KaTeX styles - inline to avoid loading issues */
-.katex { 
-  font-size: 1.1em; 
+/* KaTeX - Best practice from open-source projects */
+.markdown-body .katex { 
+  font-size: 1.1em;
+  display: inline-block;
+  text-indent: 0;
+  text-rendering: auto;
+  vertical-align: -0.25em;
 }
 
-.katex-display {
+.markdown-body .katex-display {
   display: block;
   margin: 1.5em 0;
   text-align: center;
@@ -26102,14 +26211,19 @@ em {
   overflow-y: hidden;
 }
 
-/* Task lists - Notion style */
-input[type="checkbox"] {
-  margin-right: 0.5em;
-}
+/* ============================================
+   DARK MODE - GitHub Dark (Shadow DOM compatible)
+   ============================================ */
 
-/* Selection color - Notion style */
-::selection {
-  background-color: rgba(45, 170, 219, 0.3);
+:host-context(html.dark) .markdown-body {
+  --fgColor-default: #f0f6fc;
+  --fgColor-muted: #9198a1;
+  --fgColor-accent: #4493f8;
+  --bgColor-default: #212121;
+  --bgColor-muted: #2d2d2d;
+  --bgColor-attention-muted: #bb800926;
+  --borderColor-default: #3d444d;
+  --borderColor-muted: #3d444db3;
 }
 `;
   }
@@ -27764,11 +27878,12 @@ Tip: You can export your bookmarks first to create a backup.`
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
@@ -27856,11 +27971,12 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
@@ -28184,11 +28300,12 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
@@ -28456,11 +28573,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
@@ -28624,54 +28742,58 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
-                background: white;
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
+                background: white !important;
+                color: #111827 !important;
+                border-radius: 12px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
                 max-width: 500px;
                 width: 90%;
+                color-scheme: light !important;
+                -webkit-color-scheme: light !important;
             `;
       modal.innerHTML = `
             <div style="padding: 24px 24px 20px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Duplicate Bookmarks Detected</h3>
+                    <span style="color: #d97706; font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: #111827; line-height: 1.2;">Duplicate Bookmarks Detected</h3>
                 </div>
-                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 12px 0;">Found <strong style="color: var(--gray-900);">${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: var(--gray-900);">${allBookmarks.length}</strong></p>
+                <div style="color: #6b7280; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0;">Found <strong style="color: #111827;">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: #111827;">${allBookmarks.length}</strong></p>
                     
-                    <div style="background: var(--gray-50); border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 200px; overflow-y: auto;">
-                        ${conflicts.slice(0, 5).map((b) => `
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gray-200);">
-                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === "gemini" ? "var(--primary-100)" : "var(--success-100)"}; color: ${b.platform?.toLowerCase() === "gemini" ? "var(--primary-700)" : "var(--success-700)"}; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
+                        ${conflicts.map((b) => `
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e5e7eb;">
+                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === "gemini" ? "#dbeafe" : "#d1fae5"}; color: ${b.platform?.toLowerCase() === "gemini" ? "#1d4ed8" : "#047857"}; border-radius: 4px; font-size: 12px; font-weight: 500;">
                                     ${b.platform || "ChatGPT"}
                                 </span>
-                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700);">
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151;">
                                     ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
                                 </span>
                             </div>
                         `).join("")}
-                        ${conflicts.length > 5 ? `<div style="padding: 8px 0; color: var(--gray-500); font-style: italic; text-align: center;">... and ${conflicts.length - 5} more</div>` : ""}
                     </div>
                     
-                    <p style="margin: 0; color: var(--gray-600);">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                    <p style="margin: 0 0 8px 0; color: #4b5563;">Click <strong style="color: #2563eb;">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-style: italic;">💡 Items without folders will be imported to the <strong>Import</strong> folder.</p>
                 </div>
             </div>
-            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e5e7eb;">
                 <button class="cancel-btn" style="
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
                     background: transparent;
-                    color: var(--primary-600);
+                    color: #2563eb;
                     font-size: 14px;
                     font-weight: 500;
                     cursor: pointer;
@@ -28681,7 +28803,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
-                    background: var(--primary-600);
+                    background: #2563eb;
                     color: white;
                     font-size: 14px;
                     font-weight: 500;
@@ -28695,16 +28817,16 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
       const cancelBtn = modal.querySelector(".cancel-btn");
       const mergeBtn = modal.querySelector(".merge-btn");
       cancelBtn.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "var(--gray-100)";
+        cancelBtn.style.background = "#f3f4f6";
       });
       cancelBtn.addEventListener("mouseleave", () => {
         cancelBtn.style.background = "transparent";
       });
       mergeBtn.addEventListener("mouseenter", () => {
-        mergeBtn.style.background = "var(--primary-700)";
+        mergeBtn.style.background = "#1d4ed8";
       });
       mergeBtn.addEventListener("mouseleave", () => {
-        mergeBtn.style.background = "var(--primary-600)";
+        mergeBtn.style.background = "#2563eb";
       });
       cancelBtn.addEventListener("click", () => {
         overlay.remove();
@@ -30886,6 +31008,132 @@ class GeminiPanelButton {
 }
 const geminiPanelButton = new GeminiPanelButton();
 
+class DarkModeDetector {
+  static instance;
+  observers = /* @__PURE__ */ new Set();
+  mutationObserver = null;
+  currentState = false;
+  constructor() {
+    this.currentState = this.detectDarkMode();
+    this.startObserving();
+  }
+  /**
+   * Get singleton instance
+   */
+  static getInstance() {
+    if (!DarkModeDetector.instance) {
+      DarkModeDetector.instance = new DarkModeDetector();
+    }
+    return DarkModeDetector.instance;
+  }
+  /**
+   * Get current dark mode state
+   */
+  isDarkMode() {
+    return this.currentState;
+  }
+  /**
+   * Subscribe to dark mode changes
+   * @param callback Function to call when dark mode changes
+   * @returns Unsubscribe function
+   */
+  subscribe(callback) {
+    this.observers.add(callback);
+    callback(this.currentState);
+    return () => {
+      this.observers.delete(callback);
+    };
+  }
+  /**
+   * Detect current dark mode state
+   * Priority:
+   * 1. html.classList contains 'dark' or 'light'
+   * 2. html[data-theme] attribute
+   * 3. prefers-color-scheme media query
+   */
+  detectDarkMode() {
+    const html = document.documentElement;
+    if (html.classList.contains("dark")) {
+      return true;
+    }
+    if (html.classList.contains("light")) {
+      return false;
+    }
+    const theme = html.getAttribute("data-theme");
+    if (theme === "dark") {
+      return true;
+    }
+    if (theme === "light") {
+      return false;
+    }
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  /**
+   * Start observing dark mode changes
+   */
+  startObserving() {
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+    }
+    this.mutationObserver = new MutationObserver((mutations) => {
+      const hasRelevantChange = mutations.some((mutation) => {
+        if (mutation.type === "attributes") {
+          return mutation.attributeName === "class" || mutation.attributeName === "data-theme";
+        }
+        return false;
+      });
+      if (hasRelevantChange) {
+        const newState = this.detectDarkMode();
+        if (newState !== this.currentState) {
+          this.currentState = newState;
+          this.notifyObservers(newState);
+        }
+      }
+    });
+    this.mutationObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+      childList: false,
+      subtree: false
+    });
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleMediaChange = () => {
+      const newState = this.detectDarkMode();
+      if (newState !== this.currentState) {
+        this.currentState = newState;
+        this.notifyObservers(newState);
+      }
+    };
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleMediaChange);
+    } else {
+      mediaQuery.addListener(handleMediaChange);
+    }
+  }
+  /**
+   * Notify all observers of state change
+   */
+  notifyObservers(isDark) {
+    this.observers.forEach((callback) => {
+      try {
+        callback(isDark);
+      } catch (error) {
+        console.error("Error in dark mode observer callback:", error);
+      }
+    });
+  }
+  /**
+   * Stop observing (cleanup)
+   */
+  stopObserving() {
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+      this.mutationObserver = null;
+    }
+    this.observers.clear();
+  }
+}
+
 class ContentScript {
   observer = null;
   injector = null;
@@ -30897,40 +31145,52 @@ class ContentScript {
   bookmarkedPositions = /* @__PURE__ */ new Set();
   // Navigation check flag - AITimeline pattern
   navigationChecked = false;
+  // Track messages being processed to prevent duplicate toolbar injection
+  processingMessages = /* @__PURE__ */ new Set();
+  processingElements = /* @__PURE__ */ new WeakSet();
   constructor() {
     logger$1.setLevel(LogLevel.INFO);
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
     this.reRenderPanel = new ReRenderPanel();
+    const darkModeDetector = DarkModeDetector.getInstance();
+    darkModeDetector.subscribe((isDark) => {
+      logger$1.info(`[DarkMode] Theme changed: ${isDark ? "dark" : "light"}`);
+      if (isDark) {
+        document.documentElement.classList.add("dark");
+        logger$1.info("[DarkMode] Applied dark class to <html>");
+      } else {
+        document.documentElement.classList.remove("dark");
+        logger$1.info("[DarkMode] Removed dark class from <html>");
+      }
+    });
     logger$1.info("AI-Markdone initialized");
   }
   /**
    * Start the extension
    */
-  start() {
-    if (!adapterRegistry.isSupported()) {
-      logger$1.warn("Current page is not supported");
-      return;
-    }
+  async start() {
     const adapter = adapterRegistry.getAdapter();
     if (!adapter) {
-      logger$1.error("Failed to get adapter");
+      logger$1.warn("No adapter found for current site");
       return;
     }
     logger$1.info("Starting extension on supported page");
+    this.observer = new MessageObserver(
+      adapter,
+      (messageElement) => {
+        this.handleNewMessage(messageElement);
+      }
+    );
     this.injector = new ToolbarInjector(adapter);
-    this.observer = new MessageObserver(adapter, (messageElement) => {
-      this.handleNewMessage(messageElement);
-    });
     if ("isGemini" in adapter && typeof adapter.isGemini === "function" && adapter.isGemini()) {
-      logger$1.info("Enabling Deep Research handler for Gemini");
       this.deepResearchHandler = new DeepResearchHandler();
       this.deepResearchHandler.enable();
       geminiPanelButton.init();
     } else {
       pageHeaderIcon.init();
     }
-    this.loadBookmarks();
+    await this.loadBookmarks();
     this.observer.start();
   }
   /**
@@ -30957,6 +31217,28 @@ class ContentScript {
    */
   handleNewMessage(messageElement) {
     logger$1.debug("Handling new message");
+    const adapter = adapterRegistry.getAdapter();
+    if (!adapter) return;
+    const messageId = adapter.getMessageId(messageElement);
+    if (!messageId) {
+      logger$1.warn("Message has no ID, cannot track processing state");
+      if (this.processingElements.has(messageElement)) {
+        logger$1.debug("Element is already being processed (no ID), skipping");
+        return;
+      }
+      const hasToolbar = messageElement.querySelector(".aicopy-toolbar-container");
+      if (hasToolbar) {
+        logger$1.debug("Toolbar already exists (no ID), skipping");
+        return;
+      }
+      this.processingElements.add(messageElement);
+    } else {
+      if (this.processingMessages.has(messageId)) {
+        logger$1.debug("Message is already being processed, skipping:", messageId);
+        return;
+      }
+      this.processingMessages.add(messageId);
+    }
     if (!this.navigationChecked) {
       this.navigationChecked = true;
       logger$1.info("[ContentScript] First message detected, checking bookmark navigation");
@@ -30964,6 +31246,9 @@ class ContentScript {
     }
     if (messageElement.querySelector(".aicopy-toolbar-container")) {
       logger$1.debug("Toolbar already exists, skipping");
+      if (messageId) {
+        this.processingMessages.delete(messageId);
+      }
       return;
     }
     const callbacks = {
@@ -30992,6 +31277,13 @@ class ContentScript {
     const isBookmarked = this.bookmarkedPositions.has(position);
     toolbar.setBookmarkState(isBookmarked);
     this.mathClickHandler.enable(messageElement);
+    if (messageId) {
+      setTimeout(() => {
+        this.processingMessages.delete(messageId);
+        logger$1.info(`[DEBUG] ⏰ Timeout: Removed ${messageId}. Size: ${this.processingMessages.size}`);
+      }, 1e3);
+    }
+    logger$1.info("=== handleNewMessage END ===");
   }
   /**
    * Get Markdown from message element
@@ -31188,19 +31480,87 @@ class ContentScript {
     }
   }
   /**
-   * Stop the extension
+   * Stop the extension and cleanup all resources
    */
   stop() {
+    logger$1.info("Stopping extension...");
     if (this.observer) {
       this.observer.stop();
       this.observer = null;
+    }
+    if (this.mathClickHandler) {
+      this.mathClickHandler.disable();
+    }
+    if (this.injector) {
+      this.injector.cleanup();
+      this.injector = null;
     }
     if (this.deepResearchHandler) {
       this.deepResearchHandler.disable();
       this.deepResearchHandler = void 0;
     }
-    logger$1.info("Extension stopped");
+    this.bookmarkedPositions.clear();
+    this.navigationChecked = false;
+    this.processingMessages.clear();
+    logger$1.info("Extension stopped and all resources cleaned up");
   }
+}
+let urlObserver = null;
+let debounceTimeout = null;
+function waitForPageReady(adapter) {
+  return new Promise((resolve) => {
+    const maxAttempts = 25;
+    let attempts = 0;
+    const checkReady = () => {
+      attempts++;
+      const messageContainer = adapter.getObserverContainer();
+      const hasMessages = document.querySelector(adapter.getMessageSelector()) !== null;
+      if (messageContainer && hasMessages) {
+        logger$1.debug(`[Navigation] Page ready after ${attempts * 200}ms`);
+        resolve(true);
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        logger$1.warn("[Navigation] Page ready timeout, proceeding anyway");
+        resolve(false);
+        return;
+      }
+      setTimeout(checkReady, 200);
+    };
+    checkReady();
+  });
+}
+function handleNavigation(contentScript) {
+  (async () => {
+    const hasActiveModal = document.querySelector(".bookmark-save-modal-overlay") !== null;
+    const hasActivePanel = document.querySelector(".simple-bookmark-panel-overlay") !== null;
+    if (hasActiveModal || hasActivePanel) {
+      logger$1.info("[Navigation] Skipping reinit: user has active UI");
+      return;
+    }
+    const adapter = adapterRegistry.getAdapter();
+    if (!adapter) {
+      logger$1.error("[Navigation] No adapter found, cannot check page readiness");
+      return;
+    }
+    logger$1.debug("[Navigation] Waiting for page to be ready...");
+    const isReady = await waitForPageReady(adapter);
+    if (!isReady) {
+      logger$1.warn("[Navigation] Page may not be fully ready, but proceeding");
+    }
+    const hasActiveModalNow = document.querySelector(".bookmark-save-modal-overlay") !== null;
+    const hasActivePanelNow = document.querySelector(".simple-bookmark-panel-overlay") !== null;
+    if (hasActiveModalNow || hasActivePanelNow) {
+      logger$1.info("[Navigation] User opened UI during wait, skipping reinit");
+      return;
+    }
+    logger$1.info("[Navigation] Reinitializing extension");
+    contentScript?.stop();
+    const newContentScript = new ContentScript();
+    await newContentScript.start();
+    contentScript = newContentScript;
+  })();
+  return contentScript;
 }
 function initExtension() {
   logger$1.info("Initializing AI-Markdone extension");
@@ -31208,22 +31568,44 @@ function initExtension() {
   logger$1.debug("Current URL:", window.location.href);
   let contentScript = new ContentScript();
   contentScript.start();
+  if (urlObserver) {
+    urlObserver.disconnect();
+    logger$1.debug("[Observer] Disconnected previous URL observer");
+  }
   let lastUrl = window.location.href;
-  new MutationObserver(() => {
-    const currentUrl = window.location.href;
-    if (currentUrl !== lastUrl) {
-      lastUrl = currentUrl;
-      logger$1.info("URL changed, reinitializing:", currentUrl);
-      setTimeout(() => {
-        contentScript?.stop();
-        contentScript = new ContentScript();
-        contentScript.start();
-      }, 500);
+  urlObserver = new MutationObserver(() => {
+    if (debounceTimeout !== null) {
+      clearTimeout(debounceTimeout);
     }
-  }).observe(document.body, { subtree: true, childList: true });
+    debounceTimeout = window.setTimeout(() => {
+      const currentUrl = window.location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        logger$1.info("[Observer] URL changed:", currentUrl);
+        contentScript = handleNavigation(contentScript);
+      }
+      debounceTimeout = null;
+    }, 100);
+  });
+  urlObserver.observe(document.body, { subtree: true, childList: true });
+  logger$1.debug("[Observer] Started URL change observer");
+}
+function cleanupExtension() {
+  if (urlObserver) {
+    urlObserver.disconnect();
+    urlObserver = null;
+    logger$1.debug("[Cleanup] Disconnected URL observer");
+  }
+  if (debounceTimeout !== null) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = null;
+  }
+  logger$1.info("[Cleanup] Extension cleanup complete");
 }
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initExtension);
 } else {
   initExtension();
 }
+window.addEventListener("beforeunload", cleanupExtension);
+window.addEventListener("pagehide", cleanupExtension);

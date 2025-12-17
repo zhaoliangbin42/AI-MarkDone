@@ -2132,11 +2132,12 @@ export class SimpleBookmarkPanel {
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
 
             const modal = document.createElement('div');
@@ -2242,11 +2243,12 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
 
             const modal = document.createElement('div');
@@ -2629,11 +2631,12 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
 
             const modal = document.createElement('div');
@@ -2976,11 +2979,12 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
 
             const modal = document.createElement('div');
@@ -3178,56 +3182,60 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light !important;
             `;
 
             const modal = document.createElement('div');
             modal.style.cssText = `
-                background: white;
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
+                background: white !important;
+                color: #111827 !important;
+                border-radius: 12px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
                 max-width: 500px;
                 width: 90%;
+                color-scheme: light !important;
+                -webkit-color-scheme: light !important;
             `;
 
             modal.innerHTML = `
             <div style="padding: 24px 24px 20px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Duplicate Bookmarks Detected</h3>
+                    <span style="color: #d97706; font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: #111827; line-height: 1.2;">Duplicate Bookmarks Detected</h3>
                 </div>
-                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 12px 0;">Found <strong style="color: var(--gray-900);">${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: var(--gray-900);">${allBookmarks.length}</strong></p>
+                <div style="color: #6b7280; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0;">Found <strong style="color: #111827;">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: #111827;">${allBookmarks.length}</strong></p>
                     
-                    <div style="background: var(--gray-50); border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 200px; overflow-y: auto;">
-                        ${conflicts.slice(0, 5).map(b => `
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gray-200);">
-                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === 'gemini' ? 'var(--primary-100)' : 'var(--success-100)'}; color: ${b.platform?.toLowerCase() === 'gemini' ? 'var(--primary-700)' : 'var(--success-700)'}; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
+                        ${conflicts.map(b => `
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e5e7eb;">
+                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === 'gemini' ? '#dbeafe' : '#d1fae5'}; color: ${b.platform?.toLowerCase() === 'gemini' ? '#1d4ed8' : '#047857'}; border-radius: 4px; font-size: 12px; font-weight: 500;">
                                     ${b.platform || 'ChatGPT'}
                                 </span>
-                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700);">
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151;">
                                     ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
                                 </span>
                             </div>
                         `).join('')}
-                        ${conflicts.length > 5 ? `<div style="padding: 8px 0; color: var(--gray-500); font-style: italic; text-align: center;">... and ${conflicts.length - 5} more</div>` : ''}
                     </div>
                     
-                    <p style="margin: 0; color: var(--gray-600);">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                    <p style="margin: 0 0 8px 0; color: #4b5563;">Click <strong style="color: #2563eb;">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-style: italic;">💡 Items without folders will be imported to the <strong>Import</strong> folder.</p>
                 </div>
             </div>
-            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e5e7eb;">
                 <button class="cancel-btn" style="
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
                     background: transparent;
-                    color: var(--primary-600);
+                    color: #2563eb;
                     font-size: 14px;
                     font-weight: 500;
                     cursor: pointer;
@@ -3237,7 +3245,7 @@ ${options.message}
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
-                    background: var(--primary-600);
+                    background: #2563eb;
                     color: white;
                     font-size: 14px;
                     font-weight: 500;
@@ -3256,17 +3264,17 @@ ${options.message}
             const mergeBtn = modal.querySelector('.merge-btn') as HTMLElement;
 
             cancelBtn.addEventListener('mouseenter', () => {
-                cancelBtn.style.background = 'var(--gray-100)';
+                cancelBtn.style.background = '#f3f4f6';
             });
             cancelBtn.addEventListener('mouseleave', () => {
                 cancelBtn.style.background = 'transparent';
             });
 
             mergeBtn.addEventListener('mouseenter', () => {
-                mergeBtn.style.background = 'var(--primary-700)';
+                mergeBtn.style.background = '#1d4ed8';
             });
             mergeBtn.addEventListener('mouseleave', () => {
-                mergeBtn.style.background = 'var(--primary-600)';
+                mergeBtn.style.background = '#2563eb';
             });
 
             cancelBtn.addEventListener('click', () => {

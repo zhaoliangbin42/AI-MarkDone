@@ -22,15 +22,13 @@ export const toolbarStyles = `
   --theme-color: #3b82f6;
 }
 
-/* Dark mode theme colors */
-@media (prefers-color-scheme: dark) {
-  :host {
-    --gradient-solid-from: #60a5fa;
-    --gradient-solid-to: #3b82f6;
-    --gradient-light-from: rgba(96, 165, 250, 0.25);
-    --gradient-light-to: rgba(59, 130, 246, 0.25);
-    --theme-color: #60a5fa;
-  }
+/* Dark mode theme colors - follows host website theme */
+:host-context(html.dark) :host {
+  --gradient-solid-from: #60a5fa;
+  --gradient-solid-to: #3b82f6;
+  --gradient-light-from: rgba(96, 165, 250, 0.25);
+  --gradient-light-to: rgba(59, 130, 246, 0.25);
+  --theme-color: #60a5fa;
 }
 
 /* Notion-style floating toolbar */
@@ -95,22 +93,36 @@ export const toolbarStyles = `
     0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
-/* Dark mode toolbar */
-@media (prefers-color-scheme: dark) {
-  .aicopy-toolbar {
-    background: rgba(40, 40, 40, 0.98);
-    box-shadow: 
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08),  /* Border */
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 2px 4px rgba(0, 0, 0, 0.3);
-  }
-  
-  .aicopy-toolbar:hover {
-    box-shadow: 
-      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-      0 2px 4px rgba(0, 0, 0, 0.5),
-      0 4px 8px rgba(0, 0, 0, 0.4);
-  }
+/* Dark mode toolbar - follows host website theme */
+:host-context(html.dark) .aicopy-toolbar {
+  background: rgba(40, 40, 40, 0.98);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),  /* Border */
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+:host-context(html.dark) .aicopy-toolbar:hover {
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark mode bookmarked state - MUST come after general dark mode for specificity */
+:host-context(html.dark) .aicopy-toolbar.bookmarked {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.15)) !important;
+  box-shadow: 
+    inset 0 0 0 1px rgba(59, 130, 246, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context(html.dark) .aicopy-toolbar.bookmarked:hover {
+  box-shadow: 
+    inset 0 0 0 1px rgba(59, 130, 246, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.4) !important;
 }
 
 .aicopy-button-group {
@@ -128,10 +140,8 @@ export const toolbarStyles = `
   flex-shrink: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  .aicopy-divider {
-    background: rgba(255, 255, 255, 0.12);
-  }
+:host-context(html.dark) .aicopy-divider {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Notion-style rounded buttons */
@@ -170,19 +180,17 @@ export const toolbarStyles = `
   cursor: not-allowed;
 }
 
-@media (prefers-color-scheme: dark) {
-  .aicopy-button {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  
-  .aicopy-button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  
-  .aicopy-button:active {
-    background: rgba(255, 255, 255, 0.12);
-  }
+:host-context(html.dark) .aicopy-button {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+:host-context(html.dark) .aicopy-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:host-context(html.dark) .aicopy-button:active {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Button hover in bookmarked toolbar - light blue for visibility */
@@ -250,9 +258,7 @@ export const toolbarStyles = `
   user-select: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  .aicopy-stats {
-    color: rgba(255, 255, 255, 0.5);
-  }
+:host-context(html.dark) .aicopy-stats {
+  color: rgba(255, 255, 255, 0.5);
 }
 `;
