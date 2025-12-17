@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="./public/icons/icon128.png" alt="AI Copy Enhance Logo" width="100" height="100">
-  <h1>AI Copy Enhance</h1>
+  <img src="./public/icons/icon128.png" alt="AI-Markdone Logo" width="100" height="100">
+  <h1>AI-Markdone</h1>
   <p><strong>Effortless Markdown Copy for ChatGPT & Gemini ✨</strong></p>
 
   [Chinese](./README.zh-CN.md) | English

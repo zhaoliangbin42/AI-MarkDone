@@ -1,4 +1,4 @@
-# AI Copy Enhance Design System
+# AI-Markdone Design System
 
 **Version**: 1.0.0  
 **Last Updated**: 2025-12-16  
@@ -25,7 +25,7 @@
 
 ### About This Design System
 
-The AI Copy Enhance Design System is a comprehensive collection of reusable components, design tokens, and guidelines that ensure consistency across the entire product. It serves as the single source of truth for designers and developers.
+The AI-Markdone Design System is a comprehensive collection of reusable components, design tokens, and guidelines that ensure consistency across the entire product. It serves as the single source of truth for designers and developers.
 
 ### Goals
 
@@ -1222,7 +1222,7 @@ This is a living document. To propose changes:
 
 ## 📄 License
 
-This design system is proprietary to AI Copy Enhance.
+This design system is proprietary to AI-Markdone.
 
 ---
 

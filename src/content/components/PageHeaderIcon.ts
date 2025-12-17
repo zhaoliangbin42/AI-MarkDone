@@ -42,7 +42,7 @@ export class PageHeaderIcon {
         }
 
         // Check if button already exists
-        if (document.querySelector('#ai-copy-enhance-bookmark-btn')) {
+        if (document.querySelector('#ai-markdone-bookmark-btn')) {
             return;
         }
 
@@ -60,7 +60,7 @@ export class PageHeaderIcon {
      */
     private createButton(): HTMLElement {
         const button = document.createElement('button');
-        button.id = 'ai-copy-enhance-bookmark-btn';
+        button.id = 'ai-markdone-bookmark-btn';
         button.className = 'text-token-text-primary no-draggable hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover touch:h-10 touch:w-10 flex h-9 w-9 items-center justify-center rounded-lg focus:outline-none disabled:opacity-50';
         button.setAttribute('aria-label', 'View Archive');
         button.setAttribute('type', 'button');
@@ -90,7 +90,7 @@ export class PageHeaderIcon {
     private startObserver(): void {
         this.observer = new MutationObserver(() => {
             // Re-inject if button is missing
-            if (!document.querySelector('#ai-copy-enhance-bookmark-btn')) {
+            if (!document.querySelector('#ai-markdone-bookmark-btn')) {
                 this.injectButton();
             }
         });

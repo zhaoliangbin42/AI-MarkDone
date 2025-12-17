@@ -874,7 +874,7 @@ const toolbarStyles = `
 
 /* Notion-style rounded buttons */
 .aicopy-button {
-  position: relative;
+  position: relative; /* CRITICAL: Required for absolute-positioned tooltip */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -890,6 +890,7 @@ const toolbarStyles = `
   user-select: none;
   pointer-events: auto;
   z-index: 1;
+  overflow: visible; /* CRITICAL: Allow tooltip to overflow button bounds */
 }
 
 .aicopy-button:hover {
@@ -938,44 +939,6 @@ const toolbarStyles = `
   background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
   color: white;
   opacity: 0.9;
-}
-
-/* Tooltip */
-.aicopy-button::after {
-  content: attr(aria-label);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 10px;
-  background: var(--gray-900);
-  color: white;
-  font-size: 12px;
-  white-space: nowrap;
-  border-radius: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 1000;
-}
-
-.aicopy-button::before {
-  content: '';
-  position: absolute;
-  bottom: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%);
-  border: 4px solid transparent;
-  border-top-color: var(--gray-900);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 1000;
-}
-
-.aicopy-button:hover::after,
-.aicopy-button:hover::before {
-  opacity: 1;
 }
 
 /* Feedback tooltip */
@@ -1110,7 +1073,7 @@ const Icons = {
    * Book marked icon
    * Usage: Bookmarked/saved book content
    */
-  bookMarked: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-marked-icon lucide-book-marked"><path d="M10 2v8l3-3 3 3V2"/><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg>`,
+  bookMarked: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-marked-icon lucide-book-marked"><path d="M10 2v8l3-3 3 3V2"/><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg>`,
   /**
    * Link icon
    * Usage: Hyperlink, external link
@@ -1472,18 +1435,35 @@ class Toolbar {
     if (stats) stats.textContent = "Click copy";
   }
   /**
-   * Create an icon button with tooltip
+   * Create icon button with hover tooltip (using feedback mechanism)
    */
-  createIconButton(id, iconSvg, tooltipText, onClick) {
+  createIconButton(id, icon, label, onClick) {
     const button = document.createElement("button");
-    button.className = "aicopy-button";
     button.id = id;
-    button.setAttribute("aria-label", tooltipText);
-    button.innerHTML = iconSvg;
-    button.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onClick();
+    button.className = "aicopy-button";
+    button.setAttribute("aria-label", label);
+    button.innerHTML = icon;
+    button.addEventListener("click", onClick);
+    let hoverTimeout = null;
+    let feedbackElement = null;
+    button.addEventListener("mouseenter", () => {
+      hoverTimeout = window.setTimeout(() => {
+        feedbackElement = document.createElement("div");
+        feedbackElement.className = "aicopy-button-feedback";
+        feedbackElement.textContent = label;
+        button.style.position = "relative";
+        button.appendChild(feedbackElement);
+      }, 100);
+    });
+    button.addEventListener("mouseleave", () => {
+      if (hoverTimeout) {
+        window.clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
+      if (feedbackElement) {
+        feedbackElement.remove();
+        feedbackElement = null;
+      }
     });
     return button;
   }
@@ -1501,6 +1481,7 @@ class Toolbar {
         const originalIcon = btn.innerHTML;
         btn.innerHTML = Icons.check;
         btn.style.color = "var(--theme-color)";
+        this.showFeedback(btn, "Copied!");
         logger$1.info("Markdown copied to clipboard");
         setTimeout(() => {
           btn.innerHTML = originalIcon;
@@ -24208,7 +24189,19 @@ class BookmarkSaveModal {
     this.title = options.defaultTitle || "";
     this.folders = await FolderStorage.getAll();
     logger$1.debug(`[BookmarkSaveModal] Loaded ${this.folders.length} folders`);
-    this.selectedPath = options.currentFolder || options.lastUsedFolder || null;
+    let candidatePath = options.currentFolder || options.lastUsedFolder || null;
+    if (candidatePath) {
+      const pathExists = this.folders.some((f) => f.path === candidatePath);
+      if (!pathExists) {
+        logger$1.warn(`[BookmarkSaveModal] Last used folder "${candidatePath}" no longer exists`);
+        candidatePath = null;
+      }
+    }
+    if (!candidatePath && this.folders.length > 0) {
+      candidatePath = this.folders[0].path;
+      logger$1.info(`[BookmarkSaveModal] Using first folder: ${candidatePath}`);
+    }
+    this.selectedPath = candidatePath;
     if (this.selectedPath) {
       this.expandPathToFolder(this.selectedPath);
     }
@@ -24256,6 +24249,31 @@ class BookmarkSaveModal {
       }
     }, 100);
     logger$1.info("[BookmarkSaveModal] Modal shown");
+  }
+  updateSaveButtonState() {
+    const saveBtn = this.modal?.querySelector(".save-modal-btn-save");
+    if (!saveBtn) return;
+    const titleInput = this.modal?.querySelector(".title-input");
+    const title = titleInput?.value?.trim() || "";
+    const hasNoFolders = this.folders.length === 0;
+    const noFolderSelected = !this.selectedPath;
+    const noTitle = !title;
+    const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
+    saveBtn.disabled = shouldDisable;
+    if (shouldDisable) {
+      saveBtn.style.opacity = "0.5";
+      saveBtn.style.cursor = "not-allowed";
+    } else {
+      saveBtn.style.opacity = "1";
+      saveBtn.style.cursor = "pointer";
+    }
+    if (hasNoFolders) {
+      logger$1.debug("[BookmarkSaveModal] Save disabled: No folders exist");
+    } else if (noFolderSelected) {
+      logger$1.debug("[BookmarkSaveModal] Save disabled: No folder selected");
+    } else if (noTitle) {
+      logger$1.debug("[BookmarkSaveModal] Save disabled: No title");
+    }
   }
   /**
    * Hide and cleanup modal
@@ -24508,17 +24526,26 @@ class BookmarkSaveModal {
                     align-items: center;
                     padding: 8px 12px;
                     cursor: pointer;
-                    transition: background 0.15s ease;
-                    user-select: none;
+                    border-radius: var(--radius-extra-small);
+                    transition: all 0.15s ease;
                     position: relative;
                 }
 
+                /* Folder item hover */
                 .folder-item:hover {
-                    background: var(--gray-100);
+                    background: var(--gray-50);
                 }
 
+                /* Selected folder */
                 .folder-item.selected {
-                    background: var(--primary-100);
+                    background: var(--primary-50);
+                    border-left: 3px solid var(--primary-600);
+                    padding-left: 9px; /* Adjust for border */
+                }
+
+                .folder-item.selected .folder-name {
+                    color: var(--primary-700);
+                    font-weight: 600;
                 }
 
                 .folder-item.selected:hover {
@@ -24579,7 +24606,8 @@ class BookmarkSaveModal {
                     border-radius: var(--radius-extra-small);
                     cursor: pointer;
                     opacity: 0;
-                    transition: opacity 0.15s;
+                    visibility: hidden;
+                    transition: opacity 0.2s ease, visibility 0.2s ease;
                     font-size: var(--text-base);
                     display: flex;
                     align-items: center;
@@ -24588,6 +24616,11 @@ class BookmarkSaveModal {
 
                 .folder-item:hover .folder-add-btn {
                     opacity: 1;
+                    visibility: visible;
+                }
+
+                .folder-add-btn:hover {
+                    background: var(--primary-700);
                 }
 
                 .folder-empty {
@@ -24927,16 +24960,6 @@ class BookmarkSaveModal {
     }
   }
   /**
-   * Update save button state
-   */
-  updateSaveButtonState() {
-    if (!this.modal) return;
-    const saveBtn = this.modal.querySelector(".save-modal-btn-save");
-    if (saveBtn) {
-      saveBtn.disabled = !this.titleValid || !this.selectedPath;
-    }
-  }
-  /**
    * Handle save action
    */
   handleSave() {
@@ -25153,15 +25176,17 @@ class BookmarkSaveModal {
                         align-items: center;
                         padding: 8px 12px;
                         cursor: pointer;
-                        transition: background 0.15s ease;
-                        user-select: none;
+                        border-radius: var(--radius-extra-small);
+                        transition: all 0.15s ease;
                         position: relative;
                     }
 
+                    /* Folder item hover */
                     .folder-item:hover {
-                        background: var(--gray-100);
+                        background: var(--gray-50);
                     }
 
+                    /* Selected folder */
                     .folder-item.selected {
                         background: var(--primary-100);
                     }
@@ -25204,6 +25229,35 @@ class BookmarkSaveModal {
                         color: var(--primary-600);
                         font-weight: 600;
                         margin-left: 8px;
+                    }
+
+                    /* Add subfolder button (blue, hover to show) */
+                    .folder-add-btn {
+                        position: absolute;
+                        right: 8px;
+                        background: var(--primary-600);
+                        color: white;
+                        border: none;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: var(--radius-extra-small);
+                        cursor: pointer;
+                        opacity: 0;
+                        visibility: hidden;
+                        transition: opacity 0.2s ease, visibility 0.2s ease;
+                        font-size: var(--text-base);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .folder-item:hover .folder-add-btn {
+                        opacity: 1;
+                        visibility: visible;
+                    }
+
+                    .folder-add-btn:hover {
+                        background: var(--primary-700);
                     }
 
                     .folder-empty {
@@ -25295,8 +25349,10 @@ class BookmarkSaveModal {
                 <div class="save-modal-body">
                     <!-- Info Section -->
                     <div class="move-info">
-                        <span class="move-info-icon">ℹ️</span>
-                        <span class="move-info-text">Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? "s" : ""}</span>
+                        <span class="move-info-text" style="display: flex; align-items: center; gap: 8px;">
+                            <span style="flex-shrink: 0;">${Icons.alertTriangle}</span>
+                            <span>Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? "s" : ""}</span>
+                        </span>
                     </div>
 
                     <!-- Folder Section -->
@@ -27815,50 +27871,48 @@ ${options.message}
                 width: 90%;
             `;
       modal.innerHTML = `
-<div style="padding: 24px 24px 20px;">
-    <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
-        <span style="color: var(--warning-600); display: flex; align-items: center; flex-shrink: 0;">${Icons.alertTriangle}</span>
-        <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); flex: 1;">
-            Delete Selected Items
-        </h3>
-    </div>
-                    <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
-                        <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
-                        <ul style="margin: 0; padding-left: 24px;">
-                            ${analysis.folders.length > 0 ? `<li>${Icons.folder} ${analysis.folders.length} root folder${analysis.folders.length > 1 ? "s" : ""}</li>` : ""}
-                            ${analysis.subfolders.length > 0 ? `<li>${Icons.folder} ${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? "s" : ""}</li>` : ""}
-                            ${analysis.bookmarks.length > 0 ? `<li>${Icons.bookmark} ${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? "s" : ""}</li>` : ""}
-                        </ul>
-                        <p style="margin: 16px 0 0 0; font-weight: 500; color: var(--danger-600);">
-                            This action cannot be undone.
-                        </p>
-                    </div>
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Delete Selected Items</h3>
                 </div>
-                <div style="padding: 8px; display: flex; justify-content: flex-end; gap: var(--space-2);  /* 8px */ border-top: 1px solid var(--gray-200);">
-                    <button class="cancel-btn" style="
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 4px;
-                        background: transparent;
-                        color: var(--primary-600);
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    ">Cancel</button>
-                    <button class="delete-btn" style="
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 4px;
-                        background: var(--danger-600);
-                        color: white;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    ">Delete</button>
+                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
+                    <ul style="margin: 0; padding-left: 24px; list-style: none;">
+                        ${analysis.folders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? "s" : ""}</span></li>` : ""}
+                        ${analysis.subfolders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? "s" : ""}</span></li>` : ""}
+                        ${analysis.bookmarks.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? "s" : ""}</span></li>` : ""}
+                    </ul>
+                    <p style="margin: 16px 0 0 0; font-weight: 500; color: var(--danger-600);">
+                        This action cannot be undone.
+                    </p>
                 </div>
-            `;
+            </div>
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+                <button class="cancel-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: transparent;
+                    color: var(--primary-600);
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Cancel</button>
+                <button class="delete-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: var(--danger-600);
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Delete</button>
+            </div>
+        `;
       overlay.appendChild(modal);
       if (this.shadowRoot) {
         this.shadowRoot.appendChild(overlay);
@@ -28301,6 +28355,9 @@ ${options.message}
         }
         const allBookmarks = [...analysis.valid, ...analysis.noFolder, ...analysis.tooDeep];
         const folderPathsNeeded = /* @__PURE__ */ new Set();
+        if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
+          folderPathsNeeded.add("Import");
+        }
         for (const bookmark of allBookmarks) {
           if (bookmark.folderPath && bookmark.folderPath.trim()) {
             folderPathsNeeded.add(bookmark.folderPath);
@@ -28332,10 +28389,17 @@ ${options.message}
         }
         await this.importBookmarks(allBookmarks, false);
         await this.refresh();
+        let message = `Successfully imported ${bookmarks.length} bookmark(s)!`;
+        if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
+          const importCount = analysis.noFolder.length + analysis.tooDeep.length;
+          message += `
+
+${importCount} bookmark(s) without valid folder paths were placed in "Import" folder.`;
+        }
         await this.showNotification({
           type: "success",
           title: "Import Successful",
-          message: `Successfully imported ${bookmarks.length} bookmark(s)!`
+          message
         });
         logger$1.info(`[Import] Successfully imported ${bookmarks.length} bookmarks`);
       } catch (error) {
@@ -28553,57 +28617,121 @@ ${options.message}
    */
   async showConflictDialog(conflicts, allBookmarks) {
     return new Promise((resolve) => {
-      const modalOverlay = document.createElement("div");
-      modalOverlay.className = "conflict-dialog-overlay";
+      const overlay = document.createElement("div");
+      overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
       const modal = document.createElement("div");
-      modal.className = "conflict-dialog";
+      modal.style.cssText = `
+                background: white;
+                border-radius: var(--radius-medium);
+                box-shadow: var(--shadow-2xl);
+                max-width: 500px;
+                width: 90%;
+            `;
       modal.innerHTML = `
-                <div class="conflict-header">
-                    <h3><span class="warning-icon">${Icons.alertTriangle}</span> Duplicate Bookmarks Detected</h3>
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Duplicate Bookmarks Detected</h3>
                 </div>
-
-                <div class="conflict-body">
-                    <p>Found <strong>${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p>Total bookmarks to import: <strong>${allBookmarks.length}</strong></p>
-                    <p style="margin-top: 16px; color: var(--gray-500);">Click <strong>Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
-
-                    <div class="conflict-list">
+                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0;">Found <strong style="color: var(--gray-900);">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: var(--gray-900);">${allBookmarks.length}</strong></p>
+                    
+                    <div style="background: var(--gray-50); border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 200px; overflow-y: auto;">
                         ${conflicts.slice(0, 5).map((b) => `
-                            <div class="conflict-item">
-                                <span class="platform-badge ${b.platform?.toLowerCase() || "chatgpt"}">
-                                    ${this.getPlatformIcon(b.platform)} ${b.platform || "ChatGPT"}
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gray-200);">
+                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === "gemini" ? "var(--primary-100)" : "var(--success-100)"}; color: ${b.platform?.toLowerCase() === "gemini" ? "var(--primary-700)" : "var(--success-700)"}; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                                    ${b.platform || "ChatGPT"}
                                 </span>
-                                <span class="conflict-title">${this.escapeHtml(this.truncate(b.title || b.userMessage, 50))}</span>
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700);">
+                                    ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
+                                </span>
                             </div>
                         `).join("")}
-                        ${conflicts.length > 5 ? `<div class="conflict-more">... and ${conflicts.length - 5} more</div>` : ""}
+                        ${conflicts.length > 5 ? `<div style="padding: 8px 0; color: var(--gray-500); font-style: italic; text-align: center;">... and ${conflicts.length - 5} more</div>` : ""}
                     </div>
+                    
+                    <p style="margin: 0; color: var(--gray-600);">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
                 </div>
-
-                <div class="conflict-footer">
-                    <button class="conflict-btn cancel-btn">Cancel</button>
-                    <button class="conflict-btn merge-btn">Merge</button>
-                </div>
-            `;
-      modalOverlay.appendChild(modal);
-      this.shadowRoot?.appendChild(modalOverlay);
-      modal.addEventListener("click", (e) => {
-        e.stopPropagation();
+            </div>
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+                <button class="cancel-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: transparent;
+                    color: var(--primary-600);
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Cancel</button>
+                <button class="merge-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: var(--primary-600);
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Merge</button>
+            </div>
+        `;
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      const cancelBtn = modal.querySelector(".cancel-btn");
+      const mergeBtn = modal.querySelector(".merge-btn");
+      cancelBtn.addEventListener("mouseenter", () => {
+        cancelBtn.style.background = "var(--gray-100)";
       });
-      modal.querySelector(".merge-btn")?.addEventListener("click", () => {
-        modalOverlay.remove();
-        resolve(true);
+      cancelBtn.addEventListener("mouseleave", () => {
+        cancelBtn.style.background = "transparent";
       });
-      modal.querySelector(".cancel-btn")?.addEventListener("click", () => {
-        modalOverlay.remove();
+      mergeBtn.addEventListener("mouseenter", () => {
+        mergeBtn.style.background = "var(--primary-700)";
+      });
+      mergeBtn.addEventListener("mouseleave", () => {
+        mergeBtn.style.background = "var(--primary-600)";
+      });
+      cancelBtn.addEventListener("click", () => {
+        overlay.remove();
         resolve(false);
       });
-      modalOverlay.addEventListener("click", (e) => {
-        if (e.target === modalOverlay) {
-          modalOverlay.remove();
+      mergeBtn.addEventListener("click", () => {
+        overlay.remove();
+        resolve(true);
+      });
+      overlay.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (e.target === overlay) {
+          overlay.remove();
           resolve(false);
         }
       });
+      modal.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+      const handleEscape = (e) => {
+        if (e.key === "Escape") {
+          overlay.remove();
+          document.removeEventListener("keydown", handleEscape);
+          resolve(false);
+        }
+      };
+      document.addEventListener("keydown", handleEscape);
     });
   }
   /**
@@ -28630,8 +28758,10 @@ ${options.message}
           bookmark.aiResponse,
           bookmark.title,
           bookmark.platform,
-          bookmark.timestamp
+          bookmark.timestamp,
           // Preserve original timestamp from JSON
+          bookmark.folderPath
+          // CRITICAL: Preserve folder structure from import
         )
       );
     }
@@ -30379,6 +30509,7 @@ ${options.message}
                 margin: 0 0 24px 0;
                 font-size: 14px;
                 color: #6b7280;
+            }
             .btn-primary,
             .create-first-folder {
                 padding: var(--space-2) var(--space-5);
@@ -30388,8 +30519,12 @@ ${options.message}
                 border-radius: var(--radius-small);  /* Material Design 8px */
                 cursor: pointer;
                 font-weight: var(--font-medium);
+                font-size: 14px;
                 transition: all var(--duration-base);
                 box-shadow: var(--elevation-1);  /* Material Design elevation */
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
 
             .btn-primary:hover,
@@ -30589,7 +30724,7 @@ class PageHeaderIcon {
       logger$1.debug("[PageHeaderIcon] Actions container not found");
       return;
     }
-    if (document.querySelector("#ai-copy-enhance-bookmark-btn")) {
+    if (document.querySelector("#ai-markdone-bookmark-btn")) {
       return;
     }
     this.button = this.createButton();
@@ -30601,7 +30736,7 @@ class PageHeaderIcon {
    */
   createButton() {
     const button = document.createElement("button");
-    button.id = "ai-copy-enhance-bookmark-btn";
+    button.id = "ai-markdone-bookmark-btn";
     button.className = "text-token-text-primary no-draggable hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover touch:h-10 touch:w-10 flex h-9 w-9 items-center justify-center rounded-lg focus:outline-none disabled:opacity-50";
     button.setAttribute("aria-label", "View Archive");
     button.setAttribute("type", "button");
@@ -30624,7 +30759,7 @@ class PageHeaderIcon {
    */
   startObserver() {
     this.observer = new MutationObserver(() => {
-      if (!document.querySelector("#ai-copy-enhance-bookmark-btn")) {
+      if (!document.querySelector("#ai-markdone-bookmark-btn")) {
         this.injectButton();
       }
     });
@@ -30767,7 +30902,7 @@ class ContentScript {
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
     this.reRenderPanel = new ReRenderPanel();
-    logger$1.info("AI Copy Enhance initialized");
+    logger$1.info("AI-Markdone initialized");
   }
   /**
    * Start the extension
@@ -31068,7 +31203,7 @@ class ContentScript {
   }
 }
 function initExtension() {
-  logger$1.info("Initializing AI Copy Enhance extension");
+  logger$1.info("Initializing AI-Markdone extension");
   logger$1.debug("Document readyState:", document.readyState);
   logger$1.debug("Current URL:", window.location.href);
   let contentScript = new ContentScript();

@@ -1,5 +1,5 @@
 /**
- * Theme Configuration - AI Copy Enhance
+ * Theme Configuration - AI-Markdone
  * 
  * This file contains configurable theme settings.
  * You can easily switch themes or customize gradient colors here.

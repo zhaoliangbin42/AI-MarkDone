@@ -2259,50 +2259,48 @@ ${options.message}
             `;
 
             modal.innerHTML = `
-<div style="padding: 24px 24px 20px;">
-    <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
-        <span style="color: var(--warning-600); display: flex; align-items: center; flex-shrink: 0;">${Icons.alertTriangle}</span>
-        <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); flex: 1;">
-            Delete Selected Items
-        </h3>
-    </div>
-                    <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
-                        <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
-                        <ul style="margin: 0; padding-left: 24px;">
-                            ${analysis.folders.length > 0 ? `<li>${Icons.folder} ${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</li>` : ''}
-                            ${analysis.subfolders.length > 0 ? `<li>${Icons.folder} ${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? 's' : ''}</li>` : ''}
-                            ${analysis.bookmarks.length > 0 ? `<li>${Icons.bookmark} ${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? 's' : ''}</li>` : ''}
-                        </ul>
-                        <p style="margin: 16px 0 0 0; font-weight: 500; color: var(--danger-600);">
-                            This action cannot be undone.
-                        </p>
-                    </div>
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Delete Selected Items</h3>
                 </div>
-                <div style="padding: 8px; display: flex; justify-content: flex-end; gap: var(--space-2);  /* 8px */ border-top: 1px solid var(--gray-200);">
-                    <button class="cancel-btn" style="
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 4px;
-                        background: transparent;
-                        color: var(--primary-600);
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    ">Cancel</button>
-                    <button class="delete-btn" style="
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 4px;
-                        background: var(--danger-600);
-                        color: white;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    ">Delete</button>
+                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
+                    <ul style="margin: 0; padding-left: 24px; list-style: none;">
+                        ${analysis.folders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</span></li>` : ''}
+                        ${analysis.subfolders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? 's' : ''}</span></li>` : ''}
+                        ${analysis.bookmarks.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? 's' : ''}</span></li>` : ''}
+                    </ul>
+                    <p style="margin: 16px 0 0 0; font-weight: 500; color: var(--danger-600);">
+                        This action cannot be undone.
+                    </p>
                 </div>
-            `;
+            </div>
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+                <button class="cancel-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: transparent;
+                    color: var(--primary-600);
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Cancel</button>
+                <button class="delete-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: var(--danger-600);
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Delete</button>
+            </div>
+        `;
 
             overlay.appendChild(modal);
 
@@ -2845,6 +2843,12 @@ ${options.message}
 
                 // Create all missing folders before importing
                 const folderPathsNeeded = new Set<string>();
+
+                // Always ensure "Import" folder exists if we have bookmarks without folders
+                if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
+                    folderPathsNeeded.add('Import');
+                }
+
                 for (const bookmark of allBookmarks) {
                     if (bookmark.folderPath && bookmark.folderPath.trim()) {
                         folderPathsNeeded.add(bookmark.folderPath);
@@ -2888,11 +2892,17 @@ ${options.message}
                 // Refresh panel
                 await this.refresh();
 
-                // Show success message
+                // Show success message with info about Import folder if used
+                let message = `Successfully imported ${bookmarks.length} bookmark(s)!`;
+                if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
+                    const importCount = analysis.noFolder.length + analysis.tooDeep.length;
+                    message += `\n\n${importCount} bookmark(s) without valid folder paths were placed in "Import" folder.`;
+                }
+
                 await this.showNotification({
                     type: 'success',
                     title: 'Import Successful',
-                    message: `Successfully imported ${bookmarks.length} bookmark(s)!`
+                    message
                 });
                 logger.info(`[Import] Successfully imported ${bookmarks.length} bookmarks`);
             } catch (error) {
@@ -3161,67 +3171,134 @@ ${options.message}
         allBookmarks: Bookmark[]
     ): Promise<boolean> {
         return new Promise((resolve) => {
-            const modalOverlay = document.createElement('div');
-            modalOverlay.className = 'conflict-dialog-overlay';
-
-            const modal = document.createElement('div');
-            modal.className = 'conflict-dialog';
-
-            modal.innerHTML = `
-                <div class="conflict-header">
-                    <h3><span class="warning-icon">${Icons.alertTriangle}</span> Duplicate Bookmarks Detected</h3>
-                </div>
-
-                <div class="conflict-body">
-                    <p>Found <strong>${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p>Total bookmarks to import: <strong>${allBookmarks.length}</strong></p>
-                    <p style="margin-top: 16px; color: var(--gray-500);">Click <strong>Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
-
-                    <div class="conflict-list">
-                        ${conflicts.slice(0, 5).map(b => `
-                            <div class="conflict-item">
-                                <span class="platform-badge ${b.platform?.toLowerCase() || 'chatgpt'}">
-                                    ${this.getPlatformIcon(b.platform)} ${b.platform || 'ChatGPT'}
-                                </span>
-                                <span class="conflict-title">${this.escapeHtml(this.truncate(b.title || b.userMessage, 50))}</span>
-                            </div>
-                        `).join('')}
-                        ${conflicts.length > 5 ? `<div class="conflict-more">... and ${conflicts.length - 5} more</div>` : ''}
-                    </div>
-                </div>
-
-                <div class="conflict-footer">
-                    <button class="conflict-btn cancel-btn">Cancel</button>
-                    <button class="conflict-btn merge-btn">Merge</button>
-                </div>
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             `;
 
-            modalOverlay.appendChild(modal);
-            this.shadowRoot?.appendChild(modalOverlay);
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: var(--radius-medium);
+                box-shadow: var(--shadow-2xl);
+                max-width: 500px;
+                width: 90%;
+            `;
 
-            // CRITICAL: Stop propagation on modal to prevent closing main panel
+            modal.innerHTML = `
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Duplicate Bookmarks Detected</h3>
+                </div>
+                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0;">Found <strong style="color: var(--gray-900);">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: var(--gray-900);">${allBookmarks.length}</strong></p>
+                    
+                    <div style="background: var(--gray-50); border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 200px; overflow-y: auto;">
+                        ${conflicts.slice(0, 5).map(b => `
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gray-200);">
+                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === 'gemini' ? 'var(--primary-100)' : 'var(--success-100)'}; color: ${b.platform?.toLowerCase() === 'gemini' ? 'var(--primary-700)' : 'var(--success-700)'}; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                                    ${b.platform || 'ChatGPT'}
+                                </span>
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700);">
+                                    ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
+                                </span>
+                            </div>
+                        `).join('')}
+                        ${conflicts.length > 5 ? `<div style="padding: 8px 0; color: var(--gray-500); font-style: italic; text-align: center;">... and ${conflicts.length - 5} more</div>` : ''}
+                    </div>
+                    
+                    <p style="margin: 0; color: var(--gray-600);">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                </div>
+            </div>
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+                <button class="cancel-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: transparent;
+                    color: var(--primary-600);
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Cancel</button>
+                <button class="merge-btn" style="
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    background: var(--primary-600);
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                ">Merge</button>
+            </div>
+        `;
+
+            overlay.appendChild(modal);
+
+            // CRITICAL: Append to document.body instead of shadowRoot for proper z-index
+            document.body.appendChild(overlay);
+
+            const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
+            const mergeBtn = modal.querySelector('.merge-btn') as HTMLElement;
+
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = 'var(--gray-100)';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = 'transparent';
+            });
+
+            mergeBtn.addEventListener('mouseenter', () => {
+                mergeBtn.style.background = 'var(--primary-700)';
+            });
+            mergeBtn.addEventListener('mouseleave', () => {
+                mergeBtn.style.background = 'var(--primary-600)';
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(false);
+            });
+
+            mergeBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(true);
+            });
+
+            overlay.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (e.target === overlay) {
+                    overlay.remove();
+                    resolve(false);
+                }
+            });
+
             modal.addEventListener('click', (e) => {
                 e.stopPropagation();
             });
 
-            // Bind buttons
-            modal.querySelector('.merge-btn')?.addEventListener('click', () => {
-                modalOverlay.remove();
-                resolve(true);
-            });
-
-            modal.querySelector('.cancel-btn')?.addEventListener('click', () => {
-                modalOverlay.remove();
-                resolve(false);
-            });
-
-            // Click outside to cancel
-            modalOverlay.addEventListener('click', (e) => {
-                if (e.target === modalOverlay) {
-                    modalOverlay.remove();
+            const handleEscape = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', handleEscape);
                     resolve(false);
                 }
-            });
+            };
+            document.addEventListener('keydown', handleEscape);
         });
     }
 
@@ -3247,7 +3324,7 @@ ${options.message}
                 }
             }
 
-            // Save bookmark with original timestamp
+            // Save bookmark with original timestamp and folder path
             promises.push(
                 SimpleBookmarkStorage.save(
                     bookmark.url,
@@ -3256,7 +3333,8 @@ ${options.message}
                     bookmark.aiResponse,
                     bookmark.title,
                     bookmark.platform,
-                    bookmark.timestamp  // Preserve original timestamp from JSON
+                    bookmark.timestamp,  // Preserve original timestamp from JSON
+                    bookmark.folderPath  // CRITICAL: Preserve folder structure from import
                 )
             );
         }
@@ -5063,6 +5141,7 @@ ${options.message}
                 margin: 0 0 24px 0;
                 font-size: 14px;
                 color: #6b7280;
+            }
             .btn-primary,
             .create-first-folder {
                 padding: var(--space-2) var(--space-5);
@@ -5072,8 +5151,12 @@ ${options.message}
                 border-radius: var(--radius-small);  /* Material Design 8px */
                 cursor: pointer;
                 font-weight: var(--font-medium);
+                font-size: 14px;
                 transition: all var(--duration-base);
                 box-shadow: var(--elevation-1);  /* Material Design elevation */
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
 
             .btn-primary:hover,

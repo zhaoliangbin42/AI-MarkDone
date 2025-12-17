@@ -162,23 +162,47 @@ export class Toolbar {
     }
 
     /**
-     * Create an icon button with tooltip
+     * Create icon button with hover tooltip (using feedback mechanism)
      */
     private createIconButton(
         id: string,
-        iconSvg: string,
-        tooltipText: string,
+        icon: string,
+        label: string,
         onClick: () => void
-    ): HTMLButtonElement {
+    ): HTMLElement {
         const button = document.createElement('button');
-        button.className = 'aicopy-button';
         button.id = id;
-        button.setAttribute('aria-label', tooltipText);
-        button.innerHTML = iconSvg;
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onClick();
+        button.className = 'aicopy-button';
+        button.setAttribute('aria-label', label);
+        button.innerHTML = icon;
+        button.addEventListener('click', onClick);
+
+        // Hover tooltip using feedback mechanism
+        let hoverTimeout: number | null = null;
+        let feedbackElement: HTMLElement | null = null;
+
+        button.addEventListener('mouseenter', () => {
+            // Show tooltip after 500ms delay
+            hoverTimeout = window.setTimeout(() => {
+                feedbackElement = document.createElement('div');
+                feedbackElement.className = 'aicopy-button-feedback';
+                feedbackElement.textContent = label;
+                button.style.position = 'relative';
+                button.appendChild(feedbackElement);
+            }, 100);
+        });
+
+        button.addEventListener('mouseleave', () => {
+            // Clear timeout if mouse leaves before tooltip shows
+            if (hoverTimeout) {
+                window.clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+            // Remove tooltip if it's showing
+            if (feedbackElement) {
+                feedbackElement.remove();
+                feedbackElement = null;
+            }
         });
 
         return button;
@@ -209,6 +233,9 @@ export class Toolbar {
                 const originalIcon = btn.innerHTML;
                 btn.innerHTML = Icons.check;
                 btn.style.color = 'var(--theme-color)';
+
+                // Show "Copied!" feedback
+                this.showFeedback(btn, 'Copied!');
 
                 logger.info('Markdown copied to clipboard');
 

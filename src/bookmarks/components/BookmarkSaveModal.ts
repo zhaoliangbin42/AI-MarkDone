@@ -54,8 +54,25 @@ export class BookmarkSaveModal {
         this.folders = await FolderStorage.getAll();
         logger.debug(`[BookmarkSaveModal] Loaded ${this.folders.length} folders`);
 
-        // Set selected path (for edit mode or last used folder)
-        this.selectedPath = options.currentFolder || options.lastUsedFolder || null;
+        // Validate and set selected path
+        let candidatePath = options.currentFolder || options.lastUsedFolder || null;
+
+        // Check if candidate path still exists in folder tree
+        if (candidatePath) {
+            const pathExists = this.folders.some(f => f.path === candidatePath);
+            if (!pathExists) {
+                logger.warn(`[BookmarkSaveModal] Last used folder "${candidatePath}" no longer exists`);
+                candidatePath = null;
+            }
+        }
+
+        // If no valid candidate, use first folder (if any)
+        if (!candidatePath && this.folders.length > 0) {
+            candidatePath = this.folders[0].path;
+            logger.info(`[BookmarkSaveModal] Using first folder: ${candidatePath}`);
+        }
+
+        this.selectedPath = candidatePath;
 
         // Auto-expand folder path
         if (this.selectedPath) {
@@ -125,6 +142,44 @@ export class BookmarkSaveModal {
         }, 100);
 
         logger.info('[BookmarkSaveModal] Modal shown');
+    }
+
+    private updateSaveButtonState(): void {
+        const saveBtn = this.modal?.querySelector('.save-modal-btn-save') as HTMLButtonElement;
+        if (!saveBtn) return;
+
+        const titleInput = this.modal?.querySelector('.title-input') as HTMLInputElement;
+        const title = titleInput?.value?.trim() || '';
+
+        // Disable save button if:
+        // 1. No folders exist in the tree (must create folder first)
+        // 2. No folder is selected
+        // 3. Title is empty
+        const hasNoFolders = this.folders.length === 0;
+        const noFolderSelected = !this.selectedPath;
+        const noTitle = !title;
+
+        const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
+
+        saveBtn.disabled = shouldDisable;
+
+        // Update button appearance
+        if (shouldDisable) {
+            saveBtn.style.opacity = '0.5';
+            saveBtn.style.cursor = 'not-allowed';
+        } else {
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+        }
+
+        // Log state for debugging
+        if (hasNoFolders) {
+            logger.debug('[BookmarkSaveModal] Save disabled: No folders exist');
+        } else if (noFolderSelected) {
+            logger.debug('[BookmarkSaveModal] Save disabled: No folder selected');
+        } else if (noTitle) {
+            logger.debug('[BookmarkSaveModal] Save disabled: No title');
+        }
     }
 
     /**
@@ -387,17 +442,26 @@ export class BookmarkSaveModal {
                     align-items: center;
                     padding: 8px 12px;
                     cursor: pointer;
-                    transition: background 0.15s ease;
-                    user-select: none;
+                    border-radius: var(--radius-extra-small);
+                    transition: all 0.15s ease;
                     position: relative;
                 }
 
+                /* Folder item hover */
                 .folder-item:hover {
-                    background: var(--gray-100);
+                    background: var(--gray-50);
                 }
 
+                /* Selected folder */
                 .folder-item.selected {
-                    background: var(--primary-100);
+                    background: var(--primary-50);
+                    border-left: 3px solid var(--primary-600);
+                    padding-left: 9px; /* Adjust for border */
+                }
+
+                .folder-item.selected .folder-name {
+                    color: var(--primary-700);
+                    font-weight: 600;
                 }
 
                 .folder-item.selected:hover {
@@ -458,7 +522,8 @@ export class BookmarkSaveModal {
                     border-radius: var(--radius-extra-small);
                     cursor: pointer;
                     opacity: 0;
-                    transition: opacity 0.15s;
+                    visibility: hidden;
+                    transition: opacity 0.2s ease, visibility 0.2s ease;
                     font-size: var(--text-base);
                     display: flex;
                     align-items: center;
@@ -467,6 +532,11 @@ export class BookmarkSaveModal {
 
                 .folder-item:hover .folder-add-btn {
                     opacity: 1;
+                    visibility: visible;
+                }
+
+                .folder-add-btn:hover {
+                    background: var(--primary-700);
                 }
 
                 .folder-empty {
@@ -895,18 +965,6 @@ export class BookmarkSaveModal {
     }
 
     /**
-     * Update save button state
-     */
-    private updateSaveButtonState(): void {
-        if (!this.modal) return;
-
-        const saveBtn = this.modal.querySelector('.save-modal-btn-save') as HTMLButtonElement;
-        if (saveBtn) {
-            saveBtn.disabled = !this.titleValid || !this.selectedPath;
-        }
-    }
-
-    /**
      * Handle save action
      */
     private handleSave(): void {
@@ -1138,15 +1196,17 @@ export class BookmarkSaveModal {
                         align-items: center;
                         padding: 8px 12px;
                         cursor: pointer;
-                        transition: background 0.15s ease;
-                        user-select: none;
+                        border-radius: var(--radius-extra-small);
+                        transition: all 0.15s ease;
                         position: relative;
                     }
 
+                    /* Folder item hover */
                     .folder-item:hover {
-                        background: var(--gray-100);
+                        background: var(--gray-50);
                     }
 
+                    /* Selected folder */
                     .folder-item.selected {
                         background: var(--primary-100);
                     }
@@ -1189,6 +1249,35 @@ export class BookmarkSaveModal {
                         color: var(--primary-600);
                         font-weight: 600;
                         margin-left: 8px;
+                    }
+
+                    /* Add subfolder button (blue, hover to show) */
+                    .folder-add-btn {
+                        position: absolute;
+                        right: 8px;
+                        background: var(--primary-600);
+                        color: white;
+                        border: none;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: var(--radius-extra-small);
+                        cursor: pointer;
+                        opacity: 0;
+                        visibility: hidden;
+                        transition: opacity 0.2s ease, visibility 0.2s ease;
+                        font-size: var(--text-base);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .folder-item:hover .folder-add-btn {
+                        opacity: 1;
+                        visibility: visible;
+                    }
+
+                    .folder-add-btn:hover {
+                        background: var(--primary-700);
                     }
 
                     .folder-empty {
@@ -1280,8 +1369,10 @@ export class BookmarkSaveModal {
                 <div class="save-modal-body">
                     <!-- Info Section -->
                     <div class="move-info">
-                        <span class="move-info-icon">ℹ️</span>
-                        <span class="move-info-text">Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? 's' : ''}</span>
+                        <span class="move-info-text" style="display: flex; align-items: center; gap: 8px;">
+                            <span style="flex-shrink: 0;">${Icons.alertTriangle}</span>
+                            <span>Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? 's' : ''}</span>
+                        </span>
                     </div>
 
                     <!-- Folder Section -->

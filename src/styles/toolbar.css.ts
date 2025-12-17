@@ -136,7 +136,7 @@ export const toolbarStyles = `
 
 /* Notion-style rounded buttons */
 .aicopy-button {
-  position: relative;
+  position: relative; /* CRITICAL: Required for absolute-positioned tooltip */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -152,6 +152,7 @@ export const toolbarStyles = `
   user-select: none;
   pointer-events: auto;
   z-index: 1;
+  overflow: visible; /* CRITICAL: Allow tooltip to overflow button bounds */
 }
 
 .aicopy-button:hover {
@@ -200,44 +201,6 @@ export const toolbarStyles = `
   background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
   color: white;
   opacity: 0.9;
-}
-
-/* Tooltip */
-.aicopy-button::after {
-  content: attr(aria-label);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 10px;
-  background: var(--gray-900);
-  color: white;
-  font-size: 12px;
-  white-space: nowrap;
-  border-radius: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 1000;
-}
-
-.aicopy-button::before {
-  content: '';
-  position: absolute;
-  bottom: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%);
-  border: 4px solid transparent;
-  border-top-color: var(--gray-900);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 1000;
-}
-
-.aicopy-button:hover::after,
-.aicopy-button:hover::before {
-  opacity: 1;
 }
 
 /* Feedback tooltip */

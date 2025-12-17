@@ -39,7 +39,7 @@ class ContentScript {
         this.mathClickHandler = new MathClickHandler();
         this.reRenderPanel = new ReRenderPanel();
 
-        logger.info('AI Copy Enhance initialized');
+        logger.info('AI-Markdone initialized');
     }
 
     /**
@@ -449,7 +449,7 @@ class ContentScript {
 
 // Initialize and start when DOM is ready
 function initExtension() {
-    logger.info('Initializing AI Copy Enhance extension');
+    logger.info('Initializing AI-Markdone extension');
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
 
