@@ -9,8 +9,8 @@ import { TreeBuilder } from '../utils/tree-builder';
 import { PathUtils } from '../utils/path-utils';
 import { Icons } from '../../assets/icons';
 import { MarkdownRenderer } from '../../utils/markdown-renderer';
+import { DesignTokenManager } from '../../utils/design-token-manager';
 import { ThemeObserver } from '../../utils/theme-observer';
-import { DesignTokens } from '../../utils/design-tokens';  // T2.1.1: Import DesignTokens class
 
 
 
@@ -2239,11 +2239,11 @@ export class SimpleBookmarkPanel {
             const config = configs[options.type];
             const title = options.title || config.defaultTitle;
 
-            // ✅ Dark mode detection
-            const isDark = DesignTokens.isDarkMode();
-            const bgColor = isDark ? '#27272A' : '#FFFFFF';        // gray-800 : white
-            const textColor = isDark ? '#D4D4D8' : '#374151';      // gray-300 : gray-700
-            const borderColor = isDark ? '#52525B' : '#E5E7EB';   // gray-600 : gray-200
+            // Dark mode detection
+            const isDark = document.documentElement.classList.contains('dark');
+            const bgColor = isDark ? 'var(--gray-800)' : 'white';
+            const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-700)';
+            const borderColor = isDark ? 'var(--gray-700)' : 'var(--gray-200)';
 
             const overlay = document.createElement('div');
             overlay.style.cssText = `
@@ -2373,36 +2373,39 @@ ${options.message}
 
             const modal = document.createElement('div');
             modal.className = 'delete-confirmation-modal';
-
-            // ✅ Use CSS variables for dark mode support
             modal.style.cssText = `
-                background: var(--md-surface);
+                background: white;
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
                 max-width: 400px;
                 width: 90%;
             `;
 
-            // Detect theme for conditional styles
-            const isDark = DesignTokens.isDarkMode();
-            const titleColor = isDark ? '#F4F4F5' : '#111827';  // gray-700 : gray-900
-            const textColor = isDark ? '#D4D4D8' : '#6B7280';   // gray-500 : gray-500
-            const borderColor = isDark ? '#52525B' : '#E5E7EB'; // gray-300 : gray-200
+            // Add dark mode styles
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                modal.style.background = 'var(--gray-800)';
+                modal.style.borderColor = 'var(--gray-700)';
+            }
+
+            const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+            const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
+            const borderColor = isDark ? 'var(--gray-700)' : 'var(--gray-200)';
 
             modal.innerHTML = `
-            <div style="padding: 20px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
                     <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor}; line-height: 1.2;">Delete Selected Items</h3>
                 </div>
                 <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 12px 0;">This will permanently delete:</p>
+                    <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
                     <ul style="margin: 0; padding-left: 24px; list-style: none;">
-                        ${analysis.folders.length > 0 ? `<li style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</span></li>` : ''}
-                        ${analysis.subfolders.length > 0 ? `<li style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? 's' : ''}</span></li>` : ''}
-                        ${analysis.bookmarks.length > 0 ? `<li style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? 's' : ''}</span></li>` : ''}
+                        ${analysis.folders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</span></li>` : ''}
+                        ${analysis.subfolders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? 's' : ''}</span></li>` : ''}
+                        ${analysis.bookmarks.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? 's' : ''}</span></li>` : ''}
                     </ul>
-                    <p style="margin: 12px 0 0 0; font-weight: 500; color: var(--danger-600);">
+                    <p style="margin: 16px 0 0 0; font-weight: 500; color: var(--danger-600);">
                         This action cannot be undone.
                     </p>
                 </div>
@@ -2423,10 +2426,10 @@ ${options.message}
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
-                    background: var(--danger-100);
-                    color: #FFFFFF;
+                    background: var(--danger-600);
+                    color: white;
                     font-size: 14px;
-                    font-weight: 600;
+                    font-weight: 500;
                     cursor: pointer;
                     transition: background 0.2s;
                 ">Delete</button>
@@ -2611,7 +2614,7 @@ ${options.message}
                     padding: 8px 24px;
                     border: none;
                     border-radius: 4px;
-                    background: var(--primary-200);
+                    background: var(--primary-600);
                     color: white;
                     font-size: 14px;
                     font-weight: 500;
@@ -2630,10 +2633,10 @@ ${options.message}
 
         const okBtn = modal.querySelector('.ok-btn') as HTMLElement;
         okBtn.addEventListener('mouseenter', () => {
-            okBtn.style.background = 'var(--primary-100)';
+            okBtn.style.background = 'var(--primary-700)';
         });
         okBtn.addEventListener('mouseleave', () => {
-            okBtn.style.background = 'var(--primary-200)';
+            okBtn.style.background = 'var(--primary-600)';
         });
 
         okBtn.addEventListener('click', () => {
@@ -2760,13 +2763,13 @@ ${options.message}
      * @see /src/styles/design-tokens.css
      */
     private async showExportOptionsDialog(): Promise<boolean | null> {
-        return new Promise((resolve) => {
-            // ✅ Dark mode detection
-            const isDark = DesignTokens.isDarkMode();
-            const bgColor = isDark ? '#27272A' : '#FFFFFF';
-            const textColor = isDark ? '#D4D4D8' : '#374151';
-            const borderColor = isDark ? '#52525B' : '#E5E7EB';
+        // Dark mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgColor = isDark ? 'var(--gray-800)' : 'white';
+        const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+        const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
 
+        return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.style.cssText = `
                 position: fixed;
@@ -2774,11 +2777,12 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: rgba(0, 0, 0, 0.5) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                color-scheme: light dark;
             `;
 
             const modal = document.createElement('div');
@@ -2786,123 +2790,105 @@ ${options.message}
                 background: ${bgColor};
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
-                max-width: 500px;
+                max-width: 400px;
                 width: 90%;
+                padding: 24px;
             `;
 
             modal.innerHTML = `
-                <div style="padding: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: ${textColor};">
-                        导出选项
-                    </h3>
-                    <div style="margin-bottom: 20px; color: ${textColor}; font-size: 14px; line-height: 1.5;">
-                        <p style="margin: 0 0 12px 0;">选择导出方式:</p>
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <label style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 12px;
-                                border: 1px solid ${borderColor};
-                                border-radius: var(--radius-medium);
-                                cursor: pointer;
-                                transition: all 0.2s;
-                            " class="export-option">
-                                <input type="radio" name="exportType" value="preserve" checked style="
-                                    width: 16px;
-                                    height: 16px;
-                                    cursor: pointer;
-                                ">
-                                <div>
-                                    <div style="font-weight: 500; color: ${textColor};">保留文件夹结构</div>
-                                    <div style="font-size: 12px; color: ${textColor}; opacity: 0.7;">导出为分层的文件夹和书签</div>
-                                </div>
-                            </label>
-                            <label style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 12px;
-                                border: 1px solid ${borderColor};
-                                border-radius: var(--radius-medium);
-                                cursor: pointer;
-                                transition: all 0.2s;
-                            " class="export-option">
-                                <input type="radio" name="exportType" value="flat" style="
-                                    width: 16px;
-                                    height: 16px;
-                                    cursor: pointer;
-                                ">
-                                <div>
-                                    <div style="font-weight: 500; color: ${textColor};">扁平列表</div>
-                                    <div style="font-size: 12px; color: ${textColor}; opacity: 0.7;">仅导出所有书签，不含文件夹</div>
-                                </div>
-                            </label>
+                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: ${titleColor};">
+                    导出选项
+                </h3>
+                <div style="margin-bottom: 24px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="preserve-structure" checked 
+                               style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-size: 14px; color: ${textColor};">
+                            同时保留文件夹结构
+                        </span>
+                    </label>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: var(--space-2);">
+                    <div class="batch-actions-bar">
+                        <span class="selected-count">0 selected</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="batch-delete-btn" title="Delete selected items">
+                                ${Icons.trash}
+                                <span>Delete</span>
+                            </button>
+                            <button class="batch-move-btn" title="Move to folder">
+                                ${Icons.folder}
+                                <span>Move To</span>
+                            </button>
+                            <button class="batch-export-btn" title="Export selected">
+                                ${Icons.download}
+                                <span>Export</span>
+                            </button>
+                            <button class="batch-clear-btn" title="Clear selection">
+                                ${Icons.x}
+                                <span>Clear</span>
+                            </button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button class="cancel-btn" style="
-                            padding: 8px 16px;
-                            border: none;
-                            border-radius: var(--radius-medium);
-                            background: transparent;
-                            color: var(--primary-600);
-                            font-size: 14px;
-                            font-weight: 500;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                        ">取消</button>
-                        <button class="confirm-btn" style="
-                            padding: 8px 16px;
-                            border: none;
-                            border-radius: var(--radius-medium);
-                            background: #2563EB;
-                            color: #FFFFFF;
-                            font-size: 14px;
-                            font-weight: 600;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                        ">导出</button>
-                    </div>
+                    <button class="cancel-btn" style="
+                        padding: 8px 16px;
+                        border: 1px solid var(--gray-300);
+                        border-radius: 4px;
+                        background: white;
+                        color: var(--gray-500);
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">取消</button>
+                    <button class="export-btn" style="
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 4px;
+                        background: var(--primary-600);
+                        color: white;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    ">导出</button>
                 </div>
-            `; overlay.appendChild(modal);
+            `;
+
+            overlay.appendChild(modal);
 
             // CRITICAL: Append to Shadow DOM instead of document.body
             if (this.shadowRoot) {
                 this.shadowRoot.appendChild(overlay);
             }
 
-            // ✅ Prevent modal content clicks from closing
-            modal.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-
+            const checkbox = modal.querySelector('#preserve-structure') as HTMLInputElement;
             const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
-            const confirmBtn = modal.querySelector('.confirm-btn') as HTMLElement;
-            const preserveInput = modal.querySelector('input[value="preserve"]') as HTMLInputElement;
+            const exportBtn = modal.querySelector('.export-btn') as HTMLElement;
 
-            // Close on overlay click only
-            overlay.addEventListener('click', () => {
-                if (this.shadowRoot) {
-                    this.shadowRoot.removeChild(overlay);
-                }
-                resolve(null);
+            // Hover effects using CSS variables
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = 'var(--gray-100)';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = 'white';
             });
 
-            cancelBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (this.shadowRoot) {
-                    this.shadowRoot.removeChild(overlay);
-                }
-                resolve(null);
+            exportBtn.addEventListener('mouseenter', () => {
+                exportBtn.style.background = 'var(--primary-700)';
+            });
+            exportBtn.addEventListener('mouseleave', () => {
+                exportBtn.style.background = 'var(--primary-600)';
             });
 
-            confirmBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const preserveStructure = preserveInput.checked;
-                if (this.shadowRoot) {
-                    this.shadowRoot.removeChild(overlay);
-                }
+            cancelBtn.addEventListener('click', () => {
+                overlay.remove();
+                resolve(null); // Cancelled
+            });
+
+            exportBtn.addEventListener('click', () => {
+                const preserveStructure = checkbox.checked;
+                overlay.remove();
                 resolve(preserveStructure);
             });
 
@@ -3293,17 +3279,8 @@ ${options.message}
         const errors: string[] = [];
 
         bookmarksArray.forEach((item: any, index: number) => {
-            // ✅ Auto-fill missing optional fields for imported bookmarks
-            const enrichedItem = {
-                ...item,
-                urlWithoutProtocol: item.urlWithoutProtocol || item.url?.replace(/^https?:\/\//, ''),
-                title: item.title || item.userMessage?.substring(0, 50) || 'Untitled',
-                platform: item.platform || 'ChatGPT',
-                folderPath: item.folderPath || 'Import'
-            };
-
-            if (SimpleBookmarkStorage.validateBookmark(enrichedItem)) {
-                validBookmarks.push(enrichedItem);
+            if (SimpleBookmarkStorage.validateBookmark(item)) {
+                validBookmarks.push(item);
             } else {
                 errors.push(`Invalid bookmark at index ${index}`);
                 logger.warn(`[Import] Invalid bookmark at index ${index}:`, item);
@@ -3349,22 +3326,16 @@ ${options.message}
         conflicts: Bookmark[],
         allBookmarks: Bookmark[]
     ): Promise<boolean> {
+        // Dark mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgColor = isDark ? 'var(--gray-800)' : 'white';
+        const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+        const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
+        const strongColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+        const listBg = isDark ? 'var(--gray-900)' : 'var(--gray-50)';
+        const borderColor = isDark ? 'var(--gray-700)' : 'var(--gray-200)';
+
         return new Promise((resolve) => {
-            // ✅ Dark mode detection
-            const isDark = DesignTokens.isDarkMode();
-            const bgColor = isDark ? '#27272A' : '#FFFFFF';
-            const titleColor = isDark ? '#F4F4F5' : '#111827';
-            const textColor = isDark ? '#D4D4D8' : '#374151';
-            const strongColor = isDark ? '#FAFAFA' : '#111827';
-            const listBg = isDark ? '#18181B' : '#F9FAFB';
-            const borderColor = isDark ? '#52525B' : '#E5E7EB';
-
-            // ✅ Platform badge colors (must work in dark mode)
-            const chatgptBg = isDark ? '#10A37F' : '#74AA9C';
-            const chatgptText = isDark ? '#FFFFFF' : '#1A7A5E';
-            const geminiBg = isDark ? '#8E9CF5' : '#A8C5FF';
-            const geminiText = isDark ? '#FFFFFF' : '#1A73E8';
-
             const overlay = document.createElement('div');
             overlay.style.cssText = `
                 position: fixed;
@@ -3391,33 +3362,33 @@ ${options.message}
             `;
 
             modal.innerHTML = `
-            <div style="padding: 20px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="padding: 24px 24px 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
                     <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor}; line-height: 1.2;">Duplicate Bookmarks Detected</h3>
                 </div>
                 <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 10px 0;">Found <strong style="color: ${strongColor};">${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p style="margin: 0 0 12px 0;">Total bookmarks to import: <strong style="color: ${strongColor};">${allBookmarks.length}</strong></p>
+                    <p style="margin: 0 0 12px 0;">Found <strong style="color: ${strongColor};">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: ${strongColor};">${allBookmarks.length}</strong></p>
                     
-                    <div style="background: ${listBg}; border-radius: 8px; padding: 12px; margin-bottom: 14px; max-height: 300px; overflow-y: auto;">
+                    <div style="background: ${listBg}; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
                         ${conflicts.map(b => `
                             <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid ${borderColor};">
-                                <span style="flex-shrink: 0; padding: 3px 8px; background: ${b.platform?.toLowerCase() === 'gemini' ? geminiBg : chatgptBg}; color: ${b.platform?.toLowerCase() === 'gemini' ? geminiText : chatgptText}; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === 'gemini' ? 'var(--gemini-light)' : 'var(--chatgpt-light)'}; color: ${b.platform?.toLowerCase() === 'gemini' ? 'var(--gemini-dark)' : 'var(--chatgpt-dark)'}; border-radius: 4px; font-size: 12px; font-weight: 500;">
                                     ${b.platform || 'ChatGPT'}
                                 </span>
-                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${textColor};">
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700);">
                                     ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
                                 </span>
                             </div>
                         `).join('')}
                     </div>
                     
-                    <p style="margin: 0 0 6px 0; color: ${textColor};">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
-                    <p style="margin: 0; color: ${textColor}; font-size: 13px; font-style: italic; opacity: 0.8;">💡 Items without folders will be imported to the <strong>Import</strong> folder.</p>
+                    <p style="margin: 0 0 8px 0; color: var(--gray-600);">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                    <p style="margin: 0; color: var(--gray-500); font-size: 13px; font-style: italic;">💡 Items without folders will be imported to the <strong>Import</strong> folder.</p>
                 </div>
             </div>
-            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid ${borderColor};">
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
                 <button class="cancel-btn" style="
                     padding: 8px 16px;
                     border: none;
@@ -3433,10 +3404,10 @@ ${options.message}
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
-                    background: #2563EB;
-                    color: #FFFFFF;
+                    background: var(--primary-600);
+                    color: white;
                     font-size: 14px;
-                    font-weight: 600;
+                    font-weight: 500;
                     cursor: pointer;
                     transition: background 0.2s;
                 ">Merge</button>
@@ -3849,42 +3820,37 @@ ${options.message}
     }
 
     /**
-     * Get panel styles with isolated design tokens
-     * 
-     * T2.1: Shadow DOM CSS Isolation
-     * All CSS Variables are defined within :host selector to prevent
-     * polluting the host page's global CSS scope.
-     * 
-     * Pattern: Following Shoelace/Lit best practices
-     * @see src/utils/design-tokens.ts
-     * @see https://shoelace.style/getting-started/themes
+     * Get panel styles
      */
     private getStyles(): string {
-        // T2.1.2: Detect current theme
-        const isDark = DesignTokens.isDarkMode();
-
         return `
             /* ============================================================================
-               SHADOW DOM ISOLATED DESIGN TOKENS
+               Design Tokens - Inherited from /src/styles/design-tokens.css
                ============================================================================
                
-               All CSS Variables are scoped to :host to prevent global pollution.
-               These tokens are completely isolated from the host page (ChatGPT/Gemini).
+               All design tokens are inherited from the global design-tokens.css file
+               into the Shadow DOM :host scope. This ensures:
+               1. Single source of truth for all design decisions
+               2. Automatic theme switching (light/dark) without code changes
+               3. Consistency across all components
                
-               Benefits:
-               - Zero impact on host page styles
-               - Theme-aware (auto-detects light/dark mode)
-               - Complete control over component appearance
-               
-               Migration from: global :root injection (manifest.json)
-               Migration to: Shadow DOM :host isolation
+               @see /src/styles/design-tokens.css - Global design tokens source
                ============================================================================ */
-
             :host {
-                /* T2.1.3: Inject all design tokens based on theme */
-                ${isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens()}
-            }
+                ${DesignTokenManager.generateCategorizedInjectionCSS()}
 
+                /* Overlay positioning */
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: var(--z-modal-backdrop);
+            }
 
             * {
                 box-sizing: border-box;
@@ -3908,27 +3874,21 @@ ${options.message}
                 overflow: hidden;
             }
 
-            /* ===================================================================
-               TOOLBAR - Modernized per design_system.md
-               - Removed border-bottom (use shadow)
-               - Improved button styles
-               =================================================================== */
             .toolbar {
                 display: flex;
                 gap: var(--space-2);  /* 8px */
-                padding: var(--space-3) var(--space-4);  /* 12px 16px, more horizontal space */
+                padding: var(--space-3);  /* 12px */
                 background: var(--gray-50);
-                /* border-bottom: removed */
-                box-shadow: var(--shadow-xs);  /* Subtle separation */
+                border-bottom: 1px solid var(--gray-200);
                 align-items: center;
                 flex-wrap: wrap;
             }
 
             .toolbar-divider {
                 width: 1px;
-                height: 20px;  /* Slightly shorter */
+                height: 24px;
                 background: var(--gray-300);
-                margin: 0 var(--space-1);  /* 4px */
+                margin: 0 4px;
             }
 
             .new-folder-btn,
@@ -3936,12 +3896,11 @@ ${options.message}
             .import-btn {
                 padding: var(--space-2) var(--space-3);  /* 8px 12px */
                 border: 1px solid var(--gray-300);
-                background: var(--md-surface);  /* Theme-aware */
-                border-radius: var(--radius-sm);  /* 6px per design system */
-                font-size: var(--text-sm);  /* 13px */
-                font-weight: var(--font-medium);  /* 500 */
+                background: var(--white);
+                border-radius: 6px;
+                font-size: 13px;
                 cursor: pointer;
-                transition: all var(--duration-fast);  /* 150ms */
+                transition: all 0.15s ease;
                 white-space: nowrap;
             }
 
@@ -3950,8 +3909,6 @@ ${options.message}
             .import-btn:hover {
                 background: var(--gray-100);
                 border-color: var(--gray-400);
-                transform: translateY(-1px);  /* Subtle lift */
-                box-shadow: var(--shadow-sm);  /* Hover elevation */
             }
 
             .new-folder-btn {
@@ -3964,50 +3921,44 @@ ${options.message}
                 background: var(--primary-50);
             }
 
-            /* ===================================================================
-               SIDEBAR - Modernized per design_system.md
-               - Removed border-right (use background color difference instead)
-               - Increased padding for breathing room
-               - Consistent spacing with 8px grid
-               =================================================================== */
+            /* Sidebar */
             .sidebar {
-                width: 140px;
-                background: var(--gray-100);  /* Subtle darker background */
-                /* border-right: removed - no borders per design system */
+                width: 140px;  /* 减小宽度 */
+                background: var(--md-surface-variant);
+                border-right: 1px solid var(--md-outline);
                 display: flex;
                 flex-direction: column;
-                padding: var(--space-4);  /* 16px, 8px grid */
-                gap: var(--space-2);  /* 8px between tabs */
+                padding: var(--space-4) var(--space-2);
+                gap: var(--space-2);
             }
 
             .tab-btn {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: var(--space-2);  /* 8px */
-                padding: var(--space-3);  /* 12px, more breathing room */
-                border: none;  /* No borders */
+                gap: var(--space-2);
+                padding: var(--space-4) var(--space-3);
+                border: none;
+                border-left: 3px solid transparent;
                 background: transparent;
                 cursor: pointer;
-                transition: all var(--duration-fast);  /* 150ms per design system */
-                color: var(--gray-600);
-                font-size: var(--text-xs);  /* 12px */
-                border-radius: var(--radius-md);  /* 8px for card-like items */
+                transition: all var(--duration-base);
+                color: var(--md-on-surface-variant);
+                font-size: var(--text-xs);
+                border-radius: var(--radius-small);
             }
 
             .tab-btn:hover {
-                background: var(--gray-200);  /* Subtle hover state */
-                color: var(--gray-900);
-                transform: translateY(-1px);  /* Micro-animation */
+                background: var(--md-surface-container-high);  /* 更明显的灰色 #EEEEEE */
+                color: var(--md-on-surface);
             }
 
             .tab-btn.active {
-                background: var(--primary-50);  /* Light blue background */
-                color: var(--primary-700);
-                font-weight: var(--font-semibold);  /* 600 */
-                /* Use box-shadow for accent instead of border */
-                box-shadow: inset 3px 0 0 var(--primary-500),
-                            var(--shadow-sm);  /* Subtle elevation */
+                background: var(--gray-200);  /* 深灰色,不是白色 */
+                color: var(--gray-900);
+                font-weight: var(--font-medium);
+                border-left-color: var(--primary-600);
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);
             }
 
             .tab-icon {
@@ -4027,88 +3978,68 @@ ${options.message}
                 overflow: hidden;
             }
 
-            /* ===================================================================
-               HEADER - Modernized per design_system.md
-               - Removed border-bottom (use box-shadow for separation)
-               - Consistent padding with 8px grid
-               =================================================================== */
             .header {
                 padding: var(--space-5) var(--space-6);  /* 20px 24px */
-                /* border-bottom: removed - use shadow instead */
-                box-shadow: var(--shadow-xs);  /* Subtle separation */
+                border-bottom: 1px solid var(--gray-200);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                background: var(--md-surface);
-                z-index: 1;  /* Ensure shadow appears above content */
             }
 
             .header h2 {
                 margin: 0;
-                font-size: var(--text-xl);  /* 18px */
-                font-weight: var(--font-semibold);  /* 600 */
-                color: var(--gray-900);
+                font-size: var(--text-xl);
+                font-weight: 600;
+                color: var(--md-on-surface);
                 display: flex;
-                align-items: center;
+                align-items: center;  /* 图标和文字垂直居中对齐 */
                 gap: var(--space-2);  /* 8px */
-                line-height: 1;
-                letter-spacing: -0.02em;  /* Tighter for modern feel */
+                line-height: 1;  /* 移除额外行高 */
             }
 
             .header h2 svg {
-                flex-shrink: 0;
+                flex-shrink: 0;  /* 防止图标被压缩 */
             }
 
             .close-btn {
                 background: none;
                 border: none;
-                font-size: 24px;  /* Slightly smaller */
+                font-size: 28px;
                 color: var(--gray-500);
                 cursor: pointer;
-                padding: var(--space-1);  /* 4px */
+                padding: 0;
                 width: 32px;
                 height: 32px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: var(--radius-sm);  /* 6px */
-                transition: all var(--duration-fast);  /* 150ms */
+                border-radius: 6px;
+                transition: all 0.2s;
             }
 
             .close-btn:hover {
                 background: var(--gray-100);
                 color: var(--gray-900);
-                transform: scale(1.05);  /* Micro-animation */
-            }
-
-            .close-btn:active {
-                transform: scale(0.95);  /* Press feedback */
             }
 
             .tree-item {
-                /* Layout properties (from Line 5003) */
                 display: flex;
                 align-items: center;
-                min-height: 36px;
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                position: relative;
-                cursor: pointer;
-                user-select: none;
-                
-                /* Styling properties (from Line 4059) */
                 gap: var(--space-2);
+                padding: var(--space-2) var(--space-3);
                 margin-bottom: var(--space-1);
+                cursor: pointer;
                 border-radius: var(--radius-small);
                 transition: all var(--duration-base) var(--ease-out);
-                
-                /* Critical: Explicit background */
-                background: transparent;
-                border: none;
-                border-bottom: 1.5px solid var(--gray-300);  /* From Line 5003 */
+                background: var(--primary-50);  /* 文件夹浅蓝色背景 */
+                border: none;  /* 移除边框 */
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);  /* 微妙阴影 */
+                position: relative;  /* 为actions的absolute定位提供参考 */
             }
 
             .tree-item:hover {
-                background: var(--gray-100);
+                background: var(--primary-100);  /* 浅蓝色高亮 */
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             }
 
             /* Tab content */
@@ -4125,10 +4056,10 @@ ${options.message}
 
             /* Toolbar */
             .toolbar {
-                padding: var(--space-3) var(--space-6);  /* 12px 24px */
-                border-bottom: 1px solid var(--md-outline-variant);  /* ✅ Subtle unified separator */
+                padding: var(--space-3) var(--space-6);  /* 12px 24px - 8px grid */
+                border-bottom: 1px solid var(--gray-200);
                 display: flex;
-                gap: var(--space-3);  /* 12px */
+                gap: var(--space-3);  /* 12px - 统一间距 */
                 align-items: center;
             }
 
@@ -4152,32 +4083,22 @@ ${options.message}
                 display: block;  /* 移除inline默认的baseline对齐 */
             }
 
-            /* ===================================================================
-               SEARCH  INPUT - Modernized per design_system.md
-               - Blue focus ring per design system (3px rgba blue)
-               - Cleaner border states
-               =================================================================== */
             .search-input {
-                flex: 1;
-                padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);  /* Left padding for icon */
-                border: 1.5px solid var(--gray-200);  /* 1.5px per design system */
-                border-radius: var(--radius-sm);  /* 6px for inputs */
-                background: var(--md-surface);  /* Theme-aware */
-                color: var(--gray-900);
-                font-size: var(--text-base);  /* 14px */
-               transition: all var(--duration-fast);  /* 150ms */
-            }
-
-            .search-input:hover {
-                border-color: var(--gray-300);
+                flex: 1;  /* 拉宽搜索框 */
+                padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);  /* 8px 16px 8px 40px */
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-small);  /* 8px */
+                background: var(--md-surface);
+                color: var(--md-on-surface);
+                font-size: var(--text-sm);
+                transition: all var(--duration-base) var(--ease-out);
             }
 
             .search-input:focus {
                 outline: none;
-                border-color: var(--primary-500);
-                /* Blue focus ring per design system */
-                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-                background: var(--md-surface);  /* Theme-aware */
+                border-color: var(--primary-600);
+                box-shadow: var(--shadow-focus);
+                background: var(--white);
             }
 
             .search-input::placeholder {
@@ -4186,19 +4107,18 @@ ${options.message}
 
             .platform-filter {
                 padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border: 1.5px solid var(--gray-200);
-                border-radius: var(--radius-sm);  /* 6px */
-                background: var(--md-surface);  /* Theme-aware */
-                color: var(--gray-700);
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-small);  /* 8px */
+                background: var(--md-surface);
+                color: var(--md-on-surface);
                 font-size: var(--text-sm);
-                font-weight: var(--font-medium);
                 cursor: pointer;
-                transition: all var(--duration-fast);
+                transition: all var(--duration-base) var(--ease-out);
             }
 
             .platform-filter:hover {
-                background: var(--gray-50);
-                border-color: var(--gray-400);
+                background: var(--md-surface-container);
+                border-color: var(--primary-600);
             }
 
             .platform-filter:focus {
@@ -4392,30 +4312,21 @@ ${options.message}
             .bookmark-item {
                 padding: var(--space-3) var(--space-4);
                 margin: var(--space-1) 3px;
-                border: none;
+                border: none;  /* 移除边框 */
                 border-radius: var(--radius-small);
-                background: var(--md-surface);
+                background: var(--md-surface);  /* 书签白色背景 */
                 cursor: pointer;
                 transition: all var(--duration-base) var(--ease-out);
-                
-                /* ✅ Match folder height */
-                min-height: 36px;
-                
-                /* ✅ Bottom border + subtle shadow (like folders) */
-                border-bottom: 1px solid var(--md-outline-variant);
-                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
-                
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);  /* 纯阴影 */
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);
-                position: relative;
+                gap: var(--space-3);  /* 12px */
+                position: relative;  /* 为actions的absolute定位提供参考 */
             }
 
             .bookmark-item:hover {
-                background: var(--primary-50);
-                border-bottom-color: var(--primary-200);
-                box-shadow: 0 2px 8px 0 rgba(33, 150, 243, 0.12);
-                transform: translateY(-1px);
+                background: var(--primary-50);  /* 浅蓝色高亮 */
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
             }
 
             .platform-badge {
@@ -4436,69 +4347,6 @@ ${options.message}
             .platform-badge.gemini {
                 background: var(--primary-100);
                 color: var(--primary-800);
-            }
-
-            /* Delete Confirmation Modal Styles */
-            .delete-confirmation-modal {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: var(--md-surface);  /* ✅ Dark mode */
-                padding: 24px;
-                border-radius: 12px;
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-                z-index: 10001;
-                min-width: 400px;
-                max-width: 500px;
-            }
-            .modal-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5) !important;
-                z-index: 10000;
-            }
-            .modal-content h3 {
-                margin: 0 0 12px 0;
-                font-size: 18px;
-                font-weight: 600;
-                color: var(--md-on-surface);  /* ✅ Dark mode */
-            }
-            .modal-content p {
-                margin: 0 0 20px 0;
-                color: var(--md-on-surface-variant);  /* ✅ Dark mode */
-                line-height: 1.5;
-            }
-            .modal-actions {
-                display: flex;
-                gap: 12px;
-                justify-content: flex-end;
-            }
-            .modal-btn {
-                padding: 8px 16px;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                font-size: 14px;
-                font-weight: 500;
-                transition: all 0.2s;
-            }
-            .btn-cancel {
-                background: var(--md-surface-container);  /* ✅ Dark mode */
-                color: var(--md-on-surface);  /* ✅ Dark mode */
-            }
-            .btn-cancel:hover {
-                background: var(--md-surface-container-high);
-            }
-            .btn-confirm {
-                background: var(--danger-600);
-                color: var(--white);
-            }
-            .btn-confirm:hover {
-                background: var(--danger-700);
             }
 
             .title {
@@ -4562,7 +4410,7 @@ ${options.message}
             }
 
             .delete-btn:hover {
-                background: var(--danger-50);
+                background: var(--danger-100);
             }
 
             /* Settings content */
@@ -4618,7 +4466,7 @@ ${options.message}
             }
 
             .conflict-dialog {
-                background: var(--md-surface);  /* ✅ Theme-aware */
+                background: var(--white);
                 border-radius: var(--radius-large);
                 box-shadow: var(--shadow-2xl);
                 max-width: 500px;
@@ -4988,30 +4836,28 @@ ${options.message}
             
             .batch-actions-bar {
                 position: fixed;
-                bottom: -1px;  /* ✅ Hide completely, no white line */
-                left: 140px;
+                bottom: 0;
+                left: 140px;  /* Sidebar宽度 */
                 right: 0;
-                margin: 0 var(--space-3) var(--space-3) var(--space-3);
-                padding: var(--space-4) var(--space-5);
-                
-                /* ✅ Elevated card style with rounded corners */
-                background: var(--md-surface);
-                backdrop-filter: blur(20px) saturate(180%);
-                -webkit-backdrop-filter: blur(20px) saturate(180%);
-                border-radius: var(--radius-lg);
-                
-                /* ✅ Prominent elevation shadow (no border) */
-                box-shadow: 
-                    0 8px 16px -4px rgba(0, 0, 0, 0.12),
-                    0 4px 8px -2px rgba(0, 0, 0, 0.08),
-                    0 0 0 1px var(--md-outline-variant);
-                
+                background: var(--warning-100);  /* 淡黄色背景 */
+                border-top: 1px solid var(--warning-500);
+                border-radius: var(--radius-medium) var(--radius-medium) 0 0;  /* 上方圆角 */
+                padding: var(--space-3) var(--space-6);
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);
+                justify-content: space-between;
+                padding: 16px 20px;
+                background: rgba(255, 255, 255, 0.85);
+                backdrop-filter: blur(20px) saturate(180%);
+                -webkit-backdrop-filter: blur(20px) saturate(180%);
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+                box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+                display: flex;
+                align-items: center;
+                gap: 12px;
                 z-index: 100;
-                transform: translateY(calc(100% + var(--space-3) + 1px));  /* ✅ Extra 1px */
-                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
             .batch-actions-bar.visible {
@@ -5021,35 +4867,34 @@ ${options.message}
             .batch-actions-bar .selected-count {
                 font-size: 14px;
                 font-weight: 500;
-                color: var(--md-on-surface);  /* ✅ Theme-aware */
+                color: var(--gray-700);
                 margin-right: auto;
                 white-space: nowrap;
             }
 
             .batch-actions-bar button {
-                display: inline-flex;
+                display: flex;
+                flex-direction: row;
                 align-items: center;
                 justify-content: center;
-                gap: var(--space-2);
-                
-                /* ✅ Match toolbar button style */
-                padding: var(--space-2) var(--space-3);
-                background: transparent;
-                border: none;
-                border-radius: var(--radius-sm);
-                
+                gap: 8px;
+                padding: 10px 16px;
+                background: white;
+                border: 1px solid var(--gray-200);
+                border-radius: var(--radius-medium);
                 cursor: pointer;
-                transition: all var(--duration-fast);
-                
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
-                color: var(--md-on-surface);
+                transition: all 0.2s ease;
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--gray-700);
                 white-space: nowrap;
             }
 
             .batch-actions-bar button:hover {
-                background: var(--md-surface-container);
-                transform: scale(1.02);
+                background: var(--gray-50);
+                border-color: var(--gray-300);
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             }
 
             .batch-actions-bar button:active {
@@ -5090,7 +4935,7 @@ ${options.message}
                 flex: 1;
                 overflow-y: auto;
                 overflow-x: hidden;
-                background: var(--md-surface);  /* ✅ Theme-aware */
+                background: var(--white);
             }
 
             /* Custom Scrollbar (macOS-style) */
@@ -5111,7 +4956,18 @@ ${options.message}
                 background: var(--gray-400);
             }
 
-            /* Tree Item Base styles - MERGED into Line 4059 to avoid cascade conflicts */
+            /* Tree Item Base */
+            .tree-item {
+                display: flex;
+                align-items: center;
+                min-height: 36px;
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                border-bottom: 1px solid var(--gray-100);
+                position: relative;
+                cursor: pointer;
+                transition: background-color 0.15s ease;
+                user-select: none;
+            }
 
             .batch-action-btn {
                 display: inline-flex;
@@ -5147,27 +5003,15 @@ ${options.message}
                 outline: none;
             }
 
-            /* ===================================================================
-               FOLDER STYLES - Modernized per design_system.md
-               - Clean backgrounds with subtle hover states
-               - Use box-shadow for selection instead of border
-               - Dark mode compatible (uses CSS variables, not hardcoded colors)
-               =================================================================== */
+            /* Folder Styles */
             .folder-item {
-                font-weight: var(--font-medium);  /* 500 */
-                background: transparent;  /* Clean by default */
-                transition: all var(--duration-fast);  /* 150ms */
-            }
-
-            .folder-item:hover {
-                background: var(--gray-100);  /* Subtle hover - theme-aware */
+                font-weight: 500;
+                background: var(--gray-50);
             }
 
             .folder-item.selected {
-                background: var(--primary-50);  /* Light blue in light mode, dark blue in dark mode */
-                color: var(--primary-700);  /* Ensure text contrast */
-                /* Left accent bar instead of full border */
-                box-shadow: inset 3px 0 0 var(--primary-500);
+                background: var(--primary-50);
+                box-shadow: inset 3px 0 0 var(--primary-600);
             }
 
             .folder-toggle {
@@ -5243,7 +5087,10 @@ ${options.message}
             }
 
 
-            /* Bookmark Styles - REMOVED DUPLICATE that was overriding --md-surface with --white */
+            /* Bookmark Styles */
+            .bookmark-item {
+                background: var(--white);
+            }
 
             .platform-icon {
                 font-size: 16px;
@@ -5453,6 +5300,319 @@ ${options.message}
                 animation: fadeIn 0.2s ease-out;
             }
 
+            /* ============================================
+               DARK MODE - Material Design Blue Theme
+               ============================================ */
+
+            :host-context(html.dark) .panel {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .sidebar {
+                background: var(--gray-900);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .tab-btn {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .tab-btn:hover {
+                background: var(--gray-700);  /* 深色模式 hover */
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .tab-btn.active {
+                background: var(--gray-700);  /* 深色模式下的深灰色 */
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .header {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .header h2 {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .close-btn {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .close-btn:hover {
+                background: var(--gray-700);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .toolbar {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .search-input,
+            :host-context(html.dark) .platform-filter {
+                background: var(--gray-900);
+                border-color: var(--gray-700);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .search-input::placeholder {
+                color: var(--gray-500);
+            }
+
+            /* Toolbar buttons dark mode */
+            :host-context(html.dark) .toolbar-icon-btn {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-200);
+            }
+
+            :host-context(html.dark) .toolbar-icon-btn:hover {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+                color: var(--gray-50);
+            }
+
+            /* Platform selector dark mode */
+            :host-context(html.dark) .platform-selector {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-200);
+            }
+
+            :host-context(html.dark) .platform-selector:hover {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .platform-selector[data-selected="all"],
+            :host-context(html.dark) .platform-selector[data-selected="chatgpt"],
+            :host-context(html.dark) .platform-selector[data-selected="gemini"] {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+            }
+
+            /* Platform dropdown dark mode */
+            :host-context(html.dark) .platform-dropdown {
+                background: var(--gray-800);
+                border-color: var(--gray-600);
+            }
+
+            :host-context(html.dark) .platform-option {
+                color: var(--gray-200);
+            }
+
+            :host-context(html.dark) .platform-option:hover {
+                background: var(--gray-700);
+            }
+
+            :host-context(html.dark) .platform-option[data-selected="true"] {
+                background: var(--primary-900);
+                color: var(--primary-100);
+            }
+
+            /* Tree view dark mode */
+            :host-context(html.dark) .content {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .tree-view {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .tree-item {
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .tree-item:hover {
+                background: var(--gray-700);
+            }
+
+            :host-context(html.dark) .folder-item {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .folder-item:hover {
+                background: var(--gray-700);
+            }
+
+            :host-context(html.dark) .folder-item.selected {
+                background: rgba(59, 130, 246, 0.2);
+                border-left-color: var(--primary-600);
+            }
+
+            :host-context(html.dark) .folder-name {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .folder-count {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .bookmark-item {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .bookmark-item:hover {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+            }
+
+            :host-context(html.dark) .bookmark-title {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .bookmark-timestamp {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .action-btn {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .action-btn:hover {
+                background: var(--gray-600);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .title {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .response {
+                color: var(--gray-400);
+            }
+
+            /* Detail modal dark mode */
+            :host-context(html.dark) .detail-modal {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .detail-header {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .detail-header h3 {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .fullscreen-btn,
+            :host-context(html.dark) .detail-header .close-btn {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .fullscreen-btn:hover,
+            :host-context(html.dark) .detail-header .close-btn:hover {
+                background: var(--gray-700);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .detail-meta {
+                background: var(--gray-900);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .detail-meta-right {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .detail-section {
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .user-section {
+                background: rgba(59, 130, 246, 0.1);
+                border-left-color: var(--primary-600);
+            }
+
+            :host-context(html.dark) .ai-section {
+                background: rgba(16, 185, 129, 0.1);
+                border-left-color: var(--success-600);
+            }
+
+            :host-context(html.dark) .section-header h4 {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .detail-text {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .detail-footer {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .open-conversation-btn {
+                background: var(--primary-600);
+                color: white;
+            }
+
+            :host-context(html.dark) .open-conversation-btn:hover {
+                background: var(--primary-700);
+            }
+
+            /* Batch actions bar dark mode */
+            :host-context(html.dark) .batch-actions-bar {
+                background: rgba(31, 41, 55, 0.95);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .batch-actions-bar .selected-count {
+                color: var(--gray-300);
+            }
+
+            :host-context(html.dark) .batch-actions-bar button {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-200);
+            }
+
+            :host-context(html.dark) .batch-actions-bar button:hover {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+            }
+
+            /* Empty state dark mode */
+            :host-context(html.dark) .tree-empty {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .tree-empty h3 {
+                color: var(--gray-300);
+            }
+
+            :host-context(html.dark) .tree-empty p {
+                color: var(--gray-500);
+            }
+
+            /* Notification/Alert dark mode */
+            :host-context(html.dark) .notification {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .notification.success {
+                background: rgba(16, 185, 129, 0.15);
+                border-color: var(--success-600);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .notification.error {
+                background: rgba(239, 68, 68, 0.15);
+                border-color: var(--danger-600);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .notification.warning {
+                background: rgba(245, 158, 11, 0.15);
+                border-color: var(--warning-600);
+                color: var(--gray-50);
+            }
         `;
     }
 }

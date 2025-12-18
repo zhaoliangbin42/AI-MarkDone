@@ -109,11 +109,6 @@ function styleToString(styles: Record<string, string | number>): string {
  * Pattern: Notion-style inline editing + VS Code tree view
  */
 export class BookmarkSaveModal {
-    // ✅ Shadow DOM infrastructure
-    private container: HTMLElement | null = null;
-    private shadowRoot: ShadowRoot | null = null;
-
-    // DOM references (now inside Shadow DOM)
     private overlay: HTMLElement | null = null;
     private modal: HTMLElement | null = null;
 
@@ -131,16 +126,6 @@ export class BookmarkSaveModal {
 
     // Event listener management (AbortController pattern - Web standard)
     private abortController: AbortController | null = null;
-
-    /**
-     * Constructor - Initialize Shadow DOM container
-     */
-    constructor() {
-        // Create Shadow DOM host element
-        this.container = document.createElement('div');
-        this.container.className = 'bookmark-save-modal-host';
-        this.shadowRoot = this.container.attachShadow({ mode: 'open' });
-    }
 
     /**
      * Show save modal

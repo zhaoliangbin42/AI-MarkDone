@@ -1802,6 +1802,531 @@ const modalStyles = `
 }
 `;
 
+class DesignTokens {
+  /**
+   * Detect if dark mode is currently active
+   * Checks both document class and system preference
+   */
+  static isDarkMode() {
+    if (document.documentElement.classList.contains("dark")) {
+      return true;
+    }
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Get all design tokens for light mode
+   * Returns CSS custom properties ready to inject into :host selector
+   */
+  static getLightTokens() {
+    return `
+            /* ============================================
+               NEUTRAL COLORS (Gray Scale)
+               ============================================ */
+            
+            /* Lightest - Backgrounds, subtle dividers */
+            --gray-50: #F9FAFB;
+            
+            /* Hover states, disabled backgrounds */
+            --gray-100: #F3F4F6;
+            
+            /* Borders, dividers */
+            --gray-200: #E5E7EB;
+            
+            /* Inactive borders */
+            --gray-300: #D1D5DB;
+            
+            /* Placeholder text, tertiary icons */
+            --gray-400: #9CA3AF;
+            
+            /* Secondary text, default icons */
+            --gray-500: #6B7280;
+            
+            /* Primary text hover */
+            --gray-600: #4B5563;
+            
+            /* Headings, emphasized text */
+            --gray-700: #374151;
+            
+            /* Dark backgrounds */
+            --gray-800: #1F2937;
+            
+            /* Primary text, headings */
+            --gray-900: #111827;
+
+
+            /* ============================================
+               PRIMARY COLORS (Material Blue)
+               ============================================ */
+            
+            /* Material Design 3 - Primary Scale */
+            --primary-50: #E3F2FD;
+            --primary-100: #BBDEFB;
+            --primary-200: #90CAF9;
+            --primary-300: #64B5F6;
+            --primary-400: #42A5F5;
+            --primary-500: #2196F3;
+            --primary-600: #1976D2;
+            --primary-700: #1565C0;
+            --primary-800: #0D47A1;
+            
+            /* Material Design 3 - Surface Colors */
+            --md-surface: #FFFFFF;
+            --md-surface-variant: #F5F5F5;
+            --md-surface-container: #FAFAFA;
+            --md-surface-container-high: #EEEEEE;
+            --md-on-surface: #1C1B1F;
+            --md-on-surface-variant: #49454F;
+            
+            /* Material Design 3 - Primary Container */
+            --md-primary-container: #E3F2FD;
+            --md-on-primary-container: #0D47A1;
+            
+            /* Material Design 3 - Outline */
+            --md-outline: #E0E0E0;
+            --md-outline-variant: #EEEEEE;
+
+
+            /* ============================================
+               SEMANTIC COLORS
+               ============================================ */
+            
+            /* Success (Green) */
+            --success-50: #F0FDF4;
+            --success-100: #DCFCE7;
+            --success-500: #22C55E;
+            --success-600: #16A34A;
+            --success-700: #15803D;
+            
+            /* Warning (Amber) */
+            --warning-50: #FFFBEB;
+            --warning-100: #FEF3C7;
+            --warning-500: #F59E0B;
+            --warning-600: #D97706;
+            --warning-700: #B45309;
+            
+            /* Danger (Red) */
+            --danger-50: #FEF2F2;
+            --danger-100: #FEE2E2;
+            --danger-500: #EF4444;
+            --danger-600: #DC2626;
+            --danger-700: #B91C1C;
+
+
+            /* ============================================
+               PLATFORM COLORS
+               ============================================ */
+            
+            /* ChatGPT */
+            --chatgpt-light: #D1FAE5;
+            --chatgpt-dark: #065F46;
+            --chatgpt-icon: #10A37F;
+            
+            /* Gemini */
+            --gemini-light: #DBEAFE;
+            --gemini-dark: #1E40AF;
+            --gemini-icon: #4285F4;
+
+
+            /* ============================================
+               SPACING SCALE (8px Grid)
+               ============================================ */
+            
+            --space-0: 0px;
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+            --space-12: 48px;
+            --space-16: 64px;
+            --space-20: 80px;
+            --space-24: 96px;
+
+
+            /* ============================================
+               TYPOGRAPHY
+               ============================================ */
+            
+            /* Font Families */
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
+                "Courier New", monospace;
+            
+            /* Font Sizes */
+            --text-xs: 12px;
+            --text-sm: 13px;
+            --text-base: 14px;
+            --text-lg: 16px;
+            --text-xl: 18px;
+            --text-2xl: 20px;
+            --text-3xl: 24px;
+            
+            /* Font Weights */
+            --font-normal: 400;
+            --font-medium: 500;
+            --font-semibold: 600;
+            --font-bold: 700;
+            
+            /* Line Heights */
+            --leading-tight: 1.25;
+            --leading-normal: 1.5;
+            --leading-relaxed: 1.75;
+
+
+            /* ============================================
+               BORDER RADIUS
+               ============================================ */
+            
+            --radius-none: 0px;
+            --radius-sm: 6px;
+            --radius-small: 6px;
+            --radius-md: 8px;
+            --radius-medium: 8px;
+            --radius-lg: 12px;
+            --radius-large: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+
+
+            /* ============================================
+               SHADOWS
+               ============================================ */
+            
+            --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+                         0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                         0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                         0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                         0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.1);
+
+
+            /* ============================================
+               ANIMATIONS
+               ============================================ */
+            
+            /* Durations */
+            --duration-fast: 150ms;
+            --duration-base: 200ms;
+            --duration-slow: 300ms;
+            --duration-slower: 500ms;
+            
+            /* Easing Functions */
+            --ease-in: cubic-bezier(0.4, 0, 1, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+            --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+
+            /* ============================================
+               ELEVATION LEVELS
+               ============================================ */
+            
+            --elevation-0: 0 0 0 0 rgba(0, 0, 0, 0);
+            --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+
+            /* ============================================
+               Z-INDEX SCALE
+               ============================================ */
+            
+            --z-dropdown: 1000;
+            --z-sticky: 1020;
+            --z-fixed: 1030;
+            --z-modal-backdrop: 1040;
+            --z-modal: 1050;
+            --z-popover: 1060;
+            --z-tooltip: 1070;
+
+
+            /* ============================================
+               GLASSMORPHISM
+               ============================================ */
+            
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+
+            /* ============================================
+               CONVENIENCE ALIASES
+               ============================================ */
+            
+            --white: #FFFFFF;
+            --black: #000000;
+        `;
+  }
+  /**
+   * Get all design tokens for dark mode
+   * Returns CSS custom properties ready to inject into :host selector
+   */
+  static getDarkTokens() {
+    return `
+            /* ============================================
+               NEUTRAL COLORS (Dark Mode)
+               ============================================ */
+            
+            /* Darkest - Backgrounds, subtle dividers */
+            --gray-50: #18181B;
+            
+            /* Elevated surfaces */
+            --gray-100: #27272A;
+            
+            /* Borders, dividers */
+            --gray-200: #3F3F46;
+            
+            /* Inactive borders */
+            --gray-300: #52525B;
+            
+            /* Tertiary text, icons */
+            --gray-400: #A1A1AA;
+            
+            /* Secondary text, default icons */
+            --gray-500: #D4D4D8;
+            
+            /* Primary text hover */
+            --gray-600: #E4E4E7;
+            
+            /* Emphasized text */
+            --gray-700: #F4F4F5;
+            
+            /* High contrast backgrounds */
+            --gray-800: #FAFAFA;
+            
+            /* Primary text, headings */
+            --gray-900: #FFFFFF;
+
+
+            /* ============================================
+               PRIMARY COLORS (Dark Mode - Blue)
+               ============================================ */
+            
+            --primary-50: #0D47A1;
+            --primary-100: #1565C0;
+            --primary-200: #1976D2;
+            --primary-300: #42A5F5;
+            --primary-400: #64B5F6;
+            --primary-500: #90CAF9;
+            --primary-600: #BBDEFB;
+            --primary-700: #E3F2FD;
+            --primary-800: #E3F2FD;
+
+
+            /* ============================================
+               MATERIAL DESIGN 3 - SURFACE COLORS (Dark)
+               ============================================ */
+            
+            --md-surface: #121212;
+            --md-surface-variant: #1E1E1E;
+            --md-surface-container: #2C2C2C;
+            --md-surface-container-high: #3A3A3A;
+            --md-on-surface: #E3E3E3;
+            --md-on-surface-variant: #CAC4D0;
+
+
+            /* ============================================
+               MATERIAL DESIGN 3 - PRIMARY CONTAINER (Dark)
+               ============================================ */
+            
+            --md-primary-container: #004A77;
+            --md-on-primary-container: #C5E7FF;
+
+
+            /* ============================================
+               MATERIAL DESIGN 3 - OUTLINE (Dark)
+               ============================================ */
+            
+            --md-outline: #938F99;
+            --md-outline-variant: #49454F;
+
+
+            /* ============================================
+               SEMANTIC COLORS (Dark Mode)
+               ============================================ */
+            
+            /* Success (Green) */
+            --success-50: #15803D;
+            --success-100: #16A34A;
+            --success-500: #4ADE80;
+            --success-600: #86EFAC;
+            --success-700: #BBF7D0;
+            
+            /* Warning (Amber) */
+            --warning-50: #B45309;
+            --warning-100: #D97706;
+            --warning-500: #FCD34D;
+            --warning-600: #FDE68A;
+            --warning-700: #FEF3C7;
+            
+            /* Danger (Red) */
+            --danger-50: #B91C1C;
+            --danger-100: #DC2626;
+            --danger-500: #F87171;
+            --danger-600: #FCA5A5;
+            --danger-700: #FECACA;
+
+
+            /* ============================================
+               PLATFORM COLORS (Dark Mode)
+               ============================================ */
+            
+            /* ChatGPT */
+            --chatgpt-light: #065F46;
+            --chatgpt-dark: #10B981;
+            --chatgpt-icon: #34D399;
+            
+            /* Gemini */
+            --gemini-light: #1E40AF;
+            --gemini-dark: #60A5FA;
+            --gemini-icon: #93C5FD;
+
+
+            /* ============================================
+               SPACING SCALE (8px Grid) - Same as light mode
+               ============================================ */
+            
+            --space-0: 0px;
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+            --space-12: 48px;
+            --space-16: 64px;
+            --space-20: 80px;
+            --space-24: 96px;
+
+
+            /* ============================================
+               TYPOGRAPHY - Same as light mode
+               ============================================ */
+            
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
+                "Courier New", monospace;
+            
+            --text-xs: 12px;
+            --text-sm: 13px;
+            --text-base: 14px;
+            --text-lg: 16px;
+            --text-xl: 18px;
+            --text-2xl: 20px;
+            --text-3xl: 24px;
+            
+            --font-normal: 400;
+            --font-medium: 500;
+            --font-semibold: 600;
+            --font-bold: 700;
+            
+            --leading-tight: 1.25;
+            --leading-normal: 1.5;
+            --leading-relaxed: 1.75;
+
+
+            /* ============================================
+               BORDER RADIUS - Same as light mode
+               ============================================ */
+            
+            --radius-none: 0px;
+            --radius-sm: 6px;
+            --radius-small: 6px;
+            --radius-md: 8px;
+            --radius-medium: 8px;
+            --radius-lg: 12px;
+            --radius-large: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+
+
+            /* ============================================
+               SHADOWS (Dark Mode - Enhanced)
+               ============================================ */
+            
+            --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-sm: 0 1px 5px rgba(0, 0, 0, 0.4), 0 2px 2px rgba(0, 0, 0, 0.28);
+            --shadow-md: 0 3px 5px rgba(0, 0, 0, 0.4), 0 1px 18px rgba(0, 0, 0, 0.24);
+            --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 5px rgba(0, 0, 0, 0.28);
+            --shadow-xl: 0 8px 10px rgba(0, 0, 0, 0.28), 0 3px 14px rgba(0, 0, 0, 0.24);
+            --shadow-2xl: 0 24px 38px rgba(0, 0, 0, 0.28), 0 9px 46px rgba(0, 0, 0, 0.24);
+            --shadow-focus: 0 0 0 3px rgba(90, 202, 249, 0.2);
+
+
+            /* ============================================
+               ANIMATIONS - Same as light mode
+               ============================================ */
+            
+            --duration-fast: 150ms;
+            --duration-base: 200ms;
+            --duration-slow: 300ms;
+            --duration-slower: 500ms;
+            
+            --ease-in: cubic-bezier(0.4, 0, 1, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+            --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+
+            /* ============================================
+               ELEVATION LEVELS (Dark Mode)
+               ============================================ */
+            
+            --elevation-0: 0 0 0 0 rgba(0, 0, 0, 0);
+            --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+            --elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            --elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            --elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.15);
+
+
+            /* ============================================
+               Z-INDEX SCALE - Same as light mode
+               ============================================ */
+            
+            --z-dropdown: 1000;
+            --z-sticky: 1020;
+            --z-fixed: 1030;
+            --z-modal-backdrop: 1040;
+            --z-modal: 1050;
+            --z-popover: 1060;
+            --z-tooltip: 1070;
+
+
+            /* ============================================
+               GLASSMORPHISM (Dark Mode)
+               ============================================ */
+            
+            --glass-bg: rgba(30, 30, 30, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+
+            /* ============================================
+               CONVENIENCE ALIASES
+               ============================================ */
+            
+            --white: #FFFFFF;
+            --black: #000000;
+        `;
+  }
+}
+
 class Modal {
   shadowRoot;
   container;
@@ -1810,8 +2335,33 @@ class Modal {
     this.container = document.createElement("div");
     this.container.className = "aicopy-modal";
     this.shadowRoot = this.container.attachShadow({ mode: "open" });
+    this.injectStyles();
+  }
+  /**
+   * Inject styles based on current theme
+   */
+  injectStyles() {
+    const isDark = DesignTokens.isDarkMode();
     const styleElement = document.createElement("style");
-    styleElement.textContent = modalStyles;
+    styleElement.textContent = modalStyles + `
+      ${isDark ? `
+        .modal-overlay { background: rgba(0, 0, 0, 0.8); }
+        .modal-container { 
+          background: #1E1E1E;
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        .modal-header { border-bottom-color: #3F3F46; }
+        .modal-title { color: #FFFFFF; }
+        .modal-close { color: #A1A1AA; }
+        .modal-close:hover { background: #27272A; color: #FFFFFF; }
+        .modal-content { background: #1E1E1E; color: #E3E3E3; }
+        .modal-footer { border-top-color: #3F3F46; background: #1E1E1E; }
+        .modal-button { background: #27272A; color: #E3E3E3; }
+        .modal-button:hover { background: #3F3F46; }
+        .modal-button.primary { background: #3B82F6; color: white; }
+        .modal-button.primary:hover { background: #2563EB; }
+      ` : ""}
+    `;
     this.shadowRoot.appendChild(styleElement);
   }
   /**
@@ -1859,9 +2409,7 @@ class Modal {
     modal.appendChild(footer);
     overlay.appendChild(modal);
     this.shadowRoot.innerHTML = "";
-    const styleElement = document.createElement("style");
-    styleElement.textContent = modalStyles;
-    this.shadowRoot.appendChild(styleElement);
+    this.injectStyles();
     this.shadowRoot.appendChild(overlay);
     this.attachEventListeners();
   }
@@ -23236,7 +23784,17 @@ class SimpleBookmarkStorage {
    * Validate bookmark data
    */
   static validateBookmark(bookmark) {
-    return typeof bookmark === "object" && bookmark !== null && typeof bookmark.url === "string" && typeof bookmark.urlWithoutProtocol === "string" && typeof bookmark.position === "number" && typeof bookmark.userMessage === "string" && typeof bookmark.timestamp === "number" && (bookmark.aiResponse === void 0 || typeof bookmark.aiResponse === "string") && typeof bookmark.title === "string" && (bookmark.platform === "ChatGPT" || bookmark.platform === "Gemini") && typeof bookmark.folderPath === "string";
+    const isValid = typeof bookmark === "object" && bookmark !== null && typeof bookmark.url === "string" && typeof bookmark.position === "number" && typeof bookmark.userMessage === "string" && typeof bookmark.timestamp === "number" && (bookmark.aiResponse === void 0 || typeof bookmark.aiResponse === "string") && (bookmark.title === void 0 || typeof bookmark.title === "string") && (bookmark.platform === void 0 || bookmark.platform === "ChatGPT" || bookmark.platform === "Gemini") && (bookmark.folderPath === void 0 || typeof bookmark.folderPath === "string") && (bookmark.urlWithoutProtocol === void 0 || typeof bookmark.urlWithoutProtocol === "string");
+    if (!isValid) {
+      logger$1.warn("[validateBookmark] Failed validation:", {
+        hasUrl: typeof bookmark?.url,
+        hasPosition: typeof bookmark?.position,
+        hasUserMessage: typeof bookmark?.userMessage,
+        hasTimestamp: typeof bookmark?.timestamp,
+        platform: bookmark?.platform
+      });
+    }
+    return isValid;
   }
   /**
    * Repair corrupted bookmarks
@@ -24304,10 +24862,94 @@ class TreeBuilder {
 
 const lightTheme = {
   surface: "#FFFFFF",
-  onSurface: "#1C1B1F"};
+  onSurface: "#1C1B1F",
+  border: "#E5E7EB",
+  // var(--gray-200)
+  borderLight: "#F3F4F6",
+  // var(--gray-100)
+  hover: "#F9FAFB",
+  // var(--gray-50)
+  selected: "#EFF6FF",
+  // var(--primary-50)
+  selectedHover: "#DBEAFE",
+  // var(--primary-100)
+  selectedAccent: "#2563EB",
+  // var(--primary-600)
+  primary: "#3B82F6",
+  // var(--primary-500)
+  primaryHover: "#2563EB",
+  // var(--primary-600)
+  primaryForeground: "#FFFFFF",
+  secondary: "#F3F4F6",
+  // var(--gray-100)
+  secondaryHover: "#E5E7EB",
+  // var(--gray-200)
+  secondaryForeground: "#4B5563",
+  // var(--gray-600)
+  danger: "#EF4444",
+  textPrimary: "#111827",
+  // var(--gray-900)
+  textSecondary: "#6B7280",
+  // var(--gray-500)
+  textMuted: "#9CA3AF",
+  // var(--gray-400)
+  infoSurface: "#EFF6FF",
+  // var(--primary-50)
+  infoBorder: "#BFDBFE",
+  // var(--primary-200)
+  radius: "12px"
+};
 const darkTheme = {
   surface: "#1F2937",
-  onSurface: "#E5E7EB"};
+  // var(--gray-800) - MATCHES PANEL
+  onSurface: "#F9FAFB",
+  // var(--gray-50)
+  border: "#374151",
+  // var(--gray-700) - MATCHES PANEL
+  borderLight: "#4B5563",
+  // var(--gray-600)
+  hover: "#374151",
+  // var(--gray-700) - MATCHES PANEL
+  selected: "rgba(59, 130, 246, 0.2)",
+  // primary-500 @ 20% - MATCHES PANEL
+  selectedHover: "rgba(59, 130, 246, 0.3)",
+  // primary-500 @ 30%
+  selectedAccent: "#2563EB",
+  // var(--primary-600) - MATCHES PANEL
+  primary: "#3B82F6",
+  // var(--primary-500)
+  primaryHover: "#2563EB",
+  // var(--primary-600)
+  primaryForeground: "#FFFFFF",
+  secondary: "#374151",
+  // var(--gray-700)
+  secondaryHover: "#4B5563",
+  // var(--gray-600)
+  secondaryForeground: "#F9FAFB",
+  // var(--gray-50)
+  danger: "#EF4444",
+  textPrimary: "#F9FAFB",
+  // var(--gray-50) - MATCHES PANEL
+  textSecondary: "#9CA3AF",
+  // var(--gray-400)
+  textMuted: "#6B7280",
+  // var(--gray-500)
+  infoSurface: "rgba(59, 130, 246, 0.1)",
+  // primary-500 @ 10%
+  infoBorder: "rgba(59, 130, 246, 0.2)",
+  // primary-500 @ 20%
+  radius: "12px"
+};
+function getTheme() {
+  const isDark = DesignTokens.isDarkMode();
+  return isDark ? darkTheme : lightTheme;
+}
+function styleToString(styles) {
+  return Object.entries(styles).map(([key, value]) => {
+    const kebabKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+    return `${kebabKey}: ${value}`;
+  }).join("; ");
+}
 class BookmarkSaveModal {
   overlay = null;
   modal = null;
@@ -24450,8 +25092,7 @@ class BookmarkSaveModal {
    * Create modal structure with dynamic theme
    */
   createModal() {
-    const isDark = document.documentElement.classList.contains("dark");
-    const theme = isDark ? darkTheme : lightTheme;
+    const theme = getTheme();
     const modal = document.createElement("div");
     modal.className = "bookmark-save-modal";
     modal.style.cssText = `
@@ -24459,9 +25100,9 @@ class BookmarkSaveModal {
             width: 90%;
             max-width: 550px;
             max-height: 85vh;
-            background: ${theme.surface};
+            background: ${theme.surface} !important;
             color: ${theme.onSurface};
-            border-radius: 12px;
+            border-radius: ${theme.radius};
             box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
@@ -24473,74 +25114,9 @@ class BookmarkSaveModal {
     });
     modal.innerHTML = `
             <style>
-                /* Design Tokens - Embedded for Modal */
-                :root, .bookmark-save-modal {
-                    /* Colors */
-                    --gray-50: #F9FAFB;
-                    --gray-100: #F3F4F6;
-                    --gray-200: #E5E7EB;
-                    --gray-300: #D1D5DB;
-                    --gray-400: #9CA3AF;
-                    --gray-500: #6B7280;
-                    --gray-600: #4B5563;
-                    --gray-700: #374151;
-                    --gray-800: #1F2937;
-                    --gray-900: #111827;
-                    
-                    --primary-50: #E3F2FD;
-                    --primary-100: #BBDEFB;
-                    --primary-200: #90CAF9;
-                    --primary-300: #64B5F6;
-                    --primary-400: #42A5F5;
-                    --primary-500: #2196F3;
-                    --primary-600: #1976D2;
-                    --primary-700: #1565C0;
-                    --primary-800: #0D47A1;
-                    
-                    --danger-500: #EF4444;
-                    
-                    --md-surface: #FFFFFF;
-                    --md-on-surface: #1C1B1F;
-                    
-                    /* Spacing */
-                    --space-1: 4px;
-                    --space-2: 8px;
-                    --space-3: 12px;
-                    --space-4: 16px;
-                    --space-5: 20px;
-                    
-                    /* Typography */
-                    --text-xs: 12px;
-                    --text-sm: 13px;
-                    --text-base: 14px;
-                    --text-lg: 16px;
-                    
-                    /* Border Radius */
-                    --radius-extra-small: 4px;
-                    --radius-small: 8px;
-                    --radius-large: 12px;
-                    
-                    /* Shadows */
-                    --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
-                }
+                /* Minimal CSS - Only for what inline styles cannot do */
                 
-                /* Dark Mode Variables - Override when html has dark class */
-                html.dark .bookmark-save-modal {
-                    --gray-50: #F9FAFB;
-                    --gray-100: #F3F4F6;
-                    --gray-200: #E5E7EB;
-                    --gray-300: #D1D5DB;
-                    --gray-400: #9CA3AF;
-                    --gray-500: #6B7280;
-                    --gray-600: #4B5563;
-                    --gray-700: #374151;
-                    --gray-800: #1F2937;
-                    --gray-900: #111827;
-                    
-                    --md-surface: #1F2937;  /* Dark background */
-                    --md-on-surface: #E5E7EB;  /* Light text */
-                }
-                
+                /* Animations */
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
@@ -24557,469 +25133,209 @@ class BookmarkSaveModal {
                     }
                 }
 
+                /* Box sizing */
                 .bookmark-save-modal * {
                     box-sizing: border-box;
                 }
-
-                /* Header */
-                .save-modal-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 16px 20px;
-                    border-bottom: 1px solid var(--gray-200);
-                }
-
-                .save-modal-header h2 {
-                    margin: 0;
-                    font-size: var(--text-base);
-                    font-weight: 600;
-                    color: var(--gray-900);
-                }
-
-                .save-modal-close-btn {
-                    background: none;
-                    border: none;
-                    font-size: 24px;
-                    color: var(--gray-500);
-                    cursor: pointer;
-                    padding: 0;
-                    width: 32px;
-                    height: 32px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: var(--radius-small);
-                    transition: all 0.15s ease;
-                }
-
+                
+                /* Hover states - Cannot be done with inline styles */
                 .save-modal-close-btn:hover {
-                    background: var(--gray-100);
-                    color: var(--gray-900);
+                    background: ${theme.hover} !important;
+                    color: ${theme.textPrimary} !important;
                 }
-
-                /* Body */
-                .save-modal-body {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 20px;
-                }
-
-                /* Title Section */
-                .title-section {
-                    margin-bottom: 20px;
-                }
-
-                .title-label {
-                    display: block;
-                    font-size: var(--text-sm);
-                    font-weight: 500;
-                    color: var(--gray-700);
-                    margin-bottom: 8px;
-                }
-
-                .title-input {
-                    width: 100%;
-                    padding: 10px 12px;
-                    border: 2px solid var(--gray-200);
-                    border-radius: var(--radius-small);
-                    font-size: var(--text-sm);
-                    transition: all 0.15s ease;
-                    outline: none;
-                }
-
+                
                 .title-input:focus {
-                    border-color: var(--primary-600);
+                    border-color: ${theme.primary} !important;
                 }
-
-                .title-input.error {
-                    border-color: var(--danger-500);
-                }
-
-                .title-error {
-                    color: var(--danger-500);
-                    font-size: var(--text-xs);
-                    margin-top: 4px;
-                    display: none;
-                }
-
-                .title-error.visible {
-                    display: block;
-                }
-
-                /* Folder Section */
-                .folder-section {
-                    margin-bottom: 20px;
-                }
-
-                .folder-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                }
-
-                .folder-label {
-                    font-size: var(--text-sm);
-                    font-weight: 500;
-                    color: var(--gray-700);
-                }
-
-                .new-folder-btn {
-                    background: transparent;
-                    color: var(--primary-600);
-                    border: none;
-                    padding: var(--space-2);
-                    border-radius: var(--radius-small);
-                    font-size: var(--text-base);
-                    cursor: pointer;
-                    transition: background 0.15s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
+                
                 .new-folder-btn:hover {
-                    background: var(--gray-100);
+                    background: ${theme.hover} !important;
                 }
-
-                .folder-tree-container {
-                    border: 1px solid var(--gray-200);
-                    border-radius: var(--radius-small);
-                    height: 300px;
-                    overflow-y: auto;
-                    font-size: var(--text-base);
-                    background: var(--gray-50);
-                }
-
-                .folder-tree-body {
-                    padding: 8px 0;
-                }
-
-                .folder-item {
-                    display: flex;
-                    align-items: center;
-                    padding: 8px 12px;
-                    cursor: pointer;
-                    border-radius: var(--radius-extra-small);
-                    transition: all 0.15s ease;
-                    position: relative;
-                }
-
-                /* Folder item hover */
+                
                 .folder-item:hover {
-                    background: var(--gray-50);
+                    background: ${theme.hover} !important;
                 }
-
-                /* Selected folder */
-                .folder-item.selected {
-                    background: var(--primary-50);
-                    border-left: 3px solid var(--primary-600);
-                    padding-left: 9px; /* Adjust for border */
-                }
-
-                .folder-item.selected .folder-name {
-                    color: var(--primary-700);
-                    font-weight: 600;
-                }
-
+                
                 .folder-item.selected:hover {
-                    background: var(--primary-200);
+                    background: ${theme.selectedHover} !important;
                 }
-
-                .folder-icon {
-                    margin-right: 8px;
-                    font-size: var(--text-base);
-                }
-
-                .folder-toggle {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 16px;
-                    height: 16px;
-                    margin-right: 4px;
-                    font-size: 10px;  /* Small for toggle arrow */
-                    color: var(--gray-500);
-                    cursor: pointer;
-                    user-select: none;
-                    flex-shrink: 0;
-                    transition: transform 0.15s ease;
-                }
-
-                .folder-toggle:hover {
-                    color: var(--gray-900);
-                }
-
-                .folder-name {
-                    flex: 1;
-                    font-size: var(--text-sm);
-                    color: var(--gray-900);
-                }
-
-                .folder-count {
-                    margin-left: 6px;
-                    font-size: var(--text-xs);
-                    color: var(--gray-500);
-                    font-weight: 400;
-                }
-
-                .folder-check {
-                    color: var(--primary-600);
-                    font-weight: 600;
-                    margin-left: 8px;
-                }
-
-                .folder-add-btn {
-                    position: absolute;
-                    right: 8px;
-                    background: var(--primary-600);
-                    color: white;
-                    border: none;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: var(--radius-extra-small);
-                    cursor: pointer;
-                    opacity: 0;
-                    visibility: hidden;
-                    transition: opacity 0.2s ease, visibility 0.2s ease;
-                    font-size: var(--text-base);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .folder-item:hover .folder-add-btn {
-                    opacity: 1;
-                    visibility: visible;
-                }
-
-                .folder-add-btn:hover {
-                    background: var(--primary-700);
-                }
-
-                .folder-empty {
-                    padding: 40px 20px;
-                    text-align: center;
-                    color: var(--gray-500);
-                }
-
-                .folder-empty-icon {
-                    font-size: 48px;
-                    margin-bottom: 12px;
-                }
-
-                .folder-empty-text {
-                    font-size: var(--text-sm);
-                }
-
-                /* Footer */
-                .save-modal-footer {
-                    display: flex;
-                    gap: 8px;
-                    justify-content: flex-end;
-                    padding: 16px 20px;
-                    border-top: 1px solid var(--gray-200);
-                }
-
-                .save-modal-btn {
-                    padding: 8px 16px;
-                    border-radius: var(--radius-small);
-                    font-size: var(--text-sm);
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                    border: none;
-                }
-
-                .save-modal-btn-cancel {
-                    background: var(--gray-100);
-                    color: var(--gray-700);
-                }
-
+                
                 .save-modal-btn-cancel:hover {
-                    background: var(--gray-200);
+                    background: ${theme.secondaryHover} !important;
                 }
-
-                .save-modal-btn-save {
-                    background: var(--primary-600);
-                    color: white;
-                }
-
+                
                 .save-modal-btn-save:hover:not(:disabled) {
-                    background: var(--primary-700);
+                    background: ${theme.primaryHover} !important;
                 }
-
+                
                 .save-modal-btn-save:disabled {
-                    background: var(--gray-400);
+                    background: ${theme.borderLight} !important;
+                    color: ${theme.textMuted} !important;
                     cursor: not-allowed;
-                    opacity: 0.6;
+                    opacity: 0.8;
                 }
-
-                /* ============================================
-                   DARK MODE - Material Design Blue Theme
-                   ============================================ */
-
-                html.dark .bookmark-save-modal {
-                    background: var(--gray-800);
+                
+                
+                .folder-item:not(.selected):hover {
+                    background: var(--gray-100) !important;
                 }
-
-                html.dark .save-modal-header {
-                    background: var(--gray-800);
-                    border-color: var(--gray-700);
+                
+                .folder-item:hover .item-actions {
+                    opacity: 1 !important;
+                    visibility: visible !important;
                 }
-
-                html.dark .save-modal-header h2 {
-                    color: var(--gray-50);
-                }
-
-                html.dark .save-modal-close-btn {
-                    color: var(--gray-400);
-                }
-
-                html.dark .save-modal-close-btn:hover {
-                    background: var(--gray-700);
-                    color: var(--gray-50);
-                }
-
-                html.dark .save-modal-body {
-                    background: var(--gray-800);
-                }
-
-                html.dark .title-label,
-                html.dark .folder-label {
-                    color: var(--gray-300);
-                }
-
-                html.dark .title-input {
-                    background: var(--gray-900);
-                    border-color: var(--gray-700);
-                    color: var(--gray-50);
-                }
-
-                html.dark .title-input:focus {
-                    border-color: var(--primary-500);
-                }
-
-                html.dark .title-input::placeholder {
-                    color: var(--gray-500);
-                }
-
-                html.dark .new-folder-btn {
-                    color: var(--primary-400);
-                }
-
-                html.dark .new-folder-btn:hover {
-                    background: var(--gray-700);
-                }
-
-                html.dark .folder-tree-container {
-                    background: var(--gray-900);
-                    border-color: var(--gray-700);
-                }
-
-                html.dark .folder-item {
-                    color: var(--gray-200);
-                }
-
-                html.dark .folder-item:hover {
-                    background: var(--gray-700);
-                }
-
-                html.dark .folder-item.selected {
-                    background: rgba(59, 130, 246, 0.2);
-                    border-color: var(--primary-500);
-                }
-
-                html.dark .folder-item.selected .folder-name {
-                    color: var(--primary-300);
-                }
-
-                html.dark .folder-item.selected:hover {
-                    background: rgba(59, 130, 246, 0.3);
-                }
-
-                html.dark .folder-name {
-                    color: var(--gray-200);
-                }
-
-                html.dark .folder-count {
-                    color: var(--gray-500);
-                }
-
-                html.dark .folder-toggle {
-                    color: var(--gray-500);
-                }
-
-                html.dark .folder-toggle:hover {
-                    color: var(--gray-300);
-                }
-
-                html.dark .folder-empty {
-                    color: var(--gray-500);
-                }
-
-                html.dark .save-modal-footer {
-                    background: var(--gray-800);
-                    border-color: var(--gray-700);
-                }
-
-                html.dark .save-modal-btn-cancel {
-                    background: var(--gray-700);
-                    color: var(--gray-200);
-                }
-
-                html.dark .save-modal-btn-cancel:hover {
-                    background: var(--gray-600);
-                }
-
-                html.dark .save-modal-btn-save {
-                    background: var(--primary-600);
-                    color: white;
-                }
-
-                html.dark .save-modal-btn-save:hover:not(:disabled) {
-                    background: var(--primary-700);
+                
+                .folder-add-btn:hover {
+                    background: ${theme.primaryHover} !important;
+                    color: ${theme.primaryForeground} !important;
                 }
             </style>
 
-            <div class="save-modal-header">
-                <h2>Save Bookmark</h2>
-                <button class="save-modal-close-btn" aria-label="Close">×</button>
+            <div class="save-modal-header" style="${styleToString({
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "16px 20px",
+      borderBottom: `1px solid ${theme.border}`
+    })}">
+                <h2 style="${styleToString({
+      margin: "0",
+      fontSize: "14px",
+      fontWeight: "600",
+      color: theme.textPrimary
+    })}">Save Bookmark</h2>
+                <button class="save-modal-close-btn" aria-label="Close" style="${styleToString({
+      background: "none",
+      border: "none",
+      fontSize: "24px",
+      color: theme.textSecondary,
+      cursor: "pointer",
+      padding: "0",
+      width: "32px",
+      height: "32px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "8px",
+      transition: "all 0.15s ease"
+    })}">×</button>
             </div>
 
-            <div class="save-modal-body">
+            <div class="save-modal-body" style="${styleToString({
+      flex: "1",
+      overflowY: "auto",
+      padding: "20px"
+    })}">
                 <!-- Title Section -->
-                <div class="title-section">
-                    <label class="title-label">Title</label>
+                <div class="title-section" style="${styleToString({
+      marginBottom: "20px"
+    })}">
+                    <label class="title-label" style="${styleToString({
+      display: "block",
+      fontSize: "13px",
+      fontWeight: "500",
+      color: theme.textSecondary,
+      marginBottom: "8px"
+    })}">Title</label>
                     <input type="text" 
                            class="title-input" 
                            value="${this.escapeAttr(this.title)}"
                            maxlength="100"
-                           placeholder="Enter bookmark title...">
-                    <div class="title-error"></div>
+                           placeholder="Enter bookmark title..."
+                           style="${styleToString({
+      width: "100%",
+      padding: "10px 12px",
+      border: `2px solid ${theme.border}`,
+      borderRadius: "8px",
+      fontSize: "13px",
+      background: theme.surface,
+      color: theme.onSurface,
+      transition: "all 0.15s ease",
+      outline: "none"
+    })}">
+                    <div class="title-error" style="display: none;"></div>
                 </div>
 
                 <!-- Folder Section -->
-                <div class="folder-section">
-                    <div class="folder-header">
-                        <span class="folder-label">Folder</span>
-                        <button class="new-folder-btn" title="New Folder">${Icons.folderPlus}</button>
+                <div class="folder-section" style="${styleToString({
+      marginBottom: "20px"
+    })}">
+                    <div class="folder-header" style="${styleToString({
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: "8px"
+    })}">
+                        <span class="folder-label" style="${styleToString({
+      fontSize: "13px",
+      fontWeight: "500",
+      color: theme.textSecondary
+    })}">Folder</span>
+                        <button class="new-folder-btn" title="New Folder" style="${styleToString({
+      background: "transparent",
+      color: theme.primary,
+      border: "none",
+      padding: "8px",
+      borderRadius: "8px",
+      fontSize: "14px",
+      cursor: "pointer",
+      transition: "background 0.15s ease",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    })}">${Icons.folderPlus}</button>
                     </div>
-                    <div class="folder-tree-container">
-                        <div class="folder-tree-body">
-                            <div class="folder-empty">
-                                <div class="folder-empty-icon">${Icons.folder}</div>
-                                <div class="folder-empty-text">Loading folders...</div>
+                    <div class="folder-tree-container" style="${styleToString({
+      border: `1px solid ${theme.border}`,
+      borderRadius: "8px",
+      height: "300px",
+      overflowY: "auto",
+      fontSize: "14px",
+      background: theme.hover
+    })}">
+                        <div class="folder-tree-body" style="padding: 8px 0;">
+                            <div class="folder-empty" style="${styleToString({
+      padding: "40px 20px",
+      textAlign: "center",
+      color: theme.textMuted
+    })}">
+                                <div class="folder-empty-icon" style="font-size: 48px; margin-bottom: 12px;">${Icons.folder}</div>
+                                <div class="folder-empty-text" style="font-size: 13px;">Loading folders...</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="save-modal-footer">
-                <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
-                <button class="save-modal-btn save-modal-btn-save" disabled>Save</button>
+            <div class="save-modal-footer" style="${styleToString({
+      display: "flex",
+      gap: "8px",
+      justifyContent: "flex-end",
+      padding: "16px 20px",
+      borderTop: `1px solid ${theme.border}`
+    })}">
+                <button class="save-modal-btn save-modal-btn-cancel" style="${styleToString({
+      padding: "8px 16px",
+      borderRadius: "8px",
+      fontSize: "13px",
+      fontWeight: "600",
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+      border: "none",
+      background: theme.secondary,
+      color: theme.secondaryForeground
+    })}">Cancel</button>
+                <button class="save-modal-btn save-modal-btn-save" disabled style="${styleToString({
+      padding: "8px 16px",
+      borderRadius: "8px",
+      fontSize: "13px",
+      fontWeight: "600",
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+      border: "none",
+      background: theme.primary,
+      color: theme.primaryForeground
+    })}">Save</button>
             </div>
         `;
     this.bindEvents(modal);
@@ -25109,6 +25425,7 @@ class BookmarkSaveModal {
    * Render tree nodes recursively
    */
   renderTreeNodes(nodes, depth) {
+    const theme = getTheme();
     return nodes.map((node) => {
       const isExpanded = this.expandedPaths.has(node.folder.path);
       const isSelected = node.folder.path === this.selectedPath;
@@ -25119,12 +25436,69 @@ class BookmarkSaveModal {
                 <div class="folder-item ${isSelected ? "selected" : ""}"
                      data-path="${this.escapeAttr(node.folder.path)}"
                      data-depth="${depth}"
-                     style="padding-left: ${indent + 12}px">
-                    <span class="folder-toggle" data-path="${this.escapeAttr(node.folder.path)}" aria-label="Toggle folder">${isExpanded ? "▼" : "▶"}</span>
-                    <span class="folder-icon">${icon}</span>
-                    <span class="folder-name">${this.escapeHtml(node.folder.name)}</span>
-                    ${isSelected ? '<span class="folder-check">✓</span>' : ""}
-                    ${showAddButton ? `<button class="folder-add-btn" data-parent="${this.escapeAttr(node.folder.path)}" title="Create subfolder">+</button>` : ""}
+                     data-selected="${isSelected}"
+                     style="display: flex; align-items: center; min-height: 36px; padding: var(--space-2) var(--space-3) var(--space-2) ${indent + 12}px; cursor: pointer; border-bottom: 1.5px solid var(--gray-300); transition: all var(--duration-fast) var(--ease-out); position: relative; border-radius: var(--radius-small); ${isSelected ? "background: var(--primary-50); border-left: 3px solid var(--primary-600);" : ""}">
+                    <span class="folder-toggle" data-path="${this.escapeAttr(node.folder.path)}" aria-label="Toggle folder" style="${styleToString({
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "16px",
+        height: "16px",
+        marginRight: "4px",
+        fontSize: "10px",
+        color: theme.textSecondary,
+        cursor: "pointer",
+        userSelect: "none",
+        flexShrink: "0",
+        transition: "transform 150ms ease",
+        transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)"
+      })}">▶</span>
+                    <span class="folder-icon" style="${styleToString({
+        marginRight: "8px",
+        fontSize: "16px",
+        flexShrink: "0"
+      })}">${icon}</span>
+                    <span class="folder-name" style="${styleToString({
+        flex: "1",
+        fontSize: "13px",
+        fontWeight: "500",
+        color: theme.textPrimary,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+      })}">${this.escapeHtml(node.folder.name)}</span>
+                    ${isSelected ? `<span class="folder-check" style="${styleToString({
+        color: theme.selectedAccent,
+        fontSize: "16px",
+        fontWeight: "600",
+        marginLeft: "8px",
+        flexShrink: "0"
+      })}">✓</span>` : ""}
+                    <div class="item-actions" style="${styleToString({
+        display: "flex",
+        gap: "4px",
+        marginLeft: "8px",
+        opacity: "0",
+        visibility: "hidden",
+        transition: "all 150ms ease"
+      })}">
+                        ${showAddButton ? `<button class="action-btn folder-add-btn" data-parent="${this.escapeAttr(node.folder.path)}" title="Create subfolder" style="${styleToString({
+        background: "transparent",
+        border: "none",
+        color: theme.textSecondary,
+        cursor: "pointer",
+        padding: "4px",
+        borderRadius: "4px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "14px",
+        transition: "all 150ms ease"
+      })}">${Icons.plus}</button>` : ""}
+                    </div>
                 </div>
             `;
       if (isExpanded && node.children.length > 0) {
@@ -25308,6 +25682,7 @@ class BookmarkSaveModal {
                 justify-content: center;
                 animation: fadeIn 0.2s ease-out;
             `;
+      const theme = getTheme();
       const modal = document.createElement("div");
       modal.className = "bookmark-save-modal";
       modal.style.cssText = `
@@ -25315,8 +25690,8 @@ class BookmarkSaveModal {
                 width: 90%;
                 max-width: 550px;
                 max-height: 85vh;
-                border-radius: var(--radius-large);
-                box-shadow: var(--elevation-3);
+                border-radius: ${theme.radius};
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 display: flex;
                 flex-direction: column;
@@ -25327,57 +25702,7 @@ class BookmarkSaveModal {
       });
       modal.innerHTML = `
                 <style>
-                    /* Design Tokens - Embedded for Modal */
-                    :root, .bookmark-save-modal {
-                        /* Colors */
-                        --gray-50: #F9FAFB;
-                        --gray-100: #F3F4F6;
-                        --gray-200: #E5E7EB;
-                        --gray-300: #D1D5DB;
-                        --gray-400: #9CA3AF;
-                        --gray-500: #6B7280;
-                        --gray-600: #4B5563;
-                        --gray-700: #374151;
-                        --gray-800: #1F2937;
-                        --gray-900: #111827;
-                        
-                        --primary-50: #E3F2FD;
-                        --primary-100: #BBDEFB;
-                        --primary-200: #90CAF9;
-                        --primary-300: #64B5F6;
-                        --primary-400: #42A5F5;
-                        --primary-500: #2196F3;
-                        --primary-600: #1976D2;
-                        --primary-700: #1565C0;
-                        --primary-800: #0D47A1;
-                        
-                        --danger-500: #EF4444;
-                        
-                        --md-surface: #FFFFFF;
-                        --md-on-surface: #1C1B1F;
-                        
-                        /* Spacing */
-                        --space-1: 4px;
-                        --space-2: 8px;
-                        --space-3: 12px;
-                        --space-4: 16px;
-                        --space-5: 20px;
-                        
-                        /* Typography */
-                        --text-xs: 12px;
-                        --text-sm: 13px;
-                        --text-base: 14px;
-                        --text-lg: 16px;
-                        
-                        /* Border Radius */
-                        --radius-extra-small: 4px;
-                        --radius-small: 8px;
-                        --radius-large: 12px;
-                        
-                        /* Shadows */
-                        --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
-                    }
-                    
+                    /* Minimal CSS - Same as createModal() */
                     @keyframes fadeIn {
                         from { opacity: 0; }
                         to { opacity: 1; }
@@ -25398,283 +25723,199 @@ class BookmarkSaveModal {
                         box-sizing: border-box;
                     }
 
-                    /* Header */
-                    .save-modal-header {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        padding: 16px 20px;
-                        border-bottom: 1px solid var(--gray-200);
+                    /* Important: Force background color */
+                    .bookmark-save-modal {
+                        background: ${theme.surface} !important;
                     }
-
-                    .save-modal-header h2 {
-                        margin: 0;
-                        font-size: var(--text-base);
-                        font-weight: 600;
-                        color: var(--gray-900);
-                    }
-
-                    .save-modal-close-btn {
-                        background: none;
-                        border: none;
-                        font-size: 24px;
-                        color: var(--gray-500);
-                        cursor: pointer;
-                        padding: 0;
-                        width: 32px;
-                        height: 32px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        border-radius: var(--radius-small);
-                        transition: all 0.15s ease;
-                    }
-
-                    .save-modal-close-btn:hover {
-                        background: var(--gray-100);
-                        color: var(--gray-900);
-                    }
-
-                    /* Body */
-                    .save-modal-body {
-                        flex: 1;
-                        overflow-y: auto;
-                        padding: 20px;
-                    }
-
-                    /* Folder Section */
-                    .folder-section {
-                        margin-bottom: 20px;
-                    }
-
-                    .folder-header {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        margin-bottom: 8px;
-                    }
-
-                    .folder-label {
-                        font-size: var(--text-sm);
-                        font-weight: 500;
-                        color: var(--gray-700);
-                    }
-
-                    .folder-tree-container {
-                        border: 1px solid var(--gray-200);
-                        border-radius: var(--radius-small);
-                        height: 300px;
-                        overflow-y: auto;
-                        background: var(--gray-50);
-                    }
-
-                    .folder-tree-body {
-                        padding: 8px 0;
-                    }
-
-                    .folder-item {
-                        display: flex;
-                        align-items: center;
-                        padding: 8px 12px;
-                        cursor: pointer;
-                        border-radius: var(--radius-extra-small);
-                        transition: all 0.15s ease;
-                        position: relative;
-                    }
-
-                    /* Folder item hover */
+                    
+                    /* Hover states */
                     .folder-item:hover {
-                        background: var(--gray-50);
+                        background: ${theme.hover} !important;
                     }
-
-                    /* Selected folder */
+                    
                     .folder-item.selected {
-                        background: var(--primary-100);
+                        background: ${theme.selected} !important;
+                        box-shadow: inset 3px 0 0 ${theme.selectedAccent} !important;
                     }
-
+                    
                     .folder-item.selected:hover {
-                        background: var(--primary-200);
+                        background: ${theme.selectedHover} !important;
                     }
-
-                    .folder-icon {
-                        margin-right: 8px;
-                        font-size: var(--text-base);
+                    
+                    /* Action buttons - show on hover */
+                    .folder-item:hover .item-actions {
+                        opacity: 1 !important;
+                        visibility: visible !important;
                     }
-
-                    .folder-toggle {
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        width: 16px;
-                        height: 16px;
-                        margin-right: 4px;
-                        font-size: 10px;  /* Small for toggle arrow */
-                        color: var(--gray-500);
-                        cursor: pointer;
-                        user-select: none;
-                        flex-shrink: 0;
-                        transition: transform 0.15s ease;
+                    
+                    .action-btn:hover {
+                        background: rgba(255, 255, 255, 0.1) !important;
                     }
-
-                    .folder-toggle:hover {
-                        color: var(--gray-900);
+                    
+                    .action-btn.delete-folder:hover {
+                        background: ${theme.danger} !important;
+                        color: white !important;
                     }
-
-                    .folder-name {
-                        flex: 1;
-                        font-size: var(--text-sm);
-                        color: var(--gray-900);
+                    
+                    .save-modal-close-btn:hover {
+                        background: ${theme.hover} !important;
+                        color: ${theme.textPrimary} !important;
                     }
-
-                    .folder-check {
-                        color: var(--primary-600);
-                        font-weight: 600;
-                        margin-left: 8px;
+                    
+                    .folder-item:hover {
+                        background: ${theme.hover} !important;
                     }
-
-                    /* Add subfolder button (blue, hover to show) */
-                    .folder-add-btn {
-                        position: absolute;
-                        right: 8px;
-                        background: var(--primary-600);
-                        color: white;
-                        border: none;
-                        width: 24px;
-                        height: 24px;
-                        border-radius: var(--radius-extra-small);
-                        cursor: pointer;
-                        opacity: 0;
-                        visibility: hidden;
-                        transition: opacity 0.2s ease, visibility 0.2s ease;
-                        font-size: var(--text-base);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
+                    
+                    .folder-item.selected:hover {
+                        background: ${theme.selectedHover} !important;
                     }
-
-                    .folder-item:hover .folder-add-btn {
-                        opacity: 1;
-                        visibility: visible;
-                    }
-
-                    .folder-add-btn:hover {
-                        background: var(--primary-700);
-                    }
-
-                    .folder-empty {
-                        padding: 40px 20px;
-                        text-align: center;
-                        color: var(--gray-500);
-                    }
-
-                    .folder-empty-icon {
-                        font-size: 48px;
-                        margin-bottom: 12px;
-                    }
-
-                    .folder-empty-text {
-                        font-size: var(--text-sm);
-                    }
-
-                    /* Info Section */
-                    .move-info {
-                        display: flex;
-                        align-items: center;
-                        padding: 12px 16px;
-                        background: var(--primary-50);
-                        border: 1px solid var(--primary-200);
-                        border-radius: var(--radius-small);
-                        margin-bottom: 16px;
-                    }
-
-                    .move-info-icon {
-                        font-size: var(--text-lg);
-                        margin-right: 8px;
-                    }
-
-                    .move-info-text {
-                        font-size: var(--text-xs);
-                        color: var(--primary-800);
-                        font-weight: 500;
-                    }
-
-                    /* Footer */
-                    .save-modal-footer {
-                        display: flex;
-                        gap: 8px;
-                        justify-content: flex-end;
-                        padding: 16px 20px;
-                        border-top: 1px solid var(--gray-200);
-                    }
-
-                    .save-modal-btn {
-                        padding: 8px 16px;
-                        border-radius: var(--radius-small);
-                        font-size: var(--text-sm);
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: all 0.15s ease;
-                        border: none;
-                    }
-
-                    .save-modal-btn-cancel {
-                        background: var(--gray-100);
-                        color: var(--gray-700);
-                    }
-
+                    
                     .save-modal-btn-cancel:hover {
-                        background: var(--gray-200);
+                        background: ${theme.borderLight} !important;
                     }
-
-                    .save-modal-btn-save {
-                        background: var(--primary-600);
-                        color: white;
-                    }
-
+                    
                     .save-modal-btn-save:hover:not(:disabled) {
-                        background: var(--primary-700);
+                        background: ${theme.primaryHover} !important;
                     }
-
+                    
                     .save-modal-btn-save:disabled {
-                        background: var(--gray-400);
+                        background: ${theme.textMuted} !important;
                         cursor: not-allowed;
                         opacity: 0.6;
                     }
+                    
+                    .folder-item:hover .folder-add-btn {
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                    }
+                    
+                    .folder-add-btn:hover {
+                        background: ${theme.primaryHover} !important;
+                        color: ${theme.primaryForeground} !important;
+                    }
                 </style>
 
-                <div class="save-modal-header">
-                    <h2>Move Bookmarks to Folder</h2>
-                    <button class="save-modal-close-btn" aria-label="Close">×</button>
+                <div class="save-modal-header" style="${styleToString({
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "16px 20px",
+        borderBottom: `1px solid ${theme.border}`
+      })}">
+                    <h2 style="${styleToString({
+        margin: "0",
+        fontSize: "14px",
+        fontWeight: "600",
+        color: theme.textPrimary
+      })}">Move Bookmarks to Folder</h2>
+                    <button class="save-modal-close-btn" aria-label="Close" style="${styleToString({
+        background: "none",
+        border: "none",
+        fontSize: "24px",
+        color: theme.textSecondary,
+        cursor: "pointer",
+        padding: "0",
+        width: "32px",
+        height: "32px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "8px",
+        transition: "all 0.15s ease"
+      })}">×</button>
                 </div>
 
-                <div class="save-modal-body">
+                <div class="save-modal-body" style="${styleToString({
+        flex: "1",
+        overflowY: "auto",
+        padding: "20px"
+      })}">
                     <!-- Info Section -->
-                    <div class="move-info">
+                    <div class="move-info" style="${styleToString({
+        display: "flex",
+        alignItems: "center",
+        padding: "12px 16px",
+        background: theme.infoSurface,
+        border: `1px solid ${theme.infoBorder}`,
+        borderRadius: "8px",
+        marginBottom: "16px",
+        fontSize: "14px",
+        color: theme.textPrimary
+      })}">
                         <span class="move-info-text" style="display: flex; align-items: center; gap: 8px;">
-                            <span style="flex-shrink: 0;">${Icons.alertTriangle}</span>
-                            <span>Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? "s" : ""}</span>
+                            <span style="flex-shrink: 0; color: ${theme.primary};">${Icons.alertTriangle}</span>
+                            <span style="font-size: 12px; color: ${theme.textPrimary}; font-weight: 500;">Moving ${bookmarkCount} bookmark${bookmarkCount > 1 ? "s" : ""}</span>
                         </span>
                     </div>
 
                     <!-- Folder Section -->
-                    <div class="folder-section">
-                        <div class="folder-header">
-                            <span class="folder-label">Select Destination Folder</span>
+                    <div class="folder-section" style="${styleToString({
+        marginBottom: "20px"
+      })}">
+                        <div class="folder-header" style="${styleToString({
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: "8px"
+      })}">
+                            <span class="folder-label" style="${styleToString({
+        fontSize: "13px",
+        fontWeight: "500",
+        color: theme.textSecondary
+      })}">Select Destination Folder</span>
                         </div>
-                        <div class="folder-tree-container">
-                            <div class="folder-tree-body">
-                                <div class="folder-empty">
-                                    <div class="folder-empty-icon">${Icons.folder}</div>
-                                    <div class="folder-empty-text">Loading folders...</div>
+                        <div class="folder-tree-container" style="${styleToString({
+        border: `1px solid ${theme.border}`,
+        borderRadius: "8px",
+        height: "300px",
+        overflowY: "auto",
+        fontSize: "14px",
+        background: theme.hover
+      })}">
+                            <div class="folder-tree-body" style="padding: 8px 0;">
+                                <div class="folder-empty" style="${styleToString({
+        padding: "40px 20px",
+        textAlign: "center",
+        color: theme.textMuted
+      })}">
+                                    <div class="folder-empty-icon" style="font-size: 48px; margin-bottom: 12px;">${Icons.folder}</div>
+                                    <div class="folder-empty-text" style="font-size: 13px;">Loading folders...</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="save-modal-footer">
-                    <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
-                    <button class="save-modal-btn save-modal-btn-save" disabled>Move</button>
+                <div class="save-modal-footer" style="${styleToString({
+        display: "flex",
+        gap: "8px",
+        justifyContent: "flex-end",
+        padding: "16px 20px",
+        borderTop: `1px solid ${theme.border}`
+      })}">
+
+                    <button class="save-modal-btn save-modal-btn-cancel" style="${styleToString({
+        padding: "8px 16px",
+        borderRadius: "8px",
+        fontSize: "13px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.15s ease",
+        border: "none",
+        background: theme.secondary,
+        color: theme.secondaryForeground
+      })}">Cancel</button>
+                    <button class="save-modal-btn save-modal-btn-save" disabled style="${styleToString({
+        padding: "8px 16px",
+        borderRadius: "8px",
+        fontSize: "13px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.15s ease",
+        border: "none",
+        background: theme.primary,
+        color: theme.primaryForeground
+      })}">Move</button>
                 </div>
             `;
       this.modal = modal;
@@ -26391,6 +26632,153 @@ class MarkdownRenderer {
   }
 }
 
+class ThemeObserver {
+  observer = null;
+  callbacks = /* @__PURE__ */ new Set();
+  debounceTimer = null;
+  debounceDelay = 50;
+  // ms
+  currentTheme;
+  mediaQuery = null;
+  constructor() {
+    this.currentTheme = this.detectTheme();
+    this.initialize();
+  }
+  /**
+   * Initialize the MutationObserver AND matchMedia listener
+   * Supports both ChatGPT (html.dark) and Gemini (prefers-color-scheme)
+   */
+  initialize() {
+    this.observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && mutation.attributeName === "class") {
+          this.handleThemeChange();
+        }
+      }
+    });
+    this.observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    if (window.matchMedia) {
+      this.mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      this.mediaQuery.addEventListener("change", () => {
+        this.handleThemeChange();
+      });
+      logger$1.debug("[ThemeObserver] matchMedia listener added for Gemini");
+    }
+    logger$1.debug("[ThemeObserver] Initialized observers for ChatGPT and Gemini");
+  }
+  /**
+   * Detect current theme from html element OR matchMedia
+   * Supports both ChatGPT (html.dark) and Gemini (prefers-color-scheme)
+   */
+  detectTheme() {
+    if (document.documentElement.classList.contains("dark")) {
+      return "dark";
+    }
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      return "dark";
+    }
+    return "light";
+  }
+  /**
+   * Handle theme change with debouncing
+   */
+  handleThemeChange() {
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+    }
+    this.debounceTimer = window.setTimeout(() => {
+      const newTheme = this.detectTheme();
+      if (newTheme !== this.currentTheme) {
+        const oldTheme = this.currentTheme;
+        this.currentTheme = newTheme;
+        logger$1.info(`[ThemeObserver] Theme changed: ${oldTheme} → ${newTheme}`);
+        this.notifyCallbacks(newTheme);
+      }
+      this.debounceTimer = null;
+    }, this.debounceDelay);
+  }
+  /**
+   * Notify all subscribers of theme change
+   */
+  notifyCallbacks(theme) {
+    this.callbacks.forEach((callback) => {
+      try {
+        callback(theme);
+      } catch (error) {
+        logger$1.error("[ThemeObserver] Error in theme change callback:", error);
+      }
+    });
+  }
+  /**
+   * Subscribe to theme changes
+   * 
+   * @param callback - Function to call when theme changes
+   * @returns Unsubscribe function
+   * 
+   * @example
+   * ```typescript
+   * const unsubscribe = observer.subscribe((theme) => {
+   *   console.log('New theme:', theme);
+   * });
+   * 
+   * // Later...
+   * unsubscribe();
+   * ```
+   */
+  subscribe(callback) {
+    this.callbacks.add(callback);
+    logger$1.debug("[ThemeObserver] Subscriber added, total:", this.callbacks.size);
+    return () => {
+      this.callbacks.delete(callback);
+      logger$1.debug("[ThemeObserver] Subscriber removed, total:", this.callbacks.size);
+    };
+  }
+  /**
+   * Get current theme mode
+   */
+  getCurrentTheme() {
+    return this.currentTheme;
+  }
+  /**
+   * Check if currently in dark mode
+   */
+  isDarkMode() {
+    return this.currentTheme === "dark";
+  }
+  /**
+   * Disconnect the observer and cleanup
+   * 
+   * Should be called when the observer is no longer needed
+   */
+  disconnect() {
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+    if (this.mediaQuery) {
+      this.mediaQuery.removeEventListener("change", () => {
+        this.handleThemeChange();
+      });
+      this.mediaQuery = null;
+    }
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    this.callbacks.clear();
+    logger$1.debug("[ThemeObserver] Disconnected and cleaned up");
+  }
+  /**
+   * Get number of active subscribers
+   */
+  getSubscriberCount() {
+    return this.callbacks.size;
+  }
+}
+
 class SimpleBookmarkPanel {
   overlay = null;
   shadowRoot = null;
@@ -26416,6 +26804,8 @@ class SimpleBookmarkPanel {
   folders = [];
   folderState = new FolderState();
   folderOpsManager = new FolderOperationsManager();
+  // Theme observer for dynamic theme switching
+  themeObserver = null;
   /**
    * Show the bookmark panel
    */
@@ -26467,6 +26857,7 @@ class SimpleBookmarkPanel {
       }, 100);
     }
     this.restoreState();
+    this.setupThemeObserver();
   }
   /**
    * Migrate legacy bookmarks without folderPath to "Import" folder
@@ -26510,6 +26901,11 @@ class SimpleBookmarkPanel {
     if (this.storageListener) {
       chrome.storage.onChanged.removeListener(this.storageListener);
       this.storageListener = null;
+    }
+    if (this.themeObserver) {
+      this.themeObserver.disconnect();
+      this.themeObserver = null;
+      logger$1.debug("[SimpleBookmarkPanel] Theme observer disconnected");
     }
     if (this.overlay && this.overlay.parentNode) {
       this.overlay.remove();
@@ -28099,10 +28495,10 @@ Tip: You can export your bookmarks first to create a backup.`
       };
       const config = configs[options.type];
       const title = options.title || config.defaultTitle;
-      const isDark = document.documentElement.classList.contains("dark");
-      const bgColor = isDark ? "var(--gray-800)" : "white";
-      const textColor = isDark ? "var(--gray-400)" : "var(--gray-700)";
-      const borderColor = isDark ? "var(--gray-700)" : "var(--gray-200)";
+      const isDark = DesignTokens.isDarkMode();
+      const bgColor = isDark ? "#27272A" : "#FFFFFF";
+      const textColor = isDark ? "#D4D4D8" : "#374151";
+      const borderColor = isDark ? "#52525B" : "#E5E7EB";
       const overlay = document.createElement("div");
       overlay.style.cssText = `
                 position: fixed;
@@ -28213,34 +28609,30 @@ ${options.message}
       const modal = document.createElement("div");
       modal.className = "delete-confirmation-modal";
       modal.style.cssText = `
-                background: white;
+                background: var(--md-surface);
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
                 max-width: 400px;
                 width: 90%;
             `;
-      const isDark = document.documentElement.classList.contains("dark");
-      if (isDark) {
-        modal.style.background = "var(--gray-800)";
-        modal.style.borderColor = "var(--gray-700)";
-      }
-      const titleColor = isDark ? "var(--gray-50)" : "var(--gray-900)";
-      const textColor = isDark ? "var(--gray-400)" : "var(--gray-500)";
-      const borderColor = isDark ? "var(--gray-700)" : "var(--gray-200)";
+      const isDark = DesignTokens.isDarkMode();
+      const titleColor = isDark ? "#F4F4F5" : "#111827";
+      const textColor = isDark ? "#D4D4D8" : "#6B7280";
+      const borderColor = isDark ? "#52525B" : "#E5E7EB";
       modal.innerHTML = `
-            <div style="padding: 24px 24px 20px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <div style="padding: 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
                     <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
                     <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor}; line-height: 1.2;">Delete Selected Items</h3>
                 </div>
                 <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
+                    <p style="margin: 0 0 12px 0;">This will permanently delete:</p>
                     <ul style="margin: 0; padding-left: 24px; list-style: none;">
-                        ${analysis.folders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? "s" : ""}</span></li>` : ""}
-                        ${analysis.subfolders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? "s" : ""}</span></li>` : ""}
-                        ${analysis.bookmarks.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? "s" : ""}</span></li>` : ""}
+                        ${analysis.folders.length > 0 ? `<li style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? "s" : ""}</span></li>` : ""}
+                        ${analysis.subfolders.length > 0 ? `<li style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? "s" : ""}</span></li>` : ""}
+                        ${analysis.bookmarks.length > 0 ? `<li style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? "s" : ""}</span></li>` : ""}
                     </ul>
-                    <p style="margin: 16px 0 0 0; font-weight: 500; color: var(--danger-600);">
+                    <p style="margin: 12px 0 0 0; font-weight: 500; color: var(--danger-600);">
                         This action cannot be undone.
                     </p>
                 </div>
@@ -28261,10 +28653,10 @@ ${options.message}
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
-                    background: var(--danger-600);
-                    color: white;
+                    background: var(--danger-100);
+                    color: #FFFFFF;
                     font-size: 14px;
-                    font-weight: 500;
+                    font-weight: 600;
                     cursor: pointer;
                     transition: background 0.2s;
                 ">Delete</button>
@@ -28419,7 +28811,7 @@ ${options.message}
                     padding: 8px 24px;
                     border: none;
                     border-radius: 4px;
-                    background: var(--primary-600);
+                    background: var(--primary-200);
                     color: white;
                     font-size: 14px;
                     font-weight: 500;
@@ -28434,10 +28826,10 @@ ${options.message}
     }
     const okBtn = modal.querySelector(".ok-btn");
     okBtn.addEventListener("mouseenter", () => {
-      okBtn.style.background = "var(--primary-700)";
+      okBtn.style.background = "var(--primary-100)";
     });
     okBtn.addEventListener("mouseleave", () => {
-      okBtn.style.background = "var(--primary-600)";
+      okBtn.style.background = "var(--primary-200)";
     });
     okBtn.addEventListener("click", () => {
       overlay.remove();
@@ -28539,11 +28931,11 @@ ${options.message}
    * @see /src/styles/design-tokens.css
    */
   async showExportOptionsDialog() {
-    const isDark = document.documentElement.classList.contains("dark");
-    const bgColor = isDark ? "var(--gray-800)" : "white";
-    const titleColor = isDark ? "var(--gray-50)" : "var(--gray-900)";
-    const textColor = isDark ? "var(--gray-400)" : "var(--gray-500)";
     return new Promise((resolve) => {
+      const isDark = DesignTokens.isDarkMode();
+      const bgColor = isDark ? "#27272A" : "#FFFFFF";
+      const textColor = isDark ? "#D4D4D8" : "#374151";
+      const borderColor = isDark ? "#52525B" : "#E5E7EB";
       const overlay = document.createElement("div");
       overlay.style.cssText = `
                 position: fixed;
@@ -28551,107 +28943,125 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5) !important;
+                background: rgba(0, 0, 0, 0.5);
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color-scheme: light dark;
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
                 background: ${bgColor};
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
-                max-width: 400px;
+                max-width: 500px;
                 width: 90%;
-                padding: 24px;
             `;
       modal.innerHTML = `
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: ${titleColor};">
-                    导出选项
-                </h3>
-                <div style="margin-bottom: 24px;">
-                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
-                        <input type="checkbox" id="preserve-structure" checked 
-                               style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                        <span style="font-size: 14px; color: ${textColor};">
-                            同时保留文件夹结构
-                        </span>
-                    </label>
-                </div>
-                <div style="display: flex; justify-content: flex-end; gap: var(--space-2);">
-                    <div class="batch-actions-bar">
-                        <span class="selected-count">0 selected</span>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="batch-delete-btn" title="Delete selected items">
-                                ${Icons.trash}
-                                <span>Delete</span>
-                            </button>
-                            <button class="batch-move-btn" title="Move to folder">
-                                ${Icons.folder}
-                                <span>Move To</span>
-                            </button>
-                            <button class="batch-export-btn" title="Export selected">
-                                ${Icons.download}
-                                <span>Export</span>
-                            </button>
-                            <button class="batch-clear-btn" title="Clear selection">
-                                ${Icons.x}
-                                <span>Clear</span>
-                            </button>
+                <div style="padding: 24px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: ${textColor};">
+                        导出选项
+                    </h3>
+                    <div style="margin-bottom: 20px; color: ${textColor}; font-size: 14px; line-height: 1.5;">
+                        <p style="margin: 0 0 12px 0;">选择导出方式:</p>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <label style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 12px;
+                                border: 1px solid ${borderColor};
+                                border-radius: var(--radius-medium);
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            " class="export-option">
+                                <input type="radio" name="exportType" value="preserve" checked style="
+                                    width: 16px;
+                                    height: 16px;
+                                    cursor: pointer;
+                                ">
+                                <div>
+                                    <div style="font-weight: 500; color: ${textColor};">保留文件夹结构</div>
+                                    <div style="font-size: 12px; color: ${textColor}; opacity: 0.7;">导出为分层的文件夹和书签</div>
+                                </div>
+                            </label>
+                            <label style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 12px;
+                                border: 1px solid ${borderColor};
+                                border-radius: var(--radius-medium);
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            " class="export-option">
+                                <input type="radio" name="exportType" value="flat" style="
+                                    width: 16px;
+                                    height: 16px;
+                                    cursor: pointer;
+                                ">
+                                <div>
+                                    <div style="font-weight: 500; color: ${textColor};">扁平列表</div>
+                                    <div style="font-size: 12px; color: ${textColor}; opacity: 0.7;">仅导出所有书签，不含文件夹</div>
+                                </div>
+                            </label>
                         </div>
                     </div>
-                    <button class="cancel-btn" style="
-                        padding: 8px 16px;
-                        border: 1px solid var(--gray-300);
-                        border-radius: 4px;
-                        background: white;
-                        color: var(--gray-500);
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    ">取消</button>
-                    <button class="export-btn" style="
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 4px;
-                        background: var(--primary-600);
-                        color: white;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    ">导出</button>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button class="cancel-btn" style="
+                            padding: 8px 16px;
+                            border: none;
+                            border-radius: var(--radius-medium);
+                            background: transparent;
+                            color: var(--primary-600);
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        ">取消</button>
+                        <button class="confirm-btn" style="
+                            padding: 8px 16px;
+                            border: none;
+                            border-radius: var(--radius-medium);
+                            background: #2563EB;
+                            color: #FFFFFF;
+                            font-size: 14px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        ">导出</button>
+                    </div>
                 </div>
             `;
       overlay.appendChild(modal);
       if (this.shadowRoot) {
         this.shadowRoot.appendChild(overlay);
       }
-      const checkbox = modal.querySelector("#preserve-structure");
+      modal.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
       const cancelBtn = modal.querySelector(".cancel-btn");
-      const exportBtn = modal.querySelector(".export-btn");
-      cancelBtn.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "var(--gray-100)";
-      });
-      cancelBtn.addEventListener("mouseleave", () => {
-        cancelBtn.style.background = "white";
-      });
-      exportBtn.addEventListener("mouseenter", () => {
-        exportBtn.style.background = "var(--primary-700)";
-      });
-      exportBtn.addEventListener("mouseleave", () => {
-        exportBtn.style.background = "var(--primary-600)";
-      });
-      cancelBtn.addEventListener("click", () => {
-        overlay.remove();
+      const confirmBtn = modal.querySelector(".confirm-btn");
+      const preserveInput = modal.querySelector('input[value="preserve"]');
+      overlay.addEventListener("click", () => {
+        if (this.shadowRoot) {
+          this.shadowRoot.removeChild(overlay);
+        }
         resolve(null);
       });
-      exportBtn.addEventListener("click", () => {
-        const preserveStructure = checkbox.checked;
-        overlay.remove();
+      cancelBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (this.shadowRoot) {
+          this.shadowRoot.removeChild(overlay);
+        }
+        resolve(null);
+      });
+      confirmBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const preserveStructure = preserveInput.checked;
+        if (this.shadowRoot) {
+          this.shadowRoot.removeChild(overlay);
+        }
         resolve(preserveStructure);
       });
       overlay.addEventListener("click", (e) => {
@@ -28953,8 +29363,15 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
     const validBookmarks = [];
     const errors = [];
     bookmarksArray.forEach((item, index) => {
-      if (SimpleBookmarkStorage.validateBookmark(item)) {
-        validBookmarks.push(item);
+      const enrichedItem = {
+        ...item,
+        urlWithoutProtocol: item.urlWithoutProtocol || item.url?.replace(/^https?:\/\//, ""),
+        title: item.title || item.userMessage?.substring(0, 50) || "Untitled",
+        platform: item.platform || "ChatGPT",
+        folderPath: item.folderPath || "Import"
+      };
+      if (SimpleBookmarkStorage.validateBookmark(enrichedItem)) {
+        validBookmarks.push(enrichedItem);
       } else {
         errors.push(`Invalid bookmark at index ${index}`);
         logger$1.warn(`[Import] Invalid bookmark at index ${index}:`, item);
@@ -28989,14 +29406,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Returns: true (merge) or false (cancel)
    */
   async showConflictDialog(conflicts, allBookmarks) {
-    const isDark = document.documentElement.classList.contains("dark");
-    const bgColor = isDark ? "var(--gray-800)" : "white";
-    const titleColor = isDark ? "var(--gray-50)" : "#111827";
-    const textColor = isDark ? "var(--gray-400)" : "#6b7280";
-    const strongColor = isDark ? "var(--gray-50)" : "#111827";
-    const listBg = isDark ? "var(--gray-900)" : "#f9fafb";
-    const borderColor = isDark ? "var(--gray-700)" : "#e5e7eb";
     return new Promise((resolve) => {
+      const isDark = DesignTokens.isDarkMode();
+      const bgColor = isDark ? "#27272A" : "#FFFFFF";
+      const titleColor = isDark ? "#F4F4F5" : "#111827";
+      const textColor = isDark ? "#D4D4D8" : "#374151";
+      const strongColor = isDark ? "#FAFAFA" : "#111827";
+      const listBg = isDark ? "#18181B" : "#F9FAFB";
+      const borderColor = isDark ? "#52525B" : "#E5E7EB";
+      const chatgptBg = isDark ? "#10A37F" : "#74AA9C";
+      const chatgptText = isDark ? "#FFFFFF" : "#1A7A5E";
+      const geminiBg = isDark ? "#8E9CF5" : "#A8C5FF";
+      const geminiText = isDark ? "#FFFFFF" : "#1A73E8";
       const overlay = document.createElement("div");
       overlay.style.cssText = `
                 position: fixed;
@@ -29021,39 +29442,39 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 width: 90%;
             `;
       modal.innerHTML = `
-            <div style="padding: 24px 24px 20px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                    <span style="color: #d97706; font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
+            <div style="padding: 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                    <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
                     <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor}; line-height: 1.2;">Duplicate Bookmarks Detected</h3>
                 </div>
                 <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 12px 0;">Found <strong style="color: ${strongColor};">${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: ${strongColor};">${allBookmarks.length}</strong></p>
+                    <p style="margin: 0 0 10px 0;">Found <strong style="color: ${strongColor};">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 12px 0;">Total bookmarks to import: <strong style="color: ${strongColor};">${allBookmarks.length}</strong></p>
                     
-                    <div style="background: ${listBg}; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
+                    <div style="background: ${listBg}; border-radius: 8px; padding: 12px; margin-bottom: 14px; max-height: 300px; overflow-y: auto;">
                         ${conflicts.map((b) => `
                             <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid ${borderColor};">
-                                <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === "gemini" ? "#dbeafe" : "#d1fae5"}; color: ${b.platform?.toLowerCase() === "gemini" ? "#1d4ed8" : "#047857"}; border-radius: 4px; font-size: 12px; font-weight: 500;">
+                                <span style="flex-shrink: 0; padding: 3px 8px; background: ${b.platform?.toLowerCase() === "gemini" ? geminiBg : chatgptBg}; color: ${b.platform?.toLowerCase() === "gemini" ? geminiText : chatgptText}; border-radius: 4px; font-size: 12px; font-weight: 600;">
                                     ${b.platform || "ChatGPT"}
                                 </span>
-                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151;">
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${textColor};">
                                     ${this.escapeHtml(this.truncate(b.title || b.userMessage, 40))}
                                 </span>
                             </div>
                         `).join("")}
                     </div>
                     
-                    <p style="margin: 0 0 8px 0; color: #4b5563;">Click <strong style="color: #2563eb;">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
-                    <p style="margin: 0; color: #6b7280; font-size: 13px; font-style: italic;">💡 Items without folders will be imported to the <strong>Import</strong> folder.</p>
+                    <p style="margin: 0 0 6px 0; color: ${textColor};">Click <strong style="color: var(--primary-600);">Merge</strong> to import all bookmarks (duplicates will be overwritten).</p>
+                    <p style="margin: 0; color: ${textColor}; font-size: 13px; font-style: italic; opacity: 0.8;">💡 Items without folders will be imported to the <strong>Import</strong> folder.</p>
                 </div>
             </div>
-            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e5e7eb;">
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid ${borderColor};">
                 <button class="cancel-btn" style="
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
                     background: transparent;
-                    color: #2563eb;
+                    color: var(--primary-600);
                     font-size: 14px;
                     font-weight: 500;
                     cursor: pointer;
@@ -29063,10 +29484,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
-                    background: #2563eb;
-                    color: white;
+                    background: #2563EB;
+                    color: #FFFFFF;
                     font-size: 14px;
-                    font-weight: 500;
+                    font-weight: 600;
                     cursor: pointer;
                     transition: background 0.2s;
                 ">Merge</button>
@@ -29077,16 +29498,16 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
       const cancelBtn = modal.querySelector(".cancel-btn");
       const mergeBtn = modal.querySelector(".merge-btn");
       cancelBtn.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "#f3f4f6";
+        cancelBtn.style.background = "var(--gray-100)";
       });
       cancelBtn.addEventListener("mouseleave", () => {
         cancelBtn.style.background = "transparent";
       });
       mergeBtn.addEventListener("mouseenter", () => {
-        mergeBtn.style.background = "#1d4ed8";
+        mergeBtn.style.background = "var(--primary-700)";
       });
       mergeBtn.addEventListener("mouseleave", () => {
-        mergeBtn.style.background = "#2563eb";
+        mergeBtn.style.background = "var(--primary-600)";
       });
       cancelBtn.addEventListener("click", () => {
         overlay.remove();
@@ -29357,187 +29778,77 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
     return div.innerHTML;
   }
   /**
-   * Get panel styles
+   * Setup theme observer for dynamic theme switching
+   * 
+   * Monitors the host website's theme changes (html.dark class) and automatically
+   * updates the panel's styles without requiring a page refresh.
+   * 
+   * @see ThemeObserver - MutationObserver-based theme detection
+   * @see /src/styles/design-tokens.css - Global design tokens
+   */
+  setupThemeObserver() {
+    this.themeObserver = new ThemeObserver();
+    this.themeObserver.subscribe((theme) => {
+      logger$1.info(`[SimpleBookmarkPanel] Theme changed to: ${theme}`);
+      this.updateTheme();
+    });
+    logger$1.debug("[SimpleBookmarkPanel] Theme observer initialized");
+  }
+  /**
+   * Update theme by re-injecting styles
+   * 
+   * When the theme changes, this method regenerates the CSS with updated
+   * design token values from design-tokens.css. CSS Variables automatically
+   * inherit the new values, so we just need to refresh the style element.
+   */
+  updateTheme() {
+    if (!this.shadowRoot) {
+      logger$1.warn("[SimpleBookmarkPanel] Cannot update theme: shadowRoot is null");
+      return;
+    }
+    const styleElement = this.shadowRoot.querySelector("style");
+    if (styleElement) {
+      styleElement.textContent = this.getStyles();
+      logger$1.debug("[SimpleBookmarkPanel] Theme styles updated");
+    } else {
+      logger$1.warn("[SimpleBookmarkPanel] Cannot update theme: style element not found");
+    }
+  }
+  /**
+   * Get panel styles with isolated design tokens
+   * 
+   * T2.1: Shadow DOM CSS Isolation
+   * All CSS Variables are defined within :host selector to prevent
+   * polluting the host page's global CSS scope.
+   * 
+   * Pattern: Following Shoelace/Lit best practices
+   * @see src/utils/design-tokens.ts
+   * @see https://shoelace.style/getting-started/themes
    */
   getStyles() {
+    const isDark = DesignTokens.isDarkMode();
     return `
-            /* Design Tokens - Inlined for Shadow DOM Compatibility */
+            /* ============================================================================
+               SHADOW DOM ISOLATED DESIGN TOKENS
+               ============================================================================
+               
+               All CSS Variables are scoped to :host to prevent global pollution.
+               These tokens are completely isolated from the host page (ChatGPT/Gemini).
+               
+               Benefits:
+               - Zero impact on host page styles
+               - Theme-aware (auto-detects light/dark mode)
+               - Complete control over component appearance
+               
+               Migration from: global :root injection (manifest.json)
+               Migration to: Shadow DOM :host isolation
+               ============================================================================ */
+
             :host {
-                /* NEUTRAL COLORS (Gray Scale) */
-                --gray-50: #F9FAFB;
-                --gray-100: #F3F4F6;
-                --gray-200: #E5E7EB;
-                --gray-300: #D1D5DB;
-                --gray-400: #9CA3AF;
-                --gray-500: #6B7280;
-                --gray-600: #4B5563;
-                --gray-700: #374151;
-                --gray-800: #1F2937;
-                --gray-900: #111827;
-
-                /* PRIMARY COLORS (Material Blue) */
-                --primary-50: #E3F2FD;
-                --primary-100: #BBDEFB;
-                --primary-200: #90CAF9;
-                --primary-300: #64B5F6;
-                --primary-400: #42A5F5;
-                --primary-500: #2196F3;
-                --primary-600: #1976D2;
-                --primary-700: #1565C0;
-                --primary-800: #0D47A1;
-
-                /* Material Design 3 - Surface Colors */
-                --md-surface: #FFFFFF;
-                --md-surface-variant: #F5F5F5;
-                --md-surface-container: #FAFAFA;
-                --md-surface-container-high: #EEEEEE;
-                --md-on-surface: #1C1B1F;
-                --md-on-surface-variant: #49454F;
-
-                /* Material Design 3 - Primary Container */
-                --md-primary-container: #E3F2FD;
-                --md-on-primary-container: #0D47A1;
-
-                /* Material Design 3 - Outline */
-                --md-outline: #E0E0E0;
-                --md-outline-variant: #EEEEEE;
-
-                /* SEMANTIC COLORS */
-                --success-50: #F0FDF4;
-                --success-100: #DCFCE7;
-                --success-500: #22C55E;
-                --success-600: #16A34A;
-                --success-700: #15803D;
-
-                --warning-50: #FFFBEB;
-                --warning-100: #FEF3C7;
-                --warning-500: #F59E0B;
-                --warning-600: #D97706;
-                --warning-700: #B45309;
-                --warning-800: #92400E;
-
-                --danger-50: #FEF2F2;
-                --danger-100: #FEE2E2;
-                --danger-500: #EF4444;
-                --danger-600: #DC2626;
-                --danger-700: #B91C1C;
-
-
-                /* PLATFORM COLORS */
-                --chatgpt-light: #D1FAE5;
-                --chatgpt-dark: #065F46;
-                --chatgpt-icon: #10A37F;
-                --gemini-light: #DBEAFE;
-                --gemini-dark: #1E40AF;
-                --gemini-icon: #4285F4;
-
-                /* SPACING */
-                --space-0: 0px;
-                --space-1: 4px;
-                --space-2: 8px;
-                --space-3: 12px;
-                --space-4: 16px;
-                --space-5: 20px;
-                --space-6: 24px;
-                --space-8: 32px;
-                --space-10: 40px;
-                --space-12: 48px;
-                --space-16: 64px;
-                --space-20: 80px;
-                --space-24: 96px;
-
-                /* TYPOGRAPHY */
-                --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-                --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", "Courier New", monospace;
-                --text-xs: 12px;
-                --text-sm: 13px;
-                --text-base: 14px;
-                --text-lg: 16px;
-                --text-xl: 18px;
-                --text-2xl: 20px;
-                --text-3xl: 24px;
-                --font-normal: 400;
-                --font-medium: 500;
-                --font-semibold: 600;
-                --font-bold: 700;
-                --leading-tight: 1.25;
-                --leading-normal: 1.5;
-                --leading-relaxed: 1.75;
-
-                /* BORDER RADIUS (Material Design 3) */
-                --radius-none: 0px;
-                --radius-extra-small: 4px;
-                --radius-small: 8px;
-                --radius-medium: 12px;
-                --radius-large: 16px;
-                --radius-extra-large: 28px;
-                --radius-full: 9999px;
-                --radius-xs: 4px;
-                --radius-sm: 8px;
-                --radius-md: 12px;
-                --radius-lg: 16px;
-                --radius-xl: 28px;
-
-                /* SHADOWS (Material Design 3 Elevation) */
-                --shadow-none: none;
-                --elevation-0: none;
-                --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
-                --elevation-2: 0 1px 5px rgba(0, 0, 0, 0.2), 0 2px 2px rgba(0, 0, 0, 0.14);
-                --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
-                --elevation-4: 0 2px 4px rgba(0, 0, 0, 0.2), 0 4px 5px rgba(0, 0, 0, 0.14);
-                --elevation-5: 0 8px 10px rgba(0, 0, 0, 0.14), 0 3px 14px rgba(0, 0, 0, 0.12);
-                --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
-                --shadow-sm: 0 1px 5px rgba(0, 0, 0, 0.2), 0 2px 2px rgba(0, 0, 0, 0.14);
-                --shadow-md: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
-                --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.2), 0 4px 5px rgba(0, 0, 0, 0.14);
-                --shadow-xl: 0 8px 10px rgba(0, 0, 0, 0.14), 0 3px 14px rgba(0, 0, 0, 0.12);
-                --shadow-2xl: 0 24px 38px rgba(0, 0, 0, 0.14), 0 9px 46px rgba(0, 0, 0, 0.12);
-                --shadow-focus: 0 0 0 3px rgba(25, 118, 210, 0.1);
-
-                /* SVG图标垂直对齐 */
-                svg {
-                    display: block;
-                    vertical-align: text-top;  /* 与文字顶部对齐,避免偏下 */
-                }
-                --icon-md: 20px;
-                --icon-lg: 24px;
-                --icon-xl: 32px;
-
-                /* ANIMATION & TRANSITIONS */
-                --duration-fast: 150ms;
-                --duration-base: 200ms;
-                --duration-slow: 300ms;
-                --duration-slower: 500ms;
-                --ease-in: cubic-bezier(0.4, 0, 1, 1);
-                --ease-out: cubic-bezier(0, 0, 0.2, 1);
-                --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-                --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-                /* Z-INDEX SCALE */
-                --z-dropdown: 1000;
-                --z-sticky: 1020;
-                --z-fixed: 1030;
-                --z-modal-backdrop: 2147483646;
-                --z-modal: 2147483647;
-                --z-popover: 2147483647;
-                --z-tooltip: 2147483647;
-
-                /* COMMON VALUES */
-                --white: #FFFFFF;
-                --black: #000000;
-
-                /* Overlay positioning */
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: var(--z-modal-backdrop);
+                /* T2.1.3: Inject all design tokens based on theme */
+                ${isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens()}
             }
+
 
             * {
                 box-sizing: border-box;
@@ -29561,21 +29872,27 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 overflow: hidden;
             }
 
+            /* ===================================================================
+               TOOLBAR - Modernized per design_system.md
+               - Removed border-bottom (use shadow)
+               - Improved button styles
+               =================================================================== */
             .toolbar {
                 display: flex;
                 gap: var(--space-2);  /* 8px */
-                padding: var(--space-3);  /* 12px */
+                padding: var(--space-3) var(--space-4);  /* 12px 16px, more horizontal space */
                 background: var(--gray-50);
-                border-bottom: 1px solid var(--gray-200);
+                /* border-bottom: removed */
+                box-shadow: var(--shadow-xs);  /* Subtle separation */
                 align-items: center;
                 flex-wrap: wrap;
             }
 
             .toolbar-divider {
                 width: 1px;
-                height: 24px;
+                height: 20px;  /* Slightly shorter */
                 background: var(--gray-300);
-                margin: 0 4px;
+                margin: 0 var(--space-1);  /* 4px */
             }
 
             .new-folder-btn,
@@ -29583,11 +29900,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .import-btn {
                 padding: var(--space-2) var(--space-3);  /* 8px 12px */
                 border: 1px solid var(--gray-300);
-                background: var(--white);
-                border-radius: 6px;
-                font-size: 13px;
+                background: var(--md-surface);  /* Theme-aware */
+                border-radius: var(--radius-sm);  /* 6px per design system */
+                font-size: var(--text-sm);  /* 13px */
+                font-weight: var(--font-medium);  /* 500 */
                 cursor: pointer;
-                transition: all 0.15s ease;
+                transition: all var(--duration-fast);  /* 150ms */
                 white-space: nowrap;
             }
 
@@ -29596,6 +29914,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .import-btn:hover {
                 background: var(--gray-100);
                 border-color: var(--gray-400);
+                transform: translateY(-1px);  /* Subtle lift */
+                box-shadow: var(--shadow-sm);  /* Hover elevation */
             }
 
             .new-folder-btn {
@@ -29608,44 +29928,50 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 background: var(--primary-50);
             }
 
-            /* Sidebar */
+            /* ===================================================================
+               SIDEBAR - Modernized per design_system.md
+               - Removed border-right (use background color difference instead)
+               - Increased padding for breathing room
+               - Consistent spacing with 8px grid
+               =================================================================== */
             .sidebar {
-                width: 140px;  /* 减小宽度 */
-                background: var(--md-surface-variant);
-                border-right: 1px solid var(--md-outline);
+                width: 140px;
+                background: var(--gray-100);  /* Subtle darker background */
+                /* border-right: removed - no borders per design system */
                 display: flex;
                 flex-direction: column;
-                padding: var(--space-4) var(--space-2);
-                gap: var(--space-2);
+                padding: var(--space-4);  /* 16px, 8px grid */
+                gap: var(--space-2);  /* 8px between tabs */
             }
 
             .tab-btn {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: var(--space-2);
-                padding: var(--space-4) var(--space-3);
-                border: none;
-                border-left: 3px solid transparent;
+                gap: var(--space-2);  /* 8px */
+                padding: var(--space-3);  /* 12px, more breathing room */
+                border: none;  /* No borders */
                 background: transparent;
                 cursor: pointer;
-                transition: all var(--duration-base);
-                color: var(--md-on-surface-variant);
-                font-size: var(--text-xs);
-                border-radius: var(--radius-small);
+                transition: all var(--duration-fast);  /* 150ms per design system */
+                color: var(--gray-600);
+                font-size: var(--text-xs);  /* 12px */
+                border-radius: var(--radius-md);  /* 8px for card-like items */
             }
 
             .tab-btn:hover {
-                background: var(--md-surface-container-high);  /* 更明显的灰色 #EEEEEE */
-                color: var(--md-on-surface);
+                background: var(--gray-200);  /* Subtle hover state */
+                color: var(--gray-900);
+                transform: translateY(-1px);  /* Micro-animation */
             }
 
             .tab-btn.active {
-                background: var(--gray-200);  /* 深灰色,不是白色 */
-                color: var(--gray-900);
-                font-weight: var(--font-medium);
-                border-left-color: var(--primary-600);
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);
+                background: var(--primary-50);  /* Light blue background */
+                color: var(--primary-700);
+                font-weight: var(--font-semibold);  /* 600 */
+                /* Use box-shadow for accent instead of border */
+                box-shadow: inset 3px 0 0 var(--primary-500),
+                            var(--shadow-sm);  /* Subtle elevation */
             }
 
             .tab-icon {
@@ -29665,68 +29991,88 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 overflow: hidden;
             }
 
+            /* ===================================================================
+               HEADER - Modernized per design_system.md
+               - Removed border-bottom (use box-shadow for separation)
+               - Consistent padding with 8px grid
+               =================================================================== */
             .header {
                 padding: var(--space-5) var(--space-6);  /* 20px 24px */
-                border-bottom: 1px solid var(--gray-200);
+                /* border-bottom: removed - use shadow instead */
+                box-shadow: var(--shadow-xs);  /* Subtle separation */
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                background: var(--md-surface);
+                z-index: 1;  /* Ensure shadow appears above content */
             }
 
             .header h2 {
                 margin: 0;
-                font-size: var(--text-xl);
-                font-weight: 600;
-                color: var(--md-on-surface);
+                font-size: var(--text-xl);  /* 18px */
+                font-weight: var(--font-semibold);  /* 600 */
+                color: var(--gray-900);
                 display: flex;
-                align-items: center;  /* 图标和文字垂直居中对齐 */
+                align-items: center;
                 gap: var(--space-2);  /* 8px */
-                line-height: 1;  /* 移除额外行高 */
+                line-height: 1;
+                letter-spacing: -0.02em;  /* Tighter for modern feel */
             }
 
             .header h2 svg {
-                flex-shrink: 0;  /* 防止图标被压缩 */
+                flex-shrink: 0;
             }
 
             .close-btn {
                 background: none;
                 border: none;
-                font-size: 28px;
+                font-size: 24px;  /* Slightly smaller */
                 color: var(--gray-500);
                 cursor: pointer;
-                padding: 0;
+                padding: var(--space-1);  /* 4px */
                 width: 32px;
                 height: 32px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: 6px;
-                transition: all 0.2s;
+                border-radius: var(--radius-sm);  /* 6px */
+                transition: all var(--duration-fast);  /* 150ms */
             }
 
             .close-btn:hover {
                 background: var(--gray-100);
                 color: var(--gray-900);
+                transform: scale(1.05);  /* Micro-animation */
+            }
+
+            .close-btn:active {
+                transform: scale(0.95);  /* Press feedback */
             }
 
             .tree-item {
+                /* Layout properties (from Line 5003) */
                 display: flex;
                 align-items: center;
-                gap: var(--space-2);
-                padding: var(--space-2) var(--space-3);
-                margin-bottom: var(--space-1);
+                min-height: 36px;
+                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                position: relative;
                 cursor: pointer;
+                user-select: none;
+                
+                /* Styling properties (from Line 4059) */
+                gap: var(--space-2);
+                margin-bottom: var(--space-1);
                 border-radius: var(--radius-small);
                 transition: all var(--duration-base) var(--ease-out);
-                background: var(--primary-50);  /* 文件夹浅蓝色背景 */
-                border: none;  /* 移除边框 */
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);  /* 微妙阴影 */
-                position: relative;  /* 为actions的absolute定位提供参考 */
+                
+                /* Critical: Explicit background */
+                background: transparent;
+                border: none;
+                border-bottom: 1.5px solid var(--gray-300);  /* From Line 5003 */
             }
 
             .tree-item:hover {
-                background: var(--primary-100);  /* 浅蓝色高亮 */
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+                background: var(--gray-100);
             }
 
             /* Tab content */
@@ -29743,10 +30089,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             /* Toolbar */
             .toolbar {
-                padding: var(--space-3) var(--space-6);  /* 12px 24px - 8px grid */
-                border-bottom: 1px solid var(--gray-200);
+                padding: var(--space-3) var(--space-6);  /* 12px 24px */
+                border-bottom: 1px solid var(--md-outline-variant);  /* ✅ Subtle unified separator */
                 display: flex;
-                gap: var(--space-3);  /* 12px - 统一间距 */
+                gap: var(--space-3);  /* 12px */
                 align-items: center;
             }
 
@@ -29770,22 +30116,32 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: block;  /* 移除inline默认的baseline对齐 */
             }
 
+            /* ===================================================================
+               SEARCH  INPUT - Modernized per design_system.md
+               - Blue focus ring per design system (3px rgba blue)
+               - Cleaner border states
+               =================================================================== */
             .search-input {
-                flex: 1;  /* 拉宽搜索框 */
-                padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);  /* 8px 16px 8px 40px */
-                border: 1px solid var(--md-outline);
-                border-radius: var(--radius-small);  /* 8px */
-                background: var(--md-surface);
-                color: var(--md-on-surface);
-                font-size: var(--text-sm);
-                transition: all var(--duration-base) var(--ease-out);
+                flex: 1;
+                padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);  /* Left padding for icon */
+                border: 1.5px solid var(--gray-200);  /* 1.5px per design system */
+                border-radius: var(--radius-sm);  /* 6px for inputs */
+                background: var(--md-surface);  /* Theme-aware */
+                color: var(--gray-900);
+                font-size: var(--text-base);  /* 14px */
+               transition: all var(--duration-fast);  /* 150ms */
+            }
+
+            .search-input:hover {
+                border-color: var(--gray-300);
             }
 
             .search-input:focus {
                 outline: none;
-                border-color: var(--primary-600);
-                box-shadow: var(--shadow-focus);
-                background: var(--white);
+                border-color: var(--primary-500);
+                /* Blue focus ring per design system */
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                background: var(--md-surface);  /* Theme-aware */
             }
 
             .search-input::placeholder {
@@ -29794,18 +30150,19 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .platform-filter {
                 padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border: 1px solid var(--md-outline);
-                border-radius: var(--radius-small);  /* 8px */
-                background: var(--md-surface);
-                color: var(--md-on-surface);
+                border: 1.5px solid var(--gray-200);
+                border-radius: var(--radius-sm);  /* 6px */
+                background: var(--md-surface);  /* Theme-aware */
+                color: var(--gray-700);
                 font-size: var(--text-sm);
+                font-weight: var(--font-medium);
                 cursor: pointer;
-                transition: all var(--duration-base) var(--ease-out);
+                transition: all var(--duration-fast);
             }
 
             .platform-filter:hover {
-                background: var(--md-surface-container);
-                border-color: var(--primary-600);
+                background: var(--gray-50);
+                border-color: var(--gray-400);
             }
 
             .platform-filter:focus {
@@ -29999,21 +30356,30 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .bookmark-item {
                 padding: var(--space-3) var(--space-4);
                 margin: var(--space-1) 3px;
-                border: none;  /* 移除边框 */
+                border: none;
                 border-radius: var(--radius-small);
-                background: var(--md-surface);  /* 书签白色背景 */
+                background: var(--md-surface);
                 cursor: pointer;
                 transition: all var(--duration-base) var(--ease-out);
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);  /* 纯阴影 */
+                
+                /* ✅ Match folder height */
+                min-height: 36px;
+                
+                /* ✅ Bottom border + subtle shadow (like folders) */
+                border-bottom: 1px solid var(--md-outline-variant);
+                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+                
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);  /* 12px */
-                position: relative;  /* 为actions的absolute定位提供参考 */
+                gap: var(--space-3);
+                position: relative;
             }
 
             .bookmark-item:hover {
-                background: var(--primary-50);  /* 浅蓝色高亮 */
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
+                background: var(--primary-50);
+                border-bottom-color: var(--primary-200);
+                box-shadow: 0 2px 8px 0 rgba(33, 150, 243, 0.12);
+                transform: translateY(-1px);
             }
 
             .platform-badge {
@@ -30034,6 +30400,69 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .platform-badge.gemini {
                 background: var(--primary-100);
                 color: var(--primary-800);
+            }
+
+            /* Delete Confirmation Modal Styles */
+            .delete-confirmation-modal {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--md-surface);  /* ✅ Dark mode */
+                padding: 24px;
+                border-radius: 12px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+                z-index: 10001;
+                min-width: 400px;
+                max-width: 500px;
+            }
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5) !important;
+                z-index: 10000;
+            }
+            .modal-content h3 {
+                margin: 0 0 12px 0;
+                font-size: 18px;
+                font-weight: 600;
+                color: var(--md-on-surface);  /* ✅ Dark mode */
+            }
+            .modal-content p {
+                margin: 0 0 20px 0;
+                color: var(--md-on-surface-variant);  /* ✅ Dark mode */
+                line-height: 1.5;
+            }
+            .modal-actions {
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+            }
+            .modal-btn {
+                padding: 8px 16px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s;
+            }
+            .btn-cancel {
+                background: var(--md-surface-container);  /* ✅ Dark mode */
+                color: var(--md-on-surface);  /* ✅ Dark mode */
+            }
+            .btn-cancel:hover {
+                background: var(--md-surface-container-high);
+            }
+            .btn-confirm {
+                background: var(--danger-600);
+                color: var(--white);
+            }
+            .btn-confirm:hover {
+                background: var(--danger-700);
             }
 
             .title {
@@ -30097,7 +30526,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .delete-btn:hover {
-                background: var(--danger-100);
+                background: var(--danger-50);
             }
 
             /* Settings content */
@@ -30153,7 +30582,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .conflict-dialog {
-                background: var(--white);
+                background: var(--md-surface);  /* ✅ Theme-aware */
                 border-radius: var(--radius-large);
                 box-shadow: var(--shadow-2xl);
                 max-width: 500px;
@@ -30523,28 +30952,30 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             
             .batch-actions-bar {
                 position: fixed;
-                bottom: 0;
-                left: 140px;  /* Sidebar宽度 */
+                bottom: -1px;  /* ✅ Hide completely, no white line */
+                left: 140px;
                 right: 0;
-                background: var(--warning-100);  /* 淡黄色背景 */
-                border-top: 1px solid var(--warning-500);
-                border-radius: var(--radius-medium) var(--radius-medium) 0 0;  /* 上方圆角 */
-                padding: var(--space-3) var(--space-6);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 16px 20px;
-                background: rgba(255, 255, 255, 0.85);
+                margin: 0 var(--space-3) var(--space-3) var(--space-3);
+                padding: var(--space-4) var(--space-5);
+                
+                /* ✅ Elevated card style with rounded corners */
+                background: var(--md-surface);
                 backdrop-filter: blur(20px) saturate(180%);
                 -webkit-backdrop-filter: blur(20px) saturate(180%);
-                border-top: 1px solid rgba(0, 0, 0, 0.08);
-                box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+                border-radius: var(--radius-lg);
+                
+                /* ✅ Prominent elevation shadow (no border) */
+                box-shadow: 
+                    0 8px 16px -4px rgba(0, 0, 0, 0.12),
+                    0 4px 8px -2px rgba(0, 0, 0, 0.08),
+                    0 0 0 1px var(--md-outline-variant);
+                
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: var(--space-3);
                 z-index: 100;
-                transform: translateY(100%);
-                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transform: translateY(calc(100% + var(--space-3) + 1px));  /* ✅ Extra 1px */
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
             .batch-actions-bar.visible {
@@ -30554,34 +30985,35 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .batch-actions-bar .selected-count {
                 font-size: 14px;
                 font-weight: 500;
-                color: var(--gray-700);
+                color: var(--md-on-surface);  /* ✅ Theme-aware */
                 margin-right: auto;
                 white-space: nowrap;
             }
 
             .batch-actions-bar button {
-                display: flex;
-                flex-direction: row;
+                display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 8px;
-                padding: 10px 16px;
-                background: white;
-                border: 1px solid var(--gray-200);
-                border-radius: var(--radius-medium);
+                gap: var(--space-2);
+                
+                /* ✅ Match toolbar button style */
+                padding: var(--space-2) var(--space-3);
+                background: transparent;
+                border: none;
+                border-radius: var(--radius-sm);
+                
                 cursor: pointer;
-                transition: all 0.2s ease;
-                font-size: 13px;
-                font-weight: 500;
-                color: var(--gray-700);
+                transition: all var(--duration-fast);
+                
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+                color: var(--md-on-surface);
                 white-space: nowrap;
             }
 
             .batch-actions-bar button:hover {
-                background: var(--gray-50);
-                border-color: var(--gray-300);
-                transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                background: var(--md-surface-container);
+                transform: scale(1.02);
             }
 
             .batch-actions-bar button:active {
@@ -30622,7 +31054,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex: 1;
                 overflow-y: auto;
                 overflow-x: hidden;
-                background: var(--white);
+                background: var(--md-surface);  /* ✅ Theme-aware */
             }
 
             /* Custom Scrollbar (macOS-style) */
@@ -30643,18 +31075,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 background: var(--gray-400);
             }
 
-            /* Tree Item Base */
-            .tree-item {
-                display: flex;
-                align-items: center;
-                min-height: 36px;
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border-bottom: 1px solid var(--gray-100);
-                position: relative;
-                cursor: pointer;
-                transition: background-color 0.15s ease;
-                user-select: none;
-            }
+            /* Tree Item Base styles - MERGED into Line 4059 to avoid cascade conflicts */
 
             .batch-action-btn {
                 display: inline-flex;
@@ -30690,15 +31111,27 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 outline: none;
             }
 
-            /* Folder Styles */
+            /* ===================================================================
+               FOLDER STYLES - Modernized per design_system.md
+               - Clean backgrounds with subtle hover states
+               - Use box-shadow for selection instead of border
+               - Dark mode compatible (uses CSS variables, not hardcoded colors)
+               =================================================================== */
             .folder-item {
-                font-weight: 500;
-                background: var(--gray-50);
+                font-weight: var(--font-medium);  /* 500 */
+                background: transparent;  /* Clean by default */
+                transition: all var(--duration-fast);  /* 150ms */
+            }
+
+            .folder-item:hover {
+                background: var(--gray-100);  /* Subtle hover - theme-aware */
             }
 
             .folder-item.selected {
-                background: var(--primary-50);
-                box-shadow: inset 3px 0 0 var(--primary-600);
+                background: var(--primary-50);  /* Light blue in light mode, dark blue in dark mode */
+                color: var(--primary-700);  /* Ensure text contrast */
+                /* Left accent bar instead of full border */
+                box-shadow: inset 3px 0 0 var(--primary-500);
             }
 
             .folder-toggle {
@@ -30774,10 +31207,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
 
-            /* Bookmark Styles */
-            .bookmark-item {
-                background: var(--white);
-            }
+            /* Bookmark Styles - REMOVED DUPLICATE that was overriding --md-surface with --white */
 
             .platform-icon {
                 font-size: 16px;
@@ -30987,315 +31417,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 animation: fadeIn 0.2s ease-out;
             }
 
-            /* ============================================
-               DARK MODE - Material Design Blue Theme
-               ============================================ */
-
-            :host-context(html.dark) .panel {
-                background: var(--gray-800);
-            }
-
-            :host-context(html.dark) .sidebar {
-                background: var(--gray-900);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .tab-btn {
-                color: var(--gray-400);
-            }
-
-            :host-context(html.dark) .tab-btn:hover {
-                background: var(--gray-700);  /* 深色模式 hover */
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .tab-btn.active {
-                background: var(--gray-700);  /* 深色模式下的深灰色 */
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .header {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .header h2 {
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .close-btn {
-                color: var(--gray-400);
-            }
-
-            :host-context(html.dark) .close-btn:hover {
-                background: var(--gray-700);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .toolbar {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .search-input,
-            :host-context(html.dark) .platform-filter {
-                background: var(--gray-900);
-                border-color: var(--gray-700);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .search-input::placeholder {
-                color: var(--gray-500);
-            }
-
-            /* Toolbar buttons dark mode */
-            :host-context(html.dark) .toolbar-icon-btn {
-                background: var(--gray-700);
-                border-color: var(--gray-600);
-                color: var(--gray-200);
-            }
-
-            :host-context(html.dark) .toolbar-icon-btn:hover {
-                background: var(--gray-600);
-                border-color: var(--gray-500);
-                color: var(--gray-50);
-            }
-
-            /* Platform selector dark mode */
-            :host-context(html.dark) .platform-selector {
-                background: var(--gray-700);
-                border-color: var(--gray-600);
-                color: var(--gray-200);
-            }
-
-            :host-context(html.dark) .platform-selector:hover {
-                background: var(--gray-600);
-                border-color: var(--gray-500);
-            }
-
-            :host-context(html.dark) .platform-selector[data-selected="all"],
-            :host-context(html.dark) .platform-selector[data-selected="chatgpt"],
-            :host-context(html.dark) .platform-selector[data-selected="gemini"] {
-                background: var(--gray-600);
-                border-color: var(--gray-500);
-            }
-
-            /* Platform dropdown dark mode */
-            :host-context(html.dark) .platform-dropdown {
-                background: var(--gray-800);
-                border-color: var(--gray-600);
-            }
-
-            :host-context(html.dark) .platform-option {
-                color: var(--gray-200);
-            }
-
-            :host-context(html.dark) .platform-option:hover {
-                background: var(--gray-700);
-            }
-
-            :host-context(html.dark) .platform-option[data-selected="true"] {
-                background: var(--primary-900);
-                color: var(--primary-100);
-            }
-
-            /* Tree view dark mode */
-            :host-context(html.dark) .content {
-                background: var(--gray-800);
-            }
-
-            :host-context(html.dark) .tree-view {
-                background: var(--gray-800);
-            }
-
-            :host-context(html.dark) .tree-item {
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .tree-item:hover {
-                background: var(--gray-700);
-            }
-
-            :host-context(html.dark) .folder-item {
-                background: var(--gray-750);
-            }
-
-            :host-context(html.dark) .folder-item.selected {
-                background: rgba(59, 130, 246, 0.2);
-                border-left-color: var(--primary-600);
-            }
-
-            :host-context(html.dark) .folder-name {
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .folder-count {
-                color: var(--gray-500);
-            }
-
-            :host-context(html.dark) .bookmark-item {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .bookmark-item:hover {
-                background: var(--gray-700);
-                border-color: var(--gray-600);
-            }
-
-            :host-context(html.dark) .bookmark-title {
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .bookmark-timestamp {
-                color: var(--gray-500);
-            }
-
-            :host-context(html.dark) .action-btn {
-                color: var(--gray-400);
-            }
-
-            :host-context(html.dark) .action-btn:hover {
-                background: var(--gray-600);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .title {
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .response {
-                color: var(--gray-400);
-            }
-
-            /* Detail modal dark mode */
-            :host-context(html.dark) .detail-modal {
-                background: var(--gray-800);
-            }
-
-            :host-context(html.dark) .detail-header {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .detail-header h3 {
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .fullscreen-btn,
-            :host-context(html.dark) .detail-header .close-btn {
-                color: var(--gray-400);
-            }
-
-            :host-context(html.dark) .fullscreen-btn:hover,
-            :host-context(html.dark) .detail-header .close-btn:hover {
-                background: var(--gray-700);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .detail-meta {
-                background: var(--gray-900);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .detail-meta-right {
-                color: var(--gray-500);
-            }
-
-            :host-context(html.dark) .detail-section {
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .user-section {
-                background: rgba(59, 130, 246, 0.1);
-                border-left-color: var(--primary-600);
-            }
-
-            :host-context(html.dark) .ai-section {
-                background: rgba(16, 185, 129, 0.1);
-                border-left-color: var(--success-600);
-            }
-
-            :host-context(html.dark) .section-header h4 {
-                color: var(--gray-400);
-            }
-
-            :host-context(html.dark) .detail-text {
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .detail-footer {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .open-conversation-btn {
-                background: var(--primary-600);
-                color: white;
-            }
-
-            :host-context(html.dark) .open-conversation-btn:hover {
-                background: var(--primary-700);
-            }
-
-            /* Batch actions bar dark mode */
-            :host-context(html.dark) .batch-actions-bar {
-                background: rgba(31, 41, 55, 0.95);
-                border-color: var(--gray-700);
-            }
-
-            :host-context(html.dark) .batch-actions-bar .selected-count {
-                color: var(--gray-300);
-            }
-
-            :host-context(html.dark) .batch-actions-bar button {
-                background: var(--gray-700);
-                border-color: var(--gray-600);
-                color: var(--gray-200);
-            }
-
-            :host-context(html.dark) .batch-actions-bar button:hover {
-                background: var(--gray-600);
-                border-color: var(--gray-500);
-            }
-
-            /* Empty state dark mode */
-            :host-context(html.dark) .tree-empty {
-                color: var(--gray-500);
-            }
-
-            :host-context(html.dark) .tree-empty h3 {
-                color: var(--gray-300);
-            }
-
-            :host-context(html.dark) .tree-empty p {
-                color: var(--gray-500);
-            }
-
-            /* Notification/Alert dark mode */
-            :host-context(html.dark) .notification {
-                background: var(--gray-800);
-                border-color: var(--gray-700);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .notification.success {
-                background: rgba(16, 185, 129, 0.15);
-                border-color: var(--success-600);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .notification.error {
-                background: rgba(239, 68, 68, 0.15);
-                border-color: var(--danger-600);
-                color: var(--gray-50);
-            }
-
-            :host-context(html.dark) .notification.warning {
-                background: rgba(245, 158, 11, 0.15);
-                border-color: var(--warning-600);
-                color: var(--gray-50);
-            }
         `;
   }
 }

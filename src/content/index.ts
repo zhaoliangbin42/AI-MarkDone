@@ -1,3 +1,6 @@
+// CSS is loaded via manifest.json - see content_scripts.css declaration
+// This follows Chrome extension best practices for optimal performance
+
 import { adapterRegistry } from './adapters/registry';
 import { MessageObserver } from './observers/mutation-observer';
 import { ToolbarInjector } from './injectors/toolbar-injector';

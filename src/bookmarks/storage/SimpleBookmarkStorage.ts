@@ -193,19 +193,31 @@ export class SimpleBookmarkStorage {
      * Validate bookmark data
      */
     static validateBookmark(bookmark: any): bookmark is Bookmark {
-        return (
+        const isValid = (
             typeof bookmark === 'object' &&
             bookmark !== null &&
             typeof bookmark.url === 'string' &&
-            typeof bookmark.urlWithoutProtocol === 'string' &&
             typeof bookmark.position === 'number' &&
             typeof bookmark.userMessage === 'string' &&
             typeof bookmark.timestamp === 'number' &&
             (bookmark.aiResponse === undefined || typeof bookmark.aiResponse === 'string') &&
-            typeof bookmark.title === 'string' &&
-            (bookmark.platform === 'ChatGPT' || bookmark.platform === 'Gemini') &&
-            typeof bookmark.folderPath === 'string'
+            (bookmark.title === undefined || typeof bookmark.title === 'string') &&
+            (bookmark.platform === undefined || bookmark.platform === 'ChatGPT' || bookmark.platform === 'Gemini') &&
+            (bookmark.folderPath === undefined || typeof bookmark.folderPath === 'string') &&
+            (bookmark.urlWithoutProtocol === undefined || typeof bookmark.urlWithoutProtocol === 'string')
         );
+
+        if (!isValid) {
+            logger.warn('[validateBookmark] Failed validation:', {
+                hasUrl: typeof bookmark?.url,
+                hasPosition: typeof bookmark?.position,
+                hasUserMessage: typeof bookmark?.userMessage,
+                hasTimestamp: typeof bookmark?.timestamp,
+                platform: bookmark?.platform
+            });
+        }
+
+        return isValid;
     }
 
     /**
