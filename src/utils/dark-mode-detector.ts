@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 /**
  * Dark Mode Detector
  * 
@@ -66,32 +68,69 @@ export class DarkModeDetector {
     /**
      * Detect current dark mode state
      * Priority:
-     * 1. html.classList contains 'dark' or 'light'
-     * 2. html[data-theme] attribute
-     * 3. prefers-color-scheme media query
+     * 1. html.classList contains 'dark' or 'light' (ChatGPT)
+     * 2. body.classList contains 'dark-theme' (Gemini)
+     * 3. html[data-theme] attribute
+     * 4. Computed background color heuristic
+     * 5. prefers-color-scheme media query
      */
     private detectDarkMode(): boolean {
         const html = document.documentElement;
+        const body = document.body;
 
-        // Method 1: Check class attribute (ChatGPT uses this)
+        // Method 1: Check html class attribute (ChatGPT uses this)
         if (html.classList.contains('dark')) {
+            logger.debug('[DarkMode] Detected via html.dark class');
             return true;
         }
         if (html.classList.contains('light')) {
+            logger.debug('[DarkMode] Detected via html.light class');
             return false;
         }
 
-        // Method 2: Check data-theme attribute (Gemini might use this)
-        const theme = html.getAttribute('data-theme');
+        // Method 2: Check body class for Gemini (Gemini uses body.dark-theme)
+        if (body && body.classList.contains('dark-theme')) {
+            logger.debug('[DarkMode] Detected via body.dark-theme class (Gemini)');
+            return true;
+        }
+        if (body && body.classList.contains('light-theme')) {
+            logger.debug('[DarkMode] Detected via body.light-theme class (Gemini)');
+            return false;
+        }
+
+        // Method 3: Check data-theme attribute
+        const theme = html.getAttribute('data-theme') || body?.getAttribute('data-theme');
         if (theme === 'dark') {
+            logger.debug('[DarkMode] Detected via data-theme="dark"');
             return true;
         }
         if (theme === 'light') {
+            logger.debug('[DarkMode] Detected via data-theme="light"');
             return false;
         }
 
-        // Method 3: Fallback to prefers-color-scheme
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Method 4: Heuristic - check background color (for Gemini)
+        if (body) {
+            const bgColor = window.getComputedStyle(body).backgroundColor;
+            // Parse RGB and check if it's dark
+            const rgb = bgColor.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+                const r = parseInt(rgb[0]);
+                const g = parseInt(rgb[1]);
+                const b = parseInt(rgb[2]);
+                // Calculate luminance
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                if (luminance < 0.5) {
+                    logger.debug('[DarkMode] Detected via background color heuristic (dark)');
+                    return true;
+                }
+            }
+        }
+
+        // Method 5: Fallback to prefers-color-scheme
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        logger.debug(`[DarkMode] Fallback to prefers-color-scheme: ${prefersDark}`);
+        return prefersDark;
     }
 
     /**
@@ -132,6 +171,14 @@ export class DarkModeDetector {
             childList: false,
             subtree: false
         });
+
+        // Also observe <body> for Gemini (uses body.dark-theme)
+        if (document.body) {
+            this.mutationObserver.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['class', 'data-theme']
+            });
+        }
 
         // Also listen to prefers-color-scheme changes (fallback)
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

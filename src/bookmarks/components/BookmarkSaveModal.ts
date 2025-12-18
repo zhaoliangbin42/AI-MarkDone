@@ -6,6 +6,57 @@ import { logger } from '../../utils/logger';
 import { Icons } from '../../assets/icons';
 
 /**
+ * Theme colors for modal
+ */
+interface ModalTheme {
+    surface: string;
+    onSurface: string;
+    border: string;
+    borderLight: string;
+    hover: string;
+    selected: string;
+    selectedHover: string;
+    primary: string;
+    primaryHover: string;
+    danger: string;
+    textPrimary: string;
+    textSecondary: string;
+    textMuted: string;
+}
+
+const lightTheme: ModalTheme = {
+    surface: '#FFFFFF',
+    onSurface: '#1C1B1F',
+    border: '#E5E7EB',
+    borderLight: '#F3F4F6',
+    hover: '#F9FAFB',
+    selected: '#BBDEFB',
+    selectedHover: '#90CAF9',
+    primary: '#1976D2',
+    primaryHover: '#1565C0',
+    danger: '#EF4444',
+    textPrimary: '#111827',
+    textSecondary: '#6B7280',
+    textMuted: '#9CA3AF'
+};
+
+const darkTheme: ModalTheme = {
+    surface: '#1F2937',
+    onSurface: '#E5E7EB',
+    border: '#374151',
+    borderLight: '#4B5563',
+    hover: '#374151',
+    selected: '#1565C0',
+    selectedHover: '#1976D2',
+    primary: '#1976D2',
+    primaryHover: '#1565C0',
+    danger: '#EF4444',
+    textPrimary: '#F9FAFB',
+    textSecondary: '#9CA3AF',
+    textMuted: '#6B7280'
+};
+
+/**
  * Unified Bookmark Save Modal
  * Combines title editing and folder selection in one modal
  * Pattern: Notion-style inline editing + VS Code tree view
@@ -26,6 +77,9 @@ export class BookmarkSaveModal {
     private onSave: ((title: string, folderPath: string) => void) | null = null;
     private escKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
+    // Event listener management (AbortController pattern - Web standard)
+    private abortController: AbortController | null = null;
+
     /**
      * Show save modal
      */
@@ -45,6 +99,9 @@ export class BookmarkSaveModal {
             // Folder selection mode for batch move - returns selected path
             return this.showFolderSelectMode(options);
         }
+
+        // Create AbortController for this modal instance (Web standard pattern)
+        this.abortController = new AbortController();
 
         this.onSave = options.onSave || null;
         this.title = options.defaultTitle || '';
@@ -104,12 +161,12 @@ export class BookmarkSaveModal {
         // Add to body
         document.body.appendChild(this.overlay);
 
-        // Click outside to close
+        // Click outside to close (use signal for automatic cleanup)
         this.overlay.addEventListener('click', (e) => {
             if (e.target === this.overlay) {
                 this.hide();
             }
-        });
+        }, { signal: this.abortController.signal });
 
         // ESC key to close
         this.escKeyHandler = (e: KeyboardEvent) => {
@@ -183,41 +240,58 @@ export class BookmarkSaveModal {
     }
 
     /**
-     * Hide and cleanup modal
-     */
+ * Hide and cleanup modal
+ */
     hide(): void {
+        // 1. Abort all event listeners (one line - Web standard!)
+        this.abortController?.abort();
+        this.abortController = null;
+
+        // 2. Remove DOM
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.remove();
         }
 
+        // 3. Remove ESC key listener (not managed by AbortController)
         if (this.escKeyHandler) {
             document.removeEventListener('keydown', this.escKeyHandler);
             this.escKeyHandler = null;
         }
 
+        // 4. Clear all state to prevent memory leaks
         this.overlay = null;
         this.modal = null;
+        this.folders = [];
+        this.selectedPath = null;
+        this.expandedPaths.clear();
+        this.title = '';
+        this.titleValid = true;
         this.onSave = null;
 
-        logger.debug('[BookmarkSaveModal] Modal hidden');
+        logger.info('[BookmarkSaveModal] Modal cleaned up');
     }
 
     /**
-     * Create modal structure
+     * Create modal structure with dynamic theme
      */
     private createModal(): HTMLElement {
+        // Detect dark mode
+        const isDark = document.documentElement.classList.contains('dark');
+        const theme = isDark ? darkTheme : lightTheme;
+
         const modal = document.createElement('div');
         modal.className = 'bookmark-save-modal';
 
-        // Inline styles for modal container
+        // Apply theme colors directly
         modal.style.cssText = `
             position: relative;
             width: 90%;
             max-width: 550px;
             max-height: 85vh;
-            background: var(--md-surface);
-            border-radius: var(--radius-large);
-            box-shadow: var(--elevation-3);
+            background: ${theme.surface};
+            color: ${theme.onSurface};
+            border-radius: 12px;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
@@ -280,6 +354,23 @@ export class BookmarkSaveModal {
                     
                     /* Shadows */
                     --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);
+                }
+                
+                /* Dark Mode Variables - Override when html has dark class */
+                html.dark .bookmark-save-modal {
+                    --gray-50: #F9FAFB;
+                    --gray-100: #F3F4F6;
+                    --gray-200: #E5E7EB;
+                    --gray-300: #D1D5DB;
+                    --gray-400: #9CA3AF;
+                    --gray-500: #6B7280;
+                    --gray-600: #4B5563;
+                    --gray-700: #374151;
+                    --gray-800: #1F2937;
+                    --gray-900: #111827;
+                    
+                    --md-surface: #1F2937;  /* Dark background */
+                    --md-on-surface: #E5E7EB;  /* Light text */
                 }
                 
                 @keyframes fadeIn {
@@ -596,6 +687,132 @@ export class BookmarkSaveModal {
                     cursor: not-allowed;
                     opacity: 0.6;
                 }
+
+                /* ============================================
+                   DARK MODE - Material Design Blue Theme
+                   ============================================ */
+
+                html.dark .bookmark-save-modal {
+                    background: var(--gray-800);
+                }
+
+                html.dark .save-modal-header {
+                    background: var(--gray-800);
+                    border-color: var(--gray-700);
+                }
+
+                html.dark .save-modal-header h2 {
+                    color: var(--gray-50);
+                }
+
+                html.dark .save-modal-close-btn {
+                    color: var(--gray-400);
+                }
+
+                html.dark .save-modal-close-btn:hover {
+                    background: var(--gray-700);
+                    color: var(--gray-50);
+                }
+
+                html.dark .save-modal-body {
+                    background: var(--gray-800);
+                }
+
+                html.dark .title-label,
+                html.dark .folder-label {
+                    color: var(--gray-300);
+                }
+
+                html.dark .title-input {
+                    background: var(--gray-900);
+                    border-color: var(--gray-700);
+                    color: var(--gray-50);
+                }
+
+                html.dark .title-input:focus {
+                    border-color: var(--primary-500);
+                }
+
+                html.dark .title-input::placeholder {
+                    color: var(--gray-500);
+                }
+
+                html.dark .new-folder-btn {
+                    color: var(--primary-400);
+                }
+
+                html.dark .new-folder-btn:hover {
+                    background: var(--gray-700);
+                }
+
+                html.dark .folder-tree-container {
+                    background: var(--gray-900);
+                    border-color: var(--gray-700);
+                }
+
+                html.dark .folder-item {
+                    color: var(--gray-200);
+                }
+
+                html.dark .folder-item:hover {
+                    background: var(--gray-700);
+                }
+
+                html.dark .folder-item.selected {
+                    background: rgba(59, 130, 246, 0.2);
+                    border-color: var(--primary-500);
+                }
+
+                html.dark .folder-item.selected .folder-name {
+                    color: var(--primary-300);
+                }
+
+                html.dark .folder-item.selected:hover {
+                    background: rgba(59, 130, 246, 0.3);
+                }
+
+                html.dark .folder-name {
+                    color: var(--gray-200);
+                }
+
+                html.dark .folder-count {
+                    color: var(--gray-500);
+                }
+
+                html.dark .folder-toggle {
+                    color: var(--gray-500);
+                }
+
+                html.dark .folder-toggle:hover {
+                    color: var(--gray-300);
+                }
+
+                html.dark .folder-empty {
+                    color: var(--gray-500);
+                }
+
+                html.dark .save-modal-footer {
+                    background: var(--gray-800);
+                    border-color: var(--gray-700);
+                }
+
+                html.dark .save-modal-btn-cancel {
+                    background: var(--gray-700);
+                    color: var(--gray-200);
+                }
+
+                html.dark .save-modal-btn-cancel:hover {
+                    background: var(--gray-600);
+                }
+
+                html.dark .save-modal-btn-save {
+                    background: var(--primary-600);
+                    color: white;
+                }
+
+                html.dark .save-modal-btn-save:hover:not(:disabled) {
+                    background: var(--primary-700);
+                }
             </style>
 
             <div class="save-modal-header">
@@ -647,25 +864,28 @@ export class BookmarkSaveModal {
      * Bind event listeners
      */
     private bindEvents(modal: HTMLElement): void {
+        // Get signal from AbortController for automatic cleanup
+        const signal = this.abortController?.signal;
+
         // Close button
         const closeBtn = modal.querySelector('.save-modal-close-btn');
-        closeBtn?.addEventListener('click', () => this.hide());
+        closeBtn?.addEventListener('click', () => this.hide(), { signal });
 
         // Cancel button
         const cancelBtn = modal.querySelector('.save-modal-btn-cancel');
-        cancelBtn?.addEventListener('click', () => this.hide());
+        cancelBtn?.addEventListener('click', () => this.hide(), { signal });
 
         // Save button
         const saveBtn = modal.querySelector('.save-modal-btn-save');
-        saveBtn?.addEventListener('click', () => this.handleSave());
+        saveBtn?.addEventListener('click', () => this.handleSave(), { signal });
 
         // Title input
         const titleInput = modal.querySelector('.title-input') as HTMLInputElement;
-        titleInput?.addEventListener('input', (e) => this.handleTitleInput(e));
+        titleInput?.addEventListener('input', (e) => this.handleTitleInput(e), { signal });
 
         // New Folder button
         const newFolderBtn = modal.querySelector('.new-folder-btn');
-        newFolderBtn?.addEventListener('click', () => this.showCreateRootFolderInput());
+        newFolderBtn?.addEventListener('click', () => this.showCreateRootFolderInput(), { signal });
     }
 
     /**
@@ -1025,12 +1245,12 @@ export class BookmarkSaveModal {
             // Create modal with EXACT SAME structure as bookmark save modal
             const modal = document.createElement('div');
             modal.className = 'bookmark-save-modal';
+            // NOTE: background is controlled by CSS (html.dark) to support dark mode
             modal.style.cssText = `
                 position: relative;
                 width: 90%;
                 max-width: 550px;
                 max-height: 85vh;
-                background: var(--md-surface);
                 border-radius: var(--radius-large);
                 box-shadow: var(--elevation-3);
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

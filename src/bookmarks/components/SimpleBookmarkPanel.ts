@@ -25,6 +25,18 @@ export class SimpleBookmarkPanel {
     private platformFilter: string = '';
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
 
+    // Event listener management (AbortController pattern - Web standard)
+    private abortController: AbortController | null = null;
+
+    // State preservation (industry standard pattern)
+    private savedState = {
+        scrollTop: 0,
+        expandedPaths: new Set<string>(),
+        searchQuery: '',
+        platformFilter: '',
+        currentTab: 'bookmarks' as const
+    };
+
     // Selection state for batch operations (Gmail-style)
     private selectedItems: Set<string> = new Set(); // Keys: "folder:path" or "url:position"
 
@@ -37,6 +49,9 @@ export class SimpleBookmarkPanel {
      * Show the bookmark panel
      */
     async show(): Promise<void> {
+        // Create AbortController for this panel instance (Web standard pattern)
+        this.abortController = new AbortController();
+
         // The provided snippet for `show` seems to be from a different context or an incomplete replacement.
         // To maintain syntactical correctness and fulfill the request of adding a migration method,
         // I will assume the user wants to integrate the migration logic into the *existing* show method
@@ -88,12 +103,13 @@ export class SimpleBookmarkPanel {
 
         // CRITICAL: Add overlay click handler BEFORE appending to body
         // This ensures it's set up correctly and only once
+        // Use signal for automatic cleanup (Web standard pattern)
         this.overlay.addEventListener('click', (e) => {
             // Only close if clicking directly on overlay (not on panel or its children)
             if (e.target === this.overlay) {
                 this.hide();
             }
-        });
+        }, { signal: this.abortController.signal });
 
         document.body.appendChild(this.overlay);
 
@@ -113,6 +129,9 @@ export class SimpleBookmarkPanel {
                 });
             }, 100);
         }
+
+        // Restore saved state (industry standard pattern)
+        this.restoreState();
     }
 
     /**
@@ -159,9 +178,86 @@ export class SimpleBookmarkPanel {
      * Hide the bookmark panel
      */
     hide(): void {
-        if (this.overlay) {
-            this.overlay.style.display = 'none';
+        // 1. Save state before cleanup (industry standard pattern)
+        this.saveState();
+
+        // 2. Abort all event listeners (one line - Web standard!)
+        this.abortController?.abort();
+        this.abortController = null;
+
+        // 3. Remove storage listener
+        if (this.storageListener) {
+            chrome.storage.onChanged.removeListener(this.storageListener);
+            this.storageListener = null;
         }
+
+        // 4. Remove DOM
+        if (this.overlay && this.overlay.parentNode) {
+            this.overlay.remove();
+        }
+
+        // 5. Clear references
+        this.overlay = null;
+        this.shadowRoot = null;
+
+        logger.info('[SimpleBookmarkPanel] Panel cleaned up');
+    }
+
+    /**
+     * Save current state for restoration (industry standard pattern)
+     */
+    private saveState(): void {
+        if (!this.shadowRoot) return;
+
+        const content = this.shadowRoot.querySelector('.bookmarks-tab .content');
+        this.savedState = {
+            scrollTop: content?.scrollTop || 0,
+            expandedPaths: new Set(this.folderState.getExpandedPaths()),
+            searchQuery: this.searchQuery,
+            platformFilter: this.platformFilter,
+            currentTab: 'bookmarks' // Currently only one tab
+        };
+
+        logger.debug('[SimpleBookmarkPanel] State saved:', {
+            scrollTop: this.savedState.scrollTop,
+            expandedCount: this.savedState.expandedPaths.size,
+            searchQuery: this.savedState.searchQuery
+        });
+    }
+
+    /**
+     * Restore saved state (industry standard pattern)
+     */
+    private restoreState(): void {
+        if (!this.shadowRoot) return;
+
+        // Restore search query
+        this.searchQuery = this.savedState.searchQuery;
+        const searchInput = this.shadowRoot.querySelector('.search-input') as HTMLInputElement;
+        if (searchInput) {
+            searchInput.value = this.searchQuery;
+        }
+
+        // Restore platform filter
+        this.platformFilter = this.savedState.platformFilter;
+
+        // Restore expanded folders
+        this.savedState.expandedPaths.forEach(path => {
+            this.folderState.expand(path);
+        });
+
+        // Re-render with restored state
+        this.refreshContent();
+
+        // Restore scroll position (after render)
+        requestAnimationFrame(() => {
+            const content = this.shadowRoot?.querySelector('.bookmarks-tab .content');
+            if (content) {
+                content.scrollTop = this.savedState.scrollTop;
+            }
+        });
+
+        logger.debug('[SimpleBookmarkPanel] State restored');
     }
 
     /**
@@ -539,15 +635,18 @@ export class SimpleBookmarkPanel {
      * Bind event listeners to buttons
      */
     private bindEventListeners(): void {
+        // Get signal from AbortController for automatic cleanup (Web standard pattern)
+        const signal = this.abortController?.signal;
+
         // Close button
-        this.shadowRoot?.querySelector('.close-btn')?.addEventListener('click', () => this.hide());
+        this.shadowRoot?.querySelector('.close-btn')?.addEventListener('click', () => this.hide(), { signal });
 
         // Tab buttons
         this.shadowRoot?.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tab = btn.getAttribute('data-tab');
                 if (tab) this.switchTab(tab as any);
-            });
+            }, { signal });
         });
 
         // Search input
@@ -557,7 +656,7 @@ export class SimpleBookmarkPanel {
                 this.searchQuery = (e.target as HTMLInputElement).value;
                 this.filterBookmarks();
                 this.refreshContent();
-            });
+            }, { signal });
         }
 
         // 自定义平台选择器
@@ -2125,6 +2224,12 @@ export class SimpleBookmarkPanel {
             const config = configs[options.type];
             const title = options.title || config.defaultTitle;
 
+            // Dark mode detection
+            const isDark = document.documentElement.classList.contains('dark');
+            const bgColor = isDark ? 'var(--gray-800)' : 'white';
+            const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-700)';
+            const borderColor = isDark ? 'var(--gray-700)' : 'var(--gray-200)';
+
             const overlay = document.createElement('div');
             overlay.style.cssText = `
                 position: fixed;
@@ -2137,12 +2242,12 @@ export class SimpleBookmarkPanel {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color-scheme: light !important;
+                color-scheme: light dark;
             `;
 
             const modal = document.createElement('div');
             modal.style.cssText = `
-                background: white;
+                background: ${bgColor};
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
                 max-width: 400px;
@@ -2157,11 +2262,11 @@ export class SimpleBookmarkPanel {
             ${title}
         </h3>
     </div>
-    <div style="color: var(--gray-700); font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+    <div style="color: ${textColor}; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
 ${options.message}
     </div>
 </div>
-<div style="padding: 12px 24px; display: flex; justify-content: flex-end; border-top: 1px solid var(--gray-200);">
+<div style="padding: 12px 24px; display: flex; justify-content: flex-end; border-top: 1px solid ${borderColor};">
     <button class="ok-btn" style="
         padding: 8px 24px;
         border: none;
@@ -2248,10 +2353,11 @@ ${options.message}
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color-scheme: light !important;
+                color-scheme: light dark;
             `;
 
             const modal = document.createElement('div');
+            modal.className = 'delete-confirmation-modal';
             modal.style.cssText = `
                 background: white;
                 border-radius: var(--radius-medium);
@@ -2260,13 +2366,24 @@ ${options.message}
                 width: 90%;
             `;
 
+            // Add dark mode styles
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                modal.style.background = 'var(--gray-800)';
+                modal.style.borderColor = 'var(--gray-700)';
+            }
+
+            const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+            const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
+            const borderColor = isDark ? 'var(--gray-700)' : 'var(--gray-200)';
+
             modal.innerHTML = `
             <div style="padding: 24px 24px 20px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <span style="color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900); line-height: 1.2;">Delete Selected Items</h3>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor}; line-height: 1.2;">Delete Selected Items</h3>
                 </div>
-                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
+                <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
                     <p style="margin: 0 0 16px 0;">This will permanently delete:</p>
                     <ul style="margin: 0; padding-left: 24px; list-style: none;">
                         ${analysis.folders.length > 0 ? `<li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span style="flex-shrink: 0;">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</span></li>` : ''}
@@ -2278,7 +2395,7 @@ ${options.message}
                     </p>
                 </div>
             </div>
-            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--gray-200);">
+            <div style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid ${borderColor};">
                 <button class="cancel-btn" style="
                     padding: 8px 16px;
                     border: none;
@@ -2418,6 +2535,14 @@ ${options.message}
      * Task 3.4.5
      */
     private showErrorSummary(errors: string[]): void {
+        // Dark mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgColor = isDark ? 'var(--gray-800)' : 'white';
+        const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+        const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
+        const borderColor = isDark ? 'var(--gray-700)' : 'var(--gray-200)';
+        const listBg = isDark ? 'var(--gray-900)' : 'var(--gray-50)';
+
         const overlay = document.createElement('div');
         overlay.style.cssText = `
             position: fixed;
@@ -2434,7 +2559,7 @@ ${options.message}
 
         const modal = document.createElement('div');
         modal.style.cssText = `
-            background: white;
+            background: ${bgColor};
             border-radius: var(--radius-medium);
             box-shadow: var(--shadow-2xl);
             max-width: 500px;
@@ -2448,18 +2573,18 @@ ${options.message}
             <div style="padding: 24px 24px 20px;">
                 <div style="display: flex; align-items: center; gap: var(--space-4);  /* 16px */ margin-bottom: 16px;">
                     <span class="warning-icon">${Icons.alertTriangle}</span>
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: var(--gray-900);">
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor};">
                         Deletion Completed with Errors
                     </h3>
                 </div>
-                <div style="color: var(--gray-500); font-size: 14px; line-height: 1.5;">
+                <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
                     <p style="margin: 0 0 12px 0;">
                         Completed with <strong>${errors.length}</strong> error${errors.length > 1 ? 's' : ''}:
                     </p>
                     <div style="
                         max-height: 300px;
                         overflow-y: auto;
-                        background: var(--gray-50);
+                        background: ${listBg};
                         border-radius: 4px;
                         padding: 12px;
                     ">
@@ -2469,7 +2594,7 @@ ${options.message}
                     </div>
                 </div>
             </div>
-            <div style="padding: 8px; display: flex; justify-content: flex-end; border-top: 1px solid var(--gray-200);">
+            <div style="padding: 8px; display: flex; justify-content: flex-end; border-top: 1px solid ${borderColor};">
                 <button class="ok-btn" style="
                     padding: 8px 24px;
                     border: none;
@@ -2623,6 +2748,12 @@ ${options.message}
      * @see /src/styles/design-tokens.css
      */
     private async showExportOptionsDialog(): Promise<boolean | null> {
+        // Dark mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgColor = isDark ? 'var(--gray-800)' : 'white';
+        const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+        const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
+
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.style.cssText = `
@@ -2636,12 +2767,12 @@ ${options.message}
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color-scheme: light !important;
+                color-scheme: light dark;
             `;
 
             const modal = document.createElement('div');
             modal.style.cssText = `
-                background: white;
+                background: ${bgColor};
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
                 max-width: 400px;
@@ -2650,14 +2781,14 @@ ${options.message}
             `;
 
             modal.innerHTML = `
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: var(--gray-900);">
+                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: ${titleColor};">
                     导出选项
                 </h3>
                 <div style="margin-bottom: 24px;">
                     <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
                         <input type="checkbox" id="preserve-structure" checked 
                                style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                        <span style="font-size: 14px; color: var(--gray-500);">
+                        <span style="font-size: 14px; color: ${textColor};">
                             同时保留文件夹结构
                         </span>
                     </label>
@@ -2971,6 +3102,12 @@ ${options.message}
         noFolder: Bookmark[];
         tooDeep: Bookmark[];
     }): Promise<boolean> {
+        // Dark mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgColor = isDark ? 'var(--gray-800)' : 'white';
+        const titleColor = isDark ? 'var(--gray-50)' : 'var(--gray-900)';
+        const textColor = isDark ? 'var(--gray-400)' : 'var(--gray-500)';
+
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.style.cssText = `
@@ -2984,12 +3121,12 @@ ${options.message}
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color-scheme: light !important;
+                color-scheme: light dark;
             `;
 
             const modal = document.createElement('div');
             modal.style.cssText = `
-                background: white;
+                background: ${bgColor};
                 border-radius: var(--radius-medium);
                 box-shadow: var(--shadow-2xl);
                 max-width: 450px;
@@ -3000,10 +3137,10 @@ ${options.message}
             const totalIssues = analysis.noFolder.length + analysis.tooDeep.length;
 
             modal.innerHTML = `
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: var(--gray-900);">
+                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: ${titleColor};">
                     📥 导入摘要
                 </h3>
-                <div style="font-size: 14px; color: var(--gray-500); line-height: 1.6;">
+                <div style="font-size: 14px; color: ${textColor}; line-height: 1.6;">
                     <p style="margin: 0 0 12px 0;">
                         准备导入 <strong>${analysis.valid.length + analysis.noFolder.length + analysis.tooDeep.length}</strong> 个书签：
                     </p>
@@ -3174,6 +3311,15 @@ ${options.message}
         conflicts: Bookmark[],
         allBookmarks: Bookmark[]
     ): Promise<boolean> {
+        // Dark mode detection
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgColor = isDark ? 'var(--gray-800)' : 'white';
+        const titleColor = isDark ? 'var(--gray-50)' : '#111827';
+        const textColor = isDark ? 'var(--gray-400)' : '#6b7280';
+        const strongColor = isDark ? 'var(--gray-50)' : '#111827';
+        const listBg = isDark ? 'var(--gray-900)' : '#f9fafb';
+        const borderColor = isDark ? 'var(--gray-700)' : '#e5e7eb';
+
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.style.cssText = `
@@ -3187,34 +3333,32 @@ ${options.message}
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color-scheme: light !important;
+                color-scheme: light dark;
             `;
 
             const modal = document.createElement('div');
             modal.style.cssText = `
-                background: white !important;
-                color: #111827 !important;
+                background: ${bgColor};
+                color: ${textColor};
                 border-radius: 12px;
                 box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
                 max-width: 500px;
                 width: 90%;
-                color-scheme: light !important;
-                -webkit-color-scheme: light !important;
             `;
 
             modal.innerHTML = `
             <div style="padding: 24px 24px 20px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <span style="color: #d97706; font-size: 24px; line-height: 1; flex-shrink: 0;">${Icons.alertTriangle}</span>
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: #111827; line-height: 1.2;">Duplicate Bookmarks Detected</h3>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 500; color: ${titleColor}; line-height: 1.2;">Duplicate Bookmarks Detected</h3>
                 </div>
-                <div style="color: #6b7280; font-size: 14px; line-height: 1.5;">
-                    <p style="margin: 0 0 12px 0;">Found <strong style="color: #111827;">${conflicts.length}</strong> bookmark(s) that already exist.</p>
-                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: #111827;">${allBookmarks.length}</strong></p>
+                <div style="color: ${textColor}; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0;">Found <strong style="color: ${strongColor};">${conflicts.length}</strong> bookmark(s) that already exist.</p>
+                    <p style="margin: 0 0 16px 0;">Total bookmarks to import: <strong style="color: ${strongColor};">${allBookmarks.length}</strong></p>
                     
-                    <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
+                    <div style="background: ${listBg}; border-radius: 8px; padding: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
                         ${conflicts.map(b => `
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid ${borderColor};">
                                 <span style="flex-shrink: 0; padding: 2px 8px; background: ${b.platform?.toLowerCase() === 'gemini' ? '#dbeafe' : '#d1fae5'}; color: ${b.platform?.toLowerCase() === 'gemini' ? '#1d4ed8' : '#047857'}; border-radius: 4px; font-size: 12px; font-weight: 500;">
                                     ${b.platform || 'ChatGPT'}
                                 </span>
@@ -3899,11 +4043,11 @@ ${options.message}
             }
 
             .tab-btn.active {
-                background: var(--md-primary-container);
-                color: var(--primary-600);
+                background: var(--gray-200);  /* 深灰色,不是白色 */
+                color: var(--gray-900);
                 font-weight: var(--font-medium);
                 border-left-color: var(--primary-600);
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);  /* 微妙的阴影 */
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);
             }
 
             .tab-icon {
@@ -5062,13 +5206,14 @@ ${options.message}
                 white-space: nowrap;
             }
 
-            /* Checkboxes */
+            /* Checkboxes - Deep Blue */
             .item-checkbox {
                 margin-right: 8px;
                 cursor: pointer;
                 width: 16px;
                 height: 16px;
                 flex-shrink: 0;
+                accent-color: var(--primary-600);  /* 深蓝色 */
             }
 
             .item-checkbox:focus {
@@ -5244,89 +5389,314 @@ ${options.message}
                 animation: fadeIn 0.2s ease-out;
             }
 
-            @media (prefers-color-scheme: dark) {
-                .panel {
-                    background: var(--gray-800);
-                }
+            /* ============================================
+               DARK MODE - Material Design Blue Theme
+               ============================================ */
 
-                .sidebar {
-                    background: var(--gray-900);
-                    border-color: var(--gray-700);
-                }
+            :host-context(html.dark) .panel {
+                background: var(--gray-800);
+            }
 
-                .tab-btn.active {
-                    background: var(--gray-800);
-                }
+            :host-context(html.dark) .sidebar {
+                background: var(--gray-900);
+                border-color: var(--gray-700);
+            }
 
-                .header {
-                    border-color: var(--gray-700);
-                }
+            :host-context(html.dark) .tab-btn {
+                color: var(--gray-400);
+            }
 
-                .header h2 {
-                    color: var(--gray-50);
-                }
+            :host-context(html.dark) .tab-btn:hover {
+                background: var(--gray-700);  /* 深色模式 hover */
+                color: var(--gray-50);
+            }
 
-                .close-btn {
-                    color: var(--gray-400);
-                }
+            :host-context(html.dark) .tab-btn.active {
+                background: var(--gray-700);  /* 深色模式下的深灰色 */
+                color: var(--gray-50);
+            }
 
-                .close-btn:hover {
-                    background: var(--gray-700);
-                    color: var(--gray-50);
-                }
+            :host-context(html.dark) .header {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
 
-                .toolbar {
-                    border-color: var(--gray-700);
-                }
+            :host-context(html.dark) .header h2 {
+                color: var(--gray-50);
+            }
 
-                .search-input,
-                .platform-filter {
-                    background: var(--gray-900);
-                    border-color: var(--gray-700);
-                    color: var(--gray-50);
-                }
+            :host-context(html.dark) .close-btn {
+                color: var(--gray-400);
+            }
 
-                .bookmark-item {
-                    background: var(--gray-900);
-                    border-color: var(--gray-700);
-                }
+            :host-context(html.dark) .close-btn:hover {
+                background: var(--gray-700);
+                color: var(--gray-50);
+            }
 
-                .bookmark-item:hover {
-                    background: var(--gray-800);
-                    border-color: var(--gray-600);
-                }
+            :host-context(html.dark) .toolbar {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
 
-                .title {
-                    color: var(--gray-50);
-                }
+            :host-context(html.dark) .search-input,
+            :host-context(html.dark) .platform-filter {
+                background: var(--gray-900);
+                border-color: var(--gray-700);
+                color: var(--gray-50);
+            }
 
-                .response {
-                    color: var(--gray-400);
-                }
+            :host-context(html.dark) .search-input::placeholder {
+                color: var(--gray-500);
+            }
 
-                .detail-modal {
-                    background: var(--gray-800);
-                }
+            /* Toolbar buttons dark mode */
+            :host-context(html.dark) .toolbar-icon-btn {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-200);
+            }
 
-                .detail-header {
-                    border-color: var(--gray-700);
-                }
+            :host-context(html.dark) .toolbar-icon-btn:hover {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+                color: var(--gray-50);
+            }
 
-                .detail-header h3 {
-                    color: var(--gray-50);
-                }
+            /* Platform selector dark mode */
+            :host-context(html.dark) .platform-selector {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-200);
+            }
 
-                .detail-meta {
-                    background: var(--gray-900);
-                }
+            :host-context(html.dark) .platform-selector:hover {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+            }
 
-                .detail-text {
-                    color: var(--gray-50);
-                }
+            :host-context(html.dark) .platform-selector[data-selected="all"],
+            :host-context(html.dark) .platform-selector[data-selected="chatgpt"],
+            :host-context(html.dark) .platform-selector[data-selected="gemini"] {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+            }
 
-                .detail-footer {
-                    border-color: var(--gray-700);
-                }
+            /* Platform dropdown dark mode */
+            :host-context(html.dark) .platform-dropdown {
+                background: var(--gray-800);
+                border-color: var(--gray-600);
+            }
+
+            :host-context(html.dark) .platform-option {
+                color: var(--gray-200);
+            }
+
+            :host-context(html.dark) .platform-option:hover {
+                background: var(--gray-700);
+            }
+
+            :host-context(html.dark) .platform-option[data-selected="true"] {
+                background: var(--primary-900);
+                color: var(--primary-100);
+            }
+
+            /* Tree view dark mode */
+            :host-context(html.dark) .content {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .tree-view {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .tree-item {
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .tree-item:hover {
+                background: var(--gray-700);
+            }
+
+            :host-context(html.dark) .folder-item {
+                background: var(--gray-750);
+            }
+
+            :host-context(html.dark) .folder-item.selected {
+                background: rgba(59, 130, 246, 0.2);
+                border-left-color: var(--primary-600);
+            }
+
+            :host-context(html.dark) .folder-name {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .folder-count {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .bookmark-item {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .bookmark-item:hover {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+            }
+
+            :host-context(html.dark) .bookmark-title {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .bookmark-timestamp {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .action-btn {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .action-btn:hover {
+                background: var(--gray-600);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .title {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .response {
+                color: var(--gray-400);
+            }
+
+            /* Detail modal dark mode */
+            :host-context(html.dark) .detail-modal {
+                background: var(--gray-800);
+            }
+
+            :host-context(html.dark) .detail-header {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .detail-header h3 {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .fullscreen-btn,
+            :host-context(html.dark) .detail-header .close-btn {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .fullscreen-btn:hover,
+            :host-context(html.dark) .detail-header .close-btn:hover {
+                background: var(--gray-700);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .detail-meta {
+                background: var(--gray-900);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .detail-meta-right {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .detail-section {
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .user-section {
+                background: rgba(59, 130, 246, 0.1);
+                border-left-color: var(--primary-600);
+            }
+
+            :host-context(html.dark) .ai-section {
+                background: rgba(16, 185, 129, 0.1);
+                border-left-color: var(--success-600);
+            }
+
+            :host-context(html.dark) .section-header h4 {
+                color: var(--gray-400);
+            }
+
+            :host-context(html.dark) .detail-text {
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .detail-footer {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .open-conversation-btn {
+                background: var(--primary-600);
+                color: white;
+            }
+
+            :host-context(html.dark) .open-conversation-btn:hover {
+                background: var(--primary-700);
+            }
+
+            /* Batch actions bar dark mode */
+            :host-context(html.dark) .batch-actions-bar {
+                background: rgba(31, 41, 55, 0.95);
+                border-color: var(--gray-700);
+            }
+
+            :host-context(html.dark) .batch-actions-bar .selected-count {
+                color: var(--gray-300);
+            }
+
+            :host-context(html.dark) .batch-actions-bar button {
+                background: var(--gray-700);
+                border-color: var(--gray-600);
+                color: var(--gray-200);
+            }
+
+            :host-context(html.dark) .batch-actions-bar button:hover {
+                background: var(--gray-600);
+                border-color: var(--gray-500);
+            }
+
+            /* Empty state dark mode */
+            :host-context(html.dark) .tree-empty {
+                color: var(--gray-500);
+            }
+
+            :host-context(html.dark) .tree-empty h3 {
+                color: var(--gray-300);
+            }
+
+            :host-context(html.dark) .tree-empty p {
+                color: var(--gray-500);
+            }
+
+            /* Notification/Alert dark mode */
+            :host-context(html.dark) .notification {
+                background: var(--gray-800);
+                border-color: var(--gray-700);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .notification.success {
+                background: rgba(16, 185, 129, 0.15);
+                border-color: var(--success-600);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .notification.error {
+                background: rgba(239, 68, 68, 0.15);
+                border-color: var(--danger-600);
+                color: var(--gray-50);
+            }
+
+            :host-context(html.dark) .notification.warning {
+                background: rgba(245, 158, 11, 0.15);
+                border-color: var(--warning-600);
+                color: var(--gray-50);
             }
         `;
     }

@@ -28,6 +28,12 @@ class ContentScript {
     // Simple Set-based bookmark state tracking - AITimeline pattern
     private bookmarkedPositions: Set<number> = new Set();
 
+    // Toolbar references for direct state updates
+    private toolbars = new Map<number, Toolbar>();
+
+    // Storage listener for real-time bookmark sync
+    private storageListener: ((changes: any, areaName: string) => void) | null = null;
+
     // Navigation check flag - AITimeline pattern
     private navigationChecked: boolean = false;
 
@@ -99,6 +105,9 @@ class ContentScript {
         // This prevents race condition where messages are processed before bookmarks are loaded
         await this.loadBookmarks();
 
+        // Setup storage listener for real-time bookmark sync
+        this.setupStorageListener();
+
         // Start observing (now that bookmarks are loaded)
         this.observer.start();
     }
@@ -115,6 +124,74 @@ class ContentScript {
             logger.error('[ContentScript] Failed to load bookmarks:', error);
         }
     }
+
+    /**
+     * Setup storage listener for real-time bookmark synchronization
+     * When bookmarks are added/deleted in Panel, toolbar buttons update automatically
+     */
+    private setupStorageListener(): void {
+        this.storageListener = async (changes, areaName) => {
+            if (areaName !== 'local') return;
+
+            // Debug: Log all storage changes with detailed key inspection
+            const changedKeys = Object.keys(changes);
+            logger.info('[ContentScript] 📦 Storage changed, keys:', changedKeys);
+
+            // Check each key individually for debugging
+            logger.info('[ContentScript] 🔍 Checking each key:');
+            changedKeys.forEach(key => {
+                const startsWithBookmark = key.startsWith('bookmark:');
+                logger.info(`[ContentScript]   "${key}" → startsWith('bookmark:'): ${startsWithBookmark}`);
+            });
+
+            // Check if any bookmark-related keys changed
+            // Storage uses keys like: "bookmark:gemini.google.com/app/abc:3"
+            const bookmarkKeysChanged = changedKeys.some(key =>
+                key.startsWith('bookmark:')
+            );
+
+            logger.info(`[ContentScript] 📊 Result: bookmarkKeysChanged = ${bookmarkKeysChanged}`);
+
+            if (bookmarkKeysChanged) {
+                logger.info('[ContentScript] ✅ Bookmark-related keys changed, reloading...');
+                logger.info('[ContentScript] 📝 Bookmark keys:', changedKeys.filter(k => k.startsWith('bookmark:')));
+
+                // Reload bookmarked positions for current page
+                const oldSize = this.bookmarkedPositions.size;
+                await this.loadBookmarks();
+                const newSize = this.bookmarkedPositions.size;
+
+                logger.info(`[ContentScript] 🔄 Bookmarks reloaded: ${oldSize} -> ${newSize}`);
+
+                // Update toolbars directly using saved references
+                let updatedCount = 0;
+                this.toolbars.forEach((toolbar, position) => {
+                    const isBookmarked = this.bookmarkedPositions.has(position);
+                    toolbar.setBookmarkState(isBookmarked);
+                    updatedCount++;
+                    logger.info(`[ContentScript] 🔄 Updated toolbar at position ${position}: ${isBookmarked}`);
+                });
+
+                // Dispatch custom event for any future toolbars
+                window.dispatchEvent(new CustomEvent('aicopy:bookmark-changed', {
+                    detail: { positions: Array.from(this.bookmarkedPositions) }
+                }));
+
+                logger.info(`[ContentScript] ✅ Updated ${updatedCount} toolbars via direct reference`);
+            } else {
+                logger.info('[ContentScript] ⏭️  Skipping: no bookmark keys changed');
+            }
+        };
+
+        chrome.storage.onChanged.addListener(this.storageListener);
+        logger.info('[ContentScript] Storage listener setup for bookmark sync');
+    }
+
+    /**
+     * Update all toolbar bookmark buttons on the page
+     * Called when bookmarks change in storage
+     */
+
 
     /**
      * Check for cross-page bookmark navigation - AITimeline pattern
@@ -213,6 +290,10 @@ class ContentScript {
 
         // Set initial bookmark state - AITimeline pattern
         const position = this.getMessagePosition(messageElement);
+
+        // Save toolbar reference for direct state updates
+        this.toolbars.set(position, toolbar);
+
         const isBookmarked = this.bookmarkedPositions.has(position);
         toolbar.setBookmarkState(isBookmarked);
 
