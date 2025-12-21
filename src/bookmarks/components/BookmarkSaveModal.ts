@@ -104,11 +104,11 @@ export class BookmarkSaveModal {
             .folder-empty-icon { font-size: 48px; margin-bottom: 12px; }
             .folder-empty-text { font-size: 13px; }
             .save-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--gray-200); }
-            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
+            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
             .save-modal-btn-cancel { background: var(--button-secondary-bg); color: var(--button-secondary-text); }
-            .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); }
+            .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
-            .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); }
+            .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save:disabled { background: var(--button-primary-disabled); color: var(--button-primary-disabled-text); cursor: not-allowed; opacity: 0.6; }
         `;
 
@@ -849,4 +849,3 @@ export class BookmarkSaveModal {
         });
     }
 }
-

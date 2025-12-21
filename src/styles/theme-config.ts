@@ -1,5 +1,5 @@
 /**
- * Theme Configuration - AI-Markdone
+ * Theme Configuration - AI-MarkDone
  * 
  * This file contains configurable theme settings.
  * You can easily switch themes or customize gradient colors here.

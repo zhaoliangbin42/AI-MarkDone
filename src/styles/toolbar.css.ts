@@ -5,30 +5,17 @@
  * Updated to use design tokens from design-tokens.css
  */
 
-// Import design tokens
-import './design-tokens.css';
-
 export const toolbarStyles = `
 :host {
   display: block;
   font-family: var(--font-sans);
   margin-bottom: var(--space-3);
   
-  /* Light mode theme colors - Blue theme */
-  --gradient-solid-from: #3b82f6;
-  --gradient-solid-to: #1d4ed8;
-  --gradient-light-from: rgba(59, 130, 246, 0.12);
-  --gradient-light-to: rgba(29, 78, 216, 0.12);
-  --theme-color: #3b82f6;
-}
-
-/* Dark mode theme colors - follows host website theme */
-:host-context(html.dark) :host {
-  --gradient-solid-from: #60a5fa;
-  --gradient-solid-to: #3b82f6;
-  --gradient-light-from: rgba(96, 165, 250, 0.25);
-  --gradient-light-to: rgba(59, 130, 246, 0.25);
-  --theme-color: #60a5fa;
+  --gradient-solid-from: var(--toolbar-gradient-solid-from);
+  --gradient-solid-to: var(--toolbar-gradient-solid-to);
+  --gradient-light-from: var(--toolbar-gradient-light-from);
+  --gradient-light-to: var(--toolbar-gradient-light-to);
+  --theme-color: var(--toolbar-theme-color);
 }
 
 /* Notion-style floating toolbar */
@@ -39,7 +26,7 @@ export const toolbarStyles = `
   gap: var(--space-1);
   
   /* Glassmorphism */
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--toolbar-bg);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   
@@ -48,9 +35,9 @@ export const toolbarStyles = `
   
   /* Use box-shadow for both border and elevation - no clipping */
   box-shadow: 
-    inset 0 0 0 1px rgba(0, 0, 0, 0.06),  /* Border as inset shadow */
-    0 1px 2px rgba(0, 0, 0, 0.06),         /* Close shadow */
-    0 2px 4px rgba(0, 0, 0, 0.04);         /* Subtle depth */
+    inset 0 0 0 1px var(--toolbar-border),  /* Border as inset shadow */
+    0 1px 2px var(--toolbar-shadow-1),       /* Close shadow */
+    0 2px 4px var(--toolbar-shadow-2);       /* Subtle depth */
   
   /* Compact padding */
   padding: 4px;
@@ -71,9 +58,9 @@ export const toolbarStyles = `
   /* Lift on hover with slightly stronger shadow */
   transform: translateY(-1px);
   box-shadow: 
-    inset 0 0 0 1px rgba(0, 0, 0, 0.08),  /* Slightly darker border */
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    0 4px 8px rgba(0, 0, 0, 0.06);
+    inset 0 0 0 1px var(--toolbar-border-strong),  /* Slightly darker border */
+    0 2px 4px var(--toolbar-hover-shadow-1),
+    0 4px 8px var(--toolbar-hover-shadow-2);
 }
 
 /* Bookmarked state - entire toolbar highlights */
@@ -81,48 +68,16 @@ export const toolbarStyles = `
   background: linear-gradient(135deg, var(--gradient-light-from), var(--gradient-light-to));
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 2px 4px rgba(0, 0, 0, 0.04);
+    0 1px 2px var(--toolbar-shadow-1),
+    0 2px 4px var(--toolbar-shadow-2);
 }
 
 .aicopy-toolbar.bookmarked:hover {
   transform: translateY(-1px);
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    0 4px 8px rgba(0, 0, 0, 0.06);
-}
-
-/* Dark mode toolbar - follows host website theme */
-:host-context(html.dark) .aicopy-toolbar {
-  background: rgba(40, 40, 40, 0.98);
-  box-shadow: 
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),  /* Border */
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-:host-context(html.dark) .aicopy-toolbar:hover {
-  box-shadow: 
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* Dark mode bookmarked state - MUST come after general dark mode for specificity */
-:host-context(html.dark) .aicopy-toolbar.bookmarked {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.15)) !important;
-  box-shadow: 
-    inset 0 0 0 1px rgba(59, 130, 246, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3) !important;
-}
-
-:host-context(html.dark) .aicopy-toolbar.bookmarked:hover {
-  box-shadow: 
-    inset 0 0 0 1px rgba(59, 130, 246, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.4) !important;
+    0 2px 4px var(--toolbar-hover-shadow-1),
+    0 4px 8px var(--toolbar-hover-shadow-2);
 }
 
 .aicopy-button-group {
@@ -135,13 +90,9 @@ export const toolbarStyles = `
 .aicopy-divider {
   width: 1px;
   height: 24px;
-  background: var(--gray-200);
+  background: var(--toolbar-divider);
   margin: 0 4px;
   flex-shrink: 0;
-}
-
-:host-context(html.dark) .aicopy-divider {
-  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Notion-style rounded buttons */
@@ -156,7 +107,7 @@ export const toolbarStyles = `
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--gray-600);
+  color: var(--toolbar-button-text);
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
@@ -166,13 +117,13 @@ export const toolbarStyles = `
 }
 
 .aicopy-button:hover {
-  background: var(--gray-100);
-  color: var(--gray-900);
+  background: var(--toolbar-button-hover-bg);
+  color: var(--toolbar-button-hover-text);
 }
 
 .aicopy-button:active {
   transform: scale(0.96);
-  background: var(--gray-200);
+  background: var(--toolbar-button-active-bg);
 }
 
 .aicopy-button:disabled {
@@ -180,22 +131,9 @@ export const toolbarStyles = `
   cursor: not-allowed;
 }
 
-:host-context(html.dark) .aicopy-button {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-:host-context(html.dark) .aicopy-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-:host-context(html.dark) .aicopy-button:active {
-  background: rgba(255, 255, 255, 0.12);
-}
-
 /* Button hover in bookmarked toolbar - light blue for visibility */
 .aicopy-toolbar.bookmarked .aicopy-button:not(.bookmarked):hover {
-  background: rgba(59, 130, 246, 0.2);
+  background: var(--toolbar-bookmark-hover-bg);
   color: var(--theme-color);
 }
 
@@ -250,15 +188,11 @@ export const toolbarStyles = `
   justify-content: center;
   font-size: 11px;
   line-height: 1.3;
-  color: var(--gray-600);
+  color: var(--toolbar-stats-text);
   white-space: nowrap;
   padding: 0 6px;
   min-width: 60px;
   cursor: default;
   user-select: none;
-}
-
-:host-context(html.dark) .aicopy-stats {
-  color: rgba(255, 255, 255, 0.5);
 }
 `;

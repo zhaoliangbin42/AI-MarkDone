@@ -1,5 +1,5 @@
 /**
- * Design Tokens - AI-Markdone
+ * Design Tokens - AI-MarkDone
  * 
  * This file contains all design tokens (CSS custom properties) for the extension.
  * These tokens ensure consistency across all UI components.
@@ -112,6 +112,43 @@
     --danger-700: #B91C1C;
 
 
+    /* ============================================
+     COMPONENT TOKENS
+     ============================================ */
+
+    /* Toolbar */
+    --toolbar-gradient-solid-from: #3B82F6;
+    --toolbar-gradient-solid-to: #1D4ED8;
+    --toolbar-gradient-light-from: rgba(59, 130, 246, 0.12);
+    --toolbar-gradient-light-to: rgba(29, 78, 216, 0.12);
+    --toolbar-theme-color: #3B82F6;
+    --toolbar-bg: rgba(255, 255, 255, 0.98);
+    --toolbar-border: rgba(0, 0, 0, 0.06);
+    --toolbar-border-strong: rgba(0, 0, 0, 0.08);
+    --toolbar-shadow-1: rgba(0, 0, 0, 0.06);
+    --toolbar-shadow-2: rgba(0, 0, 0, 0.04);
+    --toolbar-hover-shadow-1: rgba(0, 0, 0, 0.08);
+    --toolbar-hover-shadow-2: rgba(0, 0, 0, 0.06);
+    --toolbar-divider: var(--gray-200);
+    --toolbar-button-text: var(--gray-600);
+    --toolbar-button-hover-bg: var(--gray-100);
+    --toolbar-button-hover-text: var(--gray-900);
+    --toolbar-button-active-bg: var(--gray-200);
+    --toolbar-stats-text: var(--gray-600);
+    --toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.2);
+
+    /* Modal */
+    --modal-overlay-bg: rgba(0, 0, 0, 0.6);
+    --modal-surface: #FFFFFF;
+    --modal-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.12),
+        0 16px 48px rgba(0, 0, 0, 0.18),
+        0 24px 80px rgba(0, 0, 0, 0.12);
+    --modal-primary-bg: #2563EB;
+    --modal-primary-text: #FFFFFF;
+    --modal-primary-hover-bg: #1D4ED8;
+    --modal-primary-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+
 
     /* ============================================
      PLATFORM COLORS
@@ -121,11 +158,15 @@
     --chatgpt-light: #D1FAE5;
     --chatgpt-dark: #065F46;
     --chatgpt-icon: #10A37F;
+    --platform-chatgpt-bg: #D1FAE5;
+    --platform-chatgpt-text: #065F46;
 
     /* Gemini */
     --gemini-light: #DBEAFE;
     --gemini-dark: #1E40AF;
     --gemini-icon: #4285F4;
+    --platform-gemini-bg: #DBEAFE;
+    --platform-gemini-text: #1E40AF;
 
 
     /* ============================================
@@ -457,6 +498,43 @@ html.dark {
     --danger-700: #FECACA;
 
     /* ============================================
+     COMPONENT TOKENS (Dark Mode)
+     ============================================ */
+
+    /* Toolbar */
+    --toolbar-gradient-solid-from: #60A5FA;
+    --toolbar-gradient-solid-to: #3B82F6;
+    --toolbar-gradient-light-from: rgba(96, 165, 250, 0.25);
+    --toolbar-gradient-light-to: rgba(59, 130, 246, 0.25);
+    --toolbar-theme-color: #60A5FA;
+    --toolbar-bg: rgba(40, 40, 40, 0.98);
+    --toolbar-border: rgba(255, 255, 255, 0.08);
+    --toolbar-border-strong: rgba(255, 255, 255, 0.12);
+    --toolbar-shadow-1: rgba(0, 0, 0, 0.4);
+    --toolbar-shadow-2: rgba(0, 0, 0, 0.3);
+    --toolbar-hover-shadow-1: rgba(0, 0, 0, 0.5);
+    --toolbar-hover-shadow-2: rgba(0, 0, 0, 0.4);
+    --toolbar-divider: rgba(255, 255, 255, 0.12);
+    --toolbar-button-text: rgba(255, 255, 255, 0.6);
+    --toolbar-button-hover-bg: rgba(255, 255, 255, 0.08);
+    --toolbar-button-hover-text: rgba(255, 255, 255, 0.9);
+    --toolbar-button-active-bg: rgba(255, 255, 255, 0.12);
+    --toolbar-stats-text: rgba(255, 255, 255, 0.5);
+    --toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.2);
+
+    /* Modal */
+    --modal-overlay-bg: rgba(0, 0, 0, 0.8);
+    --modal-surface: #1E1E1E;
+    --modal-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.5),
+        0 16px 48px rgba(0, 0, 0, 0.6),
+        0 24px 80px rgba(0, 0, 0, 0.4);
+    --modal-primary-bg: #3B82F6;
+    --modal-primary-text: #FFFFFF;
+    --modal-primary-hover-bg: #2563EB;
+    --modal-primary-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+
+    /* ============================================
      PLATFORM COLORS (Dark Mode)
      ============================================ */
 
@@ -464,11 +542,15 @@ html.dark {
     --chatgpt-light: #065F46;
     --chatgpt-dark: #10B981;
     --chatgpt-icon: #34D399;
+    --platform-chatgpt-bg: #064E3B;
+    --platform-chatgpt-text: #6EE7B7;
 
     /* Gemini */
     --gemini-light: #1E40AF;
     --gemini-dark: #60A5FA;
     --gemini-icon: #93C5FD;
+    --platform-gemini-bg: #1E3A8A;
+    --platform-gemini-text: #93C5FD;
 
     /* ============================================
      SHADOWS (Dark Mode - Enhanced for visibility)

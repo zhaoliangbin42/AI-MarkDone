@@ -10,6 +10,7 @@ test/
 memory/
 private/
 prompts/
+docs/
 *.private.md
 *-internal.md
 

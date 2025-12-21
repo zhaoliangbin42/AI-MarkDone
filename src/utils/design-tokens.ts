@@ -176,6 +176,7 @@ export class DesignTokens {
             /* Interactive Colors */
             --interactive-primary: var(--color-blue-600);
             --interactive-primary-hover: var(--color-blue-700);
+            --interactive-selected: rgba(59, 130, 246, 0.12);
             --interactive-secondary: var(--color-gray-100);
             --interactive-secondary-hover: var(--color-gray-200);
             --interactive-hover: var(--color-gray-100);
@@ -363,6 +364,7 @@ export class DesignTokens {
             /* Interactive Colors */
             --interactive-primary: var(--color-blue-400);
             --interactive-primary-hover: var(--color-blue-500);
+            --interactive-selected: rgba(59, 130, 246, 0.2);
             --interactive-secondary: var(--color-gray-dark-100);
             --interactive-secondary-hover: var(--color-gray-dark-200);
             --interactive-hover: var(--color-gray-dark-100);

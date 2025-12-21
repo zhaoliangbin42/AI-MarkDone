@@ -1,7 +1,8 @@
 <div align="center">
-  <img src="./public/icons/icon128.png" alt="AI-Markdone Logo" width="100" height="100">
-  <h1>AI-Markdone</h1>
-  <p><strong>ChatGPT & Gemini Markdown 复制，从未如此轻松 ✨</strong></p>
+  <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
+  <h1>AI-MarkDone</h1>
+  <p><strong>AI-MarkDone —— 为你的ChatGPT和Gemini加上对话复制、阅读模式、书签系统。✨</strong></p>
+  <p><em>从此你再也不用受公式渲染失败的烦恼，并且能轻易找到任何一条以前的重要消息。</em></p>
 
   中文文档 | [English](./README.md)
 </div>
@@ -67,6 +68,12 @@
 - 针对中日韩（CJK）做了特殊处理：`1 个 CJK 字 = 1 word + 2 chars`
 - 实时统计当前对话的字数、字符数
 - 自动排除代码块、数学公式等内容，统计更贴近真实“正文长度”
+
+### 🔖 书签与文件夹管理
+
+- 一键将单条 AI 回复保存为书签
+- 在专用面板中管理书签，并按文件夹分类整理
+- 支持跨平台的书签搜索与筛选，快速回到目标内容
 
 ---
 

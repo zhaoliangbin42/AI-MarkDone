@@ -1,4 +1,4 @@
-# Contributing to AI-Markdone
+# Contributing to AI-MarkDone
 
 Thank you for your interest in contributing! 🎉
 
@@ -22,13 +22,19 @@ Have an idea? We'd love to hear it! Open an issue with:
 
 ### Setup
 ```bash
-git clone https://github.com/yourusername/AI_Copy_Enhance.git
-cd AI_Copy_Enhance
+git clone https://github.com/zhaoliangbin42/AI-MarkDone.git
+cd AI-MarkDone
 npm install
 npm run dev
 ```
 
 Load `dist/` in Chrome's extension page (`chrome://extensions/`) with Developer Mode enabled.
+
+Optional checks:
+```bash
+npm run type-check
+npm run test:unit
+```
 
 ### Guidelines
 1. **One feature per PR** - Keep changes focused
@@ -50,7 +56,7 @@ Load `dist/` in Chrome's extension page (`chrome://extensions/`) with Developer 
 - **Components**: UI in `src/content/components/` (Shadow DOM)
 - **Features**: Standalone features in `src/content/features/`
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for details.
+See `docs/spec/SPEC-001.md` for details.
 
 ### Testing
 Manual testing checklist (run before submitting PR):

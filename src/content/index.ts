@@ -1,5 +1,5 @@
-// CSS is loaded via manifest.json - see content_scripts.css declaration
-// This follows Chrome extension best practices for optimal performance
+// Design tokens are injected once by the content script to keep them global.
+import designTokensCss from '../styles/design-tokens.css?raw';
 
 import { adapterRegistry } from './adapters/registry';
 import { MessageObserver } from './observers/mutation-observer';
@@ -45,6 +45,8 @@ class ContentScript {
     private processingElements: WeakSet<HTMLElement> = new WeakSet();
 
     constructor() {
+        this.ensureDesignTokens();
+
         // Use INFO in production; switch to DEBUG locally when needed
         logger.setLevel(LogLevel.INFO);
 
@@ -68,7 +70,20 @@ class ContentScript {
             }
         });
 
-        logger.info('AI-Markdone initialized');
+        logger.info('AI-MarkDone initialized');
+    }
+
+    /**
+     * Inject shared design tokens into the page once.
+     */
+    private ensureDesignTokens(): void {
+        const existing = document.getElementById('aicopy-design-tokens');
+        if (existing) return;
+
+        const style = document.createElement('style');
+        style.id = 'aicopy-design-tokens';
+        style.textContent = designTokensCss;
+        (document.head || document.documentElement).appendChild(style);
     }
 
     /**
@@ -723,7 +738,7 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
  * Initialize extension and setup URL change detection
  */
 function initExtension() {
-    logger.info('Initializing AI-Markdone extension');
+    logger.info('Initializing AI-MarkDone extension');
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
 

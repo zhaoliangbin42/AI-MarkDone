@@ -4,7 +4,7 @@
 
 ## Data Collection
 
-AI-Markdone does **not collect, store, or transmit any user data**.
+AI-MarkDone does **not collect, store, or transmit any user data**.
 
 ## What We Don't Collect
 

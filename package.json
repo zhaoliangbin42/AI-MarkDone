@@ -1,8 +1,8 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "1.2.0",
-    "description": "AI-Markdone: ChatGPT & Gemini enhancement - One-click Markdown copy, formatted preview, word count, perfect math formula support. Compatible with Typora/Obsidian.",
+    "version": "2.0.0",
+    "description": "AI-MarkDone: ChatGPT & Gemini enhancement - One-click Markdown copy, formatted preview, word count, perfect math formula support. Compatible with Typora/Obsidian.",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -10,8 +10,7 @@
         "postbuild": "cp manifest.json dist/ && mkdir -p dist/icons && cp public/icons/*.png dist/icons/",
         "preview": "vite preview",
         "type-check": "tsc --noEmit",
-        "test:parser": "tsx scripts/parser-cli.ts",
-        "test:prod": "tsx scripts/prod-parser-cli.ts"
+        "test:unit": "node --test tests/unit/*.test.js"
     },
     "dependencies": {
         "katex": "^0.16.9",

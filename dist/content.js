@@ -58,6 +58,8 @@ const scriptRel = 'modulepreload';const assetsURL = function(dep) { return "/"+d
   });
 };
 
+const designTokensCss = "/**\n * Design Tokens - AI-MarkDone\n * \n * This file contains all design tokens (CSS custom properties) for the extension.\n * These tokens ensure consistency across all UI components.\n * \n * Based on: design_system.md\n * Version: 1.0.0\n * Last Updated: 2025-12-16\n */\n\n:root {\n    /* ============================================\n     NEUTRAL COLORS (Gray Scale)\n     ============================================ */\n\n    /* Lightest - Backgrounds, subtle dividers */\n    --gray-50: #F9FAFB;\n\n    /* Hover states, disabled backgrounds */\n    --gray-100: #F3F4F6;\n\n    /* Borders, dividers */\n    --gray-200: #E5E7EB;\n\n    /* Inactive borders */\n    --gray-300: #D1D5DB;\n\n    /* Placeholder text, tertiary icons */\n    --gray-400: #9CA3AF;\n\n    /* Secondary text, default icons */\n    --gray-500: #6B7280;\n\n    /* Primary text hover */\n    --gray-600: #4B5563;\n\n    /* Headings, emphasized text */\n    --gray-700: #374151;\n\n    /* Dark backgrounds */\n    --gray-800: #1F2937;\n\n    /* Primary text, headings */\n    --gray-900: #111827;\n\n\n    /* ============================================\n     PRIMARY COLORS (Material Blue)\n     ============================================ */\n\n    /* Material Design 3 - Primary Scale */\n    --primary-50: #E3F2FD;\n    /* Light Blue 50 */\n    --primary-100: #BBDEFB;\n    /* Light Blue 100 */\n    --primary-200: #90CAF9;\n    /* Light Blue 200 */\n    --primary-300: #64B5F6;\n    /* Light Blue 300 */\n    --primary-400: #42A5F5;\n    /* Light Blue 400 */\n    --primary-500: #2196F3;\n    /* Light Blue 500 - Main */\n    --primary-600: #1976D2;\n    /* Blue 700 - Primary */\n    --primary-700: #1565C0;\n    /* Blue 800 - Hover */\n    --primary-800: #0D47A1;\n    /* Blue 900 - Active */\n\n    /* Material Design 3 - Surface Colors */\n    --md-surface: #FFFFFF;\n    --md-surface-variant: #F5F5F5;\n    --md-surface-container: #FAFAFA;\n    --md-surface-container-high: #EEEEEE;\n    --md-on-surface: #1C1B1F;\n    --md-on-surface-variant: #49454F;\n\n    /* Material Design 3 - Primary Container */\n    --md-primary-container: #E3F2FD;\n    --md-on-primary-container: #0D47A1;\n\n    /* Material Design 3 - Outline */\n    --md-outline: #E0E0E0;\n    --md-outline-variant: #EEEEEE;\n\n\n    /* ============================================\n     SEMANTIC COLORS\n     ============================================ */\n\n    /* Success (Green) */\n    --success-50: #F0FDF4;\n    --success-100: #DCFCE7;\n    --success-500: #22C55E;\n    --success-600: #16A34A;\n    --success-700: #15803D;\n\n    /* Warning (Amber) */\n    --warning-50: #FFFBEB;\n    --warning-100: #FEF3C7;\n    --warning-500: #F59E0B;\n    --warning-600: #D97706;\n    --warning-700: #B45309;\n\n    /* Danger (Red) */\n    --danger-50: #FEF2F2;\n    --danger-100: #FEE2E2;\n    --danger-500: #EF4444;\n    --danger-600: #DC2626;\n    --danger-700: #B91C1C;\n\n\n    /* ============================================\n     COMPONENT TOKENS\n     ============================================ */\n\n    /* Toolbar */\n    --toolbar-gradient-solid-from: #3B82F6;\n    --toolbar-gradient-solid-to: #1D4ED8;\n    --toolbar-gradient-light-from: rgba(59, 130, 246, 0.12);\n    --toolbar-gradient-light-to: rgba(29, 78, 216, 0.12);\n    --toolbar-theme-color: #3B82F6;\n    --toolbar-bg: rgba(255, 255, 255, 0.98);\n    --toolbar-border: rgba(0, 0, 0, 0.06);\n    --toolbar-border-strong: rgba(0, 0, 0, 0.08);\n    --toolbar-shadow-1: rgba(0, 0, 0, 0.06);\n    --toolbar-shadow-2: rgba(0, 0, 0, 0.04);\n    --toolbar-hover-shadow-1: rgba(0, 0, 0, 0.08);\n    --toolbar-hover-shadow-2: rgba(0, 0, 0, 0.06);\n    --toolbar-divider: var(--gray-200);\n    --toolbar-button-text: var(--gray-600);\n    --toolbar-button-hover-bg: var(--gray-100);\n    --toolbar-button-hover-text: var(--gray-900);\n    --toolbar-button-active-bg: var(--gray-200);\n    --toolbar-stats-text: var(--gray-600);\n    --toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.2);\n\n    /* Modal */\n    --modal-overlay-bg: rgba(0, 0, 0, 0.6);\n    --modal-surface: #FFFFFF;\n    --modal-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08),\n        0 4px 12px rgba(0, 0, 0, 0.12),\n        0 16px 48px rgba(0, 0, 0, 0.18),\n        0 24px 80px rgba(0, 0, 0, 0.12);\n    --modal-primary-bg: #2563EB;\n    --modal-primary-text: #FFFFFF;\n    --modal-primary-hover-bg: #1D4ED8;\n    --modal-primary-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);\n\n\n    /* ============================================\n     PLATFORM COLORS\n     ============================================ */\n\n    /* ChatGPT */\n    --chatgpt-light: #D1FAE5;\n    --chatgpt-dark: #065F46;\n    --chatgpt-icon: #10A37F;\n    --platform-chatgpt-bg: #D1FAE5;\n    --platform-chatgpt-text: #065F46;\n\n    /* Gemini */\n    --gemini-light: #DBEAFE;\n    --gemini-dark: #1E40AF;\n    --gemini-icon: #4285F4;\n    --platform-gemini-bg: #DBEAFE;\n    --platform-gemini-text: #1E40AF;\n\n\n    /* ============================================\n     SPACING (8px Grid System)\n     ============================================ */\n\n    --space-0: 0px;\n    --space-1: 4px;\n    /* Micro spacing */\n    --space-2: 8px;\n    /* Small gaps, button padding */\n    --space-3: 12px;\n    /* Default gaps, input padding */\n    --space-4: 16px;\n    /* Component padding */\n    --space-5: 20px;\n    --space-6: 24px;\n    /* Section spacing */\n    --space-8: 32px;\n    /* Large sections */\n    --space-10: 40px;\n    --space-12: 48px;\n    /* Page sections */\n    --space-16: 64px;\n    /* Major divisions */\n    --space-20: 80px;\n    --space-24: 96px;\n\n\n    /* ============================================\n     TYPOGRAPHY\n     ============================================ */\n\n    /* Font Families */\n    --font-sans: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto,\n        \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif;\n    --font-mono: \"SF Mono\", Monaco, \"Cascadia Code\", \"Roboto Mono\",\n        \"Courier New\", monospace;\n\n    /* Font Sizes */\n    --text-xs: 12px;\n    /* Captions, footnotes, badges */\n    --text-sm: 13px;\n    /* Secondary text, labels */\n    --text-base: 14px;\n    /* Body text (default) */\n    --text-lg: 16px;\n    /* Large body text */\n    --text-xl: 18px;\n    /* Subheadings */\n    --text-2xl: 20px;\n    /* Section headings */\n    --text-3xl: 24px;\n    /* Page titles */\n\n    /* Font Weights */\n    --font-normal: 400;\n    /* Body text */\n    --font-medium: 500;\n    /* Emphasis, labels */\n    --font-semibold: 600;\n    /* Subheadings, buttons */\n    --font-bold: 700;\n    /* Headings, strong emphasis */\n\n    /* Line Heights */\n    --leading-tight: 1.25;\n    /* Headings */\n    --leading-normal: 1.5;\n    /* Body text */\n    --leading-relaxed: 1.75;\n    /* Long-form content */\n\n\n    /* ============================================\n     BORDER RADIUS (Material Design 3)\n     ============================================ */\n\n    --radius-none: 0px;\n    --radius-extra-small: 4px;\n    /* Extra small elements */\n    --radius-small: 8px;\n    /* Buttons, chips, small cards */\n    --radius-medium: 12px;\n    /* Cards, inputs, medium containers */\n    --radius-large: 16px;\n    /* Panels, dialogs, large containers */\n    --radius-extra-large: 28px;\n    /* Extra large containers */\n    --radius-full: 9999px;\n    /* Pills, avatars, badges */\n\n\n    /* ============================================\n     SHADOWS (Material Design 3 Elevation)\n     ============================================ */\n\n    /* Elevation 0 - No shadow */\n    --shadow-none: none;\n    --elevation-0: none;\n\n    /* Elevation 1 - Subtle (raised buttons, cards) */\n    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);\n    --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);\n\n    /* Elevation 2 - Hover states */\n    --shadow-sm: 0 1px 5px rgba(0, 0, 0, 0.2), 0 2px 2px rgba(0, 0, 0, 0.14);\n    --elevation-2: 0 1px 5px rgba(0, 0, 0, 0.2), 0 2px 2px rgba(0, 0, 0, 0.14);\n\n    /* Elevation 3 - Panels, modals */\n    --shadow-md: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);\n    --elevation-3: 0 3px 5px rgba(0, 0, 0, 0.2), 0 1px 18px rgba(0, 0, 0, 0.12);\n\n    /* Elevation 4 - Dropdowns, menus */\n    --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.2), 0 4px 5px rgba(0, 0, 0, 0.14);\n    --elevation-4: 0 2px 4px rgba(0, 0, 0, 0.2), 0 4px 5px rgba(0, 0, 0, 0.14);\n\n    /* Elevation 5 - Dialogs */\n    --shadow-xl: 0 8px 10px rgba(0, 0, 0, 0.14), 0 3px 14px rgba(0, 0, 0, 0.12);\n    --elevation-5: 0 8px 10px rgba(0, 0, 0, 0.14), 0 3px 14px rgba(0, 0, 0, 0.12);\n\n    /* Maximum elevation */\n    --shadow-2xl: 0 24px 38px rgba(0, 0, 0, 0.14), 0 9px 46px rgba(0, 0, 0, 0.12);\n\n    /* Focus ring (Material Design) */\n    --shadow-focus: 0 0 0 3px rgba(25, 118, 210, 0.1);\n\n\n    /* ============================================\n     ICON SIZES\n     ============================================ */\n\n    --icon-xs: 14px;\n    /* Inline with text */\n    --icon-sm: 16px;\n    /* Default UI */\n    --icon-md: 20px;\n    /* Large buttons */\n    --icon-lg: 24px;\n    /* Headers */\n    --icon-xl: 32px;\n    /* Feature highlights */\n\n\n    /* ============================================\n     ANIMATION & TRANSITIONS\n     ============================================ */\n\n    /* Duration */\n    --duration-fast: 150ms;\n    /* Micro-interactions */\n    --duration-base: 200ms;\n    /* Standard transitions */\n    --duration-slow: 300ms;\n    /* Complex animations */\n    --duration-slower: 500ms;\n    /* Large movements */\n\n    /* Easing Functions */\n    --ease-in: cubic-bezier(0.4, 0, 1, 1);\n    --ease-out: cubic-bezier(0, 0, 0.2, 1);\n    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);\n    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);\n\n\n    /* ============================================\n     Z-INDEX SCALE\n     ============================================ */\n\n    --z-dropdown: 1000;\n    --z-sticky: 1020;\n    --z-fixed: 1030;\n    --z-modal-backdrop: 2147483646;\n    /* Maximum z-index - 1 for backdrop */\n    --z-modal: 2147483647;\n    /* Maximum z-index for modal */\n    --z-popover: 2147483647;\n    --z-tooltip: 2147483647;\n}\n\n\n/* ============================================\n   DARK MODE\n   ============================================ */\n\n/**\n * Dark mode tokens - activated when host website (ChatGPT/Gemini) is in dark mode\n * Uses html.dark selector to follow host website theme, not system preference\n * All colors validated for WCAG AA compliance (4.5:1+ contrast)\n */\n\nhtml.dark {\n    /* ============================================\n     NEUTRAL COLORS (Dark Mode)\n     ============================================ */\n\n    /* Darkest - Backgrounds, subtle dividers */\n    --gray-50: #18181B;\n\n    /* Elevated surfaces */\n    --gray-100: #27272A;\n\n    /* Borders, dividers */\n    --gray-200: #3F3F46;\n\n    /* Inactive borders */\n    --gray-300: #52525B;\n\n    /* Tertiary text, icons */\n    --gray-400: #A1A1AA;\n\n    /* Secondary text, default icons */\n    --gray-500: #D4D4D8;\n\n    /* Primary text hover */\n    --gray-600: #E4E4E7;\n\n    /* Emphasized text */\n    --gray-700: #F4F4F5;\n\n    /* High contrast backgrounds */\n    --gray-800: #FAFAFA;\n\n    /* Primary text, headings */\n    --gray-900: #FFFFFF;\n\n    /* ============================================\n     PRIMARY COLORS (Dark Mode - Blue)\n     ============================================ */\n\n    /* Darkest primary */\n    --primary-50: #0D47A1;\n\n    /* Dark primary */\n    --primary-100: #1565C0;\n\n    /* Primary */\n    --primary-200: #1976D2;\n\n    /* Light primary */\n    --primary-300: #42A5F5;\n\n    /* Lighter primary */\n    --primary-400: #64B5F6;\n\n    /* Main primary (dark mode) */\n    --primary-500: #90CAF9;\n\n    /* Hover state */\n    --primary-600: #BBDEFB;\n\n    /* Active state */\n    --primary-700: #E3F2FD;\n\n    /* ============================================\n     MATERIAL DESIGN 3 - SURFACE COLORS (Dark)\n     ============================================ */\n\n    /* Base surface */\n    --md-surface: #121212;\n\n    /* Variant surface */\n    --md-surface-variant: #1E1E1E;\n\n    /* Container surface */\n    --md-surface-container: #2C2C2C;\n\n    /* High elevation container */\n    --md-surface-container-high: #3A3A3A;\n\n    /* Text on surface */\n    --md-on-surface: #E3E3E3;\n\n    /* Text on surface variant */\n    --md-on-surface-variant: #CAC4D0;\n\n    /* ============================================\n     MATERIAL DESIGN 3 - PRIMARY CONTAINER (Dark)\n     ============================================ */\n\n    /* Primary container background */\n    --md-primary-container: #004A77;\n\n    /* Text on primary container */\n    --md-on-primary-container: #C5E7FF;\n\n    /* ============================================\n     MATERIAL DESIGN 3 - OUTLINE (Dark)\n     ============================================ */\n\n    /* Default outline */\n    --md-outline: #938F99;\n\n    /* Variant outline */\n    --md-outline-variant: #49454F;\n\n    /* ============================================\n     SEMANTIC COLORS (Dark Mode)\n     ============================================ */\n\n    /* Success (Green) */\n    --success-50: #15803D;\n    --success-100: #16A34A;\n    --success-200: #22C55E;\n    --success-300: #4ADE80;\n    --success-400: #86EFAC;\n    --success-500: #4ADE80;\n    --success-600: #86EFAC;\n    --success-700: #BBF7D0;\n\n    /* Warning (Amber) */\n    --warning-50: #B45309;\n    --warning-100: #D97706;\n    --warning-200: #F59E0B;\n    --warning-300: #FBBF24;\n    --warning-400: #FCD34D;\n    --warning-500: #FCD34D;\n    --warning-600: #FDE68A;\n    --warning-700: #FEF3C7;\n\n    /* Danger (Red) */\n    --danger-50: #B91C1C;\n    --danger-100: #DC2626;\n    --danger-200: #EF4444;\n    --danger-300: #F87171;\n    --danger-400: #FCA5A5;\n    --danger-500: #F87171;\n    --danger-600: #FCA5A5;\n    --danger-700: #FECACA;\n\n    /* ============================================\n     COMPONENT TOKENS (Dark Mode)\n     ============================================ */\n\n    /* Toolbar */\n    --toolbar-gradient-solid-from: #60A5FA;\n    --toolbar-gradient-solid-to: #3B82F6;\n    --toolbar-gradient-light-from: rgba(96, 165, 250, 0.25);\n    --toolbar-gradient-light-to: rgba(59, 130, 246, 0.25);\n    --toolbar-theme-color: #60A5FA;\n    --toolbar-bg: rgba(40, 40, 40, 0.98);\n    --toolbar-border: rgba(255, 255, 255, 0.08);\n    --toolbar-border-strong: rgba(255, 255, 255, 0.12);\n    --toolbar-shadow-1: rgba(0, 0, 0, 0.4);\n    --toolbar-shadow-2: rgba(0, 0, 0, 0.3);\n    --toolbar-hover-shadow-1: rgba(0, 0, 0, 0.5);\n    --toolbar-hover-shadow-2: rgba(0, 0, 0, 0.4);\n    --toolbar-divider: rgba(255, 255, 255, 0.12);\n    --toolbar-button-text: rgba(255, 255, 255, 0.6);\n    --toolbar-button-hover-bg: rgba(255, 255, 255, 0.08);\n    --toolbar-button-hover-text: rgba(255, 255, 255, 0.9);\n    --toolbar-button-active-bg: rgba(255, 255, 255, 0.12);\n    --toolbar-stats-text: rgba(255, 255, 255, 0.5);\n    --toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.2);\n\n    /* Modal */\n    --modal-overlay-bg: rgba(0, 0, 0, 0.8);\n    --modal-surface: #1E1E1E;\n    --modal-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1),\n        0 4px 12px rgba(0, 0, 0, 0.5),\n        0 16px 48px rgba(0, 0, 0, 0.6),\n        0 24px 80px rgba(0, 0, 0, 0.4);\n    --modal-primary-bg: #3B82F6;\n    --modal-primary-text: #FFFFFF;\n    --modal-primary-hover-bg: #2563EB;\n    --modal-primary-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);\n\n    /* ============================================\n     PLATFORM COLORS (Dark Mode)\n     ============================================ */\n\n    /* ChatGPT */\n    --chatgpt-light: #065F46;\n    --chatgpt-dark: #10B981;\n    --chatgpt-icon: #34D399;\n    --platform-chatgpt-bg: #064E3B;\n    --platform-chatgpt-text: #6EE7B7;\n\n    /* Gemini */\n    --gemini-light: #1E40AF;\n    --gemini-dark: #60A5FA;\n    --gemini-icon: #93C5FD;\n    --platform-gemini-bg: #1E3A8A;\n    --platform-gemini-text: #93C5FD;\n\n    /* ============================================\n     SHADOWS (Dark Mode - Enhanced for visibility)\n     ============================================ */\n\n    /* Extra small shadow */\n    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);\n\n    /* Small shadow */\n    --shadow-sm: 0 1px 5px rgba(0, 0, 0, 0.4), 0 2px 2px rgba(0, 0, 0, 0.28);\n\n    /* Medium shadow */\n    --shadow-md: 0 3px 5px rgba(0, 0, 0, 0.4), 0 1px 18px rgba(0, 0, 0, 0.24);\n\n    /* Large shadow */\n    --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 5px rgba(0, 0, 0, 0.28);\n\n    /* Extra large shadow */\n    --shadow-xl: 0 8px 10px rgba(0, 0, 0, 0.28), 0 3px 14px rgba(0, 0, 0, 0.24);\n\n    /* 2X large shadow */\n    --shadow-2xl: 0 24px 38px rgba(0, 0, 0, 0.28), 0 9px 46px rgba(0, 0, 0, 0.24);\n\n    /* ============================================\n     GLASSMORPHISM (Dark Mode)\n     ============================================ */\n\n    /* Glass background with blur */\n    --glass-bg: rgba(30, 30, 30, 0.7);\n\n    /* Glass border */\n    --glass-border: rgba(255, 255, 255, 0.1);\n\n    /* Glass shadow */\n    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);\n}\n\n\n/* ============================================\n   REDUCED MOTION\n   ============================================ */\n\n@media (prefers-reduced-motion: reduce) {\n    :root {\n        --duration-fast: 0.01ms;\n        --duration-base: 0.01ms;\n        --duration-slow: 0.01ms;\n        --duration-slower: 0.01ms;\n    }\n\n    *,\n    *::before,\n    *::after {\n        animation-duration: 0.01ms !important;\n        animation-iteration-count: 1 !important;\n        transition-duration: 0.01ms !important;\n    }\n}\n";
+
 class SiteAdapter {
 }
 
@@ -71,7 +73,7 @@ var LogLevel = /* @__PURE__ */ ((LogLevel2) => {
 })(LogLevel || {});
 class Logger {
   level = 1 /* INFO */;
-  prefix = "[AICopyEnhance]";
+  prefix = "[AI-MarkDone]";
   setLevel(level) {
     this.level = level;
   }
@@ -766,21 +768,11 @@ const toolbarStyles = `
   font-family: var(--font-sans);
   margin-bottom: var(--space-3);
   
-  /* Light mode theme colors - Blue theme */
-  --gradient-solid-from: #3b82f6;
-  --gradient-solid-to: #1d4ed8;
-  --gradient-light-from: rgba(59, 130, 246, 0.12);
-  --gradient-light-to: rgba(29, 78, 216, 0.12);
-  --theme-color: #3b82f6;
-}
-
-/* Dark mode theme colors - follows host website theme */
-:host-context(html.dark) :host {
-  --gradient-solid-from: #60a5fa;
-  --gradient-solid-to: #3b82f6;
-  --gradient-light-from: rgba(96, 165, 250, 0.25);
-  --gradient-light-to: rgba(59, 130, 246, 0.25);
-  --theme-color: #60a5fa;
+  --gradient-solid-from: var(--toolbar-gradient-solid-from);
+  --gradient-solid-to: var(--toolbar-gradient-solid-to);
+  --gradient-light-from: var(--toolbar-gradient-light-from);
+  --gradient-light-to: var(--toolbar-gradient-light-to);
+  --theme-color: var(--toolbar-theme-color);
 }
 
 /* Notion-style floating toolbar */
@@ -791,7 +783,7 @@ const toolbarStyles = `
   gap: var(--space-1);
   
   /* Glassmorphism */
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--toolbar-bg);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   
@@ -800,9 +792,9 @@ const toolbarStyles = `
   
   /* Use box-shadow for both border and elevation - no clipping */
   box-shadow: 
-    inset 0 0 0 1px rgba(0, 0, 0, 0.06),  /* Border as inset shadow */
-    0 1px 2px rgba(0, 0, 0, 0.06),         /* Close shadow */
-    0 2px 4px rgba(0, 0, 0, 0.04);         /* Subtle depth */
+    inset 0 0 0 1px var(--toolbar-border),  /* Border as inset shadow */
+    0 1px 2px var(--toolbar-shadow-1),       /* Close shadow */
+    0 2px 4px var(--toolbar-shadow-2);       /* Subtle depth */
   
   /* Compact padding */
   padding: 4px;
@@ -823,9 +815,9 @@ const toolbarStyles = `
   /* Lift on hover with slightly stronger shadow */
   transform: translateY(-1px);
   box-shadow: 
-    inset 0 0 0 1px rgba(0, 0, 0, 0.08),  /* Slightly darker border */
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    0 4px 8px rgba(0, 0, 0, 0.06);
+    inset 0 0 0 1px var(--toolbar-border-strong),  /* Slightly darker border */
+    0 2px 4px var(--toolbar-hover-shadow-1),
+    0 4px 8px var(--toolbar-hover-shadow-2);
 }
 
 /* Bookmarked state - entire toolbar highlights */
@@ -833,48 +825,16 @@ const toolbarStyles = `
   background: linear-gradient(135deg, var(--gradient-light-from), var(--gradient-light-to));
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 2px 4px rgba(0, 0, 0, 0.04);
+    0 1px 2px var(--toolbar-shadow-1),
+    0 2px 4px var(--toolbar-shadow-2);
 }
 
 .aicopy-toolbar.bookmarked:hover {
   transform: translateY(-1px);
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    0 4px 8px rgba(0, 0, 0, 0.06);
-}
-
-/* Dark mode toolbar - follows host website theme */
-:host-context(html.dark) .aicopy-toolbar {
-  background: rgba(40, 40, 40, 0.98);
-  box-shadow: 
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),  /* Border */
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-:host-context(html.dark) .aicopy-toolbar:hover {
-  box-shadow: 
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* Dark mode bookmarked state - MUST come after general dark mode for specificity */
-:host-context(html.dark) .aicopy-toolbar.bookmarked {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.15)) !important;
-  box-shadow: 
-    inset 0 0 0 1px rgba(59, 130, 246, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.3) !important;
-}
-
-:host-context(html.dark) .aicopy-toolbar.bookmarked:hover {
-  box-shadow: 
-    inset 0 0 0 1px rgba(59, 130, 246, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.4) !important;
+    0 2px 4px var(--toolbar-hover-shadow-1),
+    0 4px 8px var(--toolbar-hover-shadow-2);
 }
 
 .aicopy-button-group {
@@ -887,13 +847,9 @@ const toolbarStyles = `
 .aicopy-divider {
   width: 1px;
   height: 24px;
-  background: var(--gray-200);
+  background: var(--toolbar-divider);
   margin: 0 4px;
   flex-shrink: 0;
-}
-
-:host-context(html.dark) .aicopy-divider {
-  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Notion-style rounded buttons */
@@ -908,7 +864,7 @@ const toolbarStyles = `
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--gray-600);
+  color: var(--toolbar-button-text);
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
@@ -918,13 +874,13 @@ const toolbarStyles = `
 }
 
 .aicopy-button:hover {
-  background: var(--gray-100);
-  color: var(--gray-900);
+  background: var(--toolbar-button-hover-bg);
+  color: var(--toolbar-button-hover-text);
 }
 
 .aicopy-button:active {
   transform: scale(0.96);
-  background: var(--gray-200);
+  background: var(--toolbar-button-active-bg);
 }
 
 .aicopy-button:disabled {
@@ -932,22 +888,9 @@ const toolbarStyles = `
   cursor: not-allowed;
 }
 
-:host-context(html.dark) .aicopy-button {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-:host-context(html.dark) .aicopy-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-:host-context(html.dark) .aicopy-button:active {
-  background: rgba(255, 255, 255, 0.12);
-}
-
 /* Button hover in bookmarked toolbar - light blue for visibility */
 .aicopy-toolbar.bookmarked .aicopy-button:not(.bookmarked):hover {
-  background: rgba(59, 130, 246, 0.2);
+  background: var(--toolbar-bookmark-hover-bg);
   color: var(--theme-color);
 }
 
@@ -1002,16 +945,12 @@ const toolbarStyles = `
   justify-content: center;
   font-size: 11px;
   line-height: 1.3;
-  color: var(--gray-600);
+  color: var(--toolbar-stats-text);
   white-space: nowrap;
   padding: 0 6px;
   min-width: 60px;
   cursor: default;
   user-select: none;
-}
-
-:host-context(html.dark) .aicopy-stats {
-  color: rgba(255, 255, 255, 0.5);
 }
 `;
 
@@ -1591,7 +1530,7 @@ class Toolbar {
 
 const modalStyles = `
 :host {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .modal-overlay {
@@ -1600,7 +1539,7 @@ const modalStyles = `
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--modal-overlay-bg);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -1615,13 +1554,9 @@ const modalStyles = `
 }
 
 .modal-container {
-  background: white;
+  background: var(--modal-surface);
   border-radius: 16px;
-  box-shadow: 
-    0 0 0 1px rgba(0, 0, 0, 0.08),
-    0 4px 12px rgba(0, 0, 0, 0.12),
-    0 16px 48px rgba(0, 0, 0, 0.18),
-    0 24px 80px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--modal-shadow);
   max-width: 900px;
   width: 90%;
   height: 80vh;
@@ -1644,7 +1579,7 @@ const modalStyles = `
 
 .modal-header {
   padding: 8px 24px;
-  border-bottom: 1px solid #F0F0F0;
+  border-bottom: 1px solid var(--gray-200);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1654,7 +1589,7 @@ const modalStyles = `
 .modal-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1A1A1A;
+  color: var(--gray-900);
   letter-spacing: -0.02em;
   margin: 0;
 }
@@ -1665,7 +1600,7 @@ const modalStyles = `
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #6B7280;
+  color: var(--gray-500);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1675,8 +1610,8 @@ const modalStyles = `
 }
 
 .modal-close:hover {
-  background: #F3F4F6;
-  color: #1A1A1A;
+  background: var(--gray-100);
+  color: var(--gray-900);
 }
 
 .modal-body {
@@ -1689,792 +1624,58 @@ const modalStyles = `
   max-width: 1000px;
   margin: 0 auto;
   padding: 24px 32px;
-  background: white;
+  background: var(--modal-surface);
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-x: auto;
-  color: #1A1A1A;
+  color: var(--md-on-surface);
   tab-size: 2;
 }
 
 .modal-footer {
-  padding: 4px 16px;
-  border-top: 1px solid #F0F0F0;
+  padding: 8px 16px;
+  border-top: 1px solid var(--gray-200);
   display: flex;
   justify-content: flex-end;
   gap: 16px;
-  background: white;
+  background: var(--modal-surface);
   flex-shrink: 0;
   border-radius: 0 0 16px 16px;
-  min-height: 32px;
+  min-height: 44px;
 }
 
 .modal-button {
   padding: 0px 40px;
   border-radius: 8px;
   border: none;
-  background: #F3F4F6;
-  color: #1A1A1A;
-  font-size: 14px;
-  font-weight: 500;
+  background: var(--gray-100);
+  color: var(--gray-900);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .modal-button:hover {
-  background: #E5E7EB;
+  background: var(--gray-200);
+  transform: translateY(-1px);
 }
 
 .modal-button.primary {
-  background: #2563EB;
-  color: white;
+  background: var(--modal-primary-bg);
+  color: var(--modal-primary-text);
 }
 
 .modal-button.primary:hover {
-  background: #1D4ED8;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  background: var(--modal-primary-hover-bg);
+  box-shadow: var(--modal-primary-shadow);
+  transform: translateY(-1px);
 }
 
-/* ============================================
-   DARK MODE - Shadow DOM compatible
-   ============================================ */
-
-:host-context(html.dark) .modal-overlay {
-  background: rgba(0, 0, 0, 0.8);
-}
-
-:host-context(html.dark) .modal-container {
-  background: #1E1E1E;
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 4px 12px rgba(0, 0, 0, 0.5),
-    0 16px 48px rgba(0, 0, 0, 0.6),
-    0 24px 80px rgba(0, 0, 0, 0.4);
-}
-
-:host-context(html.dark) .modal-header {
-  border-bottom-color: #3F3F46;
-}
-
-:host-context(html.dark) .modal-title {
-  color: #FFFFFF;
-}
-
-:host-context(html.dark) .modal-close {
-  color: #A1A1AA;
-}
-
-:host-context(html.dark) .modal-close:hover {
-  background: #27272A;
-  color: #FFFFFF;
-}
-
-:host-context(html.dark) .modal-content {
-  background: #1E1E1E;
-  color: #E3E3E3;
-}
-
-:host-context(html.dark) .modal-footer {
-  border-top-color: #3F3F46;
-  background: #1E1E1E;
-}
-
-:host-context(html.dark) .modal-button {
-  background: #27272A;
-  color: #E3E3E3;
-}
-
-:host-context(html.dark) .modal-button:hover {
-  background: #3F3F46;
-}
-
-:host-context(html.dark) .modal-button.primary {
-  background: #3B82F6;
-  color: white;
-}
-
-:host-context(html.dark) .modal-button.primary:hover {
-  background: #2563EB;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-}
 `;
-
-class DesignTokens {
-  /**
-   * Detect if dark mode is currently active
-   * Checks both document class and system preference
-   */
-  static isDarkMode() {
-    if (document.documentElement.classList.contains("dark")) {
-      return true;
-    }
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      return true;
-    }
-    return false;
-  }
-  /**
-   * Get primitive color tokens (Layer 1)
-   * These are base colors that NEVER change - globally unique
-   * @returns CSS custom properties string
-   */
-  static getPrimitiveTokens() {
-    return `
-            /* ============================================
-               PRIMITIVE TOKENS - Base Colors (Immutable)
-               ============================================ */
-            
-            /* Neutral Colors (Gray) - 10 levels */
-            --color-gray-50: #F9FAFB;
-            --color-gray-100: #F3F4F6;
-            --color-gray-200: #E5E7EB;
-            --color-gray-300: #D1D5DB;
-            --color-gray-400: #9CA3AF;
-            --color-gray-500: #6B7280;
-            --color-gray-600: #4B5563;
-            --color-gray-700: #374151;
-            --color-gray-800: #1F2937;
-            --color-gray-900: #111827;
-
-            /* Blue (Primary) - 10 levels */
-            --color-blue-50: #E3F2FD;
-            --color-blue-100: #BBDEFB;
-            --color-blue-200: #90CAF9;
-            --color-blue-300: #64B5F6;
-            --color-blue-400: #42A5F5;
-            --color-blue-500: #2196F3;
-            --color-blue-600: #1976D2;
-            --color-blue-700: #1565C0;
-            --color-blue-800: #0D47A1;
-            --color-blue-900: #0A3A7F;
-
-            /* Green - 10 levels */
-            --color-green-50: #F0FDF4;
-            --color-green-100: #DCFCE7;
-            --color-green-200: #BBF7D0;
-            --color-green-300: #86EFAC;
-            --color-green-400: #4ADE80;
-            --color-green-500: #22C55E;
-            --color-green-600: #16A34A;
-            --color-green-700: #15803D;
-            --color-green-800: #166534;
-            --color-green-900: #14532D;
-
-            /* Purple - 10 levels */
-            --color-purple-50: #FAF5FF;
-            --color-purple-100: #F3E8FF;
-            --color-purple-200: #E9D5FF;
-            --color-purple-300: #D8B4FE;
-            --color-purple-400: #C084FC;
-            --color-purple-500: #A855F7;
-            --color-purple-600: #9333EA;
-            --color-purple-700: #7E22CE;
-            --color-purple-800: #6B21A8;
-            --color-purple-900: #581C87;
-
-            /* Red - 10 levels */
-            --color-red-50: #FEF2F2;
-            --color-red-100: #FEE2E2;
-            --color-red-200: #FECACA;
-            --color-red-300: #FCA5A5;
-            --color-red-400: #F87171;
-            --color-red-500: #EF4444;
-            --color-red-600: #DC2626;
-            --color-red-700: #B91C1C;
-            --color-red-800: #991B1B;
-            --color-red-900: #7F1D1D;
-
-            /* Amber - 10 levels */
-            --color-amber-50: #FFFBEB;
-            --color-amber-100: #FEF3C7;
-            --color-amber-200: #FDE68A;
-            --color-amber-300: #FCD34D;
-            --color-amber-400: #FBBF24;
-            --color-amber-500: #F59E0B;
-            --color-amber-600: #D97706;
-            --color-amber-700: #B45309;
-            --color-amber-800: #92400E;
-            --color-amber-900: #78350F;
-
-            /* Special Colors */
-            --color-white: #FFFFFF;
-            --color-black: #000000;
-
-            /* Dark Mode Specific Grays */
-            --color-gray-dark-50: #18181B;
-            --color-gray-dark-100: #27272A;
-            --color-gray-dark-200: #3F3F46;
-            --color-gray-dark-300: #52525B;
-            --color-gray-dark-400: #A1A1AA;
-            --color-gray-dark-500: #D4D4D8;
-            --color-gray-dark-600: #E4E4E7;
-            --color-gray-dark-700: #F4F4F5;
-            --color-gray-dark-800: #FAFAFA;
-            --color-gray-dark-900: #FFFFFF;
-        `;
-  }
-  /**
-   * Get light mode semantic tokens (Layer 2)
-   * These reference primitive tokens based on light mode context
-   * @returns CSS custom properties string
-   */
-  static getLightSemanticTokens() {
-    return `
-            /* ============================================
-               SEMANTIC TOKENS - Light Mode
-               ============================================ */
-
-            /* Background Colors */
-            --bg-primary: var(--color-white);
-            --bg-secondary: var(--color-gray-50);
-            --bg-tertiary: var(--color-gray-100);
-            --bg-surface: var(--color-white);
-            --bg-surface-elevated: var(--color-gray-50);
-            --bg-modal: var(--color-white);
-            --bg-overlay: rgba(0, 0, 0, 0.5);
-
-            /* Text Colors */
-            --text-primary: var(--color-gray-900);
-            --text-secondary: var(--color-gray-500);
-            --text-tertiary: var(--color-gray-400);
-            --text-link: var(--color-blue-600);
-            --text-link-hover: var(--color-blue-700);
-            --text-on-primary: var(--color-white);
-            --text-disabled: var(--color-gray-300);
-
-            /* Border Colors */
-            --border-default: var(--color-gray-200);
-            --border-subtle: var(--color-gray-100);
-            --border-strong: var(--color-gray-300);
-            --border-interactive: var(--color-blue-500);
-            --border-focus: var(--color-blue-300);
-            --border-error: var(--color-red-500);
-
-            /* Interactive Colors */
-            --interactive-primary: var(--color-blue-600);
-            --interactive-primary-hover: var(--color-blue-700);
-            --interactive-secondary: var(--color-gray-100);
-            --interactive-secondary-hover: var(--color-gray-200);
-            --interactive-hover: var(--color-gray-100);
-            --interactive-active: var(--color-gray-200);
-            --interactive-disabled: var(--color-gray-300);
-
-            /* Semantic States */
-            --success: var(--color-green-600);
-            --success-bg: var(--color-green-50);
-            --warning: var(--color-amber-600);
-            --warning-bg: var(--color-amber-50);
-            --error: var(--color-red-600);
-            --error-bg: var(--color-red-50);
-            --info: var(--color-blue-600);
-            --info-bg: var(--color-blue-50);
-
-            /* Platform Colors */
-            --platform-chatgpt-bg: var(--color-green-100);
-            --platform-chatgpt-text: var(--color-green-800);
-            --platform-gemini-bg: var(--color-blue-100);
-            --platform-gemini-text: var(--color-blue-800);
-
-            /* Legacy Support - Backward Compatible (will be phased out) */
-            --gray-50: var(--color-gray-50);
-            --gray-100: var(--color-gray-100);
-            --gray-200: var(--color-gray-200);
-            --gray-300: var(--color-gray-300);
-            --gray-400: var(--color-gray-400);
-            --gray-500: var(--color-gray-500);
-            --gray-600: var(--color-gray-600);
-            --gray-700: var(--color-gray-700);
-            --gray-800: var(--color-gray-800);
-            --gray-900: var(--color-gray-900);
-
-            --primary-50: var(--color-blue-50);
-            --primary-100: var(--color-blue-100);
-            --primary-200: var(--color-blue-200);
-            --primary-300: var(--color-blue-300);
-            --primary-400: var(--color-blue-400);
-            --primary-500: var(--color-blue-500);
-            --primary-600: var(--color-blue-600);
-            --primary-700: var(--color-blue-700);
-            --primary-800: var(--color-blue-800);
-
-            --success-50: var(--color-green-50);
-            --success-100: var(--color-green-100);
-            --success-500: var(--color-green-500);
-            --success-600: var(--color-green-600);
-            --success-700: var(--color-green-700);
-
-            --warning-50: var(--color-amber-50);
-            --warning-100: var(--color-amber-100);
-            --warning-500: var(--color-amber-500);
-            --warning-600: var(--color-amber-600);
-            --warning-700: var(--color-amber-700);
-
-            --danger-50: var(--color-red-50);
-            --danger-100: var(--color-red-100);
-            --danger-500: var(--color-red-500);
-            --danger-600: var(--color-red-600);
-            --danger-700: var(--color-red-700);
-
-            /* Material Design 3 - Surface Colors */
-            --md-surface: var(--color-white);
-            --md-surface-variant: #F5F5F5;
-            --md-surface-container: #FAFAFA;
-            --md-surface-container-high: #EEEEEE;
-            --md-on-surface: #1C1B1F;
-            --md-on-surface-variant: #49454F;
-            --md-primary-container: var(--color-blue-50);
-            --md-on-primary-container: var(--color-blue-800);
-            --md-outline: #E0E0E0;
-            --md-outline-variant: #EEEEEE;
-
-            /* Platform Legacy */
-            --chatgpt-light: #D1FAE5;
-            --chatgpt-dark: #065F46;
-            --chatgpt-icon: #10A37F;
-            --gemini-light: #DBEAFE;
-            --gemini-dark: #1E40AF;
-            --gemini-icon: #4285F4;
-
-            /* Component-Specific */
-            --modal-tree-bg: var(--bg-secondary);
-            --modal-tree-item-hover: var(--interactive-hover);
-            --modal-tree-item-text: var(--text-primary);
-            --modal-tree-item-icon: var(--color-gray-600);
-
-            /* Button Tokens - Primary */
-            --button-primary-bg: var(--color-blue-600);
-            --button-primary-hover: var(--color-blue-700);
-            --button-primary-active: var(--color-blue-800);
-            --button-primary-text: var(--color-white);
-            --button-primary-text-hover: var(--color-white);
-            --button-primary-disabled: var(--color-gray-300);
-            --button-primary-disabled-text: var(--color-gray-500);
-
-            /* Button Tokens - Secondary */
-            --button-secondary-bg: transparent;
-            --button-secondary-hover: var(--color-gray-100);
-            --button-secondary-active: var(--color-gray-200);
-            --button-secondary-text: var(--color-blue-600);
-            --button-secondary-text-hover: var(--color-blue-700);
-            --button-secondary-border: var(--color-gray-300);
-            --button-secondary-disabled: var(--color-gray-200);
-            --button-secondary-disabled-text: var(--color-gray-400);
-
-            /* Button Tokens - Danger */
-            --button-danger-bg: var(--color-red-600);
-            --button-danger-hover: var(--color-red-700);
-            --button-danger-active: var(--color-red-800);
-            --button-danger-text: var(--color-white);
-            --button-danger-text-hover: var(--color-white);
-            --button-danger-disabled: var(--color-red-300);
-            --button-danger-disabled-text: var(--color-red-100);
-
-            /* Button Tokens - Warning */
-            --button-warning-bg: var(--color-amber-500);
-            --button-warning-hover: var(--color-amber-600);
-            --button-warning-active: var(--color-amber-700);
-            --button-warning-text: var(--color-white);
-            --button-warning-text-hover: var(--color-white);
-            --button-warning-disabled: var(--color-amber-300);
-
-            /* Button Tokens - Ghost (Transparent) */
-            --button-ghost-bg: transparent;
-            --button-ghost-hover: var(--interactive-hover);
-            --button-ghost-active: var(--interactive-active);
-            --button-ghost-text: var(--text-primary);
-            --button-ghost-text-hover: var(--text-primary);
-
-            /* Button Tokens - Icon */
-            --button-icon-bg: transparent;
-            --button-icon-hover: var(--color-gray-100);
-            --button-icon-active: var(--color-gray-200);
-            --button-icon-text: var(--color-gray-600);
-            --button-icon-text-hover: var(--color-gray-900);
-
-            /* Button Tokens - Close */
-            --button-close-bg: transparent;
-            --button-close-hover: var(--color-gray-100);
-            --button-close-active: var(--color-gray-200);
-            --button-close-text: var(--color-gray-500);
-            --button-close-text-hover: var(--color-gray-900);
-        `;
-  }
-  /**
-   * Get dark mode semantic tokens (Layer 2)
-   * These reference primitive tokens based on dark mode context
-   * @returns CSS custom properties string
-   */
-  static getDarkSemanticTokens() {
-    return `
-            /* ============================================
-               SEMANTIC TOKENS - Dark Mode
-               ============================================ */
-
-            /* Background Colors */
-            --bg-primary: var(--color-gray-dark-50);
-            --bg-secondary: var(--color-gray-dark-100);
-            --bg-tertiary: var(--color-gray-dark-200);
-            --bg-surface: #121212;
-            --bg-surface-elevated: #1E1E1E;
-            --bg-modal: #121212;
-            --bg-overlay: rgba(0, 0, 0, 0.65);
-
-            /* Text Colors */
-            --text-primary: var(--color-white);
-            --text-secondary: var(--color-gray-dark-500);
-            --text-tertiary: var(--color-gray-dark-400);
-            --text-link: var(--color-blue-400);
-            --text-link-hover: var(--color-blue-300);
-            --text-on-primary: var(--color-white);
-            --text-disabled: var(--color-gray-dark-300);
-
-            /* Border Colors */
-            --border-default: var(--color-gray-dark-200);
-            --border-subtle: var(--color-gray-dark-100);
-            --border-strong: var(--color-gray-dark-300);
-            --border-interactive: var(--color-blue-400);
-            --border-focus: var(--color-blue-200);
-            --border-error: var(--color-red-400);
-
-            /* Interactive Colors */
-            --interactive-primary: var(--color-blue-400);
-            --interactive-primary-hover: var(--color-blue-500);
-            --interactive-secondary: var(--color-gray-dark-100);
-            --interactive-secondary-hover: var(--color-gray-dark-200);
-            --interactive-hover: var(--color-gray-dark-100);
-            --interactive-active: var(--color-gray-dark-200);
-            --interactive-disabled: var(--color-gray-dark-300);
-
-            /* Semantic States */
-            --success: var(--color-green-400);
-            --success-bg: var(--color-green-900);
-            --warning: var(--color-amber-400);
-            --warning-bg: var(--color-amber-900);
-            --error: var(--color-red-400);
-            --error-bg: var(--color-red-900);
-            --info: var(--color-blue-400);
-            --info-bg: var(--color-blue-900);
-
-            /* Platform Colors */
-            --platform-chatgpt-bg: var(--color-green-900);
-            --platform-chatgpt-text: var(--color-green-200);
-            --platform-gemini-bg: var(--color-blue-900);
-            --platform-gemini-text: var(--color-blue-200);
-
-            /* Legacy Support - Backward Compatible (will be phased out) */
-            --gray-50: var(--color-gray-dark-50);
-            --gray-100: var(--color-gray-dark-100);
-            --gray-200: var(--color-gray-dark-200);
-            --gray-300: var(--color-gray-dark-300);
-            --gray-400: var(--color-gray-dark-400);
-            --gray-500: var(--color-gray-dark-500);
-            --gray-600: var(--color-gray-dark-600);
-            --gray-700: var(--color-gray-dark-700);
-            --gray-800: var(--color-gray-dark-800);
-            --gray-900: var(--color-gray-dark-900);
-
-            --primary-50: var(--color-blue-50);
-            --primary-100: var(--color-blue-100);
-            --primary-200: var(--color-blue-200);
-            --primary-300: var(--color-blue-300);
-            --primary-400: var(--color-blue-400);
-            --primary-500: var(--color-blue-500);
-            --primary-600: var(--color-blue-600);
-            --primary-700: var(--color-blue-700);
-            --primary-800: var(--color-blue-800);
-
-            --success-50: var(--color-green-50);
-            --success-100: var(--color-green-100);
-            --success-500: var(--color-green-500);
-            --success-600: var(--color-green-600);
-            --success-700: var(--color-green-700);
-
-            --warning-50: var(--color-amber-50);
-            --warning-100: var(--color-amber-100);
-            --warning-500: var(--color-amber-500);
-            --warning-600: var(--color-amber-600);
-            --warning-700: var(--color-amber-700);
-
-            --danger-50: var(--color-red-50);
-            --danger-100: var(--color-red-100);
-            --danger-500: var(--color-red-500);
-            --danger-600: var(--color-red-600);
-            --danger-700: var(--color-red-700);
-
-            /* Material Design 3 - Surface Colors (Dark) */
-            --md-surface: #121212;
-            --md-surface-variant: #1E1E1E;
-            --md-surface-container: #2C2C2C;
-            --md-surface-container-high: #3A3A3A;
-            --md-on-surface: #E3E3E3;
-            --md-on-surface-variant: #CAC4D0;
-            --md-primary-container: #004A77;
-            --md-on-primary-container: #C5E7FF;
-            --md-outline: #938F99;
-            --md-outline-variant: #49454F;
-
-            /* Platform Legacy */
-            --chatgpt-light: #065F46;
-            --chatgpt-dark: #10B981;
-            --chatgpt-icon: #34D399;
-            --gemini-light: #1E40AF;
-            --gemini-dark: #60A5FA;
-            --gemini-icon: #93C5FD;
-
-            /* Component-Specific */
-            --modal-tree-bg: var(--color-gray-dark-50);
-            --modal-tree-item-hover: var(--color-gray-dark-100);
-            --modal-tree-item-text: var(--color-gray-dark-900);
-            --modal-tree-item-icon: var(--color-gray-dark-400);
-
-            /* Button Tokens - Primary */
-            --button-primary-bg: var(--color-blue-400);
-            --button-primary-hover: var(--color-blue-500);
-            --button-primary-active: var(--color-blue-600);
-            --button-primary-text: var(--color-white);
-            --button-primary-text-hover: var(--color-white);
-            --button-primary-disabled: var(--color-gray-dark-300);
-            --button-primary-disabled-text: var(--color-gray-dark-500);
-
-            /* Button Tokens - Secondary */
-            --button-secondary-bg: transparent;
-            --button-secondary-hover: var(--color-gray-dark-100);
-            --button-secondary-active: var(--color-gray-dark-200);
-            --button-secondary-text: var(--color-blue-400);
-            --button-secondary-text-hover: var(--color-blue-300);
-            --button-secondary-border: var(--color-gray-dark-300);
-            --button-secondary-disabled: var(--color-gray-dark-200);
-            --button-secondary-disabled-text: var(--color-gray-dark-400);
-
-            /* Button Tokens - Danger */
-            --button-danger-bg: var(--color-red-500);
-            --button-danger-hover: var(--color-red-600);
-            --button-danger-active: var(--color-red-700);
-            --button-danger-text: var(--color-white);
-            --button-danger-text-hover: var(--color-white);
-            --button-danger-disabled: var(--color-red-dark-300);
-            --button-danger-disabled-text: var(--color-red-dark-100);
-
-            /* Button Tokens - Warning */
-            --button-warning-bg: var(--color-amber-500);
-            --button-warning-hover: var(--color-amber-600);
-            --button-warning-active: var(--color-amber-700);
-            --button-warning-text: var(--color-gray-900);
-            --button-warning-text-hover: var(--color-gray-900);
-            --button-warning-disabled: var(--color-amber-dark-300);
-
-            /* Button Tokens - Ghost (Transparent) */
-            --button-ghost-bg: transparent;
-            --button-ghost-hover: var(--interactive-hover);
-            --button-ghost-active: var(--interactive-active);
-            --button-ghost-text: var(--text-primary);
-            --button-ghost-text-hover: var(--text-primary);
-
-            /* Button Tokens - Icon */
-            --button-icon-bg: transparent;
-            --button-icon-hover: var(--color-gray-dark-100);
-            --button-icon-active: var(--color-gray-dark-200);
-            --button-icon-text: var(--color-gray-dark-400);
-            --button-icon-text-hover: var(--color-white);
-
-            /* Button Tokens - Close */
-            --button-close-bg: transparent;
-            --button-close-hover: var(--color-gray-dark-100);
-            --button-close-active: var(--color-gray-dark-200);
-            --button-close-text: var(--color-gray-dark-400);
-            --button-close-text-hover: var(--color-white);
-        `;
-  }
-  /**
-   * Get non-color tokens (spacing, typography, etc.)
-   * These are mode-independent
-   * @returns CSS custom properties string
-   */
-  static getCommonTokens() {
-    return `
-            /* ============================================
-               SPACING SCALE (8px Grid)
-               ============================================ */
-            
-            --space-0: 0px;
-            --space-1: 4px;
-            --space-2: 8px;
-            --space-3: 12px;
-            --space-4: 16px;
-            --space-5: 20px;
-            --space-6: 24px;
-            --space-8: 32px;
-            --space-10: 40px;
-            --space-12: 48px;
-            --space-16: 64px;
-            --space-20: 80px;
-            --space-24: 96px;
-
-            /* ============================================
-               TYPOGRAPHY
-               ============================================ */
-            
-            /* Font Families */
-            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-            --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
-                "Courier New", monospace;
-            
-            /* Font Sizes */
-            --text-xs: 12px;
-            --text-sm: 13px;
-            --text-base: 14px;
-            --text-lg: 16px;
-            --text-xl: 18px;
-            --text-2xl: 20px;
-            --text-3xl: 24px;
-            
-            /* Font Weights */
-            --font-normal: 400;
-            --font-medium: 500;
-            --font-semibold: 600;
-            --font-bold: 700;
-            
-            /* Line Heights */
-            --leading-tight: 1.25;
-            --leading-normal: 1.5;
-            --leading-relaxed: 1.75;
-
-            /* ============================================
-               BORDER RADIUS
-               ============================================ */
-            
-            --radius-none: 0px;
-            --radius-sm: 6px;
-            --radius-small: 6px;
-            --radius-md: 8px;
-            --radius-medium: 8px;
-            --radius-lg: 12px;
-            --radius-large: 12px;
-            --radius-xl: 16px;
-            --radius-full: 9999px;
-
-            /* ============================================
-               Z-INDEX SCALE
-               ============================================ */
-            
-            --z-dropdown: 1000;
-            --z-sticky: 1020;
-            --z-fixed: 1030;
-            --z-modal-backdrop: 1040;
-            --z-modal: 1050;
-            --z-popover: 1060;
-            --z-tooltip: 1070;
-
-            /* ============================================
-               ANIMATIONS
-               ============================================ */
-            
-            /* Durations */
-            --duration-fast: 150ms;
-            --duration-base: 200ms;
-            --duration-slow: 300ms;
-            --duration-slower: 500ms;
-            
-            /* Easing Functions */
-            --ease-in: cubic-bezier(0.4, 0, 1, 1);
-            --ease-out: cubic-bezier(0, 0, 0.2, 1);
-            --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-            --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-            /* Aliases */
-            --white: var(--color-white);
-            --black: var(--color-black);
-        `;
-  }
-  /**
-   * Get mode-specific shadow tokens
-   * @param isDark Whether dark mode is active
-   * @returns CSS custom properties string
-   */
-  static getShadowTokens(isDark) {
-    if (isDark) {
-      return `
-                /* Dark Mode Shadows */
-                --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
-                --shadow-sm: 0 1px 5px rgba(0, 0, 0, 0.4), 0 2px 2px rgba(0, 0, 0, 0.28);
-                --shadow-md: 0 3px 5px rgba(0, 0, 0, 0.4), 0 1px 18px rgba(0, 0, 0, 0.24);
-                --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 5px rgba(0, 0, 0, 0.28);
-                --shadow-xl: 0 8px 10px rgba(0, 0, 0, 0.28), 0 3px 14px rgba(0, 0, 0, 0.24);
-                --shadow-2xl: 0 24px 38px rgba(0, 0, 0, 0.28), 0 9px 46px rgba(0, 0, 0, 0.24);
-                --shadow-focus: 0 0 0 3px rgba(90, 202, 249, 0.2);
-
-                --elevation-0: 0 0 0 0 rgba(0, 0, 0, 0);
-                --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-                --elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-                --elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-                --elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.15);
-
-                --glass-bg: rgba(30, 30, 30, 0.7);
-                --glass-border: rgba(255, 255, 255, 0.1);
-                --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            `;
-    } else {
-      return `
-                /* Light Mode Shadows */
-                --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-                --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-                --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-                --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.1);
-
-                --elevation-0: 0 0 0 0 rgba(0, 0, 0, 0);
-                --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-                --elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                --elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-                --elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-
-                --glass-bg: rgba(255, 255, 255, 0.7);
-                --glass-border: rgba(255, 255, 255, 0.18);
-                --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            `;
-    }
-  }
-  /**
-   * Get complete token set for current mode
-   * Combines primitive tokens + semantic tokens + common tokens
-   * @deprecated Use getCompleteTokens() instead
-   */
-  static getLightTokens() {
-    return this.getCompleteTokens(false);
-  }
-  /**
-   * Get complete token set for current mode
-   * Combines primitive tokens + semantic tokens + common tokens
-   * @deprecated Use getCompleteTokens() instead
-   */
-  static getDarkTokens() {
-    return this.getCompleteTokens(true);
-  }
-  /**
-   * Get complete token set for specified mode
-   * Combines: Primitive Tokens + Semantic Tokens + Common Tokens + Shadows
-   * @param isDark Whether to get dark mode tokens
-   * @returns Complete CSS custom properties string
-   */
-  static getCompleteTokens(isDark) {
-    const primitiveTokens = this.getPrimitiveTokens();
-    const semanticTokens = isDark ? this.getDarkSemanticTokens() : this.getLightSemanticTokens();
-    const commonTokens = this.getCommonTokens();
-    const shadowTokens = this.getShadowTokens(isDark);
-    return `
-            ${primitiveTokens}
-            ${semanticTokens}
-            ${commonTokens}
-            ${shadowTokens}
-        `;
-  }
-}
 
 class Modal {
   shadowRoot;
@@ -2487,30 +1688,11 @@ class Modal {
     this.injectStyles();
   }
   /**
-   * Inject styles based on current theme
+   * Inject base styles
    */
   injectStyles() {
-    const isDark = DesignTokens.isDarkMode();
     const styleElement = document.createElement("style");
-    styleElement.textContent = modalStyles + `
-      ${isDark ? `
-        .modal-overlay { background: rgba(0, 0, 0, 0.8); }  /* Dark overlay */
-        .modal-container { 
-          background: #1E1E1E;  /* Dark surface */
-          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.5);  /* Subtle border + shadow */
-        }
-        .modal-header { border-bottom-color: #3F3F46; }  /* Gray-600 */
-        .modal-title { color: #FFFFFF; }  /* White text */
-        .modal-close { color: #A1A1AA; }  /* Gray-400 */
-        .modal-close:hover { background: #27272A; color: #FFFFFF; }  /* Gray-800 hover */
-        .modal-content { background: #1E1E1E; color: #E3E3E3; }  /* Dark surface + light text */
-        .modal-footer { border-top-color: #3F3F46; background: #1E1E1E; }  /* Gray-600 border */
-        .modal-button { background: #27272A; color: #E3E3E3; }  /* Gray-800 button */
-        .modal-button:hover { background: #3F3F46; }  /* Gray-600 hover */
-        .modal-button.primary { background: #3B82F6; color: white; }  /* Blue primary */
-        .modal-button.primary:hover { background: #2563EB; }  /* Darker blue on hover */
-      ` : ""}
-    `;
+    styleElement.textContent = modalStyles;
     this.shadowRoot.appendChild(styleElement);
   }
   /**
@@ -25009,6 +24191,682 @@ class TreeBuilder {
   }
 }
 
+class DesignTokens {
+  /**
+   * Detect if dark mode is currently active
+   * Checks both document class and system preference
+   */
+  static isDarkMode() {
+    if (document.documentElement.classList.contains("dark")) {
+      return true;
+    }
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Get primitive color tokens (Layer 1)
+   * These are base colors that NEVER change - globally unique
+   * @returns CSS custom properties string
+   */
+  static getPrimitiveTokens() {
+    return `
+            /* ============================================
+               PRIMITIVE TOKENS - Base Colors (Immutable)
+               ============================================ */
+            
+            /* Neutral Colors (Gray) - 10 levels */
+            --color-gray-50: #F9FAFB;
+            --color-gray-100: #F3F4F6;
+            --color-gray-200: #E5E7EB;
+            --color-gray-300: #D1D5DB;
+            --color-gray-400: #9CA3AF;
+            --color-gray-500: #6B7280;
+            --color-gray-600: #4B5563;
+            --color-gray-700: #374151;
+            --color-gray-800: #1F2937;
+            --color-gray-900: #111827;
+
+            /* Blue (Primary) - 10 levels */
+            --color-blue-50: #E3F2FD;
+            --color-blue-100: #BBDEFB;
+            --color-blue-200: #90CAF9;
+            --color-blue-300: #64B5F6;
+            --color-blue-400: #42A5F5;
+            --color-blue-500: #2196F3;
+            --color-blue-600: #1976D2;
+            --color-blue-700: #1565C0;
+            --color-blue-800: #0D47A1;
+            --color-blue-900: #0A3A7F;
+
+            /* Green - 10 levels */
+            --color-green-50: #F0FDF4;
+            --color-green-100: #DCFCE7;
+            --color-green-200: #BBF7D0;
+            --color-green-300: #86EFAC;
+            --color-green-400: #4ADE80;
+            --color-green-500: #22C55E;
+            --color-green-600: #16A34A;
+            --color-green-700: #15803D;
+            --color-green-800: #166534;
+            --color-green-900: #14532D;
+
+            /* Purple - 10 levels */
+            --color-purple-50: #FAF5FF;
+            --color-purple-100: #F3E8FF;
+            --color-purple-200: #E9D5FF;
+            --color-purple-300: #D8B4FE;
+            --color-purple-400: #C084FC;
+            --color-purple-500: #A855F7;
+            --color-purple-600: #9333EA;
+            --color-purple-700: #7E22CE;
+            --color-purple-800: #6B21A8;
+            --color-purple-900: #581C87;
+
+            /* Red - 10 levels */
+            --color-red-50: #FEF2F2;
+            --color-red-100: #FEE2E2;
+            --color-red-200: #FECACA;
+            --color-red-300: #FCA5A5;
+            --color-red-400: #F87171;
+            --color-red-500: #EF4444;
+            --color-red-600: #DC2626;
+            --color-red-700: #B91C1C;
+            --color-red-800: #991B1B;
+            --color-red-900: #7F1D1D;
+
+            /* Amber - 10 levels */
+            --color-amber-50: #FFFBEB;
+            --color-amber-100: #FEF3C7;
+            --color-amber-200: #FDE68A;
+            --color-amber-300: #FCD34D;
+            --color-amber-400: #FBBF24;
+            --color-amber-500: #F59E0B;
+            --color-amber-600: #D97706;
+            --color-amber-700: #B45309;
+            --color-amber-800: #92400E;
+            --color-amber-900: #78350F;
+
+            /* Special Colors */
+            --color-white: #FFFFFF;
+            --color-black: #000000;
+
+            /* Dark Mode Specific Grays */
+            --color-gray-dark-50: #18181B;
+            --color-gray-dark-100: #27272A;
+            --color-gray-dark-200: #3F3F46;
+            --color-gray-dark-300: #52525B;
+            --color-gray-dark-400: #A1A1AA;
+            --color-gray-dark-500: #D4D4D8;
+            --color-gray-dark-600: #E4E4E7;
+            --color-gray-dark-700: #F4F4F5;
+            --color-gray-dark-800: #FAFAFA;
+            --color-gray-dark-900: #FFFFFF;
+        `;
+  }
+  /**
+   * Get light mode semantic tokens (Layer 2)
+   * These reference primitive tokens based on light mode context
+   * @returns CSS custom properties string
+   */
+  static getLightSemanticTokens() {
+    return `
+            /* ============================================
+               SEMANTIC TOKENS - Light Mode
+               ============================================ */
+
+            /* Background Colors */
+            --bg-primary: var(--color-white);
+            --bg-secondary: var(--color-gray-50);
+            --bg-tertiary: var(--color-gray-100);
+            --bg-surface: var(--color-white);
+            --bg-surface-elevated: var(--color-gray-50);
+            --bg-modal: var(--color-white);
+            --bg-overlay: rgba(0, 0, 0, 0.5);
+
+            /* Text Colors */
+            --text-primary: var(--color-gray-900);
+            --text-secondary: var(--color-gray-500);
+            --text-tertiary: var(--color-gray-400);
+            --text-link: var(--color-blue-600);
+            --text-link-hover: var(--color-blue-700);
+            --text-on-primary: var(--color-white);
+            --text-disabled: var(--color-gray-300);
+
+            /* Border Colors */
+            --border-default: var(--color-gray-200);
+            --border-subtle: var(--color-gray-100);
+            --border-strong: var(--color-gray-300);
+            --border-interactive: var(--color-blue-500);
+            --border-focus: var(--color-blue-300);
+            --border-error: var(--color-red-500);
+
+            /* Interactive Colors */
+            --interactive-primary: var(--color-blue-600);
+            --interactive-primary-hover: var(--color-blue-700);
+            --interactive-selected: rgba(59, 130, 246, 0.12);
+            --interactive-secondary: var(--color-gray-100);
+            --interactive-secondary-hover: var(--color-gray-200);
+            --interactive-hover: var(--color-gray-100);
+            --interactive-active: var(--color-gray-200);
+            --interactive-disabled: var(--color-gray-300);
+
+            /* Semantic States */
+            --success: var(--color-green-600);
+            --success-bg: var(--color-green-50);
+            --warning: var(--color-amber-600);
+            --warning-bg: var(--color-amber-50);
+            --error: var(--color-red-600);
+            --error-bg: var(--color-red-50);
+            --info: var(--color-blue-600);
+            --info-bg: var(--color-blue-50);
+
+            /* Platform Colors */
+            --platform-chatgpt-bg: var(--color-green-100);
+            --platform-chatgpt-text: var(--color-green-800);
+            --platform-gemini-bg: var(--color-blue-100);
+            --platform-gemini-text: var(--color-blue-800);
+
+            /* Legacy Support - Backward Compatible (will be phased out) */
+            --gray-50: var(--color-gray-50);
+            --gray-100: var(--color-gray-100);
+            --gray-200: var(--color-gray-200);
+            --gray-300: var(--color-gray-300);
+            --gray-400: var(--color-gray-400);
+            --gray-500: var(--color-gray-500);
+            --gray-600: var(--color-gray-600);
+            --gray-700: var(--color-gray-700);
+            --gray-800: var(--color-gray-800);
+            --gray-900: var(--color-gray-900);
+
+            --primary-50: var(--color-blue-50);
+            --primary-100: var(--color-blue-100);
+            --primary-200: var(--color-blue-200);
+            --primary-300: var(--color-blue-300);
+            --primary-400: var(--color-blue-400);
+            --primary-500: var(--color-blue-500);
+            --primary-600: var(--color-blue-600);
+            --primary-700: var(--color-blue-700);
+            --primary-800: var(--color-blue-800);
+
+            --success-50: var(--color-green-50);
+            --success-100: var(--color-green-100);
+            --success-500: var(--color-green-500);
+            --success-600: var(--color-green-600);
+            --success-700: var(--color-green-700);
+
+            --warning-50: var(--color-amber-50);
+            --warning-100: var(--color-amber-100);
+            --warning-500: var(--color-amber-500);
+            --warning-600: var(--color-amber-600);
+            --warning-700: var(--color-amber-700);
+
+            --danger-50: var(--color-red-50);
+            --danger-100: var(--color-red-100);
+            --danger-500: var(--color-red-500);
+            --danger-600: var(--color-red-600);
+            --danger-700: var(--color-red-700);
+
+            /* Material Design 3 - Surface Colors */
+            --md-surface: var(--color-white);
+            --md-surface-variant: #F5F5F5;
+            --md-surface-container: #FAFAFA;
+            --md-surface-container-high: #EEEEEE;
+            --md-on-surface: #1C1B1F;
+            --md-on-surface-variant: #49454F;
+            --md-primary-container: var(--color-blue-50);
+            --md-on-primary-container: var(--color-blue-800);
+            --md-outline: #E0E0E0;
+            --md-outline-variant: #EEEEEE;
+
+            /* Platform Legacy */
+            --chatgpt-light: #D1FAE5;
+            --chatgpt-dark: #065F46;
+            --chatgpt-icon: #10A37F;
+            --gemini-light: #DBEAFE;
+            --gemini-dark: #1E40AF;
+            --gemini-icon: #4285F4;
+
+            /* Component-Specific */
+            --modal-tree-bg: var(--bg-secondary);
+            --modal-tree-item-hover: var(--interactive-hover);
+            --modal-tree-item-text: var(--text-primary);
+            --modal-tree-item-icon: var(--color-gray-600);
+
+            /* Button Tokens - Primary */
+            --button-primary-bg: var(--color-blue-600);
+            --button-primary-hover: var(--color-blue-700);
+            --button-primary-active: var(--color-blue-800);
+            --button-primary-text: var(--color-white);
+            --button-primary-text-hover: var(--color-white);
+            --button-primary-disabled: var(--color-gray-300);
+            --button-primary-disabled-text: var(--color-gray-500);
+
+            /* Button Tokens - Secondary */
+            --button-secondary-bg: transparent;
+            --button-secondary-hover: var(--color-gray-100);
+            --button-secondary-active: var(--color-gray-200);
+            --button-secondary-text: var(--color-blue-600);
+            --button-secondary-text-hover: var(--color-blue-700);
+            --button-secondary-border: var(--color-gray-300);
+            --button-secondary-disabled: var(--color-gray-200);
+            --button-secondary-disabled-text: var(--color-gray-400);
+
+            /* Button Tokens - Danger */
+            --button-danger-bg: var(--color-red-600);
+            --button-danger-hover: var(--color-red-700);
+            --button-danger-active: var(--color-red-800);
+            --button-danger-text: var(--color-white);
+            --button-danger-text-hover: var(--color-white);
+            --button-danger-disabled: var(--color-red-300);
+            --button-danger-disabled-text: var(--color-red-100);
+
+            /* Button Tokens - Warning */
+            --button-warning-bg: var(--color-amber-500);
+            --button-warning-hover: var(--color-amber-600);
+            --button-warning-active: var(--color-amber-700);
+            --button-warning-text: var(--color-white);
+            --button-warning-text-hover: var(--color-white);
+            --button-warning-disabled: var(--color-amber-300);
+
+            /* Button Tokens - Ghost (Transparent) */
+            --button-ghost-bg: transparent;
+            --button-ghost-hover: var(--interactive-hover);
+            --button-ghost-active: var(--interactive-active);
+            --button-ghost-text: var(--text-primary);
+            --button-ghost-text-hover: var(--text-primary);
+
+            /* Button Tokens - Icon */
+            --button-icon-bg: transparent;
+            --button-icon-hover: var(--color-gray-100);
+            --button-icon-active: var(--color-gray-200);
+            --button-icon-text: var(--color-gray-600);
+            --button-icon-text-hover: var(--color-gray-900);
+
+            /* Button Tokens - Close */
+            --button-close-bg: transparent;
+            --button-close-hover: var(--color-gray-100);
+            --button-close-active: var(--color-gray-200);
+            --button-close-text: var(--color-gray-500);
+            --button-close-text-hover: var(--color-gray-900);
+        `;
+  }
+  /**
+   * Get dark mode semantic tokens (Layer 2)
+   * These reference primitive tokens based on dark mode context
+   * @returns CSS custom properties string
+   */
+  static getDarkSemanticTokens() {
+    return `
+            /* ============================================
+               SEMANTIC TOKENS - Dark Mode
+               ============================================ */
+
+            /* Background Colors */
+            --bg-primary: var(--color-gray-dark-50);
+            --bg-secondary: var(--color-gray-dark-100);
+            --bg-tertiary: var(--color-gray-dark-200);
+            --bg-surface: #121212;
+            --bg-surface-elevated: #1E1E1E;
+            --bg-modal: #121212;
+            --bg-overlay: rgba(0, 0, 0, 0.65);
+
+            /* Text Colors */
+            --text-primary: var(--color-white);
+            --text-secondary: var(--color-gray-dark-500);
+            --text-tertiary: var(--color-gray-dark-400);
+            --text-link: var(--color-blue-400);
+            --text-link-hover: var(--color-blue-300);
+            --text-on-primary: var(--color-white);
+            --text-disabled: var(--color-gray-dark-300);
+
+            /* Border Colors */
+            --border-default: var(--color-gray-dark-200);
+            --border-subtle: var(--color-gray-dark-100);
+            --border-strong: var(--color-gray-dark-300);
+            --border-interactive: var(--color-blue-400);
+            --border-focus: var(--color-blue-200);
+            --border-error: var(--color-red-400);
+
+            /* Interactive Colors */
+            --interactive-primary: var(--color-blue-400);
+            --interactive-primary-hover: var(--color-blue-500);
+            --interactive-selected: rgba(59, 130, 246, 0.2);
+            --interactive-secondary: var(--color-gray-dark-100);
+            --interactive-secondary-hover: var(--color-gray-dark-200);
+            --interactive-hover: var(--color-gray-dark-100);
+            --interactive-active: var(--color-gray-dark-200);
+            --interactive-disabled: var(--color-gray-dark-300);
+
+            /* Semantic States */
+            --success: var(--color-green-400);
+            --success-bg: var(--color-green-900);
+            --warning: var(--color-amber-400);
+            --warning-bg: var(--color-amber-900);
+            --error: var(--color-red-400);
+            --error-bg: var(--color-red-900);
+            --info: var(--color-blue-400);
+            --info-bg: var(--color-blue-900);
+
+            /* Platform Colors */
+            --platform-chatgpt-bg: var(--color-green-900);
+            --platform-chatgpt-text: var(--color-green-200);
+            --platform-gemini-bg: var(--color-blue-900);
+            --platform-gemini-text: var(--color-blue-200);
+
+            /* Legacy Support - Backward Compatible (will be phased out) */
+            --gray-50: var(--color-gray-dark-50);
+            --gray-100: var(--color-gray-dark-100);
+            --gray-200: var(--color-gray-dark-200);
+            --gray-300: var(--color-gray-dark-300);
+            --gray-400: var(--color-gray-dark-400);
+            --gray-500: var(--color-gray-dark-500);
+            --gray-600: var(--color-gray-dark-600);
+            --gray-700: var(--color-gray-dark-700);
+            --gray-800: var(--color-gray-dark-800);
+            --gray-900: var(--color-gray-dark-900);
+
+            --primary-50: var(--color-blue-50);
+            --primary-100: var(--color-blue-100);
+            --primary-200: var(--color-blue-200);
+            --primary-300: var(--color-blue-300);
+            --primary-400: var(--color-blue-400);
+            --primary-500: var(--color-blue-500);
+            --primary-600: var(--color-blue-600);
+            --primary-700: var(--color-blue-700);
+            --primary-800: var(--color-blue-800);
+
+            --success-50: var(--color-green-50);
+            --success-100: var(--color-green-100);
+            --success-500: var(--color-green-500);
+            --success-600: var(--color-green-600);
+            --success-700: var(--color-green-700);
+
+            --warning-50: var(--color-amber-50);
+            --warning-100: var(--color-amber-100);
+            --warning-500: var(--color-amber-500);
+            --warning-600: var(--color-amber-600);
+            --warning-700: var(--color-amber-700);
+
+            --danger-50: var(--color-red-50);
+            --danger-100: var(--color-red-100);
+            --danger-500: var(--color-red-500);
+            --danger-600: var(--color-red-600);
+            --danger-700: var(--color-red-700);
+
+            /* Material Design 3 - Surface Colors (Dark) */
+            --md-surface: #121212;
+            --md-surface-variant: #1E1E1E;
+            --md-surface-container: #2C2C2C;
+            --md-surface-container-high: #3A3A3A;
+            --md-on-surface: #E3E3E3;
+            --md-on-surface-variant: #CAC4D0;
+            --md-primary-container: #004A77;
+            --md-on-primary-container: #C5E7FF;
+            --md-outline: #938F99;
+            --md-outline-variant: #49454F;
+
+            /* Platform Legacy */
+            --chatgpt-light: #065F46;
+            --chatgpt-dark: #10B981;
+            --chatgpt-icon: #34D399;
+            --gemini-light: #1E40AF;
+            --gemini-dark: #60A5FA;
+            --gemini-icon: #93C5FD;
+
+            /* Component-Specific */
+            --modal-tree-bg: var(--color-gray-dark-50);
+            --modal-tree-item-hover: var(--color-gray-dark-100);
+            --modal-tree-item-text: var(--color-gray-dark-900);
+            --modal-tree-item-icon: var(--color-gray-dark-400);
+
+            /* Button Tokens - Primary */
+            --button-primary-bg: var(--color-blue-400);
+            --button-primary-hover: var(--color-blue-500);
+            --button-primary-active: var(--color-blue-600);
+            --button-primary-text: var(--color-white);
+            --button-primary-text-hover: var(--color-white);
+            --button-primary-disabled: var(--color-gray-dark-300);
+            --button-primary-disabled-text: var(--color-gray-dark-500);
+
+            /* Button Tokens - Secondary */
+            --button-secondary-bg: transparent;
+            --button-secondary-hover: var(--color-gray-dark-100);
+            --button-secondary-active: var(--color-gray-dark-200);
+            --button-secondary-text: var(--color-blue-400);
+            --button-secondary-text-hover: var(--color-blue-300);
+            --button-secondary-border: var(--color-gray-dark-300);
+            --button-secondary-disabled: var(--color-gray-dark-200);
+            --button-secondary-disabled-text: var(--color-gray-dark-400);
+
+            /* Button Tokens - Danger */
+            --button-danger-bg: var(--color-red-500);
+            --button-danger-hover: var(--color-red-600);
+            --button-danger-active: var(--color-red-700);
+            --button-danger-text: var(--color-white);
+            --button-danger-text-hover: var(--color-white);
+            --button-danger-disabled: var(--color-red-dark-300);
+            --button-danger-disabled-text: var(--color-red-dark-100);
+
+            /* Button Tokens - Warning */
+            --button-warning-bg: var(--color-amber-500);
+            --button-warning-hover: var(--color-amber-600);
+            --button-warning-active: var(--color-amber-700);
+            --button-warning-text: var(--color-gray-900);
+            --button-warning-text-hover: var(--color-gray-900);
+            --button-warning-disabled: var(--color-amber-dark-300);
+
+            /* Button Tokens - Ghost (Transparent) */
+            --button-ghost-bg: transparent;
+            --button-ghost-hover: var(--interactive-hover);
+            --button-ghost-active: var(--interactive-active);
+            --button-ghost-text: var(--text-primary);
+            --button-ghost-text-hover: var(--text-primary);
+
+            /* Button Tokens - Icon */
+            --button-icon-bg: transparent;
+            --button-icon-hover: var(--color-gray-dark-100);
+            --button-icon-active: var(--color-gray-dark-200);
+            --button-icon-text: var(--color-gray-dark-400);
+            --button-icon-text-hover: var(--color-white);
+
+            /* Button Tokens - Close */
+            --button-close-bg: transparent;
+            --button-close-hover: var(--color-gray-dark-100);
+            --button-close-active: var(--color-gray-dark-200);
+            --button-close-text: var(--color-gray-dark-400);
+            --button-close-text-hover: var(--color-white);
+        `;
+  }
+  /**
+   * Get non-color tokens (spacing, typography, etc.)
+   * These are mode-independent
+   * @returns CSS custom properties string
+   */
+  static getCommonTokens() {
+    return `
+            /* ============================================
+               SPACING SCALE (8px Grid)
+               ============================================ */
+            
+            --space-0: 0px;
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+            --space-12: 48px;
+            --space-16: 64px;
+            --space-20: 80px;
+            --space-24: 96px;
+
+            /* ============================================
+               TYPOGRAPHY
+               ============================================ */
+            
+            /* Font Families */
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
+                "Courier New", monospace;
+            
+            /* Font Sizes */
+            --text-xs: 12px;
+            --text-sm: 13px;
+            --text-base: 14px;
+            --text-lg: 16px;
+            --text-xl: 18px;
+            --text-2xl: 20px;
+            --text-3xl: 24px;
+            
+            /* Font Weights */
+            --font-normal: 400;
+            --font-medium: 500;
+            --font-semibold: 600;
+            --font-bold: 700;
+            
+            /* Line Heights */
+            --leading-tight: 1.25;
+            --leading-normal: 1.5;
+            --leading-relaxed: 1.75;
+
+            /* ============================================
+               BORDER RADIUS
+               ============================================ */
+            
+            --radius-none: 0px;
+            --radius-sm: 6px;
+            --radius-small: 6px;
+            --radius-md: 8px;
+            --radius-medium: 8px;
+            --radius-lg: 12px;
+            --radius-large: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+
+            /* ============================================
+               Z-INDEX SCALE
+               ============================================ */
+            
+            --z-dropdown: 1000;
+            --z-sticky: 1020;
+            --z-fixed: 1030;
+            --z-modal-backdrop: 1040;
+            --z-modal: 1050;
+            --z-popover: 1060;
+            --z-tooltip: 1070;
+
+            /* ============================================
+               ANIMATIONS
+               ============================================ */
+            
+            /* Durations */
+            --duration-fast: 150ms;
+            --duration-base: 200ms;
+            --duration-slow: 300ms;
+            --duration-slower: 500ms;
+            
+            /* Easing Functions */
+            --ease-in: cubic-bezier(0.4, 0, 1, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+            --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+            /* Aliases */
+            --white: var(--color-white);
+            --black: var(--color-black);
+        `;
+  }
+  /**
+   * Get mode-specific shadow tokens
+   * @param isDark Whether dark mode is active
+   * @returns CSS custom properties string
+   */
+  static getShadowTokens(isDark) {
+    if (isDark) {
+      return `
+                /* Dark Mode Shadows */
+                --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+                --shadow-sm: 0 1px 5px rgba(0, 0, 0, 0.4), 0 2px 2px rgba(0, 0, 0, 0.28);
+                --shadow-md: 0 3px 5px rgba(0, 0, 0, 0.4), 0 1px 18px rgba(0, 0, 0, 0.24);
+                --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 5px rgba(0, 0, 0, 0.28);
+                --shadow-xl: 0 8px 10px rgba(0, 0, 0, 0.28), 0 3px 14px rgba(0, 0, 0, 0.24);
+                --shadow-2xl: 0 24px 38px rgba(0, 0, 0, 0.28), 0 9px 46px rgba(0, 0, 0, 0.24);
+                --shadow-focus: 0 0 0 3px rgba(90, 202, 249, 0.2);
+
+                --elevation-0: 0 0 0 0 rgba(0, 0, 0, 0);
+                --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+                --elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+                --elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+                --elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.15);
+
+                --glass-bg: rgba(30, 30, 30, 0.7);
+                --glass-border: rgba(255, 255, 255, 0.1);
+                --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            `;
+    } else {
+      return `
+                /* Light Mode Shadows */
+                --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+                --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+                --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.1);
+
+                --elevation-0: 0 0 0 0 rgba(0, 0, 0, 0);
+                --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+                --elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                --elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                --elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+                --glass-bg: rgba(255, 255, 255, 0.7);
+                --glass-border: rgba(255, 255, 255, 0.18);
+                --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            `;
+    }
+  }
+  /**
+   * Get complete token set for current mode
+   * Combines primitive tokens + semantic tokens + common tokens
+   * @deprecated Use getCompleteTokens() instead
+   */
+  static getLightTokens() {
+    return this.getCompleteTokens(false);
+  }
+  /**
+   * Get complete token set for current mode
+   * Combines primitive tokens + semantic tokens + common tokens
+   * @deprecated Use getCompleteTokens() instead
+   */
+  static getDarkTokens() {
+    return this.getCompleteTokens(true);
+  }
+  /**
+   * Get complete token set for specified mode
+   * Combines: Primitive Tokens + Semantic Tokens + Common Tokens + Shadows
+   * @param isDark Whether to get dark mode tokens
+   * @returns Complete CSS custom properties string
+   */
+  static getCompleteTokens(isDark) {
+    const primitiveTokens = this.getPrimitiveTokens();
+    const semanticTokens = isDark ? this.getDarkSemanticTokens() : this.getLightSemanticTokens();
+    const commonTokens = this.getCommonTokens();
+    const shadowTokens = this.getShadowTokens(isDark);
+    return `
+            ${primitiveTokens}
+            ${semanticTokens}
+            ${commonTokens}
+            ${shadowTokens}
+        `;
+  }
+}
+
 class BookmarkSaveModal {
   // ✅ Shadow DOM infrastructure
   container = null;
@@ -25091,11 +24949,11 @@ class BookmarkSaveModal {
             .folder-empty-icon { font-size: 48px; margin-bottom: 12px; }
             .folder-empty-text { font-size: 13px; }
             .save-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--gray-200); }
-            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
+            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
             .save-modal-btn-cancel { background: var(--button-secondary-bg); color: var(--button-secondary-text); }
-            .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); }
+            .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
-            .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); }
+            .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save:disabled { background: var(--button-primary-disabled); color: var(--button-primary-disabled-text); cursor: not-allowed; opacity: 0.6; }
         `;
     this.shadowRoot.appendChild(styleElement);
@@ -28595,27 +28453,9 @@ ${options.message}
   async showExportOptionsDialog() {
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
-      overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: var(--bg-overlay);
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            `;
+      overlay.className = "export-dialog-overlay";
       const modal = document.createElement("div");
-      modal.style.cssText = `
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
-                max-width: 500px;
-                width: 90%;
-            `;
+      modal.className = "export-dialog-modal";
       modal.innerHTML = `
                 <div class="export-dialog-content">
                     <h3 class="export-dialog-title">
@@ -28839,32 +28679,11 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Issue 2: Display summary and ask for confirmation
    */
   async showImportSummary(analysis) {
-    const isDark = document.documentElement.classList.contains("dark");
-    const bgColor = isDark ? "var(--gray-800)" : "white";
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
-      overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5) !important;
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color-scheme: light dark;
-            `;
+      overlay.className = "import-summary-overlay";
       const modal = document.createElement("div");
-      modal.style.cssText = `
-                background: ${bgColor};
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
-                max-width: 450px;
-                width: 90%;
-                padding: 24px;
-            `;
+      modal.className = "import-summary-modal";
       const totalIssues = analysis.noFolder.length + analysis.tooDeep.length;
       modal.innerHTML = `
                 <h3 class="import-summary-title">
@@ -28899,18 +28718,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
       }
       const cancelBtn = modal.querySelector(".cancel-btn");
       const proceedBtn = modal.querySelector(".proceed-btn");
-      cancelBtn.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "var(--gray-100)";
-      });
-      cancelBtn.addEventListener("mouseleave", () => {
-        cancelBtn.style.background = "white";
-      });
-      proceedBtn.addEventListener("mouseenter", () => {
-        proceedBtn.style.background = "var(--primary-700)";
-      });
-      proceedBtn.addEventListener("mouseleave", () => {
-        proceedBtn.style.background = "var(--primary-600)";
-      });
       cancelBtn.addEventListener("click", () => {
         overlay.remove();
         resolve(false);
@@ -28999,69 +28806,59 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
   async showConflictDialog(conflicts, allBookmarks) {
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
-      const isDark = document.documentElement.classList.contains("dark");
-      overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: ${isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.5)"} !important;
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color-scheme: light dark;
-                
-                /* Define CSS Variables for modal */
-                --bg-surface: ${isDark ? "#121212" : "white"};
-                --text-primary: ${isDark ? "#f5f5f5" : "#1f2937"};
-                --border-default: ${isDark ? "#374151" : "#d1d5db"};
-                --radius-large: 12px;
-                --shadow-2xl: 0 25px 50px -12px ${isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.25)"};
-                --warning-600: #d97706;
-                --bg-tertiary: ${isDark ? "#1f2937" : "#f3f4f6"};
-                --border-subtle: ${isDark ? "#1f2937" : "#e5e7eb"};
-                --platform-chatgpt-bg: ${isDark ? "#064e3b" : "#d1fae5"};
-                --platform-chatgpt-text: ${isDark ? "#6ee7b7" : "#065f46"};
-                --platform-gemini-bg: ${isDark ? "#1e3a8a" : "#dbeafe"};
-                --platform-gemini-text: ${isDark ? "#93c5fd" : "#1e40af"};
-                --interactive-primary: #2563eb;
-            `;
+      overlay.className = "duplicate-dialog-overlay";
       const modal = document.createElement("div");
-      modal.style.cssText = `
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-large);
-                box-shadow: var(--shadow-2xl);
-                max-width: 500px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-            `;
+      modal.className = "duplicate-dialog-modal";
       modal.innerHTML = `
             <style>
+                .duplicate-dialog-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: var(--modal-overlay-bg);
+                    z-index: var(--z-modal-backdrop);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color-scheme: light dark;
+                }
+
+                .duplicate-dialog-modal {
+                    background: var(--modal-surface);
+                    color: var(--md-on-surface);
+                    border-radius: var(--radius-medium);
+                    box-shadow: var(--modal-shadow);
+                    max-width: 500px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    z-index: var(--z-modal);
+                    font-family: var(--font-sans);
+                }
+
                 /* Duplicate Dialog Styles */
                 .duplicate-dialog-content { padding: 20px; }
                 .duplicate-dialog-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
                 .duplicate-dialog-icon { color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0; }
-                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: 500; color: var(--text-primary); line-height: 1.2; }
-                .duplicate-dialog-body { color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: var(--font-medium); color: var(--md-on-surface); line-height: 1.2; }
+                .duplicate-dialog-body { color: var(--md-on-surface); font-size: 14px; line-height: 1.5; }
                 .duplicate-dialog-text { margin: 0 0 10px 0; }
-                .duplicate-list-container { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; margin-bottom: 14px; max-height: 300px; overflow-y: auto; }
-                .duplicate-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
+                .duplicate-list-container { background: var(--md-surface-variant); border-radius: var(--radius-small); padding: 12px; margin-bottom: 14px; max-height: 300px; overflow-y: auto; }
+                .duplicate-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--md-outline-variant); }
                 .duplicate-list-item:last-child { border-bottom: none; }
                 .duplicate-platform-badge { flex-shrink: 0; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
                 .duplicate-platform-badge.platform-chatgpt { background: var(--platform-chatgpt-bg); color: var(--platform-chatgpt-text); }
                 .duplicate-platform-badge.platform-gemini { background: var(--platform-gemini-bg); color: var(--platform-gemini-text); }
-                .duplicate-bookmark-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
-                .duplicate-highlight { color: var(--interactive-primary); font-weight: 600; }
-                .duplicate-dialog-hint { margin: 6px 0 0 0; color: ${isDark ? "#9ca3af" : "#6b7280"}; font-size: 13px; font-style: italic; opacity: 0.9; }
-                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border-default); }
-                .cancel-btn { padding: 8px 16px; border: 1px solid var(--border-default); border-radius: 6px; background: transparent; color: var(--text-primary); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-                .cancel-btn:hover { background: ${isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)"}; border-color: ${isDark ? "#4b5563" : "#9ca3af"}; }
-                .merge-btn { padding: 8px 16px; border: none; border-radius: 6px; background: ${isDark ? "#2563eb" : "#3b82f6"}; color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-                .merge-btn:hover { background: ${isDark ? "#1d4ed8" : "#2563eb"}; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transform: translateY(-1px); }
+                .duplicate-bookmark-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-on-surface); }
+                .duplicate-highlight { color: var(--primary-600); font-weight: var(--font-semibold); }
+                .duplicate-dialog-hint { margin: 6px 0 0 0; color: var(--md-on-surface-variant); font-size: 13px; font-style: italic; opacity: 0.9; }
+                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--md-outline); }
+                .cancel-btn { padding: 8px 16px; border: none; border-radius: 6px; background: var(--gray-100); color: var(--md-on-surface); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s; }
+                .cancel-btn:hover { background: var(--gray-200); transform: translateY(-1px); }
+                .merge-btn { padding: 8px 16px; border: none; border-radius: 6px; background: var(--modal-primary-bg); color: var(--modal-primary-text); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s; }
+                .merge-btn:hover { background: var(--modal-primary-hover-bg); box-shadow: var(--modal-primary-shadow); transform: translateY(-1px); }
             </style>
             <div class="duplicate-dialog-content">
                 <div class="duplicate-dialog-header">
@@ -29098,12 +28895,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
       document.body.appendChild(overlay);
       const cancelBtn = modal.querySelector(".cancel-btn");
       const mergeBtn = modal.querySelector(".merge-btn");
-      cancelBtn.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "var(--gray-100)";
-      });
-      cancelBtn.addEventListener("mouseleave", () => {
-        cancelBtn.style.background = "transparent";
-      });
       cancelBtn.addEventListener("click", () => {
         overlay.remove();
         resolve(false);
@@ -29449,6 +29240,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 box-sizing: border-box;
             }
 
+            button {
+                font-family: var(--font-sans);
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+            }
+
             .panel {
                 position: fixed;
                 top: 50%;
@@ -29561,7 +29358,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .tab-btn.active {
-                background: var(--primary-50);  /* Light blue background */
+                background: var(--interactive-selected);
                 color: var(--primary-700);
                 font-weight: var(--font-semibold);  /* 600 */
                 /* Use box-shadow for accent instead of border */
@@ -29932,6 +29729,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .export-btn:hover {
                 background: var(--primary-700);
+                transform: translateY(-1px);
             }
 
             /* Content */
@@ -30047,23 +29845,26 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 border-radius: 6px;
                 border: none;
                 cursor: pointer;
-                font-size: 14px;
-                font-weight: 500;
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
                 transition: all 0.2s;
             }
             .btn-cancel {
-                background: var(--md-surface-container);  /* ✅ Dark mode */
-                color: var(--md-on-surface);  /* ✅ Dark mode */
+                background: var(--button-secondary-bg);
+                color: var(--button-secondary-text);
             }
             .btn-cancel:hover {
-                background: var(--md-surface-container-high);
+                background: var(--button-secondary-hover);
+                color: var(--button-secondary-text-hover);
+                transform: translateY(-1px);
             }
             .btn-confirm {
-                background: var(--danger-600);
-                color: var(--white);
+                background: var(--button-danger-bg);
+                color: var(--button-danger-text);
             }
             .btn-confirm:hover {
-                background: var(--danger-700);
+                background: var(--button-danger-hover);
+                transform: translateY(-1px);
             }
 
             .title {
@@ -30153,8 +29954,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .support-btn {
                 display: inline-block;
                 padding: var(--space-3) var(--space-6);
-                background: var(--primary-600);
-                color: var(--white);
+                background: var(--button-primary-bg);
+                color: var(--button-primary-text);
                 text-decoration: none;
                 border-radius: var(--radius-small);  /* Material Design 8px */
                 font-weight: var(--font-medium);
@@ -30163,7 +29964,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .support-btn:hover {
-                background: var(--primary-700);
+                background: var(--button-primary-hover);
                 box-shadow: var(--elevation-2);  /* Material Design hover elevation */
                 transform: translateY(-1px);
             }
@@ -30269,7 +30070,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 border: 1px solid var(--gray-200);
                 background: var(--gray-100);
                 border-radius: 6px;
-                font-size: 14px;
+                font-size: var(--text-sm);
                 cursor: pointer;
                 transition: all 0.2s ease;
                 display: inline-flex;
@@ -30290,18 +30091,19 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .merge-btn {
                 background: var(--button-primary-bg);
-                color: var(--white);
+                color: var(--button-primary-text);
             }
 
             .merge-btn:hover {
                 background: var(--button-primary-hover);
+                transform: translateY(-1px);
             }
 
             .cancel-btn {
                 padding: 8px 16px;
                 border: none;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: var(--text-sm);
                 font-weight: var(--font-medium);
                 cursor: pointer;
                 transition: background 0.2s;
@@ -30312,6 +30114,24 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .cancel-btn:hover {
                 background: var(--button-secondary-hover); 
                 color: var(--button-secondary-text-hover);
+                transform: translateY(-1px);
+            }
+
+            .delete-dialog-footer .delete-btn {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+                background: var(--button-danger-bg);
+                color: var(--button-danger-text);
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .delete-dialog-footer .delete-btn:hover {
+                background: var(--button-danger-hover);
+                transform: translateY(-1px);
             }
             
             .confirm-btn {
@@ -30320,7 +30140,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 border-radius: var(--radius-small);
                 background: var(--button-primary-bg);
                 color: var(--button-primary-text);
-                font-size: 14px;
+                font-size: var(--text-sm);
                 font-weight: var(--font-medium);
                 cursor: pointer;
                 transition: all 0.2s;
@@ -30328,9 +30148,34 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             
             .confirm-btn:hover {
                 background: var(--button-primary-hover);
+                transform: translateY(-1px);
             }
 
             /* Import Summary Dialog */
+            .import-summary-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--bg-overlay);
+                z-index: var(--z-modal-backdrop);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color-scheme: light dark;
+            }
+
+            .import-summary-modal {
+                background: var(--bg-surface);
+                color: var(--text-primary);
+                border-radius: var(--radius-medium);
+                box-shadow: var(--shadow-2xl);
+                max-width: 450px;
+                width: 90%;
+                padding: 24px;
+            }
+
             .import-summary-title {
                 margin: 0 0 16px 0;
                 font-size: 18px;
@@ -30388,11 +30233,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 font-size: 14px;
                 font-weight: var(--font-medium);
                 cursor: pointer;
-                transition: background 0.2s;
+                transition: all 0.2s;
             }
 
             .proceed-btn:hover {
                 background: var(--button-primary-hover);
+                transform: translateY(-1px);
             }
 
             /* Duplicate Bookmarks Dialog */
@@ -30651,6 +30497,29 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             /* Export Options Dialog */
+            .export-dialog-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--bg-overlay);
+                z-index: var(--z-modal-backdrop);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color-scheme: light dark;
+            }
+
+            .export-dialog-modal {
+                background: var(--bg-surface);
+                color: var(--text-primary);
+                border-radius: var(--radius-medium);
+                box-shadow: var(--shadow-2xl);
+                max-width: 500px;
+                width: 90%;
+            }
+
             .export-dialog-content {
                 padding: 24px;
             }
@@ -30944,19 +30813,20 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .open-conversation-btn {
                 padding: 8px 20px;
-                background: #2563EB;
-                color: white;
+                background: var(--button-primary-bg);
+                color: var(--button-primary-text);
                 border: none;
                 border-radius: 8px;
-                font-size: 14px;
-                font-weight: 500;
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
                 cursor: pointer;
                 transition: all 0.15s ease;
             }
 
             .open-conversation-btn:hover {
-                background: #1D4ED8;
-                box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+                background: var(--button-primary-hover);
+                box-shadow: var(--shadow-sm);
+                transform: translateY(-1px);
             }
 
             /* ============================================================================
@@ -31039,7 +30909,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .batch-actions-bar button.danger {
-                color: var(--danger-600);
+                color: var(--button-danger-bg);
             }
 
             .batch-actions-bar button.danger:hover {
@@ -31810,6 +31680,7 @@ class ContentScript {
   processingMessages = /* @__PURE__ */ new Set();
   processingElements = /* @__PURE__ */ new WeakSet();
   constructor() {
+    this.ensureDesignTokens();
     logger$1.setLevel(LogLevel.INFO);
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
@@ -31825,7 +31696,18 @@ class ContentScript {
         logger$1.info("[DarkMode] Removed dark class from <html>");
       }
     });
-    logger$1.info("AI-Markdone initialized");
+    logger$1.info("AI-MarkDone initialized");
+  }
+  /**
+   * Inject shared design tokens into the page once.
+   */
+  ensureDesignTokens() {
+    const existing = document.getElementById("aicopy-design-tokens");
+    if (existing) return;
+    const style = document.createElement("style");
+    style.id = "aicopy-design-tokens";
+    style.textContent = designTokensCss;
+    (document.head || document.documentElement).appendChild(style);
   }
   /**
    * Start the extension
@@ -32273,7 +32155,7 @@ function handleNavigation(contentScript) {
   return contentScript;
 }
 function initExtension() {
-  logger$1.info("Initializing AI-Markdone extension");
+  logger$1.info("Initializing AI-MarkDone extension");
   logger$1.debug("Document readyState:", document.readyState);
   logger$1.debug("Current URL:", window.location.href);
   let contentScript = new ContentScript();

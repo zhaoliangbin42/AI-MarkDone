@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "AI-Markdone",
-    "version": "1.2.0",
-    "description": "AI-Markdone: ChatGPT & Gemini enhancement - One-click Markdown copy, formatted preview, word count, perfect math formula support.",
+    "name": "AI-MarkDone",
+    "version": "2.0.0",
+    "description": "AI-MarkDone: ChatGPT & Gemini enhancement - One-click Markdown copy, formatted preview, word count, perfect math formula support.",
     "permissions": [
         "clipboardWrite",
         "storage"

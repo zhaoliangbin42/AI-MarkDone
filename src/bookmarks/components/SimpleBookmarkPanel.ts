@@ -2762,28 +2762,10 @@ ${options.message}
     private async showExportOptionsDialog(): Promise<boolean | null> {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: var(--bg-overlay);
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            `;
+            overlay.className = 'export-dialog-overlay';
 
             const modal = document.createElement('div');
-            modal.style.cssText = `
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
-                max-width: 500px;
-                width: 90%;
-            `;
+            modal.className = 'export-dialog-modal';
 
             modal.innerHTML = `
                 <div class="export-dialog-content">
@@ -3080,36 +3062,12 @@ ${options.message}
         noFolder: Bookmark[];
         tooDeep: Bookmark[];
     }): Promise<boolean> {
-        // Dark mode detection
-        const isDark = document.documentElement.classList.contains('dark');
-        const bgColor = isDark ? 'var(--gray-800)' : 'white';
-
-
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5) !important;
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color-scheme: light dark;
-            `;
+            overlay.className = 'import-summary-overlay';
 
             const modal = document.createElement('div');
-            modal.style.cssText = `
-                background: ${bgColor};
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
-                max-width: 450px;
-                width: 90%;
-                padding: 24px;
-            `;
+            modal.className = 'import-summary-modal';
 
             const totalIssues = analysis.noFolder.length + analysis.tooDeep.length;
 
@@ -3150,21 +3108,6 @@ ${options.message}
 
             const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
             const proceedBtn = modal.querySelector('.proceed-btn') as HTMLElement;
-
-            // Hover effects
-            cancelBtn.addEventListener('mouseenter', () => {
-                cancelBtn.style.background = 'var(--gray-100)';
-            });
-            cancelBtn.addEventListener('mouseleave', () => {
-                cancelBtn.style.background = 'white';
-            });
-
-            proceedBtn.addEventListener('mouseenter', () => {
-                proceedBtn.style.background = 'var(--primary-700)';
-            });
-            proceedBtn.addEventListener('mouseleave', () => {
-                proceedBtn.style.background = 'var(--primary-600)';
-            });
 
             cancelBtn.addEventListener('click', () => {
                 overlay.remove();
@@ -3279,74 +3222,61 @@ ${options.message}
     ): Promise<boolean> {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-
-            // Detect dark mode
-            const isDark = document.documentElement.classList.contains('dark');
-
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: ${isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)'} !important;
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color-scheme: light dark;
-                
-                /* Define CSS Variables for modal */
-                --bg-surface: ${isDark ? '#121212' : 'white'};
-                --text-primary: ${isDark ? '#f5f5f5' : '#1f2937'};
-                --border-default: ${isDark ? '#374151' : '#d1d5db'};
-                --radius-large: 12px;
-                --shadow-2xl: 0 25px 50px -12px ${isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.25)'};
-                --warning-600: #d97706;
-                --bg-tertiary: ${isDark ? '#1f2937' : '#f3f4f6'};
-                --border-subtle: ${isDark ? '#1f2937' : '#e5e7eb'};
-                --platform-chatgpt-bg: ${isDark ? '#064e3b' : '#d1fae5'};
-                --platform-chatgpt-text: ${isDark ? '#6ee7b7' : '#065f46'};
-                --platform-gemini-bg: ${isDark ? '#1e3a8a' : '#dbeafe'};
-                --platform-gemini-text: ${isDark ? '#93c5fd' : '#1e40af'};
-                --interactive-primary: #2563eb;
-            `;
+            overlay.className = 'duplicate-dialog-overlay';
 
             const modal = document.createElement('div');
-            modal.style.cssText = `
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-large);
-                box-shadow: var(--shadow-2xl);
-                max-width: 500px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-            `;
+            modal.className = 'duplicate-dialog-modal';
 
             modal.innerHTML = `
             <style>
+                .duplicate-dialog-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: var(--modal-overlay-bg);
+                    z-index: var(--z-modal-backdrop);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color-scheme: light dark;
+                }
+
+                .duplicate-dialog-modal {
+                    background: var(--modal-surface);
+                    color: var(--md-on-surface);
+                    border-radius: var(--radius-medium);
+                    box-shadow: var(--modal-shadow);
+                    max-width: 500px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    z-index: var(--z-modal);
+                    font-family: var(--font-sans);
+                }
+
                 /* Duplicate Dialog Styles */
                 .duplicate-dialog-content { padding: 20px; }
                 .duplicate-dialog-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
                 .duplicate-dialog-icon { color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0; }
-                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: 500; color: var(--text-primary); line-height: 1.2; }
-                .duplicate-dialog-body { color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: var(--font-medium); color: var(--md-on-surface); line-height: 1.2; }
+                .duplicate-dialog-body { color: var(--md-on-surface); font-size: 14px; line-height: 1.5; }
                 .duplicate-dialog-text { margin: 0 0 10px 0; }
-                .duplicate-list-container { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; margin-bottom: 14px; max-height: 300px; overflow-y: auto; }
-                .duplicate-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
+                .duplicate-list-container { background: var(--md-surface-variant); border-radius: var(--radius-small); padding: 12px; margin-bottom: 14px; max-height: 300px; overflow-y: auto; }
+                .duplicate-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--md-outline-variant); }
                 .duplicate-list-item:last-child { border-bottom: none; }
                 .duplicate-platform-badge { flex-shrink: 0; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
                 .duplicate-platform-badge.platform-chatgpt { background: var(--platform-chatgpt-bg); color: var(--platform-chatgpt-text); }
                 .duplicate-platform-badge.platform-gemini { background: var(--platform-gemini-bg); color: var(--platform-gemini-text); }
-                .duplicate-bookmark-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
-                .duplicate-highlight { color: var(--interactive-primary); font-weight: 600; }
-                .duplicate-dialog-hint { margin: 6px 0 0 0; color: ${isDark ? '#9ca3af' : '#6b7280'}; font-size: 13px; font-style: italic; opacity: 0.9; }
-                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border-default); }
-                .cancel-btn { padding: 8px 16px; border: 1px solid var(--border-default); border-radius: 6px; background: transparent; color: var(--text-primary); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-                .cancel-btn:hover { background: ${isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}; border-color: ${isDark ? '#4b5563' : '#9ca3af'}; }
-                .merge-btn { padding: 8px 16px; border: none; border-radius: 6px; background: ${isDark ? '#2563eb' : '#3b82f6'}; color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-                .merge-btn:hover { background: ${isDark ? '#1d4ed8' : '#2563eb'}; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transform: translateY(-1px); }
+                .duplicate-bookmark-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-on-surface); }
+                .duplicate-highlight { color: var(--primary-600); font-weight: var(--font-semibold); }
+                .duplicate-dialog-hint { margin: 6px 0 0 0; color: var(--md-on-surface-variant); font-size: 13px; font-style: italic; opacity: 0.9; }
+                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--md-outline); }
+                .cancel-btn { padding: 8px 16px; border: none; border-radius: 6px; background: var(--gray-100); color: var(--md-on-surface); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s; }
+                .cancel-btn:hover { background: var(--gray-200); transform: translateY(-1px); }
+                .merge-btn { padding: 8px 16px; border: none; border-radius: 6px; background: var(--modal-primary-bg); color: var(--modal-primary-text); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s; }
+                .merge-btn:hover { background: var(--modal-primary-hover-bg); box-shadow: var(--modal-primary-shadow); transform: translateY(-1px); }
             </style>
             <div class="duplicate-dialog-content">
                 <div class="duplicate-dialog-header">
@@ -3387,13 +3317,6 @@ ${options.message}
 
             const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
             const mergeBtn = modal.querySelector('.merge-btn') as HTMLElement;
-
-            cancelBtn.addEventListener('mouseenter', () => {
-                cancelBtn.style.background = 'var(--gray-100)';
-            });
-            cancelBtn.addEventListener('mouseleave', () => {
-                cancelBtn.style.background = 'transparent';
-            });
 
             cancelBtn.addEventListener('click', () => {
                 overlay.remove();
@@ -3820,6 +3743,12 @@ ${options.message}
                 box-sizing: border-box;
             }
 
+            button {
+                font-family: var(--font-sans);
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+            }
+
             .panel {
                 position: fixed;
                 top: 50%;
@@ -3932,7 +3861,7 @@ ${options.message}
             }
 
             .tab-btn.active {
-                background: var(--primary-50);  /* Light blue background */
+                background: var(--interactive-selected);
                 color: var(--primary-700);
                 font-weight: var(--font-semibold);  /* 600 */
                 /* Use box-shadow for accent instead of border */
@@ -4303,6 +4232,7 @@ ${options.message}
 
             .export-btn:hover {
                 background: var(--primary-700);
+                transform: translateY(-1px);
             }
 
             /* Content */
@@ -4418,23 +4348,26 @@ ${options.message}
                 border-radius: 6px;
                 border: none;
                 cursor: pointer;
-                font-size: 14px;
-                font-weight: 500;
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
                 transition: all 0.2s;
             }
             .btn-cancel {
-                background: var(--md-surface-container);  /* ✅ Dark mode */
-                color: var(--md-on-surface);  /* ✅ Dark mode */
+                background: var(--button-secondary-bg);
+                color: var(--button-secondary-text);
             }
             .btn-cancel:hover {
-                background: var(--md-surface-container-high);
+                background: var(--button-secondary-hover);
+                color: var(--button-secondary-text-hover);
+                transform: translateY(-1px);
             }
             .btn-confirm {
-                background: var(--danger-600);
-                color: var(--white);
+                background: var(--button-danger-bg);
+                color: var(--button-danger-text);
             }
             .btn-confirm:hover {
-                background: var(--danger-700);
+                background: var(--button-danger-hover);
+                transform: translateY(-1px);
             }
 
             .title {
@@ -4524,8 +4457,8 @@ ${options.message}
             .support-btn {
                 display: inline-block;
                 padding: var(--space-3) var(--space-6);
-                background: var(--primary-600);
-                color: var(--white);
+                background: var(--button-primary-bg);
+                color: var(--button-primary-text);
                 text-decoration: none;
                 border-radius: var(--radius-small);  /* Material Design 8px */
                 font-weight: var(--font-medium);
@@ -4534,7 +4467,7 @@ ${options.message}
             }
 
             .support-btn:hover {
-                background: var(--primary-700);
+                background: var(--button-primary-hover);
                 box-shadow: var(--elevation-2);  /* Material Design hover elevation */
                 transform: translateY(-1px);
             }
@@ -4640,7 +4573,7 @@ ${options.message}
                 border: 1px solid var(--gray-200);
                 background: var(--gray-100);
                 border-radius: 6px;
-                font-size: 14px;
+                font-size: var(--text-sm);
                 cursor: pointer;
                 transition: all 0.2s ease;
                 display: inline-flex;
@@ -4661,18 +4594,19 @@ ${options.message}
 
             .merge-btn {
                 background: var(--button-primary-bg);
-                color: var(--white);
+                color: var(--button-primary-text);
             }
 
             .merge-btn:hover {
                 background: var(--button-primary-hover);
+                transform: translateY(-1px);
             }
 
             .cancel-btn {
                 padding: 8px 16px;
                 border: none;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: var(--text-sm);
                 font-weight: var(--font-medium);
                 cursor: pointer;
                 transition: background 0.2s;
@@ -4683,6 +4617,24 @@ ${options.message}
             .cancel-btn:hover {
                 background: var(--button-secondary-hover); 
                 color: var(--button-secondary-text-hover);
+                transform: translateY(-1px);
+            }
+
+            .delete-dialog-footer .delete-btn {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+                background: var(--button-danger-bg);
+                color: var(--button-danger-text);
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .delete-dialog-footer .delete-btn:hover {
+                background: var(--button-danger-hover);
+                transform: translateY(-1px);
             }
             
             .confirm-btn {
@@ -4691,7 +4643,7 @@ ${options.message}
                 border-radius: var(--radius-small);
                 background: var(--button-primary-bg);
                 color: var(--button-primary-text);
-                font-size: 14px;
+                font-size: var(--text-sm);
                 font-weight: var(--font-medium);
                 cursor: pointer;
                 transition: all 0.2s;
@@ -4699,9 +4651,34 @@ ${options.message}
             
             .confirm-btn:hover {
                 background: var(--button-primary-hover);
+                transform: translateY(-1px);
             }
 
             /* Import Summary Dialog */
+            .import-summary-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--bg-overlay);
+                z-index: var(--z-modal-backdrop);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color-scheme: light dark;
+            }
+
+            .import-summary-modal {
+                background: var(--bg-surface);
+                color: var(--text-primary);
+                border-radius: var(--radius-medium);
+                box-shadow: var(--shadow-2xl);
+                max-width: 450px;
+                width: 90%;
+                padding: 24px;
+            }
+
             .import-summary-title {
                 margin: 0 0 16px 0;
                 font-size: 18px;
@@ -4759,11 +4736,12 @@ ${options.message}
                 font-size: 14px;
                 font-weight: var(--font-medium);
                 cursor: pointer;
-                transition: background 0.2s;
+                transition: all 0.2s;
             }
 
             .proceed-btn:hover {
                 background: var(--button-primary-hover);
+                transform: translateY(-1px);
             }
 
             /* Duplicate Bookmarks Dialog */
@@ -5022,6 +5000,29 @@ ${options.message}
             }
 
             /* Export Options Dialog */
+            .export-dialog-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--bg-overlay);
+                z-index: var(--z-modal-backdrop);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color-scheme: light dark;
+            }
+
+            .export-dialog-modal {
+                background: var(--bg-surface);
+                color: var(--text-primary);
+                border-radius: var(--radius-medium);
+                box-shadow: var(--shadow-2xl);
+                max-width: 500px;
+                width: 90%;
+            }
+
             .export-dialog-content {
                 padding: 24px;
             }
@@ -5315,19 +5316,20 @@ ${options.message}
 
             .open-conversation-btn {
                 padding: 8px 20px;
-                background: #2563EB;
-                color: white;
+                background: var(--button-primary-bg);
+                color: var(--button-primary-text);
                 border: none;
                 border-radius: 8px;
-                font-size: 14px;
-                font-weight: 500;
+                font-size: var(--text-sm);
+                font-weight: var(--font-medium);
                 cursor: pointer;
                 transition: all 0.15s ease;
             }
 
             .open-conversation-btn:hover {
-                background: #1D4ED8;
-                box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+                background: var(--button-primary-hover);
+                box-shadow: var(--shadow-sm);
+                transform: translateY(-1px);
             }
 
             /* ============================================================================
@@ -5410,7 +5412,7 @@ ${options.message}
             }
 
             .batch-actions-bar button.danger {
-                color: var(--danger-600);
+                color: var(--button-danger-bg);
             }
 
             .batch-actions-bar button.danger:hover {

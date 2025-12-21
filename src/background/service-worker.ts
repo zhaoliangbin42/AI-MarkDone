@@ -5,14 +5,14 @@
 
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {
-        // console.log('[AICopyEnhance] Extension installed');led');
+        // console.log('[AI-MarkDone] Extension installed');led');
     } else if (details.reason === 'update') {
-        // console.log('[AICopyEnhance] Extension updated to version', chrome.runtime.getManifest().version);
+        // console.log('[AI-MarkDone] Extension updated to version', chrome.runtime.getManifest().version);
     }
 });
 
 chrome.runtime.onStartup.addListener(() => {
-    // console.log('[AICopyEnhance] Extension started');
+    // console.log('[AI-MarkDone] Extension started');
 });
 
 // Handle extension icon click
@@ -25,7 +25,7 @@ chrome.action.onClicked.addListener((tab) => {
 
 // Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    // console.log('[AICopyEnhance] Message received:', message);
+    // console.log('[AI-MarkDone] Message received:', message);
 
     // Handle different message types here if needed
     switch (message.type) {

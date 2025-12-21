@@ -11,7 +11,7 @@ export enum LogLevel {
 
 class Logger {
   private level: LogLevel = LogLevel.INFO;
-  private prefix = '[AICopyEnhance]';
+  private prefix = '[AI-MarkDone]';
 
   setLevel(level: LogLevel): void {
     this.level = level;
