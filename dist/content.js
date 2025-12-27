@@ -143,7 +143,19 @@ class ChatGPTAdapter extends SiteAdapter {
     }
   }
   getMessageId(element) {
-    return element.getAttribute("data-message-id");
+    const dataMessageId = element.getAttribute("data-message-id");
+    if (dataMessageId) return dataMessageId;
+    const dataTestId = element.getAttribute("data-testid");
+    if (dataTestId) return dataTestId;
+    const dataTurn = element.getAttribute("data-turn");
+    if (dataTurn) {
+      const allMessages2 = document.querySelectorAll(this.getMessageSelector());
+      const index2 = Array.from(allMessages2).indexOf(element);
+      return index2 >= 0 ? `chatgpt-${dataTurn}-${index2}` : `chatgpt-${dataTurn}`;
+    }
+    const allMessages = document.querySelectorAll(this.getMessageSelector());
+    const index = Array.from(allMessages).indexOf(element);
+    return index >= 0 ? `chatgpt-${index}` : null;
   }
   getObserverContainer() {
     const selectors = [
@@ -353,14 +365,17 @@ function safeQuerySelector(parent, selector) {
 
 const DEBOUNCE_DELAYS = {
   MUTATION: 200};
+const RESCAN_COOLDOWN_MS = 5e3;
 class MessageObserver {
   observer = null;
   copyButtonObserver = null;
   intersectionObserver = null;
   adapter;
+  observerContainer = null;
   processedMessages = /* @__PURE__ */ new Set();
+  pendingMessages = /* @__PURE__ */ new Set();
+  rescanCooldowns = /* @__PURE__ */ new Map();
   onMessageDetected;
-  periodicCheckInterval = null;
   lastCopyButtonCount = 0;
   constructor(adapter, onMessageDetected) {
     this.adapter = adapter;
@@ -392,6 +407,7 @@ class MessageObserver {
     this.observer = new MutationObserver((mutations) => {
       this.handleMutations(mutations);
     });
+    this.observerContainer = container;
     this.observer.observe(container, {
       childList: true,
       subtree: true,
@@ -409,10 +425,7 @@ class MessageObserver {
       this.processExistingMessages();
     }, 3e3);
     this.setupIntersectionObserver();
-    this.periodicCheckInterval = window.setInterval(() => {
-      this.processExistingMessages();
-    }, 2e3);
-    logger$1.debug("Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver + Periodic check");
+    logger$1.debug("Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver");
   }
   /**
    * Setup copy button monitoring for streaming completion detection
@@ -525,10 +538,8 @@ class MessageObserver {
       this.intersectionObserver.disconnect();
       this.intersectionObserver = null;
     }
-    if (this.periodicCheckInterval) {
-      window.clearInterval(this.periodicCheckInterval);
-      this.periodicCheckInterval = null;
-    }
+    this.observerContainer = null;
+    this.rescanCooldowns.clear();
     logger$1.info("Message observer stopped");
   }
   /**
@@ -536,6 +547,7 @@ class MessageObserver {
    */
   handleMutations(mutations) {
     logger$1.debug("Processing mutations:", mutations.length);
+    this.ensureObserverContainer();
     const isStreaming = this.adapter.isStreamingMessage(document.body);
     if (isStreaming) {
       logger$1.debug("Streaming in progress, delaying processing");
@@ -557,7 +569,25 @@ class MessageObserver {
         const fallbackId = `msg-${Array.from(messages).indexOf(message)}`;
         logger$1.debug("Message has no ID, using fallback:", fallbackId);
         if (this.processedMessages.has(fallbackId)) {
+          const hasToolbar = message.querySelector(".aicopy-toolbar-container");
+          if (!hasToolbar && this.shouldRescan(fallbackId)) {
+            this.markRescan(fallbackId);
+            this.onMessageDetected(message);
+          }
           return;
+        }
+        const isArticleFallback = message.tagName.toLowerCase() === "article";
+        if (isArticleFallback) {
+          const hasActionBar = message.querySelector("div.z-0") !== null;
+          if (!hasActionBar) {
+            if (this.pendingMessages.has(fallbackId)) {
+              return;
+            }
+            this.pendingMessages.add(fallbackId);
+            newMessages++;
+            this.onMessageDetected(message);
+            return;
+          }
         }
         this.processedMessages.add(fallbackId);
         newMessages++;
@@ -569,6 +599,12 @@ class MessageObserver {
         const hasActionBar = message.querySelector("div.z-0") !== null;
         if (!hasActionBar) {
           logger$1.debug("Message still streaming (no action bar), skipping:", messageId);
+          if (this.pendingMessages.has(messageId)) {
+            return;
+          }
+          this.pendingMessages.add(messageId);
+          newMessages++;
+          this.onMessageDetected(message);
           return;
         }
       }
@@ -576,11 +612,15 @@ class MessageObserver {
         const hasToolbar = message.querySelector(".aicopy-toolbar-container");
         if (!hasToolbar) {
           logger$1.debug("Message processed but toolbar missing, retrying injection:", messageId);
-          this.onMessageDetected(message);
+          if (this.shouldRescan(messageId)) {
+            this.markRescan(messageId);
+            this.onMessageDetected(message);
+          }
         }
         return;
       }
       this.processedMessages.add(messageId);
+      this.pendingMessages.delete(messageId);
       newMessages++;
       logger$1.debug("New message detected:", messageId);
       this.onMessageDetected(message);
@@ -597,8 +637,40 @@ class MessageObserver {
    */
   reset() {
     this.processedMessages.clear();
+    this.pendingMessages.clear();
+    this.rescanCooldowns.clear();
     this.lastCopyButtonCount = 0;
     logger$1.info("Observer reset");
+  }
+  ensureObserverContainer() {
+    const currentContainer = this.adapter.getObserverContainer();
+    if (!currentContainer) return;
+    if (this.observerContainer && this.observerContainer.isConnected && currentContainer === this.observerContainer) {
+      return;
+    }
+    this.rebindObserverContainer(currentContainer);
+  }
+  rebindObserverContainer(container) {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+    this.observerContainer = container;
+    this.processedMessages.clear();
+    this.pendingMessages.clear();
+    this.rescanCooldowns.clear();
+    this.observer = new MutationObserver((mutations) => {
+      this.handleMutations(mutations);
+    });
+    this.observer.observe(container, { childList: true, subtree: true, attributes: false });
+    logger$1.info("[Observer] Rebound to new container");
+    this.processExistingMessages();
+  }
+  shouldRescan(messageId) {
+    const lastAttempt = this.rescanCooldowns.get(messageId) ?? 0;
+    return Date.now() - lastAttempt >= RESCAN_COOLDOWN_MS;
+  }
+  markRescan(messageId) {
+    this.rescanCooldowns.set(messageId, Date.now());
   }
 }
 
@@ -643,6 +715,7 @@ class ToolbarInjector {
       return this.doInject(article, actionBar, toolbar);
     } else {
       logger$1.debug("Action bar not found, waiting for it to appear...");
+      this.injectPending(article, toolbar, false);
       this.waitForActionBar(article, toolbar, selector);
       return false;
     }
@@ -658,6 +731,7 @@ class ToolbarInjector {
       return this.doInject(modelResponse, actionBar, toolbar, true);
     } else {
       logger$1.debug("Gemini action bar not found, waiting for it to appear...");
+      this.injectPending(modelResponse, toolbar, true);
       this.waitForActionBar(modelResponse, toolbar, selector, true);
       return false;
     }
@@ -679,7 +753,13 @@ class ToolbarInjector {
         window.clearInterval(checkInterval);
         this.pendingObservers.delete(article);
         logger$1.debug(`Action bar appeared after ${attempts} seconds`);
-        this.doInject(article, actionBar, toolbar, isGemini);
+        const existing = article.querySelector(".aicopy-toolbar-container");
+        if (existing) {
+          actionBar.parentElement?.insertBefore(existing, actionBar);
+          this.injectedElements.add(article);
+        } else {
+          this.doInject(article, actionBar, toolbar, isGemini);
+        }
       } else if (attempts >= maxAttempts) {
         window.clearInterval(checkInterval);
         this.pendingObservers.delete(article);
@@ -713,6 +793,23 @@ class ToolbarInjector {
    * Perform actual toolbar injection
    */
   doInject(messageElement, actionBar, toolbar, isGemini = false) {
+    const wrapper = this.createWrapper(toolbar, isGemini);
+    actionBar.parentElement?.insertBefore(wrapper, actionBar);
+    this.injectedElements.add(messageElement);
+    logger$1.debug("Toolbar injected successfully");
+    return true;
+  }
+  /**
+   * Inject a pending toolbar into the message element while waiting for action bar.
+   */
+  injectPending(messageElement, toolbar, isGemini) {
+    if (messageElement.querySelector(".aicopy-toolbar-container")) {
+      return;
+    }
+    const wrapper = this.createWrapper(toolbar, isGemini);
+    messageElement.appendChild(wrapper);
+  }
+  createWrapper(toolbar, isGemini) {
     const wrapper = document.createElement("div");
     wrapper.className = "aicopy-toolbar-container";
     if (isGemini) {
@@ -721,10 +818,7 @@ class ToolbarInjector {
       wrapper.style.cssText = "margin-bottom: 0px; margin-top: 10px;";
     }
     wrapper.appendChild(toolbar);
-    actionBar.parentElement?.insertBefore(wrapper, actionBar);
-    this.injectedElements.add(messageElement);
-    logger$1.debug("Toolbar injected successfully");
-    return true;
+    return wrapper;
   }
   /**
    * Remove toolbar from a message element
@@ -2035,6 +2129,9 @@ class Toolbar {
   callbacks;
   wordCounter;
   tokenStyleElement = null;
+  pending = false;
+  wordCountInitialized = false;
+  wordCountInitInFlight = false;
   constructor(callbacks) {
     this.callbacks = callbacks;
     this.wordCounter = new WordCounter();
@@ -2116,6 +2213,8 @@ class Toolbar {
    * Initialize word count with retry mechanism
    */
   async initWordCountWithRetry() {
+    if (this.pending || this.wordCountInitInFlight || this.wordCountInitialized) return;
+    this.wordCountInitInFlight = true;
     const maxRetries = 10;
     let attempt = 0;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -2134,6 +2233,9 @@ class Toolbar {
               } else {
                 stats2.textContent = formatted;
               }
+              this.wordCountInitialized = true;
+              this.wordCountInitInFlight = false;
+              this.setPending(false);
               logger$1.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
               return;
             }
@@ -2151,6 +2253,7 @@ class Toolbar {
     logger$1.warn("[WordCount] Failed after all retries");
     const stats = this.shadowRoot.querySelector("#word-stats");
     if (stats) stats.textContent = "Click copy";
+    this.wordCountInitInFlight = false;
   }
   /**
    * Create icon button with hover tooltip (using feedback mechanism)
@@ -2271,6 +2374,30 @@ class Toolbar {
       bookmarkBtn.classList.remove("bookmarked");
       bookmarkBtn.title = "Bookmark";
       bookmarkBtn.setAttribute("aria-label", "Bookmark");
+    }
+  }
+  /**
+   * Set pending/disabled state for streaming/thinking messages
+   */
+  setPending(isPending) {
+    if (this.pending === isPending) return;
+    this.pending = isPending;
+    const toolbar = this.shadowRoot.querySelector(".aicopy-toolbar");
+    if (toolbar) {
+      toolbar.classList.toggle("pending", isPending);
+    }
+    const buttons = this.shadowRoot.querySelectorAll(".aicopy-button");
+    buttons.forEach((btn) => {
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = isPending;
+      }
+    });
+    const stats = this.shadowRoot.querySelector("#word-stats");
+    if (stats) {
+      stats.textContent = isPending ? "loading ..." : stats.textContent;
+    }
+    if (!isPending && !this.wordCountInitialized) {
+      this.initWordCountWithRetry();
     }
   }
   /**
@@ -2865,7 +2992,7 @@ var extend = function extend() {
 
 const extend$1 = /*@__PURE__*/getDefaultExportFromCjs(extend);
 
-function ok$3() {}
+function ok$4() {}
 
 function isPlainObject(value) {
 	if (typeof value !== 'object' || value === null) {
@@ -7808,7 +7935,7 @@ function createLocation(state, node, location) {
         }
       }
 
-      ok$3(location.startTag);
+      ok$4(location.startTag);
       const opening = position$1(location.startTag);
       const closing = location.endTag ? position$1(location.endTag) : undefined;
       /** @type {ElementData['position']} */
@@ -17117,11 +17244,11 @@ const convertElement =
 
       // Assume array.
       if (typeof test === 'object') {
-        return anyFactory$3(test)
+        return anyFactory$4(test)
       }
 
       if (typeof test === 'function') {
-        return castFactory$3(test)
+        return castFactory$4(test)
       }
 
       throw new Error('Expected function, string, or array as `test`')
@@ -17134,7 +17261,7 @@ const convertElement =
  * @param {Array<TestFunction | string>} tests
  * @returns {Check}
  */
-function anyFactory$3(tests) {
+function anyFactory$4(tests) {
   /** @type {Array<Check>} */
   const checks = [];
   let index = -1;
@@ -17143,7 +17270,7 @@ function anyFactory$3(tests) {
     checks[index] = convertElement(tests[index]);
   }
 
-  return castFactory$3(any)
+  return castFactory$4(any)
 
   /**
    * @this {unknown}
@@ -17167,7 +17294,7 @@ function anyFactory$3(tests) {
  * @returns {Check}
  */
 function tagNameFactory(check) {
-  return castFactory$3(tagName)
+  return castFactory$4(tagName)
 
   /**
    * @param {Element} element
@@ -17184,7 +17311,7 @@ function tagNameFactory(check) {
  * @param {TestFunction} testFunction
  * @returns {Check}
  */
-function castFactory$3(testFunction) {
+function castFactory$4(testFunction) {
   return check
 
   /**
@@ -17324,7 +17451,7 @@ function empty$1(value) {
  * @returns {Check}
  *   An assertion.
  */
-const convert$2 =
+const convert$3 =
   // Note: overloads in JSDoc can’t yet use different `@template`s.
   /**
    * @type {(
@@ -17342,23 +17469,23 @@ const convert$2 =
      */
     function (test) {
       if (test === null || test === undefined) {
-        return ok$2
+        return ok$3
       }
 
       if (typeof test === 'function') {
-        return castFactory$2(test)
+        return castFactory$3(test)
       }
 
       if (typeof test === 'object') {
         return Array.isArray(test)
-          ? anyFactory$2(test)
+          ? anyFactory$3(test)
           : // Cast because `ReadonlyArray` goes into the above but `isArray`
             // narrows to `Array`.
             propertiesFactory(/** @type {Props} */ (test))
       }
 
       if (typeof test === 'string') {
-        return typeFactory$2(test)
+        return typeFactory$3(test)
       }
 
       throw new Error('Expected function, string, or object as test')
@@ -17369,16 +17496,16 @@ const convert$2 =
  * @param {Array<Props | TestFunction | string>} tests
  * @returns {Check}
  */
-function anyFactory$2(tests) {
+function anyFactory$3(tests) {
   /** @type {Array<Check>} */
   const checks = [];
   let index = -1;
 
   while (++index < tests.length) {
-    checks[index] = convert$2(tests[index]);
+    checks[index] = convert$3(tests[index]);
   }
 
-  return castFactory$2(any)
+  return castFactory$3(any)
 
   /**
    * @this {unknown}
@@ -17404,7 +17531,7 @@ function anyFactory$2(tests) {
 function propertiesFactory(check) {
   const checkAsRecord = /** @type {Record<string, unknown>} */ (check);
 
-  return castFactory$2(all)
+  return castFactory$3(all)
 
   /**
    * @param {Node} node
@@ -17432,8 +17559,8 @@ function propertiesFactory(check) {
  * @param {string} check
  * @returns {Check}
  */
-function typeFactory$2(check) {
-  return castFactory$2(type)
+function typeFactory$3(check) {
+  return castFactory$3(type)
 
   /**
    * @param {Node} node
@@ -17449,7 +17576,7 @@ function typeFactory$2(check) {
  * @param {TestFunction} testFunction
  * @returns {Check}
  */
-function castFactory$2(testFunction) {
+function castFactory$3(testFunction) {
   return check
 
   /**
@@ -17469,7 +17596,7 @@ function castFactory$2(testFunction) {
   }
 }
 
-function ok$2() {
+function ok$3() {
   return true
 }
 
@@ -17579,7 +17706,7 @@ const skippable$1 = [
 
 /** @type {Options} */
 const emptyOptions$3 = {};
-const ignorableNode = convert$2(['comment', 'doctype']);
+const ignorableNode = convert$3(['comment', 'doctype']);
 
 /**
  * Minify whitespace.
@@ -17933,7 +18060,7 @@ function rehypeMinifyWhitespace(options) {
  * @param {string} d
  * @returns {string}
  */
-function color$2(d) {
+function color$1(d) {
   return d
 }
 
@@ -17948,17 +18075,17 @@ const empty = [];
 /**
  * Continue traversing as normal.
  */
-const CONTINUE$2 = true;
+const CONTINUE$1 = true;
 
 /**
  * Stop traversing immediately.
  */
-const EXIT$2 = false;
+const EXIT$1 = false;
 
 /**
  * Do not traverse this node’s children.
  */
-const SKIP$2 = 'skip';
+const SKIP$1 = 'skip';
 
 /**
  * Visit nodes, with ancestral information.
@@ -18007,7 +18134,7 @@ const SKIP$2 = 'skip';
  * @template {Test} Check
  *   `unist-util-is`-compatible test.
  */
-function visitParents$2(tree, test, visitor, reverse) {
+function visitParents$1(tree, test, visitor, reverse) {
   /** @type {Test} */
   let check;
 
@@ -18020,7 +18147,7 @@ function visitParents$2(tree, test, visitor, reverse) {
     check = test;
   }
 
-  const is = convert$2(check);
+  const is = convert$3(check);
   const step = reverse ? -1 : 1;
 
   factory(tree, undefined, [])();
@@ -18047,7 +18174,7 @@ function visitParents$2(tree, test, visitor, reverse) {
 
       Object.defineProperty(visit, 'name', {
         value:
-          'node (' + color$2(node.type + (name ? '<' + name + '>' : '')) + ')'
+          'node (' + color$1(node.type + (name ? '<' + name + '>' : '')) + ')'
       });
     }
 
@@ -18065,9 +18192,9 @@ function visitParents$2(tree, test, visitor, reverse) {
 
       if (!test || is(node, index, parents[parents.length - 1] || undefined)) {
         // @ts-expect-error: `visitor` is now a visitor.
-        result = toResult$2(visitor(node, parents));
+        result = toResult$1(visitor(node, parents));
 
-        if (result[0] === EXIT$2) {
+        if (result[0] === EXIT$1) {
           return result
         }
       }
@@ -18075,7 +18202,7 @@ function visitParents$2(tree, test, visitor, reverse) {
       if ('children' in node && node.children) {
         const nodeAsParent = /** @type {UnistParent} */ (node);
 
-        if (nodeAsParent.children && result[0] !== SKIP$2) {
+        if (nodeAsParent.children && result[0] !== SKIP$1) {
           offset = (reverse ? nodeAsParent.children.length : -1) + step;
           grandparents = parents.concat(nodeAsParent);
 
@@ -18084,7 +18211,7 @@ function visitParents$2(tree, test, visitor, reverse) {
 
             subresult = factory(child, offset, grandparents)();
 
-            if (subresult[0] === EXIT$2) {
+            if (subresult[0] === EXIT$1) {
               return subresult
             }
 
@@ -18107,13 +18234,13 @@ function visitParents$2(tree, test, visitor, reverse) {
  * @returns {Readonly<ActionTuple>}
  *   Clean result.
  */
-function toResult$2(value) {
+function toResult$1(value) {
   if (Array.isArray(value)) {
     return value
   }
 
   if (typeof value === 'number') {
-    return [CONTINUE$2, value]
+    return [CONTINUE$1, value]
   }
 
   return value === null || value === undefined ? empty : [value]
@@ -18196,7 +18323,7 @@ function visit$1(tree, testOrVisitor, visitorOrReverse, maybeReverse) {
     reverse = maybeReverse;
   }
 
-  visitParents$2(tree, test, overload, reverse);
+  visitParents$1(tree, test, overload, reverse);
 
   /**
    * @param {UnistNode} node
@@ -18434,7 +18561,7 @@ const findAfter =
      * @returns {UnistNode | undefined}
      */
     function (parent, index, test) {
-      const is = convert$2(test);
+      const is = convert$3(test);
 
       if (!parent || !parent.type || !parent.children) {
         throw new Error('Expected parent node')
@@ -20206,7 +20333,7 @@ function node$1(value) {
 const phrasing$2 =
   /** @type {(node?: unknown) => node is Exclude<PhrasingContent, Html>} */
   (
-    convert$2([
+    convert$3([
       'break',
       'delete',
       'emphasis',
@@ -20479,7 +20606,7 @@ function media(state, node) {
   visit$1(fragment, function (node) {
     if (node.type === 'link') {
       linkInFallbackContent = true;
-      return EXIT$2
+      return EXIT$1
     }
   });
 
@@ -20899,7 +21026,7 @@ function inspect(node) {
     if (child.type === 'element') {
       // Don’t enter nested tables.
       if (child.tagName === 'table' && node !== child) {
-        return SKIP$2
+        return SKIP$1
       }
 
       if (
@@ -22251,7 +22378,7 @@ function emphasisPeek(_, _1, state) {
  * @returns
  *   An assertion.
  */
-const convert$1 =
+const convert$2 =
   /**
    * @type {(
    *   (<Kind extends Node>(test: PredicateTest<Kind>) => AssertPredicate<Kind>) &
@@ -22265,19 +22392,19 @@ const convert$1 =
      */
     function (test) {
       if (test === undefined || test === null) {
-        return ok$1
+        return ok$2
       }
 
       if (typeof test === 'string') {
-        return typeFactory$1(test)
+        return typeFactory$2(test)
       }
 
       if (typeof test === 'object') {
-        return Array.isArray(test) ? anyFactory$1(test) : propsFactory$1(test)
+        return Array.isArray(test) ? anyFactory$2(test) : propsFactory$2(test)
       }
 
       if (typeof test === 'function') {
-        return castFactory$1(test)
+        return castFactory$2(test)
       }
 
       throw new Error('Expected function, string, or object as test')
@@ -22288,16 +22415,16 @@ const convert$1 =
  * @param {Array<string | Props | TestFunctionAnything>} tests
  * @returns {AssertAnything}
  */
-function anyFactory$1(tests) {
+function anyFactory$2(tests) {
   /** @type {Array<AssertAnything>} */
   const checks = [];
   let index = -1;
 
   while (++index < tests.length) {
-    checks[index] = convert$1(tests[index]);
+    checks[index] = convert$2(tests[index]);
   }
 
-  return castFactory$1(any)
+  return castFactory$2(any)
 
   /**
    * @this {unknown}
@@ -22321,8 +22448,8 @@ function anyFactory$1(tests) {
  * @param {Props} check
  * @returns {AssertAnything}
  */
-function propsFactory$1(check) {
-  return castFactory$1(all)
+function propsFactory$2(check) {
+  return castFactory$2(all)
 
   /**
    * @param {Node} node
@@ -22347,8 +22474,8 @@ function propsFactory$1(check) {
  * @param {string} check
  * @returns {AssertAnything}
  */
-function typeFactory$1(check) {
-  return castFactory$1(type)
+function typeFactory$2(check) {
+  return castFactory$2(type)
 
   /**
    * @param {Node} node
@@ -22364,7 +22491,7 @@ function typeFactory$1(check) {
  * @param {TestFunctionAnything} check
  * @returns {AssertAnything}
  */
-function castFactory$1(check) {
+function castFactory$2(check) {
   return assertion
 
   /**
@@ -22384,7 +22511,7 @@ function castFactory$1(check) {
   }
 }
 
-function ok$1() {
+function ok$2() {
   return true
 }
 
@@ -22392,7 +22519,7 @@ function ok$1() {
  * @param {string} d
  * @returns {string}
  */
-function color$1(d) {
+function color(d) {
   return d
 }
 
@@ -22406,17 +22533,17 @@ function color$1(d) {
 /**
  * Continue traversing as normal.
  */
-const CONTINUE$1 = true;
+const CONTINUE = true;
 
 /**
  * Stop traversing immediately.
  */
-const EXIT$1 = false;
+const EXIT = false;
 
 /**
  * Do not traverse this node’s children.
  */
-const SKIP$1 = 'skip';
+const SKIP = 'skip';
 
 /**
  * Visit nodes, with ancestral information.
@@ -22447,7 +22574,7 @@ const SKIP$1 = 'skip';
  * @returns
  *   Nothing.
  */
-const visitParents$1 =
+const visitParents =
   /**
    * @type {(
    *   (<Tree extends Node, Check extends Test>(tree: Tree, test: Check, visitor: BuildVisitor<Tree, Check>, reverse?: boolean | null | undefined) => void) &
@@ -22470,7 +22597,7 @@ const visitParents$1 =
         test = null;
       }
 
-      const is = convert$1(test);
+      const is = convert$2(test);
       const step = reverse ? -1 : 1;
 
       factory(tree, undefined, [])();
@@ -22497,7 +22624,7 @@ const visitParents$1 =
 
           Object.defineProperty(visit, 'name', {
             value:
-              'node (' + color$1(node.type + (name ? '<' + name + '>' : '')) + ')'
+              'node (' + color(node.type + (name ? '<' + name + '>' : '')) + ')'
           });
         }
 
@@ -22514,15 +22641,15 @@ const visitParents$1 =
           let grandparents;
 
           if (!test || is(node, index, parents[parents.length - 1] || null)) {
-            result = toResult$1(visitor(node, parents));
+            result = toResult(visitor(node, parents));
 
-            if (result[0] === EXIT$1) {
+            if (result[0] === EXIT) {
               return result
             }
           }
 
           // @ts-expect-error looks like a parent.
-          if (node.children && result[0] !== SKIP$1) {
+          if (node.children && result[0] !== SKIP) {
             // @ts-expect-error looks like a parent.
             offset = (reverse ? node.children.length : -1) + step;
             // @ts-expect-error looks like a parent.
@@ -22533,7 +22660,7 @@ const visitParents$1 =
               // @ts-expect-error looks like a parent.
               subresult = factory(node.children[offset], offset, grandparents)();
 
-              if (subresult[0] === EXIT$1) {
+              if (subresult[0] === EXIT) {
                 return subresult
               }
 
@@ -22556,13 +22683,13 @@ const visitParents$1 =
  * @returns {ActionTuple}
  *   Clean result.
  */
-function toResult$1(value) {
+function toResult(value) {
   if (Array.isArray(value)) {
     return value
   }
 
   if (typeof value === 'number') {
-    return [CONTINUE$1, value]
+    return [CONTINUE, value]
   }
 
   return [value]
@@ -22627,7 +22754,7 @@ const visit =
         test = null;
       }
 
-      visitParents$1(tree, test, overload, reverse);
+      visitParents(tree, test, overload, reverse);
 
       /**
        * @param {Node} node
@@ -22775,7 +22902,7 @@ function formatHeadingAsSetext(node, state) {
       node.type === 'break'
     ) {
       literalWithBreak = true;
-      return EXIT$1
+      return EXIT
     }
   });
 
@@ -23727,6 +23854,167 @@ function paragraph(node, _, state, info) {
   subexit();
   exit();
   return value
+}
+
+/**
+ * @typedef {import('unist').Node} Node
+ * @typedef {import('unist').Parent} Parent
+ */
+
+
+/**
+ * Generate an assertion from a test.
+ *
+ * Useful if you’re going to test many nodes, for example when creating a
+ * utility where something else passes a compatible test.
+ *
+ * The created function is a bit faster because it expects valid input only:
+ * a `node`, `index`, and `parent`.
+ *
+ * @param test
+ *   *   when nullish, checks if `node` is a `Node`.
+ *   *   when `string`, works like passing `(node) => node.type === test`.
+ *   *   when `function` checks if function passed the node is true.
+ *   *   when `object`, checks that all keys in test are in node, and that they have (strictly) equal values.
+ *   *   when `array`, checks if any one of the subtests pass.
+ * @returns
+ *   An assertion.
+ */
+const convert$1 =
+  /**
+   * @type {(
+   *   (<Kind extends Node>(test: PredicateTest<Kind>) => AssertPredicate<Kind>) &
+   *   ((test?: Test) => AssertAnything)
+   * )}
+   */
+  (
+    /**
+     * @param {Test} [test]
+     * @returns {AssertAnything}
+     */
+    function (test) {
+      if (test === undefined || test === null) {
+        return ok$1
+      }
+
+      if (typeof test === 'string') {
+        return typeFactory$1(test)
+      }
+
+      if (typeof test === 'object') {
+        return Array.isArray(test) ? anyFactory$1(test) : propsFactory$1(test)
+      }
+
+      if (typeof test === 'function') {
+        return castFactory$1(test)
+      }
+
+      throw new Error('Expected function, string, or object as test')
+    }
+  );
+
+/**
+ * @param {Array<string | Props | TestFunctionAnything>} tests
+ * @returns {AssertAnything}
+ */
+function anyFactory$1(tests) {
+  /** @type {Array<AssertAnything>} */
+  const checks = [];
+  let index = -1;
+
+  while (++index < tests.length) {
+    checks[index] = convert$1(tests[index]);
+  }
+
+  return castFactory$1(any)
+
+  /**
+   * @this {unknown}
+   * @param {Array<unknown>} parameters
+   * @returns {boolean}
+   */
+  function any(...parameters) {
+    let index = -1;
+
+    while (++index < checks.length) {
+      if (checks[index].call(this, ...parameters)) return true
+    }
+
+    return false
+  }
+}
+
+/**
+ * Turn an object into a test for a node with a certain fields.
+ *
+ * @param {Props} check
+ * @returns {AssertAnything}
+ */
+function propsFactory$1(check) {
+  return castFactory$1(all)
+
+  /**
+   * @param {Node} node
+   * @returns {boolean}
+   */
+  function all(node) {
+    /** @type {string} */
+    let key;
+
+    for (key in check) {
+      // @ts-expect-error: hush, it sure works as an index.
+      if (node[key] !== check[key]) return false
+    }
+
+    return true
+  }
+}
+
+/**
+ * Turn a string into a test for a node with a certain type.
+ *
+ * @param {string} check
+ * @returns {AssertAnything}
+ */
+function typeFactory$1(check) {
+  return castFactory$1(type)
+
+  /**
+   * @param {Node} node
+   */
+  function type(node) {
+    return node && node.type === check
+  }
+}
+
+/**
+ * Turn a custom test into a test for a node that passes that test.
+ *
+ * @param {TestFunctionAnything} check
+ * @returns {AssertAnything}
+ */
+function castFactory$1(check) {
+  return assertion
+
+  /**
+   * @this {unknown}
+   * @param {unknown} node
+   * @param {Array<unknown>} parameters
+   * @returns {boolean}
+   */
+  function assertion(node, ...parameters) {
+    return Boolean(
+      node &&
+        typeof node === 'object' &&
+        'type' in node &&
+        // @ts-expect-error: fine.
+        Boolean(check.call(this, node, ...parameters))
+    )
+  }
+}
+
+function ok$1() {
+  return true
 }
 
 /**
@@ -28944,180 +29232,6 @@ function castFactory(check) {
 
 function ok() {
   return true
-}
-
-/**
- * @param {string} d
- * @returns {string}
- */
-function color(d) {
-  return d
-}
-
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Parent} Parent
- * @typedef {import('unist-util-is').Test} Test
- */
-
-
-/**
- * Continue traversing as normal.
- */
-const CONTINUE = true;
-
-/**
- * Stop traversing immediately.
- */
-const EXIT = false;
-
-/**
- * Do not traverse this node’s children.
- */
-const SKIP = 'skip';
-
-/**
- * Visit nodes, with ancestral information.
- *
- * This algorithm performs *depth-first* *tree traversal* in *preorder*
- * (**NLR**) or if `reverse` is given, in *reverse preorder* (**NRL**).
- *
- * You can choose for which nodes `visitor` is called by passing a `test`.
- * For complex tests, you should test yourself in `visitor`, as it will be
- * faster and will have improved type information.
- *
- * Walking the tree is an intensive task.
- * Make use of the return values of the visitor when possible.
- * Instead of walking a tree multiple times, walk it once, use `unist-util-is`
- * to check if a node matches, and then perform different operations.
- *
- * You can change the tree.
- * See `Visitor` for more info.
- *
- * @param tree
- *   Tree to traverse.
- * @param test
- *   `unist-util-is`-compatible test
- * @param visitor
- *   Handle each node.
- * @param reverse
- *   Traverse in reverse preorder (NRL) instead of the default preorder (NLR).
- * @returns
- *   Nothing.
- */
-const visitParents =
-  /**
-   * @type {(
-   *   (<Tree extends Node, Check extends Test>(tree: Tree, test: Check, visitor: BuildVisitor<Tree, Check>, reverse?: boolean | null | undefined) => void) &
-   *   (<Tree extends Node>(tree: Tree, visitor: BuildVisitor<Tree>, reverse?: boolean | null | undefined) => void)
-   * )}
-   */
-  (
-    /**
-     * @param {Node} tree
-     * @param {Test} test
-     * @param {Visitor<Node>} visitor
-     * @param {boolean | null | undefined} [reverse]
-     * @returns {void}
-     */
-    function (tree, test, visitor, reverse) {
-
-      const is = convert(test);
-      const step = 1;
-
-      factory(tree, undefined, [])();
-
-      /**
-       * @param {Node} node
-       * @param {number | undefined} index
-       * @param {Array<Parent>} parents
-       */
-      function factory(node, index, parents) {
-        /** @type {Record<string, unknown>} */
-        // @ts-expect-error: hush
-        const value = node && typeof node === 'object' ? node : {};
-
-        if (typeof value.type === 'string') {
-          const name =
-            // `hast`
-            typeof value.tagName === 'string'
-              ? value.tagName
-              : // `xast`
-              typeof value.name === 'string'
-              ? value.name
-              : undefined;
-
-          Object.defineProperty(visit, 'name', {
-            value:
-              'node (' + color(node.type + (name ? '<' + name + '>' : '')) + ')'
-          });
-        }
-
-        return visit
-
-        function visit() {
-          /** @type {ActionTuple} */
-          let result = [];
-          /** @type {ActionTuple} */
-          let subresult;
-          /** @type {number} */
-          let offset;
-          /** @type {Array<Parent>} */
-          let grandparents;
-
-          if (is(node, index, parents[parents.length - 1] || null)) {
-            result = toResult(visitor(node, parents));
-
-            if (result[0] === EXIT) {
-              return result
-            }
-          }
-
-          // @ts-expect-error looks like a parent.
-          if (node.children && result[0] !== SKIP) {
-            // @ts-expect-error looks like a parent.
-            offset = (-1) + step;
-            // @ts-expect-error looks like a parent.
-            grandparents = parents.concat(node);
-
-            // @ts-expect-error looks like a parent.
-            while (offset > -1 && offset < node.children.length) {
-              // @ts-expect-error looks like a parent.
-              subresult = factory(node.children[offset], offset, grandparents)();
-
-              if (subresult[0] === EXIT) {
-                return subresult
-              }
-
-              offset =
-                typeof subresult[1] === 'number' ? subresult[1] : offset + step;
-            }
-          }
-
-          return result
-        }
-      }
-    }
-  );
-
-/**
- * Turn a return value into a clean result.
- *
- * @param {VisitorResult} value
- *   Valid return values from visitors.
- * @returns {ActionTuple}
- *   Clean result.
- */
-function toResult(value) {
-  if (Array.isArray(value)) {
-    return value
-  }
-
-  if (typeof value === 'number') {
-    return [CONTINUE, value]
-  }
-
-  return [value]
 }
 
 /**
@@ -44176,13 +44290,18 @@ defineFunction({
           var data = value.split(",");
 
           for (var i = 0; i < data.length; i++) {
-            var keyVal = data[i].split("=");
+            var item = data[i];
+            var firstEquals = item.indexOf("=");
 
-            if (keyVal.length !== 2) {
-              throw new ParseError("Error parsing key-value for \\htmlData");
+            if (firstEquals < 0) {
+              throw new ParseError("\\htmlData key/value '" + item + "'" + " missing equals sign");
             }
 
-            attributes["data-" + keyVal[0].trim()] = keyVal[1].trim();
+            var key = item.slice(0, firstEquals);
+
+            var _value = item.slice(firstEquals + 1);
+
+            attributes["data-" + key.trim()] = _value;
           }
 
           trustContext = {
@@ -45063,7 +45182,8 @@ defineFunction({
   type: "op",
   names: ["\\int", "\\iint", "\\iiint", "\\oint", "\\oiint", "\\oiiint", "\u222b", "\u222c", "\u222d", "\u222e", "\u222f", "\u2230"],
   props: {
-    numArgs: 0
+    numArgs: 0,
+    allowedInArgument: true
   },
 
   handler(_ref5) {
@@ -50069,7 +50189,7 @@ var renderToHTMLTree = function renderToHTMLTree(expression, options) {
   }
 };
 
-var version = "0.16.25";
+var version = "0.16.27";
 var __domTree = {
   Span,
   Anchor,
@@ -59664,6 +59784,9 @@ class ContentScript {
     logger$1.debug("Handling new message");
     const adapter = adapterRegistry.getAdapter();
     if (!adapter) return;
+    const isArticle = messageElement.tagName.toLowerCase() === "article";
+    const isModelResponse = messageElement.tagName.toLowerCase() === "model-response";
+    const hasActionBar = isArticle || isModelResponse ? messageElement.querySelector(adapter.getActionBarSelector()) !== null : true;
     const messageId = adapter.getMessageId(messageElement);
     if (!messageId) {
       logger$1.warn("Message has no ID, cannot track processing state");
@@ -59689,8 +59812,13 @@ class ContentScript {
       logger$1.info("[ContentScript] First message detected, checking bookmark navigation");
       this.checkBookmarkNavigation();
     }
-    if (messageElement.querySelector(".aicopy-toolbar-container")) {
+    const existingToolbarContainer = messageElement.querySelector(".aicopy-toolbar-container");
+    if (existingToolbarContainer) {
       logger$1.debug("Toolbar already exists, skipping");
+      const existingToolbar = existingToolbarContainer.__toolbar;
+      if (hasActionBar && existingToolbar && typeof existingToolbar.setPending === "function") {
+        existingToolbar.setPending(false);
+      }
       if (messageId) {
         this.processingMessages.delete(messageId);
       }
@@ -59712,6 +59840,9 @@ class ContentScript {
     };
     const toolbar = new Toolbar(callbacks);
     toolbar.setTheme(this.currentThemeIsDark);
+    if (!hasActionBar || adapter.isStreamingMessage(messageElement)) {
+      toolbar.setPending(true);
+    }
     if (this.injector) {
       this.injector.inject(messageElement, toolbar.getElement());
     }
@@ -59954,6 +60085,9 @@ class ContentScript {
 }
 let urlObserver = null;
 let debounceTimeout = null;
+let lastUrl = window.location.href;
+let navVersion = 0;
+let routeListenersAttached = false;
 function waitForPageReady(adapter) {
   return new Promise((resolve) => {
     const maxAttempts = 25;
@@ -59978,6 +60112,7 @@ function waitForPageReady(adapter) {
   });
 }
 function handleNavigation(contentScript) {
+  const currentVersion = ++navVersion;
   (async () => {
     const hasActiveModal = document.querySelector(".bookmark-save-modal-overlay") !== null;
     const hasActivePanel = document.querySelector(".simple-bookmark-panel-overlay") !== null;
@@ -59992,6 +60127,10 @@ function handleNavigation(contentScript) {
     }
     logger$1.debug("[Navigation] Waiting for page to be ready...");
     const isReady = await waitForPageReady(adapter);
+    if (currentVersion !== navVersion) {
+      logger$1.info("[Navigation] Navigation superseded, aborting reinit");
+      return;
+    }
     if (!isReady) {
       logger$1.warn("[Navigation] Page may not be fully ready, but proceeding");
     }
@@ -59999,6 +60138,10 @@ function handleNavigation(contentScript) {
     const hasActivePanelNow = document.querySelector(".simple-bookmark-panel-overlay") !== null;
     if (hasActiveModalNow || hasActivePanelNow) {
       logger$1.info("[Navigation] User opened UI during wait, skipping reinit");
+      return;
+    }
+    if (currentVersion !== navVersion) {
+      logger$1.info("[Navigation] Navigation superseded after UI check, aborting reinit");
       return;
     }
     logger$1.info("[Navigation] Reinitializing extension");
@@ -60015,22 +60158,41 @@ function initExtension() {
   logger$1.debug("Current URL:", window.location.href);
   let contentScript = new ContentScript();
   contentScript.start();
+  const handleUrlChange = () => {
+    const currentUrl = window.location.href;
+    if (currentUrl !== lastUrl) {
+      lastUrl = currentUrl;
+      logger$1.info("[Observer] URL changed:", currentUrl);
+      contentScript = handleNavigation(contentScript);
+    }
+  };
+  const attachRouteListeners = () => {
+    if (routeListenersAttached) return;
+    routeListenersAttached = true;
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    history.pushState = function(...args) {
+      originalPushState.apply(this, args);
+      setTimeout(handleUrlChange, 0);
+    };
+    history.replaceState = function(...args) {
+      originalReplaceState.apply(this, args);
+      setTimeout(handleUrlChange, 0);
+    };
+    window.addEventListener("popstate", handleUrlChange);
+    window.addEventListener("hashchange", handleUrlChange);
+  };
   if (urlObserver) {
     urlObserver.disconnect();
     logger$1.debug("[Observer] Disconnected previous URL observer");
   }
-  let lastUrl = window.location.href;
+  attachRouteListeners();
   urlObserver = new MutationObserver(() => {
     if (debounceTimeout !== null) {
       clearTimeout(debounceTimeout);
     }
     debounceTimeout = window.setTimeout(() => {
-      const currentUrl = window.location.href;
-      if (currentUrl !== lastUrl) {
-        lastUrl = currentUrl;
-        logger$1.info("[Observer] URL changed:", currentUrl);
-        contentScript = handleNavigation(contentScript);
-      }
+      handleUrlChange();
       debounceTimeout = null;
     }, 100);
   });

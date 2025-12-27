@@ -216,6 +216,12 @@ class ContentScript {
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) return;
 
+        const isArticle = messageElement.tagName.toLowerCase() === 'article';
+        const isModelResponse = messageElement.tagName.toLowerCase() === 'model-response';
+        const hasActionBar = (isArticle || isModelResponse)
+            ? messageElement.querySelector(adapter.getActionBarSelector()) !== null
+            : true;
+
         const messageId = adapter.getMessageId(messageElement);
         if (!messageId) {
             logger.warn('Message has no ID, cannot track processing state');
@@ -255,8 +261,13 @@ class ContentScript {
 
         // CRITICAL: Check if toolbar already exists BEFORE creating new one
         // This prevents creating orphaned toolbar objects with wrong messageElement bindings
-        if (messageElement.querySelector('.aicopy-toolbar-container')) {
+        const existingToolbarContainer = messageElement.querySelector('.aicopy-toolbar-container');
+        if (existingToolbarContainer) {
             logger.debug('Toolbar already exists, skipping');
+            const existingToolbar = (existingToolbarContainer as any).__toolbar;
+            if (hasActionBar && existingToolbar && typeof existingToolbar.setPending === 'function') {
+                existingToolbar.setPending(false);
+            }
             // Remove from processing set since we're done
             if (messageId) {
                 this.processingMessages.delete(messageId);
@@ -282,6 +293,9 @@ class ContentScript {
 
         const toolbar = new Toolbar(callbacks);
         toolbar.setTheme(this.currentThemeIsDark);
+        if (!hasActionBar || adapter.isStreamingMessage(messageElement)) {
+            toolbar.setPending(true);
+        }
 
         // Inject toolbar
         if (this.injector) {
@@ -625,6 +639,9 @@ class ContentScript {
 let urlObserver: MutationObserver | null = null;
 let reinitTimeout: number | null = null;
 let debounceTimeout: number | null = null;
+let lastUrl: string = window.location.href;
+let navVersion = 0;
+let routeListenersAttached = false;
 
 /**
  * Wait for page to be ready by checking for key DOM elements
@@ -668,6 +685,7 @@ function waitForPageReady(adapter: any): Promise<boolean> {
  * Waits for page to be actually ready instead of using fixed delay
  */
 function handleNavigation(contentScript: ContentScript | null): ContentScript | null {
+    const currentVersion = ++navVersion;
     // Clear any pending reinitialization
     if (reinitTimeout !== null) {
         clearTimeout(reinitTimeout);
@@ -696,6 +714,11 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
         logger.debug('[Navigation] Waiting for page to be ready...');
         const isReady = await waitForPageReady(adapter);
 
+        if (currentVersion !== navVersion) {
+            logger.info('[Navigation] Navigation superseded, aborting reinit');
+            return;
+        }
+
         if (!isReady) {
             logger.warn('[Navigation] Page may not be fully ready, but proceeding');
         }
@@ -706,6 +729,11 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
 
         if (hasActiveModalNow || hasActivePanelNow) {
             logger.info('[Navigation] User opened UI during wait, skipping reinit');
+            return;
+        }
+
+        if (currentVersion !== navVersion) {
+            logger.info('[Navigation] Navigation superseded after UI check, aborting reinit');
             return;
         }
 
@@ -733,6 +761,36 @@ function initExtension() {
     let contentScript: ContentScript | null = new ContentScript();
     contentScript.start(); // Fire and forget - initial load
 
+    const handleUrlChange = () => {
+        const currentUrl = window.location.href;
+        if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            logger.info('[Observer] URL changed:', currentUrl);
+            contentScript = handleNavigation(contentScript);
+        }
+    };
+
+    const attachRouteListeners = () => {
+        if (routeListenersAttached) return;
+        routeListenersAttached = true;
+
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+
+        history.pushState = function (...args) {
+            originalPushState.apply(this, args as any);
+            setTimeout(handleUrlChange, 0);
+        };
+
+        history.replaceState = function (...args) {
+            originalReplaceState.apply(this, args as any);
+            setTimeout(handleUrlChange, 0);
+        };
+
+        window.addEventListener('popstate', handleUrlChange);
+        window.addEventListener('hashchange', handleUrlChange);
+    };
+
     // Disconnect previous observer to prevent memory leak
     if (urlObserver) {
         urlObserver.disconnect();
@@ -740,7 +798,7 @@ function initExtension() {
     }
 
     // Setup URL change detection for SPA navigation
-    let lastUrl = window.location.href;
+    attachRouteListeners();
 
     urlObserver = new MutationObserver(() => {
         // Debounce: prevent excessive checks during rapid DOM changes
@@ -749,12 +807,7 @@ function initExtension() {
         }
 
         debounceTimeout = window.setTimeout(() => {
-            const currentUrl = window.location.href;
-            if (currentUrl !== lastUrl) {
-                lastUrl = currentUrl;
-                logger.info('[Observer] URL changed:', currentUrl);
-                contentScript = handleNavigation(contentScript);
-            }
+            handleUrlChange();
             debounceTimeout = null;
         }, 100); // 100ms debounce
     });

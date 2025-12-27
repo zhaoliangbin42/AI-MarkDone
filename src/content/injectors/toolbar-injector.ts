@@ -58,6 +58,7 @@ export class ToolbarInjector {
         } else {
             // Action bar not yet rendered, wait for it
             logger.debug('Action bar not found, waiting for it to appear...');
+            this.injectPending(article, toolbar, false);
             this.waitForActionBar(article, toolbar, selector);
             return false;
         }
@@ -77,6 +78,7 @@ export class ToolbarInjector {
         } else {
             // Action bar not yet rendered, wait for it
             logger.debug('Gemini action bar not found, waiting for it to appear...');
+            this.injectPending(modelResponse, toolbar, true);
             this.waitForActionBar(modelResponse, toolbar, selector, true);
             return false;
         }
@@ -103,7 +105,13 @@ export class ToolbarInjector {
                 window.clearInterval(checkInterval);
                 this.pendingObservers.delete(article);
                 logger.debug(`Action bar appeared after ${attempts} seconds`);
-                this.doInject(article, actionBar, toolbar, isGemini);
+                const existing = article.querySelector('.aicopy-toolbar-container');
+                if (existing) {
+                    actionBar.parentElement?.insertBefore(existing, actionBar);
+                    this.injectedElements.add(article);
+                } else {
+                    this.doInject(article, actionBar, toolbar, isGemini);
+                }
             } else if (attempts >= maxAttempts) {
                 window.clearInterval(checkInterval);
                 this.pendingObservers.delete(article);
@@ -146,20 +154,7 @@ export class ToolbarInjector {
      * Perform actual toolbar injection
      */
     private doInject(messageElement: HTMLElement, actionBar: Element, toolbar: HTMLElement, isGemini: boolean = false): boolean {
-        // Create wrapper div for toolbar
-        const wrapper = document.createElement('div');
-        wrapper.className = 'aicopy-toolbar-container';
-
-        // Apply platform-specific styling
-        if (isGemini) {
-            // Gemini: match official toolbar padding (60px left), no fixed width
-            wrapper.style.cssText = 'margin-bottom: 8px; padding-left: 60px;';
-        } else {
-            // ChatGPT: no extra padding
-            wrapper.style.cssText = 'margin-bottom: 0px; margin-top: 10px;';
-        }
-
-        wrapper.appendChild(toolbar);
+        const wrapper = this.createWrapper(toolbar, isGemini);
 
         // Insert wrapper BEFORE the action bar
         actionBar.parentElement?.insertBefore(wrapper, actionBar);
@@ -169,6 +164,33 @@ export class ToolbarInjector {
 
         logger.debug('Toolbar injected successfully');
         return true;
+    }
+
+    /**
+     * Inject a pending toolbar into the message element while waiting for action bar.
+     */
+    private injectPending(messageElement: HTMLElement, toolbar: HTMLElement, isGemini: boolean): void {
+        if (messageElement.querySelector('.aicopy-toolbar-container')) {
+            return;
+        }
+        const wrapper = this.createWrapper(toolbar, isGemini);
+        messageElement.appendChild(wrapper);
+    }
+
+    private createWrapper(toolbar: HTMLElement, isGemini: boolean): HTMLElement {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'aicopy-toolbar-container';
+
+        if (isGemini) {
+            // Gemini: match official toolbar padding (60px left), no fixed width
+            wrapper.style.cssText = 'margin-bottom: 8px; padding-left: 60px;';
+        } else {
+            // ChatGPT: no extra padding
+            wrapper.style.cssText = 'margin-bottom: 0px; margin-top: 10px;';
+        }
+
+        wrapper.appendChild(toolbar);
+        return wrapper;
     }
 
     /**

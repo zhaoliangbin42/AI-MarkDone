@@ -81,8 +81,24 @@ export class ChatGPTAdapter extends SiteAdapter {
   }
 
   getMessageId(element: HTMLElement): string | null {
-    // Extract from data-message-id attribute
-    return element.getAttribute('data-message-id');
+    // Prefer stable attributes when available
+    const dataMessageId = element.getAttribute('data-message-id');
+    if (dataMessageId) return dataMessageId;
+
+    const dataTestId = element.getAttribute('data-testid');
+    if (dataTestId) return dataTestId;
+
+    const dataTurn = element.getAttribute('data-turn');
+    if (dataTurn) {
+      const allMessages = document.querySelectorAll(this.getMessageSelector());
+      const index = Array.from(allMessages).indexOf(element);
+      return index >= 0 ? `chatgpt-${dataTurn}-${index}` : `chatgpt-${dataTurn}`;
+    }
+
+    // Fallback: position-based ID
+    const allMessages = document.querySelectorAll(this.getMessageSelector());
+    const index = Array.from(allMessages).indexOf(element);
+    return index >= 0 ? `chatgpt-${index}` : null;
   }
 
   getObserverContainer(): HTMLElement | null {

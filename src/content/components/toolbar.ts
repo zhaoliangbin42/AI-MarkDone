@@ -22,6 +22,9 @@ export class Toolbar {
     private callbacks: ToolbarCallbacks;
     private wordCounter: WordCounter;
     private tokenStyleElement: HTMLStyleElement | null = null;
+    private pending: boolean = false;
+    private wordCountInitialized: boolean = false;
+    private wordCountInitInFlight: boolean = false;
 
     constructor(callbacks: ToolbarCallbacks) {
         this.callbacks = callbacks;
@@ -136,6 +139,8 @@ export class Toolbar {
      * Initialize word count with retry mechanism
      */
     private async initWordCountWithRetry(): Promise<void> {
+        if (this.pending || this.wordCountInitInFlight || this.wordCountInitialized) return;
+        this.wordCountInitInFlight = true;
         const maxRetries = 10;
         let attempt = 0;
 
@@ -162,6 +167,9 @@ export class Toolbar {
                             } else {
                                 stats.textContent = formatted;
                             }
+                            this.wordCountInitialized = true;
+                            this.wordCountInitInFlight = false;
+                            this.setPending(false);
                             logger.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
                             return; // Success!
                         }
@@ -183,6 +191,7 @@ export class Toolbar {
         logger.warn('[WordCount] Failed after all retries');
         const stats = this.shadowRoot.querySelector('#word-stats');
         if (stats) stats.textContent = 'Click copy';
+        this.wordCountInitInFlight = false;
     }
 
     /**
@@ -351,6 +360,35 @@ export class Toolbar {
             bookmarkBtn.classList.remove('bookmarked');
             bookmarkBtn.title = 'Bookmark';
             bookmarkBtn.setAttribute('aria-label', 'Bookmark');
+        }
+    }
+
+    /**
+     * Set pending/disabled state for streaming/thinking messages
+     */
+    setPending(isPending: boolean): void {
+        if (this.pending === isPending) return;
+        this.pending = isPending;
+
+        const toolbar = this.shadowRoot.querySelector('.aicopy-toolbar');
+        if (toolbar) {
+            toolbar.classList.toggle('pending', isPending);
+        }
+
+        const buttons = this.shadowRoot.querySelectorAll('.aicopy-button');
+        buttons.forEach((btn) => {
+            if (btn instanceof HTMLButtonElement) {
+                btn.disabled = isPending;
+            }
+        });
+
+        const stats = this.shadowRoot.querySelector('#word-stats');
+        if (stats) {
+            stats.textContent = isPending ? 'loading ...' : stats.textContent;
+        }
+
+        if (!isPending && !this.wordCountInitialized) {
+            this.initWordCountWithRetry();
         }
     }
 

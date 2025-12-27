@@ -10,6 +10,7 @@ const DEBOUNCE_DELAYS = {
     SCROLL: 150,
     RESIZE: 300
 };
+const RESCAN_COOLDOWN_MS = 5000;
 
 /**
  * Message observer that monitors DOM for new messages
@@ -20,9 +21,11 @@ export class MessageObserver {
     private copyButtonObserver: MutationObserver | null = null;
     private intersectionObserver: IntersectionObserver | null = null;
     private adapter: SiteAdapter;
+    private observerContainer: HTMLElement | null = null;
     private processedMessages = new Set<string>();
+    private pendingMessages = new Set<string>();
+    private rescanCooldowns = new Map<string, number>();
     private onMessageDetected: (element: HTMLElement) => void;
-    private periodicCheckInterval: number | null = null;
     private lastCopyButtonCount: number = 0;
 
     constructor(
@@ -65,6 +68,7 @@ export class MessageObserver {
             this.handleMutations(mutations);
         });
 
+        this.observerContainer = container;
         this.observer.observe(container, {
             childList: true,
             subtree: true,
@@ -92,12 +96,7 @@ export class MessageObserver {
         // Setup IntersectionObserver to catch messages entering viewport
         this.setupIntersectionObserver();
 
-        // Setup periodic check as fallback (every 2s)
-        this.periodicCheckInterval = window.setInterval(() => {
-            this.processExistingMessages();
-        }, 2000);
-
-        logger.debug('Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver + Periodic check');
+        logger.debug('Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver');
     }
 
     /**
@@ -241,11 +240,8 @@ export class MessageObserver {
             this.intersectionObserver.disconnect();
             this.intersectionObserver = null;
         }
-
-        if (this.periodicCheckInterval) {
-            window.clearInterval(this.periodicCheckInterval);
-            this.periodicCheckInterval = null;
-        }
+        this.observerContainer = null;
+        this.rescanCooldowns.clear();
 
         logger.info('Message observer stopped');
     }
@@ -255,6 +251,8 @@ export class MessageObserver {
      */
     private handleMutations(mutations: MutationRecord[]): void {
         logger.debug('Processing mutations:', mutations.length);
+
+        this.ensureObserverContainer();
 
         // Check if streaming is in progress
         const isStreaming = this.adapter.isStreamingMessage(document.body);
@@ -284,7 +282,26 @@ export class MessageObserver {
                 logger.debug('Message has no ID, using fallback:', fallbackId);
 
                 if (this.processedMessages.has(fallbackId)) {
+                    const hasToolbar = message.querySelector('.aicopy-toolbar-container');
+                    if (!hasToolbar && this.shouldRescan(fallbackId)) {
+                        this.markRescan(fallbackId);
+                        this.onMessageDetected(message);
+                    }
                     return;
+                }
+
+                const isArticleFallback = message.tagName.toLowerCase() === 'article';
+                if (isArticleFallback) {
+                    const hasActionBar = message.querySelector('div.z-0') !== null;
+                    if (!hasActionBar) {
+                        if (this.pendingMessages.has(fallbackId)) {
+                            return;
+                        }
+                        this.pendingMessages.add(fallbackId);
+                        newMessages++;
+                        this.onMessageDetected(message);
+                        return;
+                    }
                 }
                 this.processedMessages.add(fallbackId);
                 newMessages++;
@@ -299,7 +316,13 @@ export class MessageObserver {
                 const hasActionBar = message.querySelector('div.z-0') !== null;
                 if (!hasActionBar) {
                     logger.debug('Message still streaming (no action bar), skipping:', messageId);
-                    return; // Wait for streaming to finish
+                    if (this.pendingMessages.has(messageId)) {
+                        return;
+                    }
+                    this.pendingMessages.add(messageId);
+                    newMessages++;
+                    this.onMessageDetected(message);
+                    return;
                 }
             }
 
@@ -309,13 +332,17 @@ export class MessageObserver {
                 const hasToolbar = message.querySelector('.aicopy-toolbar-container');
                 if (!hasToolbar) {
                     logger.debug('Message processed but toolbar missing, retrying injection:', messageId);
-                    this.onMessageDetected(message);
+                    if (this.shouldRescan(messageId)) {
+                        this.markRescan(messageId);
+                        this.onMessageDetected(message);
+                    }
                 }
                 return;
             }
 
             // Mark as processed
             this.processedMessages.add(messageId);
+            this.pendingMessages.delete(messageId);
             newMessages++;
 
             // Trigger callback
@@ -338,7 +365,46 @@ export class MessageObserver {
      */
     reset(): void {
         this.processedMessages.clear();
+        this.pendingMessages.clear();
+        this.rescanCooldowns.clear();
         this.lastCopyButtonCount = 0;
         logger.info('Observer reset');
+    }
+
+    private ensureObserverContainer(): void {
+        const currentContainer = this.adapter.getObserverContainer();
+        if (!currentContainer) return;
+
+        if (this.observerContainer && this.observerContainer.isConnected && currentContainer === this.observerContainer) {
+            return;
+        }
+
+        this.rebindObserverContainer(currentContainer);
+    }
+
+    private rebindObserverContainer(container: HTMLElement): void {
+        if (this.observer) {
+            this.observer.disconnect();
+        }
+        this.observerContainer = container;
+        this.processedMessages.clear();
+        this.pendingMessages.clear();
+        this.rescanCooldowns.clear();
+
+        this.observer = new MutationObserver((mutations) => {
+            this.handleMutations(mutations);
+        });
+        this.observer.observe(container, { childList: true, subtree: true, attributes: false });
+        logger.info('[Observer] Rebound to new container');
+        this.processExistingMessages();
+    }
+
+    private shouldRescan(messageId: string): boolean {
+        const lastAttempt = this.rescanCooldowns.get(messageId) ?? 0;
+        return Date.now() - lastAttempt >= RESCAN_COOLDOWN_MS;
+    }
+
+    private markRescan(messageId: string): void {
+        this.rescanCooldowns.set(messageId, Date.now());
     }
 }
