@@ -22,7 +22,7 @@ export const toolbarStyles = `
 .aicopy-toolbar-wrapper {
   display: block;
   position: relative;
-  z-index: 50; /* Ensure it sits above standard content */
+  z-index: 5; /* Ensure it sits above standard content */
 }
 
 /* Notion-style floating toolbar */
@@ -54,7 +54,7 @@ export const toolbarStyles = `
   right: 0;
   
   /* Ensure clickability */
-  z-index: 100;
+  z-index: 5;
   pointer-events: auto;
   
   /* Smooth transitions */

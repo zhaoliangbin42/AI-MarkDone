@@ -773,7 +773,7 @@ const toolbarStyles = `
 .aicopy-toolbar-wrapper {
   display: block;
   position: relative;
-  z-index: 50; /* Ensure it sits above standard content */
+  z-index: 5; /* Ensure it sits above standard content */
 }
 
 /* Notion-style floating toolbar */
@@ -805,7 +805,7 @@ const toolbarStyles = `
   right: 0;
   
   /* Ensure clickability */
-  z-index: 100;
+  z-index: 5;
   pointer-events: auto;
   
   /* Smooth transitions */
@@ -52396,6 +52396,10 @@ class BookmarkSaveModal {
   // DOM references (now inside Shadow DOM)
   overlay = null;
   modal = null;
+  // ✅ PERF: Cache frequently accessed DOM elements
+  titleInputElement = null;
+  saveButtonElement = null;
+  errorDivElement = null;
   // State
   folders = [];
   selectedPath = null;
@@ -52536,38 +52540,44 @@ class BookmarkSaveModal {
     if (header) {
       header.textContent = headerText;
     }
+    this.titleInputElement = this.modal.querySelector(".title-input");
+    this.saveButtonElement = this.modal.querySelector(".save-modal-btn-save");
+    this.errorDivElement = this.modal.querySelector(".title-error");
     setTimeout(() => {
-      const titleInput = this.modal?.querySelector(".title-input");
-      if (titleInput) {
-        titleInput.select();
+      if (this.titleInputElement) {
+        this.titleInputElement.select();
       }
     }, 100);
     logger$1.info("[BookmarkSaveModal] Modal shown");
   }
   updateSaveButtonState() {
-    const saveBtn = this.modal?.querySelector(".save-modal-btn-save");
-    if (!saveBtn) return;
-    const titleInput = this.modal?.querySelector(".title-input");
-    const title = titleInput?.value?.trim() || "";
+    const fnStart = performance.now();
+    console.log("[BUTTON-UPDATE-DEBUG] updateSaveButtonState START");
+    if (!this.saveButtonElement || !this.titleInputElement) {
+      console.log("[BUTTON-UPDATE-DEBUG] Cached elements missing!");
+      return;
+    }
+    const title = this.titleInputElement.value?.trim() || "";
+    console.log("[BUTTON-UPDATE-DEBUG] Current title length:", title.length);
     const hasNoFolders = this.folders.length === 0;
     const noFolderSelected = !this.selectedPath;
     const noTitle = !title;
     const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
-    saveBtn.disabled = shouldDisable;
+    console.log("[BUTTON-UPDATE-DEBUG] shouldDisable:", shouldDisable, "(folders:", this.folders.length, "selected:", this.selectedPath, "title:", !!title, ")");
+    const beforeStyleUpdate = performance.now();
+    this.saveButtonElement.disabled = shouldDisable;
     if (shouldDisable) {
-      saveBtn.style.opacity = "0.5";
-      saveBtn.style.cursor = "not-allowed";
+      this.saveButtonElement.style.opacity = "0.5";
+      this.saveButtonElement.style.cursor = "not-allowed";
     } else {
-      saveBtn.style.opacity = "1";
-      saveBtn.style.cursor = "pointer";
+      this.saveButtonElement.style.opacity = "1";
+      this.saveButtonElement.style.cursor = "pointer";
     }
-    if (hasNoFolders) {
-      logger$1.debug("[BookmarkSaveModal] Save disabled: No folders exist");
-    } else if (noFolderSelected) {
-      logger$1.debug("[BookmarkSaveModal] Save disabled: No folder selected");
-    } else if (noTitle) {
-      logger$1.debug("[BookmarkSaveModal] Save disabled: No title");
-    }
+    const afterStyleUpdate = performance.now();
+    console.log("[BUTTON-UPDATE-DEBUG] Style update time:", (afterStyleUpdate - beforeStyleUpdate).toFixed(2), "ms");
+    const fnEnd = performance.now();
+    console.log("[BUTTON-UPDATE-DEBUG] TOTAL time:", (fnEnd - fnStart).toFixed(2), "ms");
+    console.log("[BUTTON-UPDATE-DEBUG] updateSaveButtonState END");
   }
   /**
   * Hide and cleanup modal
@@ -52653,6 +52663,8 @@ class BookmarkSaveModal {
    * Bind event listeners
    */
   bindEvents(modal) {
+    console.log("[BIND-DEBUG] bindEvents START");
+    const bindStart = performance.now();
     const signal = this.abortController?.signal;
     const closeBtn = modal.querySelector(".save-modal-close-btn");
     closeBtn?.addEventListener("click", () => this.hide(), { signal });
@@ -52661,29 +52673,67 @@ class BookmarkSaveModal {
     const saveBtn = modal.querySelector(".save-modal-btn-save");
     saveBtn?.addEventListener("click", () => this.handleSave(), { signal });
     const titleInput = modal.querySelector(".title-input");
-    titleInput?.addEventListener("input", (e) => this.handleTitleInput(e), { signal });
+    const wrappedInputHandler = (e) => {
+      const eventReceived = performance.now();
+      console.log("[INPUT-EVENT] ========== EVENT RECEIVED ==========");
+      console.log("[INPUT-EVENT] Event timestamp:", e.timeStamp);
+      console.log("[INPUT-EVENT] Performance.now():", eventReceived);
+      console.log("[INPUT-EVENT] Input value:", e.target.value);
+      this.handleTitleInput(e);
+      const eventProcessed = performance.now();
+      console.log("[INPUT-EVENT] Processing time:", (eventProcessed - eventReceived).toFixed(2), "ms");
+      console.log("[INPUT-EVENT] ========== EVENT PROCESSED ==========");
+    };
+    titleInput?.addEventListener("input", wrappedInputHandler, { signal });
+    console.log("[BIND-DEBUG] Title input listener bound");
     const newFolderBtn = modal.querySelector(".new-folder-btn");
     newFolderBtn?.addEventListener("click", () => this.showCreateRootFolderInput(), { signal });
+    const bindEnd = performance.now();
+    console.log("[BIND-DEBUG] bindEvents END, total time:", (bindEnd - bindStart).toFixed(2), "ms");
   }
   /**
    * Handle title input with validation
+   * ✅ PERF: Optimized with cached DOM references
    */
   handleTitleInput(e) {
+    const fnStart = performance.now();
+    console.log("[HANDLER-DEBUG] ========== handleTitleInput START ==========");
+    console.log("[HANDLER-DEBUG] Event type:", e.type);
+    console.log("[HANDLER-DEBUG] Event isTrusted:", e.isTrusted);
     const input = e.target;
+    const beforeValue = this.title;
+    const afterValue = input.value;
+    console.log("[HANDLER-DEBUG] Value change:", beforeValue, "->", afterValue);
+    console.log("[HANDLER-DEBUG] Value length:", afterValue.length);
     this.title = input.value;
+    const afterAssign = performance.now();
+    console.log("[HANDLER-DEBUG] Assignment time:", (afterAssign - fnStart).toFixed(2), "ms");
     const validation = this.validateTitle(this.title);
+    const afterValidation = performance.now();
+    console.log("[HANDLER-DEBUG] Validation time:", (afterValidation - afterAssign).toFixed(2), "ms");
     this.titleValid = validation.valid;
-    const errorDiv = this.modal?.querySelector(".title-error");
-    if (!errorDiv) return;
+    if (!this.errorDivElement) {
+      console.log("[HANDLER-DEBUG] ERROR: errorDiv not cached!");
+      return;
+    }
+    const beforeDOMUpdate = performance.now();
     if (!validation.valid) {
       input.classList.add("error");
-      errorDiv.textContent = validation.error;
-      errorDiv.classList.add("visible");
+      this.errorDivElement.textContent = validation.error;
+      this.errorDivElement.classList.add("visible");
     } else {
       input.classList.remove("error");
-      errorDiv.classList.remove("visible");
+      this.errorDivElement.classList.remove("visible");
     }
+    const afterDOMUpdate = performance.now();
+    console.log("[HANDLER-DEBUG] DOM update time:", (afterDOMUpdate - beforeDOMUpdate).toFixed(2), "ms");
+    const beforeButtonUpdate = performance.now();
     this.updateSaveButtonState();
+    const afterButtonUpdate = performance.now();
+    console.log("[HANDLER-DEBUG] Button update time:", (afterButtonUpdate - beforeButtonUpdate).toFixed(2), "ms");
+    const fnEnd = performance.now();
+    console.log("[HANDLER-DEBUG] TOTAL handleTitleInput time:", (fnEnd - fnStart).toFixed(2), "ms");
+    console.log("[HANDLER-DEBUG] ========== handleTitleInput END ==========");
   }
   /**
    * Validate title
@@ -52766,39 +52816,47 @@ class BookmarkSaveModal {
     }).join("");
   }
   /**
-   * Bind folder click handlers
+   * Bind folder click handlers using event delegation
+   * CRITICAL FIX: Use delegation to avoid memory leaks from repeated binding
    */
   bindFolderClickHandlers() {
     if (!this.modal) return;
-    const toggleBtns = this.modal.querySelectorAll(".folder-toggle");
-    toggleBtns.forEach((toggle) => {
-      toggle.addEventListener("click", (e) => {
+    const treeContainer = this.modal.querySelector(".folder-tree-container");
+    if (!treeContainer) return;
+    const existingHandler = treeContainer.__delegatedClickHandler;
+    if (existingHandler) {
+      treeContainer.removeEventListener("click", existingHandler);
+    }
+    const delegatedHandler = (e) => {
+      const target = e.target;
+      if (target.classList.contains("folder-toggle")) {
         e.stopPropagation();
-        const path = toggle.dataset.path;
+        const path = target.dataset.path;
         if (this.expandedPaths.has(path)) {
           this.expandedPaths.delete(path);
         } else {
           this.expandedPaths.add(path);
         }
         this.renderFolderTree();
-      });
-    });
-    const folderItems = this.modal.querySelectorAll(".folder-item");
-    folderItems.forEach((item) => {
-      item.addEventListener("click", (e) => {
+        return;
+      }
+      if (target.classList.contains("folder-add-btn") || target.closest(".folder-add-btn")) {
         e.stopPropagation();
-        const path = item.dataset.path;
-        this.handleFolderClick(path);
-      });
-    });
-    const addBtns = this.modal.querySelectorAll(".folder-add-btn");
-    addBtns.forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
+        const btn = target.classList.contains("folder-add-btn") ? target : target.closest(".folder-add-btn");
         const parentPath = btn.dataset.parent;
         this.showCreateSubfolderInput(parentPath);
-      });
-    });
+        return;
+      }
+      const folderItem = target.closest(".folder-item");
+      if (folderItem) {
+        e.stopPropagation();
+        const path = folderItem.dataset.path;
+        this.handleFolderClick(path);
+      }
+    };
+    treeContainer.__delegatedClickHandler = delegatedHandler;
+    treeContainer.addEventListener("click", delegatedHandler);
+    console.log("[PERF-FIX] Event delegation setup complete - single listener for all folders");
   }
   /**
    * Handle folder click
@@ -58979,7 +59037,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .folder-icon {
-
                 font-size: 16px;
                 margin-right: 8px;
             }
@@ -58991,7 +59048,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: flex;
                 align-items: center;  /* 图标和文字垂直居中对齐 */
                 gap: var(--space-2);  /* 8px */
-                line-height: 16px;  /* 匹配图标高度,确保完美对齐 */
+                line-height: 20px;  /* 匹配图标高度,确保完美对齐 */
                 user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;

@@ -6023,7 +6023,6 @@ ${options.message}
             }
 
             .folder-icon {
-
                 font-size: 16px;
                 margin-right: 8px;
             }
@@ -6035,7 +6034,7 @@ ${options.message}
                 display: flex;
                 align-items: center;  /* 图标和文字垂直居中对齐 */
                 gap: var(--space-2);  /* 8px */
-                line-height: 16px;  /* 匹配图标高度,确保完美对齐 */
+                line-height: 20px;  /* 匹配图标高度,确保完美对齐 */
                 user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;

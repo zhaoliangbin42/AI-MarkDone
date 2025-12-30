@@ -21,6 +21,11 @@ export class BookmarkSaveModal {
     private overlay: HTMLElement | null = null;
     private modal: HTMLElement | null = null;
 
+    // ✅ PERF: Cache frequently accessed DOM elements
+    private titleInputElement: HTMLInputElement | null = null;
+    private saveButtonElement: HTMLButtonElement | null = null;
+    private errorDivElement: HTMLElement | null = null;
+
     // State
     private folders: Folder[] = [];
     private selectedPath: string | null = null;
@@ -220,11 +225,15 @@ export class BookmarkSaveModal {
             header.textContent = headerText;
         }
 
+        // ✅ PERF: Cache DOM references after modal creation
+        this.titleInputElement = this.modal.querySelector('.title-input') as HTMLInputElement;
+        this.saveButtonElement = this.modal.querySelector('.save-modal-btn-save') as HTMLButtonElement;
+        this.errorDivElement = this.modal.querySelector('.title-error');
+
         // Focus title input
         setTimeout(() => {
-            const titleInput = this.modal?.querySelector('.title-input') as HTMLInputElement;
-            if (titleInput) {
-                titleInput.select(); // Select all text for easy editing
+            if (this.titleInputElement) {
+                this.titleInputElement.select(); // Select all text for easy editing
             }
         }, 100);
 
@@ -232,11 +241,17 @@ export class BookmarkSaveModal {
     }
 
     private updateSaveButtonState(): void {
-        const saveBtn = this.modal?.querySelector('.save-modal-btn-save') as HTMLButtonElement;
-        if (!saveBtn) return;
+        const fnStart = performance.now();
+        console.log('[BUTTON-UPDATE-DEBUG] updateSaveButtonState START');
 
-        const titleInput = this.modal?.querySelector('.title-input') as HTMLInputElement;
-        const title = titleInput?.value?.trim() || '';
+        // ✅ PERF: Use cached references instead of querySelector
+        if (!this.saveButtonElement || !this.titleInputElement) {
+            console.log('[BUTTON-UPDATE-DEBUG] Cached elements missing!');
+            return;
+        }
+
+        const title = this.titleInputElement.value?.trim() || '';
+        console.log('[BUTTON-UPDATE-DEBUG] Current title length:', title.length);
 
         // Disable save button if:
         // 1. No folders exist in the tree (must create folder first)
@@ -247,26 +262,25 @@ export class BookmarkSaveModal {
         const noTitle = !title;
 
         const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
+        console.log('[BUTTON-UPDATE-DEBUG] shouldDisable:', shouldDisable, '(folders:', this.folders.length, 'selected:', this.selectedPath, 'title:', !!title, ')');
 
-        saveBtn.disabled = shouldDisable;
+        const beforeStyleUpdate = performance.now();
+        this.saveButtonElement.disabled = shouldDisable;
 
         // Update button appearance
         if (shouldDisable) {
-            saveBtn.style.opacity = '0.5';
-            saveBtn.style.cursor = 'not-allowed';
+            this.saveButtonElement.style.opacity = '0.5';
+            this.saveButtonElement.style.cursor = 'not-allowed';
         } else {
-            saveBtn.style.opacity = '1';
-            saveBtn.style.cursor = 'pointer';
+            this.saveButtonElement.style.opacity = '1';
+            this.saveButtonElement.style.cursor = 'pointer';
         }
+        const afterStyleUpdate = performance.now();
+        console.log('[BUTTON-UPDATE-DEBUG] Style update time:', (afterStyleUpdate - beforeStyleUpdate).toFixed(2), 'ms');
 
-        // Log state for debugging
-        if (hasNoFolders) {
-            logger.debug('[BookmarkSaveModal] Save disabled: No folders exist');
-        } else if (noFolderSelected) {
-            logger.debug('[BookmarkSaveModal] Save disabled: No folder selected');
-        } else if (noTitle) {
-            logger.debug('[BookmarkSaveModal] Save disabled: No title');
-        }
+        const fnEnd = performance.now();
+        console.log('[BUTTON-UPDATE-DEBUG] TOTAL time:', (fnEnd - fnStart).toFixed(2), 'ms');
+        console.log('[BUTTON-UPDATE-DEBUG] updateSaveButtonState END');
     }
 
     /**
@@ -370,6 +384,9 @@ export class BookmarkSaveModal {
      * Bind event listeners
      */
     private bindEvents(modal: HTMLElement): void {
+        console.log('[BIND-DEBUG] bindEvents START');
+        const bindStart = performance.now();
+
         // Get signal from AbortController for automatic cleanup
         const signal = this.abortController?.signal;
 
@@ -385,38 +402,88 @@ export class BookmarkSaveModal {
         const saveBtn = modal.querySelector('.save-modal-btn-save');
         saveBtn?.addEventListener('click', () => this.handleSave(), { signal });
 
-        // Title input
+        // Title input - CRITICAL for performance
         const titleInput = modal.querySelector('.title-input') as HTMLInputElement;
-        titleInput?.addEventListener('input', (e) => this.handleTitleInput(e), { signal });
+
+        // Wrap the input handler to measure event dispatch time
+        const wrappedInputHandler = (e: Event) => {
+            const eventReceived = performance.now();
+            console.log('[INPUT-EVENT] ========== EVENT RECEIVED ==========');
+            console.log('[INPUT-EVENT] Event timestamp:', e.timeStamp);
+            console.log('[INPUT-EVENT] Performance.now():', eventReceived);
+            console.log('[INPUT-EVENT] Input value:', (e.target as HTMLInputElement).value);
+
+            this.handleTitleInput(e);
+
+            const eventProcessed = performance.now();
+            console.log('[INPUT-EVENT] Processing time:', (eventProcessed - eventReceived).toFixed(2), 'ms');
+            console.log('[INPUT-EVENT] ========== EVENT PROCESSED ==========');
+        };
+
+        titleInput?.addEventListener('input', wrappedInputHandler, { signal });
+        console.log('[BIND-DEBUG] Title input listener bound');
 
         // New Folder button
         const newFolderBtn = modal.querySelector('.new-folder-btn');
         newFolderBtn?.addEventListener('click', () => this.showCreateRootFolderInput(), { signal });
+
+        const bindEnd = performance.now();
+        console.log('[BIND-DEBUG] bindEvents END, total time:', (bindEnd - bindStart).toFixed(2), 'ms');
     }
 
     /**
      * Handle title input with validation
+     * ✅ PERF: Optimized with cached DOM references
      */
     private handleTitleInput(e: Event): void {
+        const fnStart = performance.now();
+        console.log('[HANDLER-DEBUG] ========== handleTitleInput START ==========');
+        console.log('[HANDLER-DEBUG] Event type:', e.type);
+        console.log('[HANDLER-DEBUG] Event isTrusted:', e.isTrusted);
+
         const input = e.target as HTMLInputElement;
+        const beforeValue = this.title;
+        const afterValue = input.value;
+
+        console.log('[HANDLER-DEBUG] Value change:', beforeValue, '->', afterValue);
+        console.log('[HANDLER-DEBUG] Value length:', afterValue.length);
+
         this.title = input.value;
+        const afterAssign = performance.now();
+        console.log('[HANDLER-DEBUG] Assignment time:', (afterAssign - fnStart).toFixed(2), 'ms');
 
         const validation = this.validateTitle(this.title);
+        const afterValidation = performance.now();
+        console.log('[HANDLER-DEBUG] Validation time:', (afterValidation - afterAssign).toFixed(2), 'ms');
         this.titleValid = validation.valid;
 
-        const errorDiv = this.modal?.querySelector('.title-error');
-        if (!errorDiv) return;
-
-        if (!validation.valid) {
-            input.classList.add('error');
-            errorDiv.textContent = validation.error!;
-            errorDiv.classList.add('visible');
-        } else {
-            input.classList.remove('error');
-            errorDiv.classList.remove('visible');
+        // ✅ PERF: Use cached errorDiv reference
+        if (!this.errorDivElement) {
+            console.log('[HANDLER-DEBUG] ERROR: errorDiv not cached!');
+            return;
         }
 
+        const beforeDOMUpdate = performance.now();
+        if (!validation.valid) {
+            input.classList.add('error');
+            this.errorDivElement.textContent = validation.error!;
+            this.errorDivElement.classList.add('visible');
+        } else {
+            input.classList.remove('error');
+            this.errorDivElement.classList.remove('visible');
+        }
+        const afterDOMUpdate = performance.now();
+        console.log('[HANDLER-DEBUG] DOM update time:', (afterDOMUpdate - beforeDOMUpdate).toFixed(2), 'ms');
+
+        // ✅ PERF: Direct call with cached references (no querySelector)
+        const beforeButtonUpdate = performance.now();
         this.updateSaveButtonState();
+        const afterButtonUpdate = performance.now();
+        console.log('[HANDLER-DEBUG] Button update time:', (afterButtonUpdate - beforeButtonUpdate).toFixed(2), 'ms');
+
+        const fnEnd = performance.now();
+        console.log('[HANDLER-DEBUG] TOTAL handleTitleInput time:', (fnEnd - fnStart).toFixed(2), 'ms');
+        console.log('[HANDLER-DEBUG] ========== handleTitleInput END ==========');
     }
 
     /**
@@ -522,17 +589,32 @@ export class BookmarkSaveModal {
     }
 
     /**
-     * Bind folder click handlers
+     * Bind folder click handlers using event delegation
+     * CRITICAL FIX: Use delegation to avoid memory leaks from repeated binding
      */
     private bindFolderClickHandlers(): void {
         if (!this.modal) return;
 
-        // Bind toggle buttons
-        const toggleBtns = this.modal.querySelectorAll('.folder-toggle');
-        toggleBtns.forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
+        const treeContainer = this.modal.querySelector('.folder-tree-container');
+        if (!treeContainer) return;
+
+        // ✅ FIX: Use event delegation - bind ONCE on container instead of on every item
+        // This prevents listener accumulation when renderFolderTree() is called repeatedly
+
+        // Remove existing delegated listener if any (defensive)
+        const existingHandler = (treeContainer as any).__delegatedClickHandler;
+        if (existingHandler) {
+            treeContainer.removeEventListener('click', existingHandler);
+        }
+
+        // Create delegated click handler
+        const delegatedHandler = (e: Event) => {
+            const target = e.target as HTMLElement;
+
+            // Handle folder toggle clicks
+            if (target.classList.contains('folder-toggle')) {
                 e.stopPropagation();
-                const path = (toggle as HTMLElement).dataset.path!;
+                const path = target.dataset.path!;
 
                 // Toggle expansion state
                 if (this.expandedPaths.has(path)) {
@@ -541,29 +623,36 @@ export class BookmarkSaveModal {
                     this.expandedPaths.add(path);
                 }
 
-                // Re-render tree to update toggle icon
+                // Re-render tree
                 this.renderFolderTree();
-            });
-        });
+                return;
+            }
 
-        const folderItems = this.modal.querySelectorAll('.folder-item');
-        folderItems.forEach(item => {
-            item.addEventListener('click', (e) => {
+            // Handle add subfolder button clicks
+            if (target.classList.contains('folder-add-btn') || target.closest('.folder-add-btn')) {
                 e.stopPropagation();
-                const path = (item as HTMLElement).dataset.path!;
-                this.handleFolderClick(path);
-            });
-        });
-
-        // Bind add subfolder buttons
-        const addBtns = this.modal.querySelectorAll('.folder-add-btn');
-        addBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const parentPath = (btn as HTMLElement).dataset.parent!;
+                const btn = target.classList.contains('folder-add-btn') ? target : target.closest('.folder-add-btn') as HTMLElement;
+                const parentPath = btn.dataset.parent!;
                 this.showCreateSubfolderInput(parentPath);
-            });
-        });
+                return;
+            }
+
+            // Handle folder item clicks
+            const folderItem = target.closest('.folder-item') as HTMLElement;
+            if (folderItem) {
+                e.stopPropagation();
+                const path = folderItem.dataset.path!;
+                this.handleFolderClick(path);
+            }
+        };
+
+        // Store reference for future cleanup
+        (treeContainer as any).__delegatedClickHandler = delegatedHandler;
+
+        // Bind delegated handler ONCE
+        treeContainer.addEventListener('click', delegatedHandler);
+
+        console.log('[PERF-FIX] Event delegation setup complete - single listener for all folders');
     }
 
     /**
