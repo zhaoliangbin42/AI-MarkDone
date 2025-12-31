@@ -46,7 +46,7 @@ class ContentScript {
 
     constructor() {
         // Use INFO in production; switch to DEBUG locally when needed
-        logger.setLevel(LogLevel.INFO);
+        logger.setLevel(LogLevel.DEBUG);
 
         // Initialize components
         this.markdownParser = new MarkdownParser();
@@ -85,14 +85,17 @@ class ContentScript {
 
         logger.info('Starting extension on supported page');
 
-        // Create observer and injector
+        // Create injector first (needed by observer)
+        this.injector = new ToolbarInjector(adapter);
+
+        // Create observer with injector dependency
         this.observer = new MessageObserver(
             adapter,
+            this.injector,
             (messageElement) => {
                 this.handleNewMessage(messageElement);
             }
         );
-        this.injector = new ToolbarInjector(adapter);
 
         // Initialize Deep Research handler for Gemini
         if ('isGemini' in adapter && typeof adapter.isGemini === 'function' && adapter.isGemini()) {
@@ -208,14 +211,16 @@ class ContentScript {
 
     /**
      * Handle new message detected
+     * State machine: NULL → inject (hidden) → activate (visible + init)
      */
     private handleNewMessage(messageElement: HTMLElement): void {
         logger.debug('Handling new message');
 
-        // Get message ID for tracking
+        // Get adapter
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) return;
 
+        // Get message ID for tracking
         const messageId = adapter.getMessageId(messageElement);
         if (!messageId) {
             logger.warn('Message has no ID, cannot track processing state');
@@ -223,13 +228,6 @@ class ContentScript {
             // Check if this element is already being processed
             if (this.processingElements.has(messageElement)) {
                 logger.debug('Element is already being processed (no ID), skipping');
-                return;
-            }
-
-            // Fallback to DOM check
-            const hasToolbar = messageElement.querySelector('.aicopy-toolbar-container');
-            if (hasToolbar) {
-                logger.debug('Toolbar already exists (no ID), skipping');
                 return;
             }
 
@@ -253,66 +251,90 @@ class ContentScript {
             this.checkBookmarkNavigation();
         }
 
-        // CRITICAL: Check if toolbar already exists BEFORE creating new one
-        // This prevents creating orphaned toolbar objects with wrong messageElement bindings
-        if (messageElement.querySelector('.aicopy-toolbar-container')) {
-            logger.debug('Toolbar already exists, skipping');
-            // Remove from processing set since we're done
-            if (messageId) {
-                this.processingMessages.delete(messageId);
+        // Get current toolbar state from injector
+        const currentState = this.injector?.getState(messageElement);
+
+        if (currentState === 'null') {
+
+            // Create toolbar with callbacks
+            const callbacks: ToolbarCallbacks = {
+                onCopyMarkdown: async () => {
+                    return this.getMarkdown(messageElement);
+                },
+                onViewSource: () => {
+                    this.showSourceModal(messageElement);
+                },
+                onReRender: () => {
+                    this.showReRenderPanel(messageElement);
+                },
+                onBookmark: async () => {
+                    await this.handleBookmark(messageElement);
+                }
+            };
+
+            const toolbar = new Toolbar(callbacks);
+            toolbar.setTheme(this.currentThemeIsDark);
+
+            // Inject toolbar (hidden state)
+            if (this.injector) {
+                const injected = this.injector.inject(messageElement, toolbar.getElement());
+                if (injected) {
+
+                    // Store toolbar reference for later activation
+                    const toolbarContainer = toolbar.getElement();
+                    (toolbarContainer as any).__toolbar = toolbar;
+
+                    // Save toolbar reference for direct state updates
+                    const position = this.getMessagePosition(messageElement);
+                    this.toolbars.set(position, toolbar);
+
+                    // Set initial bookmark state
+                    const isBookmarked = this.bookmarkedPositions.has(position);
+                    toolbar.setBookmarkState(isBookmarked);
+
+                    // Enable click-to-copy for math elements
+                    this.mathClickHandler.enable(messageElement);
+
+                    // 🔑 FIX: For existing messages (page refresh), activate immediately
+                    // Only keep hidden for streaming messages
+                    const isStreaming = adapter.isStreamingMessage && adapter.isStreamingMessage(messageElement);
+                    if (!isStreaming) {
+                        const activated = this.injector.activate(messageElement);
+                        if (activated) {
+                            toolbar.setPending(false);
+                        }
+                    }
+                }
             }
-            return;
-        }
 
-        // Create toolbar with callbacks
-        const callbacks: ToolbarCallbacks = {
-            onCopyMarkdown: async () => {
-                return this.getMarkdown(messageElement);
-            },
-            onViewSource: () => {
-                this.showSourceModal(messageElement);
-            },
-            onReRender: () => {
-                this.showReRenderPanel(messageElement);
-            },
-            onBookmark: async () => {
-                await this.handleBookmark(messageElement);
+        } else if (currentState === 'injected') {
+
+            // Activate toolbar (make visible)
+            if (this.injector) {
+                const activated = this.injector.activate(messageElement);
+                if (activated) {
+
+                    // Find existing toolbar and initialize word count
+                    const toolbarContainer = messageElement.querySelector('.aicopy-toolbar-container');
+                    if (toolbarContainer) {
+                        const toolbar = (toolbarContainer as any).__toolbar;
+                        if (toolbar && typeof toolbar.setPending === 'function') {
+                            // Trigger word count initialization
+                            toolbar.setPending(false);
+                        }
+                    }
+                }
             }
-        };
 
-        const toolbar = new Toolbar(callbacks);
-        toolbar.setTheme(this.currentThemeIsDark);
-
-        // Inject toolbar
-        if (this.injector) {
-            this.injector.inject(messageElement, toolbar.getElement());
+        } else if (currentState === 'active') {
         }
-
-        // Store toolbar reference on container for later access
-        const toolbarContainer = messageElement.querySelector('.aicopy-toolbar-container');
-        if (toolbarContainer) {
-            (toolbarContainer as any).__toolbar = toolbar;
-        }
-
-        // Set initial bookmark state - AITimeline pattern
-        const position = this.getMessagePosition(messageElement);
-
-        // Save toolbar reference for direct state updates
-        this.toolbars.set(position, toolbar);
-
-        const isBookmarked = this.bookmarkedPositions.has(position);
-        toolbar.setBookmarkState(isBookmarked);
-
-        // Enable click-to-copy for math elements
-        this.mathClickHandler.enable(messageElement);
 
         // Remove from processing set after a short delay
-        // This ensures the toolbar has time to be injected into DOM
         if (messageId) {
             setTimeout(() => {
                 this.processingMessages.delete(messageId);
-                logger.info(`[DEBUG] ⏰ Timeout: Removed ${messageId}. Size: ${this.processingMessages.size}`);
-            }, 1000); // 1 second should be enough for toolbar injection
+                logger.debug(`[handleNewMessage] Removed ${messageId} from processing set`);
+            }, 1000);
         }
 
         logger.info('=== handleNewMessage END ===');
@@ -625,6 +647,9 @@ class ContentScript {
 let urlObserver: MutationObserver | null = null;
 let reinitTimeout: number | null = null;
 let debounceTimeout: number | null = null;
+let lastUrl: string = window.location.href;
+let navVersion = 0;
+let routeListenersAttached = false;
 
 /**
  * Wait for page to be ready by checking for key DOM elements
@@ -668,6 +693,7 @@ function waitForPageReady(adapter: any): Promise<boolean> {
  * Waits for page to be actually ready instead of using fixed delay
  */
 function handleNavigation(contentScript: ContentScript | null): ContentScript | null {
+    const currentVersion = ++navVersion;
     // Clear any pending reinitialization
     if (reinitTimeout !== null) {
         clearTimeout(reinitTimeout);
@@ -696,6 +722,11 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
         logger.debug('[Navigation] Waiting for page to be ready...');
         const isReady = await waitForPageReady(adapter);
 
+        if (currentVersion !== navVersion) {
+            logger.info('[Navigation] Navigation superseded, aborting reinit');
+            return;
+        }
+
         if (!isReady) {
             logger.warn('[Navigation] Page may not be fully ready, but proceeding');
         }
@@ -706,6 +737,11 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
 
         if (hasActiveModalNow || hasActivePanelNow) {
             logger.info('[Navigation] User opened UI during wait, skipping reinit');
+            return;
+        }
+
+        if (currentVersion !== navVersion) {
+            logger.info('[Navigation] Navigation superseded after UI check, aborting reinit');
             return;
         }
 
@@ -726,12 +762,43 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
  * Initialize extension and setup URL change detection
  */
 function initExtension() {
+    console.log('[AI-MarkDone] Script injected and running');
     logger.info('Initializing AI-MarkDone extension');
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
 
     let contentScript: ContentScript | null = new ContentScript();
     contentScript.start(); // Fire and forget - initial load
+
+    const handleUrlChange = () => {
+        const currentUrl = window.location.href;
+        if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            logger.info('[Observer] URL changed:', currentUrl);
+            contentScript = handleNavigation(contentScript);
+        }
+    };
+
+    const attachRouteListeners = () => {
+        if (routeListenersAttached) return;
+        routeListenersAttached = true;
+
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+
+        history.pushState = function (...args) {
+            originalPushState.apply(this, args as any);
+            setTimeout(handleUrlChange, 0);
+        };
+
+        history.replaceState = function (...args) {
+            originalReplaceState.apply(this, args as any);
+            setTimeout(handleUrlChange, 0);
+        };
+
+        window.addEventListener('popstate', handleUrlChange);
+        window.addEventListener('hashchange', handleUrlChange);
+    };
 
     // Disconnect previous observer to prevent memory leak
     if (urlObserver) {
@@ -740,7 +807,7 @@ function initExtension() {
     }
 
     // Setup URL change detection for SPA navigation
-    let lastUrl = window.location.href;
+    attachRouteListeners();
 
     urlObserver = new MutationObserver(() => {
         // Debounce: prevent excessive checks during rapid DOM changes
@@ -749,12 +816,7 @@ function initExtension() {
         }
 
         debounceTimeout = window.setTimeout(() => {
-            const currentUrl = window.location.href;
-            if (currentUrl !== lastUrl) {
-                lastUrl = currentUrl;
-                logger.info('[Observer] URL changed:', currentUrl);
-                contentScript = handleNavigation(contentScript);
-            }
+            handleUrlChange();
             debounceTimeout = null;
         }, 100); // 100ms debounce
     });

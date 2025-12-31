@@ -1,5 +1,6 @@
 import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
+import { extractLatexSource } from '../parsers/latex-extractor';
 
 /**
  * Click-to-copy math handler
@@ -14,6 +15,8 @@ export class MathClickHandler {
         mouseleave: EventListener;
         click: EventListener;
     }>();
+    private pendingNodes = new Set<Element>();
+    private idleCallbackId: number | ReturnType<typeof setTimeout> | null = null;
 
     /**
      * Enable click-to-copy for all math elements in a container
@@ -30,27 +33,26 @@ export class MathClickHandler {
 
         // Setup MutationObserver to watch for new math elements during streaming
         const observer = new MutationObserver((mutations) => {
-            let hasNewMath = false;
+            let queued = false;
 
             for (const mutation of mutations) {
-                // Check if any added nodes contain math elements
                 for (const node of mutation.addedNodes) {
                     if (node instanceof HTMLElement) {
-                        const hasMath = node.classList.contains('katex') ||
-                            node.classList.contains('katex-display') ||
-                            node.querySelector('.katex, .katex-display');
-                        if (hasMath) {
-                            hasNewMath = true;
-                            break;
-                        }
+                        queued = true;
+                        this.queueNodeForProcessing(node);
+                    } else if (node instanceof DocumentFragment) {
+                        node.querySelectorAll('*').forEach((child) => {
+                            if (child instanceof Element) {
+                                queued = true;
+                                this.queueNodeForProcessing(child);
+                            }
+                        });
                     }
                 }
-                if (hasNewMath) break;
             }
 
-            if (hasNewMath) {
-                logger.debug('[MathClick] New math elements detected during streaming');
-                this.processContainer(container);
+            if (queued) {
+                logger.debug('[MathClick] Queued new nodes for math extraction');
             }
         });
 
@@ -67,7 +69,7 @@ export class MathClickHandler {
      * Process all math elements in a container
      */
     private processContainer(container: HTMLElement): void {
-        const mathElements = this.findAllMathElements(container);
+        const mathElements = this.collectMathElements(container);
 
         mathElements.forEach((element: Element) => {
             if (this.activeElements.has(element)) return;
@@ -82,33 +84,83 @@ export class MathClickHandler {
     }
 
     /**
-     * Find all math elements in a container
+     * Collect math-like elements that merit click-to-copy
      */
-    private findAllMathElements(container: HTMLElement): Element[] {
+    private collectMathElements(container: HTMLElement): Element[] {
         const elements: Element[] = [];
-
-        // Find .katex-display (block math)
-        container.querySelectorAll('.katex-display').forEach(el => elements.push(el));
-
-        // Find .katex not inside .katex-display (inline math)
-        container.querySelectorAll('.katex').forEach(el => {
-            if (!el.closest('.katex-display')) {
+        const addUnique = (el: Element) => {
+            if (!elements.includes(el)) {
                 elements.push(el);
             }
+        };
+
+        container.querySelectorAll('.katex-display, .math-block').forEach(addUnique);
+        container.querySelectorAll('.math-inline').forEach(addUnique);
+
+        container.querySelectorAll('.katex').forEach((el) => {
+            if (el.closest('.katex-display') || el.closest('.math-block') || el.closest('.math-inline')) {
+                return;
+            }
+            addUnique(el);
         });
 
-        // Find .katex-error (failed rendering) - but ONLY short ones (single formulas)
-        // Long katex-error elements (like in Deep Research) should NOT be clickable
-        container.querySelectorAll('.katex-error').forEach(el => {
+        container.querySelectorAll('.katex-error').forEach((el) => {
             const text = el.textContent?.trim() || '';
-            // Only enable click-to-copy for short formulas (< 200 chars)
-            // This filters out large blocks of LaTeX that failed to render
             if (text.length > 0 && text.length < 200) {
-                elements.push(el);
+                addUnique(el);
             }
         });
 
         return elements;
+    }
+
+    private queueNodeForProcessing(node: Element): void {
+        this.pendingNodes.add(node);
+
+        if (this.idleCallbackId !== null) {
+            return;
+        }
+
+        const flush = () => {
+            this.idleCallbackId = null;
+            const nodes = Array.from(this.pendingNodes);
+            this.pendingNodes.clear();
+            this.processPendingNodes(nodes);
+        };
+
+        const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
+
+        if (typeof globalScope.requestIdleCallback === 'function') {
+            this.idleCallbackId = globalScope.requestIdleCallback(flush, { timeout: 200 });
+        } else {
+            this.idleCallbackId = globalScope.setTimeout(flush, 16);
+        }
+    }
+
+    private processPendingNodes(nodes: Element[]): void {
+        nodes.forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            this.collectMathElements(node).forEach((element) => {
+                if (this.activeElements.has(element)) return;
+                this.attachHandlers(element);
+                this.activeElements.add(element);
+            });
+        });
+    }
+
+    private clearIdleTimer(): void {
+        if (this.idleCallbackId === null) {
+            return;
+        }
+
+        const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
+        if (typeof globalScope.cancelIdleCallback === 'function') {
+            globalScope.cancelIdleCallback(this.idleCallbackId as number);
+        } else {
+            globalScope.clearTimeout(this.idleCallbackId);
+        }
+
+        this.idleCallbackId = null;
     }
 
     /**
@@ -126,10 +178,11 @@ export class MathClickHandler {
         // Add hover effect
         targetEl.style.cursor = 'pointer';
         targetEl.style.transition = 'background-color 0.2s';
+        const hoverColor = 'rgba(37, 99, 235, 0.12)'; // Theme blue hover
 
         // Create named event listeners (so we can remove them later)
         const mouseenterHandler = () => {
-            targetEl.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';  // Blue highlight on hover
+            targetEl.style.backgroundColor = hoverColor;
         };
 
         const mouseleaveHandler = () => {
@@ -182,19 +235,7 @@ export class MathClickHandler {
      * Extract LaTeX source from a math element
      */
     private getLatexSource(element: Element): string | null {
-        // Try to find annotation tag (for successfully rendered KaTeX)
-        const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
-        if (annotation?.textContent) {
-            return annotation.textContent.trim();
-        }
-
-        // For .katex-error, use textContent
-        if (element.classList.contains('katex-error')) {
-            return element.textContent?.trim() || null;
-        }
-
-        // Fallback: try textContent
-        return element.textContent?.trim() || null;
+        return extractLatexSource(element);
     }
 
     /**
@@ -203,14 +244,14 @@ export class MathClickHandler {
     private showCopyFeedback(element: HTMLElement): void {
         // Don't save originalBg - it might be the hover color
         // We'll clear it completely and re-apply if needed
-        element.style.backgroundColor = 'rgba(139, 92, 246, 0.2)';  // Purple feedback on copy
+        element.style.backgroundColor = 'rgba(37, 99, 235, 0.28)';  // Theme blue flash on copy
 
         // Create tooltip
         const tooltip = document.createElement('div');
         tooltip.textContent = 'Copied!';
         tooltip.style.cssText = `
       position: absolute;
-      background: #8b5cf6;
+      background: #2563EB;
       color: white;
       padding: 4px 8px;
       border-radius: 4px;
@@ -248,7 +289,7 @@ export class MathClickHandler {
 
             // Re-apply hover effect if mouse is still over element
             if (element.matches(':hover')) {
-                element.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';  // Re-apply hover
+                element.style.backgroundColor = 'rgba(37, 99, 235, 0.12)';  // Re-apply hover
             }
         }, 1500);
     }
@@ -283,6 +324,8 @@ export class MathClickHandler {
 
         // 3. Clear active elements
         this.activeElements.clear();
+        this.pendingNodes.clear();
+        this.clearIdleTimer();
 
         logger.info('[MathClick] Disabled and cleaned up all resources');
     }

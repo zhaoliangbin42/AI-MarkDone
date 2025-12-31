@@ -21,7 +21,8 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            '@': resolve(__dirname, './src')
+            '@': resolve(__dirname, './src'),
+            'vfile-location': resolve(__dirname, './src/utils/markdown/vfile-location-shim.ts')
         }
     }
 });

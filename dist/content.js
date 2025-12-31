@@ -98,7 +98,7 @@ class Logger {
 }
 const logger$1 = new Logger();
 
-class ChatGPTAdapter extends SiteAdapter {
+let ChatGPTAdapter$1 = class ChatGPTAdapter extends SiteAdapter {
   matches(url) {
     return url.includes("chatgpt.com") || url.includes("chat.openai.com");
   }
@@ -111,15 +111,18 @@ class ChatGPTAdapter extends SiteAdapter {
   getActionBarSelector() {
     return "div.z-0.flex.min-h-\\[46px\\].justify-start";
   }
+  getCopyButtonSelector() {
+    return 'button[aria-label="Copy"]';
+  }
   extractMessageHTML(element) {
+    const contentElement = element.querySelector(this.getMessageContentSelector());
+    if (contentElement) {
+      return contentElement.innerHTML;
+    }
     if (element.tagName.toLowerCase() === "article") {
       return element.innerHTML;
     }
-    const contentElement = element.querySelector(this.getMessageContentSelector());
-    if (!contentElement) {
-      return element.innerHTML;
-    }
-    return contentElement.innerHTML;
+    return element.innerHTML;
   }
   isStreamingMessage(_element) {
     const stopButton = document.querySelector('button[aria-label*="Stop"]');
@@ -143,7 +146,19 @@ class ChatGPTAdapter extends SiteAdapter {
     }
   }
   getMessageId(element) {
-    return element.getAttribute("data-message-id");
+    const dataMessageId = element.getAttribute("data-message-id");
+    if (dataMessageId) return dataMessageId;
+    const dataTestId = element.getAttribute("data-testid");
+    if (dataTestId) return dataTestId;
+    const dataTurn = element.getAttribute("data-turn");
+    if (dataTurn) {
+      const allMessages2 = document.querySelectorAll(this.getMessageSelector());
+      const index2 = Array.from(allMessages2).indexOf(element);
+      return index2 >= 0 ? `chatgpt-${dataTurn}-${index2}` : `chatgpt-${dataTurn}`;
+    }
+    const allMessages = document.querySelectorAll(this.getMessageSelector());
+    const index = Array.from(allMessages).indexOf(element);
+    return index >= 0 ? `chatgpt-${index}` : null;
   }
   getObserverContainer() {
     const selectors = [
@@ -187,9 +202,9 @@ class ChatGPTAdapter extends SiteAdapter {
   getTables(element) {
     return element.querySelectorAll("table");
   }
-}
+};
 
-class GeminiAdapter extends SiteAdapter {
+let GeminiAdapter$1 = class GeminiAdapter extends SiteAdapter {
   matches(url) {
     return url.includes("gemini.google.com");
   }
@@ -197,10 +212,13 @@ class GeminiAdapter extends SiteAdapter {
     return "model-response";
   }
   getMessageContentSelector() {
-    return ".model-response-text";
+    return ".model-response-text, #extended-response-markdown-content, .markdown";
   }
   getActionBarSelector() {
-    return ".response-container-footer";
+    return ".response-container-footer, .response-footer";
+  }
+  getCopyButtonSelector() {
+    return 'button[aria-label*="Copy"], button[data-tooltip*="Copy"]';
   }
   extractMessageHTML(element) {
     const contentElement = element.querySelector(this.getMessageContentSelector());
@@ -210,7 +228,17 @@ class GeminiAdapter extends SiteAdapter {
     return element.innerHTML;
   }
   isStreamingMessage(element) {
-    const footer = element.querySelector(".response-footer");
+    const hasStopButton = document.querySelector('button[aria-label*="Stop"]') !== null || document.querySelector('button[aria-label*="停止"]') !== null;
+    if (!hasStopButton) {
+      return false;
+    }
+    const allMessages = document.querySelectorAll(this.getMessageSelector());
+    if (allMessages.length === 0) return false;
+    const lastMessage = allMessages[allMessages.length - 1];
+    if (lastMessage !== element) {
+      return false;
+    }
+    const footer = element.querySelector(".response-footer, .response-container-footer");
     if (!footer) {
       return true;
     }
@@ -247,7 +275,7 @@ class GeminiAdapter extends SiteAdapter {
    * Gemini uses KaTeX just like ChatGPT
    */
   getMathElements(element) {
-    return element.querySelectorAll(".katex");
+    return element.querySelectorAll(".math-inline, .math-block, .katex");
   }
   /**
    * Get all code blocks in the message
@@ -269,14 +297,14 @@ class GeminiAdapter extends SiteAdapter {
   isGemini() {
     return true;
   }
-}
+};
 
 class AdapterRegistry {
   adapters = [];
   currentAdapter = null;
   constructor() {
-    this.register(new ChatGPTAdapter());
-    this.register(new GeminiAdapter());
+    this.register(new ChatGPTAdapter$1());
+    this.register(new GeminiAdapter$1());
   }
   /**
    * Register a new adapter
@@ -342,14 +370,6 @@ async function copyToClipboard(text) {
     }
   }
 }
-function safeQuerySelector(parent, selector) {
-  try {
-    return parent.querySelector(selector);
-  } catch (error) {
-    console.error("Invalid selector:", selector, error);
-    return null;
-  }
-}
 
 const DEBOUNCE_DELAYS = {
   MUTATION: 200};
@@ -358,12 +378,15 @@ class MessageObserver {
   copyButtonObserver = null;
   intersectionObserver = null;
   adapter;
+  injector;
+  // Dependency for reconciliation
+  observerContainer = null;
   processedMessages = /* @__PURE__ */ new Set();
   onMessageDetected;
-  periodicCheckInterval = null;
   lastCopyButtonCount = 0;
-  constructor(adapter, onMessageDetected) {
+  constructor(adapter, injector, onMessageDetected) {
     this.adapter = adapter;
+    this.injector = injector;
     this.onMessageDetected = onMessageDetected;
     this.handleMutations = debounce(this.handleMutations.bind(this), DEBOUNCE_DELAYS.MUTATION);
   }
@@ -392,6 +415,7 @@ class MessageObserver {
     this.observer = new MutationObserver((mutations) => {
       this.handleMutations(mutations);
     });
+    this.observerContainer = container;
     this.observer.observe(container, {
       childList: true,
       subtree: true,
@@ -409,24 +433,22 @@ class MessageObserver {
       this.processExistingMessages();
     }, 3e3);
     this.setupIntersectionObserver();
-    this.periodicCheckInterval = window.setInterval(() => {
-      this.processExistingMessages();
-    }, 2e3);
-    logger$1.debug("Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver + Periodic check");
+    logger$1.debug("Setup complete: MutationObserver + Copy Button Monitor + IntersectionObserver");
   }
   /**
    * Setup copy button monitoring for streaming completion detection
    * This is more reliable than waiting for action bars
    */
   setupCopyButtonMonitoring() {
-    this.lastCopyButtonCount = document.querySelectorAll('button[aria-label="Copy"]').length;
+    const selector = this.adapter.getCopyButtonSelector();
+    this.lastCopyButtonCount = document.querySelectorAll(selector).length;
     logger$1.debug(`Initial copy button count: ${this.lastCopyButtonCount}`);
     const handleCopyButtonChange = debounce(() => {
-      const currentCount = document.querySelectorAll('button[aria-label="Copy"]').length;
+      const currentCount = document.querySelectorAll(selector).length;
       if (currentCount > this.lastCopyButtonCount) {
         logger$1.debug(`Copy button added: ${this.lastCopyButtonCount} → ${currentCount}`);
         this.lastCopyButtonCount = currentCount;
-        this.processLatestMessage();
+        this.handleStreamingComplete();
       }
     }, 300);
     this.copyButtonObserver = new MutationObserver((mutations) => {
@@ -434,11 +456,11 @@ class MessageObserver {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node instanceof HTMLElement) {
-            if (node.matches('button[aria-label="Copy"]')) {
+            if (node.matches(selector)) {
               foundNewButton = true;
               break;
             }
-            if (node.querySelector('button[aria-label="Copy"]')) {
+            if (node.querySelector(selector)) {
               foundNewButton = true;
               break;
             }
@@ -458,29 +480,50 @@ class MessageObserver {
     logger$1.debug("Copy button monitoring active");
   }
   /**
-   * Process only the latest message (for streaming completion)
+   * Handle streaming completion (Copy Button appeared)
+   * This is triggered when a new copy button is added to the page.
    */
-  processLatestMessage() {
-    const articles = document.querySelectorAll("article");
+  handleStreamingComplete() {
+    const selector = this.adapter.getMessageSelector();
+    const articles = document.querySelectorAll(selector);
     if (articles.length === 0) return;
     const lastArticle = articles[articles.length - 1];
     const messageId = this.adapter.getMessageId(lastArticle);
-    if (!messageId) {
-      logger$1.debug("Latest article has no ID, processing anyway");
-      this.onMessageDetected(lastArticle);
-      return;
-    }
-    if (this.processedMessages.has(messageId)) {
-      const hasToolbar = lastArticle.querySelector(".aicopy-toolbar-container");
-      if (!hasToolbar) {
-        logger$1.debug("Latest message processed but toolbar missing, retrying:", messageId);
-        this.onMessageDetected(lastArticle);
+    const currentState = this.injector.getState(lastArticle);
+    if (currentState === "null") {
+      if (messageId && !this.processedMessages.has(messageId)) {
+        this.processedMessages.add(messageId);
       }
-      return;
+      this.onMessageDetected(lastArticle);
+    } else if (currentState === "injected") {
+      this.onMessageDetected(lastArticle);
+    } else if (currentState === "active") {
+      logger$1.debug("[StreamingComplete] Toolbar already active, refreshing word count");
+      this.refreshWordCount(lastArticle);
     }
-    this.processedMessages.add(messageId);
-    logger$1.debug("New streaming message completed:", messageId);
-    this.onMessageDetected(lastArticle);
+    setTimeout(() => {
+      const allMessages = document.querySelectorAll(selector);
+      allMessages.forEach((msg) => {
+        if (!(msg instanceof HTMLElement)) return;
+        const state = this.injector.getState(msg);
+        if (state === "injected") {
+          this.onMessageDetected(msg);
+        }
+      });
+    }, 5e3);
+  }
+  /**
+   * Refresh word count for an already active toolbar
+   * Used for Deep Think scenarios where content loads progressively
+   */
+  refreshWordCount(messageElement) {
+    const toolbarContainer = messageElement.querySelector(".aicopy-toolbar-container");
+    if (!toolbarContainer) return;
+    const toolbar = toolbarContainer.__toolbar;
+    if (toolbar && typeof toolbar.refreshWordCount === "function") {
+      toolbar.refreshWordCount();
+      logger$1.debug("[StreamingComplete] Word count refreshed");
+    }
   }
   /**
    * Setup IntersectionObserver to detect messages entering viewport
@@ -525,22 +568,14 @@ class MessageObserver {
       this.intersectionObserver.disconnect();
       this.intersectionObserver = null;
     }
-    if (this.periodicCheckInterval) {
-      window.clearInterval(this.periodicCheckInterval);
-      this.periodicCheckInterval = null;
-    }
+    this.observerContainer = null;
     logger$1.info("Message observer stopped");
   }
   /**
    * Handle DOM mutations
    */
-  handleMutations(mutations) {
-    logger$1.debug("Processing mutations:", mutations.length);
-    const isStreaming = this.adapter.isStreamingMessage(document.body);
-    if (isStreaming) {
-      logger$1.debug("Streaming in progress, delaying processing");
-      return;
-    }
+  handleMutations(_mutations) {
+    this.ensureObserverContainer();
     this.processExistingMessages();
   }
   /**
@@ -548,14 +583,12 @@ class MessageObserver {
    */
   processExistingMessages() {
     const messages = document.querySelectorAll(this.adapter.getMessageSelector());
-    logger$1.debug(`Found ${messages.length} messages (${this.processedMessages.size} already processed)`);
     let newMessages = 0;
     messages.forEach((message) => {
       if (!(message instanceof HTMLElement)) return;
       const messageId = this.adapter.getMessageId(message);
       if (!messageId) {
         const fallbackId = `msg-${Array.from(messages).indexOf(message)}`;
-        logger$1.debug("Message has no ID, using fallback:", fallbackId);
         if (this.processedMessages.has(fallbackId)) {
           return;
         }
@@ -564,25 +597,11 @@ class MessageObserver {
         this.onMessageDetected(message);
         return;
       }
-      const isArticle = message.tagName.toLowerCase() === "article";
-      if (isArticle) {
-        const hasActionBar = message.querySelector("div.z-0") !== null;
-        if (!hasActionBar) {
-          logger$1.debug("Message still streaming (no action bar), skipping:", messageId);
-          return;
-        }
-      }
       if (this.processedMessages.has(messageId)) {
-        const hasToolbar = message.querySelector(".aicopy-toolbar-container");
-        if (!hasToolbar) {
-          logger$1.debug("Message processed but toolbar missing, retrying injection:", messageId);
-          this.onMessageDetected(message);
-        }
         return;
       }
       this.processedMessages.add(messageId);
       newMessages++;
-      logger$1.debug("New message detected:", messageId);
       this.onMessageDetected(message);
       if (this.intersectionObserver) {
         this.intersectionObserver.observe(message);
@@ -600,163 +619,140 @@ class MessageObserver {
     this.lastCopyButtonCount = 0;
     logger$1.info("Observer reset");
   }
+  ensureObserverContainer() {
+    const currentContainer = this.adapter.getObserverContainer();
+    if (!currentContainer) return;
+    if (this.observerContainer && this.observerContainer.isConnected && currentContainer === this.observerContainer) {
+      return;
+    }
+    this.rebindObserverContainer(currentContainer);
+  }
+  rebindObserverContainer(container) {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+    this.observerContainer = container;
+    this.processedMessages.clear();
+    this.observer = new MutationObserver((mutations) => {
+      this.handleMutations(mutations);
+    });
+    this.observer.observe(container, { childList: true, subtree: true, attributes: false });
+    logger$1.info("[Observer] Rebound to new container");
+    this.processExistingMessages();
+  }
 }
 
 class ToolbarInjector {
   adapter;
-  injectedElements = /* @__PURE__ */ new WeakSet();
-  pendingObservers = /* @__PURE__ */ new Map();
-  // Changed from WeakMap to Map for cleanup
+  messageStates = /* @__PURE__ */ new WeakMap();
   constructor(adapter) {
     this.adapter = adapter;
   }
   /**
-   * Inject toolbar into a message element
+   * Stage 1: Inject toolbar (hidden state)
+   * Creates DOM and inserts into page, but keeps it hidden.
    */
   inject(messageElement, toolbar) {
-    if (this.injectedElements.has(messageElement)) {
-      logger$1.debug("Toolbar already injected for this message");
+    const currentState = this.getState(messageElement);
+    logger$1.info(`[toolbar] 🔧 inject() called. currentState=${currentState}`);
+    if (currentState !== "null" /* NULL */) {
+      logger$1.info(`[toolbar] ⏭️  inject() skipped: already ${currentState}`);
       return false;
     }
-    if (messageElement.querySelector(".aicopy-toolbar-container")) {
-      logger$1.debug("Toolbar container already exists");
-      return false;
-    }
-    const isArticle = messageElement.tagName.toLowerCase() === "article";
-    const isModelResponse = messageElement.tagName.toLowerCase() === "model-response";
     const selector = this.adapter.getActionBarSelector();
-    if (isArticle) {
-      return this.injectArticle(messageElement, toolbar, selector);
-    } else if (isModelResponse) {
-      return this.injectGemini(messageElement, toolbar, selector);
-    } else {
-      return this.injectNonArticle(messageElement, toolbar, selector);
-    }
-  }
-  /**
-   * Inject for article messages with smart waiting
-   */
-  injectArticle(article, toolbar, selector) {
-    const actionBar = safeQuerySelector(article, selector);
-    if (actionBar) {
-      logger$1.debug("Action bar found, injecting toolbar");
-      return this.doInject(article, actionBar, toolbar);
-    } else {
-      logger$1.debug("Action bar not found, waiting for it to appear...");
-      this.waitForActionBar(article, toolbar, selector);
+    const actionBar = messageElement.querySelector(selector);
+    if (!actionBar || !actionBar.parentElement) {
       return false;
     }
+    const isGemini = messageElement.tagName.toLowerCase() === "model-response";
+    const wrapper = this.createWrapper(toolbar, isGemini);
+    wrapper.style.display = "none";
+    actionBar.parentElement.insertBefore(wrapper, actionBar);
+    this.messageStates.set(messageElement, "injected" /* INJECTED */);
+    return true;
   }
   /**
-   * Inject for Gemini model-response elements
-   * Gemini's structure: action bar is INSIDE model-response
+   * Stage 2: Activate toolbar (visible + initialized)
+   * Makes toolbar visible and returns true to signal word count initialization.
    */
-  injectGemini(modelResponse, toolbar, selector) {
-    const actionBar = safeQuerySelector(modelResponse, selector);
-    if (actionBar) {
-      logger$1.debug("Gemini action bar found, injecting toolbar");
-      return this.doInject(modelResponse, actionBar, toolbar, true);
-    } else {
-      logger$1.debug("Gemini action bar not found, waiting for it to appear...");
-      this.waitForActionBar(modelResponse, toolbar, selector, true);
+  activate(messageElement) {
+    const currentState = this.getState(messageElement);
+    if (currentState !== "injected" /* INJECTED */) {
       return false;
     }
+    const wrapper = messageElement.querySelector(".aicopy-toolbar-wrapper");
+    if (!wrapper) {
+      logger$1.error(`[toolbar] ❌ activate() failed: Wrapper not found in DOM`);
+      return false;
+    }
+    logger$1.info(`[toolbar] 👁️  Making wrapper visible (display: flex)`);
+    wrapper.style.display = "flex";
+    this.messageStates.set(messageElement, "active" /* ACTIVE */);
+    return true;
   }
   /**
-   * Wait for action bar to appear using interval checking
+   * Get current state of toolbar for a message
    */
-  waitForActionBar(article, toolbar, selector, isGemini = false) {
-    const existingTimer = this.pendingObservers.get(article);
-    if (existingTimer) {
-      window.clearInterval(existingTimer);
-    }
-    let attempts = 0;
-    const maxAttempts = 15;
-    const checkInterval = window.setInterval(() => {
-      attempts++;
-      const actionBar = safeQuerySelector(article, selector);
-      if (actionBar) {
-        window.clearInterval(checkInterval);
-        this.pendingObservers.delete(article);
-        logger$1.debug(`Action bar appeared after ${attempts} seconds`);
-        this.doInject(article, actionBar, toolbar, isGemini);
-      } else if (attempts >= maxAttempts) {
-        window.clearInterval(checkInterval);
-        this.pendingObservers.delete(article);
-        logger$1.warn("Action bar did not appear after 15 seconds");
-      }
-    }, 1e3);
-    this.pendingObservers.set(article, checkInterval);
+  getState(messageElement) {
+    return this.messageStates.get(messageElement) || "null" /* NULL */;
   }
   /**
-   * Inject for non-article messages
+   * Reconcile toolbar position (legacy compatibility)
+   * Ensures toolbar is correctly positioned before action bar.
    */
-  injectNonArticle(messageElement, toolbar, selector) {
-    const parent = messageElement.parentElement;
-    if (!parent) {
-      logger$1.warn("Message element has no parent");
-      return false;
+  reconcileToolbarPosition(message) {
+    const selector = this.adapter.getActionBarSelector();
+    const actionBar = message.querySelector(selector);
+    const wrapper = message.querySelector(".aicopy-toolbar-wrapper");
+    if (!wrapper || !actionBar || !actionBar.parentElement) {
+      return;
     }
-    const actionBarContainer = parent.nextElementSibling;
-    if (!actionBarContainer) {
-      logger$1.warn("No next sibling found after message parent");
-      return false;
+    if (wrapper.nextElementSibling !== actionBar) {
+      requestAnimationFrame(() => {
+        if (wrapper.isConnected && actionBar.isConnected) {
+          actionBar.parentElement?.insertBefore(wrapper, actionBar);
+          logger$1.debug("[Injector] Toolbar position reconciled");
+        }
+      });
     }
-    const actionBar = actionBarContainer.matches(selector) ? actionBarContainer : safeQuerySelector(actionBarContainer, selector);
-    if (!actionBar) {
-      logger$1.warn("Action bar not found in expected location");
-      return false;
-    }
-    return this.doInject(messageElement, actionBar, toolbar);
   }
-  /**
-   * Perform actual toolbar injection
-   */
-  doInject(messageElement, actionBar, toolbar, isGemini = false) {
+  createWrapper(toolbar, isGemini) {
     const wrapper = document.createElement("div");
-    wrapper.className = "aicopy-toolbar-container";
+    wrapper.className = "aicopy-toolbar-wrapper";
     if (isGemini) {
       wrapper.style.cssText = "margin-bottom: 8px; padding-left: 60px;";
     } else {
       wrapper.style.cssText = "margin-bottom: 0px; margin-top: 10px;";
     }
     wrapper.appendChild(toolbar);
-    actionBar.parentElement?.insertBefore(wrapper, actionBar);
-    this.injectedElements.add(messageElement);
-    logger$1.debug("Toolbar injected successfully");
-    return true;
+    return wrapper;
   }
   /**
    * Remove toolbar from a message element
    */
   remove(messageElement) {
-    const toolbar = messageElement.querySelector(".aicopy-toolbar-container");
-    if (toolbar) {
-      toolbar.remove();
-      this.injectedElements.delete(messageElement);
-      logger$1.debug("Toolbar removed");
+    const wrapper = messageElement.querySelector(".aicopy-toolbar-wrapper");
+    if (wrapper) {
+      wrapper.remove();
+      this.messageStates.delete(messageElement);
+      logger$1.debug("[Injector] Toolbar removed");
       return true;
     }
     return false;
   }
   /**
-   * Check if toolbar is already injected
+   * Check if toolbar is already injected (INJECTED or ACTIVE state)
    */
   isInjected(messageElement) {
-    return this.injectedElements.has(messageElement);
+    const state = this.getState(messageElement);
+    return state === "injected" /* INJECTED */ || state === "active" /* ACTIVE */;
   }
   /**
-   * Cleanup all pending observers and reset state
-   * Called when ContentScript is stopped (e.g., on page navigation)
+   * Cleanup state
    */
   cleanup() {
-    this.pendingObservers.forEach((timerId) => {
-      window.clearInterval(timerId);
-      logger$1.debug("[Injector] Cleared pending interval timer");
-    });
-    this.pendingObservers.clear();
-    this.injectedElements = /* @__PURE__ */ new WeakSet();
-    logger$1.info("[Injector] Cleaned up all pending observers");
+    this.messageStates = /* @__PURE__ */ new WeakMap();
+    logger$1.info("[Injector] Cleaned up state");
   }
 }
 
@@ -773,6 +769,13 @@ const toolbarStyles = `
   --theme-color: var(--toolbar-theme-color);
 }
 
+/* Wrapper for positioning (injected into DOM) */
+.aicopy-toolbar-wrapper {
+  display: block;
+  position: relative;
+  z-index: 5; /* Ensure it sits above standard content */
+}
+
 /* Notion-style floating toolbar */
 .aicopy-toolbar {
   /* Floating card container */
@@ -780,10 +783,11 @@ const toolbarStyles = `
   align-items: center;
   gap: var(--space-1);
   
-  /* Glassmorphism */
+  /* Glassmorphism - ✅ Optimized: 降低blur值提升性能 */
+  /* 参考: Gemini官网 - blur值从12px降到4px */
   background: var(--toolbar-bg);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(150%);
+  -webkit-backdrop-filter: blur(4px) saturate(150%);
   
   /* Rounded corners */
   border-radius: 8px;
@@ -802,11 +806,12 @@ const toolbarStyles = `
   right: 0;
   
   /* Ensure clickability */
-  z-index: 100;
+  z-index: 5;
   pointer-events: auto;
   
-  /* Smooth transitions */
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ Best Practice: 只transition变化的属性 */
+  /* 参考: Material Design Motion */
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .aicopy-toolbar:hover {
@@ -864,7 +869,8 @@ const toolbarStyles = `
   background: transparent;
   color: var(--toolbar-button-text);
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ Best Practice: 只transition需要动画的属性 */
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   pointer-events: auto;
   z-index: 1;
@@ -2035,6 +2041,9 @@ class Toolbar {
   callbacks;
   wordCounter;
   tokenStyleElement = null;
+  pending = false;
+  wordCountInitialized = false;
+  wordCountInitInFlight = false;
   constructor(callbacks) {
     this.callbacks = callbacks;
     this.wordCounter = new WordCounter();
@@ -2116,28 +2125,24 @@ class Toolbar {
    * Initialize word count with retry mechanism
    */
   async initWordCountWithRetry() {
+    if (this.pending || this.wordCountInitInFlight || this.wordCountInitialized) return;
+    this.wordCountInitInFlight = true;
     const maxRetries = 10;
     let attempt = 0;
     await new Promise((resolve) => setTimeout(resolve, 500));
+    if (this.pending) {
+      this.wordCountInitInFlight = false;
+      return;
+    }
     while (attempt < maxRetries) {
       try {
         const markdown = await this.callbacks.onCopyMarkdown();
-        if (markdown && markdown.trim().length > 0) {
-          const stats2 = this.shadowRoot.querySelector("#word-stats");
-          if (stats2) {
-            const result = this.wordCounter.count(markdown);
-            const formatted = this.wordCounter.format(result);
-            if (formatted !== "No content") {
-              const parts = formatted.split(" / ");
-              if (parts.length >= 2) {
-                stats2.innerHTML = `<div>${parts[0]}</div><div>${parts.slice(1).join(" ")}</div>`;
-              } else {
-                stats2.textContent = formatted;
-              }
-              logger$1.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
-              return;
-            }
-          }
+        if (markdown && markdown.trim().length > 0 && this.updateStatsDisplay(markdown)) {
+          this.wordCountInitialized = true;
+          this.wordCountInitInFlight = false;
+          this.setPending(false);
+          logger$1.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
+          return;
         }
       } catch (error) {
         logger$1.debug("[WordCount] Retry failed:", error);
@@ -2151,6 +2156,42 @@ class Toolbar {
     logger$1.warn("[WordCount] Failed after all retries");
     const stats = this.shadowRoot.querySelector("#word-stats");
     if (stats) stats.textContent = "Click copy";
+    this.wordCountInitInFlight = false;
+  }
+  /**
+   * Update stats display with formatted word count
+   * Returns true if successful
+   */
+  updateStatsDisplay(markdown) {
+    if (!markdown || markdown.trim().length === 0) return false;
+    const stats = this.shadowRoot.querySelector("#word-stats");
+    if (!stats) return false;
+    const result = this.wordCounter.count(markdown);
+    const formatted = this.wordCounter.format(result);
+    if (formatted !== "No content") {
+      const parts = formatted.split(" / ");
+      if (parts.length >= 2) {
+        stats.innerHTML = `<div>${parts[0]}</div><div>${parts.slice(1).join(" ")}</div>`;
+      } else {
+        stats.textContent = formatted;
+      }
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Refresh word count display
+   * Public method for external triggers (e.g. Deep Think content updates, copy action)
+   */
+  async refreshWordCount() {
+    try {
+      const markdown = await this.callbacks.onCopyMarkdown();
+      if (this.updateStatsDisplay(markdown)) {
+        logger$1.debug("[WordCount] Refreshed");
+      }
+    } catch (error) {
+      logger$1.warn("[WordCount] Refresh failed:", error);
+    }
   }
   /**
    * Create icon button with hover tooltip (using feedback mechanism)
@@ -2196,6 +2237,7 @@ class Toolbar {
       const markdown = await this.callbacks.onCopyMarkdown();
       const success = await copyToClipboard(markdown);
       if (success) {
+        await this.refreshWordCount();
         const originalIcon = btn.innerHTML;
         btn.innerHTML = Icons.check;
         btn.style.color = "var(--theme-color)";
@@ -2271,6 +2313,30 @@ class Toolbar {
       bookmarkBtn.classList.remove("bookmarked");
       bookmarkBtn.title = "Bookmark";
       bookmarkBtn.setAttribute("aria-label", "Bookmark");
+    }
+  }
+  /**
+   * Set pending/disabled state for streaming/thinking messages
+   */
+  setPending(isPending) {
+    if (this.pending === isPending) return;
+    this.pending = isPending;
+    const toolbar = this.shadowRoot.querySelector(".aicopy-toolbar");
+    if (toolbar) {
+      toolbar.classList.toggle("pending", isPending);
+    }
+    const buttons = this.shadowRoot.querySelectorAll(".aicopy-button");
+    buttons.forEach((btn) => {
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = isPending;
+      }
+    });
+    const stats = this.shadowRoot.querySelector("#word-stats");
+    if (stats) {
+      stats.textContent = isPending ? "loading ..." : stats.textContent;
+    }
+    if (!isPending && !this.wordCountInitialized) {
+      this.initWordCountWithRetry();
     }
   }
   /**
@@ -2730,1538 +2796,1377 @@ class Modal {
   }
 }
 
-function extend (destination) {
-  for (var i = 1; i < arguments.length; i++) {
-    var source = arguments[i];
-    for (var key in source) {
-      if (source.hasOwnProperty(key)) destination[key] = source[key];
-    }
-  }
-  return destination
-}
-
-function repeat (character, count) {
-  return Array(count + 1).join(character)
-}
-
-function trimLeadingNewlines (string) {
-  return string.replace(/^\n*/, '')
-}
-
-function trimTrailingNewlines (string) {
-  // avoid match-at-end regexp bottleneck, see #370
-  var indexEnd = string.length;
-  while (indexEnd > 0 && string[indexEnd - 1] === '\n') indexEnd--;
-  return string.substring(0, indexEnd)
-}
-
-function trimNewlines (string) {
-  return trimTrailingNewlines(trimLeadingNewlines(string))
-}
-
-var blockElements = [
-  'ADDRESS', 'ARTICLE', 'ASIDE', 'AUDIO', 'BLOCKQUOTE', 'BODY', 'CANVAS',
-  'CENTER', 'DD', 'DIR', 'DIV', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'FIGURE',
-  'FOOTER', 'FORM', 'FRAMESET', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER',
-  'HGROUP', 'HR', 'HTML', 'ISINDEX', 'LI', 'MAIN', 'MENU', 'NAV', 'NOFRAMES',
-  'NOSCRIPT', 'OL', 'OUTPUT', 'P', 'PRE', 'SECTION', 'TABLE', 'TBODY', 'TD',
-  'TFOOT', 'TH', 'THEAD', 'TR', 'UL'
-];
-
-function isBlock (node) {
-  return is(node, blockElements)
-}
-
-var voidElements = [
-  'AREA', 'BASE', 'BR', 'COL', 'COMMAND', 'EMBED', 'HR', 'IMG', 'INPUT',
-  'KEYGEN', 'LINK', 'META', 'PARAM', 'SOURCE', 'TRACK', 'WBR'
-];
-
-function isVoid (node) {
-  return is(node, voidElements)
-}
-
-function hasVoid (node) {
-  return has(node, voidElements)
-}
-
-var meaningfulWhenBlankElements = [
-  'A', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TH', 'TD', 'IFRAME', 'SCRIPT',
-  'AUDIO', 'VIDEO'
-];
-
-function isMeaningfulWhenBlank (node) {
-  return is(node, meaningfulWhenBlankElements)
-}
-
-function hasMeaningfulWhenBlank (node) {
-  return has(node, meaningfulWhenBlankElements)
-}
-
-function is (node, tagNames) {
-  return tagNames.indexOf(node.nodeName) >= 0
-}
-
-function has (node, tagNames) {
-  return (
-    node.getElementsByTagName &&
-    tagNames.some(function (tagName) {
-      return node.getElementsByTagName(tagName).length
-    })
-  )
-}
-
-var rules$1 = {};
-
-rules$1.paragraph = {
-  filter: 'p',
-
-  replacement: function (content) {
-    return '\n\n' + content + '\n\n'
-  }
-};
-
-rules$1.lineBreak = {
-  filter: 'br',
-
-  replacement: function (content, node, options) {
-    return options.br + '\n'
-  }
-};
-
-rules$1.heading = {
-  filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-
-  replacement: function (content, node, options) {
-    var hLevel = Number(node.nodeName.charAt(1));
-
-    if (options.headingStyle === 'setext' && hLevel < 3) {
-      var underline = repeat((hLevel === 1 ? '=' : '-'), content.length);
-      return (
-        '\n\n' + content + '\n' + underline + '\n\n'
-      )
-    } else {
-      return '\n\n' + repeat('#', hLevel) + ' ' + content + '\n\n'
-    }
-  }
-};
-
-rules$1.blockquote = {
-  filter: 'blockquote',
-
-  replacement: function (content) {
-    content = trimNewlines(content).replace(/^/gm, '> ');
-    return '\n\n' + content + '\n\n'
-  }
-};
-
-rules$1.list = {
-  filter: ['ul', 'ol'],
-
-  replacement: function (content, node) {
-    var parent = node.parentNode;
-    if (parent.nodeName === 'LI' && parent.lastElementChild === node) {
-      return '\n' + content
-    } else {
-      return '\n\n' + content + '\n\n'
-    }
-  }
-};
-
-rules$1.listItem = {
-  filter: 'li',
-
-  replacement: function (content, node, options) {
-    var prefix = options.bulletListMarker + '   ';
-    var parent = node.parentNode;
-    if (parent.nodeName === 'OL') {
-      var start = parent.getAttribute('start');
-      var index = Array.prototype.indexOf.call(parent.children, node);
-      prefix = (start ? Number(start) + index : index + 1) + '.  ';
-    }
-    var isParagraph = /\n$/.test(content);
-    content = trimNewlines(content) + (isParagraph ? '\n' : '');
-    content = content.replace(/\n/gm, '\n' + ' '.repeat(prefix.length)); // indent
-    return (
-      prefix + content + (node.nextSibling ? '\n' : '')
-    )
-  }
-};
-
-rules$1.indentedCodeBlock = {
-  filter: function (node, options) {
-    return (
-      options.codeBlockStyle === 'indented' &&
-      node.nodeName === 'PRE' &&
-      node.firstChild &&
-      node.firstChild.nodeName === 'CODE'
-    )
-  },
-
-  replacement: function (content, node, options) {
-    return (
-      '\n\n    ' +
-      node.firstChild.textContent.replace(/\n/g, '\n    ') +
-      '\n\n'
-    )
-  }
-};
-
-rules$1.fencedCodeBlock = {
-  filter: function (node, options) {
-    return (
-      options.codeBlockStyle === 'fenced' &&
-      node.nodeName === 'PRE' &&
-      node.firstChild &&
-      node.firstChild.nodeName === 'CODE'
-    )
-  },
-
-  replacement: function (content, node, options) {
-    var className = node.firstChild.getAttribute('class') || '';
-    var language = (className.match(/language-(\S+)/) || [null, ''])[1];
-    var code = node.firstChild.textContent;
-
-    var fenceChar = options.fence.charAt(0);
-    var fenceSize = 3;
-    var fenceInCodeRegex = new RegExp('^' + fenceChar + '{3,}', 'gm');
-
-    var match;
-    while ((match = fenceInCodeRegex.exec(code))) {
-      if (match[0].length >= fenceSize) {
-        fenceSize = match[0].length + 1;
-      }
-    }
-
-    var fence = repeat(fenceChar, fenceSize);
-
-    return (
-      '\n\n' + fence + language + '\n' +
-      code.replace(/\n$/, '') +
-      '\n' + fence + '\n\n'
-    )
-  }
-};
-
-rules$1.horizontalRule = {
-  filter: 'hr',
-
-  replacement: function (content, node, options) {
-    return '\n\n' + options.hr + '\n\n'
-  }
-};
-
-rules$1.inlineLink = {
-  filter: function (node, options) {
-    return (
-      options.linkStyle === 'inlined' &&
-      node.nodeName === 'A' &&
-      node.getAttribute('href')
-    )
-  },
-
-  replacement: function (content, node) {
-    var href = node.getAttribute('href');
-    if (href) href = href.replace(/([()])/g, '\\$1');
-    var title = cleanAttribute(node.getAttribute('title'));
-    if (title) title = ' "' + title.replace(/"/g, '\\"') + '"';
-    return '[' + content + '](' + href + title + ')'
-  }
-};
-
-rules$1.referenceLink = {
-  filter: function (node, options) {
-    return (
-      options.linkStyle === 'referenced' &&
-      node.nodeName === 'A' &&
-      node.getAttribute('href')
-    )
-  },
-
-  replacement: function (content, node, options) {
-    var href = node.getAttribute('href');
-    var title = cleanAttribute(node.getAttribute('title'));
-    if (title) title = ' "' + title + '"';
-    var replacement;
-    var reference;
-
-    switch (options.linkReferenceStyle) {
-      case 'collapsed':
-        replacement = '[' + content + '][]';
-        reference = '[' + content + ']: ' + href + title;
-        break
-      case 'shortcut':
-        replacement = '[' + content + ']';
-        reference = '[' + content + ']: ' + href + title;
-        break
-      default:
-        var id = this.references.length + 1;
-        replacement = '[' + content + '][' + id + ']';
-        reference = '[' + id + ']: ' + href + title;
-    }
-
-    this.references.push(reference);
-    return replacement
-  },
-
-  references: [],
-
-  append: function (options) {
-    var references = '';
-    if (this.references.length) {
-      references = '\n\n' + this.references.join('\n') + '\n\n';
-      this.references = []; // Reset references
-    }
-    return references
-  }
-};
-
-rules$1.emphasis = {
-  filter: ['em', 'i'],
-
-  replacement: function (content, node, options) {
-    if (!content.trim()) return ''
-    return options.emDelimiter + content + options.emDelimiter
-  }
-};
-
-rules$1.strong = {
-  filter: ['strong', 'b'],
-
-  replacement: function (content, node, options) {
-    if (!content.trim()) return ''
-    return options.strongDelimiter + content + options.strongDelimiter
-  }
-};
-
-rules$1.code = {
-  filter: function (node) {
-    var hasSiblings = node.previousSibling || node.nextSibling;
-    var isCodeBlock = node.parentNode.nodeName === 'PRE' && !hasSiblings;
-
-    return node.nodeName === 'CODE' && !isCodeBlock
-  },
-
-  replacement: function (content) {
-    if (!content) return ''
-    content = content.replace(/\r?\n|\r/g, ' ');
-
-    var extraSpace = /^`|^ .*?[^ ].* $|`$/.test(content) ? ' ' : '';
-    var delimiter = '`';
-    var matches = content.match(/`+/gm) || [];
-    while (matches.indexOf(delimiter) !== -1) delimiter = delimiter + '`';
-
-    return delimiter + extraSpace + content + extraSpace + delimiter
-  }
-};
-
-rules$1.image = {
-  filter: 'img',
-
-  replacement: function (content, node) {
-    var alt = cleanAttribute(node.getAttribute('alt'));
-    var src = node.getAttribute('src') || '';
-    var title = cleanAttribute(node.getAttribute('title'));
-    var titlePart = title ? ' "' + title + '"' : '';
-    return src ? '![' + alt + ']' + '(' + src + titlePart + ')' : ''
-  }
-};
-
-function cleanAttribute (attribute) {
-  return attribute ? attribute.replace(/(\n+\s*)+/g, '\n') : ''
-}
-
-/**
- * Manages a collection of rules used to convert HTML to Markdown
- */
-
-function Rules (options) {
-  this.options = options;
-  this._keep = [];
-  this._remove = [];
-
-  this.blankRule = {
-    replacement: options.blankReplacement
-  };
-
-  this.keepReplacement = options.keepReplacement;
-
-  this.defaultRule = {
-    replacement: options.defaultReplacement
-  };
-
-  this.array = [];
-  for (var key in options.rules) this.array.push(options.rules[key]);
-}
-
-Rules.prototype = {
-  add: function (key, rule) {
-    this.array.unshift(rule);
-  },
-
-  keep: function (filter) {
-    this._keep.unshift({
-      filter: filter,
-      replacement: this.keepReplacement
-    });
-  },
-
-  remove: function (filter) {
-    this._remove.unshift({
-      filter: filter,
-      replacement: function () {
-        return ''
-      }
-    });
-  },
-
-  forNode: function (node) {
-    if (node.isBlank) return this.blankRule
-    var rule;
-
-    if ((rule = findRule(this.array, node, this.options))) return rule
-    if ((rule = findRule(this._keep, node, this.options))) return rule
-    if ((rule = findRule(this._remove, node, this.options))) return rule
-
-    return this.defaultRule
-  },
-
-  forEach: function (fn) {
-    for (var i = 0; i < this.array.length; i++) fn(this.array[i], i);
-  }
-};
-
-function findRule (rules, node, options) {
-  for (var i = 0; i < rules.length; i++) {
-    var rule = rules[i];
-    if (filterValue(rule, node, options)) return rule
-  }
-  return void 0
-}
-
-function filterValue (rule, node, options) {
-  var filter = rule.filter;
-  if (typeof filter === 'string') {
-    if (filter === node.nodeName.toLowerCase()) return true
-  } else if (Array.isArray(filter)) {
-    if (filter.indexOf(node.nodeName.toLowerCase()) > -1) return true
-  } else if (typeof filter === 'function') {
-    if (filter.call(rule, node, options)) return true
-  } else {
-    throw new TypeError('`filter` needs to be a string, array, or function')
-  }
-}
-
-/**
- * The collapseWhitespace function is adapted from collapse-whitespace
- * by Luc Thevenard.
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Luc Thevenard <lucthevenard@gmail.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
- * collapseWhitespace(options) removes extraneous whitespace from an the given element.
- *
- * @param {Object} options
- */
-function collapseWhitespace (options) {
-  var element = options.element;
-  var isBlock = options.isBlock;
-  var isVoid = options.isVoid;
-  var isPre = options.isPre || function (node) {
-    return node.nodeName === 'PRE'
-  };
-
-  if (!element.firstChild || isPre(element)) return
-
-  var prevText = null;
-  var keepLeadingWs = false;
-
-  var prev = null;
-  var node = next(prev, element, isPre);
-
-  while (node !== element) {
-    if (node.nodeType === 3 || node.nodeType === 4) { // Node.TEXT_NODE or Node.CDATA_SECTION_NODE
-      var text = node.data.replace(/[ \r\n\t]+/g, ' ');
-
-      if ((!prevText || / $/.test(prevText.data)) &&
-          !keepLeadingWs && text[0] === ' ') {
-        text = text.substr(1);
-      }
-
-      // `text` might be empty at this point.
-      if (!text) {
-        node = remove(node);
-        continue
-      }
-
-      node.data = text;
-
-      prevText = node;
-    } else if (node.nodeType === 1) { // Node.ELEMENT_NODE
-      if (isBlock(node) || node.nodeName === 'BR') {
-        if (prevText) {
-          prevText.data = prevText.data.replace(/ $/, '');
-        }
-
-        prevText = null;
-        keepLeadingWs = false;
-      } else if (isVoid(node) || isPre(node)) {
-        // Avoid trimming space around non-block, non-BR void elements and inline PRE.
-        prevText = null;
-        keepLeadingWs = true;
-      } else if (prevText) {
-        // Drop protection if set previously.
-        keepLeadingWs = false;
-      }
-    } else {
-      node = remove(node);
-      continue
-    }
-
-    var nextNode = next(prev, node, isPre);
-    prev = node;
-    node = nextNode;
-  }
-
-  if (prevText) {
-    prevText.data = prevText.data.replace(/ $/, '');
-    if (!prevText.data) {
-      remove(prevText);
+class ParserError extends Error {
+  node;
+  recoveryAction;
+  context;
+  constructor(message, node, recoveryAction, context) {
+    super(message);
+    this.name = "ParserError";
+    this.node = node;
+    this.recoveryAction = recoveryAction;
+    this.context = context;
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ParserError);
     }
   }
 }
-
-/**
- * remove(node) removes the given node from the DOM and returns the
- * next node in the sequence.
- *
- * @param {Node} node
- * @return {Node} node
- */
-function remove (node) {
-  var next = node.nextSibling || node.parentNode;
-
-  node.parentNode.removeChild(node);
-
-  return next
-}
-
-/**
- * next(prev, current, isPre) returns the next node in the sequence, given the
- * current and previous nodes.
- *
- * @param {Node} prev
- * @param {Node} current
- * @param {Function} isPre
- * @return {Node}
- */
-function next (prev, current, isPre) {
-  if ((prev && prev.parentNode === current) || isPre(current)) {
-    return current.nextSibling || current.parentNode
-  }
-
-  return current.firstChild || current.nextSibling || current.parentNode
-}
-
-/*
- * Set up window for Node.js
- */
-
-var root = (typeof window !== 'undefined' ? window : {});
-
-/*
- * Parsing HTML strings
- */
-
-function canParseHTMLNatively () {
-  var Parser = root.DOMParser;
-  var canParse = false;
-
-  // Adapted from https://gist.github.com/1129031
-  // Firefox/Opera/IE throw errors on unsupported types
+function withErrorBoundary(fn, fallback, context) {
   try {
-    // WebKit returns null on unsupported types
-    if (new Parser().parseFromString('', 'text/html')) {
-      canParse = true;
-    }
-  } catch (e) {}
-
-  return canParse
-}
-
-function createHTMLParser () {
-  var Parser = function () {};
-
-  {
-    if (shouldUseActiveX()) {
-      Parser.prototype.parseFromString = function (string) {
-        var doc = new window.ActiveXObject('htmlfile');
-        doc.designMode = 'on'; // disable on-page scripts
-        doc.open();
-        doc.write(string);
-        doc.close();
-        return doc
-      };
-    } else {
-      Parser.prototype.parseFromString = function (string) {
-        var doc = document.implementation.createHTMLDocument('');
-        doc.open();
-        doc.write(string);
-        doc.close();
-        return doc
-      };
-    }
-  }
-  return Parser
-}
-
-function shouldUseActiveX () {
-  var useActiveX = false;
-  try {
-    document.implementation.createHTMLDocument('').open();
-  } catch (e) {
-    if (root.ActiveXObject) useActiveX = true;
-  }
-  return useActiveX
-}
-
-var HTMLParser = canParseHTMLNatively() ? root.DOMParser : createHTMLParser();
-
-function RootNode (input, options) {
-  var root;
-  if (typeof input === 'string') {
-    var doc = htmlParser().parseFromString(
-      // DOM parsers arrange elements in the <head> and <body>.
-      // Wrapping in a custom element ensures elements are reliably arranged in
-      // a single element.
-      '<x-turndown id="turndown-root">' + input + '</x-turndown>',
-      'text/html'
+    return fn();
+  } catch (error) {
+    console.error(
+      `[${context.handlerName}] Failed for node`,
+      {
+        nodeType: context.node.nodeType,
+        nodeName: context.node.nodeName,
+        error: error instanceof Error ? error.message : String(error)
+      }
     );
-    root = doc.getElementById('turndown-root');
-  } else {
-    root = input.cloneNode(true);
+    return fallback;
   }
-  collapseWhitespace({
-    element: root,
-    isBlock: isBlock,
-    isVoid: isVoid,
-    isPre: options.preformattedCode ? isPreOrCode : null
-  });
-
-  return root
 }
-
-var _htmlParser;
-function htmlParser () {
-  _htmlParser = _htmlParser || new HTMLParser();
-  return _htmlParser
-}
-
-function isPreOrCode (node) {
-  return node.nodeName === 'PRE' || node.nodeName === 'CODE'
-}
-
-function Node (node, options) {
-  node.isBlock = isBlock(node);
-  node.isCode = node.nodeName === 'CODE' || node.parentNode.isCode;
-  node.isBlank = isBlank(node);
-  node.flankingWhitespace = flankingWhitespace(node, options);
-  return node
-}
-
-function isBlank (node) {
-  return (
-    !isVoid(node) &&
-    !isMeaningfulWhenBlank(node) &&
-    /^\s*$/i.test(node.textContent) &&
-    !hasVoid(node) &&
-    !hasMeaningfulWhenBlank(node)
-  )
-}
-
-function flankingWhitespace (node, options) {
-  if (node.isBlock || (options.preformattedCode && node.isCode)) {
-    return { leading: '', trailing: '' }
-  }
-
-  var edges = edgeWhitespace(node.textContent);
-
-  // abandon leading ASCII WS if left-flanked by ASCII WS
-  if (edges.leadingAscii && isFlankedByWhitespace('left', node, options)) {
-    edges.leading = edges.leadingNonAscii;
-  }
-
-  // abandon trailing ASCII WS if right-flanked by ASCII WS
-  if (edges.trailingAscii && isFlankedByWhitespace('right', node, options)) {
-    edges.trailing = edges.trailingNonAscii;
-  }
-
-  return { leading: edges.leading, trailing: edges.trailing }
-}
-
-function edgeWhitespace (string) {
-  var m = string.match(/^(([ \t\r\n]*)(\s*))(?:(?=\S)[\s\S]*\S)?((\s*?)([ \t\r\n]*))$/);
-  return {
-    leading: m[1], // whole string for whitespace-only strings
-    leadingAscii: m[2],
-    leadingNonAscii: m[3],
-    trailing: m[4], // empty for whitespace-only strings
-    trailingNonAscii: m[5],
-    trailingAscii: m[6]
+function checkMaxDepth(depth, maxDepth = 100) {
+  if (depth > maxDepth) {
+    throw new ParserError(
+      `Max recursion depth (${maxDepth}) exceeded`,
+      document.createTextNode(""),
+      // Placeholder node
+      "abort",
+      { depth, maxDepth }
+    );
   }
 }
 
-function isFlankedByWhitespace (side, node, options) {
-  var sibling;
-  var regExp;
-  var isFlanked;
-
-  if (side === 'left') {
-    sibling = node.previousSibling;
-    regExp = / $/;
-  } else {
-    sibling = node.nextSibling;
-    regExp = /^ /;
-  }
-
-  if (sibling) {
-    if (sibling.nodeType === 3) {
-      isFlanked = regExp.test(sibling.nodeValue);
-    } else if (options.preformattedCode && sibling.nodeName === 'CODE') {
-      isFlanked = false;
-    } else if (sibling.nodeType === 1 && !isBlock(sibling)) {
-      isFlanked = regExp.test(sibling.textContent);
-    }
-  }
-  return isFlanked
-}
-
-var reduce = Array.prototype.reduce;
-var escapes = [
-  [/\\/g, '\\\\'],
-  [/\*/g, '\\*'],
-  [/^-/g, '\\-'],
-  [/^\+ /g, '\\+ '],
-  [/^(=+)/g, '\\$1'],
-  [/^(#{1,6}) /g, '\\$1 '],
-  [/`/g, '\\`'],
-  [/^~~~/g, '\\~~~'],
-  [/\[/g, '\\['],
-  [/\]/g, '\\]'],
-  [/^>/g, '\\>'],
-  [/_/g, '\\_'],
-  [/^(\d+)\. /g, '$1\\. ']
-];
-
-function TurndownService (options) {
-  if (!(this instanceof TurndownService)) return new TurndownService(options)
-
-  var defaults = {
-    rules: rules$1,
-    headingStyle: 'setext',
-    hr: '* * *',
-    bulletListMarker: '*',
-    codeBlockStyle: 'indented',
-    fence: '```',
-    emDelimiter: '_',
-    strongDelimiter: '**',
-    linkStyle: 'inlined',
-    linkReferenceStyle: 'full',
-    br: '  ',
-    preformattedCode: false,
-    blankReplacement: function (content, node) {
-      return node.isBlock ? '\n\n' : ''
-    },
-    keepReplacement: function (content, node) {
-      return node.isBlock ? '\n\n' + node.outerHTML + '\n\n' : node.outerHTML
-    },
-    defaultReplacement: function (content, node) {
-      return node.isBlock ? '\n\n' + content + '\n\n' : content
-    }
-  };
-  this.options = extend({}, defaults, options);
-  this.rules = new Rules(this.options);
-}
-
-TurndownService.prototype = {
+class RuleEngine {
+  rules = [];
+  ruleCache = /* @__PURE__ */ new WeakMap();
   /**
-   * The entry point for converting a string or DOM node to Markdown
-   * @public
-   * @param {String|HTMLElement} input The string or DOM node to convert
-   * @returns A Markdown representation of the input
-   * @type String
+   * Add a rule to the engine
+   * 
+   * MANDATORY: Detects and throws on priority conflicts
+   * @see DEVELOPER-REFERENCE-MANUAL.md - Rule 4
+   * 
+   * @param rule - Rule to add
+   * @throws Error if rule conflicts with existing rule
    */
-
-  turndown: function (input) {
-    if (!canConvert(input)) {
-      throw new TypeError(
-        input + ' is not a string, or an element/document/fragment node.'
-      )
+  addRule(rule) {
+    const existing = this.rules.find(
+      (r) => r.priority === rule.priority && this.filtersOverlap(r.filter, rule.filter)
+    );
+    if (existing) {
+      throw new Error(
+        `Rule conflict: "${rule.name}" and "${existing.name}" both have priority ${rule.priority} with overlapping filters`
+      );
     }
-
-    if (input === '') return ''
-
-    var output = process.call(this, new RootNode(input, this.options));
-    return postProcess.call(this, output)
-  },
-
-  /**
-   * Add one or more plugins
-   * @public
-   * @param {Function|Array} plugin The plugin or array of plugins to add
-   * @returns The Turndown instance for chaining
-   * @type Object
-   */
-
-  use: function (plugin) {
-    if (Array.isArray(plugin)) {
-      for (var i = 0; i < plugin.length; i++) this.use(plugin[i]);
-    } else if (typeof plugin === 'function') {
-      plugin(this);
-    } else {
-      throw new TypeError('plugin must be a Function or an Array of Functions')
-    }
-    return this
-  },
-
-  /**
-   * Adds a rule
-   * @public
-   * @param {String} key The unique key of the rule
-   * @param {Object} rule The rule
-   * @returns The Turndown instance for chaining
-   * @type Object
-   */
-
-  addRule: function (key, rule) {
-    this.rules.add(key, rule);
-    return this
-  },
-
-  /**
-   * Keep a node (as HTML) that matches the filter
-   * @public
-   * @param {String|Array|Function} filter The unique key of the rule
-   * @returns The Turndown instance for chaining
-   * @type Object
-   */
-
-  keep: function (filter) {
-    this.rules.keep(filter);
-    return this
-  },
-
-  /**
-   * Remove a node that matches the filter
-   * @public
-   * @param {String|Array|Function} filter The unique key of the rule
-   * @returns The Turndown instance for chaining
-   * @type Object
-   */
-
-  remove: function (filter) {
-    this.rules.remove(filter);
-    return this
-  },
-
-  /**
-   * Escapes Markdown syntax
-   * @public
-   * @param {String} string The string to escape
-   * @returns A string with Markdown syntax escaped
-   * @type String
-   */
-
-  escape: function (string) {
-    return escapes.reduce(function (accumulator, escape) {
-      return accumulator.replace(escape[0], escape[1])
-    }, string)
+    this.rules.push(rule);
+    this.rules.sort((a, b) => a.priority - b.priority);
+    return this;
   }
-};
-
-/**
- * Reduces a DOM node down to its Markdown string equivalent
- * @private
- * @param {HTMLElement} parentNode The node to convert
- * @returns A Markdown representation of the node
- * @type String
- */
-
-function process (parentNode) {
-  var self = this;
-  return reduce.call(parentNode.childNodes, function (output, node) {
-    node = new Node(node, self.options);
-
-    var replacement = '';
-    if (node.nodeType === 3) {
-      replacement = node.isCode ? node.nodeValue : self.escape(node.nodeValue);
-    } else if (node.nodeType === 1) {
-      replacement = replacementForNode.call(self, node);
+  /**
+   * Find matching rule for a node
+   * 
+   * @param node - Node to match
+   * @returns Matching rule or null
+   */
+  findRule(node) {
+    if (this.ruleCache.has(node)) {
+      return this.ruleCache.get(node);
     }
-
-    return join(output, replacement)
-  }, '')
-}
-
-/**
- * Appends strings as each rule requires and trims the output
- * @private
- * @param {String} output The conversion output
- * @returns A trimmed version of the ouput
- * @type String
- */
-
-function postProcess (output) {
-  var self = this;
-  this.rules.forEach(function (rule) {
-    if (typeof rule.append === 'function') {
-      output = join(output, rule.append(self.options));
-    }
-  });
-
-  return output.replace(/^[\t\r\n]+/, '').replace(/[\t\r\n\s]+$/, '')
-}
-
-/**
- * Converts an element node to its Markdown equivalent
- * @private
- * @param {HTMLElement} node The node to convert
- * @returns A Markdown representation of the node
- * @type String
- */
-
-function replacementForNode (node) {
-  var rule = this.rules.forNode(node);
-  var content = process.call(this, node);
-  var whitespace = node.flankingWhitespace;
-  if (whitespace.leading || whitespace.trailing) content = content.trim();
-  return (
-    whitespace.leading +
-    rule.replacement(content, node, this.options) +
-    whitespace.trailing
-  )
-}
-
-/**
- * Joins replacement to the current output with appropriate number of new lines
- * @private
- * @param {String} output The current conversion output
- * @param {String} replacement The string to append to the output
- * @returns Joined output
- * @type String
- */
-
-function join (output, replacement) {
-  var s1 = trimTrailingNewlines(output);
-  var s2 = trimLeadingNewlines(replacement);
-  var nls = Math.max(output.length - s1.length, replacement.length - s2.length);
-  var separator = '\n\n'.substring(0, nls);
-
-  return s1 + separator + s2
-}
-
-/**
- * Determines whether an input can be converted
- * @private
- * @param {String|HTMLElement} input Describe this parameter
- * @returns Describe what it returns
- * @type String|Object|Array|Boolean|Number
- */
-
-function canConvert (input) {
-  return (
-    input != null && (
-      typeof input === 'string' ||
-      (input.nodeType && (
-        input.nodeType === 1 || input.nodeType === 9 || input.nodeType === 11
-      ))
-    )
-  )
-}
-
-var indexOf = Array.prototype.indexOf;
-var every = Array.prototype.every;
-var rules = {};
-
-rules.tableCell = {
-  filter: ['th', 'td'],
-  replacement: function (content, node) {
-    return cell(content, node)
-  }
-};
-
-rules.tableRow = {
-  filter: 'tr',
-  replacement: function (content, node) {
-    var borderCells = '';
-    var alignMap = { left: ':--', right: '--:', center: ':-:' };
-
-    if (isHeadingRow(node)) {
-      for (var i = 0; i < node.childNodes.length; i++) {
-        var border = '---';
-        var align = (
-          node.childNodes[i].getAttribute('align') || ''
-        ).toLowerCase();
-
-        if (align) border = alignMap[align] || border;
-
-        borderCells += cell(border, node.childNodes[i]);
+    for (const rule of this.rules) {
+      if (this.matchFilter(node, rule.filter)) {
+        this.ruleCache.set(node, rule);
+        return rule;
       }
     }
-    return '\n' + content + (borderCells ? '\n' + borderCells : '')
+    this.ruleCache.set(node, null);
+    return null;
+  }
+  /**
+   * Check if node matches filter
+   */
+  matchFilter(node, filter) {
+    if (typeof filter === "string") {
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+      }
+      return node.matches(filter);
+    }
+    if (Array.isArray(filter)) {
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+      }
+      const tagName = node.tagName.toLowerCase();
+      return filter.includes(tagName);
+    }
+    return filter(node);
+  }
+  /**
+   * Check if two filters overlap
+   * (Simple implementation: only checks if both are same CSS selector)
+   */
+  filtersOverlap(f1, f2) {
+    if (typeof f1 === "string" && typeof f2 === "string") {
+      return f1 === f2;
+    }
+    if (Array.isArray(f1) && Array.isArray(f2)) {
+      return f1.some((tag) => f2.includes(tag));
+    }
+    return false;
+  }
+  /**
+   * Get all registered rules (for debugging)
+   */
+  getRules() {
+    return this.rules;
+  }
+  /**
+   * Clear all rules
+   */
+  clear() {
+    this.rules = [];
+    this.ruleCache = /* @__PURE__ */ new WeakMap();
+  }
+}
+
+const DEFAULT_OPTIONS = {
+  maxProcessingTimeMs: 5e3,
+  maxNodeCount: 5e4,
+  enablePerformanceLogging: false,
+  onError: (error, context) => {
+    console.error("[Parser] Error:", error.message, context);
+  }
+};
+let Parser$1 = class Parser {
+  adapter;
+  engine;
+  options;
+  constructor(adapter, options = {}) {
+    this.adapter = adapter;
+    this.engine = new RuleEngine();
+    this.options = { ...DEFAULT_OPTIONS, ...options };
+  }
+  /**
+   * Parse HTML element to Markdown
+   * 
+   * MANDATORY: Enforces error boundaries and performance budgets
+   * @see DEVELOPER-REFERENCE-MANUAL.md - Rules 1, 3
+   * 
+   * @param element - HTML element to parse
+   * @returns Markdown string
+   */
+  parse(element) {
+    const startTime = performance.now();
+    let nodeCount = 0;
+    const warnings = [];
+    const errors = [];
+    const checkBudget = () => {
+      nodeCount++;
+      if (nodeCount > this.options.maxNodeCount) {
+        throw new ParserError(
+          `Max nodes (${this.options.maxNodeCount}) exceeded`,
+          element,
+          "abort",
+          { nodeCount, maxNodeCount: this.options.maxNodeCount }
+        );
+      }
+      const elapsed = performance.now() - startTime;
+      if (elapsed > this.options.maxProcessingTimeMs) {
+        throw new ParserError(
+          `Time budget (${this.options.maxProcessingTimeMs}ms) exceeded`,
+          element,
+          "abort",
+          { elapsed, maxTime: this.options.maxProcessingTimeMs }
+        );
+      }
+    };
+    const context = {
+      options: this.options,
+      depth: 0,
+      startTime,
+      nodeCount: 0,
+      warnings,
+      errors,
+      checkBudget
+    };
+    try {
+      const markdown = this.processNode(element, context);
+      if (this.options.enablePerformanceLogging) {
+        const elapsed = performance.now() - startTime;
+        console.log(
+          `[Parser] Processed ${nodeCount} nodes in ${elapsed.toFixed(2)}ms`,
+          {
+            platform: this.adapter.name,
+            warnings: warnings.length,
+            errors: errors.length
+          }
+        );
+      }
+      return markdown;
+    } catch (error) {
+      if (error instanceof ParserError && error.recoveryAction === "abort") {
+        console.error("[Parser] Parsing aborted:", error.message);
+        return `<!-- Parser ${error.message} -->
+
+${element.textContent || ""}`;
+      }
+      throw error;
+    }
+  }
+  /**
+   * Process a single node recursively
+   * 
+   * MANDATORY: Has error boundaries and depth guards
+   * @see DEVELOPER-REFERENCE-MANUAL.md - Rule 1
+   * 
+   * @param node - Node to process
+   * @param context - Parser context
+   * @param depth - Current recursion depth
+   * @returns Markdown string
+   */
+  processNode(node, context, depth = 0) {
+    checkMaxDepth(depth, 100);
+    context.checkBudget();
+    return withErrorBoundary(
+      () => this.processNodeUnsafe(node, context, depth),
+      node.textContent || "",
+      // Fallback: raw text
+      { node, handlerName: "Parser.processNode" }
+    );
+  }
+  /**
+   * Process node without error boundary (internal)
+   */
+  processNodeUnsafe(node, context, depth) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || "";
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return "";
+    }
+    const rule = this.engine.findRule(node);
+    if (rule) {
+      const children2 = Array.from(node.childNodes || []);
+      const childContent = children2.map((child) => this.processNode(child, context, depth + 1)).join("");
+      const ruleContext = {
+        adapter: this.adapter,
+        options: this.options,
+        processChildren: (n) => this.processNode(n, context, depth + 1),
+        closest: (selector) => node.closest(selector),
+        depth
+      };
+      return withErrorBoundary(
+        () => rule.replacement(childContent, node, ruleContext),
+        childContent,
+        // Fallback to child content
+        { node, handlerName: rule.name }
+      );
+    }
+    const children = Array.from(node.childNodes || []);
+    return children.map((child) => this.processNode(child, context, depth + 1)).join("");
+  }
+  /**
+   * Get rule engine (for adding custom rules)
+   */
+  getRuleEngine() {
+    return this.engine;
+  }
+  /**
+   * Get platform adapter
+   */
+  getAdapter() {
+    return this.adapter;
   }
 };
 
-rules.table = {
-  // Only convert tables with a heading row.
-  // Tables with no heading row are kept using `keep` (see below).
-  filter: function (node) {
-    return node.nodeName === 'TABLE' && isHeadingRow(node.rows[0])
-  },
-
-  replacement: function (content) {
-    // Ensure there are no blank lines
-    content = content.replace('\n\n', '\n');
-    return '\n\n' + content + '\n\n'
-  }
+const ENTITIES = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " "
 };
-
-rules.tableSection = {
-  filter: ['thead', 'tbody', 'tfoot'],
-  replacement: function (content) {
-    return content
-  }
-};
-
-// A tr is a heading row if:
-// - the parent is a THEAD
-// - or if its the first child of the TABLE or the first TBODY (possibly
-//   following a blank THEAD)
-// - and every cell is a TH
-function isHeadingRow (tr) {
-  var parentNode = tr.parentNode;
-  return (
-    parentNode.nodeName === 'THEAD' ||
-    (
-      parentNode.firstChild === tr &&
-      (parentNode.nodeName === 'TABLE' || isFirstTbody(parentNode)) &&
-      every.call(tr.childNodes, function (n) { return n.nodeName === 'TH' })
-    )
-  )
-}
-
-function isFirstTbody (element) {
-  var previousSibling = element.previousSibling;
-  return (
-    element.nodeName === 'TBODY' && (
-      !previousSibling ||
-      (
-        previousSibling.nodeName === 'THEAD' &&
-        /^\s*$/i.test(previousSibling.textContent)
-      )
-    )
-  )
-}
-
-function cell (content, node) {
-  var index = indexOf.call(node.parentNode.childNodes, node);
-  var prefix = ' ';
-  if (index === 0) prefix = '| ';
-  return prefix + content + ' |'
-}
-
-function tables (turndownService) {
-  turndownService.keep(function (node) {
-    return node.nodeName === 'TABLE' && !isHeadingRow(node.rows[0])
+function decodeEntities(text) {
+  return text.replace(/&[^;]+;/g, (entity) => {
+    return ENTITIES[entity] || entity;
   });
-  for (var key in rules) turndownService.addRule(key, rules[key]);
+}
+
+class ChatGPTAdapter {
+  name = "ChatGPT";
+  /**
+   * Select all math nodes (both inline and block)
+   */
+  selectMathNodes(root) {
+    return Array.from(root.querySelectorAll(".katex, .katex-display"));
+  }
+  /**
+   * Select all code blocks
+   */
+  selectCodeBlocks(root) {
+    return Array.from(root.querySelectorAll("pre > code"));
+  }
+  /**
+   * Extract LaTeX using 5-strategy fallback chain
+   * 
+   * MANDATORY Strategy Order (DEVELOPER-REFERENCE-MANUAL Rule 2):
+   * 1. <annotation encoding="application/x-tex">
+   * 2. data-latex-source / data-math attributes
+   * 3. katex-error recovery with entity decode
+   * 4. MathML parsing
+   * 5. textContent fallback
+   * 
+   * @param mathNode - Math element
+   * @returns LaTeX result or null
+   */
+  extractLatex(mathNode) {
+    const strategies = [
+      this.extractFromAnnotation.bind(this),
+      this.extractFromDataAttribute.bind(this),
+      this.extractFromKatexError.bind(this),
+      this.extractFromMathML.bind(this),
+      this.extractFromTextContent.bind(this)
+    ];
+    for (const strategy of strategies) {
+      try {
+        const result = strategy(mathNode);
+        if (result && this.validateLatex(result.latex)) {
+          return result;
+        }
+      } catch (error) {
+        console.warn(
+          `[ChatGPTAdapter] LaTeX extraction strategy failed:`,
+          strategy.name,
+          error
+        );
+        continue;
+      }
+    }
+    console.error("[ChatGPTAdapter] All LaTeX strategies failed for node", mathNode);
+    return {
+      latex: mathNode.outerHTML,
+      isBlock: this.isBlockMath(mathNode)
+    };
+  }
+  /**
+   * Strategy 1: Extract from <annotation> tag
+   * 
+   * Highest priority, most reliable
+   */
+  extractFromAnnotation(mathNode) {
+    const annotation = mathNode.querySelector('annotation[encoding="application/x-tex"]');
+    if (!annotation) {
+      return null;
+    }
+    const latex = annotation.textContent?.trim();
+    if (!latex) {
+      return null;
+    }
+    return {
+      latex,
+      isBlock: this.isBlockMath(mathNode)
+    };
+  }
+  /**
+   * Strategy 2: Extract from data attributes
+   */
+  extractFromDataAttribute(mathNode) {
+    const latex = mathNode.getAttribute("data-latex-source") || mathNode.getAttribute("data-math");
+    if (!latex) {
+      return null;
+    }
+    return {
+      latex: latex.trim(),
+      isBlock: this.isBlockMath(mathNode)
+    };
+  }
+  /**
+  * Strategy 3: Recover from katex-error
+    * 
+    * CRITICAL: Must decode HTML entities (DEVELOPER-REFERENCE-MANUAL Rule 5)
+    * Verified against ChatGPT-DeepResearch.html L1202
+    */
+  extractFromKatexError(mathNode) {
+    const errorElement = mathNode.querySelector(".katex-error");
+    if (!errorElement) {
+      return null;
+    }
+    let text = errorElement.textContent?.trim() || "";
+    if (!text) {
+      return null;
+    }
+    text = decodeEntities(text);
+    text = text.replace(/^ParseError:.*?:\s*/i, "").trim();
+    if (!text) {
+      return null;
+    }
+    return {
+      latex: text,
+      isBlock: text.includes("\\begin{") || this.isBlockMath(mathNode)
+    };
+  }
+  /**
+   * Strategy 4: Parse MathML
+   * 
+   * Simplified MathML → LaTeX converter
+   * @see Syntax-Mapping-Spec.md - MathML Fallback Table
+   */
+  extractFromMathML(mathNode) {
+    const math = mathNode.querySelector("math");
+    if (!math) {
+      return null;
+    }
+    try {
+      const latex = this.mathMLToLatex(math);
+      if (!latex) {
+        return null;
+      }
+      return {
+        latex,
+        isBlock: this.isBlockMath(mathNode)
+      };
+    } catch (error) {
+      console.warn("[ChatGPTAdapter] MathML parsing failed:", error);
+      return null;
+    }
+  }
+  /**
+   * Strategy 5: Last resort - raw textContent
+   */
+  extractFromTextContent(mathNode) {
+    const text = mathNode.textContent?.trim();
+    if (!text || text.length === 0) {
+      return null;
+    }
+    return {
+      latex: text,
+      isBlock: this.isBlockMath(mathNode)
+    };
+  }
+  /**
+   * Convert MathML to LaTeX (simplified)
+   * 
+   * Handles basic MathML tags: mi, mn, mo, msub, msup, mfrac, msqrt, mrow
+   */
+  mathMLToLatex(element) {
+    const tag = element.tagName.toLowerCase();
+    switch (tag) {
+      case "mi":
+      case "mn":
+      case "mo":
+        return element.textContent || "";
+      case "mrow":
+        return Array.from(element.children).map((child) => this.mathMLToLatex(child)).join(" ");
+      case "msub": {
+        const [base, subscript] = element.children;
+        if (!base || !subscript) return "";
+        return `{${this.mathMLToLatex(base)}}_{${this.mathMLToLatex(subscript)}}`;
+      }
+      case "msup": {
+        const [base, superscript] = element.children;
+        if (!base || !superscript) return "";
+        return `{${this.mathMLToLatex(base)}}^{${this.mathMLToLatex(superscript)}}`;
+      }
+      case "mfrac": {
+        const [numerator, denominator] = element.children;
+        if (!numerator || !denominator) return "";
+        return `\\frac{${this.mathMLToLatex(numerator)}}{${this.mathMLToLatex(denominator)}}`;
+      }
+      case "msqrt": {
+        const content = Array.from(element.children).map((child) => this.mathMLToLatex(child)).join(" ");
+        return `\\sqrt{${content}}`;
+      }
+      case "mtext":
+        return `\\text{${element.textContent || ""}}`;
+      case "math":
+        return Array.from(element.children).map((child) => this.mathMLToLatex(child)).join(" ");
+      default:
+        return Array.from(element.children).map((child) => this.mathMLToLatex(child)).join(" ");
+    }
+  }
+  /**
+   * Validate LaTeX for security and sanity
+   * 
+   * @see DEVELOPER-REFERENCE-MANUAL.md - validateLatex() requirements
+   */
+  validateLatex(latex) {
+    if (!latex || latex.trim().length === 0) {
+      return false;
+    }
+    if (latex.length > 1e4) {
+      console.warn("[ChatGPTAdapter] LaTeX too long:", latex.length);
+      return false;
+    }
+    if (latex.includes("<script>")) {
+      console.error("[ChatGPTAdapter] XSS attempt detected in LaTeX");
+      return false;
+    }
+    return true;
+  }
+  /**
+   * Get programming language from code block
+   */
+  getCodeLanguage(codeBlock) {
+    const classList = Array.from(codeBlock.classList);
+    const langClass = classList.find((cls) => cls.startsWith("language-"));
+    if (langClass) {
+      return langClass.replace("language-", "");
+    }
+    return codeBlock.getAttribute("data-language") || "";
+  }
+  /**
+   * Determine if math node is block-level
+   */
+  isBlockMath(mathNode) {
+    return mathNode.classList.contains("katex-display") || mathNode.closest(".katex-display") !== null;
+  }
+  /**
+   * Optional: Platform-specific text cleaning
+   */
+  cleanText(text) {
+    return text;
+  }
+}
+
+class GeminiAdapter {
+  name = "Gemini";
+  /**
+   * Select all rendered math nodes with data-math attribute
+   * 
+   * Gemini Structure:
+   * - Inline: <span class="math-inline" data-math="\tanh x">
+   * - Block:  <div class="math-block" data-math="...">
+   * 
+   * @param root - Root HTML element
+   * @returns Array of math nodes with data-math attribute
+   */
+  selectMathNodes(root) {
+    const mathInline = Array.from(
+      root.querySelectorAll(".math-inline[data-math]")
+    );
+    const mathBlock = Array.from(
+      root.querySelectorAll(".math-block[data-math]")
+    );
+    const katexNodes = Array.from(
+      root.querySelectorAll(".katex:not(.math-inline .katex):not(.math-block .katex)")
+    );
+    const katexDisplayNodes = Array.from(
+      root.querySelectorAll(".katex-display:not(.math-block .katex-display)")
+    );
+    return [...mathInline, ...mathBlock, ...katexNodes, ...katexDisplayNodes];
+  }
+  /**
+   * Select all code blocks
+   * 
+   * Gemini Structure:
+   * - <div class="code-block">
+   *     <code class="code-container">
+   *       <span class="hljs-keyword">...</span>
+   *     </code>
+   *   </div>
+   * 
+   * @param root - Root HTML element
+   * @returns Array of code block elements
+   */
+  selectCodeBlocks(root) {
+    const geminiCodeBlocks = Array.from(
+      root.querySelectorAll(".code-block code, .code-container")
+    );
+    const standardCodeBlocks = Array.from(
+      root.querySelectorAll("pre > code")
+    );
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const node of [...geminiCodeBlocks, ...standardCodeBlocks]) {
+      if (!seen.has(node)) {
+        seen.add(node);
+        result.push(node);
+      }
+    }
+    return result;
+  }
+  /**
+   * Extract LaTeX from Gemini's data-math attribute
+   * 
+   * Gemini Extraction Strategies (in priority order):
+   * 1. data-math attribute (PRIMARY - 99.5% success rate based on mock analysis)
+   * 2. katex-html text content (RARE fallback for malformed nodes)
+   * 3. outerHTML preservation (ULTIMATE fallback - prevents data loss)
+   * 
+   * @param mathNode - Math element
+   * @returns LaTeX result or null
+   */
+  extractLatex(mathNode) {
+    try {
+      const result = this.extractFromDataMath(mathNode);
+      if (result) return result;
+      const katexResult = this.extractFromKatexHtml(mathNode);
+      if (katexResult) return katexResult;
+      console.warn("[GeminiAdapter] extractLatex: All strategies failed, preserving HTML");
+      return {
+        latex: mathNode.outerHTML,
+        isBlock: this.isBlockMath(mathNode)
+      };
+    } catch (error) {
+      console.error("[GeminiAdapter] extractLatex failed:", error);
+      return {
+        latex: mathNode.textContent || mathNode.outerHTML,
+        isBlock: this.isBlockMath(mathNode)
+      };
+    }
+  }
+  /**
+   * Strategy 1: Extract from data-math attribute
+   * 
+   * Highest priority, most reliable for Gemini
+   * 
+   * Example:
+   * <span class="math-inline" data-math="\tanh x">
+   *   <span class="katex">...</span>
+   * </span>
+   */
+  extractFromDataMath(mathNode) {
+    const dataMath = mathNode.getAttribute("data-math");
+    if (dataMath && this.validateLatex(dataMath)) {
+      return {
+        latex: dataMath,
+        isBlock: this.isBlockMath(mathNode)
+      };
+    }
+    return null;
+  }
+  /**
+   * Strategy 2: Fallback to .katex-html text content
+   * 
+   * Used when data-math is missing but KaTeX rendered content is present
+   * This extracts the visual representation, not the source
+   */
+  extractFromKatexHtml(mathNode) {
+    const katexHtml = mathNode.querySelector(".katex-html");
+    if (katexHtml) {
+      const textContent = katexHtml.textContent?.trim();
+      if (textContent && this.validateLatex(textContent)) {
+        console.warn("[GeminiAdapter] Extracted from .katex-html (data-math missing)");
+        return {
+          latex: textContent,
+          isBlock: this.isBlockMath(mathNode)
+        };
+      }
+    }
+    return null;
+  }
+  /**
+   * Validate LaTeX for security and sanity
+   * 
+   * Checks:
+   * - Non-empty
+   * - Within size limits (prevent DOS)
+   * - No XSS attempts
+   */
+  validateLatex(latex) {
+    if (!latex || latex.trim().length === 0) {
+      return false;
+    }
+    if (latex.length > 5e4) {
+      console.warn(`[GeminiAdapter] LaTeX too long (${latex.length} chars) - possible DOS`);
+      return false;
+    }
+    if (latex.includes("<script>") || latex.includes("javascript:") || latex.includes("onerror=") || latex.includes("onload=")) {
+      console.error("[GeminiAdapter] XSS attempt detected in LaTeX");
+      return false;
+    }
+    return true;
+  }
+  /**
+   * Get programming language from Gemini code block
+   * 
+   * Gemini uses Highlight.js, NOT Prism!
+   * Structure: <code class="code-container">
+   *              <span class="hljs-keyword">...</span>
+   *            </code>
+   * 
+   * Detection Strategy:
+   * 1. Check parent .code-block for data-lang/data-language attribute
+   * 2. Check for language-* or lang-* class (rare but possible)  
+   * 3. Return empty string (no language detected)
+   * 
+   * @param codeBlock - Code block element
+   * @returns Language identifier or empty string
+   */
+  getCodeLanguage(codeBlock) {
+    try {
+      const codeBlockWrapper = codeBlock.closest(".code-block");
+      if (codeBlockWrapper) {
+        const dataLang = codeBlockWrapper.getAttribute("data-lang") || codeBlockWrapper.getAttribute("data-language") || codeBlockWrapper.getAttribute("data-code-language");
+        if (dataLang) {
+          return dataLang.toLowerCase().trim();
+        }
+        const header = codeBlockWrapper.querySelector(".code-block-decoration");
+        if (header) {
+          const headerText = header.textContent?.trim().toLowerCase();
+          if (headerText && /^[a-z]+$/i.test(headerText) && headerText.length < 20) {
+            return headerText;
+          }
+        }
+      }
+      const classList = Array.from(codeBlock.classList);
+      for (const className of classList) {
+        if (className.startsWith("language-") || className.startsWith("lang-")) {
+          return className.replace(/^(language|lang)-/, "");
+        }
+      }
+      const preElement = codeBlock.closest("pre");
+      if (preElement) {
+        const preClassList = Array.from(preElement.classList);
+        for (const className of preClassList) {
+          if (className.startsWith("language-") || className.startsWith("lang-")) {
+            return className.replace(/^(language|lang)-/, "");
+          }
+        }
+      }
+      return "";
+    } catch (error) {
+      console.error("[GeminiAdapter] getCodeLanguage failed:", error);
+      return "";
+    }
+  }
+  /**
+   * Determine if math node represents block-level formula
+   * 
+   * Gemini markers:
+   * - .math-block class (primary)
+   * - .katex-display class (secondary, nested)
+   * 
+   * @param mathNode - Math element
+   * @returns true if block math ($$), false if inline ($)
+   */
+  isBlockMath(mathNode) {
+    if (mathNode.classList.contains("math-block")) {
+      return true;
+    }
+    if (mathNode.classList.contains("katex-display")) {
+      return true;
+    }
+    if (mathNode.querySelector(".katex-display")) {
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Platform-specific text cleaning
+   * 
+   * Gemini-specific cleaning:
+   * - Normalize whitespace
+   * - Remove invisible characters
+   * 
+   * @param text - Raw text
+   * @returns Cleaned text
+   */
+  cleanText(text) {
+    if (!text) return "";
+    return text.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\r\n/g, "\n").trim();
+  }
+  /**
+   * Runtime self-test: Can this adapter handle the current DOM?
+   * Returns confidence score 0-1
+   * 
+   * Gemini-specific markers:
+   * - model-response (Gemini Angular component)
+   * - user-query (Gemini Angular component)
+   * - .conversation-container (message wrapper)
+   * - .math-inline / .math-block (Gemini math classes)
+   * - .code-block (Gemini code block)
+   * 
+   * @param root - Root element to check
+   * @returns Confidence score 0-1
+   */
+  canHandle(root) {
+    let score = 0;
+    if (root.querySelector("model-response") || root.querySelector("user-query")) {
+      score += 0.4;
+    }
+    if (root.querySelector(".conversation-container")) {
+      score += 0.25;
+    }
+    if (root.querySelector(".math-inline") || root.querySelector(".math-block")) {
+      score += 0.2;
+    }
+    if (root.querySelector(".code-block")) {
+      score += 0.1;
+    }
+    if (root.querySelector("[data-math]")) {
+      score += 0.15;
+    }
+    return Math.min(score, 1);
+  }
+}
+
+class ParserAdapterRegistry {
+  registrations = [];
+  defaultAdapter = () => new ChatGPTAdapter();
+  constructor() {
+    this.registerBuiltIn();
+  }
+  /**
+   * Register built-in platform adapters
+   */
+  registerBuiltIn() {
+    this.register({
+      patterns: ["gemini.google.com"],
+      create: () => new GeminiAdapter()
+    });
+    this.register({
+      patterns: ["chatgpt.com", "chat.openai.com"],
+      create: () => new ChatGPTAdapter()
+    });
+  }
+  /**
+   * Register a new adapter with URL patterns
+   */
+  register(registration) {
+    this.registrations.push(registration);
+  }
+  /**
+   * Set the default adapter factory (used when no pattern matches)
+   */
+  setDefault(factory) {
+    this.defaultAdapter = factory;
+  }
+  /**
+   * Get adapter for current platform
+   * 
+   * @param hostname - Optional hostname override (for testing)
+   */
+  getAdapter(hostname) {
+    const host = hostname ?? this.getHostname();
+    if (!host) {
+      console.log("[ParserAdapterRegistry] No hostname - using default adapter");
+      return this.defaultAdapter();
+    }
+    const hostLower = host.toLowerCase();
+    for (const reg of this.registrations) {
+      for (const pattern of reg.patterns) {
+        if (hostLower.includes(pattern)) {
+          const adapter = reg.create();
+          console.log(`[ParserAdapterRegistry] Platform detected: ${adapter.name}`);
+          return adapter;
+        }
+      }
+    }
+    console.log("[ParserAdapterRegistry] No matching platform - using default");
+    return this.defaultAdapter();
+  }
+  /**
+   * Get current hostname (browser only)
+   */
+  getHostname() {
+    if (typeof window === "undefined" || !window.location) {
+      return null;
+    }
+    return window.location.hostname;
+  }
+  /**
+   * List all registered patterns (for debugging)
+   */
+  getRegisteredPatterns() {
+    return this.registrations.flatMap((r) => r.patterns);
+  }
+}
+const parserAdapterRegistry = new ParserAdapterRegistry();
+
+function createMathBlockRule() {
+  return {
+    name: "math-block",
+    filter: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+      }
+      const elem = node;
+      const isChatGPTBlock = elem.classList.contains("katex-display");
+      const isGeminiBlock = elem.classList.contains("math-block");
+      return isChatGPTBlock || isGeminiBlock;
+    },
+    priority: 1,
+    // MANDATORY explicit priority
+    replacement: (content, node, context) => {
+      const mathNode = node;
+      const result = context.adapter.extractLatex(mathNode);
+      if (!result || !result.latex) {
+        console.warn("[MathBlockRule] Failed to extract LaTeX, returning content");
+        return content;
+      }
+      return `$$
+${result.latex}
+$$
+
+`;
+    }
+  };
+}
+
+function createMathInlineRule() {
+  return {
+    name: "math-inline",
+    filter: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+      }
+      const elem = node;
+      const isChatGPTInline = elem.classList.contains("katex") && !elem.classList.contains("katex-display");
+      const isGeminiInline = elem.classList.contains("math-inline");
+      return isChatGPTInline || isGeminiInline;
+    },
+    priority: 2,
+    // High priority, just after block math
+    replacement: (content, node, context) => {
+      const mathNode = node;
+      const result = context.adapter.extractLatex(mathNode);
+      if (!result || !result.latex) {
+        console.warn("[MathInlineRule] Failed to extract LaTeX, returning content");
+        return content;
+      }
+      return `$${result.latex}$`;
+    }
+  };
+}
+
+function createCodeBlockRule() {
+  return {
+    name: "code-block",
+    filter: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return false;
+      const elem = node;
+      return elem.tagName === "PRE" && elem.querySelector("code") !== null;
+    },
+    priority: 3,
+    replacement: (content, node, context) => {
+      const preElem = node;
+      const codeElem = preElem.querySelector("code");
+      if (!codeElem) {
+        return `\`\`\`
+${content}
+\`\`\`
+
+`;
+      }
+      const language = context.adapter.getCodeLanguage(codeElem);
+      const code = codeElem.textContent || "";
+      if (language) {
+        return `\`\`\`${language}
+${code}
+\`\`\`
+
+`;
+      }
+      return `\`\`\`
+${code}
+\`\`\`
+
+`;
+    }
+  };
+}
+
+function createTableRule() {
+  return {
+    name: "table",
+    filter: ["table"],
+    priority: 4,
+    replacement: (_content, node, _context) => {
+      const table = node;
+      const rows = extractTableRows(table);
+      if (rows.length === 0) {
+        return "";
+      }
+      const hasHeader = detectHeader(table);
+      const headerRow = hasHeader ? rows[0] : null;
+      const dataRows = hasHeader ? rows.slice(1) : rows;
+      const columnCount = rows[0].length;
+      const alignments = detectAlignments(table, columnCount);
+      let markdown = "";
+      if (headerRow) {
+        markdown += "| " + headerRow.map((cell) => cell.trim()).join(" | ") + " |\n";
+      } else if (dataRows.length > 0) {
+        markdown += "| " + Array(columnCount).fill("").join(" | ") + " |\n";
+      }
+      markdown += "| " + alignments.map((align) => {
+        switch (align) {
+          case "left":
+            return ":---";
+          case "center":
+            return ":---:";
+          case "right":
+            return "---:";
+          default:
+            return "---";
+        }
+      }).join(" | ") + " |\n";
+      const rowsToRender = hasHeader ? dataRows : dataRows;
+      rowsToRender.forEach((row) => {
+        while (row.length < columnCount) {
+          row.push("");
+        }
+        markdown += "| " + row.map((cell) => cell.trim()).join(" | ") + " |\n";
+      });
+      return markdown + "\n";
+    }
+  };
+}
+function extractTableRows(table) {
+  const rows = [];
+  const allRows = table.querySelectorAll("tr");
+  allRows.forEach((tr) => {
+    const cells = [];
+    const cellElements = tr.querySelectorAll("th, td");
+    cellElements.forEach((cell) => {
+      let cellText = cell.textContent?.trim() || "";
+      cellText = cellText.replace(/\|/g, "\\|");
+      cellText = cellText.replace(/\n/g, " ");
+      cells.push(cellText);
+    });
+    if (cells.length > 0) {
+      rows.push(cells);
+    }
+  });
+  return rows;
+}
+function detectHeader(table) {
+  if (table.querySelector("thead")) {
+    return true;
+  }
+  const firstRow = table.querySelector("tr");
+  if (firstRow && firstRow.querySelector("th")) {
+    return true;
+  }
+  return false;
+}
+function detectAlignments(table, columnCount) {
+  const alignments = [];
+  const firstRow = table.querySelector("tr");
+  if (!firstRow) {
+    return Array(columnCount).fill("default");
+  }
+  const cells = firstRow.querySelectorAll("th, td");
+  for (let i = 0; i < columnCount; i++) {
+    if (i < cells.length) {
+      const cell = cells[i];
+      const alignment = detectCellAlignment(cell);
+      alignments.push(alignment);
+    } else {
+      alignments.push("default");
+    }
+  }
+  return alignments;
+}
+function detectCellAlignment(cell) {
+  const textAlign = cell.style.textAlign;
+  if (textAlign === "center") return "center";
+  if (textAlign === "right") return "right";
+  if (textAlign === "left") return "left";
+  const computedStyle = window.getComputedStyle(cell);
+  const computedAlign = computedStyle.textAlign;
+  if (computedAlign === "center") return "center";
+  if (computedAlign === "right") return "right";
+  const alignAttr = cell.getAttribute("align");
+  if (alignAttr === "center") return "center";
+  if (alignAttr === "right") return "right";
+  if (alignAttr === "left") return "left";
+  return "default";
+}
+
+function createHeadingRule() {
+  return {
+    name: "heading",
+    filter: ["h1", "h2", "h3", "h4", "h5", "h6"],
+    // Tag array
+    priority: 5,
+    replacement: (content, node) => {
+      const level = parseInt(node.tagName.substring(1));
+      const prefix = "#".repeat(level);
+      return `${prefix} ${content.trim()}
+
+`;
+    }
+  };
+}
+
+function createListRule() {
+  return {
+    name: "list",
+    filter: ["ul", "ol"],
+    priority: 6,
+    replacement: (_content, node, context) => {
+      const listElem = node;
+      const isOrdered = listElem.tagName === "OL";
+      const items = Array.from(listElem.children).filter(
+        (child) => child.tagName === "LI"
+      );
+      const level = getListLevel(listElem);
+      const indent = "  ".repeat(level);
+      let result = "";
+      items.forEach((item, index) => {
+        const marker = isOrdered ? `${index + 1}.` : "-";
+        const itemContent = processListItem(item, context);
+        result += `${indent}${marker} ${itemContent}
+`;
+      });
+      if (level === 0) {
+        result += "\n";
+      }
+      return result;
+    }
+  };
+}
+function getListLevel(listElem) {
+  let level = 0;
+  let parent = listElem.parentElement;
+  while (parent) {
+    if (parent.tagName === "LI") {
+      level++;
+    }
+    parent = parent.parentElement;
+  }
+  return level;
+}
+function processListItem(li, context) {
+  let content = "";
+  for (const child of Array.from(li.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      content += child.textContent || "";
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const elem = child;
+      if (elem.tagName === "UL" || elem.tagName === "OL") {
+        content += "\n" + context.processChildren(elem);
+      } else {
+        content += context.processChildren(elem);
+      }
+    }
+  }
+  return content.trim();
+}
+
+function createBlockquoteRule() {
+  return {
+    name: "blockquote",
+    filter: ["blockquote"],
+    priority: 6,
+    replacement: (content, _node, _context) => {
+      const lines = content.trim().split("\n");
+      const quotedLines = lines.map((line) => {
+        if (line.trim().startsWith(">")) {
+          return `> ${line}`;
+        }
+        return `> ${line}`;
+      });
+      return quotedLines.join("\n") + "\n\n";
+    }
+  };
+}
+
+function createParagraphRule() {
+  return {
+    name: "paragraph",
+    filter: ["p"],
+    priority: 10,
+    // Lower priority (processed later)
+    replacement: (content) => {
+      return `${content.trim()}
+
+`;
+    }
+  };
+}
+
+function createHorizontalRuleRule() {
+  return {
+    name: "horizontal-rule",
+    filter: ["hr"],
+    priority: 11,
+    replacement: () => {
+      return "\n---\n\n";
+    }
+  };
+}
+
+function createStrongRule() {
+  return {
+    name: "strong",
+    filter: ["strong", "b"],
+    priority: 7,
+    replacement: (content) => {
+      return `**${content}**`;
+    }
+  };
+}
+
+function createEmphasisRule() {
+  return {
+    name: "emphasis",
+    filter: ["em", "i"],
+    priority: 8,
+    replacement: (content) => {
+      return `*${content}*`;
+    }
+  };
+}
+
+function createCodeInlineRule() {
+  return {
+    name: "code-inline",
+    filter: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return false;
+      const elem = node;
+      if (elem.tagName !== "CODE") return false;
+      return elem.parentElement?.tagName !== "PRE";
+    },
+    priority: 9,
+    replacement: (content) => {
+      return `\`${content}\``;
+    }
+  };
+}
+
+function createLinkRule() {
+  return {
+    name: "link",
+    filter: ["a"],
+    priority: 10,
+    replacement: (content, node) => {
+      const linkElem = node;
+      const href = linkElem.getAttribute("href") || "";
+      const text = content.trim();
+      if (!text) {
+        return `[${href}](${href})`;
+      }
+      return `[${text}](${href})`;
+    }
+  };
+}
+
+function createImageRule() {
+  return {
+    name: "image",
+    filter: ["img"],
+    priority: 11,
+    replacement: (_content, node) => {
+      const imgElem = node;
+      const src = imgElem.getAttribute("src") || "";
+      const alt = imgElem.getAttribute("alt") || "";
+      return `![${alt}](${src})`;
+    }
+  };
+}
+
+function createLineBreakRule() {
+  return {
+    name: "line-break",
+    filter: ["br"],
+    priority: 12,
+    replacement: () => {
+      return "  \n";
+    }
+  };
+}
+
+function createMarkdownParser(options = {}) {
+  const adapter = parserAdapterRegistry.getAdapter();
+  const parser = new Parser$1(adapter, {
+    maxProcessingTimeMs: 5e3,
+    maxNodeCount: 5e4,
+    enablePerformanceLogging: false,
+    ...options
+  });
+  const engine = parser.getRuleEngine();
+  engine.addRule(createMathBlockRule());
+  engine.addRule(createMathInlineRule());
+  engine.addRule(createCodeBlockRule());
+  engine.addRule(createTableRule());
+  engine.addRule(createHeadingRule());
+  engine.addRule(createListRule());
+  engine.addRule(createBlockquoteRule());
+  engine.addRule(createStrongRule());
+  engine.addRule(createEmphasisRule());
+  engine.addRule(createCodeInlineRule());
+  engine.addRule(createLinkRule());
+  engine.addRule(createImageRule());
+  engine.addRule(createHorizontalRuleRule());
+  engine.addRule(createLineBreakRule());
+  engine.addRule(createParagraphRule());
+  return parser;
 }
 
 class MarkdownParser {
-  turndownService;
-  constructor() {
-    this.turndownService = new TurndownService({
-      headingStyle: "atx",
-      hr: "---",
-      codeBlockStyle: "fenced",
-      bulletListMarker: "-",
-      // Use - for unordered lists
-      emDelimiter: "*",
-      // Use * for emphasis
-      strongDelimiter: "**"
-      // Use ** for strong
-    });
-    this.turndownService.options.listIndent = "  ";
-    this.turndownService.use(tables);
-    this.turndownService.escape = (text) => text;
-    this.turndownService.addRule("removeLinks", {
-      filter: (node) => {
-        if (node.nodeName === "A") return true;
-        if (node.nodeName === "SPAN" && (node.getAttribute("data-testid") === "webpage-citation-pill" || node.classList?.contains("ms-1"))) {
-          return true;
-        }
-        return false;
-      },
-      replacement: (content, node) => {
-        if (node.getAttribute?.("data-testid") === "webpage-citation-pill" || node.classList?.contains("ms-1")) {
-          return "";
-        }
-        return content;
-      }
-    });
-    this.turndownService.addRule("codeBlocks", {
-      filter: (node) => {
-        const hasCode = node.nodeName === "PRE" && node.querySelector("code") !== null;
-        if (hasCode) {
-          logger$1.debug(`[CodeBlock] Found PRE with code: ${node.textContent?.substring(0, 50)}...`);
-        }
-        return hasCode;
-      },
-      replacement: (content, node) => {
-        const pre = node;
-        logger$1.debug(`[CodeBlock] Processing PRE element`);
-        const langDiv = pre.querySelector(".flex.items-center");
-        let language = langDiv?.textContent?.trim() || "";
-        logger$1.debug(`[CodeBlock] Language from UI: "${language}"`);
-        const codeEl = pre.querySelector("code");
-        if (!codeEl) {
-          logger$1.warn(`[CodeBlock] No code element found in PRE`);
-          return content;
-        }
-        if (!language && codeEl.className) {
-          const langMatch = codeEl.className.match(/language-(\w+)/);
-          if (langMatch) {
-            language = langMatch[1];
-            logger$1.debug(`[CodeBlock] Language from class: "${language}"`);
-          }
-        }
-        const codeText = codeEl.textContent || "";
-        logger$1.debug(`[CodeBlock] Code length: ${codeText.length} chars`);
-        return `
-
-\`\`\`${language}
-${codeText.trimEnd()}
-\`\`\`
-
-`;
-      }
-    });
-    this.turndownService.addRule("geminiMathContainers", {
-      filter: (node) => {
-        return node.nodeName === "SPAN" && (node.classList.contains("math-inline") || node.classList.contains("math-block")) || node.nodeName === "DIV" && node.classList.contains("math-block");
-      },
-      replacement: (content, node) => {
-        const element = node;
-        let latex = element.getAttribute("data-latex-source");
-        if (!latex) {
-          latex = element.getAttribute("data-math");
-        }
-        if (!latex) {
-          const katexEl = element.querySelector(".katex, .katex-display");
-          if (katexEl) {
-            latex = this.extractLatex(katexEl);
-          }
-        }
-        if (latex) {
-          if (element.classList.contains("math-block") || element.querySelector(".katex-display")) {
-            return `
-
-$$
-${latex}
-$$
-
-`;
-          }
-          return `$${latex}$`;
-        }
-        return content;
-      }
-    });
-    this.turndownService.addRule("katexFormulas", {
-      filter: (node) => {
-        return node.nodeName === "SPAN" && (node.classList.contains("katex") || node.classList.contains("katex-display"));
-      },
-      replacement: (content, node) => {
-        const annotation = node.querySelector('annotation[encoding="application/x-tex"]');
-        if (annotation && annotation.textContent) {
-          const latex = annotation.textContent.trim();
-          if (node.classList.contains("katex-display")) {
-            return `
-
-$$
-${latex}
-$$
-
-`;
-          }
-          return `$${latex}$`;
-        }
-        return content;
-      }
-    });
-    this.turndownService.addRule("tableContainer", {
-      filter: (node) => {
-        return node.nodeName === "DIV" && node.classList.contains("TyagGW_tableContainer");
-      },
-      replacement: (content) => {
-        return `
-
-${content.trim()}
-
-`;
-      }
-    });
-  }
-  /**
-   * 主解析方法
-   */
+  parser = createMarkdownParser({
+    enablePerformanceLogging: true
+  });
   parse(element) {
-    logger$1.debug("[MarkdownParser] Starting parse (Method C)");
-    logger$1.debug(`[MarkdownParser] Input element: tag=${element.tagName}, textLength=${element.textContent?.length || 0}`);
-    const deepResearchDivs = element.querySelectorAll(".deep-research-result");
-    if (deepResearchDivs.length > 0) {
-      logger$1.debug(`[Deep Research] Found ${deepResearchDivs.length} deep-research-result divs`);
-      deepResearchDivs.forEach((div, idx) => {
-        logger$1.debug(`[Deep Research] Div ${idx}: textLength=${div.textContent?.length || 0}`);
-      });
-      return this.parseDeepResearch(deepResearchDivs);
-    }
-    const contentBlocks = this.extractContentBlocks(element);
-    const markdown = this.blocksToMarkdown(contentBlocks);
-    const result = this.postProcess(markdown);
-    logger$1.debug("[MarkdownParser] Parse complete");
-    return result;
-  }
-  /**
-   * Deep Research 专用解析
-   * 处理 .deep-research-result 容器中的 katex-error 元素
-   * 关键：Deep Research 的内容主要在 katex-error 中（渲染失败的大段LaTeX）
-   */
-  parseDeepResearch(deepResearchDivs) {
-    const parts = [];
-    deepResearchDivs.forEach((div, idx) => {
-      logger$1.debug(`[Deep Research] Processing div ${idx + 1}/${deepResearchDivs.length}, textLength=${div.textContent?.length || 0}`);
-      const clone = div.cloneNode(true);
-      const katexErrors = clone.querySelectorAll(".katex-error");
-      const errorBlocks = [];
-      logger$1.debug(`[Deep Research] Div ${idx + 1}: Found ${katexErrors.length} katex-error elements`);
-      katexErrors.forEach((errorEl, i) => {
-        const latex = errorEl.textContent?.trim() || "";
-        if (latex) {
-          const charCount = latex.length;
-          logger$1.debug(`[Deep Research] katex-error ${i}: ${charCount} chars`);
-          const placeholder = `__KATEX_ERROR_${i}__`;
-          errorBlocks.push({ placeholder, latex });
-          const textNode = document.createTextNode(placeholder);
-          errorEl.replaceWith(textNode);
-        }
-      });
-      const htmlBefore = clone.outerHTML.length;
-      let markdown = this.turndownService.turndown(clone.outerHTML);
-      logger$1.debug(`[Deep Research] Div ${idx + 1}: Turndown ${htmlBefore} -> ${markdown.length} chars`);
-      errorBlocks.forEach(({ placeholder, latex }) => {
-        const formatted = latex.replace(/\\\[/g, "$$\n").replace(/\\\]/g, "\n$$").replace(/\\\(/g, "$").replace(/\\\)/g, "$");
-        markdown = markdown.split(placeholder).join(formatted);
-      });
-      logger$1.debug(`[Deep Research] Div ${idx + 1}: After restore ${markdown.length} chars`);
-      markdown = this.postProcess(markdown);
-      logger$1.debug(`[Deep Research] Div ${idx + 1}: After postProcess ${markdown.length} chars`);
-      parts.push(markdown);
-    });
-    const result = parts.join("\n\n---\n\n");
-    logger$1.debug(`[Deep Research] Final result: ${result.length} chars`);
-    return result;
-  }
-  /**
-   * 提取内容块：递归遍历 DOM，识别数学公式和文本块
-   */
-  extractContentBlocks(container) {
-    const blocks = [];
-    let blockMathCount = 0;
-    let inlineMathCount = 0;
-    const allDisplays = container.querySelectorAll(".katex-display");
-    const processedDisplays = /* @__PURE__ */ new WeakSet();
-    logger$1.debug(`[Analysis] Found ${allDisplays.length} block formulas`);
-    const processNode = (node) => {
-      if (node.nodeType !== 1) return;
-      if (node.classList.contains("katex-display")) {
-        const latex = this.extractLatex(node);
-        if (latex) {
-          blocks.push({
-            type: "block-math",
-            content: `$$
-${latex}
-$$`
-          });
-          blockMathCount++;
-          logger$1.debug(`[Extract] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
-        }
-        return;
-      }
-      if (node.tagName.toLowerCase() === "pre" && node.querySelector("code")) {
-        logger$1.debug(`[Extract] Found PRE element with code`);
-        const langDiv = node.querySelector(".flex.items-center");
-        let language = langDiv?.textContent?.trim() || "";
-        const codeEl = node.querySelector("code");
-        if (!language && codeEl?.className) {
-          const langMatch = codeEl.className.match(/language-(\w+)/);
-          if (langMatch) {
-            language = langMatch[1];
-          }
-        }
-        const codeText = codeEl?.textContent || "";
-        logger$1.debug(`[Extract] Code block: language="${language}", length=${codeText.length}`);
-        if (codeText.trim()) {
-          blocks.push({
-            type: "text",
-            content: `
-
-\`\`\`${language}
-${codeText.trimEnd()}
-\`\`\`
-
-`
-          });
-        }
-        return;
-      }
-      if (node.tagName.toLowerCase() === "table" || node.classList.contains("TyagGW_tableContainer")) {
-        const clone = node.cloneNode(true);
-        const tableMathMap = /* @__PURE__ */ new Map();
-        let tableMathCounter = 0;
-        clone.querySelectorAll(".katex-display").forEach((display) => {
-          const latex = this.extractLatex(display);
-          if (latex) {
-            const placeholder = `__TABLEMATH_DISPLAY_${tableMathCounter++}__`;
-            tableMathMap.set(placeholder, `$$${latex}$$`);
-            const textNode = document.createTextNode(placeholder);
-            display.replaceWith(textNode);
-            logger$1.debug(`[Extract-Table] Block math: ${latex.substring(0, 40)}...`);
-          }
-        });
-        clone.querySelectorAll(".katex").forEach((katex) => {
-          if (katex.closest(".katex-display")) return;
-          const latex = this.extractLatex(katex);
-          if (latex) {
-            const placeholder = `__TABLEMATH_INLINE_${tableMathCounter++}__`;
-            tableMathMap.set(placeholder, `$${latex}$`);
-            const textNode = document.createTextNode(placeholder);
-            katex.replaceWith(textNode);
-            logger$1.debug(`[Extract-Table] Inline math: ${latex.substring(0, 40)}...`);
-          }
-        });
-        let markdown = this.turndownService.turndown(clone.outerHTML);
-        tableMathMap.forEach((formula, placeholder) => {
-          markdown = markdown.split(placeholder).join(formula);
-        });
-        if (markdown.trim()) {
-          blocks.push({ type: "text", content: markdown });
-          logger$1.debug(`[Extract] Table with ${tableMathMap.size} math formulas: ${markdown.substring(0, 80)}...`);
-        }
-        return;
-      }
-      if (node.tagName.toLowerCase() === "ul" || node.tagName.toLowerCase() === "ol") {
-        const clone = node.cloneNode(true);
-        const listMathMap = /* @__PURE__ */ new Map();
-        let listMathCounter = 0;
-        clone.querySelectorAll(".katex-display").forEach((display) => {
-          const latex = this.extractLatex(display);
-          if (latex) {
-            const placeholder = `__LISTBLOCKMATH_${listMathCounter++}__`;
-            listMathMap.set(placeholder, latex);
-            const textNode = document.createTextNode(placeholder);
-            display.replaceWith(textNode);
-            blockMathCount++;
-            logger$1.debug(`[Extract-List] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
-          }
-        });
-        let markdown = this.turndownService.turndown(clone.outerHTML);
-        listMathMap.forEach((latex, placeholder) => {
-          const regex = new RegExp(`^[ \\t]*${placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[ \\t]*$`, "gm");
-          markdown = markdown.replace(regex, () => {
-            return "\n\n$$\n" + latex + "\n$$\n\n";
-          });
-        });
-        if (markdown.trim()) {
-          blocks.push({ type: "text", content: markdown });
-          logger$1.debug(`[Extract] List (${node.tagName}) with ${listMathMap.size} block formulas`);
-        }
-        return;
-      }
-      if (this.isTextContainer(node)) {
-        const clone = node.cloneNode(true);
-        const childDisplays = clone.querySelectorAll(":scope > .katex-display");
-        childDisplays.forEach((display) => {
-          const latex = this.extractLatex(display);
-          if (latex && !processedDisplays.has(display)) {
-            processedDisplays.add(display);
-            blocks.push({ type: "block-math", content: `$$
-${latex}
-$$` });
-            blockMathCount++;
-            logger$1.debug(`[Extract-Container] Block math ${blockMathCount}: ${latex.substring(0, 40)}...`);
-          }
-        });
-        clone.querySelectorAll(".katex-display").forEach((d) => d.remove());
-        const inlineMaths = [];
-        clone.querySelectorAll(".katex").forEach((katex) => {
-          if (katex.closest(".katex-display")) return;
-          const latex = this.extractLatex(katex);
-          if (latex) {
-            const placeholder = `__INLINE${inlineMathCount}__`;
-            inlineMaths.push({ placeholder, latex });
-            const textNode = document.createTextNode(placeholder);
-            katex.replaceWith(textNode);
-            inlineMathCount++;
-            logger$1.debug(`[Extract] Inline math ${inlineMathCount}: ${latex.substring(0, 30)}...`);
-          }
-        });
-        let markdown = this.turndownService.turndown(clone.outerHTML);
-        inlineMaths.forEach(({ placeholder, latex }) => {
-          markdown = markdown.split(placeholder).join(`$${latex}$`);
-        });
-        if (markdown.trim()) {
-          blocks.push({
-            type: "text",
-            content: markdown
-          });
-        }
-        return;
-      }
-      Array.from(node.children).forEach((child) => processNode(child));
-    };
-    processNode(container);
-    logger$1.debug(`[Extract] Total: ${blockMathCount} block formulas, ${inlineMathCount} inline formulas`);
-    return blocks;
-  }
-  /**
-   * 从 KaTeX 元素提取 LaTeX 源码
-   */
-  extractLatex(element) {
-    const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
-    if (!annotation?.textContent) return null;
-    return annotation.textContent.replace(/\s+/g, " ").trim();
-  }
-  /**
-   * 判断是否为文本容器（段落、标题、列表项等）
-   * 注意：不包含 ul/ol/li，因为列表需要整体交给 Turndown 处理（包含列表中的公式）
-   */
-  isTextContainer(node) {
-    const tag = node.tagName.toLowerCase();
-    return ["p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "td", "th"].includes(tag);
-  }
-  /**
-   * 将内容块转换为最终 Markdown
-   * 块公式前后各空一行
-   */
-  blocksToMarkdown(blocks) {
-    const parts = [];
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      if (block.type === "block-math") {
-        if (i > 0 && blocks[i - 1].type !== "block-math") {
-          parts.push("\n");
-        }
-        parts.push(block.content);
-        if (i < blocks.length - 1 && blocks[i + 1].type !== "block-math") {
-          parts.push("\n");
-        }
-      } else {
-        parts.push(block.content);
-      }
-      if (i < blocks.length - 1) {
-        parts.push("\n\n");
-      }
-    }
-    return parts.join("");
-  }
-  /**
-   * 后处理：清理格式（不处理数学公式，它们已是最终格式）
-   */
-  postProcess(markdown) {
-    let result = markdown;
-    result = result.replace(/^(    )+/gm, (match) => {
-      const spaceCount = match.length;
-      const level = spaceCount / 4;
-      return "  ".repeat(level);
-    });
-    const lines = result.split("\n");
-    const fixedLines = [];
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const listMatch = line.match(/^( *)([*-]|\d+\.)\s/);
-      if (listMatch) {
-        const currentIndent = listMatch[1].length;
-        const marker = listMatch[2];
-        const restOfLine = line.slice(listMatch[0].length);
-        let normalizedIndent;
-        if (currentIndent === 0) {
-          normalizedIndent = "";
-        } else if (currentIndent <= 1) {
-          normalizedIndent = "  ";
-          logger$1.debug(`[PostProcess] Normalizing indent: ${currentIndent} → 2 spaces`);
-        } else if (currentIndent <= 3) {
-          normalizedIndent = "  ";
-          if (currentIndent > 2) {
-            logger$1.debug(`[PostProcess] Normalizing indent: ${currentIndent} → 2 spaces`);
-          }
-        } else {
-          const level = Math.round(currentIndent / 2);
-          normalizedIndent = "  ".repeat(level);
-          if (currentIndent !== level * 2) {
-            logger$1.debug(`[PostProcess] Normalizing indent: ${currentIndent} → ${level * 2} spaces`);
-          }
-        }
-        fixedLines.push(`${normalizedIndent}${marker} ${restOfLine}`);
-      } else {
-        fixedLines.push(line);
-      }
-    }
-    result = fixedLines.join("\n");
-    result = result.split("\n").map((line) => line.trimEnd()).join("\n");
-    result = result.replace(/:contentReference\[oaicite:\d+\]\{index=\d+\}/g, "");
-    result = result.replace(/\b[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g, "");
-    result = result.replace(/\b[a-zA-Z0-9._-]+\+\d+\b/g, "");
-    result = result.replace(/\b(OUP Academic|OUP|developers)\s*/g, "");
-    result = result.split("\n").map((line) => {
-      const match = line.match(/^(\s*)(.*)/);
-      if (match) {
-        const indent = match[1];
-        const content = match[2].replace(/ {2,}/g, " ");
-        return indent + content;
-      }
-      return line;
-    }).join("\n");
-    result = result.replace(/\.{2,}/g, ".");
-    result = result.replace(/ \. /g, " ");
-    result = result.replace(/\n{3,}/g, "\n\n");
-    result = result.replace(/([^\n$])\n(#{1,6} )/g, "$1\n\n$2");
-    result = result.replace(/\n{3,}/g, "\n\n");
-    result = result.trim() + "\n";
-    return result;
+    logger$1.debug("[MarkdownParser] Using v3 parser");
+    const startTime = performance.now();
+    const markdown = this.parser.parse(element);
+    const elapsed = performance.now() - startTime;
+    logger$1.debug(`[MarkdownParser] Parsed in ${elapsed.toFixed(2)}ms`);
+    return markdown;
   }
 }
+
+const LATEX_ATTRIBUTE_KEYS = ["data-latex-source", "data-math"];
+const looksLikeLatex = (value) => /\\[a-zA-Z]+/.test(value) || /\\[^\s]/.test(value);
+const getAttributeLatex = (element) => {
+  for (const key of LATEX_ATTRIBUTE_KEYS) {
+    const value = element.getAttribute(key);
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+const getClosestAttributeLatex = (element) => {
+  let current = element;
+  while (current) {
+    const value = getAttributeLatex(current);
+    if (value) {
+      return value;
+    }
+    current = current.parentElement;
+  }
+  return null;
+};
+const getAnnotationLatex = (element) => {
+  const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
+  if (annotation?.textContent) {
+    return annotation.textContent.trim();
+  }
+  return null;
+};
+const getKatexErrorLatex = (element) => {
+  const errorElement = element.classList.contains("katex-error") ? element : element.querySelector(".katex-error");
+  if (!errorElement) {
+    return null;
+  }
+  const text = errorElement.textContent?.trim() || "";
+  if (!text) {
+    return null;
+  }
+  if (!looksLikeLatex(text)) {
+    return null;
+  }
+  return text;
+};
+const extractLatexSource = (element) => {
+  if (!element) {
+    return null;
+  }
+  const attributeLatex = getClosestAttributeLatex(element);
+  if (attributeLatex) {
+    return attributeLatex;
+  }
+  const annotationLatex = getAnnotationLatex(element);
+  if (annotationLatex) {
+    return annotationLatex;
+  }
+  return getKatexErrorLatex(element);
+};
 
 class MathClickHandler {
   activeElements = /* @__PURE__ */ new Set();
@@ -4269,6 +4174,8 @@ class MathClickHandler {
   observers = /* @__PURE__ */ new Map();
   // Changed from WeakMap to Map for cleanup
   elementListeners = /* @__PURE__ */ new Map();
+  pendingNodes = /* @__PURE__ */ new Set();
+  idleCallbackId = null;
   /**
    * Enable click-to-copy for all math elements in a container
    * Uses MutationObserver to handle streaming updates
@@ -4279,22 +4186,24 @@ class MathClickHandler {
       return;
     }
     const observer = new MutationObserver((mutations) => {
-      let hasNewMath = false;
+      let queued = false;
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node instanceof HTMLElement) {
-            const hasMath = node.classList.contains("katex") || node.classList.contains("katex-display") || node.querySelector(".katex, .katex-display");
-            if (hasMath) {
-              hasNewMath = true;
-              break;
-            }
+            queued = true;
+            this.queueNodeForProcessing(node);
+          } else if (node instanceof DocumentFragment) {
+            node.querySelectorAll("*").forEach((child) => {
+              if (child instanceof Element) {
+                queued = true;
+                this.queueNodeForProcessing(child);
+              }
+            });
           }
         }
-        if (hasNewMath) break;
       }
-      if (hasNewMath) {
-        logger$1.debug("[MathClick] New math elements detected during streaming");
-        this.processContainer(container);
+      if (queued) {
+        logger$1.debug("[MathClick] Queued new nodes for math extraction");
       }
     });
     observer.observe(container, {
@@ -4308,7 +4217,7 @@ class MathClickHandler {
    * Process all math elements in a container
    */
   processContainer(container) {
-    const mathElements = this.findAllMathElements(container);
+    const mathElements = this.collectMathElements(container);
     mathElements.forEach((element) => {
       if (this.activeElements.has(element)) return;
       this.attachHandlers(element);
@@ -4319,23 +4228,70 @@ class MathClickHandler {
     }
   }
   /**
-   * Find all math elements in a container
+   * Collect math-like elements that merit click-to-copy
    */
-  findAllMathElements(container) {
+  collectMathElements(container) {
     const elements = [];
-    container.querySelectorAll(".katex-display").forEach((el) => elements.push(el));
-    container.querySelectorAll(".katex").forEach((el) => {
-      if (!el.closest(".katex-display")) {
+    const addUnique = (el) => {
+      if (!elements.includes(el)) {
         elements.push(el);
       }
+    };
+    container.querySelectorAll(".katex-display, .math-block").forEach(addUnique);
+    container.querySelectorAll(".math-inline").forEach(addUnique);
+    container.querySelectorAll(".katex").forEach((el) => {
+      if (el.closest(".katex-display") || el.closest(".math-block") || el.closest(".math-inline")) {
+        return;
+      }
+      addUnique(el);
     });
     container.querySelectorAll(".katex-error").forEach((el) => {
       const text = el.textContent?.trim() || "";
       if (text.length > 0 && text.length < 200) {
-        elements.push(el);
+        addUnique(el);
       }
     });
     return elements;
+  }
+  queueNodeForProcessing(node) {
+    this.pendingNodes.add(node);
+    if (this.idleCallbackId !== null) {
+      return;
+    }
+    const flush = () => {
+      this.idleCallbackId = null;
+      const nodes = Array.from(this.pendingNodes);
+      this.pendingNodes.clear();
+      this.processPendingNodes(nodes);
+    };
+    const globalScope = typeof window !== "undefined" ? window : globalThis;
+    if (typeof globalScope.requestIdleCallback === "function") {
+      this.idleCallbackId = globalScope.requestIdleCallback(flush, { timeout: 200 });
+    } else {
+      this.idleCallbackId = globalScope.setTimeout(flush, 16);
+    }
+  }
+  processPendingNodes(nodes) {
+    nodes.forEach((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      this.collectMathElements(node).forEach((element) => {
+        if (this.activeElements.has(element)) return;
+        this.attachHandlers(element);
+        this.activeElements.add(element);
+      });
+    });
+  }
+  clearIdleTimer() {
+    if (this.idleCallbackId === null) {
+      return;
+    }
+    const globalScope = typeof window !== "undefined" ? window : globalThis;
+    if (typeof globalScope.cancelIdleCallback === "function") {
+      globalScope.cancelIdleCallback(this.idleCallbackId);
+    } else {
+      globalScope.clearTimeout(this.idleCallbackId);
+    }
+    this.idleCallbackId = null;
   }
   /**
    * Attach event handlers to a math element
@@ -4345,8 +4301,9 @@ class MathClickHandler {
     const targetEl = element.classList.contains("katex-display") ? mathEl : mathEl.querySelector(".katex") || mathEl;
     targetEl.style.cursor = "pointer";
     targetEl.style.transition = "background-color 0.2s";
+    const hoverColor = "rgba(37, 99, 235, 0.12)";
     const mouseenterHandler = () => {
-      targetEl.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+      targetEl.style.backgroundColor = hoverColor;
     };
     const mouseleaveHandler = () => {
       targetEl.style.backgroundColor = "";
@@ -4387,25 +4344,18 @@ class MathClickHandler {
    * Extract LaTeX source from a math element
    */
   getLatexSource(element) {
-    const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
-    if (annotation?.textContent) {
-      return annotation.textContent.trim();
-    }
-    if (element.classList.contains("katex-error")) {
-      return element.textContent?.trim() || null;
-    }
-    return element.textContent?.trim() || null;
+    return extractLatexSource(element);
   }
   /**
    * Show visual feedback after successful copy
    */
   showCopyFeedback(element) {
-    element.style.backgroundColor = "rgba(139, 92, 246, 0.2)";
+    element.style.backgroundColor = "rgba(37, 99, 235, 0.28)";
     const tooltip = document.createElement("div");
     tooltip.textContent = "Copied!";
     tooltip.style.cssText = `
       position: absolute;
-      background: #8b5cf6;
+      background: #2563EB;
       color: white;
       padding: 4px 8px;
       border-radius: 4px;
@@ -4432,7 +4382,7 @@ class MathClickHandler {
       style.remove();
       element.style.backgroundColor = "";
       if (element.matches(":hover")) {
-        element.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+        element.style.backgroundColor = "rgba(37, 99, 235, 0.12)";
       }
     }, 1500);
   }
@@ -4457,6 +4407,8 @@ class MathClickHandler {
     });
     this.elementListeners.clear();
     this.activeElements.clear();
+    this.pendingNodes.clear();
+    this.clearIdleTimer();
     logger$1.info("[MathClick] Disabled and cleaned up all resources");
   }
 }
@@ -5552,7 +5504,7 @@ var tallDelim = function tallDelim(label, midHeight) {
  * placed into the DOM doesn't have any representation itself. It only contains
  * children and doesn't have any DOM node properties.
  */
-class DocumentFragment {
+let DocumentFragment$1 = class DocumentFragment {
   // Never used; needed for satisfying interface.
   constructor(children) {
     this.children = void 0;
@@ -5611,7 +5563,7 @@ class DocumentFragment {
     return this.children.map(toText).join("");
   }
 
-}
+};
 
 // This file is GENERATED by buildMetrics.sh. DO NOT MODIFY.
 var fontMetricsData = {
@@ -10230,7 +10182,7 @@ var makeAnchor = function makeAnchor(href, classes, children, options) {
 
 
 var makeFragment = function makeFragment(children) {
-  var fragment = new DocumentFragment(children);
+  var fragment = new DocumentFragment$1(children);
   sizeElementFromChildren(fragment);
   return fragment;
 };
@@ -10241,7 +10193,7 @@ var makeFragment = function makeFragment(children) {
 
 
 var wrapFragment = function wrapFragment(group, options) {
-  if (group instanceof DocumentFragment) {
+  if (group instanceof DocumentFragment$1) {
     return makeSpan$2([], [group], options);
   }
 
@@ -10829,7 +10781,7 @@ var buildExpression$1 = function buildExpression(expression, options, isRealGrou
   for (var i = 0; i < expression.length; i++) {
     var output = buildGroup$1(expression[i], options);
 
-    if (output instanceof DocumentFragment) {
+    if (output instanceof DocumentFragment$1) {
       var children = output.children;
       groups.push(...children);
     } else {
@@ -10956,7 +10908,7 @@ var traverseNonSpaceNodes = function traverseNonSpaceNodes(nodes, callback, prev
 
 
 var checkPartialGroup = function checkPartialGroup(node) {
-  if (node instanceof DocumentFragment || node instanceof Anchor || node instanceof Span && node.hasClass("enclosing")) {
+  if (node instanceof DocumentFragment$1 || node instanceof Anchor || node instanceof Span && node.hasClass("enclosing")) {
     return node;
   }
 
@@ -11163,7 +11115,7 @@ function buildHTML(tree, options) {
  * domTree.js, creating namespaced DOM nodes and HTML text markup respectively.
  */
 function newDocumentFragment(children) {
-  return new DocumentFragment(children);
+  return new DocumentFragment$1(children);
 }
 /**
  * This node represents a general purpose MathML node of any type. The
@@ -17079,13 +17031,18 @@ defineFunction({
           var data = value.split(",");
 
           for (var i = 0; i < data.length; i++) {
-            var keyVal = data[i].split("=");
+            var item = data[i];
+            var firstEquals = item.indexOf("=");
 
-            if (keyVal.length !== 2) {
-              throw new ParseError("Error parsing key-value for \\htmlData");
+            if (firstEquals < 0) {
+              throw new ParseError("\\htmlData key/value '" + item + "'" + " missing equals sign");
             }
 
-            attributes["data-" + keyVal[0].trim()] = keyVal[1].trim();
+            var key = item.slice(0, firstEquals);
+
+            var _value = item.slice(firstEquals + 1);
+
+            attributes["data-" + key.trim()] = _value;
           }
 
           trustContext = {
@@ -17966,7 +17923,8 @@ defineFunction({
   type: "op",
   names: ["\\int", "\\iint", "\\iiint", "\\oint", "\\oiint", "\\oiiint", "\u222b", "\u222c", "\u222d", "\u222e", "\u222f", "\u2230"],
   props: {
-    numArgs: 0
+    numArgs: 0,
+    allowedInArgument: true
   },
 
   handler(_ref5) {
@@ -22972,7 +22930,7 @@ var renderToHTMLTree = function renderToHTMLTree(expression, options) {
   }
 };
 
-var version = "0.16.25";
+var version = "0.16.27";
 var __domTree = {
   Span,
   Anchor,
@@ -23278,9 +23236,11 @@ const panelStyles = `
   background: white;
 }
 
-.aicopy-panel-body .markdown-content {
-  max-width: 1000px;
+.aicopy-panel-body .markdown-body {
+  max-width: 800px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* ============================================
@@ -25241,6 +25201,10 @@ class BookmarkSaveModal {
   // DOM references (now inside Shadow DOM)
   overlay = null;
   modal = null;
+  // ✅ PERF: Cache frequently accessed DOM elements
+  titleInputElement = null;
+  saveButtonElement = null;
+  errorDivElement = null;
   // State
   folders = [];
   selectedPath = null;
@@ -25321,7 +25285,29 @@ class BookmarkSaveModal {
             .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
             .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
-            .save-modal-btn-save:disabled { background: var(--button-primary-disabled); color: var(--button-primary-disabled-text); cursor: not-allowed; opacity: 0.6; }
+            
+            /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
+            /* 参考: Material Design Button States */
+            .save-modal-btn-save:disabled { 
+                background: var(--button-primary-disabled); 
+                color: var(--button-primary-disabled-text); 
+                cursor: not-allowed; 
+                opacity: 0.6; 
+            }
+            
+            /* ✅ Best Practice: 只transition需要变化的属性 */
+            /* 参考: Material Design Motion */
+            .title-input { 
+                transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            /* ✅ Best Practice: Optimized backdrop-filter */
+            /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
+            .modal-overlay { 
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(3px);  /* 轻微模糊,性能与视觉平衡 */
+                -webkit-backdrop-filter: blur(3px);
+            }
         `;
     this.shadowRoot.appendChild(styleElement);
   }
@@ -25381,38 +25367,30 @@ class BookmarkSaveModal {
     if (header) {
       header.textContent = headerText;
     }
+    this.titleInputElement = this.modal.querySelector(".title-input");
+    this.saveButtonElement = this.modal.querySelector(".save-modal-btn-save");
+    this.errorDivElement = this.modal.querySelector(".title-error");
     setTimeout(() => {
-      const titleInput = this.modal?.querySelector(".title-input");
-      if (titleInput) {
-        titleInput.select();
+      if (this.titleInputElement) {
+        this.titleInputElement.select();
       }
     }, 100);
     logger$1.info("[BookmarkSaveModal] Modal shown");
   }
+  /**
+   * Update save button state based on form validation
+   * ✅ Best Practice: Pure function pattern, zero inline style mutations
+   * 参考: Material Design, Gemini官网 - 状态通过disabled属性表达
+   */
   updateSaveButtonState() {
-    const saveBtn = this.modal?.querySelector(".save-modal-btn-save");
-    if (!saveBtn) return;
-    const titleInput = this.modal?.querySelector(".title-input");
-    const title = titleInput?.value?.trim() || "";
+    if (!this.saveButtonElement || !this.titleInputElement) return;
+    const title = this.titleInputElement.value?.trim() || "";
     const hasNoFolders = this.folders.length === 0;
     const noFolderSelected = !this.selectedPath;
     const noTitle = !title;
-    const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
-    saveBtn.disabled = shouldDisable;
-    if (shouldDisable) {
-      saveBtn.style.opacity = "0.5";
-      saveBtn.style.cursor = "not-allowed";
-    } else {
-      saveBtn.style.opacity = "1";
-      saveBtn.style.cursor = "pointer";
-    }
-    if (hasNoFolders) {
-      logger$1.debug("[BookmarkSaveModal] Save disabled: No folders exist");
-    } else if (noFolderSelected) {
-      logger$1.debug("[BookmarkSaveModal] Save disabled: No folder selected");
-    } else if (noTitle) {
-      logger$1.debug("[BookmarkSaveModal] Save disabled: No title");
-    }
+    const titleInvalid = !this.titleValid;
+    const shouldDisable = hasNoFolders || noFolderSelected || noTitle || titleInvalid;
+    this.saveButtonElement.disabled = shouldDisable;
   }
   /**
   * Hide and cleanup modal
@@ -25496,6 +25474,7 @@ class BookmarkSaveModal {
   }
   /**
    * Bind event listeners
+   * ✅ Best Practice: AbortController pattern for automatic cleanup
    */
   bindEvents(modal) {
     const signal = this.abortController?.signal;
@@ -25512,33 +25491,40 @@ class BookmarkSaveModal {
   }
   /**
    * Handle title input with validation
+   * ✅ Best Practice: Single Responsibility - 只处理validation和状态更新
+   * 参考: Clean Code - 函数应该做一件事,做好一件事
    */
   handleTitleInput(e) {
     const input = e.target;
     this.title = input.value;
     const validation = this.validateTitle(this.title);
     this.titleValid = validation.valid;
-    const errorDiv = this.modal?.querySelector(".title-error");
-    if (!errorDiv) return;
+    if (!this.errorDivElement) return;
     if (!validation.valid) {
       input.classList.add("error");
-      errorDiv.textContent = validation.error;
-      errorDiv.classList.add("visible");
+      this.errorDivElement.textContent = validation.error;
+      this.errorDivElement.classList.add("visible");
     } else {
       input.classList.remove("error");
-      errorDiv.classList.remove("visible");
+      this.errorDivElement.classList.remove("visible");
     }
     this.updateSaveButtonState();
   }
   /**
    * Validate title
+   * ✅ Best Practice: 完整的输入验证逻辑
+   * 参考: PathUtils.validateFolderName
    */
   validateTitle(title) {
     if (!title || title.trim().length === 0) {
-      return { valid: false, error: "Title is required" };
+      return { valid: true };
     }
     if (title.length > 100) {
       return { valid: false, error: `Title too long (${title.length}/100)` };
+    }
+    const invalidChars = /[\/\\:*?"<>|]/;
+    if (invalidChars.test(title)) {
+      return { valid: false, error: 'Title cannot contain / \\ : * ? " < > |' };
     }
     return { valid: true };
   }
@@ -25611,39 +25597,47 @@ class BookmarkSaveModal {
     }).join("");
   }
   /**
-   * Bind folder click handlers
+   * Bind folder click handlers using event delegation
+   * CRITICAL FIX: Use delegation to avoid memory leaks from repeated binding
    */
   bindFolderClickHandlers() {
     if (!this.modal) return;
-    const toggleBtns = this.modal.querySelectorAll(".folder-toggle");
-    toggleBtns.forEach((toggle) => {
-      toggle.addEventListener("click", (e) => {
+    const treeContainer = this.modal.querySelector(".folder-tree-container");
+    if (!treeContainer) return;
+    const existingHandler = treeContainer.__delegatedClickHandler;
+    if (existingHandler) {
+      treeContainer.removeEventListener("click", existingHandler);
+    }
+    const delegatedHandler = (e) => {
+      const target = e.target;
+      if (target.classList.contains("folder-toggle")) {
         e.stopPropagation();
-        const path = toggle.dataset.path;
+        const path = target.dataset.path;
         if (this.expandedPaths.has(path)) {
           this.expandedPaths.delete(path);
         } else {
           this.expandedPaths.add(path);
         }
         this.renderFolderTree();
-      });
-    });
-    const folderItems = this.modal.querySelectorAll(".folder-item");
-    folderItems.forEach((item) => {
-      item.addEventListener("click", (e) => {
+        return;
+      }
+      if (target.classList.contains("folder-add-btn") || target.closest(".folder-add-btn")) {
         e.stopPropagation();
-        const path = item.dataset.path;
-        this.handleFolderClick(path);
-      });
-    });
-    const addBtns = this.modal.querySelectorAll(".folder-add-btn");
-    addBtns.forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
+        const btn = target.classList.contains("folder-add-btn") ? target : target.closest(".folder-add-btn");
         const parentPath = btn.dataset.parent;
         this.showCreateSubfolderInput(parentPath);
-      });
-    });
+        return;
+      }
+      const folderItem = target.closest(".folder-item");
+      if (folderItem) {
+        e.stopPropagation();
+        const path = folderItem.dataset.path;
+        this.handleFolderClick(path);
+      }
+    };
+    treeContainer.__delegatedClickHandler = delegatedHandler;
+    treeContainer.addEventListener("click", delegatedHandler);
+    console.log("[PERF-FIX] Event delegation setup complete - single listener for all folders");
   }
   /**
    * Handle folder click
@@ -26744,7 +26738,8 @@ class SimpleBookmarkPanel {
     this.overlay.style.display = "flex";
     this.overlay.style.alignItems = "center";
     this.overlay.style.justifyContent = "center";
-    this.overlay.style.background = "var(--bg-overlay)";
+    this.overlay.style.background = "rgba(0, 0, 0, 0.6)";
+    this.overlay.style.backdropFilter = "blur(3px)";
     this.overlay.dataset.theme = DesignTokens.isDarkMode() ? "dark" : "light";
     this.shadowRoot = this.overlay.attachShadow({ mode: "open" });
     const styles = document.createElement("style");
@@ -31824,7 +31819,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .folder-icon {
-
                 font-size: 16px;
                 margin-right: 8px;
             }
@@ -31836,7 +31830,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: flex;
                 align-items: center;  /* 图标和文字垂直居中对齐 */
                 gap: var(--space-2);  /* 8px */
-                line-height: 16px;  /* 匹配图标高度,确保完美对齐 */
+                line-height: 20px;  /* 匹配图标高度,确保完美对齐 */
                 user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -32444,7 +32438,7 @@ class ContentScript {
   // Track current theme to keep shadow-root tokens in sync
   currentThemeIsDark = false;
   constructor() {
-    logger$1.setLevel(LogLevel.INFO);
+    logger$1.setLevel(LogLevel.DEBUG);
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
     this.reRenderPanel = new ReRenderPanel();
@@ -32474,13 +32468,14 @@ class ContentScript {
       return;
     }
     logger$1.info("Starting extension on supported page");
+    this.injector = new ToolbarInjector(adapter);
     this.observer = new MessageObserver(
       adapter,
+      this.injector,
       (messageElement) => {
         this.handleNewMessage(messageElement);
       }
     );
-    this.injector = new ToolbarInjector(adapter);
     if ("isGemini" in adapter && typeof adapter.isGemini === "function" && adapter.isGemini()) {
       this.deepResearchHandler = new DeepResearchHandler();
       this.deepResearchHandler.enable();
@@ -32560,6 +32555,7 @@ class ContentScript {
   }
   /**
    * Handle new message detected
+   * State machine: NULL → inject (hidden) → activate (visible + init)
    */
   handleNewMessage(messageElement) {
     logger$1.debug("Handling new message");
@@ -32570,11 +32566,6 @@ class ContentScript {
       logger$1.warn("Message has no ID, cannot track processing state");
       if (this.processingElements.has(messageElement)) {
         logger$1.debug("Element is already being processed (no ID), skipping");
-        return;
-      }
-      const hasToolbar = messageElement.querySelector(".aicopy-toolbar-container");
-      if (hasToolbar) {
-        logger$1.debug("Toolbar already exists (no ID), skipping");
         return;
       }
       this.processingElements.add(messageElement);
@@ -32590,45 +32581,61 @@ class ContentScript {
       logger$1.info("[ContentScript] First message detected, checking bookmark navigation");
       this.checkBookmarkNavigation();
     }
-    if (messageElement.querySelector(".aicopy-toolbar-container")) {
-      logger$1.debug("Toolbar already exists, skipping");
-      if (messageId) {
-        this.processingMessages.delete(messageId);
+    const currentState = this.injector?.getState(messageElement);
+    if (currentState === "null") {
+      const callbacks = {
+        onCopyMarkdown: async () => {
+          return this.getMarkdown(messageElement);
+        },
+        onViewSource: () => {
+          this.showSourceModal(messageElement);
+        },
+        onReRender: () => {
+          this.showReRenderPanel(messageElement);
+        },
+        onBookmark: async () => {
+          await this.handleBookmark(messageElement);
+        }
+      };
+      const toolbar = new Toolbar(callbacks);
+      toolbar.setTheme(this.currentThemeIsDark);
+      if (this.injector) {
+        const injected = this.injector.inject(messageElement, toolbar.getElement());
+        if (injected) {
+          const toolbarContainer = toolbar.getElement();
+          toolbarContainer.__toolbar = toolbar;
+          const position = this.getMessagePosition(messageElement);
+          this.toolbars.set(position, toolbar);
+          const isBookmarked = this.bookmarkedPositions.has(position);
+          toolbar.setBookmarkState(isBookmarked);
+          this.mathClickHandler.enable(messageElement);
+          const isStreaming = adapter.isStreamingMessage && adapter.isStreamingMessage(messageElement);
+          if (!isStreaming) {
+            const activated = this.injector.activate(messageElement);
+            if (activated) {
+              toolbar.setPending(false);
+            }
+          }
+        }
       }
-      return;
-    }
-    const callbacks = {
-      onCopyMarkdown: async () => {
-        return this.getMarkdown(messageElement);
-      },
-      onViewSource: () => {
-        this.showSourceModal(messageElement);
-      },
-      onReRender: () => {
-        this.showReRenderPanel(messageElement);
-      },
-      onBookmark: async () => {
-        await this.handleBookmark(messageElement);
+    } else if (currentState === "injected") {
+      if (this.injector) {
+        const activated = this.injector.activate(messageElement);
+        if (activated) {
+          const toolbarContainer = messageElement.querySelector(".aicopy-toolbar-container");
+          if (toolbarContainer) {
+            const toolbar = toolbarContainer.__toolbar;
+            if (toolbar && typeof toolbar.setPending === "function") {
+              toolbar.setPending(false);
+            }
+          }
+        }
       }
-    };
-    const toolbar = new Toolbar(callbacks);
-    toolbar.setTheme(this.currentThemeIsDark);
-    if (this.injector) {
-      this.injector.inject(messageElement, toolbar.getElement());
-    }
-    const toolbarContainer = messageElement.querySelector(".aicopy-toolbar-container");
-    if (toolbarContainer) {
-      toolbarContainer.__toolbar = toolbar;
-    }
-    const position = this.getMessagePosition(messageElement);
-    this.toolbars.set(position, toolbar);
-    const isBookmarked = this.bookmarkedPositions.has(position);
-    toolbar.setBookmarkState(isBookmarked);
-    this.mathClickHandler.enable(messageElement);
+    } else ;
     if (messageId) {
       setTimeout(() => {
         this.processingMessages.delete(messageId);
-        logger$1.info(`[DEBUG] ⏰ Timeout: Removed ${messageId}. Size: ${this.processingMessages.size}`);
+        logger$1.debug(`[handleNewMessage] Removed ${messageId} from processing set`);
       }, 1e3);
     }
     logger$1.info("=== handleNewMessage END ===");
@@ -32855,6 +32862,9 @@ class ContentScript {
 }
 let urlObserver = null;
 let debounceTimeout = null;
+let lastUrl = window.location.href;
+let navVersion = 0;
+let routeListenersAttached = false;
 function waitForPageReady(adapter) {
   return new Promise((resolve) => {
     const maxAttempts = 25;
@@ -32879,6 +32889,7 @@ function waitForPageReady(adapter) {
   });
 }
 function handleNavigation(contentScript) {
+  const currentVersion = ++navVersion;
   (async () => {
     const hasActiveModal = document.querySelector(".bookmark-save-modal-overlay") !== null;
     const hasActivePanel = document.querySelector(".simple-bookmark-panel-overlay") !== null;
@@ -32893,6 +32904,10 @@ function handleNavigation(contentScript) {
     }
     logger$1.debug("[Navigation] Waiting for page to be ready...");
     const isReady = await waitForPageReady(adapter);
+    if (currentVersion !== navVersion) {
+      logger$1.info("[Navigation] Navigation superseded, aborting reinit");
+      return;
+    }
     if (!isReady) {
       logger$1.warn("[Navigation] Page may not be fully ready, but proceeding");
     }
@@ -32900,6 +32915,10 @@ function handleNavigation(contentScript) {
     const hasActivePanelNow = document.querySelector(".simple-bookmark-panel-overlay") !== null;
     if (hasActiveModalNow || hasActivePanelNow) {
       logger$1.info("[Navigation] User opened UI during wait, skipping reinit");
+      return;
+    }
+    if (currentVersion !== navVersion) {
+      logger$1.info("[Navigation] Navigation superseded after UI check, aborting reinit");
       return;
     }
     logger$1.info("[Navigation] Reinitializing extension");
@@ -32911,27 +32930,47 @@ function handleNavigation(contentScript) {
   return contentScript;
 }
 function initExtension() {
+  console.log("[AI-MarkDone] Script injected and running");
   logger$1.info("Initializing AI-MarkDone extension");
   logger$1.debug("Document readyState:", document.readyState);
   logger$1.debug("Current URL:", window.location.href);
   let contentScript = new ContentScript();
   contentScript.start();
+  const handleUrlChange = () => {
+    const currentUrl = window.location.href;
+    if (currentUrl !== lastUrl) {
+      lastUrl = currentUrl;
+      logger$1.info("[Observer] URL changed:", currentUrl);
+      contentScript = handleNavigation(contentScript);
+    }
+  };
+  const attachRouteListeners = () => {
+    if (routeListenersAttached) return;
+    routeListenersAttached = true;
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    history.pushState = function(...args) {
+      originalPushState.apply(this, args);
+      setTimeout(handleUrlChange, 0);
+    };
+    history.replaceState = function(...args) {
+      originalReplaceState.apply(this, args);
+      setTimeout(handleUrlChange, 0);
+    };
+    window.addEventListener("popstate", handleUrlChange);
+    window.addEventListener("hashchange", handleUrlChange);
+  };
   if (urlObserver) {
     urlObserver.disconnect();
     logger$1.debug("[Observer] Disconnected previous URL observer");
   }
-  let lastUrl = window.location.href;
+  attachRouteListeners();
   urlObserver = new MutationObserver(() => {
     if (debounceTimeout !== null) {
       clearTimeout(debounceTimeout);
     }
     debounceTimeout = window.setTimeout(() => {
-      const currentUrl = window.location.href;
-      if (currentUrl !== lastUrl) {
-        lastUrl = currentUrl;
-        logger$1.info("[Observer] URL changed:", currentUrl);
-        contentScript = handleNavigation(contentScript);
-      }
+      handleUrlChange();
       debounceTimeout = null;
     }, 100);
   });

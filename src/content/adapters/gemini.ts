@@ -11,19 +11,25 @@ export class GeminiAdapter extends SiteAdapter {
     }
 
     getMessageSelector(): string {
-        // Gemini uses custom element 'model-response' for AI responses
+        // P2: Simplified - only use stable custom element
         return 'model-response';
     }
 
     getMessageContentSelector(): string {
         // Main content area inside response
-        return '.model-response-text';
+        return '.model-response-text, #extended-response-markdown-content, .markdown';
     }
 
     getActionBarSelector(): string {
         // Action buttons are in the footer
         // IMPORTANT: This is INSIDE the model-response element
-        return '.response-container-footer';
+        return '.response-container-footer, .response-footer';
+    }
+
+    getCopyButtonSelector(): string {
+        // P0: Gemini uses broader matching for copy buttons
+        // Support both aria-label and data-tooltip attributes
+        return 'button[aria-label*="Copy"], button[data-tooltip*="Copy"]';
     }
 
     extractMessageHTML(element: HTMLElement): string {
@@ -38,13 +44,35 @@ export class GeminiAdapter extends SiteAdapter {
     }
 
     isStreamingMessage(element: HTMLElement): boolean {
-        // Check if response footer has 'complete' class
-        const footer = element.querySelector('.response-footer');
-        if (!footer) {
-            return true; // No footer = still streaming
+        // P1: Enhanced streaming detection with 3-step check
+
+        // Step 1: Global check - Is there any streaming in progress?
+        const hasStopButton = document.querySelector('button[aria-label*="Stop"]') !== null ||
+            document.querySelector('button[aria-label*="停止"]') !== null;
+
+        if (!hasStopButton) {
+            // No Stop button = no streaming anywhere
+            return false;
         }
 
-        // If footer exists but doesn't have 'complete' class, it's streaming
+        // Step 2: Position check - Is this the last message?
+        const allMessages = document.querySelectorAll(this.getMessageSelector());
+        if (allMessages.length === 0) return false;
+
+        const lastMessage = allMessages[allMessages.length - 1];
+        if (lastMessage !== element) {
+            // Not the last message → definitely not streaming
+            return false;
+        }
+
+        // Step 3: Footer status check
+        const footer = element.querySelector('.response-footer, .response-container-footer');
+        if (!footer) {
+            // Last message and no footer → likely streaming
+            return true;
+        }
+
+        // Check if footer is marked as complete
         return !footer.classList.contains('complete');
     }
 
@@ -87,7 +115,7 @@ export class GeminiAdapter extends SiteAdapter {
      * Gemini uses KaTeX just like ChatGPT
      */
     getMathElements(element: HTMLElement): NodeListOf<Element> {
-        return element.querySelectorAll('.katex');
+        return element.querySelectorAll('.math-inline, .math-block, .katex');
     }
 
     /**

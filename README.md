@@ -10,7 +10,7 @@
 ---
 
 <p align="center">
-  <img src="imgs/Compact.png" style="max-width:600px;width:100%;" />
+  <img src="imgs/Top.png" style="max-width:600px;width:100%;" />
 </p>
 
 ---
@@ -29,7 +29,7 @@ If any of these pain points resonate with you, this extension is an absolute mus
 ## Interface
 
 <p align="center">
-  <img src="imgs/ScreenShot.png" style="max-width:800px;width:100%;" />
+  <img src="imgs/ScreenShot-1.png" style="max-width:800px;width:100%;" />
 </p>
 
 ---

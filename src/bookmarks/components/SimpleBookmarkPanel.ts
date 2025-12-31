@@ -101,7 +101,9 @@ export class SimpleBookmarkPanel {
         this.overlay.style.display = 'flex';
         this.overlay.style.alignItems = 'center';
         this.overlay.style.justifyContent = 'center';
-        this.overlay.style.background = 'var(--bg-overlay)';
+        // ✅ 根据用户反馈,恢复轻微背景模糊
+        this.overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+        this.overlay.style.backdropFilter = 'blur(3px)';
         this.overlay.dataset.theme = DesignTokens.isDarkMode() ? 'dark' : 'light';
 
         this.shadowRoot = this.overlay.attachShadow({ mode: 'open' });
@@ -6023,7 +6025,6 @@ ${options.message}
             }
 
             .folder-icon {
-
                 font-size: 16px;
                 margin-right: 8px;
             }
@@ -6035,7 +6036,7 @@ ${options.message}
                 display: flex;
                 align-items: center;  /* 图标和文字垂直居中对齐 */
                 gap: var(--space-2);  /* 8px */
-                line-height: 16px;  /* 匹配图标高度,确保完美对齐 */
+                line-height: 20px;  /* 匹配图标高度,确保完美对齐 */
                 user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;

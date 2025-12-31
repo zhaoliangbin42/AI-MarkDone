@@ -22,6 +22,9 @@ export class Toolbar {
     private callbacks: ToolbarCallbacks;
     private wordCounter: WordCounter;
     private tokenStyleElement: HTMLStyleElement | null = null;
+    private pending: boolean = false;
+    private wordCountInitialized: boolean = false;
+    private wordCountInitInFlight: boolean = false;
 
     constructor(callbacks: ToolbarCallbacks) {
         this.callbacks = callbacks;
@@ -136,36 +139,33 @@ export class Toolbar {
      * Initialize word count with retry mechanism
      */
     private async initWordCountWithRetry(): Promise<void> {
+        if (this.pending || this.wordCountInitInFlight || this.wordCountInitialized) return;
+        this.wordCountInitInFlight = true;
         const maxRetries = 10;
         let attempt = 0;
 
         // Wait 500ms before first attempt
         await new Promise(resolve => setTimeout(resolve, 500));
 
+        // RACE CONDITION FIX:
+        // If pending was set to true during the delay (e.g. by handleNewMessage identifying streaming),
+        // we MUST abort this premature initialization.
+        if (this.pending) {
+            this.wordCountInitInFlight = false;
+            return;
+        }
+
         while (attempt < maxRetries) {
             try {
                 const markdown = await this.callbacks.onCopyMarkdown();
 
-                // Check if we got actual content
-                if (markdown && markdown.trim().length > 0) {
-                    const stats = this.shadowRoot.querySelector('#word-stats');
-                    if (stats) {
-                        const result = this.wordCounter.count(markdown);
-                        const formatted = this.wordCounter.format(result);
-
-                        // Only update if not "No content"
-                        if (formatted !== 'No content') {
-                            // Split into two lines: "123" and "words"
-                            const parts = formatted.split(' / ');
-                            if (parts.length >= 2) {
-                                stats.innerHTML = `<div>${parts[0]}</div><div>${parts.slice(1).join(' ')}</div>`;
-                            } else {
-                                stats.textContent = formatted;
-                            }
-                            logger.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
-                            return; // Success!
-                        }
-                    }
+                // Check if we got actual content and update display
+                if (markdown && markdown.trim().length > 0 && this.updateStatsDisplay(markdown)) {
+                    this.wordCountInitialized = true;
+                    this.wordCountInitInFlight = false;
+                    this.setPending(false);
+                    logger.debug(`[WordCount] Initialized on attempt ${attempt + 1}`);
+                    return;
                 }
             } catch (error) {
                 logger.debug('[WordCount] Retry failed:', error);
@@ -183,6 +183,47 @@ export class Toolbar {
         logger.warn('[WordCount] Failed after all retries');
         const stats = this.shadowRoot.querySelector('#word-stats');
         if (stats) stats.textContent = 'Click copy';
+        this.wordCountInitInFlight = false;
+    }
+
+    /**
+     * Update stats display with formatted word count
+     * Returns true if successful
+     */
+    private updateStatsDisplay(markdown: string): boolean {
+        if (!markdown || markdown.trim().length === 0) return false;
+
+        const stats = this.shadowRoot.querySelector('#word-stats');
+        if (!stats) return false;
+
+        const result = this.wordCounter.count(markdown);
+        const formatted = this.wordCounter.format(result);
+
+        if (formatted !== 'No content') {
+            const parts = formatted.split(' / ');
+            if (parts.length >= 2) {
+                stats.innerHTML = `<div>${parts[0]}</div><div>${parts.slice(1).join(' ')}</div>`;
+            } else {
+                stats.textContent = formatted;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Refresh word count display
+     * Public method for external triggers (e.g. Deep Think content updates, copy action)
+     */
+    async refreshWordCount(): Promise<void> {
+        try {
+            const markdown = await this.callbacks.onCopyMarkdown();
+            if (this.updateStatsDisplay(markdown)) {
+                logger.debug('[WordCount] Refreshed');
+            }
+        } catch (error) {
+            logger.warn('[WordCount] Refresh failed:', error);
+        }
     }
 
     /**
@@ -253,6 +294,9 @@ export class Toolbar {
             const success = await copyToClipboard(markdown);
 
             if (success) {
+                // 🔑 Refresh word count after successful copy
+                await this.refreshWordCount();
+
                 // Change icon to checkmark
                 const originalIcon = btn.innerHTML;
                 btn.innerHTML = Icons.check;
@@ -351,6 +395,35 @@ export class Toolbar {
             bookmarkBtn.classList.remove('bookmarked');
             bookmarkBtn.title = 'Bookmark';
             bookmarkBtn.setAttribute('aria-label', 'Bookmark');
+        }
+    }
+
+    /**
+     * Set pending/disabled state for streaming/thinking messages
+     */
+    setPending(isPending: boolean): void {
+        if (this.pending === isPending) return;
+        this.pending = isPending;
+
+        const toolbar = this.shadowRoot.querySelector('.aicopy-toolbar');
+        if (toolbar) {
+            toolbar.classList.toggle('pending', isPending);
+        }
+
+        const buttons = this.shadowRoot.querySelectorAll('.aicopy-button');
+        buttons.forEach((btn) => {
+            if (btn instanceof HTMLButtonElement) {
+                btn.disabled = isPending;
+            }
+        });
+
+        const stats = this.shadowRoot.querySelector('#word-stats');
+        if (stats) {
+            stats.textContent = isPending ? 'loading ...' : stats.textContent;
+        }
+
+        if (!isPending && !this.wordCountInitialized) {
+            this.initWordCountWithRetry();
         }
     }
 

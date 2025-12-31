@@ -18,6 +18,13 @@ export const toolbarStyles = `
   --theme-color: var(--toolbar-theme-color);
 }
 
+/* Wrapper for positioning (injected into DOM) */
+.aicopy-toolbar-wrapper {
+  display: block;
+  position: relative;
+  z-index: 5; /* Ensure it sits above standard content */
+}
+
 /* Notion-style floating toolbar */
 .aicopy-toolbar {
   /* Floating card container */
@@ -25,10 +32,11 @@ export const toolbarStyles = `
   align-items: center;
   gap: var(--space-1);
   
-  /* Glassmorphism */
+  /* Glassmorphism - ✅ Optimized: 降低blur值提升性能 */
+  /* 参考: Gemini官网 - blur值从12px降到4px */
   background: var(--toolbar-bg);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(150%);
+  -webkit-backdrop-filter: blur(4px) saturate(150%);
   
   /* Rounded corners */
   border-radius: 8px;
@@ -47,11 +55,12 @@ export const toolbarStyles = `
   right: 0;
   
   /* Ensure clickability */
-  z-index: 100;
+  z-index: 5;
   pointer-events: auto;
   
-  /* Smooth transitions */
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ Best Practice: 只transition变化的属性 */
+  /* 参考: Material Design Motion */
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .aicopy-toolbar:hover {
@@ -109,7 +118,8 @@ export const toolbarStyles = `
   background: transparent;
   color: var(--toolbar-button-text);
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ Best Practice: 只transition需要动画的属性 */
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   pointer-events: auto;
   z-index: 1;

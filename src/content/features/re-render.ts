@@ -130,9 +130,11 @@ const panelStyles = `
   background: white;
 }
 
-.aicopy-panel-body .markdown-content {
-  max-width: 1000px;
+.aicopy-panel-body .markdown-body {
+  max-width: 800px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* ============================================

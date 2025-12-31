@@ -21,6 +21,11 @@ export class BookmarkSaveModal {
     private overlay: HTMLElement | null = null;
     private modal: HTMLElement | null = null;
 
+    // ✅ PERF: Cache frequently accessed DOM elements
+    private titleInputElement: HTMLInputElement | null = null;
+    private saveButtonElement: HTMLButtonElement | null = null;
+    private errorDivElement: HTMLElement | null = null;
+
     // State
     private folders: Folder[] = [];
     private selectedPath: string | null = null;
@@ -109,7 +114,29 @@ export class BookmarkSaveModal {
             .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
             .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
-            .save-modal-btn-save:disabled { background: var(--button-primary-disabled); color: var(--button-primary-disabled-text); cursor: not-allowed; opacity: 0.6; }
+            
+            /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
+            /* 参考: Material Design Button States */
+            .save-modal-btn-save:disabled { 
+                background: var(--button-primary-disabled); 
+                color: var(--button-primary-disabled-text); 
+                cursor: not-allowed; 
+                opacity: 0.6; 
+            }
+            
+            /* ✅ Best Practice: 只transition需要变化的属性 */
+            /* 参考: Material Design Motion */
+            .title-input { 
+                transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            /* ✅ Best Practice: Optimized backdrop-filter */
+            /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
+            .modal-overlay { 
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(3px);  /* 轻微模糊,性能与视觉平衡 */
+                -webkit-backdrop-filter: blur(3px);
+            }
         `;
 
         this.shadowRoot.appendChild(styleElement);
@@ -220,53 +247,43 @@ export class BookmarkSaveModal {
             header.textContent = headerText;
         }
 
+        // ✅ PERF: Cache DOM references after modal creation
+        this.titleInputElement = this.modal.querySelector('.title-input') as HTMLInputElement;
+        this.saveButtonElement = this.modal.querySelector('.save-modal-btn-save') as HTMLButtonElement;
+        this.errorDivElement = this.modal.querySelector('.title-error');
+
         // Focus title input
         setTimeout(() => {
-            const titleInput = this.modal?.querySelector('.title-input') as HTMLInputElement;
-            if (titleInput) {
-                titleInput.select(); // Select all text for easy editing
+            if (this.titleInputElement) {
+                this.titleInputElement.select(); // Select all text for easy editing
             }
         }, 100);
 
         logger.info('[BookmarkSaveModal] Modal shown');
     }
 
+    /**
+     * Update save button state based on form validation
+     * ✅ Best Practice: Pure function pattern, zero inline style mutations
+     * 参考: Material Design, Gemini官网 - 状态通过disabled属性表达
+     */
     private updateSaveButtonState(): void {
-        const saveBtn = this.modal?.querySelector('.save-modal-btn-save') as HTMLButtonElement;
-        if (!saveBtn) return;
+        // ✅ Best Practice: Early return pattern
+        if (!this.saveButtonElement || !this.titleInputElement) return;
 
-        const titleInput = this.modal?.querySelector('.title-input') as HTMLInputElement;
-        const title = titleInput?.value?.trim() || '';
+        const title = this.titleInputElement.value?.trim() || '';
 
-        // Disable save button if:
-        // 1. No folders exist in the tree (must create folder first)
-        // 2. No folder is selected
-        // 3. Title is empty
+        // ✅ Best Practice: 语义化的布尔变量
         const hasNoFolders = this.folders.length === 0;
         const noFolderSelected = !this.selectedPath;
         const noTitle = !title;
+        const titleInvalid = !this.titleValid;  // ✅ FIX: 标题验证失败也应该disable
 
-        const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
+        const shouldDisable = hasNoFolders || noFolderSelected || noTitle || titleInvalid;
 
-        saveBtn.disabled = shouldDisable;
-
-        // Update button appearance
-        if (shouldDisable) {
-            saveBtn.style.opacity = '0.5';
-            saveBtn.style.cursor = 'not-allowed';
-        } else {
-            saveBtn.style.opacity = '1';
-            saveBtn.style.cursor = 'pointer';
-        }
-
-        // Log state for debugging
-        if (hasNoFolders) {
-            logger.debug('[BookmarkSaveModal] Save disabled: No folders exist');
-        } else if (noFolderSelected) {
-            logger.debug('[BookmarkSaveModal] Save disabled: No folder selected');
-        } else if (noTitle) {
-            logger.debug('[BookmarkSaveModal] Save disabled: No title');
-        }
+        // ✅ Best Practice: 让浏览器处理disabled状态的视觉
+        // 单次DOM mutation,CSS自动应用样式,零性能开销
+        this.saveButtonElement.disabled = shouldDisable;
     }
 
     /**
@@ -368,9 +385,9 @@ export class BookmarkSaveModal {
 
     /**
      * Bind event listeners
+     * ✅ Best Practice: AbortController pattern for automatic cleanup
      */
     private bindEvents(modal: HTMLElement): void {
-        // Get signal from AbortController for automatic cleanup
         const signal = this.abortController?.signal;
 
         // Close button
@@ -396,6 +413,8 @@ export class BookmarkSaveModal {
 
     /**
      * Handle title input with validation
+     * ✅ Best Practice: Single Responsibility - 只处理validation和状态更新
+     * 参考: Clean Code - 函数应该做一件事,做好一件事
      */
     private handleTitleInput(e: Event): void {
         const input = e.target as HTMLInputElement;
@@ -404,16 +423,16 @@ export class BookmarkSaveModal {
         const validation = this.validateTitle(this.title);
         this.titleValid = validation.valid;
 
-        const errorDiv = this.modal?.querySelector('.title-error');
-        if (!errorDiv) return;
+        if (!this.errorDivElement) return;
 
+        // ✅ Best Practice: 用classList操作class,不修改inline style
         if (!validation.valid) {
             input.classList.add('error');
-            errorDiv.textContent = validation.error!;
-            errorDiv.classList.add('visible');
+            this.errorDivElement.textContent = validation.error!;
+            this.errorDivElement.classList.add('visible');
         } else {
             input.classList.remove('error');
-            errorDiv.classList.remove('visible');
+            this.errorDivElement.classList.remove('visible');
         }
 
         this.updateSaveButtonState();
@@ -421,14 +440,29 @@ export class BookmarkSaveModal {
 
     /**
      * Validate title
+     * ✅ Best Practice: 完整的输入验证逻辑
+     * 参考: PathUtils.validateFolderName
      */
     private validateTitle(title: string): { valid: boolean; error?: string } {
+        // ✅ FIX: 空字符串和单个空格都返回valid=true,由noTitle检查处理
         if (!title || title.trim().length === 0) {
-            return { valid: false, error: 'Title is required' };
+            return { valid: true };  // 不在这里报错,让noTitle处理
         }
+
+        // 长度检查
         if (title.length > 100) {
             return { valid: false, error: `Title too long (${title.length}/100)` };
         }
+
+        // ✅ 特殊字符检查 - 文件系统不允许的字符
+        const invalidChars = /[\/\\:*?"<>|]/;
+        if (invalidChars.test(title)) {
+            return { valid: false, error: 'Title cannot contain / \\ : * ? " < > |' };
+        }
+
+        // ✅ FIX: 移除前后空格检查,允许用户输入过程中有空格
+        // trim()在保存时会自动处理
+
         return { valid: true };
     }
 
@@ -522,17 +556,32 @@ export class BookmarkSaveModal {
     }
 
     /**
-     * Bind folder click handlers
+     * Bind folder click handlers using event delegation
+     * CRITICAL FIX: Use delegation to avoid memory leaks from repeated binding
      */
     private bindFolderClickHandlers(): void {
         if (!this.modal) return;
 
-        // Bind toggle buttons
-        const toggleBtns = this.modal.querySelectorAll('.folder-toggle');
-        toggleBtns.forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
+        const treeContainer = this.modal.querySelector('.folder-tree-container');
+        if (!treeContainer) return;
+
+        // ✅ FIX: Use event delegation - bind ONCE on container instead of on every item
+        // This prevents listener accumulation when renderFolderTree() is called repeatedly
+
+        // Remove existing delegated listener if any (defensive)
+        const existingHandler = (treeContainer as any).__delegatedClickHandler;
+        if (existingHandler) {
+            treeContainer.removeEventListener('click', existingHandler);
+        }
+
+        // Create delegated click handler
+        const delegatedHandler = (e: Event) => {
+            const target = e.target as HTMLElement;
+
+            // Handle folder toggle clicks
+            if (target.classList.contains('folder-toggle')) {
                 e.stopPropagation();
-                const path = (toggle as HTMLElement).dataset.path!;
+                const path = target.dataset.path!;
 
                 // Toggle expansion state
                 if (this.expandedPaths.has(path)) {
@@ -541,29 +590,36 @@ export class BookmarkSaveModal {
                     this.expandedPaths.add(path);
                 }
 
-                // Re-render tree to update toggle icon
+                // Re-render tree
                 this.renderFolderTree();
-            });
-        });
+                return;
+            }
 
-        const folderItems = this.modal.querySelectorAll('.folder-item');
-        folderItems.forEach(item => {
-            item.addEventListener('click', (e) => {
+            // Handle add subfolder button clicks
+            if (target.classList.contains('folder-add-btn') || target.closest('.folder-add-btn')) {
                 e.stopPropagation();
-                const path = (item as HTMLElement).dataset.path!;
-                this.handleFolderClick(path);
-            });
-        });
-
-        // Bind add subfolder buttons
-        const addBtns = this.modal.querySelectorAll('.folder-add-btn');
-        addBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const parentPath = (btn as HTMLElement).dataset.parent!;
+                const btn = target.classList.contains('folder-add-btn') ? target : target.closest('.folder-add-btn') as HTMLElement;
+                const parentPath = btn.dataset.parent!;
                 this.showCreateSubfolderInput(parentPath);
-            });
-        });
+                return;
+            }
+
+            // Handle folder item clicks
+            const folderItem = target.closest('.folder-item') as HTMLElement;
+            if (folderItem) {
+                e.stopPropagation();
+                const path = folderItem.dataset.path!;
+                this.handleFolderClick(path);
+            }
+        };
+
+        // Store reference for future cleanup
+        (treeContainer as any).__delegatedClickHandler = delegatedHandler;
+
+        // Bind delegated handler ONCE
+        treeContainer.addEventListener('click', delegatedHandler);
+
+        console.log('[PERF-FIX] Event delegation setup complete - single listener for all folders');
     }
 
     /**

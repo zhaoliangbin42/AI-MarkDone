@@ -2,7 +2,6 @@
 node_modules/
 
 # Build output
-dist/
 coverage/
 
 # Local
@@ -11,7 +10,7 @@ local/
 # Debug files
 Debug/
 mocks/
-test/
+tests/
 
 # Files for Agent
 memory/
@@ -41,17 +40,13 @@ yarn-error.log*
 *.crx
 *.pem
 
-# Test and debug files
-test-*.ts
-test-*.js
-test-*.html
-debug-*.js
 *.cjs
 
 # Temporary files
 .cache/
 .temp/
 tmp/
+.tmp*
 
 # Others
 ARCHITECTURE.md
