@@ -783,10 +783,11 @@ const toolbarStyles = `
   align-items: center;
   gap: var(--space-1);
   
-  /* Glassmorphism */
+  /* Glassmorphism - ✅ Optimized: 降低blur值提升性能 */
+  /* 参考: Gemini官网 - blur值从12px降到4px */
   background: var(--toolbar-bg);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(150%);
+  -webkit-backdrop-filter: blur(4px) saturate(150%);
   
   /* Rounded corners */
   border-radius: 8px;
@@ -808,8 +809,9 @@ const toolbarStyles = `
   z-index: 5;
   pointer-events: auto;
   
-  /* Smooth transitions */
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ Best Practice: 只transition变化的属性 */
+  /* 参考: Material Design Motion */
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .aicopy-toolbar:hover {
@@ -867,7 +869,8 @@ const toolbarStyles = `
   background: transparent;
   color: var(--toolbar-button-text);
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ Best Practice: 只transition需要动画的属性 */
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   pointer-events: auto;
   z-index: 1;
@@ -52480,7 +52483,29 @@ class BookmarkSaveModal {
             .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
             .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
-            .save-modal-btn-save:disabled { background: var(--button-primary-disabled); color: var(--button-primary-disabled-text); cursor: not-allowed; opacity: 0.6; }
+            
+            /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
+            /* 参考: Material Design Button States */
+            .save-modal-btn-save:disabled { 
+                background: var(--button-primary-disabled); 
+                color: var(--button-primary-disabled-text); 
+                cursor: not-allowed; 
+                opacity: 0.6; 
+            }
+            
+            /* ✅ Best Practice: 只transition需要变化的属性 */
+            /* 参考: Material Design Motion */
+            .title-input { 
+                transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            /* ✅ Best Practice: Optimized backdrop-filter */
+            /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
+            .modal-overlay { 
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(3px);  /* 轻微模糊,性能与视觉平衡 */
+                -webkit-backdrop-filter: blur(3px);
+            }
         `;
     this.shadowRoot.appendChild(styleElement);
   }
@@ -52550,34 +52575,20 @@ class BookmarkSaveModal {
     }, 100);
     logger$1.info("[BookmarkSaveModal] Modal shown");
   }
+  /**
+   * Update save button state based on form validation
+   * ✅ Best Practice: Pure function pattern, zero inline style mutations
+   * 参考: Material Design, Gemini官网 - 状态通过disabled属性表达
+   */
   updateSaveButtonState() {
-    const fnStart = performance.now();
-    console.log("[BUTTON-UPDATE-DEBUG] updateSaveButtonState START");
-    if (!this.saveButtonElement || !this.titleInputElement) {
-      console.log("[BUTTON-UPDATE-DEBUG] Cached elements missing!");
-      return;
-    }
+    if (!this.saveButtonElement || !this.titleInputElement) return;
     const title = this.titleInputElement.value?.trim() || "";
-    console.log("[BUTTON-UPDATE-DEBUG] Current title length:", title.length);
     const hasNoFolders = this.folders.length === 0;
     const noFolderSelected = !this.selectedPath;
     const noTitle = !title;
-    const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
-    console.log("[BUTTON-UPDATE-DEBUG] shouldDisable:", shouldDisable, "(folders:", this.folders.length, "selected:", this.selectedPath, "title:", !!title, ")");
-    const beforeStyleUpdate = performance.now();
+    const titleInvalid = !this.titleValid;
+    const shouldDisable = hasNoFolders || noFolderSelected || noTitle || titleInvalid;
     this.saveButtonElement.disabled = shouldDisable;
-    if (shouldDisable) {
-      this.saveButtonElement.style.opacity = "0.5";
-      this.saveButtonElement.style.cursor = "not-allowed";
-    } else {
-      this.saveButtonElement.style.opacity = "1";
-      this.saveButtonElement.style.cursor = "pointer";
-    }
-    const afterStyleUpdate = performance.now();
-    console.log("[BUTTON-UPDATE-DEBUG] Style update time:", (afterStyleUpdate - beforeStyleUpdate).toFixed(2), "ms");
-    const fnEnd = performance.now();
-    console.log("[BUTTON-UPDATE-DEBUG] TOTAL time:", (fnEnd - fnStart).toFixed(2), "ms");
-    console.log("[BUTTON-UPDATE-DEBUG] updateSaveButtonState END");
   }
   /**
   * Hide and cleanup modal
@@ -52661,10 +52672,9 @@ class BookmarkSaveModal {
   }
   /**
    * Bind event listeners
+   * ✅ Best Practice: AbortController pattern for automatic cleanup
    */
   bindEvents(modal) {
-    console.log("[BIND-DEBUG] bindEvents START");
-    const bindStart = performance.now();
     const signal = this.abortController?.signal;
     const closeBtn = modal.querySelector(".save-modal-close-btn");
     closeBtn?.addEventListener("click", () => this.hide(), { signal });
@@ -52673,50 +52683,21 @@ class BookmarkSaveModal {
     const saveBtn = modal.querySelector(".save-modal-btn-save");
     saveBtn?.addEventListener("click", () => this.handleSave(), { signal });
     const titleInput = modal.querySelector(".title-input");
-    const wrappedInputHandler = (e) => {
-      const eventReceived = performance.now();
-      console.log("[INPUT-EVENT] ========== EVENT RECEIVED ==========");
-      console.log("[INPUT-EVENT] Event timestamp:", e.timeStamp);
-      console.log("[INPUT-EVENT] Performance.now():", eventReceived);
-      console.log("[INPUT-EVENT] Input value:", e.target.value);
-      this.handleTitleInput(e);
-      const eventProcessed = performance.now();
-      console.log("[INPUT-EVENT] Processing time:", (eventProcessed - eventReceived).toFixed(2), "ms");
-      console.log("[INPUT-EVENT] ========== EVENT PROCESSED ==========");
-    };
-    titleInput?.addEventListener("input", wrappedInputHandler, { signal });
-    console.log("[BIND-DEBUG] Title input listener bound");
+    titleInput?.addEventListener("input", (e) => this.handleTitleInput(e), { signal });
     const newFolderBtn = modal.querySelector(".new-folder-btn");
     newFolderBtn?.addEventListener("click", () => this.showCreateRootFolderInput(), { signal });
-    const bindEnd = performance.now();
-    console.log("[BIND-DEBUG] bindEvents END, total time:", (bindEnd - bindStart).toFixed(2), "ms");
   }
   /**
    * Handle title input with validation
-   * ✅ PERF: Optimized with cached DOM references
+   * ✅ Best Practice: Single Responsibility - 只处理validation和状态更新
+   * 参考: Clean Code - 函数应该做一件事,做好一件事
    */
   handleTitleInput(e) {
-    const fnStart = performance.now();
-    console.log("[HANDLER-DEBUG] ========== handleTitleInput START ==========");
-    console.log("[HANDLER-DEBUG] Event type:", e.type);
-    console.log("[HANDLER-DEBUG] Event isTrusted:", e.isTrusted);
     const input = e.target;
-    const beforeValue = this.title;
-    const afterValue = input.value;
-    console.log("[HANDLER-DEBUG] Value change:", beforeValue, "->", afterValue);
-    console.log("[HANDLER-DEBUG] Value length:", afterValue.length);
     this.title = input.value;
-    const afterAssign = performance.now();
-    console.log("[HANDLER-DEBUG] Assignment time:", (afterAssign - fnStart).toFixed(2), "ms");
     const validation = this.validateTitle(this.title);
-    const afterValidation = performance.now();
-    console.log("[HANDLER-DEBUG] Validation time:", (afterValidation - afterAssign).toFixed(2), "ms");
     this.titleValid = validation.valid;
-    if (!this.errorDivElement) {
-      console.log("[HANDLER-DEBUG] ERROR: errorDiv not cached!");
-      return;
-    }
-    const beforeDOMUpdate = performance.now();
+    if (!this.errorDivElement) return;
     if (!validation.valid) {
       input.classList.add("error");
       this.errorDivElement.textContent = validation.error;
@@ -52725,25 +52706,23 @@ class BookmarkSaveModal {
       input.classList.remove("error");
       this.errorDivElement.classList.remove("visible");
     }
-    const afterDOMUpdate = performance.now();
-    console.log("[HANDLER-DEBUG] DOM update time:", (afterDOMUpdate - beforeDOMUpdate).toFixed(2), "ms");
-    const beforeButtonUpdate = performance.now();
     this.updateSaveButtonState();
-    const afterButtonUpdate = performance.now();
-    console.log("[HANDLER-DEBUG] Button update time:", (afterButtonUpdate - beforeButtonUpdate).toFixed(2), "ms");
-    const fnEnd = performance.now();
-    console.log("[HANDLER-DEBUG] TOTAL handleTitleInput time:", (fnEnd - fnStart).toFixed(2), "ms");
-    console.log("[HANDLER-DEBUG] ========== handleTitleInput END ==========");
   }
   /**
    * Validate title
+   * ✅ Best Practice: 完整的输入验证逻辑
+   * 参考: PathUtils.validateFolderName
    */
   validateTitle(title) {
     if (!title || title.trim().length === 0) {
-      return { valid: false, error: "Title is required" };
+      return { valid: true };
     }
     if (title.length > 100) {
       return { valid: false, error: `Title too long (${title.length}/100)` };
+    }
+    const invalidChars = /[\/\\:*?"<>|]/;
+    if (invalidChars.test(title)) {
+      return { valid: false, error: 'Title cannot contain / \\ : * ? " < > |' };
     }
     return { valid: true };
   }
@@ -53957,7 +53936,8 @@ class SimpleBookmarkPanel {
     this.overlay.style.display = "flex";
     this.overlay.style.alignItems = "center";
     this.overlay.style.justifyContent = "center";
-    this.overlay.style.background = "var(--bg-overlay)";
+    this.overlay.style.background = "rgba(0, 0, 0, 0.6)";
+    this.overlay.style.backdropFilter = "blur(3px)";
     this.overlay.dataset.theme = DesignTokens.isDarkMode() ? "dark" : "light";
     this.shadowRoot = this.overlay.attachShadow({ mode: "open" });
     const styles = document.createElement("style");

@@ -101,7 +101,9 @@ export class SimpleBookmarkPanel {
         this.overlay.style.display = 'flex';
         this.overlay.style.alignItems = 'center';
         this.overlay.style.justifyContent = 'center';
-        this.overlay.style.background = 'var(--bg-overlay)';
+        // ✅ 根据用户反馈,恢复轻微背景模糊
+        this.overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+        this.overlay.style.backdropFilter = 'blur(3px)';
         this.overlay.dataset.theme = DesignTokens.isDarkMode() ? 'dark' : 'light';
 
         this.shadowRoot = this.overlay.attachShadow({ mode: 'open' });

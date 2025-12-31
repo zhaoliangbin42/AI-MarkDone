@@ -114,7 +114,29 @@ export class BookmarkSaveModal {
             .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
             .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
             .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
-            .save-modal-btn-save:disabled { background: var(--button-primary-disabled); color: var(--button-primary-disabled-text); cursor: not-allowed; opacity: 0.6; }
+            
+            /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
+            /* 参考: Material Design Button States */
+            .save-modal-btn-save:disabled { 
+                background: var(--button-primary-disabled); 
+                color: var(--button-primary-disabled-text); 
+                cursor: not-allowed; 
+                opacity: 0.6; 
+            }
+            
+            /* ✅ Best Practice: 只transition需要变化的属性 */
+            /* 参考: Material Design Motion */
+            .title-input { 
+                transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            /* ✅ Best Practice: Optimized backdrop-filter */
+            /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
+            .modal-overlay { 
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(3px);  /* 轻微模糊,性能与视觉平衡 */
+                -webkit-backdrop-filter: blur(3px);
+            }
         `;
 
         this.shadowRoot.appendChild(styleElement);
@@ -240,47 +262,28 @@ export class BookmarkSaveModal {
         logger.info('[BookmarkSaveModal] Modal shown');
     }
 
+    /**
+     * Update save button state based on form validation
+     * ✅ Best Practice: Pure function pattern, zero inline style mutations
+     * 参考: Material Design, Gemini官网 - 状态通过disabled属性表达
+     */
     private updateSaveButtonState(): void {
-        const fnStart = performance.now();
-        console.log('[BUTTON-UPDATE-DEBUG] updateSaveButtonState START');
-
-        // ✅ PERF: Use cached references instead of querySelector
-        if (!this.saveButtonElement || !this.titleInputElement) {
-            console.log('[BUTTON-UPDATE-DEBUG] Cached elements missing!');
-            return;
-        }
+        // ✅ Best Practice: Early return pattern
+        if (!this.saveButtonElement || !this.titleInputElement) return;
 
         const title = this.titleInputElement.value?.trim() || '';
-        console.log('[BUTTON-UPDATE-DEBUG] Current title length:', title.length);
 
-        // Disable save button if:
-        // 1. No folders exist in the tree (must create folder first)
-        // 2. No folder is selected
-        // 3. Title is empty
+        // ✅ Best Practice: 语义化的布尔变量
         const hasNoFolders = this.folders.length === 0;
         const noFolderSelected = !this.selectedPath;
         const noTitle = !title;
+        const titleInvalid = !this.titleValid;  // ✅ FIX: 标题验证失败也应该disable
 
-        const shouldDisable = hasNoFolders || noFolderSelected || noTitle;
-        console.log('[BUTTON-UPDATE-DEBUG] shouldDisable:', shouldDisable, '(folders:', this.folders.length, 'selected:', this.selectedPath, 'title:', !!title, ')');
+        const shouldDisable = hasNoFolders || noFolderSelected || noTitle || titleInvalid;
 
-        const beforeStyleUpdate = performance.now();
+        // ✅ Best Practice: 让浏览器处理disabled状态的视觉
+        // 单次DOM mutation,CSS自动应用样式,零性能开销
         this.saveButtonElement.disabled = shouldDisable;
-
-        // Update button appearance
-        if (shouldDisable) {
-            this.saveButtonElement.style.opacity = '0.5';
-            this.saveButtonElement.style.cursor = 'not-allowed';
-        } else {
-            this.saveButtonElement.style.opacity = '1';
-            this.saveButtonElement.style.cursor = 'pointer';
-        }
-        const afterStyleUpdate = performance.now();
-        console.log('[BUTTON-UPDATE-DEBUG] Style update time:', (afterStyleUpdate - beforeStyleUpdate).toFixed(2), 'ms');
-
-        const fnEnd = performance.now();
-        console.log('[BUTTON-UPDATE-DEBUG] TOTAL time:', (fnEnd - fnStart).toFixed(2), 'ms');
-        console.log('[BUTTON-UPDATE-DEBUG] updateSaveButtonState END');
     }
 
     /**
@@ -382,12 +385,9 @@ export class BookmarkSaveModal {
 
     /**
      * Bind event listeners
+     * ✅ Best Practice: AbortController pattern for automatic cleanup
      */
     private bindEvents(modal: HTMLElement): void {
-        console.log('[BIND-DEBUG] bindEvents START');
-        const bindStart = performance.now();
-
-        // Get signal from AbortController for automatic cleanup
         const signal = this.abortController?.signal;
 
         // Close button
@@ -402,68 +402,30 @@ export class BookmarkSaveModal {
         const saveBtn = modal.querySelector('.save-modal-btn-save');
         saveBtn?.addEventListener('click', () => this.handleSave(), { signal });
 
-        // Title input - CRITICAL for performance
+        // Title input
         const titleInput = modal.querySelector('.title-input') as HTMLInputElement;
-
-        // Wrap the input handler to measure event dispatch time
-        const wrappedInputHandler = (e: Event) => {
-            const eventReceived = performance.now();
-            console.log('[INPUT-EVENT] ========== EVENT RECEIVED ==========');
-            console.log('[INPUT-EVENT] Event timestamp:', e.timeStamp);
-            console.log('[INPUT-EVENT] Performance.now():', eventReceived);
-            console.log('[INPUT-EVENT] Input value:', (e.target as HTMLInputElement).value);
-
-            this.handleTitleInput(e);
-
-            const eventProcessed = performance.now();
-            console.log('[INPUT-EVENT] Processing time:', (eventProcessed - eventReceived).toFixed(2), 'ms');
-            console.log('[INPUT-EVENT] ========== EVENT PROCESSED ==========');
-        };
-
-        titleInput?.addEventListener('input', wrappedInputHandler, { signal });
-        console.log('[BIND-DEBUG] Title input listener bound');
+        titleInput?.addEventListener('input', (e) => this.handleTitleInput(e), { signal });
 
         // New Folder button
         const newFolderBtn = modal.querySelector('.new-folder-btn');
         newFolderBtn?.addEventListener('click', () => this.showCreateRootFolderInput(), { signal });
-
-        const bindEnd = performance.now();
-        console.log('[BIND-DEBUG] bindEvents END, total time:', (bindEnd - bindStart).toFixed(2), 'ms');
     }
 
     /**
      * Handle title input with validation
-     * ✅ PERF: Optimized with cached DOM references
+     * ✅ Best Practice: Single Responsibility - 只处理validation和状态更新
+     * 参考: Clean Code - 函数应该做一件事,做好一件事
      */
     private handleTitleInput(e: Event): void {
-        const fnStart = performance.now();
-        console.log('[HANDLER-DEBUG] ========== handleTitleInput START ==========');
-        console.log('[HANDLER-DEBUG] Event type:', e.type);
-        console.log('[HANDLER-DEBUG] Event isTrusted:', e.isTrusted);
-
         const input = e.target as HTMLInputElement;
-        const beforeValue = this.title;
-        const afterValue = input.value;
-
-        console.log('[HANDLER-DEBUG] Value change:', beforeValue, '->', afterValue);
-        console.log('[HANDLER-DEBUG] Value length:', afterValue.length);
-
         this.title = input.value;
-        const afterAssign = performance.now();
-        console.log('[HANDLER-DEBUG] Assignment time:', (afterAssign - fnStart).toFixed(2), 'ms');
 
         const validation = this.validateTitle(this.title);
-        const afterValidation = performance.now();
-        console.log('[HANDLER-DEBUG] Validation time:', (afterValidation - afterAssign).toFixed(2), 'ms');
         this.titleValid = validation.valid;
 
-        // ✅ PERF: Use cached errorDiv reference
-        if (!this.errorDivElement) {
-            console.log('[HANDLER-DEBUG] ERROR: errorDiv not cached!');
-            return;
-        }
+        if (!this.errorDivElement) return;
 
-        const beforeDOMUpdate = performance.now();
+        // ✅ Best Practice: 用classList操作class,不修改inline style
         if (!validation.valid) {
             input.classList.add('error');
             this.errorDivElement.textContent = validation.error!;
@@ -472,30 +434,35 @@ export class BookmarkSaveModal {
             input.classList.remove('error');
             this.errorDivElement.classList.remove('visible');
         }
-        const afterDOMUpdate = performance.now();
-        console.log('[HANDLER-DEBUG] DOM update time:', (afterDOMUpdate - beforeDOMUpdate).toFixed(2), 'ms');
 
-        // ✅ PERF: Direct call with cached references (no querySelector)
-        const beforeButtonUpdate = performance.now();
         this.updateSaveButtonState();
-        const afterButtonUpdate = performance.now();
-        console.log('[HANDLER-DEBUG] Button update time:', (afterButtonUpdate - beforeButtonUpdate).toFixed(2), 'ms');
-
-        const fnEnd = performance.now();
-        console.log('[HANDLER-DEBUG] TOTAL handleTitleInput time:', (fnEnd - fnStart).toFixed(2), 'ms');
-        console.log('[HANDLER-DEBUG] ========== handleTitleInput END ==========');
     }
 
     /**
      * Validate title
+     * ✅ Best Practice: 完整的输入验证逻辑
+     * 参考: PathUtils.validateFolderName
      */
     private validateTitle(title: string): { valid: boolean; error?: string } {
+        // ✅ FIX: 空字符串和单个空格都返回valid=true,由noTitle检查处理
         if (!title || title.trim().length === 0) {
-            return { valid: false, error: 'Title is required' };
+            return { valid: true };  // 不在这里报错,让noTitle处理
         }
+
+        // 长度检查
         if (title.length > 100) {
             return { valid: false, error: `Title too long (${title.length}/100)` };
         }
+
+        // ✅ 特殊字符检查 - 文件系统不允许的字符
+        const invalidChars = /[\/\\:*?"<>|]/;
+        if (invalidChars.test(title)) {
+            return { valid: false, error: 'Title cannot contain / \\ : * ? " < > |' };
+        }
+
+        // ✅ FIX: 移除前后空格检查,允许用户输入过程中有空格
+        // trim()在保存时会自动处理
+
         return { valid: true };
     }
 
