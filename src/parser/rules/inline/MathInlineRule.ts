@@ -1,6 +1,10 @@
 /**
  * Math Inline Rule - Convert inline math to $...$
  * 
+ * Matches:
+ * - ChatGPT: .katex (but not .katex-display)
+ * - Gemini: .math-inline[data-math]
+ * 
  * @see DEVELOPER-REFERENCE-MANUAL.md - Syntax Conversion Quick Reference
  * @see Syntax-Mapping-Spec.md - Math Elements (Inline Math)
  */
@@ -8,7 +12,7 @@
 import type { Rule } from '../../core/Rule';
 
 /**
- * Creates rule for inline math formulas (.katex but not .katex-display)
+ * Creates rule for inline math formulas
  * 
  * Priority: 2
  */
@@ -22,11 +26,15 @@ export function createMathInlineRule(): Rule {
             }
             const elem = node as Element;
 
-            // Must have .katex class but NOT .katex-display
-            return (
+            // ChatGPT: .katex (but NOT .katex-display)
+            const isChatGPTInline =
                 elem.classList.contains('katex') &&
-                !elem.classList.contains('katex-display')
-            );
+                !elem.classList.contains('katex-display');
+
+            // Gemini: .math-inline (with data-math attribute for rendered math)
+            const isGeminiInline = elem.classList.contains('math-inline');
+
+            return isChatGPTInline || isGeminiInline;
         },
 
         priority: 2, // High priority, just after block math

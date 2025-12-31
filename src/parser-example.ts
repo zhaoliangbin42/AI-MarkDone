@@ -6,9 +6,12 @@
 
 import { Parser } from './parser/core/Parser';
 import { ChatGPTAdapter } from './parser/adapters/ChatGPTAdapter';
+import { GeminiAdapter } from './parser/adapters/GeminiAdapter';
+import type { IPlatformAdapter } from './parser/adapters/IPlatformAdapter';
 import { createMathBlockRule } from './parser/rules/block/MathBlockRule';
 import { createMathInlineRule } from './parser/rules/inline/MathInlineRule';
 import { createCodeBlockRule } from './parser/rules/block/CodeBlockRule';
+import { createTableRule } from './parser/rules/block/TableRule';
 import { createHeadingRule } from './parser/rules/block/HeadingRule';
 import { createListRule } from './parser/rules/block/ListRule';
 import { createBlockquoteRule } from './parser/rules/block/BlockquoteRule';
@@ -22,11 +25,36 @@ import { createImageRule } from './parser/rules/inline/ImageRule';
 import { createLineBreakRule } from './parser/rules/inline/LineBreakRule';
 
 /**
- * Initialize parser with ChatGPT adapter and register rules
+ * Detect platform and return appropriate adapter
+ */
+function detectPlatformAdapter(): IPlatformAdapter {
+    // Check if running in browser environment
+    if (typeof window === 'undefined' || !window.location) {
+        console.log('[Parser] No window.location - defaulting to ChatGPT adapter');
+        return new ChatGPTAdapter();
+    }
+
+    const hostname = window.location.hostname.toLowerCase();
+
+    // Gemini detection
+    if (hostname.includes('gemini.google.com')) {
+        console.log('[Parser] Platform detected: Gemini');
+        return new GeminiAdapter();
+    }
+
+    // ChatGPT detection (default)
+    console.log('[Parser] Platform detected: ChatGPT');
+    return new ChatGPTAdapter();
+}
+
+/**
+ * Initialize parser with auto-detected platform adapter and register rules
  */
 export function createMarkdownParser(options = {}) {
-    // Create parser with ChatGPT adapter
-    const parser = new Parser(new ChatGPTAdapter(), {
+    // Auto-detect platform and create appropriate adapter
+    const adapter = detectPlatformAdapter();
+
+    const parser = new Parser(adapter, {
         maxProcessingTimeMs: 5000,
         maxNodeCount: 50000,
         enablePerformanceLogging: false,
@@ -36,10 +64,11 @@ export function createMarkdownParser(options = {}) {
     // Register rules (in priority order)
     const engine = parser.getRuleEngine();
 
-    // Priority 1-3: Math & Code blocks (highest)
+    // Priority 1-4: Math, Code & Tables (highest)
     engine.addRule(createMathBlockRule());
     engine.addRule(createMathInlineRule());
     engine.addRule(createCodeBlockRule());
+    engine.addRule(createTableRule());
 
     // Priority 5-6: Block structure
     engine.addRule(createHeadingRule());

@@ -67,4 +67,11 @@ export interface IPlatformAdapter {
      * @returns Cleaned text
      */
     cleanText?(text: string): string;
+
+    /**
+     * Runtime self-test: Can this adapter handle the current DOM?
+     * @param root - Root element to check
+     * @returns Confidence score 0-1 (optional)
+     */
+    canHandle?(root: HTMLElement): number;
 }
