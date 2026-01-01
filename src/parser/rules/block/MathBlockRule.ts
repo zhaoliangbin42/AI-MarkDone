@@ -26,6 +26,14 @@ export function createMathBlockRule(): Rule {
             }
             const elem = node as Element;
 
+            // ✅ UNIVERSAL FIX: Skip inner rendering nodes wrapped by math container
+            // 使用closest()支持多层嵌套,平台无关
+            const mathContainer = elem.closest('[data-math]');
+            if (mathContainer && mathContainer !== elem) {
+                // elem被包裹在有data-math的容器中,跳过
+                return false;
+            }
+
             // ChatGPT: .katex-display
             const isChatGPTBlock = elem.classList.contains('katex-display');
 
@@ -40,11 +48,17 @@ export function createMathBlockRule(): Rule {
         replacement: (content, node, context) => {
             const mathNode = node as HTMLElement;
 
-            // Extract LaTeX using 5-strategy adapter
+            // Extract LaTeX using adapter
             const result = context.adapter.extractLatex(mathNode);
 
-            if (!result || !result.latex) {
-                // Fallback: return content
+            // ✅ Handle null return (e.g., inner .katex nodes filtered by adapter)
+            if (!result) {
+                // Return empty string to skip this node (already processed by outer container)
+                return '';
+            }
+
+            if (!result.latex) {
+                // Fallback: return content if LaTeX extraction failed
                 console.warn('[MathBlockRule] Failed to extract LaTeX, returning content');
                 return content;
             }

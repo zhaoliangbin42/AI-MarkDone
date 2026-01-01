@@ -3348,13 +3348,7 @@ class GeminiAdapter {
     const mathBlock = Array.from(
       root.querySelectorAll(".math-block[data-math]")
     );
-    const katexNodes = Array.from(
-      root.querySelectorAll(".katex:not(.math-inline .katex):not(.math-block .katex)")
-    );
-    const katexDisplayNodes = Array.from(
-      root.querySelectorAll(".katex-display:not(.math-block .katex-display)")
-    );
-    return [...mathInline, ...mathBlock, ...katexNodes, ...katexDisplayNodes];
+    return [...mathInline, ...mathBlock];
   }
   /**
    * Select all code blocks
@@ -3399,6 +3393,10 @@ class GeminiAdapter {
    */
   extractLatex(mathNode) {
     try {
+      const mathContainer = mathNode.closest("[data-math]");
+      if (mathContainer && mathContainer !== mathNode) {
+        return null;
+      }
       const result = this.extractFromDataMath(mathNode);
       if (result) return result;
       const katexResult = this.extractFromKatexHtml(mathNode);
@@ -3447,7 +3445,11 @@ class GeminiAdapter {
     if (katexHtml) {
       const textContent = katexHtml.textContent?.trim();
       if (textContent && this.validateLatex(textContent)) {
-        console.warn("[GeminiAdapter] Extracted from .katex-html (data-math missing)");
+        console.warn(
+          "[GeminiAdapter] Fallback triggered (bug fixed - this should not appear)",
+          "className:",
+          mathNode.className
+        );
         return {
           latex: textContent,
           isBlock: this.isBlockMath(mathNode)
@@ -3683,6 +3685,10 @@ function createMathBlockRule() {
         return false;
       }
       const elem = node;
+      const mathContainer = elem.closest("[data-math]");
+      if (mathContainer && mathContainer !== elem) {
+        return false;
+      }
       const isChatGPTBlock = elem.classList.contains("katex-display");
       const isGeminiBlock = elem.classList.contains("math-block");
       return isChatGPTBlock || isGeminiBlock;
@@ -3692,7 +3698,10 @@ function createMathBlockRule() {
     replacement: (content, node, context) => {
       const mathNode = node;
       const result = context.adapter.extractLatex(mathNode);
-      if (!result || !result.latex) {
+      if (!result) {
+        return "";
+      }
+      if (!result.latex) {
         console.warn("[MathBlockRule] Failed to extract LaTeX, returning content");
         return content;
       }
@@ -3713,6 +3722,10 @@ function createMathInlineRule() {
         return false;
       }
       const elem = node;
+      const mathContainer = elem.closest("[data-math]");
+      if (mathContainer && mathContainer !== elem) {
+        return false;
+      }
       const isChatGPTInline = elem.classList.contains("katex") && !elem.classList.contains("katex-display");
       const isGeminiInline = elem.classList.contains("math-inline");
       return isChatGPTInline || isGeminiInline;
@@ -3722,7 +3735,10 @@ function createMathInlineRule() {
     replacement: (content, node, context) => {
       const mathNode = node;
       const result = context.adapter.extractLatex(mathNode);
-      if (!result || !result.latex) {
+      if (!result) {
+        return "";
+      }
+      if (!result.latex) {
         console.warn("[MathInlineRule] Failed to extract LaTeX, returning content");
         return content;
       }

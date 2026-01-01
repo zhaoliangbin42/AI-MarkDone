@@ -37,6 +37,7 @@ export class GeminiAdapter implements IPlatformAdapter {
      */
     selectMathNodes(root: HTMLElement): HTMLElement[] {
         // Primary selectors: Gemini-specific classes with data-math
+        // 这些是正确的外层容器,包含data-math属性
         const mathInline = Array.from(
             root.querySelectorAll<HTMLElement>('.math-inline[data-math]')
         );
@@ -44,16 +45,11 @@ export class GeminiAdapter implements IPlatformAdapter {
             root.querySelectorAll<HTMLElement>('.math-block[data-math]')
         );
 
-        // Secondary selectors: Fallback for generic katex containers
-        // (rare, but handles edge cases from other platforms embedded in Gemini)
-        const katexNodes = Array.from(
-            root.querySelectorAll<HTMLElement>('.katex:not(.math-inline .katex):not(.math-block .katex)')
-        );
-        const katexDisplayNodes = Array.from(
-            root.querySelectorAll<HTMLElement>('.katex-display:not(.math-block .katex-display)')
-        );
+        // ✅ 修复: 移除会选中内层.katex的selector
+        // 之前的'.katex:not(.math-inline .katex)'仍会匹配内层.katex
+        // 导致选中没有data-math的内层元素,触发不必要的fallback
 
-        return [...mathInline, ...mathBlock, ...katexNodes, ...katexDisplayNodes];
+        return [...mathInline, ...mathBlock];
     }
 
     /**
@@ -107,6 +103,15 @@ export class GeminiAdapter implements IPlatformAdapter {
      */
     extractLatex(mathNode: HTMLElement): LatexResult | null {
         try {
+            // ✅ UNIVERSAL FIX: Skip inner rendering nodes wrapped by math container
+            // 使用closest()支持多层嵌套,平台无关
+            const mathContainer = mathNode.closest('[data-math]');
+            if (mathContainer && mathContainer !== mathNode) {
+                // mathNode被包裹在有data-math的容器中,跳过
+                return null;
+            }
+
+
             // Strategy 1: data-math attribute (PRIMARY)
             const result = this.extractFromDataMath(mathNode);
             if (result) return result;
@@ -168,7 +173,12 @@ export class GeminiAdapter implements IPlatformAdapter {
             const textContent = katexHtml.textContent?.trim();
 
             if (textContent && this.validateLatex(textContent)) {
-                console.warn('[GeminiAdapter] Extracted from .katex-html (data-math missing)');
+                // ⚠️ Fallback: data-math缺失(不应该发生)
+                console.warn(
+                    '[GeminiAdapter] Fallback triggered (bug fixed - this should not appear)',
+                    'className:', mathNode.className
+                );
+
                 return {
                     latex: textContent,
                     isBlock: this.isBlockMath(mathNode),
