@@ -140,4 +140,37 @@ export class GeminiAdapter extends SiteAdapter {
     isGemini(): boolean {
         return true;
     }
+
+    /**
+     * Get user prompts for all messages
+     * Extracts from [data-test-id="user-query"] or fallback selectors
+     */
+    getUserPrompts(): string[] {
+        const prompts: string[] = [];
+
+        try {
+            // Try primary selector first
+            let userQueries = document.querySelectorAll('[data-test-id="user-query"]');
+
+            // Fallback to alternative selectors if primary fails
+            if (userQueries.length === 0) {
+                logger.debug('[GeminiAdapter] Primary selector failed, trying fallbacks');
+                userQueries = document.querySelectorAll('user-query, .user-query');
+            }
+
+            userQueries.forEach((queryEl, index) => {
+                try {
+                    const text = queryEl.textContent?.trim() || `Message ${index + 1}`;
+                    prompts.push(text);
+                } catch (err) {
+                    logger.warn(`[GeminiAdapter] Failed to extract prompt ${index}:`, err);
+                    prompts.push(`Message ${index + 1}`);
+                }
+            });
+        } catch (err) {
+            logger.error('[GeminiAdapter] getUserPrompts failed:', err);
+        }
+
+        return prompts;
+    }
 }

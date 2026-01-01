@@ -6,7 +6,9 @@ export interface MessageRef {
     index: number;
     element: HTMLElement;
     parsed?: string; // Cached parsed content
+    userPrompt?: string; // User's original query for tooltip display
 }
+
 
 export class MessageCollector {
     /**

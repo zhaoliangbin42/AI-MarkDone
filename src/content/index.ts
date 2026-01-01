@@ -5,7 +5,7 @@ import { Toolbar, ToolbarCallbacks } from './components/toolbar';
 import { Modal } from './components/modal';
 import { MarkdownParser } from './parsers/markdown-parser';
 import { MathClickHandler } from './features/math-click';
-import { ReRenderPanel } from './features/re-render';
+import { ReaderPanel } from './features/re-render';
 import { DeepResearchHandler } from './features/deep-research-handler';
 import { logger, LogLevel } from '../utils/logger';
 import { SimpleBookmarkStorage } from '../bookmarks/storage/SimpleBookmarkStorage';
@@ -22,7 +22,7 @@ class ContentScript {
     private injector: ToolbarInjector | null = null;
     private markdownParser: MarkdownParser;
     private mathClickHandler: MathClickHandler;
-    private reRenderPanel: ReRenderPanel;
+    private reRenderPanel: ReaderPanel;
     private deepResearchHandler?: DeepResearchHandler;
 
     // Simple Set-based bookmark state tracking - AITimeline pattern
@@ -51,7 +51,7 @@ class ContentScript {
         // Initialize components
         this.markdownParser = new MarkdownParser();
         this.mathClickHandler = new MathClickHandler();
-        this.reRenderPanel = new ReRenderPanel();
+        this.reRenderPanel = new ReaderPanel();
 
         // Initialize dark mode detector to follow host website theme
         const darkModeDetector = DarkModeDetector.getInstance();

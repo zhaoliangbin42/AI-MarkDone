@@ -1,5 +1,5 @@
 import { MarkdownParser } from '../parsers/markdown-parser';
-import { ReRenderPanel } from './re-render';
+import { ReaderPanel } from './re-render';
 import { TooltipHelper } from '../utils/tooltip-helper';
 import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
@@ -12,11 +12,11 @@ export class DeepResearchHandler {
     private observer: MutationObserver | null = null;
     private activePanel: HTMLElement | null = null;
     private parser: MarkdownParser;
-    private reRenderPanel: ReRenderPanel;
+    private reRenderPanel: ReaderPanel;
 
     constructor() {
         this.parser = new MarkdownParser();
-        this.reRenderPanel = new ReRenderPanel();
+        this.reRenderPanel = new ReaderPanel();
     }
 
     /**

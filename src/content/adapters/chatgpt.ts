@@ -159,4 +159,34 @@ export class ChatGPTAdapter extends SiteAdapter {
     getTables(element: HTMLElement): NodeListOf<HTMLTableElement> {
         return element.querySelectorAll('table');
     }
+
+    /**
+     * Get user prompts for all messages
+     * Extracts from [data-message-author-role="user"] elements
+     */
+    getUserPrompts(): string[] {
+        const prompts: string[] = [];
+
+        try {
+            const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
+
+            userMessages.forEach((userEl, index) => {
+                try {
+                    // Try to find content in .whitespace-pre-wrap (most reliable)
+                    const contentEl = userEl.querySelector('.whitespace-pre-wrap');
+                    const text = contentEl?.textContent?.trim()
+                        || userEl.textContent?.trim()
+                        || `Message ${index + 1}`;
+                    prompts.push(text);
+                } catch (err) {
+                    logger.warn(`[ChatGPTAdapter] Failed to extract prompt ${index}:`, err);
+                    prompts.push(`Message ${index + 1}`);
+                }
+            });
+        } catch (err) {
+            logger.error('[ChatGPTAdapter] getUserPrompts failed:', err);
+        }
+
+        return prompts;
+    }
 }

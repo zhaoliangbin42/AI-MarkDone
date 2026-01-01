@@ -354,6 +354,29 @@ export class DesignTokens {
             --button-close-active: var(--color-gray-200);
             --button-close-text: var(--color-gray-500);
             --button-close-text-hover: var(--color-gray-900);
+
+            /* Pagination Tokens (Reading Mode) */
+            --pagination-bg: var(--bg-surface);
+            --pagination-border: var(--border-default);
+            --pagination-dot-border: var(--color-gray-400);
+            --pagination-dot-active: var(--color-blue-600);
+            --pagination-dot-hover: var(--color-blue-500);
+            --pagination-dot-shadow: rgba(59, 130, 246, 0.2);
+
+            /* Tooltip Tokens */
+            --tooltip-bg: var(--color-gray-800);
+            --tooltip-text: var(--color-white);
+            --tooltip-text-secondary: var(--color-gray-300);
+            --tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+            /* Panel Tokens (Typora-like) */
+            --panel-bg: var(--color-white);
+            --panel-border: rgba(0, 0, 0, 0.08);
+            --panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.03),
+                            0 4px 6px -1px rgba(0, 0, 0, 0.05),
+                            0 20px 40px -10px rgba(0, 0, 0, 0.12);
+            --panel-header-bg: var(--color-gray-50);
+            --panel-header-border: var(--color-gray-100);
         `;
     }
 
@@ -575,6 +598,29 @@ export class DesignTokens {
             --button-close-active: var(--color-gray-dark-200);
             --button-close-text: var(--color-gray-dark-400);
             --button-close-text-hover: var(--color-white);
+
+            /* Pagination Tokens (Reading Mode) */
+            --pagination-bg: var(--bg-surface);
+            --pagination-border: var(--border-default);
+            --pagination-dot-border: var(--color-gray-dark-300);
+            --pagination-dot-active: var(--color-blue-400);
+            --pagination-dot-hover: var(--color-blue-300);
+            --pagination-dot-shadow: rgba(59, 130, 246, 0.3);
+
+            /* Tooltip Tokens */
+            --tooltip-bg: var(--color-gray-dark-700);
+            --tooltip-text: var(--color-white);
+            --tooltip-text-secondary: var(--color-gray-dark-400);
+            --tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+            /* Panel Tokens (Typora-like) */
+            --panel-bg: var(--color-gray-dark-50);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --panel-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
+                            0 4px 6px -1px rgba(0, 0, 0, 0.3),
+                            0 20px 40px -10px rgba(0, 0, 0, 0.5);
+            --panel-header-bg: var(--color-gray-dark-100);
+            --panel-header-border: var(--color-gray-dark-200);
         `;
     }
 

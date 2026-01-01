@@ -202,6 +202,29 @@ let ChatGPTAdapter$1 = class ChatGPTAdapter extends SiteAdapter {
   getTables(element) {
     return element.querySelectorAll("table");
   }
+  /**
+   * Get user prompts for all messages
+   * Extracts from [data-message-author-role="user"] elements
+   */
+  getUserPrompts() {
+    const prompts = [];
+    try {
+      const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
+      userMessages.forEach((userEl, index) => {
+        try {
+          const contentEl = userEl.querySelector(".whitespace-pre-wrap");
+          const text = contentEl?.textContent?.trim() || userEl.textContent?.trim() || `Message ${index + 1}`;
+          prompts.push(text);
+        } catch (err) {
+          logger$1.warn(`[ChatGPTAdapter] Failed to extract prompt ${index}:`, err);
+          prompts.push(`Message ${index + 1}`);
+        }
+      });
+    } catch (err) {
+      logger$1.error("[ChatGPTAdapter] getUserPrompts failed:", err);
+    }
+    return prompts;
+  }
 };
 
 let GeminiAdapter$1 = class GeminiAdapter extends SiteAdapter {
@@ -296,6 +319,32 @@ let GeminiAdapter$1 = class GeminiAdapter extends SiteAdapter {
    */
   isGemini() {
     return true;
+  }
+  /**
+   * Get user prompts for all messages
+   * Extracts from [data-test-id="user-query"] or fallback selectors
+   */
+  getUserPrompts() {
+    const prompts = [];
+    try {
+      let userQueries = document.querySelectorAll('[data-test-id="user-query"]');
+      if (userQueries.length === 0) {
+        logger$1.debug("[GeminiAdapter] Primary selector failed, trying fallbacks");
+        userQueries = document.querySelectorAll("user-query, .user-query");
+      }
+      userQueries.forEach((queryEl, index) => {
+        try {
+          const text = queryEl.textContent?.trim() || `Message ${index + 1}`;
+          prompts.push(text);
+        } catch (err) {
+          logger$1.warn(`[GeminiAdapter] Failed to extract prompt ${index}:`, err);
+          prompts.push(`Message ${index + 1}`);
+        }
+      });
+    } catch (err) {
+      logger$1.error("[GeminiAdapter] getUserPrompts failed:", err);
+    }
+    return prompts;
   }
 };
 
@@ -1290,6 +1339,29 @@ class DesignTokens {
             --button-close-active: var(--color-gray-200);
             --button-close-text: var(--color-gray-500);
             --button-close-text-hover: var(--color-gray-900);
+
+            /* Pagination Tokens (Reading Mode) */
+            --pagination-bg: var(--bg-surface);
+            --pagination-border: var(--border-default);
+            --pagination-dot-border: var(--color-gray-400);
+            --pagination-dot-active: var(--color-blue-600);
+            --pagination-dot-hover: var(--color-blue-500);
+            --pagination-dot-shadow: rgba(59, 130, 246, 0.2);
+
+            /* Tooltip Tokens */
+            --tooltip-bg: var(--color-gray-800);
+            --tooltip-text: var(--color-white);
+            --tooltip-text-secondary: var(--color-gray-300);
+            --tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+            /* Panel Tokens (Typora-like) */
+            --panel-bg: var(--color-white);
+            --panel-border: rgba(0, 0, 0, 0.08);
+            --panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.03),
+                            0 4px 6px -1px rgba(0, 0, 0, 0.05),
+                            0 20px 40px -10px rgba(0, 0, 0, 0.12);
+            --panel-header-bg: var(--color-gray-50);
+            --panel-header-border: var(--color-gray-100);
         `;
   }
   /**
@@ -1510,6 +1582,29 @@ class DesignTokens {
             --button-close-active: var(--color-gray-dark-200);
             --button-close-text: var(--color-gray-dark-400);
             --button-close-text-hover: var(--color-white);
+
+            /* Pagination Tokens (Reading Mode) */
+            --pagination-bg: var(--bg-surface);
+            --pagination-border: var(--border-default);
+            --pagination-dot-border: var(--color-gray-dark-300);
+            --pagination-dot-active: var(--color-blue-400);
+            --pagination-dot-hover: var(--color-blue-300);
+            --pagination-dot-shadow: rgba(59, 130, 246, 0.3);
+
+            /* Tooltip Tokens */
+            --tooltip-bg: var(--color-gray-dark-700);
+            --tooltip-text: var(--color-white);
+            --tooltip-text-secondary: var(--color-gray-dark-400);
+            --tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+            /* Panel Tokens (Typora-like) */
+            --panel-bg: var(--color-gray-dark-50);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --panel-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
+                            0 4px 6px -1px rgba(0, 0, 0, 0.3),
+                            0 20px 40px -10px rgba(0, 0, 0, 0.5);
+            --panel-header-bg: var(--color-gray-dark-100);
+            --panel-header-border: var(--color-gray-dark-200);
         `;
   }
   /**
@@ -25213,18 +25308,443 @@ class MessageCollector {
   }
 }
 
-const panelStyles = `
+class TooltipManager {
+  shadowRoot;
+  tooltip = null;
+  showTimeout = null;
+  currentTarget = null;
+  destroyed = false;
+  cleanupCallbacks = [];
+  constructor(shadowRoot) {
+    this.shadowRoot = shadowRoot;
+  }
+  /**
+   * Attach tooltip to an element
+   * @param element Target element
+   * @param config Tooltip configuration
+   */
+  attach(element, config) {
+    if (this.destroyed) {
+      console.warn("[TooltipManager] Cannot attach: manager is destroyed");
+      return;
+    }
+    const handleMouseEnter = () => this.scheduleShow(element, config);
+    const handleMouseLeave = () => this.cancelScheduled();
+    element.addEventListener("mouseenter", handleMouseEnter);
+    element.addEventListener("mouseleave", handleMouseLeave);
+    this.cleanupCallbacks.push(() => {
+      element.removeEventListener("mouseenter", handleMouseEnter);
+      element.removeEventListener("mouseleave", handleMouseLeave);
+    });
+  }
+  /**
+   * Debounced show - prevents rapid flickering
+   */
+  scheduleShow(target, config) {
+    this.cancelScheduled();
+    this.currentTarget = target;
+    this.showTimeout = window.setTimeout(() => {
+      if (this.currentTarget === target && this.isConnected()) {
+        this.show(target, config);
+      }
+    }, 150);
+  }
+  /**
+   * Cancel scheduled tooltip and hide if visible
+   */
+  cancelScheduled() {
+    if (this.showTimeout !== null) {
+      clearTimeout(this.showTimeout);
+      this.showTimeout = null;
+    }
+    this.currentTarget = null;
+    this.hide();
+  }
+  /**
+   * Show tooltip above target element
+   */
+  show(target, config) {
+    if (!this.tooltip) {
+      this.tooltip = this.createTooltip();
+    }
+    const maxLen = config.maxLength || 50;
+    const text = config.text.length > maxLen ? config.text.slice(0, maxLen - 3) + "..." : config.text;
+    this.tooltip.innerHTML = `
+            <span class="tooltip-index">${config.index + 1}</span>
+            <span class="tooltip-prompt">${this.escapeHtml(text)}</span>
+        `;
+    target.appendChild(this.tooltip);
+    this.tooltip.style.left = "";
+    this.tooltip.style.top = "";
+    this.tooltip.style.bottom = "";
+    this.tooltip.classList.remove("visible");
+    requestAnimationFrame(() => {
+      if (this.tooltip) {
+        this.tooltip.classList.add("visible");
+        console.log("[TooltipManager] Appended to dot & visible");
+      }
+    });
+  }
+  /**
+   * Hide tooltip with fade out
+   */
+  hide() {
+    this.tooltip?.classList.remove("visible");
+  }
+  /**
+   * Create tooltip element
+   */
+  createTooltip() {
+    const el = document.createElement("div");
+    el.className = "aicopy-tooltip";
+    return el;
+  }
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  /**
+   * Check if shadow root is still connected to DOM
+   */
+  isConnected() {
+    return this.shadowRoot.host.isConnected;
+  }
+  /**
+   * Cleanup and remove all event listeners
+   */
+  destroy() {
+    if (this.destroyed) return;
+    this.cancelScheduled();
+    this.cleanupCallbacks.forEach((cb) => cb());
+    this.cleanupCallbacks = [];
+    this.tooltip?.remove();
+    this.tooltip = null;
+    this.destroyed = true;
+  }
+}
+const tooltipStyles = `
+.aicopy-tooltip {
+  position: absolute;
+  /* Position relative to the DOT */
+  bottom: 24px; /* Dot size + gap */
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: max-content;
+  max-width: 260px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2000;
+  
+  /* Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  will-change: opacity, transform;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.aicopy-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Arrow indicator */
+.aicopy-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(30, 30, 30, 0.95);
+}
+
+.tooltip-index {
+  font-weight: 600;
+  font-size: 12px;
+  color: #60a5fa; /* Blue-400 */
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.tooltip-prompt {
+  font-size: 13px;
+  color: #e5e7eb; /* Gray-200 */
+  white-space: normal;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aicopy-tooltip { transition: none; }
+}
+`;
+
+class DotPaginationController {
+  container;
+  config;
+  dots = [];
+  destroyed = false;
+  constructor(container, config) {
+    this.container = container;
+    this.config = config;
+  }
+  /**
+   * Calculate adaptive dot sizing based on item count
+   */
+  calculateDotSize() {
+    const count = this.config.totalItems;
+    const containerWidth = this.config.containerWidth || this.container.clientWidth;
+    const maxWidth = containerWidth * 0.8;
+    const tiers = [
+      { maxCount: 10, size: 12, gap: 10 },
+      { maxCount: 20, size: 10, gap: 8 },
+      { maxCount: 35, size: 8, gap: 6 },
+      { maxCount: 50, size: 6, gap: 4 }
+    ];
+    for (const tier of tiers) {
+      const totalWidth = count * (tier.size + tier.gap);
+      if (totalWidth <= maxWidth || tier.size === 6) {
+        return { size: tier.size, gap: tier.gap };
+      }
+    }
+    return { size: 6, gap: 4 };
+  }
+  /**
+   * Render pagination dots
+   */
+  render() {
+    console.log("[DotPaginationController] render() called", {
+      destroyed: this.destroyed,
+      totalItems: this.config.totalItems,
+      container: this.container
+    });
+    if (this.destroyed) {
+      console.warn("[DotPaginationController] Cannot render: controller is destroyed");
+      return;
+    }
+    this.container.innerHTML = "";
+    this.dots = [];
+    const sizing = this.calculateDotSize();
+    console.log("[DotPaginationController] Calculated dot size:", sizing);
+    this.container.style.setProperty("--dot-size", `${sizing.size}px`);
+    this.container.style.setProperty("--dot-gap", `${sizing.gap}px`);
+    for (let i = 0; i < this.config.totalItems; i++) {
+      const dot = this.createDot(i);
+      this.dots.push(dot);
+      this.container.appendChild(dot);
+    }
+    console.log(`[DotPaginationController] Created ${this.dots.length} dots`);
+    this.updateActiveDot();
+  }
+  /**
+   * Create a single dot element
+   */
+  createDot(index) {
+    const dot = document.createElement("div");
+    dot.className = "aicopy-dot";
+    dot.dataset.index = index.toString();
+    dot.addEventListener("click", () => {
+      if (this.config.onNavigate) {
+        this.config.onNavigate(index);
+      }
+      this.setActiveIndex(index);
+    });
+    return dot;
+  }
+  /**
+   * Set active index and update UI
+   */
+  setActiveIndex(index) {
+    if (index < 0 || index >= this.config.totalItems) {
+      return;
+    }
+    this.config.currentIndex = index;
+    this.updateActiveDot();
+  }
+  /**
+   * Update active dot styling
+   */
+  updateActiveDot() {
+    this.dots.forEach((dot, i) => {
+      if (i === this.config.currentIndex) {
+        dot.classList.add("active");
+      } else {
+        dot.classList.remove("active");
+      }
+    });
+  }
+  /**
+   * Get all dot elements (for external tooltip attachment)
+   */
+  getDots() {
+    return this.dots;
+  }
+  /**
+   * Navigate to next item
+   */
+  next() {
+    if (this.config.currentIndex < this.config.totalItems - 1) {
+      this.setActiveIndex(this.config.currentIndex + 1);
+      if (this.config.onNavigate) {
+        this.config.onNavigate(this.config.currentIndex);
+      }
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Navigate to previous item
+   */
+  previous() {
+    if (this.config.currentIndex > 0) {
+      this.setActiveIndex(this.config.currentIndex - 1);
+      if (this.config.onNavigate) {
+        this.config.onNavigate(this.config.currentIndex);
+      }
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Get current index
+   */
+  getCurrentIndex() {
+    return this.config.currentIndex;
+  }
+  /**
+   * Cleanup
+   */
+  destroy() {
+    if (this.destroyed) return;
+    this.container.innerHTML = "";
+    this.dots = [];
+    this.destroyed = true;
+  }
+}
+
+class NavigationButtonsController {
+  container;
+  config;
+  leftButton = null;
+  rightButton = null;
+  destroyed = false;
+  constructor(container, config) {
+    this.container = container;
+    this.config = config;
+  }
+  /**
+   * Render navigation buttons
+   */
+  render() {
+    if (this.destroyed) {
+      console.warn("[NavigationButtons] Cannot render: controller is destroyed");
+      return;
+    }
+    this.leftButton = this.createButton("left", "◀", this.config.onPrevious);
+    this.rightButton = this.createButton("right", "▶", this.config.onNext);
+    this.container.insertBefore(this.leftButton, this.container.firstChild);
+    this.container.appendChild(this.rightButton);
+    this.updateButtonStates();
+  }
+  /**
+   * Create a single navigation button
+   */
+  createButton(direction, icon, onClick) {
+    const button = document.createElement("button");
+    button.className = `aicopy-nav-button aicopy-nav-button-${direction}`;
+    button.innerHTML = icon;
+    button.setAttribute("aria-label", direction === "left" ? "Previous message" : "Next message");
+    button.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
+    return button;
+  }
+  /**
+   * Update button enabled/disabled states
+   */
+  updateButtonStates() {
+    if (!this.leftButton || !this.rightButton) return;
+    if (this.config.canGoPrevious) {
+      this.leftButton.removeAttribute("disabled");
+      this.leftButton.classList.remove("disabled");
+    } else {
+      this.leftButton.setAttribute("disabled", "true");
+      this.leftButton.classList.add("disabled");
+    }
+    if (this.config.canGoNext) {
+      this.rightButton.removeAttribute("disabled");
+      this.rightButton.classList.remove("disabled");
+    } else {
+      this.rightButton.setAttribute("disabled", "true");
+      this.rightButton.classList.add("disabled");
+    }
+  }
+  /**
+   * Update configuration (e.g., when navigating)
+   */
+  updateConfig(config) {
+    this.config = { ...this.config, ...config };
+    this.updateButtonStates();
+  }
+  /**
+   * Get button elements
+   */
+  getButtons() {
+    return {
+      left: this.leftButton,
+      right: this.rightButton
+    };
+  }
+  /**
+   * Cleanup
+   */
+  destroy() {
+    if (this.destroyed) return;
+    this.leftButton?.remove();
+    this.rightButton?.remove();
+    this.leftButton = null;
+    this.rightButton = null;
+    this.destroyed = true;
+  }
+}
+
+const readerPanelStyles = `
+/* Panel Overlay - Strong Blur */
 .aicopy-panel-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 15, 15, 0.6);
+  background: rgba(0, 0, 0, 0.3);
   z-index: 999998;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(24px) saturate(180%) contrast(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(120%);
 }
 
+/* Panel Container - Pure Glassmorphism */
 .aicopy-panel {
   position: fixed;
   top: 10%;
@@ -25233,17 +25753,23 @@ const panelStyles = `
   width: 90%;
   max-width: 900px;
   height: 80vh;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 
-    0 0 0 1px rgba(0, 0, 0, 0.08),
-    0 4px 12px rgba(0, 0, 0, 0.12),
-    0 16px 48px rgba(0, 0, 0, 0.18);
+  
+  /* No solid background - pure transparency */
+  background: transparent;
+  
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  
   display: flex;
   flex-direction: column;
   z-index: 999999;
   overflow: hidden;
   animation: modalFadeIn 0.2s ease;
+  
+  /* Strong blur for background separation */
+  backdrop-filter: blur(30px) saturate(180%) brightness(105%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(105%);
 }
 
 @keyframes modalFadeIn {
@@ -25251,6 +25777,7 @@ const panelStyles = `
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* Fullscreen Mode */
 .aicopy-panel-fullscreen {
   top: 0 !important;
   left: 0 !important;
@@ -25261,194 +25788,346 @@ const panelStyles = `
   border-radius: 0 !important;
 }
 
+/* Header - Semi-transparent white */
 .aicopy-panel-header {
-  padding: 8px 24px;
-  border-bottom: 1px solid #E9E9E7;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--panel-header-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: rgba(249, 250, 251, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   flex-shrink: 0;
 }
 
 .aicopy-panel-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .aicopy-panel-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #37352F;
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
   margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  
+  /* Text shadow for better readability on blur */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.aicopy-panel-fullscreen-btn, .aicopy-panel-close {
+/* Header Buttons */
+.aicopy-panel-btn {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: none;
   background: transparent;
-  color: #6B7280;
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
-.aicopy-panel-fullscreen-btn:hover, .aicopy-panel-close:hover {
-  background: #F3F4F6;
-  color: #1A1A1A;
+.aicopy-panel-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
 }
 
+/* Body - White background for readability */
 .aicopy-panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 0px 32px;
-  background: white;
+  overflow-x: hidden;
+  padding: 24px 32px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
 }
 
 .aicopy-panel-body .markdown-body {
   max-width: 800px;
   width: 100%;
-  margin: 0 auto;
+  margin: 24px auto;
+  overflow-x: auto;
+  word-wrap: break-word;
 }
 
-/* ✅ 新增: 分页器样式 */
+/* Dot Pagination Container - Semi-transparent */
 .aicopy-pagination {
-  padding: 16px 24px;
-  border-top: 1px solid #E9E9E7;
+  padding: 12px 16px;
+  border-top: 1px solid var(--pagination-border);
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
-  background: white;
+  gap: var(--dot-gap, 8px);
+  
+  /* Semi-transparent with blur */
+  background: rgba(249, 250, 251, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  
   flex-shrink: 0;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
-.aicopy-pagination-btn {
+/* Individual Dot - GPU optimized */
+.aicopy-dot {
+  width: var(--dot-size, 10px);
+  height: var(--dot-size, 10px);
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  
+  /* GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  transition: transform var(--duration-fast) var(--ease-in-out),
+              border-color var(--duration-fast) ease,
+              background-color var(--duration-fast) ease;
+}
+
+.aicopy-dot:hover {
+  transform: scale(1.3) translateZ(0);
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+.aicopy-dot.active {
+  width: calc(var(--dot-size, 10px) * 1.4);
+  height: calc(var(--dot-size, 10px) * 1.4);
+  background: var(--interactive-primary);
+  border-color: var(--interactive-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Custom Scrollbar */
+.aicopy-panel-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.aicopy-panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aicopy-panel-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.aicopy-panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Loading State */
+.aicopy-panel-body.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--interactive-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Dark Mode Auto-Adaptation */
+@media (prefers-color-scheme: dark) {
+  .aicopy-panel {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(30px) saturate(180%) brightness(80%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(80%);
+  }
+  
+  .aicopy-panel-header {
+    background: rgba(39, 39, 42, 0.85);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  
+  .aicopy-panel-body {
+    background: rgba(30, 30, 30, 0.95);
+  }
+  
+  .aicopy-pagination {
+    background: rgba(39, 39, 42, 0.9);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  
+  .aicopy-panel-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  .aicopy-dot {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  .aicopy-dot:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+  
+  .aicopy-panel-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  .aicopy-panel-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Navigation Buttons - Inline with Pagination */
+.aicopy-nav-button {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 1px solid #E9E9E7;
-  background: white;
-  color: #37352F;
+  border: none;
+  
+  /* Transparent by default, match pagination background */
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 16px;
   cursor: pointer;
+  
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  transition: all 0.15s ease;
+  
+  transition: all var(--duration-fast) ease;
+  
+  /* GPU acceleration */
+  will-change: transform;
 }
 
-.aicopy-pagination-btn:hover:not(:disabled) {
-  background: #F3F4F6;
-  border-color: #D1D5DB;
+.aicopy-nav-button:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--interactive-primary);
+  transform: scale(1.05);
 }
 
-.aicopy-pagination-btn:disabled {
-  opacity: 0.3;
+.aicopy-nav-button:active:not(:disabled) {
+  transform: scale(0.95);
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.aicopy-nav-button:disabled {
+  opacity: 0.25;
   cursor: not-allowed;
 }
 
-.aicopy-pagination-info {
-  font-size: 14px;
-  color: #6B7280;
-  min-width: 80px;
-  text-align: center;
-}
-
-.aicopy-pagination-select {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #E9E9E7;
-  background: white;
-  color: #37352F;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.aicopy-pagination-select:hover {
-  background: #F9FAFB;
-  border-color: #D1D5DB;
-}
-
 /* Dark mode */
-:host([data-theme='dark']) .aicopy-panel-overlay {
-  background: rgba(0, 0, 0, 0.8);
+@media (prefers-color-scheme: dark) {
+  .aicopy-nav-button:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+  }
+  
+  .aicopy-nav-button:active:not(:disabled) {
+    background: rgba(59, 130, 246, 0.2);
+  }
 }
 
-:host([data-theme='dark']) .aicopy-panel,
-:host([data-theme='dark']) .aicopy-panel-header,
-:host([data-theme='dark']) .aicopy-panel-body,
-:host([data-theme='dark']) .aicopy-pagination {
-  background: #1E1E1E;
-  border-color: #3F3F46;
-}
-
-:host([data-theme='dark']) .aicopy-panel-title,
-:host([data-theme='dark']) .aicopy-pagination-info {
-  color: #FFFFFF;
-}
-
-:host([data-theme='dark']) .aicopy-pagination-btn,
-:host([data-theme='dark']) .aicopy-pagination-select {
-  background: #27272A;
-  border-color: #3F3F46;
-  color: #FFFFFF;
-}
-
-:host([data-theme='dark']) .aicopy-pagination-btn:hover:not(:disabled),
-:host([data-theme='dark']) .aicopy-pagination-select:hover {
-  background: #3F3F46;
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .aicopy-nav-button { transition: none; }
+  .aicopy-dot { transition: none; }
+  .aicopy-panel { animation: none; }
+  .aicopy-panel-body.loading::after { animation: none; }
 }
 `;
-class ReRenderPanel {
+
+class ReaderPanel {
   container = null;
+  shadowRoot = null;
   currentThemeIsDark = false;
   messages = [];
   currentIndex = 0;
   cache = new LRUCache(10);
   getMarkdownFn;
-  // ✅ 保存getMarkdown方法
+  // Modular components
+  tooltipManager = null;
+  paginationController = null;
+  navButtonsController = null;
+  keyHandler = null;
   /**
-   * Show panel with message pagination
-   * @param messageElement - 被点击的消息元素
-   * @param getMarkdown - 获取markdown源码的方法 (来自ContentScript)
+   * Show reader panel
    */
   async show(messageElement, getMarkdown) {
-    const showStartTime = performance.now();
-    console.log("[ReRenderPanel] ⏱️  START show");
+    const startTime = performance.now();
+    logger$1.debug("[ReaderPanel] START show");
     this.getMarkdownFn = getMarkdown;
     this.hide();
     const t0 = performance.now();
     this.messages = MessageCollector.collectMessages();
-    console.log(`[AI-MarkDone][ReRenderPanel]   collectMessages: ${(performance.now() - t0).toFixed(2)}ms, count: ${this.messages.length}`);
+    logger$1.debug(`[ReaderPanel] collectMessages: ${(performance.now() - t0).toFixed(2)} ms, count: ${this.messages.length} `);
     if (this.messages.length === 0) {
-      console.warn("[AI-MarkDone][ReRenderPanel] No messages found");
+      logger$1.warn("[ReaderPanel] No messages found");
       return;
     }
     this.currentIndex = MessageCollector.findMessageIndex(messageElement, this.messages);
     if (this.currentIndex === -1) {
       this.currentIndex = this.messages.length - 1;
     }
-    console.log(`[AI-MarkDone][ReRenderPanel]   currentIndex: ${this.currentIndex}/${this.messages.length}`);
+    logger$1.debug(`[ReaderPanel] currentIndex: ${this.currentIndex}/${this.messages.length}`);
+    await this.extractUserPrompts();
     await this.createPanel();
-    const showEndTime = performance.now();
-    console.log(`[AI-MarkDone][ReRenderPanel] ✅ END show: ${(showEndTime - showStartTime).toFixed(2)}ms`);
+    logger$1.debug(`[ReaderPanel] END show: ${(performance.now() - startTime).toFixed(2)}ms`);
   }
   /**
-   * Hide panel
+   * Extract user prompts using adapter
+   */
+  async extractUserPrompts() {
+    try {
+      const adapter = adapterRegistry.getAdapter();
+      if (!adapter) {
+        logger$1.warn("[ReaderPanel] No adapter found, using fallback prompts");
+        this.messages.forEach((msg, i) => {
+          msg.userPrompt = `Message ${i + 1}`;
+        });
+        return;
+      }
+      const prompts = adapter.getUserPrompts();
+      this.messages.forEach((msg, i) => {
+        msg.userPrompt = prompts[i] || `Message ${i + 1}`;
+      });
+    } catch (err) {
+      logger$1.error("[ReaderPanel] extractUserPrompts failed:", err);
+      this.messages.forEach((msg, i) => {
+        msg.userPrompt = `Message ${i + 1}`;
+      });
+    }
+  }
+  /**
+   * Hide panel and cleanup all modules
    */
   hide() {
-    if (this.container) {
-      this.container.remove();
-      this.container = null;
-    }
+    this.container?.remove();
+    this.container = null;
+    this.shadowRoot = null;
     this.cache.clear();
+    this.tooltipManager?.destroy();
+    this.tooltipManager = null;
+    this.paginationController?.destroy();
+    this.paginationController = null;
+    this.navButtonsController?.destroy();
+    this.navButtonsController = null;
+    if (this.keyHandler) {
+      document.removeEventListener("keydown", this.keyHandler);
+      this.keyHandler = null;
+    }
   }
   /**
    * Set theme
@@ -25465,36 +26144,44 @@ class ReRenderPanel {
   async createPanel() {
     this.container = document.createElement("div");
     this.container.dataset.theme = this.currentThemeIsDark ? "dark" : "light";
-    const shadowRoot = this.container.attachShadow({ mode: "open" });
-    await StyleManager.injectStyles(shadowRoot, this.currentThemeIsDark);
-    const panelStyleEl = document.createElement("style");
-    panelStyleEl.textContent = panelStyles;
-    shadowRoot.appendChild(panelStyleEl);
+    this.shadowRoot = this.container.attachShadow({ mode: "open" });
+    await StyleManager.injectStyles(this.shadowRoot, this.currentThemeIsDark);
+    const styleEl = document.createElement("style");
+    styleEl.textContent = readerPanelStyles + tooltipStyles;
+    this.shadowRoot.appendChild(styleEl);
+    const overlay = this.createOverlay();
+    const panel = this.createPanelElement();
+    this.shadowRoot.appendChild(overlay);
+    this.shadowRoot.appendChild(panel);
+    document.body.appendChild(this.container);
+    await this.renderMessage(this.currentIndex);
+    this.setupKeyboardNavigation(panel);
+    panel.focus();
+  }
+  /**
+   * Create overlay element
+   */
+  createOverlay() {
     const overlay = document.createElement("div");
     overlay.className = "aicopy-panel-overlay";
     overlay.addEventListener("click", () => this.hide());
+    return overlay;
+  }
+  /**
+   * Create main panel element
+   */
+  createPanelElement() {
     const panel = document.createElement("div");
     panel.className = "aicopy-panel";
+    panel.setAttribute("tabindex", "0");
     panel.addEventListener("click", (e) => e.stopPropagation());
-    const header = this.createHeader();
+    panel.appendChild(this.createHeader());
     const body = document.createElement("div");
     body.className = "aicopy-panel-body";
     body.id = "panel-body";
-    const pagination = this.createPagination();
-    panel.appendChild(header);
     panel.appendChild(body);
-    panel.appendChild(pagination);
-    shadowRoot.appendChild(overlay);
-    shadowRoot.appendChild(panel);
-    document.body.appendChild(this.container);
-    await this.renderMessage(this.currentIndex);
-    const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        this.hide();
-        document.removeEventListener("keydown", handleEscape);
-      }
-    };
-    document.addEventListener("keydown", handleEscape);
+    panel.appendChild(this.createPagination());
+    return panel;
   }
   /**
    * Create header
@@ -25503,82 +26190,102 @@ class ReRenderPanel {
     const header = document.createElement("div");
     header.className = "aicopy-panel-header";
     header.innerHTML = `
-      <div class="aicopy-panel-header-left">
-        <h2 class="aicopy-panel-title">Rendered Markdown</h2>
-        <button class="aicopy-panel-fullscreen-btn" title="Toggle fullscreen">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-          </svg>
-        </button>
-      </div>
-      <button class="aicopy-panel-close" title="Close">×</button>
-    `;
-    header.querySelector(".aicopy-panel-close")?.addEventListener("click", () => this.hide());
-    header.querySelector(".aicopy-panel-fullscreen-btn")?.addEventListener("click", () => this.toggleFullscreen());
+            <div class="aicopy-panel-header-left">
+                <h2 class="aicopy-panel-title">Rendered Markdown</h2>
+                <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                    </svg>
+                </button>
+            </div>
+            <button class="aicopy-panel-btn" id="close-btn" title="Close">×</button>
+        `;
+    header.querySelector("#close-btn")?.addEventListener("click", () => this.hide());
+    header.querySelector("#fullscreen-btn")?.addEventListener("click", () => this.toggleFullscreen());
     return header;
   }
   /**
-   * ✅ 创建分页器
+   * Create pagination using DotPaginationController
    */
   createPagination() {
-    const pagination = document.createElement("div");
-    pagination.className = "aicopy-pagination";
-    pagination.innerHTML = `
-      <button class="aicopy-pagination-btn" id="prev-btn" title="Previous (←)">←</button>
-      <span class="aicopy-pagination-info" id="page-info">${this.currentIndex + 1} / ${this.messages.length}</span>
-      <button class="aicopy-pagination-btn" id="next-btn" title="Next (→)">→</button>
-      <select class="aicopy-pagination-select" id="page-select" title="Jump to message">
-        ${this.messages.map((_, i) => `<option value="${i}" ${i === this.currentIndex ? "selected" : ""}>Message ${i + 1}</option>`).join("")}
-      </select>
-    `;
-    pagination.querySelector("#prev-btn")?.addEventListener("click", () => this.navigate(-1));
-    pagination.querySelector("#next-btn")?.addEventListener("click", () => this.navigate(1));
-    pagination.querySelector("#page-select")?.addEventListener("change", (e) => {
-      const select = e.target;
-      this.navigateTo(parseInt(select.value));
+    const paginationContainer = document.createElement("div");
+    paginationContainer.className = "aicopy-pagination";
+    logger$1.debug(`[ReaderPanel] Creating pagination for ${this.messages.length} messages`);
+    this.paginationController = new DotPaginationController(paginationContainer, {
+      totalItems: this.messages.length,
+      currentIndex: this.currentIndex,
+      onNavigate: (index) => this.navigateTo(index)
     });
-    this.updatePaginationState(pagination);
-    return pagination;
+    this.paginationController.render();
+    logger$1.debug(`[ReaderPanel] Pagination rendered, container has ${this.paginationController.getDots().length} dots`);
+    this.navButtonsController = new NavigationButtonsController(
+      paginationContainer,
+      {
+        onPrevious: () => {
+          if (this.currentIndex > 0) {
+            this.navigateTo(this.currentIndex - 1);
+          }
+        },
+        onNext: () => {
+          if (this.currentIndex < this.messages.length - 1) {
+            this.navigateTo(this.currentIndex + 1);
+          }
+        },
+        canGoPrevious: this.currentIndex > 0,
+        canGoNext: this.currentIndex < this.messages.length - 1
+      }
+    );
+    this.navButtonsController.render();
+    if (this.shadowRoot) {
+      this.tooltipManager = new TooltipManager(this.shadowRoot);
+      const dots = this.paginationController.getDots();
+      dots.forEach((dot, index) => {
+        this.tooltipManager.attach(dot, {
+          index,
+          text: this.messages[index].userPrompt || `Message ${index + 1}`,
+          maxLength: 50
+        });
+      });
+    }
+    return paginationContainer;
   }
   /**
-   * Navigate by offset
+   * Setup keyboard navigation
    */
-  async navigate(offset) {
-    const newIndex = this.currentIndex + offset;
-    await this.navigateTo(newIndex);
+  setupKeyboardNavigation(panel) {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        this.hide();
+        document.removeEventListener("keydown", handleEscape);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    this.keyHandler = (e) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        this.paginationController?.previous();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        this.paginationController?.next();
+      }
+    };
+    panel.addEventListener("keydown", this.keyHandler);
   }
   /**
-   * Navigate to specific index
+   * Navigate to specific message index
    */
   async navigateTo(index) {
-    if (index < 0 || index >= this.messages.length || index === this.currentIndex) {
-      return;
-    }
+    if (index < 0 || index >= this.messages.length) return;
     this.currentIndex = index;
+    this.paginationController?.setActiveIndex(index);
+    this.navButtonsController?.updateConfig({
+      canGoPrevious: index > 0,
+      canGoNext: index < this.messages.length - 1
+    });
     await this.renderMessage(index);
-    const shadowRoot = this.container?.shadowRoot;
-    if (shadowRoot) {
-      const pagination = shadowRoot.querySelector(".aicopy-pagination");
-      if (pagination) {
-        this.updatePaginationState(pagination);
-      }
-    }
   }
   /**
-   * Update pagination button states
-   */
-  updatePaginationState(pagination) {
-    const prevBtn = pagination.querySelector("#prev-btn");
-    const nextBtn = pagination.querySelector("#next-btn");
-    const pageInfo = pagination.querySelector("#page-info");
-    const pageSelect = pagination.querySelector("#page-select");
-    if (prevBtn) prevBtn.disabled = this.currentIndex === 0;
-    if (nextBtn) nextBtn.disabled = this.currentIndex === this.messages.length - 1;
-    if (pageInfo) pageInfo.textContent = `${this.currentIndex + 1} / ${this.messages.length}`;
-    if (pageSelect) pageSelect.value = this.currentIndex.toString();
-  }
-  /**
-   * ✅ 懒加载渲染消息
+   * Lazy-load and render message content
    */
   async renderMessage(index) {
     const messageRef = this.messages[index];
@@ -25588,45 +26295,33 @@ class ReRenderPanel {
         try {
           const t0 = performance.now();
           messageRef.parsed = this.getMarkdownFn(messageRef.element);
-          console.log(`[AI-MarkDone][ReRenderPanel]   getMarkdown: ${(performance.now() - t0).toFixed(2)}ms`);
+          logger$1.debug(`[ReaderPanel] getMarkdown: ${(performance.now() - t0).toFixed(2)}ms`);
         } catch (error) {
-          console.error("[AI-MarkDone][ReRenderPanel] Parse failed:", error);
+          logger$1.error("[ReaderPanel] Parse failed:", error);
           messageRef.parsed = "Failed to parse message";
         }
       }
       const t1 = performance.now();
       const result = await MarkdownRenderer.render(messageRef.parsed);
-      console.log(`[AI-MarkDone][ReRenderPanel]   MarkdownRenderer.render: ${(performance.now() - t1).toFixed(2)}ms`);
+      logger$1.debug(`[ReaderPanel] MarkdownRenderer.render: ${(performance.now() - t1).toFixed(2)}ms`);
       html = result.success ? result.html : result.fallback;
       this.cache.set(index, html);
     } else {
-      console.log(`[AI-MarkDone][ReRenderPanel]   ✅ Using cache for message ${index}`);
+      logger$1.debug(`[ReaderPanel] Using cache for message ${index}`);
     }
-    const shadowRoot = this.container?.shadowRoot;
-    if (shadowRoot) {
-      const body = shadowRoot.querySelector("#panel-body");
+    if (this.shadowRoot) {
+      const body = this.shadowRoot.querySelector("#panel-body");
       if (body) {
-        body.classList.add("fade-out");
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        setTimeout(() => {
-          if (body) {
-            body.classList.remove("fade-out");
-            body.classList.add("fade-in");
-            body.innerHTML = `<div class="markdown-body">${html}</div>`;
-            StyleManager.injectStyles(shadowRoot, false).then(() => {
-              this.updatePaginationState(shadowRoot.querySelector(".aicopy-pagination"));
-            });
-          }
-        }, 150);
+        body.innerHTML = `<div class="markdown-body">${html}</div>`;
       }
     }
   }
   /**
-   * Toggle fullscreen
+   * Toggle fullscreen mode
    */
   toggleFullscreen() {
-    if (!this.container) return;
-    const panel = this.container.shadowRoot?.querySelector(".aicopy-panel");
+    if (!this.shadowRoot) return;
+    const panel = this.shadowRoot.querySelector(".aicopy-panel");
     panel?.classList.toggle("aicopy-panel-fullscreen");
   }
 }
@@ -25727,7 +26422,7 @@ class DeepResearchHandler {
   reRenderPanel;
   constructor() {
     this.parser = new MarkdownParser();
-    this.reRenderPanel = new ReRenderPanel();
+    this.reRenderPanel = new ReaderPanel();
   }
   /**
    * Enable Deep Research panel detection
@@ -34195,7 +34890,7 @@ class ContentScript {
     logger$1.setLevel(LogLevel.DEBUG);
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
-    this.reRenderPanel = new ReRenderPanel();
+    this.reRenderPanel = new ReaderPanel();
     const darkModeDetector = DarkModeDetector.getInstance();
     this.currentThemeIsDark = darkModeDetector.isDarkMode();
     darkModeDetector.subscribe((isDark) => {

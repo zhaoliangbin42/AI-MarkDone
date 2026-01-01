@@ -48,4 +48,11 @@ export abstract class SiteAdapter {
      * Get the main container to observe for mutations
      */
     abstract getObserverContainer(): HTMLElement | null;
+
+    /**
+     * Get user prompts for all messages (for pagination tooltips)
+     * Returns array of user prompts, indexed by message position
+     * Returns fallback text if extraction fails
+     */
+    abstract getUserPrompts(): string[];
 }
