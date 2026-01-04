@@ -2866,30 +2866,10 @@ ${options.message}
     }): Promise<boolean> {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: var(--aimd-bg-overlay) !important;
-                z-index: 2147483647;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color-scheme: light dark;
-            `;
+            overlay.className = 'modal-overlay';
 
             const modal = document.createElement('div');
             modal.className = 'delete-confirmation-modal';
-            modal.style.cssText = `
-                background: var(--aimd-bg-primary);
-                color: var(--aimd-text-primary);
-                border-radius: var(--aimd-radius-xl);
-                box-shadow: var(--aimd-shadow-xl);
-                max-width: 400px;
-                width: 90%;
-            `;
 
             modal.innerHTML = `
             <div class="delete-dialog-content">
@@ -2924,20 +2904,6 @@ ${options.message}
 
             const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
             const deleteBtn = modal.querySelector('.delete-btn') as HTMLElement;
-
-            cancelBtn.addEventListener('mouseenter', () => {
-                cancelBtn.style.background = 'var(--aimd-interactive-hover)';
-            });
-            cancelBtn.addEventListener('mouseleave', () => {
-                cancelBtn.style.background = 'transparent';
-            });
-
-            deleteBtn.addEventListener('mouseenter', () => {
-                deleteBtn.style.background = 'var(--aimd-color-red-700)';
-            });
-            deleteBtn.addEventListener('mouseleave', () => {
-                deleteBtn.style.background = 'var(--aimd-interactive-danger)';
-            });
 
             cancelBtn.addEventListener('click', () => {
                 overlay.remove();
@@ -3682,6 +3648,83 @@ ${options.message}
         }
     ): Promise<'merge' | 'rename-merge' | 'cancel'> {
         return new Promise((resolve) => {
+            // ✅ Shadow DOM Pattern: Consistent with BookmarkSaveModal
+            const container = document.createElement('div');
+            container.className = 'merge-dialog-host';
+            const shadowRoot = container.attachShadow({ mode: 'open' });
+
+            // Inject styles into Shadow DOM
+            const isDark = ThemeManager.getInstance().isDarkMode();
+            const tokens = isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens();
+
+            const styleElement = document.createElement('style');
+            styleElement.textContent = `
+                :host { ${tokens} }
+                
+                * { box-sizing: border-box; }
+
+                .duplicate-dialog-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: var(--aimd-bg-overlay);
+                    z-index: 2147483647;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .duplicate-dialog-modal {
+                    background: var(--aimd-bg-primary);
+                    color: var(--aimd-text-primary);
+                    border-radius: var(--aimd-radius-xl);
+                    box-shadow: var(--aimd-shadow-xl);
+                    max-width: 500px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    font-family: var(--aimd-font-sans);
+                }
+
+                .duplicate-dialog-content { padding: 20px; }
+                .duplicate-dialog-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+                .duplicate-dialog-icon { color: var(--aimd-color-amber-600); font-size: 24px; line-height: 1; flex-shrink: 0; }
+                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: var(--aimd-font-medium); color: var(--aimd-text-primary); line-height: 1.2; }
+                .duplicate-dialog-body { color: var(--aimd-text-primary); font-size: 14px; line-height: 1.5; }
+                .duplicate-dialog-text { margin: 0 0 10px 0; }
+                
+                .merge-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+                .merge-summary-item { background: var(--aimd-bg-secondary); border-radius: var(--aimd-radius-lg); padding: 8px 10px; }
+                .merge-summary-label { font-size: 12px; color: var(--aimd-text-secondary); display: block; }
+                .merge-summary-value { font-size: 16px; font-weight: var(--aimd-font-semibold); color: var(--aimd-text-primary); }
+                
+                .merge-list-container { border: 1px solid var(--aimd-border-subtle); border-radius: var(--aimd-radius-lg); max-height: 320px; overflow-y: auto; }
+                .merge-list-item { padding: 10px 12px; border-bottom: 1px solid var(--aimd-border-subtle); display: flex; flex-direction: column; gap: 4px; }
+                .merge-list-item:last-child { border-bottom: none; }
+                .merge-item-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+                .merge-item-title { font-weight: var(--aimd-font-medium); color: var(--aimd-text-primary); word-break: break-word; }
+                .merge-item-path { font-size: 12px; color: var(--aimd-text-secondary); word-break: break-word; }
+                .merge-item-path-label { margin-right: 6px; color: var(--aimd-text-secondary); font-weight: var(--aimd-font-medium); }
+                .merge-item-rename { font-size: 12px; color: var(--aimd-interactive-danger); }
+                
+                .merge-badge { font-size: 12px; padding: 2px 6px; border-radius: 999px; font-weight: var(--aimd-font-medium); white-space: nowrap; }
+                .merge-badge-normal { background: var(--aimd-feedback-success-bg); color: var(--aimd-feedback-success-text); }
+                .merge-badge-rename { background: var(--aimd-feedback-warning-bg); color: var(--aimd-feedback-warning-text); }
+                .merge-badge-import { background: var(--aimd-feedback-info-bg); color: var(--aimd-color-blue-700); }
+                
+                .duplicate-dialog-hint { margin: 6px 0 0 0; color: var(--aimd-text-secondary); font-size: 13px; font-style: italic; opacity: 0.9; }
+                
+                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--aimd-border-default); }
+                .cancel-btn { padding: 8px 16px; border: none; border-radius: var(--aimd-radius-md); background: var(--aimd-bg-secondary); color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s; }
+                .cancel-btn:hover { background: var(--aimd-interactive-hover); transform: translateY(-1px); }
+                .merge-btn { padding: 8px 16px; border: none; border-radius: var(--aimd-radius-md); background: var(--aimd-button-primary-bg); color: var(--aimd-button-primary-text); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s; }
+                .merge-btn:hover { background: var(--aimd-button-primary-hover); transform: translateY(-1px); }
+            `;
+            shadowRoot.appendChild(styleElement);
+
+            // Create overlay inside Shadow DOM
             const overlay = document.createElement('div');
             overlay.className = 'duplicate-dialog-overlay';
 
@@ -3705,64 +3748,6 @@ ${options.message}
             const primaryLabel = options.hasRenameConflicts ? '重命名合并' : '合并';
 
             modal.innerHTML = `
-            <style>
-                .duplicate-dialog-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: var(--aimd-bg-overlay);
-                    z-index: 2147483647;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color-scheme: light dark;
-                }
-
-                .duplicate-dialog-modal {
-                    background: var(--aimd-bg-primary);
-                    color: var(--aimd-text-primary);
-                    border-radius: var(--aimd-radius-xl);
-                    box-shadow: var(--aimd-modal-shadow);
-                    max-width: 500px;
-                    width: 90%;
-                    max-height: 80vh;
-                    overflow-y: auto;
-                    z-index: var(--aimd-z-modal);
-                    font-family: var(--aimd-font-sans);
-                }
-
-                /* Merge Dialog Styles */
-                .duplicate-dialog-content { padding: 20px; }
-                .duplicate-dialog-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-                .duplicate-dialog-icon { color: var(--aimd-color-amber-600); font-size: 24px; line-height: 1; flex-shrink: 0; }
-                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: var(--aimd-font-medium); color: var(--aimd-text-primary); line-height: 1.2; }
-                .duplicate-dialog-body { color: var(--aimd-text-primary); font-size: 14px; line-height: 1.5; }
-                .duplicate-dialog-text { margin: 0 0 10px 0; }
-                .merge-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-                .merge-summary-item { background: var(--aimd-bg-secondary); border-radius: var(--aimd-radius-lg); padding: 8px 10px; }
-                .merge-summary-label { font-size: 12px; color: var(--aimd-text-secondary); display: block; }
-                .merge-summary-value { font-size: 16px; font-weight: var(--aimd-font-semibold); color: var(--aimd-text-primary); }
-                .merge-list-container { border: 1px solid var(--aimd-border-subtle); border-radius: var(--aimd-radius-lg); max-height: 320px; overflow-y: auto; }
-                .merge-list-item { padding: 10px 12px; border-bottom: 1px solid var(--aimd-border-subtle); display: flex; flex-direction: column; gap: 4px; }
-                .merge-list-item:last-child { border-bottom: none; }
-                .merge-item-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-                .merge-item-title { font-weight: var(--aimd-font-medium); color: var(--aimd-text-primary); word-break: break-word; }
-                .merge-item-path { font-size: 12px; color: var(--aimd-text-secondary); word-break: break-word; }
-                .merge-item-path-label { margin-right: 6px; color: var(--aimd-text-secondary); font-weight: var(--aimd-font-medium); }
-                .merge-item-rename { font-size: 12px; color: var(--aimd-interactive-danger); }
-                .merge-badge { font-size: 12px; padding: 2px 6px; border-radius: 999px; font-weight: var(--aimd-font-medium); white-space: nowrap; }
-                .merge-badge-normal { background: var(--aimd-feedback-success-bg); color: var(--aimd-feedback-success-text); }
-                .merge-badge-rename { background: var(--aimd-feedback-warning-bg); color: var(--aimd-feedback-warning-text); }
-                .merge-badge-import { background: var(--aimd-feedback-info-bg); color: var(--aimd-color-blue-700); }
-                .duplicate-dialog-hint { margin: 6px 0 0 0; color: var(--aimd-text-secondary); font-size: 13px; font-style: italic; opacity: 0.9; }
-                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--aimd-border-default); }
-                .cancel-btn { padding: 8px 16px; border: none; border-radius: var(--aimd-radius-md); background: var(--aimd-bg-secondary); color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s; }
-                .cancel-btn:hover { background: var(--aimd-interactive-hover); transform: translateY(-1px); }
-                .merge-btn { padding: 8px 16px; border: none; border-radius: var(--aimd-radius-md); background: var(--modal-primary-bg); color: var(--modal-primary-text); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s; }
-                .merge-btn:hover { background: var(--modal-primary-hover-bg); box-shadow: var(--modal-primary-shadow); transform: translateY(-1px); }
-            </style>
             <div class="duplicate-dialog-content">
                 <div class="duplicate-dialog-header">
                     <span class="duplicate-dialog-icon">${Icons.alertTriangle}</span>
@@ -3815,27 +3800,34 @@ ${options.message}
         `;
 
             overlay.appendChild(modal);
+            shadowRoot.appendChild(overlay);
 
-            // CRITICAL: Append to document.body instead of shadowRoot for proper z-index
-            document.body.appendChild(overlay);
+            // Mount container to body
+            document.body.appendChild(container);
 
-            const cancelBtn = modal.querySelector('.cancel-btn') as HTMLElement;
-            const mergeBtn = modal.querySelector('.merge-btn') as HTMLElement;
+            // Cleanup function
+            const cleanup = () => {
+                container.remove();
+                document.removeEventListener('keydown', handleEscape);
+            };
+
+            const cancelBtn = shadowRoot.querySelector('.cancel-btn') as HTMLElement;
+            const mergeBtn = shadowRoot.querySelector('.merge-btn') as HTMLElement;
 
             cancelBtn.addEventListener('click', () => {
-                overlay.remove();
+                cleanup();
                 resolve('cancel');
             });
 
             mergeBtn.addEventListener('click', () => {
-                overlay.remove();
+                cleanup();
                 resolve(options.hasRenameConflicts ? 'rename-merge' : 'merge');
             });
 
             overlay.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (e.target === overlay) {
-                    overlay.remove();
+                    cleanup();
                     resolve('cancel');
                 }
             });
@@ -3846,8 +3838,7 @@ ${options.message}
 
             const handleEscape = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {
-                    overlay.remove();
-                    document.removeEventListener('keydown', handleEscape);
+                    cleanup();
                     resolve('cancel');
                 }
             };
@@ -4782,22 +4773,6 @@ ${options.message}
                 font-size: var(--aimd-text-sm);
             }
 
-            .export-btn {
-                padding: var(--aimd-space-2) var(--aimd-space-4);  /* 8px 16px */
-                background: var(--aimd-color-blue-600);
-                color: var(--aimd-color-white);
-                border: none;
-                border-radius: var(--aimd-radius-md);
-                font-size: 14px;
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-
-            .export-btn:hover {
-                background: var(--aimd-color-blue-700);
-                transform: translateY(-1px);
-            }
-
             /* Content */
             .content {
                 flex: 1;
@@ -4869,17 +4844,13 @@ ${options.message}
 
             /* Delete Confirmation Modal Styles */
             .delete-confirmation-modal {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: var(--aimd-bg-primary);  /* ✅ Dark mode */
-                padding: 12px;
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
                 border-radius: var(--aimd-radius-xl);
                 box-shadow: var(--aimd-shadow-2xl);
-                z-index: 10001;
                 min-width: 400px;
                 max-width: 500px;
+                width: 90%;
             }
             .modal-overlay {
                 position: fixed;
@@ -4887,8 +4858,11 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: var(--aimd-bg-overlay) !important;
+                background: var(--aimd-bg-overlay);
                 z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             .modal-content h3 {
                 margin: 0 0 12px 0;
@@ -4925,11 +4899,11 @@ ${options.message}
                 transform: translateY(-1px);
             }
             .btn-confirm {
-                background: var(--aimd-button-danger-bg);
-                color: var(--aimd-button-danger-text);
+                background: var(--aimd-interactive-danger);
+                color: var(--aimd-text-on-danger);
             }
             .btn-confirm:hover {
-                background: var(--aimd-button-danger-hover);
+                background: var(--aimd-interactive-danger-hover);
                 transform: translateY(-1px);
             }
 
@@ -5187,8 +5161,8 @@ ${options.message}
                 padding: 8px 16px;
                 border: none;
                 border-radius: var(--aimd-radius-sm);
-                background: var(--aimd-button-danger-bg);
-                color: var(--aimd-button-danger-text);
+                background: var(--aimd-interactive-danger);
+                color: var(--aimd-text-on-danger);
                 font-size: var(--aimd-text-sm);
                 font-weight: var(--aimd-font-medium);
                 cursor: pointer;
@@ -5196,7 +5170,7 @@ ${options.message}
             }
 
             .delete-dialog-footer .delete-btn:hover {
-                background: var(--aimd-button-danger-hover);
+                background: var(--aimd-interactive-danger-hover);
                 transform: translateY(-1px);
             }
             
@@ -5418,6 +5392,173 @@ ${options.message}
                 font-size: 13px;
                 font-style: italic;
                 opacity: 0.9;
+            }
+
+            /* Merge Dialog (Import Preview) Styles */
+            .duplicate-dialog-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--aimd-bg-overlay);
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color-scheme: light dark;
+            }
+
+            .duplicate-dialog-modal {
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                border-radius: var(--aimd-radius-xl);
+                box-shadow: var(--aimd-modal-shadow);
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                z-index: var(--aimd-z-modal);
+                font-family: var(--aimd-font-sans);
+            }
+
+            .merge-summary {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+
+            .merge-summary-item {
+                background: var(--aimd-bg-secondary);
+                border-radius: var(--aimd-radius-lg);
+                padding: 8px 10px;
+            }
+
+            .merge-summary-label {
+                font-size: 12px;
+                color: var(--aimd-text-secondary);
+                display: block;
+            }
+
+            .merge-summary-value {
+                font-size: 16px;
+                font-weight: var(--aimd-font-semibold);
+                color: var(--aimd-text-primary);
+            }
+
+            .merge-list-container {
+                border: 1px solid var(--aimd-border-subtle);
+                border-radius: var(--aimd-radius-lg);
+                max-height: 320px;
+                overflow-y: auto;
+            }
+
+            .merge-list-item {
+                padding: 10px 12px;
+                border-bottom: 1px solid var(--aimd-border-subtle);
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .merge-list-item:last-child {
+                border-bottom: none;
+            }
+
+            .merge-item-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .merge-item-title {
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
+                word-break: break-word;
+            }
+
+            .merge-item-path {
+                font-size: 12px;
+                color: var(--aimd-text-secondary);
+                word-break: break-word;
+            }
+
+            .merge-item-path-label {
+                margin-right: 6px;
+                color: var(--aimd-text-secondary);
+                font-weight: var(--aimd-font-medium);
+            }
+
+            .merge-item-rename {
+                font-size: 12px;
+                color: var(--aimd-interactive-danger);
+            }
+
+            .merge-badge {
+                font-size: 12px;
+                padding: 2px 6px;
+                border-radius: 999px;
+                font-weight: var(--aimd-font-medium);
+                white-space: nowrap;
+            }
+
+            .merge-badge-normal {
+                background: var(--aimd-feedback-success-bg);
+                color: var(--aimd-feedback-success-text);
+            }
+
+            .merge-badge-rename {
+                background: var(--aimd-feedback-warning-bg);
+                color: var(--aimd-feedback-warning-text);
+            }
+
+            .merge-badge-import {
+                background: var(--aimd-feedback-info-bg);
+                color: var(--aimd-color-blue-700);
+            }
+
+            .import-summary-footer {
+                padding: 12px 16px;
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                border-top: 1px solid var(--aimd-border-default);
+            }
+
+            .cancel-btn {
+                padding: 8px 16px;
+                border: none;
+                border-radius: var(--aimd-radius-md);
+                background: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .cancel-btn:hover {
+                background: var(--aimd-interactive-hover);
+                transform: translateY(-1px);
+            }
+
+            .merge-btn {
+                padding: 8px 16px;
+                border: none;
+                border-radius: var(--aimd-radius-md);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .merge-btn:hover {
+                background: var(--aimd-button-primary-hover);
+                transform: translateY(-1px);
             }
 
             /* Info Dialog */
@@ -5971,7 +6112,8 @@ ${options.message}
             }
 
             .batch-actions-bar button:hover {
-                background: var(--aimd-bg-secondary);
+                background: var(--aimd-interactive-hover);  /* ✅ More visible hover */
+                color: var(--aimd-interactive-primary);  /* ✅ Blue accent on hover */
                 transform: scale(1.02);
             }
 
@@ -5985,7 +6127,7 @@ ${options.message}
             }
 
             .batch-actions-bar button.danger {
-                color: var(--aimd-button-danger-bg);
+                color: var(--aimd-interactive-danger);
             }
 
             .batch-actions-bar button.danger:hover {

@@ -84,7 +84,7 @@ export class BookmarkSaveModal {
             .title-input:focus { border-color: var(--aimd-color-blue-300); box-shadow: var(--aimd-shadow-focus); }
             .title-input.error { border-color: var(--aimd-interactive-danger); }
             .title-input::placeholder { color: var(--aimd-color-gray-400); font-weight: 400; }
-            .bookmark-count-info { margin-bottom: 16px; padding: 10px 14px; background: var(--aimd-feedback-info-bg); border-left: 3px solid var(--aimd-color-blue-500); border-radius: 8px; font-size: 13px; color: var(--aimd-color-gray-800); }
+            .bookmark-count-info { margin-bottom: 16px; padding: 10px 14px; background: var(--aimd-feedback-info-bg); border-left: 3px solid var(--aimd-color-blue-500); border-radius: 8px; font-size: 13px; color: var(--aimd-text-primary); }
             .title-error { margin-top: 8px; font-size: 12px; color: var(--aimd-interactive-danger); display: none; }
             .title-error.visible { display: block; }
             .folder-section { margin-bottom: 24px; }
@@ -258,15 +258,36 @@ export class BookmarkSaveModal {
             if (this.titleInputElement) {
                 this.titleInputElement.select(); // Select all text for easy editing
 
-                // ✅ Trigger validation on initial load to show error if title has invalid chars
-                const validation = this.validateTitle(this.titleInputElement.value);
+                // ✅ Trigger validation on initial load
+                const titleValue = this.titleInputElement.value.trim();
+                const validation = this.validateTitle(titleValue);
+
+                // Check if title is empty or invalid
+                const isEmpty = !titleValue;
+                const hasInvalidChars = !validation.valid;
+
                 this.titleValid = validation.valid;
 
-                if (!validation.valid && this.errorDivElement) {
-                    this.titleInputElement.classList.add('error');
-                    this.errorDivElement.textContent = validation.error!;
-                    this.errorDivElement.classList.add('visible');
+                if (this.errorDivElement) {
+                    if (isEmpty) {
+                        // Empty title: show hint (not error red), keep button disabled
+                        this.titleInputElement.classList.remove('error');
+                        this.errorDivElement.textContent = 'Title is required';
+                        this.errorDivElement.classList.add('visible');
+                    } else if (hasInvalidChars) {
+                        // Invalid chars: show error red
+                        this.titleInputElement.classList.add('error');
+                        this.errorDivElement.textContent = validation.error!;
+                        this.errorDivElement.classList.add('visible');
+                    } else {
+                        // Valid title: clear error, enable button
+                        this.titleInputElement.classList.remove('error');
+                        this.errorDivElement.classList.remove('visible');
+                    }
                 }
+
+                // Update button state after validation
+                this.updateSaveButtonState();
             }
         }, 100);
 

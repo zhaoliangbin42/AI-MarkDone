@@ -266,6 +266,12 @@ export class ReaderPanel {
             });
         }
 
+        // Add keyboard hint
+        const hint = document.createElement('span');
+        hint.className = 'aicopy-keyboard-hint';
+        hint.textContent = '"← →" to navigate';
+        paginationContainer.appendChild(hint);
+
         return paginationContainer;
     }
 

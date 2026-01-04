@@ -331,6 +331,23 @@ export const readerPanelStyles = `
   display: none; /* Hidden visually, structure handled by margin */
 }
 
+/* Remove focus outline when navigating with keyboard */
+.aicopy-panel:focus {
+  outline: none;
+}
+
+/* Keyboard navigation hint */
+.aicopy-keyboard-hint {
+  position: absolute;
+  right: var(--aimd-space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--aimd-text-tertiary);
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Dark mode: Now handled by ThemeManager + data-aimd-theme attribute */
 
 `;
