@@ -123,34 +123,7 @@ export class SimpleBookmarkPanel {
         const panel = this.createPanel();
         this.shadowRoot.appendChild(panel);
 
-        // DEBUG: Check actual computed styles after rendering
-        setTimeout(() => {
-            console.log('[SimpleBookmarkPanel] DEBUG: setTimeout executed');
-            console.log('[SimpleBookmarkPanel] DEBUG: shadowRoot exists:', !!this.shadowRoot);
 
-            const searchInput = this.shadowRoot?.querySelector('.search-input') as HTMLInputElement;
-            console.log('[SimpleBookmarkPanel] DEBUG: searchInput found:', !!searchInput);
-
-            if (searchInput) {
-                const styles = getComputedStyle(searchInput);
-                console.log('[SimpleBookmarkPanel] Search Input Computed Styles:');
-                console.log('  color: ' + styles.color);
-                console.log('  background-color: ' + styles.backgroundColor);
-                console.log('  border: ' + styles.border);
-                console.log('  border-radius: ' + styles.borderRadius);
-
-                // Check CSS variable values
-                if (this.shadowRoot) {
-                    const hostStyles = getComputedStyle(this.shadowRoot.host);
-                    console.log('[SimpleBookmarkPanel] CSS Variables on :host:');
-                    console.log('  --aimd-text-primary: ' + hostStyles.getPropertyValue('--aimd-text-primary'));
-                    console.log('  --aimd-bg-primary: ' + hostStyles.getPropertyValue('--aimd-bg-primary'));
-                    console.log('  --aimd-border-default: ' + hostStyles.getPropertyValue('--aimd-border-default'));
-                }
-            } else {
-                console.log('[SimpleBookmarkPanel] ERROR: searchInput not found!');
-            }
-        }, 100);
 
         // CRITICAL: Add overlay click handler BEFORE appending to body
         // This ensures it's set up correctly and only once
@@ -3817,8 +3790,6 @@ ${options.message}
     private smoothScrollTo(targetElement: HTMLElement): void {
         if (!targetElement) return;
 
-        console.log('[smoothScrollTo] Scrolling to element:', targetElement);
-
         // AITimeline uses scrollIntoView with smooth behavior
         targetElement.scrollIntoView({
             behavior: 'smooth',
@@ -3837,11 +3808,9 @@ ${options.message}
      * Highlight element briefly
      */
     private highlightElement(element: HTMLElement): void {
-        console.log('[highlightElement] Adding highlight to element:', element);
         element.classList.add('bookmark-highlight');
 
         setTimeout(() => {
-            console.log('[highlightElement] Removing highlight from element');
             element.classList.remove('bookmark-highlight');
         }, 3000);  // 3 秒
     }
@@ -3932,18 +3901,18 @@ ${options.message}
         try {
             const storageKey = `bookmarkNavigate:${key}`;
             const result = await chrome.storage.local.get(storageKey);
-            const value = result[storageKey];
+            const val = result[storageKey];
 
-            if (value !== undefined) {
+            if (val !== undefined) {
                 // Clear after reading
                 await chrome.storage.local.remove(storageKey);
-                console.log(`[getNavigateData] Got ${storageKey} = ${value}`);
-                return value;
+                logger.debug(`[SimpleBookmarkPanel] Got ${storageKey} = ${val}`);
+                return val;
             }
 
             return null;
         } catch (error) {
-            console.error('[getNavigateData] Error:', error);
+            logger.error('[SimpleBookmarkPanel] getNavigateData Error:', error);
             return null;
         }
     }
@@ -3952,19 +3921,14 @@ ${options.message}
      * Check for navigation target on page load - AITimeline pattern
      */
     async checkNavigationTarget(): Promise<void> {
-        console.log('=== [checkNavigationTarget] START ===');
-
         try {
             const targetPosition = await this.getNavigateData('targetPosition');
-            console.log('[checkNavigationTarget] targetPosition from storage:', targetPosition);
 
             if (targetPosition !== null) {
-                console.log(`[checkNavigationTarget] Found target position: ${targetPosition}`);
+                logger.debug(`[SimpleBookmarkPanel] Found target position for navigation: ${targetPosition}`);
 
                 // AITimeline pattern: Use requestAnimationFrame
                 requestAnimationFrame(async () => {
-                    console.log('[checkNavigationTarget] In requestAnimationFrame callback');
-
                     // Platform detection - check current URL
                     const isGemini = window.location.href.includes('gemini.google.com');
                     const isChatGPT = window.location.href.includes('chatgpt.com');
@@ -3973,44 +3937,30 @@ ${options.message}
                     let messageSelector: string;
                     if (isGemini) {
                         messageSelector = 'model-response';  // Gemini adapter selector
-                        console.log('[checkNavigationTarget] Platform: Gemini');
                     } else if (isChatGPT) {
                         messageSelector = 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
-                        console.log('[checkNavigationTarget] Platform: ChatGPT');
                     } else {
-                        console.error('[checkNavigationTarget] Unknown platform');
                         return;
                     }
 
-                    console.log('[checkNavigationTarget] Using selector:', messageSelector);
-
                     const messages = document.querySelectorAll(messageSelector);
-                    console.log('[checkNavigationTarget] Found messages:', messages.length);
 
                     const targetIndex = targetPosition - 1;
-                    console.log('[checkNavigationTarget] Target index (0-based):', targetIndex);
 
                     if (targetIndex >= 0 && targetIndex < messages.length) {
                         const targetElement = messages[targetIndex] as HTMLElement;
-                        console.log('[checkNavigationTarget] Target element:', targetElement);
 
                         if (targetElement) {
-                            console.log(`[checkNavigationTarget] Calling smoothScrollTo for position ${targetPosition}`);
+                            logger.debug(`[SimpleBookmarkPanel] Auto-scrolling to position ${targetPosition}`);
                             this.smoothScrollTo(targetElement);
-                        } else {
-                            console.error('[checkNavigationTarget] Target element is null');
                         }
                     } else {
-                        console.error(`[checkNavigationTarget] Invalid position: ${targetPosition} (messages: ${messages.length})`);
+                        logger.warn(`[SimpleBookmarkPanel] Invalid auto-scroll position: ${targetPosition}`);
                     }
-
-                    console.log('=== [checkNavigationTarget] END ===');
                 });
-            } else {
-                console.log('[checkNavigationTarget] No navigation target found in storage');
             }
         } catch (error) {
-            console.error('[checkNavigationTarget] Error:', error);
+            logger.error('[SimpleBookmarkPanel] checkNavigationTarget Error:', error);
         }
     }
 
@@ -4102,9 +4052,6 @@ ${options.message}
     private getStyles(): string {
         // T2.1.2: Detect current theme
         const isDark = ThemeManager.getInstance().isDarkMode();
-        console.log('[SimpleBookmarkPanel] getStyles() called');
-        console.log('[SimpleBookmarkPanel] isDark:', isDark);
-        console.log('[SimpleBookmarkPanel] Theme:', isDark ? 'DARK' : 'LIGHT');
 
         return `
             /* ============================================================================
@@ -4127,15 +4074,7 @@ ${options.message}
                 /* T2.1.3: Inject all design tokens based on theme */
                 ${(() => {
                 const tokens = DesignTokens.getCompleteTokens(isDark);
-                console.log('[SimpleBookmarkPanel] Injecting tokens, length:', tokens.length);
-                console.log('[SimpleBookmarkPanel] Token preview (first 500 chars):', tokens.substring(0, 500));
                 // Check if AIMD tokens are included
-                const hasAimdTokens = tokens.includes('--aimd-text-primary');
-                const hasBorderDefault = tokens.includes('--aimd-border-default');
-                const hasBgPrimary = tokens.includes('--aimd-bg-primary');
-                console.log('[SimpleBookmarkPanel] Has --aimd-text-primary:', hasAimdTokens);
-                console.log('[SimpleBookmarkPanel] Has --aimd-border-default:', hasBorderDefault);
-                console.log('[SimpleBookmarkPanel] Has --aimd-bg-primary:', hasBgPrimary);
                 return tokens;
             })()}
             }

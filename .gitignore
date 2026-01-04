@@ -17,6 +17,7 @@ memory/
 private/
 prompts/
 docs/
+.agent/
 *.private.md
 *-internal.md
 

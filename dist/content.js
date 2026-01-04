@@ -92,7 +92,7 @@ var LogLevel = /* @__PURE__ */ ((LogLevel2) => {
   return LogLevel2;
 })(LogLevel || {});
 class Logger {
-  level = 1 /* INFO */;
+  level = 2 /* WARN */;
   prefix = "[AI-MarkDone]";
   setLevel(level) {
     this.level = level;
@@ -29974,29 +29974,6 @@ class SimpleBookmarkPanel {
     this.shadowRoot.appendChild(styles);
     const panel = this.createPanel();
     this.shadowRoot.appendChild(panel);
-    setTimeout(() => {
-      console.log("[SimpleBookmarkPanel] DEBUG: setTimeout executed");
-      console.log("[SimpleBookmarkPanel] DEBUG: shadowRoot exists:", !!this.shadowRoot);
-      const searchInput = this.shadowRoot?.querySelector(".search-input");
-      console.log("[SimpleBookmarkPanel] DEBUG: searchInput found:", !!searchInput);
-      if (searchInput) {
-        const styles2 = getComputedStyle(searchInput);
-        console.log("[SimpleBookmarkPanel] Search Input Computed Styles:");
-        console.log("  color: " + styles2.color);
-        console.log("  background-color: " + styles2.backgroundColor);
-        console.log("  border: " + styles2.border);
-        console.log("  border-radius: " + styles2.borderRadius);
-        if (this.shadowRoot) {
-          const hostStyles = getComputedStyle(this.shadowRoot.host);
-          console.log("[SimpleBookmarkPanel] CSS Variables on :host:");
-          console.log("  --aimd-text-primary: " + hostStyles.getPropertyValue("--aimd-text-primary"));
-          console.log("  --aimd-bg-primary: " + hostStyles.getPropertyValue("--aimd-bg-primary"));
-          console.log("  --aimd-border-default: " + hostStyles.getPropertyValue("--aimd-border-default"));
-        }
-      } else {
-        console.log("[SimpleBookmarkPanel] ERROR: searchInput not found!");
-      }
-    }, 100);
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) {
         this.hide();
@@ -32891,7 +32868,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    */
   smoothScrollTo(targetElement) {
     if (!targetElement) return;
-    console.log("[smoothScrollTo] Scrolling to element:", targetElement);
     targetElement.scrollIntoView({
       behavior: "smooth",
       block: "start"
@@ -32904,10 +32880,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Highlight element briefly
    */
   highlightElement(element) {
-    console.log("[highlightElement] Adding highlight to element:", element);
     element.classList.add("bookmark-highlight");
     setTimeout(() => {
-      console.log("[highlightElement] Removing highlight from element");
       element.classList.remove("bookmark-highlight");
     }, 3e3);
   }
@@ -32915,21 +32889,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Handle bookmark navigation - Go To
    */
   async handleGoTo(url, position) {
-    console.log(`[handleGoTo] Starting navigation to ${url} position ${position}`);
+    logger$1.debug(`[SimpleBookmarkPanel] Starting navigation to ${url} position ${position}`);
     const currentUrl = window.location.href;
     const targetUrl = url;
     const isCurrentPage = this.isSamePage(currentUrl, targetUrl);
-    console.log(`[handleGoTo] isCurrentPage: ${isCurrentPage}`);
     if (isCurrentPage) {
-      console.log("[handleGoTo] Same page - closing panel and scrolling");
       this.hide();
       await this.smoothScrollToPosition(position);
-      console.log(`[handleGoTo] Scrolled to position ${position} on current page`);
+      logger$1.debug(`[SimpleBookmarkPanel] Scrolled to position ${position} on current page`);
     } else {
-      console.log("[handleGoTo] Cross-page - navigating with window.location.href");
       await this.setNavigateData("targetPosition", position);
       window.location.href = targetUrl;
-      console.log(`[handleGoTo] Navigating to ${targetUrl} with target position ${position}`);
+      logger$1.debug(`[SimpleBookmarkPanel] Navigating to ${targetUrl} with target position ${position}`);
     }
   }
   /**
@@ -32945,30 +32916,24 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Smooth scroll to bookmark position
    */
   async smoothScrollToPosition(position) {
-    console.log(`[smoothScrollToPosition] Starting scroll to position ${position}`);
     const isGemini = window.location.href.includes("gemini.google.com");
     const isChatGPT = window.location.href.includes("chatgpt.com");
     let messageSelector;
     if (isGemini) {
       messageSelector = "model-response";
-      console.log("[smoothScrollToPosition] Platform: Gemini");
     } else if (isChatGPT) {
       messageSelector = 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
-      console.log("[smoothScrollToPosition] Platform: ChatGPT");
     } else {
-      console.error("[smoothScrollToPosition] Unknown platform");
+      logger$1.warn("[SimpleBookmarkPanel] Unknown platform for scrolling");
       return;
     }
-    console.log(`[smoothScrollToPosition] Using selector: ${messageSelector}`);
     const messages = document.querySelectorAll(messageSelector);
-    console.log(`[smoothScrollToPosition] Found ${messages.length} messages`);
     const targetIndex = position - 1;
     if (targetIndex >= 0 && targetIndex < messages.length) {
       const targetElement = messages[targetIndex];
-      console.log("[smoothScrollToPosition] Target element found, starting smooth scroll");
       this.smoothScrollTo(targetElement);
     } else {
-      console.error(`[smoothScrollToPosition] Invalid position: ${position} (messages: ${messages.length})`);
+      logger$1.warn(`[SimpleBookmarkPanel] Invalid position for scrolling: ${position} (messages: ${messages.length})`);
     }
   }
   /**
@@ -32979,24 +32944,23 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
     try {
       const storageKey = `bookmarkNavigate:${key}`;
       await chrome.storage.local.set({ [storageKey]: value });
-      console.log(`[setNavigateData] Set ${storageKey} = ${value}`);
     } catch (error) {
-      console.error("[setNavigateData] Error:", error);
+      logger$1.error("[SimpleBookmarkPanel] setNavigateData Error:", error);
     }
   }
   async getNavigateData(key) {
     try {
       const storageKey = `bookmarkNavigate:${key}`;
       const result = await chrome.storage.local.get(storageKey);
-      const value = result[storageKey];
-      if (value !== void 0) {
+      const val = result[storageKey];
+      if (val !== void 0) {
         await chrome.storage.local.remove(storageKey);
-        console.log(`[getNavigateData] Got ${storageKey} = ${value}`);
-        return value;
+        logger$1.debug(`[SimpleBookmarkPanel] Got ${storageKey} = ${val}`);
+        return val;
       }
       return null;
     } catch (error) {
-      console.error("[getNavigateData] Error:", error);
+      logger$1.error("[SimpleBookmarkPanel] getNavigateData Error:", error);
       return null;
     }
   }
@@ -33004,51 +32968,36 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Check for navigation target on page load - AITimeline pattern
    */
   async checkNavigationTarget() {
-    console.log("=== [checkNavigationTarget] START ===");
     try {
       const targetPosition = await this.getNavigateData("targetPosition");
-      console.log("[checkNavigationTarget] targetPosition from storage:", targetPosition);
       if (targetPosition !== null) {
-        console.log(`[checkNavigationTarget] Found target position: ${targetPosition}`);
+        logger$1.debug(`[SimpleBookmarkPanel] Found target position for navigation: ${targetPosition}`);
         requestAnimationFrame(async () => {
-          console.log("[checkNavigationTarget] In requestAnimationFrame callback");
           const isGemini = window.location.href.includes("gemini.google.com");
           const isChatGPT = window.location.href.includes("chatgpt.com");
           let messageSelector;
           if (isGemini) {
             messageSelector = "model-response";
-            console.log("[checkNavigationTarget] Platform: Gemini");
           } else if (isChatGPT) {
             messageSelector = 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
-            console.log("[checkNavigationTarget] Platform: ChatGPT");
           } else {
-            console.error("[checkNavigationTarget] Unknown platform");
             return;
           }
-          console.log("[checkNavigationTarget] Using selector:", messageSelector);
           const messages = document.querySelectorAll(messageSelector);
-          console.log("[checkNavigationTarget] Found messages:", messages.length);
           const targetIndex = targetPosition - 1;
-          console.log("[checkNavigationTarget] Target index (0-based):", targetIndex);
           if (targetIndex >= 0 && targetIndex < messages.length) {
             const targetElement = messages[targetIndex];
-            console.log("[checkNavigationTarget] Target element:", targetElement);
             if (targetElement) {
-              console.log(`[checkNavigationTarget] Calling smoothScrollTo for position ${targetPosition}`);
+              logger$1.debug(`[SimpleBookmarkPanel] Auto-scrolling to position ${targetPosition}`);
               this.smoothScrollTo(targetElement);
-            } else {
-              console.error("[checkNavigationTarget] Target element is null");
             }
           } else {
-            console.error(`[checkNavigationTarget] Invalid position: ${targetPosition} (messages: ${messages.length})`);
+            logger$1.warn(`[SimpleBookmarkPanel] Invalid auto-scroll position: ${targetPosition}`);
           }
-          console.log("=== [checkNavigationTarget] END ===");
         });
-      } else {
-        console.log("[checkNavigationTarget] No navigation target found in storage");
       }
     } catch (error) {
-      console.error("[checkNavigationTarget] Error:", error);
+      logger$1.error("[SimpleBookmarkPanel] checkNavigationTarget Error:", error);
     }
   }
   /**
@@ -33126,9 +33075,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    */
   getStyles() {
     const isDark = ThemeManager.getInstance().isDarkMode();
-    console.log("[SimpleBookmarkPanel] getStyles() called");
-    console.log("[SimpleBookmarkPanel] isDark:", isDark);
-    console.log("[SimpleBookmarkPanel] Theme:", isDark ? "DARK" : "LIGHT");
     return `
             /* ============================================================================
                SHADOW DOM ISOLATED DESIGN TOKENS
@@ -33150,14 +33096,6 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 /* T2.1.3: Inject all design tokens based on theme */
                 ${(() => {
       const tokens = DesignTokens.getCompleteTokens(isDark);
-      console.log("[SimpleBookmarkPanel] Injecting tokens, length:", tokens.length);
-      console.log("[SimpleBookmarkPanel] Token preview (first 500 chars):", tokens.substring(0, 500));
-      const hasAimdTokens = tokens.includes("--aimd-text-primary");
-      const hasBorderDefault = tokens.includes("--aimd-border-default");
-      const hasBgPrimary = tokens.includes("--aimd-bg-primary");
-      console.log("[SimpleBookmarkPanel] Has --aimd-text-primary:", hasAimdTokens);
-      console.log("[SimpleBookmarkPanel] Has --aimd-border-default:", hasBorderDefault);
-      console.log("[SimpleBookmarkPanel] Has --aimd-bg-primary:", hasBgPrimary);
       return tokens;
     })()}
             }

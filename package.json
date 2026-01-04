@@ -1,7 +1,7 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "2.0.0",
+    "version": "2.2.0",
     "description": "AI-MarkDone: ChatGPT & Gemini enhancement - One-click Markdown copy, formatted preview, word count, perfect math formula support. Compatible with Typora/Obsidian.",
     "type": "module",
     "scripts": {
