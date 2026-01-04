@@ -1,7 +1,7 @@
 import { modalStyles } from '../../styles/modal.css';
 import { copyToClipboard } from '../../utils/dom-utils';
 import { DesignTokens } from '../../utils/design-tokens';
-import { DarkModeDetector } from '../../utils/dark-mode-detector';
+import { ThemeManager, Theme } from '../../utils/ThemeManager';
 
 /**
  * Modal component using Shadow DOM
@@ -13,7 +13,7 @@ export class Modal {
     private content: string = '';
     private tokenStyleElement: HTMLStyleElement | null = null;
     private themeUnsubscribe: (() => void) | null = null;
-    private currentThemeIsDark: boolean = DesignTokens.isDarkMode();
+    private currentThemeIsDark: boolean = ThemeManager.getInstance().isDarkMode();
 
     constructor() {
         this.container = document.createElement('div');
@@ -43,9 +43,9 @@ export class Modal {
      * Subscribe to host theme updates
      */
     private subscribeTheme(): void {
-        const detector = DarkModeDetector.getInstance();
-        this.themeUnsubscribe = detector.subscribe((isDark) => {
-            this.setTheme(isDark);
+        const themeManager = ThemeManager.getInstance();
+        this.themeUnsubscribe = themeManager.subscribe((theme: Theme) => {
+            this.setTheme(theme === 'dark');
         });
     }
 

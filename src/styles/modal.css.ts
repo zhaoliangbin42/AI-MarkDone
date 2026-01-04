@@ -5,7 +5,7 @@
 
 export const modalStyles = `
 :host {
-  font-family: var(--font-sans);
+  font-family: var(--aimd-font-sans);
 }
 
 .modal-overlay {
@@ -14,7 +14,7 @@ export const modalStyles = `
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--modal-overlay-bg);
+  background: var(--aimd-modal-overlay);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -29,9 +29,9 @@ export const modalStyles = `
 }
 
 .modal-container {
-  background: var(--modal-surface);
+  background: var(--aimd-modal-surface);
   border-radius: 16px;
-  box-shadow: var(--modal-shadow);
+  box-shadow: var(--aimd-modal-shadow);
   max-width: 900px;
   width: 90%;
   height: 80vh;
@@ -54,7 +54,7 @@ export const modalStyles = `
 
 .modal-header {
   padding: 8px 24px;
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--aimd-border-default);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -64,7 +64,7 @@ export const modalStyles = `
 .modal-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--gray-900);
+  color: var(--aimd-text-primary);
   letter-spacing: -0.02em;
   margin: 0;
 }
@@ -75,7 +75,7 @@ export const modalStyles = `
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--gray-500);
+  color: var(--aimd-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -85,8 +85,8 @@ export const modalStyles = `
 }
 
 .modal-close:hover {
-  background: var(--gray-100);
-  color: var(--gray-900);
+  background: var(--aimd-interactive-hover);
+  color: var(--aimd-text-primary);
 }
 
 .modal-body {
@@ -99,54 +99,56 @@ export const modalStyles = `
   max-width: 1000px;
   margin: 0 auto;
   padding: 24px 32px;
-  background: var(--modal-surface);
+  background: var(--aimd-modal-surface);
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-x: auto;
-  color: var(--md-on-surface);
+  color: var(--aimd-text-primary);
   tab-size: 2;
 }
 
 .modal-footer {
   padding: 8px 16px;
-  border-top: 1px solid var(--gray-200);
+  border-top: 1px solid var(--aimd-border-default);
   display: flex;
   justify-content: flex-end;
   gap: 16px;
-  background: var(--modal-surface);
+  background: var(--aimd-modal-surface);
   flex-shrink: 0;
   border-radius: 0 0 16px 16px;
   min-height: 44px;
 }
 
 .modal-button {
-  padding: 0px 40px;
+  padding: 8px 24px;
   border-radius: 8px;
-  border: none;
-  background: var(--gray-100);
-  color: var(--gray-900);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  border: 1px solid var(--aimd-border-default);
+  background: var(--aimd-modal-secondary-bg);
+  color: var(--aimd-modal-secondary-text);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
   cursor: pointer;
   transition: all 0.15s ease;
+  min-height: 36px;
 }
 
 .modal-button:hover {
-  background: var(--gray-200);
+  background: var(--aimd-modal-secondary-hover-bg);
+  border-color: var(--aimd-border-strong);
   transform: translateY(-1px);
 }
 
 .modal-button.primary {
-  background: var(--modal-primary-bg);
-  color: var(--modal-primary-text);
+  background: var(--aimd-modal-primary-bg);
+  color: var(--aimd-modal-primary-text);
 }
 
 .modal-button.primary:hover {
-  background: var(--modal-primary-hover-bg);
-  box-shadow: var(--modal-primary-shadow);
+  background: var(--aimd-modal-primary-hover-bg);
+  box-shadow: var(--aimd-modal-primary-shadow);
   transform: translateY(-1px);
 }
 

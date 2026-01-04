@@ -12,7 +12,7 @@ import { SimpleBookmarkStorage } from '../bookmarks/storage/SimpleBookmarkStorag
 import { BookmarkSaveModal } from '../bookmarks/components/BookmarkSaveModal';
 import { pageHeaderIcon } from './components/PageHeaderIcon';
 import { geminiPanelButton } from './components/GeminiPanelButton';
-import { DarkModeDetector } from '../utils/dark-mode-detector';
+import { ThemeManager, Theme } from '../utils/ThemeManager';
 
 /**
  * Main content script controller
@@ -53,13 +53,14 @@ class ContentScript {
         this.mathClickHandler = new MathClickHandler();
         this.reRenderPanel = new ReaderPanel();
 
-        // Initialize dark mode detector to follow host website theme
-        const darkModeDetector = DarkModeDetector.getInstance();
-        this.currentThemeIsDark = darkModeDetector.isDarkMode();
-        darkModeDetector.subscribe((isDark) => {
-            logger.info(`[DarkMode] Theme changed: ${isDark ? 'dark' : 'light'}`);
-            this.currentThemeIsDark = isDark;
-            this.applyTheme(isDark);
+        // Initialize theme manager to follow host website theme
+        const themeManager = ThemeManager.getInstance();
+        themeManager.init();
+        this.currentThemeIsDark = themeManager.isDarkMode();
+        themeManager.subscribe((theme: Theme) => {
+            logger.info(`[ThemeManager] Theme changed: ${theme}`);
+            this.currentThemeIsDark = theme === 'dark';
+            this.applyTheme(this.currentThemeIsDark);
         });
 
         logger.info('AI-MarkDone initialized');

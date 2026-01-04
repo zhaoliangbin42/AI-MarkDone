@@ -1,0 +1,147 @@
+/**
+ * Primitive Design Tokens (Layer 1)
+ * 
+ * Raw, immutable color values that never change based on theme.
+ * These are the foundation of the design system.
+ * 
+ * Naming: --aimd-color-{name}-{shade}
+ */
+
+:root {
+  /* ===== Neutral Colors ===== */
+  --aimd-color-white: #FFFFFF;
+  --aimd-color-black: #000000;
+  
+  /* Gray Scale (Light Mode) */
+  --aimd-color-gray-50: #F9FAFB;
+  --aimd-color-gray-100: #F3F4F6;
+  --aimd-color-gray-200: #E5E7EB;
+  --aimd-color-gray-300: #D1D5DB;
+  --aimd-color-gray-400: #9CA3AF;
+  --aimd-color-gray-500: #6B7280;
+  --aimd-color-gray-600: #4B5563;
+  --aimd-color-gray-700: #374151;
+  --aimd-color-gray-800: #1F2937;
+  --aimd-color-gray-900: #111827;
+  
+  /* Dark Mode Grays (Inverted Scale) */
+  --aimd-color-gray-dark-50: #18181B;
+  --aimd-color-gray-dark-100: #27272A;
+  --aimd-color-gray-dark-200: #3F3F46;
+  --aimd-color-gray-dark-300: #52525B;
+  --aimd-color-gray-dark-400: #A1A1AA;
+  --aimd-color-gray-dark-500: #D4D4D8;
+  --aimd-color-gray-dark-600: #E4E4E7;
+  --aimd-color-gray-dark-700: #F4F4F5;
+  --aimd-color-gray-dark-800: #FAFAFA;
+  --aimd-color-gray-dark-900: #FFFFFF;
+  
+  /* ===== Primary Colors (Blue) ===== */
+  --aimd-color-blue-50: #E3F2FD;
+  --aimd-color-blue-100: #BBDEFB;
+  --aimd-color-blue-200: #90CAF9;
+  --aimd-color-blue-300: #64B5F6;
+  --aimd-color-blue-400: #42A5F5;
+  --aimd-color-blue-500: #2196F3;
+  --aimd-color-blue-600: #1976D2;
+  --aimd-color-blue-700: #1565C0;
+  --aimd-color-blue-800: #0D47A1;
+  --aimd-color-blue-900: #0A3D91;
+  
+  /* ===== Semantic Colors ===== */
+  /* Green (Success) */
+  --aimd-color-green-50: #ECFDF5;
+  --aimd-color-green-500: #22C55E;
+  --aimd-color-green-600: #16A34A;
+  --aimd-color-green-700: #15803D;
+  
+  /* Amber (Warning) */
+  --aimd-color-amber-50: #FFFBEB;
+  --aimd-color-amber-500: #F59E0B;
+  --aimd-color-amber-600: #D97706;
+  
+  /* Red (Danger) */
+  --aimd-color-red-50: #FEF2F2;
+  --aimd-color-red-500: #EF4444;
+  --aimd-color-red-600: #DC2626;
+  --aimd-color-red-700: #B91C1C;
+  --aimd-color-red-800: #991B1B;
+  
+  /* Purple (Accent) */
+  --aimd-color-purple-500: #8B5CF6;
+  --aimd-color-purple-600: #7C3AED;
+  
+  /* ===== Spacing Scale ===== */
+  --aimd-space-0: 0px;
+  --aimd-space-1: 4px;
+  --aimd-space-2: 8px;
+  --aimd-space-3: 12px;
+  --aimd-space-4: 16px;
+  --aimd-space-5: 20px;
+  --aimd-space-6: 24px;
+  --aimd-space-8: 32px;
+  --aimd-space-10: 40px;
+  --aimd-space-12: 48px;
+  
+  /* ===== Typography ===== */
+  --aimd-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --aimd-font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Menlo, monospace;
+  
+  /* Font Sizes */
+  --aimd-text-xs: 11px;
+  --aimd-text-sm: 12px;
+  --aimd-text-base: 13px;
+  --aimd-text-md: 14px;
+  --aimd-text-lg: 16px;
+  --aimd-text-xl: 18px;
+  --aimd-text-2xl: 20px;
+  --aimd-text-3xl: 24px;
+  
+  /* Font Weights */
+  --aimd-font-normal: 400;
+  --aimd-font-medium: 500;
+  --aimd-font-semibold: 600;
+  --aimd-font-bold: 700;
+  
+  /* ===== Border Radius ===== */
+  --aimd-radius-none: 0px;
+  --aimd-radius-sm: 4px;
+  --aimd-radius-md: 6px;
+  --aimd-radius-lg: 8px;
+  --aimd-radius-xl: 12px;
+  --aimd-radius-2xl: 16px;
+  --aimd-radius-3xl: 20px;
+  --aimd-radius-full: 9999px;
+  
+  /* ===== Animation ===== */
+  --aimd-duration-instant: 50ms;
+  --aimd-duration-fast: 150ms;
+  --aimd-duration-base: 200ms;
+  --aimd-duration-slow: 300ms;
+  --aimd-duration-slower: 500ms;
+  
+  /* Easing Curves */
+  --aimd-ease-linear: linear;
+  --aimd-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --aimd-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --aimd-ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
+  --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* ===== Z-Index Scale ===== */
+  --aimd-z-dropdown: 100;
+  --aimd-z-sticky: 200;
+  --aimd-z-fixed: 300;
+  --aimd-z-modal-backdrop: 400;
+  --aimd-z-modal: 500;
+  --aimd-z-popover: 600;
+  --aimd-z-tooltip: 700;
+  --aimd-z-max: 2147483647;
+  
+  /* ===== Icon Sizes ===== */
+  --aimd-icon-xs: 12px;
+  --aimd-icon-sm: 16px;
+  --aimd-icon-md: 20px;
+  --aimd-icon-lg: 24px;
+  --aimd-icon-xl: 32px;
+}

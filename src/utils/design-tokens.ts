@@ -798,7 +798,7 @@ export class DesignTokens {
 
     /**
      * Get complete token set for specified mode
-     * Combines: Primitive Tokens + Semantic Tokens + Common Tokens + Shadows
+     * Combines: Primitive Tokens + Semantic Tokens + Common Tokens + Shadows + New AIMD Tokens
      * @param isDark Whether to get dark mode tokens
      * @returns Complete CSS custom properties string
      */
@@ -807,12 +807,483 @@ export class DesignTokens {
         const semanticTokens = isDark ? this.getDarkSemanticTokens() : this.getLightSemanticTokens();
         const commonTokens = this.getCommonTokens();
         const shadowTokens = this.getShadowTokens(isDark);
+        const aimdTokens = this.getAimdSemanticTokens(isDark);
 
         return `
             ${primitiveTokens}
             ${semanticTokens}
             ${commonTokens}
             ${shadowTokens}
+            ${aimdTokens}
         `;
+    }
+
+    /**
+     * Get new AIMD semantic tokens for specified mode
+     * These are the new 3-tier token system tokens with --aimd- prefix
+     * @param isDark Whether to get dark mode tokens
+     * @returns CSS custom properties string
+     */
+    static getAimdSemanticTokens(isDark: boolean): string {
+        if (isDark) {
+            return `
+                /* ============================================
+                   AIMD SEMANTIC TOKENS - Dark Mode
+                   ============================================ */
+                
+                /* --- Primitives (always same) --- */
+                --aimd-color-white: #FFFFFF;
+                --aimd-color-black: #000000;
+                --aimd-color-gray-50: #F9FAFB;
+                --aimd-color-gray-100: #F3F4F6;
+                --aimd-color-gray-200: #E5E7EB;
+                --aimd-color-gray-300: #D1D5DB;
+                --aimd-color-gray-400: #9CA3AF;
+                --aimd-color-gray-500: #6B7280;
+                --aimd-color-gray-600: #4B5563;
+                --aimd-color-gray-700: #374151;
+                --aimd-color-gray-800: #1F2937;
+                --aimd-color-gray-900: #111827;
+                --aimd-color-blue-400: #60A5FA;
+                --aimd-color-blue-500: #3B82F6;
+                --aimd-color-blue-600: #2563EB;
+                --aimd-color-blue-700: #1D4ED8;
+                --aimd-color-blue-800: #1E40AF;
+                --aimd-color-red-500: #EF4444;
+                --aimd-color-red-600: #DC2626;
+                --aimd-color-green-500: #22C55E;
+                --aimd-color-green-600: #16A34A;
+                
+                /* --- Backgrounds (Dark) --- */
+                --aimd-bg-primary: #18181B;
+                --aimd-bg-secondary: #27272A;
+                --aimd-bg-tertiary: #3F3F46;
+                --aimd-bg-elevated: #27272A;
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.7);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.8);
+                --aimd-bg-glass: rgba(39, 39, 42, 0.85);
+                
+                /* --- Text (Dark) --- */
+                --aimd-text-primary: #FAFAFA;
+                --aimd-text-secondary: #A1A1AA;
+                --aimd-text-tertiary: #71717A;
+                --aimd-text-disabled: #52525B;
+                --aimd-text-on-primary: #FFFFFF;
+                --aimd-text-on-danger: #FFFFFF;
+                --aimd-text-link: #60A5FA;
+                
+                /* --- Borders (Dark) --- */
+                --aimd-border-default: #3F3F46;
+                --aimd-border-subtle: #27272A;
+                --aimd-border-strong: #52525B;
+                --aimd-border-focus: #3B82F6;
+                --aimd-border-glass: rgba(255, 255, 255, 0.08);
+                
+                /* --- Interactive (Dark) --- */
+                --aimd-interactive-primary: #60A5FA;
+                --aimd-interactive-primary-hover: #3B82F6;
+                --aimd-interactive-primary-active: #2563EB;
+                --aimd-interactive-hover: rgba(255, 255, 255, 0.10);
+                --aimd-interactive-active: rgba(255, 255, 255, 0.1);
+                --aimd-interactive-selected: rgba(59, 130, 246, 0.20);
+                --aimd-interactive-danger: #EF4444;
+                --aimd-interactive-danger-hover: #DC2626;
+                
+                /* --- Shadows (Dark) --- */
+                --aimd-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+                --aimd-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+                --aimd-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+                --aimd-shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.35);
+                --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.4);
+                
+                /* --- Scrollbar (Dark) --- */
+                --aimd-scrollbar-thumb: rgba(255, 255, 255, 0.2);
+                --aimd-scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+                
+                /* --- Panel Tokens (Dark) --- */
+                --aimd-panel-bg: rgba(39, 39, 42, 0.95);
+                --aimd-panel-border: rgba(255, 255, 255, 0.08);
+                --aimd-panel-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+                --aimd-panel-header-bg: rgba(39, 39, 42, 0.6);
+                --aimd-panel-pagination-bg: rgba(39, 39, 42, 0.6);
+                --aimd-panel-pagination-border: #3F3F46;
+                
+                /* --- Glassmorphism (Dark) --- */
+                --aimd-glass-blur: blur(20px) saturate(180%) brightness(90%);
+                
+                /* --- Navigation Buttons --- */
+                --aimd-nav-button-hover-bg: rgba(59, 130, 246, 0.15);
+                --aimd-nav-button-active-bg: rgba(59, 130, 246, 0.25);
+                
+                /* --- Dot Pagination --- */
+                --aimd-dot-active-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+                
+                /* --- Spacing Scale --- */
+                --aimd-space-1: 4px;
+                --aimd-space-2: 8px;
+                --aimd-space-3: 12px;
+                --aimd-space-4: 16px;
+                --aimd-space-5: 20px;
+                --aimd-space-6: 24px;
+                --aimd-space-8: 32px;
+                
+                /* --- Border Radius --- */
+                --aimd-radius-sm: 4px;
+                --aimd-radius-md: 6px;
+                --aimd-radius-lg: 8px;
+                --aimd-radius-xl: 12px;
+                --aimd-radius-2xl: 16px;
+                
+                /* --- Typography --- */
+                --aimd-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                --aimd-text-sm: 13px;
+                --aimd-text-base: 14px;
+                --aimd-text-lg: 16px;
+                --aimd-text-xl: 18px;
+                --aimd-text-2xl: 20px;
+                --aimd-text-3xl: 24px;
+                --aimd-font-medium: 500;
+                --aimd-font-semibold: 600;
+                
+                /* --- Animation --- */
+                --aimd-duration-fast: 150ms;
+                --aimd-duration-base: 200ms;
+                --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+                
+                /* --- Tooltip (always dark for contrast) --- */
+                --aimd-tooltip-bg: rgba(30, 30, 30, 0.95);
+                --aimd-tooltip-text: #FFFFFF;
+                --aimd-tooltip-prompt-color: #E5E7EB;
+                --aimd-tooltip-border: rgba(255, 255, 255, 0.1);
+                --aimd-tooltip-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+                
+                /* --- Toolbar (Dark Mode) --- */
+                --aimd-toolbar-gradient-solid-from: #60A5FA;
+                --aimd-toolbar-gradient-solid-to: #3B82F6;
+                --aimd-toolbar-gradient-light-from: rgba(96, 165, 250, 0.25);
+                --aimd-toolbar-gradient-light-to: rgba(59, 130, 246, 0.25);
+                --aimd-toolbar-theme-color: #60A5FA;
+                --aimd-toolbar-bg: rgba(40, 40, 40, 0.98);
+                --aimd-toolbar-border: rgba(255, 255, 255, 0.08);
+                --aimd-toolbar-border-strong: rgba(255, 255, 255, 0.12);
+                --aimd-toolbar-shadow-1: rgba(0, 0, 0, 0.4);
+                --aimd-toolbar-shadow-2: rgba(0, 0, 0, 0.3);
+                --aimd-toolbar-hover-shadow-1: rgba(0, 0, 0, 0.5);
+                --aimd-toolbar-hover-shadow-2: rgba(0, 0, 0, 0.4);
+                --aimd-toolbar-divider: rgba(255, 255, 255, 0.12);
+                --aimd-toolbar-button-text: rgba(255, 255, 255, 0.7);
+                --aimd-toolbar-button-hover-bg: rgba(255, 255, 255, 0.1);
+                --aimd-toolbar-button-hover-text: #FFFFFF;
+                --aimd-toolbar-button-active-bg: rgba(255, 255, 255, 0.15);
+                --aimd-toolbar-bookmark-hover-bg: rgba(96, 165, 250, 0.2);
+                --aimd-toolbar-stats-text: rgba(255, 255, 255, 0.5);
+                
+                /* --- Modal (Dark Mode) --- */
+                --aimd-modal-overlay: rgba(0, 0, 0, 0.7);
+                --aimd-modal-surface: #27272A;
+                --aimd-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                --aimd-modal-primary-bg: #60A5FA;
+                --aimd-modal-primary-text: #111827;
+                --aimd-modal-primary-hover-bg: #3B82F6;
+                --aimd-modal-primary-shadow: 0 4px 12px rgba(96, 165, 250, 0.4);
+                --aimd-modal-secondary-bg: rgba(255, 255, 255, 0.1);
+                --aimd-modal-secondary-text: #E5E7EB;
+                --aimd-modal-secondary-hover-bg: rgba(255, 255, 255, 0.15);
+                
+                /* --- Extended Spacing --- */
+                --aimd-space-10: 40px;
+                
+                /* --- Extended Animation --- */
+                --aimd-duration-slower: 400ms;
+                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                
+                /* --- Button Tokens (Dark Mode) --- */
+                --aimd-button-primary-bg: #60A5FA;
+                --aimd-button-primary-text: #111827;
+                --aimd-button-primary-hover: #3B82F6;
+                --aimd-button-primary-text-hover: #111827;
+                --aimd-button-primary-disabled: #4B5563;
+                --aimd-button-primary-disabled-text: #9CA3AF;
+                --aimd-button-secondary-bg: rgba(255, 255, 255, 0.1);
+                --aimd-button-secondary-text: #E5E7EB;
+                --aimd-button-secondary-hover: rgba(255, 255, 255, 0.15);
+                --aimd-button-secondary-text-hover: #FFFFFF;
+                --aimd-button-icon-bg: transparent;  /* No background by default */
+                --aimd-button-icon-text: #A1A1AA;  /* Slightly lighter for better contrast */
+                --aimd-button-icon-hover: rgba(255, 255, 255, 0.10);  /* Subtle highlight on hover */
+                --aimd-button-icon-text-hover: #FFFFFF;
+                
+                /* --- Feedback Colors (Dark Mode) --- */
+                --aimd-feedback-success-bg: rgba(16, 185, 129, 0.15);
+                --aimd-feedback-success-text: #6EE7B7;
+                --aimd-feedback-info-bg: rgba(59, 130, 246, 0.15);
+                --aimd-feedback-info-bg: rgba(59, 130, 246, 0.15);
+                --aimd-feedback-info-text: #93C5FD;
+                --aimd-feedback-warning-bg: rgba(245, 158, 11, 0.15);
+                --aimd-feedback-warning-text: #FCD34D;
+                --aimd-feedback-danger-bg: rgba(239, 68, 68, 0.15);
+                --aimd-feedback-danger-text: #FCA5A5;
+                
+                /* --- Extended Colors (Dark Mode) --- */
+                --aimd-color-green-500: #10B981;
+                --aimd-border-subtle: rgba(255, 255, 255, 0.06);
+                --aimd-bg-tertiary: rgba(255, 255, 255, 0.05);
+                
+                /* --- Overlay Tokens (Dark Mode) --- */
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.7);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.8);
+                --aimd-glass-tint: rgba(255, 255, 255, 0.03);
+                --aimd-bg-hint: rgba(255, 255, 255, 0.05);
+                
+                /* --- Shadow Tokens (Dark Mode) --- */
+                --aimd-shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.25);
+                --aimd-shadow-error: 0 0 0 2px rgba(239, 68, 68, 0.3);
+                --aimd-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+                --aimd-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.2);
+                --aimd-shadow-lg: 0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3);
+                --aimd-shadow-2xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+                --aimd-shadow-primary-sm: 0 2px 8px rgba(96, 165, 250, 0.2);
+                
+                /* --- Interactive Tokens (Dark Mode) --- */
+                --aimd-interactive-highlight: rgba(96, 165, 250, 0.15);
+                --aimd-interactive-flash: rgba(96, 165, 250, 0.35);
+                
+                /* --- Input Tokens (Dark Mode) --- */
+                --aimd-input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+                --aimd-selected-gradient: linear-gradient(90deg, rgba(96, 165, 250, 0.2) 0%, rgba(96, 165, 250, 0.1) 100%);
+                
+                /* --- Tooltip Shadow (Dark Mode) --- */
+                --aimd-tooltip-shadow-color: rgba(0, 0, 0, 0.5);
+            `;
+        } else {
+            return `
+                /* ============================================
+                   AIMD SEMANTIC TOKENS - Light Mode
+                   ============================================ */
+                
+                /* --- Primitives (always same) --- */
+                --aimd-color-white: #FFFFFF;
+                --aimd-color-black: #000000;
+                --aimd-color-gray-50: #F9FAFB;
+                --aimd-color-gray-100: #F3F4F6;
+                --aimd-color-gray-200: #E5E7EB;
+                --aimd-color-gray-300: #D1D5DB;
+                --aimd-color-gray-400: #9CA3AF;
+                --aimd-color-gray-500: #6B7280;
+                --aimd-color-gray-600: #4B5563;
+                --aimd-color-gray-700: #374151;
+                --aimd-color-gray-800: #1F2937;
+                --aimd-color-gray-900: #111827;
+                --aimd-color-blue-400: #60A5FA;
+                --aimd-color-blue-500: #3B82F6;
+                --aimd-color-blue-600: #2563EB;
+                --aimd-color-blue-700: #1D4ED8;
+                --aimd-color-blue-800: #1E40AF;
+                --aimd-color-red-500: #EF4444;
+                --aimd-color-red-600: #DC2626;
+                --aimd-color-green-500: #22C55E;
+                --aimd-color-green-600: #16A34A;
+                
+                /* --- Backgrounds (Light) --- */
+                --aimd-bg-primary: #FFFFFF;
+                --aimd-bg-secondary: #F9FAFB;
+                --aimd-bg-tertiary: #F3F4F6;
+                --aimd-bg-elevated: #FFFFFF;
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.5);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.6);
+                --aimd-bg-glass: rgba(255, 255, 255, 0.92);
+                
+                /* --- Text (Light) --- */
+                --aimd-text-primary: #111827;
+                --aimd-text-secondary: #6B7280;
+                --aimd-text-tertiary: #9CA3AF;
+                --aimd-text-disabled: #D1D5DB;
+                --aimd-text-on-primary: #FFFFFF;
+                --aimd-text-on-danger: #FFFFFF;
+                --aimd-text-link: #2563EB;
+                
+                /* --- Borders (Light) --- */
+                --aimd-border-default: #E5E7EB;
+                --aimd-border-subtle: #F3F4F6;
+                --aimd-border-strong: #D1D5DB;
+                --aimd-border-focus: #3B82F6;
+                --aimd-border-glass: rgba(0, 0, 0, 0.08);
+                
+                /* --- Interactive (Light) --- */
+                --aimd-interactive-primary: #2563EB;
+                --aimd-interactive-primary-hover: #1D4ED8;
+                --aimd-interactive-primary-active: #1E40AF;
+                --aimd-interactive-hover: rgba(0, 0, 0, 0.04);
+                --aimd-interactive-active: rgba(0, 0, 0, 0.08);
+                --aimd-interactive-selected: rgba(59, 130, 246, 0.12);
+                --aimd-interactive-danger: #DC2626;
+                --aimd-interactive-danger-hover: #B91C1C;
+                
+                /* --- Shadows (Light) --- */
+                --aimd-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+                --aimd-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+                --aimd-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+                --aimd-shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+                --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.3);
+                
+                /* --- Scrollbar (Light) --- */
+                --aimd-scrollbar-thumb: rgba(0, 0, 0, 0.2);
+                --aimd-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+                
+                /* --- Panel Tokens (Light) --- */
+                --aimd-panel-bg: rgba(255, 255, 255, 0.95);
+                --aimd-panel-border: rgba(0, 0, 0, 0.08);
+                --aimd-panel-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+                --aimd-panel-header-bg: rgba(255, 255, 255, 0.6);
+                --aimd-panel-pagination-bg: rgba(255, 255, 255, 0.6);
+                --aimd-panel-pagination-border: #E5E7EB;
+                
+                /* --- Glassmorphism (Light) --- */
+                --aimd-glass-blur: blur(20px) saturate(180%);
+                
+                /* --- Navigation Buttons --- */
+                --aimd-nav-button-hover-bg: rgba(59, 130, 246, 0.1);
+                --aimd-nav-button-active-bg: rgba(59, 130, 246, 0.15);
+                
+                /* --- Dot Pagination --- */
+                --aimd-dot-active-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+                
+                /* --- Spacing Scale --- */
+                --aimd-space-1: 4px;
+                --aimd-space-2: 8px;
+                --aimd-space-3: 12px;
+                --aimd-space-4: 16px;
+                --aimd-space-5: 20px;
+                --aimd-space-6: 24px;
+                --aimd-space-8: 32px;
+                
+                /* --- Border Radius --- */
+                --aimd-radius-sm: 4px;
+                --aimd-radius-md: 6px;
+                --aimd-radius-lg: 8px;
+                --aimd-radius-xl: 12px;
+                --aimd-radius-2xl: 16px;
+                
+                /* --- Typography --- */
+                --aimd-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                --aimd-text-sm: 13px;
+                --aimd-text-base: 14px;
+                --aimd-text-lg: 16px;
+                --aimd-text-xl: 18px;
+                --aimd-text-2xl: 20px;
+                --aimd-text-3xl: 24px;
+                --aimd-font-medium: 500;
+                --aimd-font-semibold: 600;
+                
+                /* --- Animation --- */
+                --aimd-duration-fast: 150ms;
+                --aimd-duration-base: 200ms;
+                --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+                
+                /* --- Tooltip (Light Mode - light bg) --- */
+                --aimd-tooltip-bg: rgba(255, 255, 255, 0.95);
+                --aimd-tooltip-text: #111827;
+                --aimd-tooltip-prompt-color: #6B7280;
+                --aimd-tooltip-border: rgba(0, 0, 0, 0.1);
+                --aimd-tooltip-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                
+                /* --- Toolbar (Light Mode) --- */
+                --aimd-toolbar-gradient-solid-from: #3B82F6;
+                --aimd-toolbar-gradient-solid-to: #1D4ED8;
+                --aimd-toolbar-gradient-light-from: rgba(59, 130, 246, 0.12);
+                --aimd-toolbar-gradient-light-to: rgba(29, 78, 216, 0.12);
+                --aimd-toolbar-theme-color: #3B82F6;
+                --aimd-toolbar-bg: rgba(255, 255, 255, 0.98);
+                --aimd-toolbar-border: rgba(0, 0, 0, 0.06);
+                --aimd-toolbar-border-strong: rgba(0, 0, 0, 0.08);
+                --aimd-toolbar-shadow-1: rgba(0, 0, 0, 0.06);
+                --aimd-toolbar-shadow-2: rgba(0, 0, 0, 0.04);
+                --aimd-toolbar-hover-shadow-1: rgba(0, 0, 0, 0.08);
+                --aimd-toolbar-hover-shadow-2: rgba(0, 0, 0, 0.06);
+                --aimd-toolbar-divider: #E5E7EB;
+                --aimd-toolbar-button-text: #6B7280;
+                --aimd-toolbar-button-hover-bg: #F3F4F6;
+                --aimd-toolbar-button-hover-text: #111827;
+                --aimd-toolbar-button-active-bg: #E5E7EB;
+                --aimd-toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.15);
+                --aimd-toolbar-stats-text: #6B7280;
+                
+                /* --- Modal (Light Mode) --- */
+                --aimd-modal-overlay: rgba(0, 0, 0, 0.5);
+                --aimd-modal-surface: #FFFFFF;
+                --aimd-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                --aimd-modal-primary-bg: #3B82F6;
+                --aimd-modal-primary-text: #FFFFFF;
+                --aimd-modal-primary-hover-bg: #2563EB;
+                --aimd-modal-primary-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                --aimd-modal-secondary-bg: #F3F4F6;
+                --aimd-modal-secondary-text: #374151;
+                --aimd-modal-secondary-hover-bg: #E5E7EB;
+                
+                /* --- Extended Spacing --- */
+                --aimd-space-10: 40px;
+                
+                /* --- Extended Animation --- */
+                --aimd-duration-slower: 400ms;
+                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                
+                /* --- Button Tokens (Light Mode) --- */
+                --aimd-button-primary-bg: #3B82F6;
+                --aimd-button-primary-text: #FFFFFF;
+                --aimd-button-primary-hover: #2563EB;
+                --aimd-button-primary-text-hover: #FFFFFF;
+                --aimd-button-primary-disabled: #9CA3AF;
+                --aimd-button-primary-disabled-text: #F3F4F6;
+                --aimd-button-secondary-bg: #F3F4F6;
+                --aimd-button-secondary-text: #374151;
+                --aimd-button-secondary-hover: #E5E7EB;
+                --aimd-button-secondary-text-hover: #111827;
+                --aimd-button-icon-bg: #F3F4F6;
+                --aimd-button-icon-text: #6B7280;
+                --aimd-button-icon-hover: #E5E7EB;
+                --aimd-button-icon-text-hover: #374151;
+                
+                /* --- Feedback Colors (Light Mode) --- */
+                --aimd-feedback-success-bg: #D1FAE5;
+                --aimd-feedback-success-text: #065F46;
+                --aimd-feedback-info-bg: #DBEAFE;
+                --aimd-feedback-info-text: #1E40AF;
+                --aimd-feedback-warning-bg: #FEF3C7;
+                --aimd-feedback-warning-text: #B45309;
+                --aimd-feedback-danger-bg: #FEE2E2;
+                --aimd-feedback-danger-text: #B91C1C;
+                
+                /* --- Extended Colors (Light Mode) --- */
+                --aimd-color-green-500: #10B981;
+                --aimd-border-subtle: #F5F5F5;
+                --aimd-bg-tertiary: #F8F9FA;
+                
+                /* --- Overlay Tokens (Light Mode) --- */
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.5);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.6);
+                --aimd-glass-tint: rgba(0, 0, 0, 0.03);
+                --aimd-bg-hint: rgba(0, 0, 0, 0.05);
+                
+                /* --- Shadow Tokens (Light Mode) --- */
+                --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.15);
+                --aimd-shadow-error: 0 0 0 2px rgba(239, 68, 68, 0.2);
+                --aimd-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+                --aimd-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);
+                --aimd-shadow-lg: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.08);
+                --aimd-shadow-2xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+                --aimd-shadow-primary-sm: 0 2px 8px rgba(59, 130, 246, 0.12);
+                
+                /* --- Interactive Tokens (Light Mode) --- */
+                --aimd-interactive-highlight: rgba(59, 130, 246, 0.12);
+                --aimd-interactive-flash: rgba(59, 130, 246, 0.28);
+                
+                /* --- Input Tokens (Light Mode) --- */
+                --aimd-input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+                --aimd-selected-gradient: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+                
+                /* --- Tooltip Shadow (Light Mode) --- */
+                --aimd-tooltip-shadow-color: rgba(0, 0, 0, 0.12);
+            `;
+        }
     }
 }

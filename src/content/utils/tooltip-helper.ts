@@ -58,18 +58,45 @@ export class TooltipHelper {
         const tooltip = document.createElement('div');
         tooltip.className = 'aicopy-tooltip';
         tooltip.textContent = text;
+
+        // Get current theme
+        const isDark = document.documentElement.classList.contains('dark') ||
+            window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+
+        // Theme-aware colors - use CSS custom properties when available
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) =>
+            getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+
+        const bgColor = isDark
+            ? getVar('--aimd-tooltip-bg', 'rgba(50, 50, 55, 0.95)')
+            : getVar('--aimd-tooltip-bg', 'rgba(250, 250, 252, 0.98)');
+        const textColor = isDark
+            ? getVar('--aimd-tooltip-text', '#FFFFFF')
+            : getVar('--aimd-tooltip-text', '#374151');
+        const shadowColor = isDark
+            ? getVar('--aimd-tooltip-shadow-color', 'rgba(0, 0, 0, 0.5)')
+            : getVar('--aimd-tooltip-shadow-color', 'rgba(0, 0, 0, 0.12)');
+        const borderColor = isDark
+            ? getVar('--aimd-tooltip-border', 'rgba(255, 255, 255, 0.15)')
+            : getVar('--aimd-tooltip-border', 'rgba(0, 0, 0, 0.12)');
+
         tooltip.style.cssText = `
       position: absolute;
-      background: rgba(60, 64, 67, 0.9);  /* Dark gray tooltip */
-      color: white;
-      padding: 6px 8px;
-      border-radius: 4px;
+      background: ${bgColor};
+      color: ${textColor};
+      padding: 6px 12px;
+      border-radius: 8px;
       font-size: 12px;
-      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       white-space: nowrap;
       opacity: 0;
       transition: opacity 0.15s ease-in-out;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);  /* Subtle shadow */
+      box-shadow: 0 2px 8px ${shadowColor}, 0 4px 16px ${shadowColor};
+      border: 1px solid ${borderColor};
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     `;
 
         // Add to container

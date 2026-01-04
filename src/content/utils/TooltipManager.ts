@@ -177,22 +177,22 @@ export const tooltipStyles = `
 .aicopy-tooltip {
   position: absolute;
   /* Position relative to the DOT */
-  bottom: 24px; /* Dot size + gap */
+  bottom: var(--aimd-space-6);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
   
-  background: rgba(30, 30, 30, 0.95);
+  background: var(--aimd-tooltip-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #fff;
-  border-radius: 8px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--aimd-tooltip-text);
+  border-radius: var(--aimd-radius-lg);
+  padding: var(--aimd-space-2) var(--aimd-space-3);
+  box-shadow: var(--aimd-tooltip-shadow);
+  border: 1px solid var(--aimd-tooltip-border);
   
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--aimd-space-1);
   width: max-content;
   max-width: 260px;
   text-align: center;
@@ -203,7 +203,7 @@ export const tooltipStyles = `
   opacity: 0;
   visibility: hidden;
   will-change: opacity, transform;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--aimd-duration-base) ease, transform var(--aimd-duration-base) ease;
 }
 
 .aicopy-tooltip.visible {
@@ -223,20 +223,20 @@ export const tooltipStyles = `
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 6px solid rgba(30, 30, 30, 0.95);
+  border-top: 6px solid var(--aimd-tooltip-bg);
 }
 
 .tooltip-index {
   font-weight: 800;
-  font-size: 18px; /* Larger size */
-  color: #60a5fa; /* Blue-400 */
+  font-size: 18px;
+  color: var(--aimd-color-blue-400);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
 .tooltip-prompt {
-  font-size: 13px;
-  color: #e5e7eb; /* Gray-200 */
+  font-size: var(--aimd-text-sm);
+  color: var(--aimd-tooltip-prompt-color);
   white-space: normal;
   line-height: 1.4;
   word-break: break-word;

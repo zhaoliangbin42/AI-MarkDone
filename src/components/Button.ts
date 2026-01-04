@@ -173,20 +173,20 @@ export class Button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: var(--space-2);
-        font-family: var(--font-sans);
-        font-weight: var(--font-medium);
+        gap: var(--aimd-space-2);
+        font-family: var(--aimd-font-sans);
+        font-weight: var(--aimd-font-medium);
         border: none;
-        border-radius: var(--radius-small);
+        border-radius: var(--aimd-radius-sm);
         cursor: pointer;
-        transition: all var(--duration-fast) var(--ease-in-out);
+        transition: all var(--aimd-duration-fast) var(--aimd-ease-in-out);
         user-select: none;
         white-space: nowrap;
         text-decoration: none;
       }
 
       .btn:focus {
-        outline: 2px solid var(--primary-500);
+        outline: 2px solid var(--aimd-color-blue-500);
         outline-offset: 2px;
       }
 
@@ -197,92 +197,92 @@ export class Button {
 
       /* Sizes */
       .btn-sm {
-        padding: var(--space-1) var(--space-3);
-        font-size: var(--text-sm);
+        padding: var(--aimd-space-1) var(--aimd-space-3);
+        font-size: var(--aimd-text-sm);
         height: 32px;
       }
 
       .btn-md {
-        padding: var(--space-2) var(--space-4);
-        font-size: var(--text-base);
+        padding: var(--aimd-space-2) var(--aimd-space-4);
+        font-size: var(--aimd-text-base);
         height: 40px;
       }
 
       .btn-lg {
-        padding: var(--space-3) var(--space-6);
-        font-size: var(--text-lg);
+        padding: var(--aimd-space-3) var(--aimd-space-6);
+        font-size: var(--aimd-text-lg);
         height: 48px;
       }
 
       /* Icon only */
       .btn-icon-only.btn-sm {
         width: 32px;
-        padding: var(--space-1);
+        padding: var(--aimd-space-1);
       }
 
       .btn-icon-only.btn-md {
         width: 40px;
-        padding: var(--space-2);
+        padding: var(--aimd-space-2);
       }
 
       .btn-icon-only.btn-lg {
         width: 48px;
-        padding: var(--space-3);
+        padding: var(--aimd-space-3);
       }
 
       /* Variants */
       .btn-primary {
-        background: var(--primary-600);
-        color: white;
+        background: var(--aimd-interactive-primary);
+        color: var(--aimd-text-on-primary);
       }
 
       .btn-primary:hover:not(:disabled) {
-        background: var(--primary-700);
+        background: var(--aimd-interactive-primary-hover);
       }
 
       .btn-primary:active:not(:disabled) {
-        background: var(--primary-800);
+        background: var(--aimd-interactive-primary-active);
       }
 
       .btn-secondary {
-        background: var(--gray-100);
-        color: var(--gray-700);
+        background: var(--aimd-color-gray-100);
+        color: var(--aimd-color-gray-700);
       }
 
       .btn-secondary:hover:not(:disabled) {
-        background: var(--gray-200);
-        color: var(--gray-900);
+        background: var(--aimd-color-gray-200);
+        color: var(--aimd-color-gray-900);
       }
 
       .btn-secondary:active:not(:disabled) {
-        background: var(--gray-300);
+        background: var(--aimd-color-gray-300);
       }
 
       .btn-ghost {
         background: transparent;
-        color: var(--gray-700);
+        color: var(--aimd-color-gray-700);
       }
 
       .btn-ghost:hover:not(:disabled) {
-        background: var(--gray-100);
-        color: var(--gray-900);
+        background: var(--aimd-color-gray-100);
+        color: var(--aimd-color-gray-900);
       }
 
       .btn-ghost:active:not(:disabled) {
-        background: var(--gray-200);
+        background: var(--aimd-color-gray-200);
       }
 
       .btn-danger {
-        background: var(--danger-600);
-        color: white;
+        background: var(--aimd-interactive-danger);
+        color: var(--aimd-text-on-primary);
       }
 
       .btn-danger:hover:not(:disabled) {
-        background: var(--danger-700);
+        background: var(--aimd-interactive-danger-hover);
       }
 
       .btn-danger:active:not(:disabled) {
-        background: var(--danger-800);
+        background: var(--aimd-color-red-800);
       }
 
       /* Full width */
@@ -306,7 +306,7 @@ export class Button {
         border: 2px solid currentColor;
         border-top-color: transparent;
         border-radius: 50%;
-        animation: spin var(--duration-slower) linear infinite;
+        animation: spin var(--aimd-duration-slower) linear infinite;
       }
 
       @keyframes spin {
@@ -321,8 +321,8 @@ export class Button {
       }
 
       .btn-icon svg {
-        width: var(--icon-sm);
-        height: var(--icon-sm);
+        width: 20px;
+        height: 20px;
       }
     `;
     }

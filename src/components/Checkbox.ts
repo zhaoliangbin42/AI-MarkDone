@@ -214,7 +214,7 @@ export class Checkbox {
       .checkbox-container {
         display: inline-flex;
         align-items: center;
-        gap: var(--space-2);
+        gap: var(--aimd-space-2);
         cursor: pointer;
         user-select: none;
         position: relative;
@@ -239,11 +239,11 @@ export class Checkbox {
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        border: 2px solid var(--gray-300);
-        border-radius: var(--radius-small);
-        background: white;
-        transition: all var(--duration-fast) var(--ease-in-out);
-        color: white;
+        border: 2px solid var(--aimd-color-gray-300);
+        border-radius: var(--aimd-radius-sm);
+        background: var(--aimd-bg-primary);
+        transition: all var(--aimd-duration-fast) var(--aimd-ease-in-out);
+        color: var(--aimd-text-on-primary);
       }
 
       /* Sizes */
@@ -264,30 +264,30 @@ export class Checkbox {
 
       /* Hover state */
       .checkbox-container:hover:not(.checkbox-disabled) .checkbox-checkmark {
-        border-color: var(--primary-500);
+        border-color: var(--aimd-color-blue-500);
       }
 
       /* Focus state */
       .checkbox-input:focus + .checkbox-checkmark {
-        outline: 2px solid var(--primary-500);
+        outline: 2px solid var(--aimd-color-blue-500);
         outline-offset: 2px;
       }
 
       /* Checked state */
       .checkbox-checked {
-        background: var(--primary-600);
-        border-color: var(--primary-600);
+        background: var(--aimd-interactive-primary);
+        border-color: var(--aimd-interactive-primary);
       }
 
       .checkbox-container:hover:not(.checkbox-disabled) .checkbox-checked {
-        background: var(--primary-700);
-        border-color: var(--primary-700);
+        background: var(--aimd-interactive-primary-hover);
+        border-color: var(--aimd-interactive-primary-hover);
       }
 
       /* Indeterminate state */
       .checkbox-indeterminate {
-        background: var(--primary-600);
-        border-color: var(--primary-600);
+        background: var(--aimd-interactive-primary);
+        border-color: var(--aimd-interactive-primary);
       }
 
       /* Icon */
@@ -299,20 +299,20 @@ export class Checkbox {
 
       /* Label */
       .checkbox-label {
-        font-family: var(--font-sans);
-        color: var(--gray-900);
+        font-family: var(--aimd-font-sans);
+        color: var(--aimd-text-primary);
       }
 
       .checkbox-sm .checkbox-label {
-        font-size: var(--text-sm);
+        font-size: var(--aimd-text-sm);
       }
 
       .checkbox-md .checkbox-label {
-        font-size: var(--text-base);
+        font-size: var(--aimd-text-base);
       }
 
       .checkbox-lg .checkbox-label {
-        font-size: var(--text-lg);
+        font-size: var(--aimd-text-lg);
       }
 
       /* Animation */
@@ -330,7 +330,7 @@ export class Checkbox {
 
       .checkbox-checked svg,
       .checkbox-indeterminate svg {
-        animation: checkmark-scale var(--duration-base) var(--ease-bounce);
+        animation: checkmark-scale var(--aimd-duration-base) var(--aimd-ease-bounce);
       }
     `;
     }

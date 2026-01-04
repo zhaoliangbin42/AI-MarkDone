@@ -1,0 +1,10 @@
+/**
+ * Design Tokens Entry Point
+ * 
+ * Imports all token layers in the correct order.
+ * This file should be imported once at the application root.
+ */
+
+@import './primitive.css';
+@import './semantic.css';
+@import './components.css';

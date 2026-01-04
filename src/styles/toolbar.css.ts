@@ -8,14 +8,14 @@
 export const toolbarStyles = `
 :host {
   display: block;
-  font-family: var(--font-sans);
-  margin-bottom: var(--space-3);
+  font-family: var(--aimd-font-sans);
+  margin-bottom: var(--aimd-space-3);
   
-  --gradient-solid-from: var(--toolbar-gradient-solid-from);
-  --gradient-solid-to: var(--toolbar-gradient-solid-to);
-  --gradient-light-from: var(--toolbar-gradient-light-from);
-  --gradient-light-to: var(--toolbar-gradient-light-to);
-  --theme-color: var(--toolbar-theme-color);
+  --gradient-solid-from: var(--aimd-toolbar-gradient-solid-from);
+  --gradient-solid-to: var(--aimd-toolbar-gradient-solid-to);
+  --gradient-light-from: var(--aimd-toolbar-gradient-light-from);
+  --gradient-light-to: var(--aimd-toolbar-gradient-light-to);
+  --theme-color: var(--aimd-toolbar-theme-color);
 }
 
 /* Wrapper for positioning (injected into DOM) */
@@ -30,11 +30,11 @@ export const toolbarStyles = `
   /* Floating card container */
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--aimd-space-1);
   
   /* Glassmorphism - ✅ Optimized: 降低blur值提升性能 */
   /* 参考: Gemini官网 - blur值从12px降到4px */
-  background: var(--toolbar-bg);
+  background: var(--aimd-toolbar-bg);
   backdrop-filter: blur(4px) saturate(150%);
   -webkit-backdrop-filter: blur(4px) saturate(150%);
   
@@ -43,9 +43,9 @@ export const toolbarStyles = `
   
   /* Use box-shadow for both border and elevation - no clipping */
   box-shadow: 
-    inset 0 0 0 1px var(--toolbar-border),  /* Border as inset shadow */
-    0 1px 2px var(--toolbar-shadow-1),       /* Close shadow */
-    0 2px 4px var(--toolbar-shadow-2);       /* Subtle depth */
+    inset 0 0 0 1px var(--aimd-toolbar-border),  /* Border as inset shadow */
+    0 1px 2px var(--aimd-toolbar-shadow-1),       /* Close shadow */
+    0 2px 4px var(--aimd-toolbar-shadow-2);       /* Subtle depth */
   
   /* Compact padding */
   padding: 4px;
@@ -67,9 +67,9 @@ export const toolbarStyles = `
   /* Lift on hover with slightly stronger shadow */
   transform: translateY(-1px);
   box-shadow: 
-    inset 0 0 0 1px var(--toolbar-border-strong),  /* Slightly darker border */
-    0 2px 4px var(--toolbar-hover-shadow-1),
-    0 4px 8px var(--toolbar-hover-shadow-2);
+    inset 0 0 0 1px var(--aimd-toolbar-border-strong),  /* Slightly darker border */
+    0 2px 4px var(--aimd-toolbar-hover-shadow-1),
+    0 4px 8px var(--aimd-toolbar-hover-shadow-2);
 }
 
 /* Bookmarked state - entire toolbar highlights */
@@ -77,16 +77,16 @@ export const toolbarStyles = `
   background: linear-gradient(135deg, var(--gradient-light-from), var(--gradient-light-to));
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 1px 2px var(--toolbar-shadow-1),
-    0 2px 4px var(--toolbar-shadow-2);
+    0 1px 2px var(--aimd-toolbar-shadow-1),
+    0 2px 4px var(--aimd-toolbar-shadow-2);
 }
 
 .aicopy-toolbar.bookmarked:hover {
   transform: translateY(-1px);
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 2px 4px var(--toolbar-hover-shadow-1),
-    0 4px 8px var(--toolbar-hover-shadow-2);
+    0 2px 4px var(--aimd-toolbar-hover-shadow-1),
+    0 4px 8px var(--aimd-toolbar-hover-shadow-2);
 }
 
 .aicopy-button-group {
@@ -99,7 +99,7 @@ export const toolbarStyles = `
 .aicopy-divider {
   width: 1px;
   height: 24px;
-  background: var(--toolbar-divider);
+  background: var(--aimd-toolbar-divider);
   margin: 0 4px;
   flex-shrink: 0;
 }
@@ -116,7 +116,7 @@ export const toolbarStyles = `
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--toolbar-button-text);
+  color: var(--aimd-toolbar-button-text);
   cursor: pointer;
   /* ✅ Best Practice: 只transition需要动画的属性 */
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -127,13 +127,13 @@ export const toolbarStyles = `
 }
 
 .aicopy-button:hover {
-  background: var(--toolbar-button-hover-bg);
-  color: var(--toolbar-button-hover-text);
+  background: var(--aimd-toolbar-button-hover-bg);
+  color: var(--aimd-toolbar-button-hover-text);
 }
 
 .aicopy-button:active {
   transform: scale(0.96);
-  background: var(--toolbar-button-active-bg);
+  background: var(--aimd-toolbar-button-active-bg);
 }
 
 .aicopy-button:disabled {
@@ -143,19 +143,19 @@ export const toolbarStyles = `
 
 /* Button hover in bookmarked toolbar - light blue for visibility */
 .aicopy-toolbar.bookmarked .aicopy-button:not(.bookmarked):hover {
-  background: var(--toolbar-bookmark-hover-bg);
+  background: var(--aimd-toolbar-bookmark-hover-bg);
   color: var(--theme-color);
 }
 
 /* Bookmarked state - deeper highlight than toolbar */
 .aicopy-button.bookmarked {
   background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
-  color: white;
+  color: var(--aimd-text-on-primary);
 }
 
 .aicopy-button.bookmarked:hover {
   background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
-  color: white;
+  color: var(--aimd-text-on-primary);
   opacity: 0.9;
 }
 
@@ -167,7 +167,7 @@ export const toolbarStyles = `
   transform: translateX(-50%);
   padding: 6px 12px;
   background: var(--theme-color);
-  color: white;
+  color: var(--aimd-text-on-primary);
   font-size: 12px;
   white-space: nowrap;
   border-radius: 6px;
@@ -198,7 +198,7 @@ export const toolbarStyles = `
   justify-content: center;
   font-size: 11px;
   line-height: 1.3;
-  color: var(--toolbar-stats-text);
+  color: var(--aimd-toolbar-stats-text);
   white-space: nowrap;
   padding: 0 6px;
   min-width: 60px;

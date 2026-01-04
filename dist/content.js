@@ -1218,14 +1218,14 @@ class ToolbarInjector {
 const toolbarStyles = `
 :host {
   display: block;
-  font-family: var(--font-sans);
-  margin-bottom: var(--space-3);
+  font-family: var(--aimd-font-sans);
+  margin-bottom: var(--aimd-space-3);
   
-  --gradient-solid-from: var(--toolbar-gradient-solid-from);
-  --gradient-solid-to: var(--toolbar-gradient-solid-to);
-  --gradient-light-from: var(--toolbar-gradient-light-from);
-  --gradient-light-to: var(--toolbar-gradient-light-to);
-  --theme-color: var(--toolbar-theme-color);
+  --gradient-solid-from: var(--aimd-toolbar-gradient-solid-from);
+  --gradient-solid-to: var(--aimd-toolbar-gradient-solid-to);
+  --gradient-light-from: var(--aimd-toolbar-gradient-light-from);
+  --gradient-light-to: var(--aimd-toolbar-gradient-light-to);
+  --theme-color: var(--aimd-toolbar-theme-color);
 }
 
 /* Wrapper for positioning (injected into DOM) */
@@ -1240,11 +1240,11 @@ const toolbarStyles = `
   /* Floating card container */
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--aimd-space-1);
   
   /* Glassmorphism - ✅ Optimized: 降低blur值提升性能 */
   /* 参考: Gemini官网 - blur值从12px降到4px */
-  background: var(--toolbar-bg);
+  background: var(--aimd-toolbar-bg);
   backdrop-filter: blur(4px) saturate(150%);
   -webkit-backdrop-filter: blur(4px) saturate(150%);
   
@@ -1253,9 +1253,9 @@ const toolbarStyles = `
   
   /* Use box-shadow for both border and elevation - no clipping */
   box-shadow: 
-    inset 0 0 0 1px var(--toolbar-border),  /* Border as inset shadow */
-    0 1px 2px var(--toolbar-shadow-1),       /* Close shadow */
-    0 2px 4px var(--toolbar-shadow-2);       /* Subtle depth */
+    inset 0 0 0 1px var(--aimd-toolbar-border),  /* Border as inset shadow */
+    0 1px 2px var(--aimd-toolbar-shadow-1),       /* Close shadow */
+    0 2px 4px var(--aimd-toolbar-shadow-2);       /* Subtle depth */
   
   /* Compact padding */
   padding: 4px;
@@ -1277,9 +1277,9 @@ const toolbarStyles = `
   /* Lift on hover with slightly stronger shadow */
   transform: translateY(-1px);
   box-shadow: 
-    inset 0 0 0 1px var(--toolbar-border-strong),  /* Slightly darker border */
-    0 2px 4px var(--toolbar-hover-shadow-1),
-    0 4px 8px var(--toolbar-hover-shadow-2);
+    inset 0 0 0 1px var(--aimd-toolbar-border-strong),  /* Slightly darker border */
+    0 2px 4px var(--aimd-toolbar-hover-shadow-1),
+    0 4px 8px var(--aimd-toolbar-hover-shadow-2);
 }
 
 /* Bookmarked state - entire toolbar highlights */
@@ -1287,16 +1287,16 @@ const toolbarStyles = `
   background: linear-gradient(135deg, var(--gradient-light-from), var(--gradient-light-to));
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 1px 2px var(--toolbar-shadow-1),
-    0 2px 4px var(--toolbar-shadow-2);
+    0 1px 2px var(--aimd-toolbar-shadow-1),
+    0 2px 4px var(--aimd-toolbar-shadow-2);
 }
 
 .aicopy-toolbar.bookmarked:hover {
   transform: translateY(-1px);
   box-shadow: 
     inset 0 0 0 1px var(--theme-color),
-    0 2px 4px var(--toolbar-hover-shadow-1),
-    0 4px 8px var(--toolbar-hover-shadow-2);
+    0 2px 4px var(--aimd-toolbar-hover-shadow-1),
+    0 4px 8px var(--aimd-toolbar-hover-shadow-2);
 }
 
 .aicopy-button-group {
@@ -1309,7 +1309,7 @@ const toolbarStyles = `
 .aicopy-divider {
   width: 1px;
   height: 24px;
-  background: var(--toolbar-divider);
+  background: var(--aimd-toolbar-divider);
   margin: 0 4px;
   flex-shrink: 0;
 }
@@ -1326,7 +1326,7 @@ const toolbarStyles = `
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--toolbar-button-text);
+  color: var(--aimd-toolbar-button-text);
   cursor: pointer;
   /* ✅ Best Practice: 只transition需要动画的属性 */
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1337,13 +1337,13 @@ const toolbarStyles = `
 }
 
 .aicopy-button:hover {
-  background: var(--toolbar-button-hover-bg);
-  color: var(--toolbar-button-hover-text);
+  background: var(--aimd-toolbar-button-hover-bg);
+  color: var(--aimd-toolbar-button-hover-text);
 }
 
 .aicopy-button:active {
   transform: scale(0.96);
-  background: var(--toolbar-button-active-bg);
+  background: var(--aimd-toolbar-button-active-bg);
 }
 
 .aicopy-button:disabled {
@@ -1353,19 +1353,19 @@ const toolbarStyles = `
 
 /* Button hover in bookmarked toolbar - light blue for visibility */
 .aicopy-toolbar.bookmarked .aicopy-button:not(.bookmarked):hover {
-  background: var(--toolbar-bookmark-hover-bg);
+  background: var(--aimd-toolbar-bookmark-hover-bg);
   color: var(--theme-color);
 }
 
 /* Bookmarked state - deeper highlight than toolbar */
 .aicopy-button.bookmarked {
   background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
-  color: white;
+  color: var(--aimd-text-on-primary);
 }
 
 .aicopy-button.bookmarked:hover {
   background: linear-gradient(135deg, var(--gradient-solid-from), var(--gradient-solid-to));
-  color: white;
+  color: var(--aimd-text-on-primary);
   opacity: 0.9;
 }
 
@@ -1377,7 +1377,7 @@ const toolbarStyles = `
   transform: translateX(-50%);
   padding: 6px 12px;
   background: var(--theme-color);
-  color: white;
+  color: var(--aimd-text-on-primary);
   font-size: 12px;
   white-space: nowrap;
   border-radius: 6px;
@@ -1408,7 +1408,7 @@ const toolbarStyles = `
   justify-content: center;
   font-size: 11px;
   line-height: 1.3;
-  color: var(--toolbar-stats-text);
+  color: var(--aimd-toolbar-stats-text);
   white-space: nowrap;
   padding: 0 6px;
   min-width: 60px;
@@ -2187,7 +2187,7 @@ class DesignTokens {
   }
   /**
    * Get complete token set for specified mode
-   * Combines: Primitive Tokens + Semantic Tokens + Common Tokens + Shadows
+   * Combines: Primitive Tokens + Semantic Tokens + Common Tokens + Shadows + New AIMD Tokens
    * @param isDark Whether to get dark mode tokens
    * @returns Complete CSS custom properties string
    */
@@ -2196,12 +2196,712 @@ class DesignTokens {
     const semanticTokens = isDark ? this.getDarkSemanticTokens() : this.getLightSemanticTokens();
     const commonTokens = this.getCommonTokens();
     const shadowTokens = this.getShadowTokens(isDark);
+    const aimdTokens = this.getAimdSemanticTokens(isDark);
     return `
             ${primitiveTokens}
             ${semanticTokens}
             ${commonTokens}
             ${shadowTokens}
+            ${aimdTokens}
         `;
+  }
+  /**
+   * Get new AIMD semantic tokens for specified mode
+   * These are the new 3-tier token system tokens with --aimd- prefix
+   * @param isDark Whether to get dark mode tokens
+   * @returns CSS custom properties string
+   */
+  static getAimdSemanticTokens(isDark) {
+    if (isDark) {
+      return `
+                /* ============================================
+                   AIMD SEMANTIC TOKENS - Dark Mode
+                   ============================================ */
+                
+                /* --- Primitives (always same) --- */
+                --aimd-color-white: #FFFFFF;
+                --aimd-color-black: #000000;
+                --aimd-color-gray-50: #F9FAFB;
+                --aimd-color-gray-100: #F3F4F6;
+                --aimd-color-gray-200: #E5E7EB;
+                --aimd-color-gray-300: #D1D5DB;
+                --aimd-color-gray-400: #9CA3AF;
+                --aimd-color-gray-500: #6B7280;
+                --aimd-color-gray-600: #4B5563;
+                --aimd-color-gray-700: #374151;
+                --aimd-color-gray-800: #1F2937;
+                --aimd-color-gray-900: #111827;
+                --aimd-color-blue-400: #60A5FA;
+                --aimd-color-blue-500: #3B82F6;
+                --aimd-color-blue-600: #2563EB;
+                --aimd-color-blue-700: #1D4ED8;
+                --aimd-color-blue-800: #1E40AF;
+                --aimd-color-red-500: #EF4444;
+                --aimd-color-red-600: #DC2626;
+                --aimd-color-green-500: #22C55E;
+                --aimd-color-green-600: #16A34A;
+                
+                /* --- Backgrounds (Dark) --- */
+                --aimd-bg-primary: #18181B;
+                --aimd-bg-secondary: #27272A;
+                --aimd-bg-tertiary: #3F3F46;
+                --aimd-bg-elevated: #27272A;
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.7);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.8);
+                --aimd-bg-glass: rgba(39, 39, 42, 0.85);
+                
+                /* --- Text (Dark) --- */
+                --aimd-text-primary: #FAFAFA;
+                --aimd-text-secondary: #A1A1AA;
+                --aimd-text-tertiary: #71717A;
+                --aimd-text-disabled: #52525B;
+                --aimd-text-on-primary: #FFFFFF;
+                --aimd-text-on-danger: #FFFFFF;
+                --aimd-text-link: #60A5FA;
+                
+                /* --- Borders (Dark) --- */
+                --aimd-border-default: #3F3F46;
+                --aimd-border-subtle: #27272A;
+                --aimd-border-strong: #52525B;
+                --aimd-border-focus: #3B82F6;
+                --aimd-border-glass: rgba(255, 255, 255, 0.08);
+                
+                /* --- Interactive (Dark) --- */
+                --aimd-interactive-primary: #60A5FA;
+                --aimd-interactive-primary-hover: #3B82F6;
+                --aimd-interactive-primary-active: #2563EB;
+                --aimd-interactive-hover: rgba(255, 255, 255, 0.10);
+                --aimd-interactive-active: rgba(255, 255, 255, 0.1);
+                --aimd-interactive-selected: rgba(59, 130, 246, 0.20);
+                --aimd-interactive-danger: #EF4444;
+                --aimd-interactive-danger-hover: #DC2626;
+                
+                /* --- Shadows (Dark) --- */
+                --aimd-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+                --aimd-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+                --aimd-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+                --aimd-shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.35);
+                --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.4);
+                
+                /* --- Scrollbar (Dark) --- */
+                --aimd-scrollbar-thumb: rgba(255, 255, 255, 0.2);
+                --aimd-scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+                
+                /* --- Panel Tokens (Dark) --- */
+                --aimd-panel-bg: rgba(39, 39, 42, 0.95);
+                --aimd-panel-border: rgba(255, 255, 255, 0.08);
+                --aimd-panel-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+                --aimd-panel-header-bg: rgba(39, 39, 42, 0.6);
+                --aimd-panel-pagination-bg: rgba(39, 39, 42, 0.6);
+                --aimd-panel-pagination-border: #3F3F46;
+                
+                /* --- Glassmorphism (Dark) --- */
+                --aimd-glass-blur: blur(20px) saturate(180%) brightness(90%);
+                
+                /* --- Navigation Buttons --- */
+                --aimd-nav-button-hover-bg: rgba(59, 130, 246, 0.15);
+                --aimd-nav-button-active-bg: rgba(59, 130, 246, 0.25);
+                
+                /* --- Dot Pagination --- */
+                --aimd-dot-active-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+                
+                /* --- Spacing Scale --- */
+                --aimd-space-1: 4px;
+                --aimd-space-2: 8px;
+                --aimd-space-3: 12px;
+                --aimd-space-4: 16px;
+                --aimd-space-5: 20px;
+                --aimd-space-6: 24px;
+                --aimd-space-8: 32px;
+                
+                /* --- Border Radius --- */
+                --aimd-radius-sm: 4px;
+                --aimd-radius-md: 6px;
+                --aimd-radius-lg: 8px;
+                --aimd-radius-xl: 12px;
+                --aimd-radius-2xl: 16px;
+                
+                /* --- Typography --- */
+                --aimd-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                --aimd-text-sm: 13px;
+                --aimd-text-base: 14px;
+                --aimd-text-lg: 16px;
+                --aimd-text-xl: 18px;
+                --aimd-text-2xl: 20px;
+                --aimd-text-3xl: 24px;
+                --aimd-font-medium: 500;
+                --aimd-font-semibold: 600;
+                
+                /* --- Animation --- */
+                --aimd-duration-fast: 150ms;
+                --aimd-duration-base: 200ms;
+                --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+                
+                /* --- Tooltip (always dark for contrast) --- */
+                --aimd-tooltip-bg: rgba(30, 30, 30, 0.95);
+                --aimd-tooltip-text: #FFFFFF;
+                --aimd-tooltip-prompt-color: #E5E7EB;
+                --aimd-tooltip-border: rgba(255, 255, 255, 0.1);
+                --aimd-tooltip-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+                
+                /* --- Toolbar (Dark Mode) --- */
+                --aimd-toolbar-gradient-solid-from: #60A5FA;
+                --aimd-toolbar-gradient-solid-to: #3B82F6;
+                --aimd-toolbar-gradient-light-from: rgba(96, 165, 250, 0.25);
+                --aimd-toolbar-gradient-light-to: rgba(59, 130, 246, 0.25);
+                --aimd-toolbar-theme-color: #60A5FA;
+                --aimd-toolbar-bg: rgba(40, 40, 40, 0.98);
+                --aimd-toolbar-border: rgba(255, 255, 255, 0.08);
+                --aimd-toolbar-border-strong: rgba(255, 255, 255, 0.12);
+                --aimd-toolbar-shadow-1: rgba(0, 0, 0, 0.4);
+                --aimd-toolbar-shadow-2: rgba(0, 0, 0, 0.3);
+                --aimd-toolbar-hover-shadow-1: rgba(0, 0, 0, 0.5);
+                --aimd-toolbar-hover-shadow-2: rgba(0, 0, 0, 0.4);
+                --aimd-toolbar-divider: rgba(255, 255, 255, 0.12);
+                --aimd-toolbar-button-text: rgba(255, 255, 255, 0.7);
+                --aimd-toolbar-button-hover-bg: rgba(255, 255, 255, 0.1);
+                --aimd-toolbar-button-hover-text: #FFFFFF;
+                --aimd-toolbar-button-active-bg: rgba(255, 255, 255, 0.15);
+                --aimd-toolbar-bookmark-hover-bg: rgba(96, 165, 250, 0.2);
+                --aimd-toolbar-stats-text: rgba(255, 255, 255, 0.5);
+                
+                /* --- Modal (Dark Mode) --- */
+                --aimd-modal-overlay: rgba(0, 0, 0, 0.7);
+                --aimd-modal-surface: #27272A;
+                --aimd-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                --aimd-modal-primary-bg: #60A5FA;
+                --aimd-modal-primary-text: #111827;
+                --aimd-modal-primary-hover-bg: #3B82F6;
+                --aimd-modal-primary-shadow: 0 4px 12px rgba(96, 165, 250, 0.4);
+                --aimd-modal-secondary-bg: rgba(255, 255, 255, 0.1);
+                --aimd-modal-secondary-text: #E5E7EB;
+                --aimd-modal-secondary-hover-bg: rgba(255, 255, 255, 0.15);
+                
+                /* --- Extended Spacing --- */
+                --aimd-space-10: 40px;
+                
+                /* --- Extended Animation --- */
+                --aimd-duration-slower: 400ms;
+                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                
+                /* --- Button Tokens (Dark Mode) --- */
+                --aimd-button-primary-bg: #60A5FA;
+                --aimd-button-primary-text: #111827;
+                --aimd-button-primary-hover: #3B82F6;
+                --aimd-button-primary-text-hover: #111827;
+                --aimd-button-primary-disabled: #4B5563;
+                --aimd-button-primary-disabled-text: #9CA3AF;
+                --aimd-button-secondary-bg: rgba(255, 255, 255, 0.1);
+                --aimd-button-secondary-text: #E5E7EB;
+                --aimd-button-secondary-hover: rgba(255, 255, 255, 0.15);
+                --aimd-button-secondary-text-hover: #FFFFFF;
+                --aimd-button-icon-bg: transparent;  /* No background by default */
+                --aimd-button-icon-text: #A1A1AA;  /* Slightly lighter for better contrast */
+                --aimd-button-icon-hover: rgba(255, 255, 255, 0.10);  /* Subtle highlight on hover */
+                --aimd-button-icon-text-hover: #FFFFFF;
+                
+                /* --- Feedback Colors (Dark Mode) --- */
+                --aimd-feedback-success-bg: rgba(16, 185, 129, 0.15);
+                --aimd-feedback-success-text: #6EE7B7;
+                --aimd-feedback-info-bg: rgba(59, 130, 246, 0.15);
+                --aimd-feedback-info-bg: rgba(59, 130, 246, 0.15);
+                --aimd-feedback-info-text: #93C5FD;
+                --aimd-feedback-warning-bg: rgba(245, 158, 11, 0.15);
+                --aimd-feedback-warning-text: #FCD34D;
+                --aimd-feedback-danger-bg: rgba(239, 68, 68, 0.15);
+                --aimd-feedback-danger-text: #FCA5A5;
+                
+                /* --- Extended Colors (Dark Mode) --- */
+                --aimd-color-green-500: #10B981;
+                --aimd-border-subtle: rgba(255, 255, 255, 0.06);
+                --aimd-bg-tertiary: rgba(255, 255, 255, 0.05);
+                
+                /* --- Overlay Tokens (Dark Mode) --- */
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.7);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.8);
+                --aimd-glass-tint: rgba(255, 255, 255, 0.03);
+                --aimd-bg-hint: rgba(255, 255, 255, 0.05);
+                
+                /* --- Shadow Tokens (Dark Mode) --- */
+                --aimd-shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.25);
+                --aimd-shadow-error: 0 0 0 2px rgba(239, 68, 68, 0.3);
+                --aimd-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+                --aimd-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.2);
+                --aimd-shadow-lg: 0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3);
+                --aimd-shadow-2xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+                --aimd-shadow-primary-sm: 0 2px 8px rgba(96, 165, 250, 0.2);
+                
+                /* --- Interactive Tokens (Dark Mode) --- */
+                --aimd-interactive-highlight: rgba(96, 165, 250, 0.15);
+                --aimd-interactive-flash: rgba(96, 165, 250, 0.35);
+                
+                /* --- Input Tokens (Dark Mode) --- */
+                --aimd-input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+                --aimd-selected-gradient: linear-gradient(90deg, rgba(96, 165, 250, 0.2) 0%, rgba(96, 165, 250, 0.1) 100%);
+                
+                /* --- Tooltip Shadow (Dark Mode) --- */
+                --aimd-tooltip-shadow-color: rgba(0, 0, 0, 0.5);
+            `;
+    } else {
+      return `
+                /* ============================================
+                   AIMD SEMANTIC TOKENS - Light Mode
+                   ============================================ */
+                
+                /* --- Primitives (always same) --- */
+                --aimd-color-white: #FFFFFF;
+                --aimd-color-black: #000000;
+                --aimd-color-gray-50: #F9FAFB;
+                --aimd-color-gray-100: #F3F4F6;
+                --aimd-color-gray-200: #E5E7EB;
+                --aimd-color-gray-300: #D1D5DB;
+                --aimd-color-gray-400: #9CA3AF;
+                --aimd-color-gray-500: #6B7280;
+                --aimd-color-gray-600: #4B5563;
+                --aimd-color-gray-700: #374151;
+                --aimd-color-gray-800: #1F2937;
+                --aimd-color-gray-900: #111827;
+                --aimd-color-blue-400: #60A5FA;
+                --aimd-color-blue-500: #3B82F6;
+                --aimd-color-blue-600: #2563EB;
+                --aimd-color-blue-700: #1D4ED8;
+                --aimd-color-blue-800: #1E40AF;
+                --aimd-color-red-500: #EF4444;
+                --aimd-color-red-600: #DC2626;
+                --aimd-color-green-500: #22C55E;
+                --aimd-color-green-600: #16A34A;
+                
+                /* --- Backgrounds (Light) --- */
+                --aimd-bg-primary: #FFFFFF;
+                --aimd-bg-secondary: #F9FAFB;
+                --aimd-bg-tertiary: #F3F4F6;
+                --aimd-bg-elevated: #FFFFFF;
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.5);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.6);
+                --aimd-bg-glass: rgba(255, 255, 255, 0.92);
+                
+                /* --- Text (Light) --- */
+                --aimd-text-primary: #111827;
+                --aimd-text-secondary: #6B7280;
+                --aimd-text-tertiary: #9CA3AF;
+                --aimd-text-disabled: #D1D5DB;
+                --aimd-text-on-primary: #FFFFFF;
+                --aimd-text-on-danger: #FFFFFF;
+                --aimd-text-link: #2563EB;
+                
+                /* --- Borders (Light) --- */
+                --aimd-border-default: #E5E7EB;
+                --aimd-border-subtle: #F3F4F6;
+                --aimd-border-strong: #D1D5DB;
+                --aimd-border-focus: #3B82F6;
+                --aimd-border-glass: rgba(0, 0, 0, 0.08);
+                
+                /* --- Interactive (Light) --- */
+                --aimd-interactive-primary: #2563EB;
+                --aimd-interactive-primary-hover: #1D4ED8;
+                --aimd-interactive-primary-active: #1E40AF;
+                --aimd-interactive-hover: rgba(0, 0, 0, 0.04);
+                --aimd-interactive-active: rgba(0, 0, 0, 0.08);
+                --aimd-interactive-selected: rgba(59, 130, 246, 0.12);
+                --aimd-interactive-danger: #DC2626;
+                --aimd-interactive-danger-hover: #B91C1C;
+                
+                /* --- Shadows (Light) --- */
+                --aimd-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+                --aimd-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+                --aimd-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+                --aimd-shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+                --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.3);
+                
+                /* --- Scrollbar (Light) --- */
+                --aimd-scrollbar-thumb: rgba(0, 0, 0, 0.2);
+                --aimd-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+                
+                /* --- Panel Tokens (Light) --- */
+                --aimd-panel-bg: rgba(255, 255, 255, 0.95);
+                --aimd-panel-border: rgba(0, 0, 0, 0.08);
+                --aimd-panel-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+                --aimd-panel-header-bg: rgba(255, 255, 255, 0.6);
+                --aimd-panel-pagination-bg: rgba(255, 255, 255, 0.6);
+                --aimd-panel-pagination-border: #E5E7EB;
+                
+                /* --- Glassmorphism (Light) --- */
+                --aimd-glass-blur: blur(20px) saturate(180%);
+                
+                /* --- Navigation Buttons --- */
+                --aimd-nav-button-hover-bg: rgba(59, 130, 246, 0.1);
+                --aimd-nav-button-active-bg: rgba(59, 130, 246, 0.15);
+                
+                /* --- Dot Pagination --- */
+                --aimd-dot-active-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+                
+                /* --- Spacing Scale --- */
+                --aimd-space-1: 4px;
+                --aimd-space-2: 8px;
+                --aimd-space-3: 12px;
+                --aimd-space-4: 16px;
+                --aimd-space-5: 20px;
+                --aimd-space-6: 24px;
+                --aimd-space-8: 32px;
+                
+                /* --- Border Radius --- */
+                --aimd-radius-sm: 4px;
+                --aimd-radius-md: 6px;
+                --aimd-radius-lg: 8px;
+                --aimd-radius-xl: 12px;
+                --aimd-radius-2xl: 16px;
+                
+                /* --- Typography --- */
+                --aimd-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                --aimd-text-sm: 13px;
+                --aimd-text-base: 14px;
+                --aimd-text-lg: 16px;
+                --aimd-text-xl: 18px;
+                --aimd-text-2xl: 20px;
+                --aimd-text-3xl: 24px;
+                --aimd-font-medium: 500;
+                --aimd-font-semibold: 600;
+                
+                /* --- Animation --- */
+                --aimd-duration-fast: 150ms;
+                --aimd-duration-base: 200ms;
+                --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+                
+                /* --- Tooltip (Light Mode - light bg) --- */
+                --aimd-tooltip-bg: rgba(255, 255, 255, 0.95);
+                --aimd-tooltip-text: #111827;
+                --aimd-tooltip-prompt-color: #6B7280;
+                --aimd-tooltip-border: rgba(0, 0, 0, 0.1);
+                --aimd-tooltip-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                
+                /* --- Toolbar (Light Mode) --- */
+                --aimd-toolbar-gradient-solid-from: #3B82F6;
+                --aimd-toolbar-gradient-solid-to: #1D4ED8;
+                --aimd-toolbar-gradient-light-from: rgba(59, 130, 246, 0.12);
+                --aimd-toolbar-gradient-light-to: rgba(29, 78, 216, 0.12);
+                --aimd-toolbar-theme-color: #3B82F6;
+                --aimd-toolbar-bg: rgba(255, 255, 255, 0.98);
+                --aimd-toolbar-border: rgba(0, 0, 0, 0.06);
+                --aimd-toolbar-border-strong: rgba(0, 0, 0, 0.08);
+                --aimd-toolbar-shadow-1: rgba(0, 0, 0, 0.06);
+                --aimd-toolbar-shadow-2: rgba(0, 0, 0, 0.04);
+                --aimd-toolbar-hover-shadow-1: rgba(0, 0, 0, 0.08);
+                --aimd-toolbar-hover-shadow-2: rgba(0, 0, 0, 0.06);
+                --aimd-toolbar-divider: #E5E7EB;
+                --aimd-toolbar-button-text: #6B7280;
+                --aimd-toolbar-button-hover-bg: #F3F4F6;
+                --aimd-toolbar-button-hover-text: #111827;
+                --aimd-toolbar-button-active-bg: #E5E7EB;
+                --aimd-toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.15);
+                --aimd-toolbar-stats-text: #6B7280;
+                
+                /* --- Modal (Light Mode) --- */
+                --aimd-modal-overlay: rgba(0, 0, 0, 0.5);
+                --aimd-modal-surface: #FFFFFF;
+                --aimd-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                --aimd-modal-primary-bg: #3B82F6;
+                --aimd-modal-primary-text: #FFFFFF;
+                --aimd-modal-primary-hover-bg: #2563EB;
+                --aimd-modal-primary-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                --aimd-modal-secondary-bg: #F3F4F6;
+                --aimd-modal-secondary-text: #374151;
+                --aimd-modal-secondary-hover-bg: #E5E7EB;
+                
+                /* --- Extended Spacing --- */
+                --aimd-space-10: 40px;
+                
+                /* --- Extended Animation --- */
+                --aimd-duration-slower: 400ms;
+                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                
+                /* --- Button Tokens (Light Mode) --- */
+                --aimd-button-primary-bg: #3B82F6;
+                --aimd-button-primary-text: #FFFFFF;
+                --aimd-button-primary-hover: #2563EB;
+                --aimd-button-primary-text-hover: #FFFFFF;
+                --aimd-button-primary-disabled: #9CA3AF;
+                --aimd-button-primary-disabled-text: #F3F4F6;
+                --aimd-button-secondary-bg: #F3F4F6;
+                --aimd-button-secondary-text: #374151;
+                --aimd-button-secondary-hover: #E5E7EB;
+                --aimd-button-secondary-text-hover: #111827;
+                --aimd-button-icon-bg: #F3F4F6;
+                --aimd-button-icon-text: #6B7280;
+                --aimd-button-icon-hover: #E5E7EB;
+                --aimd-button-icon-text-hover: #374151;
+                
+                /* --- Feedback Colors (Light Mode) --- */
+                --aimd-feedback-success-bg: #D1FAE5;
+                --aimd-feedback-success-text: #065F46;
+                --aimd-feedback-info-bg: #DBEAFE;
+                --aimd-feedback-info-text: #1E40AF;
+                --aimd-feedback-warning-bg: #FEF3C7;
+                --aimd-feedback-warning-text: #B45309;
+                --aimd-feedback-danger-bg: #FEE2E2;
+                --aimd-feedback-danger-text: #B91C1C;
+                
+                /* --- Extended Colors (Light Mode) --- */
+                --aimd-color-green-500: #10B981;
+                --aimd-border-subtle: #F5F5F5;
+                --aimd-bg-tertiary: #F8F9FA;
+                
+                /* --- Overlay Tokens (Light Mode) --- */
+                --aimd-bg-overlay: rgba(0, 0, 0, 0.5);
+                --aimd-bg-overlay-heavy: rgba(0, 0, 0, 0.6);
+                --aimd-glass-tint: rgba(0, 0, 0, 0.03);
+                --aimd-bg-hint: rgba(0, 0, 0, 0.05);
+                
+                /* --- Shadow Tokens (Light Mode) --- */
+                --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.15);
+                --aimd-shadow-error: 0 0 0 2px rgba(239, 68, 68, 0.2);
+                --aimd-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+                --aimd-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);
+                --aimd-shadow-lg: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.08);
+                --aimd-shadow-2xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+                --aimd-shadow-primary-sm: 0 2px 8px rgba(59, 130, 246, 0.12);
+                
+                /* --- Interactive Tokens (Light Mode) --- */
+                --aimd-interactive-highlight: rgba(59, 130, 246, 0.12);
+                --aimd-interactive-flash: rgba(59, 130, 246, 0.28);
+                
+                /* --- Input Tokens (Light Mode) --- */
+                --aimd-input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+                --aimd-selected-gradient: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+                
+                /* --- Tooltip Shadow (Light Mode) --- */
+                --aimd-tooltip-shadow-color: rgba(0, 0, 0, 0.12);
+            `;
+    }
+  }
+}
+
+class ThemeManager {
+  static instance;
+  observer = null;
+  mediaQueryListener = null;
+  currentTheme = "light";
+  listeners = /* @__PURE__ */ new Set();
+  initialized = false;
+  constructor() {
+  }
+  /**
+   * Get singleton instance
+   */
+  static getInstance() {
+    if (!ThemeManager.instance) {
+      ThemeManager.instance = new ThemeManager();
+    }
+    return ThemeManager.instance;
+  }
+  /**
+   * Initialize theme manager
+   * Should be called once at application startup
+   */
+  init() {
+    if (this.initialized) {
+      logger$1.debug("[ThemeManager] Already initialized, skipping");
+      return;
+    }
+    this.currentTheme = this.detectHostTheme();
+    this.applyTheme(this.currentTheme);
+    logger$1.info(`[ThemeManager] Initialized with theme: ${this.currentTheme}`);
+    this.startObserver();
+    this.startMediaQueryListener();
+    this.initialized = true;
+  }
+  /**
+   * Detect current theme from host website
+   */
+  detectHostTheme() {
+    const html = document.documentElement;
+    const body = document.body;
+    if (html.classList.contains("dark")) {
+      logger$1.debug("[ThemeManager] Detected via html.dark (ChatGPT)");
+      return "dark";
+    }
+    if (html.classList.contains("light")) {
+      logger$1.debug("[ThemeManager] Detected via html.light (ChatGPT)");
+      return "light";
+    }
+    if (body?.classList.contains("dark-theme")) {
+      logger$1.debug("[ThemeManager] Detected via body.dark-theme (Gemini)");
+      return "dark";
+    }
+    if (body?.classList.contains("light-theme")) {
+      logger$1.debug("[ThemeManager] Detected via body.light-theme (Gemini)");
+      return "light";
+    }
+    const htmlTheme = html.getAttribute("data-theme") || html.dataset.theme;
+    if (htmlTheme === "dark") {
+      logger$1.debug("[ThemeManager] Detected via html[data-theme]");
+      return "dark";
+    }
+    if (htmlTheme === "light") {
+      logger$1.debug("[ThemeManager] Detected via html[data-theme]");
+      return "light";
+    }
+    const bodyTheme = body?.getAttribute("data-theme") || body?.dataset.theme;
+    if (bodyTheme === "dark") {
+      logger$1.debug("[ThemeManager] Detected via body[data-theme]");
+      return "dark";
+    }
+    if (bodyTheme === "light") {
+      logger$1.debug("[ThemeManager] Detected via body[data-theme]");
+      return "light";
+    }
+    if (this.isBackgroundDark(body)) {
+      logger$1.debug("[ThemeManager] Detected via background luminance");
+      return "dark";
+    }
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    logger$1.debug(`[ThemeManager] Fallback to system preference: ${prefersDark ? "dark" : "light"}`);
+    return prefersDark ? "dark" : "light";
+  }
+  /**
+   * Check if an element has a dark background using luminance calculation
+   */
+  isBackgroundDark(el) {
+    if (!el) return false;
+    try {
+      const bg = getComputedStyle(el).backgroundColor;
+      const match = bg.match(/\d+/g);
+      if (!match || match.length < 3) return false;
+      const r = parseInt(match[0], 10);
+      const g = parseInt(match[1], 10);
+      const b = parseInt(match[2], 10);
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance < 0.5;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Check if host has explicit theme (not just system preference)
+   */
+  hasHostTheme() {
+    const html = document.documentElement;
+    const body = document.body;
+    return html.classList.contains("dark") || html.classList.contains("light") || body?.classList.contains("dark-theme") || body?.classList.contains("light-theme") || !!html.getAttribute("data-theme") || !!body?.getAttribute("data-theme");
+  }
+  /**
+   * Apply theme to document
+   */
+  applyTheme(theme) {
+    document.documentElement.setAttribute("data-aimd-theme", theme);
+  }
+  /**
+   * Start observing DOM for theme changes
+   */
+  startObserver() {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+    this.observer = new MutationObserver((mutations) => {
+      const hasRelevantChange = mutations.some((mutation) => {
+        if (mutation.type !== "attributes") return false;
+        const attr = mutation.attributeName;
+        return attr === "class" || attr === "data-theme" || attr === "style";
+      });
+      if (hasRelevantChange) {
+        this.checkThemeChange();
+      }
+    });
+    this.observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"]
+    });
+    if (document.body) {
+      this.observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme", "style"]
+      });
+    }
+  }
+  /**
+   * Start listening for system preference changes
+   */
+  startMediaQueryListener() {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    this.mediaQueryListener = () => {
+      if (!this.hasHostTheme()) {
+        this.checkThemeChange();
+      }
+    };
+    mediaQuery.addEventListener("change", this.mediaQueryListener);
+  }
+  /**
+   * Check if theme has changed and notify listeners
+   */
+  checkThemeChange() {
+    const newTheme = this.detectHostTheme();
+    if (newTheme !== this.currentTheme) {
+      this.currentTheme = newTheme;
+      this.applyTheme(newTheme);
+      this.notifyListeners(newTheme);
+      logger$1.info(`[ThemeManager] Theme changed to: ${newTheme}`);
+    }
+  }
+  /**
+   * Get current theme
+   */
+  getTheme() {
+    return this.currentTheme;
+  }
+  /**
+   * Check if currently in dark mode
+   */
+  isDarkMode() {
+    return this.currentTheme === "dark";
+  }
+  /**
+   * Subscribe to theme changes
+   * @returns Unsubscribe function
+   */
+  subscribe(callback) {
+    this.listeners.add(callback);
+    callback(this.currentTheme);
+    return () => {
+      this.listeners.delete(callback);
+    };
+  }
+  /**
+   * Notify all listeners of theme change
+   */
+  notifyListeners(theme) {
+    this.listeners.forEach((callback) => {
+      try {
+        callback(theme);
+      } catch (error) {
+        logger$1.error("[ThemeManager] Error in listener callback:", error);
+      }
+    });
+  }
+  /**
+   * Apply theme to a Shadow DOM host element
+   * Call this in Shadow DOM components to sync theme
+   */
+  applyToShadowHost(host) {
+    host.setAttribute("data-aimd-theme", this.currentTheme);
+    return this.subscribe((theme) => {
+      host.setAttribute("data-aimd-theme", theme);
+    });
+  }
+  /**
+   * Cleanup and destroy
+   */
+  destroy() {
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+    if (this.mediaQueryListener) {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      mediaQuery.removeEventListener("change", this.mediaQueryListener);
+      this.mediaQueryListener = null;
+    }
+    this.listeners.clear();
+    this.initialized = false;
+    logger$1.info("[ThemeManager] Destroyed");
   }
 }
 
@@ -2284,7 +2984,7 @@ class Toolbar {
     this.container.className = "aicopy-toolbar-container";
     this.shadowRoot = this.container.attachShadow({ mode: "open" });
     this.injectStyles();
-    this.setTheme(DesignTokens.isDarkMode());
+    this.setTheme(ThemeManager.getInstance().isDarkMode());
     this.createUI();
   }
   /**
@@ -2588,7 +3288,7 @@ class Toolbar {
 
 const modalStyles = `
 :host {
-  font-family: var(--font-sans);
+  font-family: var(--aimd-font-sans);
 }
 
 .modal-overlay {
@@ -2597,7 +3297,7 @@ const modalStyles = `
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--modal-overlay-bg);
+  background: var(--aimd-modal-overlay);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -2612,9 +3312,9 @@ const modalStyles = `
 }
 
 .modal-container {
-  background: var(--modal-surface);
+  background: var(--aimd-modal-surface);
   border-radius: 16px;
-  box-shadow: var(--modal-shadow);
+  box-shadow: var(--aimd-modal-shadow);
   max-width: 900px;
   width: 90%;
   height: 80vh;
@@ -2637,7 +3337,7 @@ const modalStyles = `
 
 .modal-header {
   padding: 8px 24px;
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--aimd-border-default);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2647,7 +3347,7 @@ const modalStyles = `
 .modal-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--gray-900);
+  color: var(--aimd-text-primary);
   letter-spacing: -0.02em;
   margin: 0;
 }
@@ -2658,7 +3358,7 @@ const modalStyles = `
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--gray-500);
+  color: var(--aimd-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2668,8 +3368,8 @@ const modalStyles = `
 }
 
 .modal-close:hover {
-  background: var(--gray-100);
-  color: var(--gray-900);
+  background: var(--aimd-interactive-hover);
+  color: var(--aimd-text-primary);
 }
 
 .modal-body {
@@ -2682,221 +3382,60 @@ const modalStyles = `
   max-width: 1000px;
   margin: 0 auto;
   padding: 24px 32px;
-  background: var(--modal-surface);
+  background: var(--aimd-modal-surface);
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-x: auto;
-  color: var(--md-on-surface);
+  color: var(--aimd-text-primary);
   tab-size: 2;
 }
 
 .modal-footer {
   padding: 8px 16px;
-  border-top: 1px solid var(--gray-200);
+  border-top: 1px solid var(--aimd-border-default);
   display: flex;
   justify-content: flex-end;
   gap: 16px;
-  background: var(--modal-surface);
+  background: var(--aimd-modal-surface);
   flex-shrink: 0;
   border-radius: 0 0 16px 16px;
   min-height: 44px;
 }
 
 .modal-button {
-  padding: 0px 40px;
+  padding: 8px 24px;
   border-radius: 8px;
-  border: none;
-  background: var(--gray-100);
-  color: var(--gray-900);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  border: 1px solid var(--aimd-border-default);
+  background: var(--aimd-modal-secondary-bg);
+  color: var(--aimd-modal-secondary-text);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
   cursor: pointer;
   transition: all 0.15s ease;
+  min-height: 36px;
 }
 
 .modal-button:hover {
-  background: var(--gray-200);
+  background: var(--aimd-modal-secondary-hover-bg);
+  border-color: var(--aimd-border-strong);
   transform: translateY(-1px);
 }
 
 .modal-button.primary {
-  background: var(--modal-primary-bg);
-  color: var(--modal-primary-text);
+  background: var(--aimd-modal-primary-bg);
+  color: var(--aimd-modal-primary-text);
 }
 
 .modal-button.primary:hover {
-  background: var(--modal-primary-hover-bg);
-  box-shadow: var(--modal-primary-shadow);
+  background: var(--aimd-modal-primary-hover-bg);
+  box-shadow: var(--aimd-modal-primary-shadow);
   transform: translateY(-1px);
 }
 
 `;
-
-class DarkModeDetector {
-  static instance;
-  observers = /* @__PURE__ */ new Set();
-  mutationObserver = null;
-  currentState = false;
-  constructor() {
-    this.currentState = this.detectDarkMode();
-    this.startObserving();
-  }
-  /**
-   * Get singleton instance
-   */
-  static getInstance() {
-    if (!DarkModeDetector.instance) {
-      DarkModeDetector.instance = new DarkModeDetector();
-    }
-    return DarkModeDetector.instance;
-  }
-  /**
-   * Get current dark mode state
-   */
-  isDarkMode() {
-    return this.currentState;
-  }
-  /**
-   * Subscribe to dark mode changes
-   * @param callback Function to call when dark mode changes
-   * @returns Unsubscribe function
-   */
-  subscribe(callback) {
-    this.observers.add(callback);
-    callback(this.currentState);
-    return () => {
-      this.observers.delete(callback);
-    };
-  }
-  /**
-   * Detect current dark mode state
-   * Priority:
-   * 1. html.classList contains 'dark' or 'light' (ChatGPT)
-   * 2. body.classList contains 'dark-theme' (Gemini)
-   * 3. html[data-theme] attribute
-   * 4. Computed background color heuristic
-   * 5. prefers-color-scheme media query
-   */
-  detectDarkMode() {
-    const html = document.documentElement;
-    const body = document.body;
-    if (html.classList.contains("dark")) {
-      logger$1.debug("[DarkMode] Detected via html.dark class");
-      return true;
-    }
-    if (html.classList.contains("light")) {
-      logger$1.debug("[DarkMode] Detected via html.light class");
-      return false;
-    }
-    if (body && body.classList.contains("dark-theme")) {
-      logger$1.debug("[DarkMode] Detected via body.dark-theme class (Gemini)");
-      return true;
-    }
-    if (body && body.classList.contains("light-theme")) {
-      logger$1.debug("[DarkMode] Detected via body.light-theme class (Gemini)");
-      return false;
-    }
-    const theme = html.getAttribute("data-theme") || body?.getAttribute("data-theme");
-    if (theme === "dark") {
-      logger$1.debug('[DarkMode] Detected via data-theme="dark"');
-      return true;
-    }
-    if (theme === "light") {
-      logger$1.debug('[DarkMode] Detected via data-theme="light"');
-      return false;
-    }
-    if (body) {
-      const bgColor = window.getComputedStyle(body).backgroundColor;
-      const rgb = bgColor.match(/\d+/g);
-      if (rgb && rgb.length >= 3) {
-        const r = parseInt(rgb[0]);
-        const g = parseInt(rgb[1]);
-        const b = parseInt(rgb[2]);
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-        if (luminance < 0.5) {
-          logger$1.debug("[DarkMode] Detected via background color heuristic (dark)");
-          return true;
-        }
-      }
-    }
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    logger$1.debug(`[DarkMode] Fallback to prefers-color-scheme: ${prefersDark}`);
-    return prefersDark;
-  }
-  /**
-   * Start observing dark mode changes
-   */
-  startObserving() {
-    if (this.mutationObserver) {
-      this.mutationObserver.disconnect();
-    }
-    this.mutationObserver = new MutationObserver((mutations) => {
-      const hasRelevantChange = mutations.some((mutation) => {
-        if (mutation.type === "attributes") {
-          return mutation.attributeName === "class" || mutation.attributeName === "data-theme";
-        }
-        return false;
-      });
-      if (hasRelevantChange) {
-        const newState = this.detectDarkMode();
-        if (newState !== this.currentState) {
-          this.currentState = newState;
-          this.notifyObservers(newState);
-        }
-      }
-    });
-    this.mutationObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "data-theme"],
-      childList: false,
-      subtree: false
-    });
-    if (document.body) {
-      this.mutationObserver.observe(document.body, {
-        attributes: true,
-        attributeFilter: ["class", "data-theme"]
-      });
-    }
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleMediaChange = () => {
-      const newState = this.detectDarkMode();
-      if (newState !== this.currentState) {
-        this.currentState = newState;
-        this.notifyObservers(newState);
-      }
-    };
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", handleMediaChange);
-    } else {
-      mediaQuery.addListener(handleMediaChange);
-    }
-  }
-  /**
-   * Notify all observers of state change
-   */
-  notifyObservers(isDark) {
-    this.observers.forEach((callback) => {
-      try {
-        callback(isDark);
-      } catch (error) {
-        console.error("Error in dark mode observer callback:", error);
-      }
-    });
-  }
-  /**
-   * Stop observing (cleanup)
-   */
-  stopObserving() {
-    if (this.mutationObserver) {
-      this.mutationObserver.disconnect();
-      this.mutationObserver = null;
-    }
-    this.observers.clear();
-  }
-}
 
 class Modal {
   shadowRoot;
@@ -2904,7 +3443,7 @@ class Modal {
   content = "";
   tokenStyleElement = null;
   themeUnsubscribe = null;
-  currentThemeIsDark = DesignTokens.isDarkMode();
+  currentThemeIsDark = ThemeManager.getInstance().isDarkMode();
   constructor() {
     this.container = document.createElement("div");
     this.container.className = "aicopy-modal";
@@ -2927,9 +3466,9 @@ class Modal {
    * Subscribe to host theme updates
    */
   subscribeTheme() {
-    const detector = DarkModeDetector.getInstance();
-    this.themeUnsubscribe = detector.subscribe((isDark) => {
-      this.setTheme(isDark);
+    const themeManager = ThemeManager.getInstance();
+    this.themeUnsubscribe = themeManager.subscribe((theme) => {
+      this.setTheme(theme === "dark");
     });
   }
   /**
@@ -4595,7 +5134,9 @@ class MathClickHandler {
     const targetEl = element.classList.contains("katex-display") ? mathEl : mathEl.querySelector(".katex") || mathEl;
     targetEl.style.cursor = "pointer";
     targetEl.style.transition = "background-color 0.2s";
-    const hoverColor = "rgba(37, 99, 235, 0.12)";
+    const root = document.documentElement;
+    const getVar = (name, fallback) => getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+    const hoverColor = getVar("--aimd-interactive-highlight", "rgba(37, 99, 235, 0.12)");
     const mouseenterHandler = () => {
       targetEl.style.backgroundColor = hoverColor;
     };
@@ -4644,13 +5185,16 @@ class MathClickHandler {
    * Show visual feedback after successful copy
    */
   showCopyFeedback(element) {
-    element.style.backgroundColor = "rgba(37, 99, 235, 0.28)";
+    const root = document.documentElement;
+    const getVar = (name, fallback) => getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+    const flashColor = getVar("--aimd-interactive-flash", "rgba(37, 99, 235, 0.28)");
+    element.style.backgroundColor = flashColor;
     const tooltip = document.createElement("div");
     tooltip.textContent = "Copied!";
     tooltip.style.cssText = `
       position: absolute;
-      background: #2563EB;
-      color: white;
+      background: var(--aimd-color-blue-600, #2563EB);
+      color: var(--aimd-text-on-primary);
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
@@ -4676,7 +5220,8 @@ class MathClickHandler {
       style.remove();
       element.style.backgroundColor = "";
       if (element.matches(":hover")) {
-        element.style.backgroundColor = "rgba(37, 99, 235, 0.12)";
+        const highlightColor = getComputedStyle(document.documentElement).getPropertyValue("--aimd-interactive-highlight").trim() || "rgba(37, 99, 235, 0.12)";
+        element.style.backgroundColor = highlightColor;
       }
     }, 1500);
   }
@@ -25642,22 +26187,22 @@ const tooltipStyles = `
 .aicopy-tooltip {
   position: absolute;
   /* Position relative to the DOT */
-  bottom: 24px; /* Dot size + gap */
+  bottom: var(--aimd-space-6);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
   
-  background: rgba(30, 30, 30, 0.95);
+  background: var(--aimd-tooltip-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #fff;
-  border-radius: 8px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--aimd-tooltip-text);
+  border-radius: var(--aimd-radius-lg);
+  padding: var(--aimd-space-2) var(--aimd-space-3);
+  box-shadow: var(--aimd-tooltip-shadow);
+  border: 1px solid var(--aimd-tooltip-border);
   
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--aimd-space-1);
   width: max-content;
   max-width: 260px;
   text-align: center;
@@ -25668,7 +26213,7 @@ const tooltipStyles = `
   opacity: 0;
   visibility: hidden;
   will-change: opacity, transform;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--aimd-duration-base) ease, transform var(--aimd-duration-base) ease;
 }
 
 .aicopy-tooltip.visible {
@@ -25688,20 +26233,20 @@ const tooltipStyles = `
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 6px solid rgba(30, 30, 30, 0.95);
+  border-top: 6px solid var(--aimd-tooltip-bg);
 }
 
 .tooltip-index {
   font-weight: 800;
-  font-size: 18px; /* Larger size */
-  color: #60a5fa; /* Blue-400 */
+  font-size: 18px;
+  color: var(--aimd-color-blue-400);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
 .tooltip-prompt {
-  font-size: 13px;
-  color: #e5e7eb; /* Gray-200 */
+  font-size: var(--aimd-text-sm);
+  color: var(--aimd-tooltip-prompt-color);
   white-space: normal;
   line-height: 1.4;
   word-break: break-word;
@@ -25950,7 +26495,7 @@ const readerPanelStyles = `
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--aimd-bg-overlay-heavy);
   z-index: 999998;
   backdrop-filter: blur(3px);
 }
@@ -25965,12 +26510,12 @@ const readerPanelStyles = `
   max-width: 900px;
   height: 80vh;
   
-  /* No solid background - pure transparency */
-  background: transparent;
+  /* Glass background from tokens */
+  background: var(--aimd-panel-bg);
   
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border-radius: var(--aimd-radius-2xl);
+  border: 1px solid var(--aimd-border-glass);
+  box-shadow: var(--aimd-shadow-xl);
   
   display: flex;
   flex-direction: column;
@@ -25979,8 +26524,8 @@ const readerPanelStyles = `
   animation: modalFadeIn 0.2s ease;
   
   /* Strong blur for background separation */
-  backdrop-filter: blur(30px) saturate(180%) brightness(105%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(105%);
+  backdrop-filter: var(--aimd-glass-blur);
+  -webkit-backdrop-filter: var(--aimd-glass-blur);
 }
 
 @keyframes modalFadeIn {
@@ -26001,12 +26546,12 @@ const readerPanelStyles = `
 
 /* Header - Semi-transparent white */
 .aicopy-panel-header {
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--panel-header-border);
+  padding: var(--aimd-space-3) var(--aimd-space-5);
+  border-bottom: 1px solid var(--aimd-border-default);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(249, 250, 251, 0.85);
+  background: var(--aimd-panel-header-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   flex-shrink: 0;
@@ -26015,38 +26560,38 @@ const readerPanelStyles = `
 .aicopy-panel-header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--aimd-space-4);
 }
 
 .aicopy-panel-title {
-  font-size: var(--text-3xl);
-  font-weight: var(--font-medium);
-  color: var(--text-primary);
+  font-size: var(--aimd-text-2xl);
+  font-weight: var(--aimd-font-medium);
+  color: var(--aimd-text-primary);
   letter-spacing: -0.01em;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-family: var(--aimd-font-sans);
 }
 
 /* Header Buttons */
 .aicopy-panel-btn {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: var(--aimd-radius-md);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-3xl);
-  font-weight: var(--font-medium);
-  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+  font-size: var(--aimd-text-3xl);
+  font-weight: var(--aimd-font-medium);
+  transition: background var(--aimd-duration-fast) ease, color var(--aimd-duration-fast) ease;
 }
 
 .aicopy-panel-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text-primary);
+  background: var(--aimd-interactive-hover);
+  color: var(--aimd-text-primary);
 }
 
 /* Body - White background for readability */
@@ -26054,8 +26599,8 @@ const readerPanelStyles = `
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px 32px;
-  background: rgba(255, 255, 255, 0.95);
+  padding: var(--aimd-space-6) var(--aimd-space-8);
+  background: transparent;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   overscroll-behavior: contain;
@@ -26071,15 +26616,15 @@ const readerPanelStyles = `
 
 /* Dot Pagination Container - Semi-transparent */
 .aicopy-pagination {
-  padding: 12px 16px;
-  border-top: 1px solid var(--pagination-border);
+  padding: var(--aimd-space-3) var(--aimd-space-4);
+  border-top: 1px solid var(--aimd-panel-pagination-border);
   display: flex;
   justify-content: center;
   align-items: center;
   gap: var(--dot-gap, 8px);
   
   /* Semi-transparent with blur */
-  background: rgba(249, 250, 251, 0.9);
+  background: var(--aimd-panel-pagination-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   
@@ -26093,7 +26638,7 @@ const readerPanelStyles = `
   width: var(--dot-size, 10px);
   height: var(--dot-size, 10px);
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.25);
+  border: 2px solid var(--aimd-text-secondary);
   background: transparent;
   cursor: pointer;
   position: relative;
@@ -26101,22 +26646,22 @@ const readerPanelStyles = `
   /* GPU acceleration */
   will-change: transform;
   transform: translateZ(0);
-  transition: transform var(--duration-fast) var(--ease-in-out),
-              border-color var(--duration-fast) ease,
-              background-color var(--duration-fast) ease;
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              border-color var(--aimd-duration-fast) ease,
+              background-color var(--aimd-duration-fast) ease;
 }
 
 .aicopy-dot:hover {
   transform: scale(1.3) translateZ(0);
-  border-color: rgba(0, 0, 0, 0.4);
+  border-color: var(--aimd-text-primary);
 }
 
 .aicopy-dot.active {
   width: calc(var(--dot-size, 10px) * 1.4);
   height: calc(var(--dot-size, 10px) * 1.4);
-  background: var(--interactive-primary);
-  border-color: var(--interactive-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: var(--aimd-interactive-primary);
+  border-color: var(--aimd-interactive-primary);
+  box-shadow: var(--aimd-dot-active-shadow);
 }
 
 /* Custom Scrollbar */
@@ -26129,12 +26674,12 @@ const readerPanelStyles = `
 }
 
 .aicopy-panel-body::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  background: var(--aimd-scrollbar-thumb);
+  border-radius: var(--aimd-radius-sm);
 }
 
 .aicopy-panel-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--aimd-scrollbar-thumb-hover);
 }
 
 /* Loading State */
@@ -26146,8 +26691,8 @@ const readerPanelStyles = `
   transform: translate(-50%, -50%);
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--interactive-primary);
+  border: 3px solid var(--aimd-border-subtle);
+  border-top-color: var(--aimd-interactive-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -26156,59 +26701,19 @@ const readerPanelStyles = `
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* Dark Mode Auto-Adaptation */
-@media (prefers-color-scheme: dark) {
-  .aicopy-panel {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(30px) saturate(180%) brightness(80%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(80%);
-  }
-  
-  .aicopy-panel-header {
-    background: rgba(39, 39, 42, 0.85);
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-  
-  .aicopy-panel-body {
-    background: rgba(30, 30, 30, 0.95);
-  }
-  
-  .aicopy-pagination {
-    background: rgba(39, 39, 42, 0.9);
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-  
-  .aicopy-panel-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-  
-  .aicopy-dot {
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-  
-  .aicopy-dot:hover {
-    border-color: rgba(255, 255, 255, 0.5);
-  }
-  
-  .aicopy-panel-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-  }
-  
-  .aicopy-panel-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-  }
-}
+/* Dark Mode: Now handled by ThemeManager + data-aimd-theme attribute */
+/* Removed redundant @media (prefers-color-scheme: dark) block */
 
 /* Navigation Buttons - Inline with Pagination */
 .aicopy-nav-button {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--aimd-radius-lg);
   border: none;
   
   /* Transparent by default, match pagination background */
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
   font-size: 16px;
   cursor: pointer;
   
@@ -26216,21 +26721,21 @@ const readerPanelStyles = `
   align-items: center;
   justify-content: center;
   
-  transition: all var(--duration-fast) ease;
+  transition: all var(--aimd-duration-fast) ease;
   
   /* GPU acceleration */
   will-change: transform;
 }
 
 .aicopy-nav-button:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--interactive-primary);
+  background: var(--aimd-nav-button-hover-bg);
+  color: var(--aimd-interactive-primary);
   transform: scale(1.05);
 }
 
 .aicopy-nav-button:active:not(:disabled) {
   transform: scale(0.95);
-  background: rgba(59, 130, 246, 0.15);
+  background: var(--aimd-nav-button-active-bg);
 }
 
 .aicopy-nav-button:disabled {
@@ -26238,16 +26743,8 @@ const readerPanelStyles = `
   cursor: not-allowed;
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  .aicopy-nav-button:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.15);
-  }
-  
-  .aicopy-nav-button:active:not(:disabled) {
-    background: rgba(59, 130, 246, 0.2);
-  }
-}
+/* Dark mode: Now handled by ThemeManager + semantic tokens */
+
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
@@ -26260,13 +26757,13 @@ const readerPanelStyles = `
 .message-user-header {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px 24px;
-  background: rgba(0, 0, 0, 0.02);
-  border-bottom: 1px solid var(--panel-header-border);
-  border-radius: 12px; /* User requested rounded bottom corners too */
-  margin: 0 auto 24px;  /* Center + bottom margin */
-  max-width: 800px;     /* Match .markdown-body width */
+  gap: var(--aimd-space-3);
+  padding: var(--aimd-space-4) var(--aimd-space-6);
+  background: var(--aimd-bg-secondary);
+  border-bottom: 1px solid var(--aimd-border-default);
+  border-radius: var(--aimd-radius-xl);
+  margin: 0 auto 24px;
+  max-width: 800px;
   width: 100%;
 }
 
@@ -26279,8 +26776,7 @@ const readerPanelStyles = `
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
 }
 
 .user-icon svg, .model-icon svg {
@@ -26289,14 +26785,14 @@ const readerPanelStyles = `
 }
 
 .model-icon {
-  background: var(--interactive-primary);
-  color: white;
+  background: var(--aimd-bg-primary);
+  color: var(--aimd-text-secondary);
   margin-top: 4px;
 }
 
 .user-content {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
   line-height: 1.5;
   font-weight: 500;
   white-space: pre-wrap;
@@ -26305,10 +26801,10 @@ const readerPanelStyles = `
 
 .message-model-container {
   display: flex;
-  gap: 16px;
+  gap: var(--aimd-space-4);
   align-items: flex-start;
-  max-width: 800px;     /* Match .markdown-body and .message-user-header width */
-  margin: 0 auto;       /* Center horizontally */
+  max-width: 800px;
+  margin: 0 auto;
   width: 100%;
 }
 
@@ -26316,30 +26812,7 @@ const readerPanelStyles = `
   display: none; /* Hidden visually, structure handled by margin */
 }
 
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .message-user-header {
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  .user-icon {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--text-primary);
-  }
-  
-  .model-icon {
-    background: var(--interactive-primary);
-    color: white;
-    /* Slight brightness boost for dark mode visibility */
-    filter: brightness(1.1);
-  }
-  
-  .user-content {
-    color: var(--text-primary); 
-    opacity: 0.9;
-  }
-}
+/* Dark mode: Now handled by ThemeManager + data-aimd-theme attribute */
 
 `;
 
@@ -26672,18 +27145,29 @@ class TooltipHelper {
     const tooltip = document.createElement("div");
     tooltip.className = "aicopy-tooltip";
     tooltip.textContent = text;
+    const isDark = document.documentElement.classList.contains("dark") || window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+    const root = document.documentElement;
+    const getVar = (name, fallback) => getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+    const bgColor = isDark ? getVar("--aimd-tooltip-bg", "rgba(50, 50, 55, 0.95)") : getVar("--aimd-tooltip-bg", "rgba(250, 250, 252, 0.98)");
+    const textColor = isDark ? getVar("--aimd-tooltip-text", "#FFFFFF") : getVar("--aimd-tooltip-text", "#374151");
+    const shadowColor = isDark ? getVar("--aimd-tooltip-shadow-color", "rgba(0, 0, 0, 0.5)") : getVar("--aimd-tooltip-shadow-color", "rgba(0, 0, 0, 0.12)");
+    const borderColor = isDark ? getVar("--aimd-tooltip-border", "rgba(255, 255, 255, 0.15)") : getVar("--aimd-tooltip-border", "rgba(0, 0, 0, 0.12)");
     tooltip.style.cssText = `
       position: absolute;
-      background: rgba(60, 64, 67, 0.9);  /* Dark gray tooltip */
-      color: white;
-      padding: 6px 8px;
-      border-radius: 4px;
+      background: ${bgColor};
+      color: ${textColor};
+      padding: 6px 12px;
+      border-radius: 8px;
       font-size: 12px;
-      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       white-space: nowrap;
       opacity: 0;
       transition: opacity 0.15s ease-in-out;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);  /* Subtle shadow */
+      box-shadow: 0 2px 8px ${shadowColor}, 0 4px 16px ${shadowColor};
+      border: 1px solid ${borderColor};
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     `;
     this.tooltipContainer.appendChild(tooltip);
     const rect = anchor.getBoundingClientRect();
@@ -26882,8 +27366,8 @@ class DeepResearchHandler {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${isError ? "#ef4444" : "#8b5cf6"};
-            color: white;
+            background: ${isError ? "var(--aimd-interactive-danger, #ef4444)" : "var(--aimd-color-purple-500, #8b5cf6)"};
+            color: var(--aimd-text-on-primary);
             padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;
@@ -28249,7 +28733,7 @@ class BookmarkSaveModal {
     if (!this.shadowRoot) return;
     const existingStyle = this.shadowRoot.querySelector("style");
     if (existingStyle) existingStyle.remove();
-    const isDark = DesignTokens.isDarkMode();
+    const isDark = ThemeManager.getInstance().isDarkMode();
     const tokens = isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens();
     const styleElement = document.createElement("style");
     styleElement.textContent = `
@@ -28258,56 +28742,56 @@ class BookmarkSaveModal {
             * { box-sizing: border-box; }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes slideIn { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-overlay); backdrop-filter: blur(6px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
-            .bookmark-save-modal { position: relative; width: 90%; max-width: 550px; max-height: 85vh; background: var(--md-surface); color: var(--md-on-surface); border-radius: 16px; box-shadow: var(--shadow-xl); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out; }
-            .save-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--gray-200); }
-            .save-modal-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--gray-900); }
-            .save-modal-close-btn { background: none; border: none; font-size: 24px; color: var(--gray-500); cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.15s ease; }
-            .save-modal-close-btn:hover { background: var(--gray-100); color: var(--gray-900); }
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--aimd-bg-overlay); backdrop-filter: blur(6px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
+            .bookmark-save-modal { position: relative; width: 90%; max-width: 550px; max-height: 85vh; background: var(--aimd-bg-primary); color: var(--aimd-text-primary); border-radius: 16px; box-shadow: var(--aimd-shadow-xl); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out; }
+            .save-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--aimd-border-default); }
+            .save-modal-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--aimd-text-primary); }
+            .save-modal-close-btn { background: none; border: none; font-size: 24px; color: var(--aimd-text-secondary); cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.15s ease; }
+            .save-modal-close-btn:hover { background: var(--aimd-interactive-hover); color: var(--aimd-text-primary); }
             .save-modal-body { flex: 1; overflow-y: auto; padding: 24px; }
             .title-section { margin-bottom: 24px; }
-            .title-label { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--gray-700); margin-bottom: 8px; }
-            .title-input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; background: var(--md-surface); color: var(--md-on-surface); box-shadow: inset 0 1px 2px rgba(0,0,0,0.04); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
-            .title-input:focus { border-color: var(--primary-300); box-shadow: var(--shadow-focus); }
-            .title-input.error { border-color: var(--danger-500); }
-            .title-input::placeholder { color: var(--gray-400); font-weight: 400; }
-            .bookmark-count-info { margin-bottom: 16px; padding: 10px 14px; background: var(--info-bg); border-left: 3px solid var(--primary-500); border-radius: 8px; font-size: 13px; color: var(--gray-800); }
-            .title-error { margin-top: 8px; font-size: 12px; color: var(--danger-500); display: none; }
+            .title-label { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--aimd-color-gray-700); margin-bottom: 8px; }
+            .title-input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--aimd-color-gray-200); border-radius: 8px; font-size: 13px; background: var(--aimd-bg-primary); color: var(--aimd-text-primary); box-shadow: var(--aimd-input-shadow); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
+            .title-input:focus { border-color: var(--aimd-color-blue-300); box-shadow: var(--aimd-shadow-focus); }
+            .title-input.error { border-color: var(--aimd-interactive-danger); }
+            .title-input::placeholder { color: var(--aimd-color-gray-400); font-weight: 400; }
+            .bookmark-count-info { margin-bottom: 16px; padding: 10px 14px; background: var(--aimd-feedback-info-bg); border-left: 3px solid var(--aimd-color-blue-500); border-radius: 8px; font-size: 13px; color: var(--aimd-color-gray-800); }
+            .title-error { margin-top: 8px; font-size: 12px; color: var(--aimd-interactive-danger); display: none; }
             .title-error.visible { display: block; }
             .folder-section { margin-bottom: 24px; }
             .folder-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-            .folder-label { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--gray-700); }
-            .new-folder-btn { background: var(--button-icon-bg); color: var(--button-icon-text); border: none; padding: 8px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; }
-            .new-folder-btn:hover { background: var(--button-icon-hover); color: var(--button-icon-text-hover); transform: scale(1.05); }
-            .folder-tree-container { border-radius: 12px; height: 300px; overflow-y: auto; background: var(--modal-tree-bg); }
+            .folder-label { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--aimd-color-gray-700); }
+            .new-folder-btn { background: var(--aimd-button-icon-bg); color: var(--aimd-button-icon-text); border: none; padding: 8px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; }
+            .new-folder-btn:hover { background: var(--aimd-button-icon-hover); color: var(--aimd-button-icon-text-hover); transform: scale(1.05); }
+            .folder-tree-container { border-radius: 12px; height: 300px; overflow-y: auto; background: var(--aimd-modal-tree-bg); }
             .folder-tree-body { padding: 0; }
             .folder-item { display: flex; align-items: center; min-height: 40px; padding: 10px 16px; cursor: pointer; transition: background 0.15s ease; position: relative; background: transparent; border-left: 3px solid transparent; }
-            .folder-item:not(.selected):hover { background: var(--modal-tree-item-hover); }
-            .folder-item.selected { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%); border-left: 3px solid var(--primary-400); }
+            .folder-item:not(.selected):hover { background: var(--aimd-modal-tree-item-hover); }
+            .folder-item.selected { background: var(--aimd-selected-gradient); border-left: 3px solid var(--aimd-color-blue-400); }
             .folder-item:hover .item-actions { opacity: 1; visibility: visible; }
-            .folder-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 4px; font-size: 10px; color: var(--gray-500); cursor: pointer; user-select: none; flex-shrink: 0; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+            .folder-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 4px; font-size: 10px; color: var(--aimd-text-secondary); cursor: pointer; user-select: none; flex-shrink: 0; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
             .folder-toggle.expanded { transform: rotate(90deg); }
-            .folder-icon { margin-right: 8px; font-size: 16px; flex-shrink: 0; color: var(--modal-tree-item-icon); }
-            .folder-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--modal-tree-item-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .folder-check { color: var(--primary-600); font-size: 16px; font-weight: 600; margin-left: 8px; flex-shrink: 0; }
+            .folder-icon { margin-right: 8px; font-size: 16px; flex-shrink: 0; color: var(--aimd-modal-tree-item-icon); }
+            .folder-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--aimd-modal-tree-item-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .folder-check { color: var(--aimd-color-blue-600); font-size: 16px; font-weight: 600; margin-left: 8px; flex-shrink: 0; }
             .item-actions { display: flex; gap: 4px; margin-left: 8px; opacity: 0; visibility: hidden; transition: all 150ms ease; }
-            .action-btn { background: var(--button-icon-bg); border: none; color: var(--button-icon-text); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 150ms ease; }
-            .action-btn:hover { background: var(--button-icon-hover); color: var(--button-icon-text-hover); }
-            .folder-empty { padding: 40px 20px; text-align: center; color: var(--gray-400); }
+            .action-btn { background: var(--aimd-button-icon-bg); border: none; color: var(--aimd-button-icon-text); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 150ms ease; }
+            .action-btn:hover { background: var(--aimd-button-icon-hover); color: var(--aimd-button-icon-text-hover); }
+            .folder-empty { padding: 40px 20px; text-align: center; color: var(--aimd-color-gray-400); }
             .folder-empty-icon { font-size: 48px; margin-bottom: 12px; }
             .folder-empty-text { font-size: 13px; }
-            .save-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--gray-200); }
-            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
-            .save-modal-btn-cancel { background: var(--button-secondary-bg); color: var(--button-secondary-text); }
-            .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
-            .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
-            .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
+            .save-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--aimd-border-default); }
+            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
+            .save-modal-btn-cancel { background: var(--aimd-button-secondary-bg); color: var(--aimd-button-secondary-text); }
+            .save-modal-btn-cancel:hover { background: var(--aimd-button-secondary-hover); color: var(--aimd-button-secondary-text-hover); transform: translateY(-1px); }
+            .save-modal-btn-save { background: var(--aimd-button-primary-bg); color: var(--aimd-button-primary-text); }
+            .save-modal-btn-save:hover:not(:disabled) { background: var(--aimd-button-primary-hover); color: var(--aimd-button-primary-text-hover); transform: translateY(-1px); }
             
             /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
             /* 参考: Material Design Button States */
             .save-modal-btn-save:disabled { 
-                background: var(--button-primary-disabled); 
-                color: var(--button-primary-disabled-text); 
+                background: var(--aimd-button-primary-disabled); 
+                color: var(--aimd-button-primary-disabled-text); 
                 cursor: not-allowed; 
                 opacity: 0.6; 
             }
@@ -28321,7 +28805,7 @@ class BookmarkSaveModal {
             /* ✅ Best Practice: Optimized backdrop-filter */
             /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
             .modal-overlay { 
-                background: rgba(0, 0, 0, 0.6);
+                background: var(--aimd-bg-overlay-heavy);
                 backdrop-filter: blur(3px);  /* 轻微模糊,性能与视觉平衡 */
                 -webkit-backdrop-filter: blur(3px);
             }
@@ -28390,6 +28874,13 @@ class BookmarkSaveModal {
     setTimeout(() => {
       if (this.titleInputElement) {
         this.titleInputElement.select();
+        const validation = this.validateTitle(this.titleInputElement.value);
+        this.titleValid = validation.valid;
+        if (!validation.valid && this.errorDivElement) {
+          this.titleInputElement.classList.add("error");
+          this.errorDivElement.textContent = validation.error;
+          this.errorDivElement.classList.add("visible");
+        }
       }
     }, 100);
     logger$1.info("[BookmarkSaveModal] Modal shown");
@@ -29272,153 +29763,6 @@ class FolderOperationsManager {
   }
 }
 
-class ThemeObserver {
-  observer = null;
-  callbacks = /* @__PURE__ */ new Set();
-  debounceTimer = null;
-  debounceDelay = 50;
-  // ms
-  currentTheme;
-  mediaQuery = null;
-  constructor() {
-    this.currentTheme = this.detectTheme();
-    this.initialize();
-  }
-  /**
-   * Initialize the MutationObserver AND matchMedia listener
-   * Supports both ChatGPT (html.dark) and Gemini (prefers-color-scheme)
-   */
-  initialize() {
-    this.observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === "attributes" && mutation.attributeName === "class") {
-          this.handleThemeChange();
-        }
-      }
-    });
-    this.observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"]
-    });
-    if (window.matchMedia) {
-      this.mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      this.mediaQuery.addEventListener("change", () => {
-        this.handleThemeChange();
-      });
-      logger$1.debug("[ThemeObserver] matchMedia listener added for Gemini");
-    }
-    logger$1.debug("[ThemeObserver] Initialized observers for ChatGPT and Gemini");
-  }
-  /**
-   * Detect current theme from html element OR matchMedia
-   * Supports both ChatGPT (html.dark) and Gemini (prefers-color-scheme)
-   */
-  detectTheme() {
-    if (document.documentElement.classList.contains("dark")) {
-      return "dark";
-    }
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      return "dark";
-    }
-    return "light";
-  }
-  /**
-   * Handle theme change with debouncing
-   */
-  handleThemeChange() {
-    if (this.debounceTimer !== null) {
-      window.clearTimeout(this.debounceTimer);
-    }
-    this.debounceTimer = window.setTimeout(() => {
-      const newTheme = this.detectTheme();
-      if (newTheme !== this.currentTheme) {
-        const oldTheme = this.currentTheme;
-        this.currentTheme = newTheme;
-        logger$1.info(`[ThemeObserver] Theme changed: ${oldTheme} → ${newTheme}`);
-        this.notifyCallbacks(newTheme);
-      }
-      this.debounceTimer = null;
-    }, this.debounceDelay);
-  }
-  /**
-   * Notify all subscribers of theme change
-   */
-  notifyCallbacks(theme) {
-    this.callbacks.forEach((callback) => {
-      try {
-        callback(theme);
-      } catch (error) {
-        logger$1.error("[ThemeObserver] Error in theme change callback:", error);
-      }
-    });
-  }
-  /**
-   * Subscribe to theme changes
-   * 
-   * @param callback - Function to call when theme changes
-   * @returns Unsubscribe function
-   * 
-   * @example
-   * ```typescript
-   * const unsubscribe = observer.subscribe((theme) => {
-   *   console.log('New theme:', theme);
-   * });
-   * 
-   * // Later...
-   * unsubscribe();
-   * ```
-   */
-  subscribe(callback) {
-    this.callbacks.add(callback);
-    logger$1.debug("[ThemeObserver] Subscriber added, total:", this.callbacks.size);
-    return () => {
-      this.callbacks.delete(callback);
-      logger$1.debug("[ThemeObserver] Subscriber removed, total:", this.callbacks.size);
-    };
-  }
-  /**
-   * Get current theme mode
-   */
-  getCurrentTheme() {
-    return this.currentTheme;
-  }
-  /**
-   * Check if currently in dark mode
-   */
-  isDarkMode() {
-    return this.currentTheme === "dark";
-  }
-  /**
-   * Disconnect the observer and cleanup
-   * 
-   * Should be called when the observer is no longer needed
-   */
-  disconnect() {
-    if (this.observer) {
-      this.observer.disconnect();
-      this.observer = null;
-    }
-    if (this.mediaQuery) {
-      this.mediaQuery.removeEventListener("change", () => {
-        this.handleThemeChange();
-      });
-      this.mediaQuery = null;
-    }
-    if (this.debounceTimer !== null) {
-      window.clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    this.callbacks.clear();
-    logger$1.debug("[ThemeObserver] Disconnected and cleaned up");
-  }
-  /**
-   * Get number of active subscribers
-   */
-  getSubscriberCount() {
-    return this.callbacks.size;
-  }
-}
-
 class SimpleBookmarkPanel {
   overlay = null;
   shadowRoot = null;
@@ -29444,8 +29788,8 @@ class SimpleBookmarkPanel {
   folders = [];
   folderState = new FolderState();
   folderOpsManager = new FolderOperationsManager();
-  // Theme observer for dynamic theme switching
-  themeObserver = null;
+  // Theme manager subscription for dynamic theme switching
+  themeUnsubscribe = null;
   /**
    * Show the bookmark panel
    */
@@ -29474,13 +29818,36 @@ class SimpleBookmarkPanel {
     this.overlay.style.justifyContent = "center";
     this.overlay.style.background = "rgba(0, 0, 0, 0.6)";
     this.overlay.style.backdropFilter = "blur(3px)";
-    this.overlay.dataset.theme = DesignTokens.isDarkMode() ? "dark" : "light";
+    this.overlay.dataset.theme = ThemeManager.getInstance().isDarkMode() ? "dark" : "light";
     this.shadowRoot = this.overlay.attachShadow({ mode: "open" });
     const styles = document.createElement("style");
     styles.textContent = this.getStyles();
     this.shadowRoot.appendChild(styles);
     const panel = this.createPanel();
     this.shadowRoot.appendChild(panel);
+    setTimeout(() => {
+      console.log("[SimpleBookmarkPanel] DEBUG: setTimeout executed");
+      console.log("[SimpleBookmarkPanel] DEBUG: shadowRoot exists:", !!this.shadowRoot);
+      const searchInput = this.shadowRoot?.querySelector(".search-input");
+      console.log("[SimpleBookmarkPanel] DEBUG: searchInput found:", !!searchInput);
+      if (searchInput) {
+        const styles2 = getComputedStyle(searchInput);
+        console.log("[SimpleBookmarkPanel] Search Input Computed Styles:");
+        console.log("  color: " + styles2.color);
+        console.log("  background-color: " + styles2.backgroundColor);
+        console.log("  border: " + styles2.border);
+        console.log("  border-radius: " + styles2.borderRadius);
+        if (this.shadowRoot) {
+          const hostStyles = getComputedStyle(this.shadowRoot.host);
+          console.log("[SimpleBookmarkPanel] CSS Variables on :host:");
+          console.log("  --aimd-text-primary: " + hostStyles.getPropertyValue("--aimd-text-primary"));
+          console.log("  --aimd-bg-primary: " + hostStyles.getPropertyValue("--aimd-bg-primary"));
+          console.log("  --aimd-border-default: " + hostStyles.getPropertyValue("--aimd-border-default"));
+        }
+      } else {
+        console.log("[SimpleBookmarkPanel] ERROR: searchInput not found!");
+      }
+    }, 100);
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) {
         this.hide();
@@ -29544,10 +29911,10 @@ class SimpleBookmarkPanel {
       chrome.storage.onChanged.removeListener(this.storageListener);
       this.storageListener = null;
     }
-    if (this.themeObserver) {
-      this.themeObserver.disconnect();
-      this.themeObserver = null;
-      logger$1.debug("[SimpleBookmarkPanel] Theme observer disconnected");
+    if (this.themeUnsubscribe) {
+      this.themeUnsubscribe();
+      this.themeUnsubscribe = null;
+      logger$1.debug("[SimpleBookmarkPanel] Theme subscription cancelled");
     }
     if (this.overlay && this.overlay.parentNode) {
       this.overlay.remove();
@@ -31127,7 +31494,7 @@ Please create a new root folder or organize within existing folders.`
    * Show detail modal with markdown preview
    */
   async showDetailModal(bookmark) {
-    const isDark = DesignTokens.isDarkMode();
+    const isDark = ThemeManager.getInstance().isDarkMode();
     await StyleManager.injectStyles(document, isDark);
     const userResult = await MarkdownRenderer.render(bookmark.userMessage);
     const userMessageHtml = userResult.success ? userResult.html : userResult.fallback;
@@ -31516,26 +31883,26 @@ Tip: You can export your bookmarks first to create a backup.`
       const configs = {
         success: {
           icon: Icons.checkCircle,
-          iconColor: "var(--success-600)",
-          titleColor: "var(--success-700)",
+          iconColor: "var(--aimd-color-green-600)",
+          titleColor: "var(--aimd-color-green-700)",
           defaultTitle: "Success"
         },
         error: {
           icon: Icons.xCircle,
-          iconColor: "var(--danger-600)",
-          titleColor: "var(--danger-700)",
+          iconColor: "var(--aimd-interactive-danger)",
+          titleColor: "var(--aimd-color-red-700)",
           defaultTitle: "Error"
         },
         warning: {
           icon: Icons.alertTriangle,
-          iconColor: "var(--warning-600)",
-          titleColor: "var(--warning-700)",
+          iconColor: "var(--aimd-color-amber-600)",
+          titleColor: "var(--aimd-color-amber-600)",
           defaultTitle: "Warning"
         },
         info: {
           icon: Icons.info,
-          iconColor: "var(--primary-600)",
-          titleColor: "var(--primary-700)",
+          iconColor: "var(--aimd-color-blue-600)",
+          titleColor: "var(--aimd-color-blue-700)",
           defaultTitle: "Information"
         }
       };
@@ -31548,7 +31915,7 @@ Tip: You can export your bookmarks first to create a backup.`
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: var(--bg-overlay) !important;
+                background: var(--aimd-bg-overlay) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
@@ -31557,10 +31924,10 @@ Tip: You can export your bookmarks first to create a backup.`
             `;
       const modal = document.createElement("div");
       modal.style.cssText = `
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                border-radius: var(--aimd-radius-xl);
+                box-shadow: var(--aimd-shadow-xl);
                 max-width: 400px;
                 width: 90%;
             `;
@@ -31595,10 +31962,10 @@ ${options.message}
       });
       const okBtn = modal.querySelector(".ok-btn");
       okBtn.addEventListener("mouseenter", () => {
-        okBtn.style.background = "var(--button-primary-hover)";
+        okBtn.style.background = "var(--aimd-button-primary-hover)";
       });
       okBtn.addEventListener("mouseleave", () => {
-        okBtn.style.background = "var(--button-primary-bg)";
+        okBtn.style.background = "var(--aimd-button-primary-bg)";
       });
       const closeDialog = () => {
         overlay.remove();
@@ -31632,7 +31999,7 @@ ${options.message}
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: var(--bg-overlay) !important;
+                background: var(--aimd-bg-overlay) !important;
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
@@ -31642,10 +32009,10 @@ ${options.message}
       const modal = document.createElement("div");
       modal.className = "delete-confirmation-modal";
       modal.style.cssText = `
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                border-radius: var(--aimd-radius-xl);
+                box-shadow: var(--aimd-shadow-xl);
                 max-width: 400px;
                 width: 90%;
             `;
@@ -31679,16 +32046,16 @@ ${options.message}
       const cancelBtn = modal.querySelector(".cancel-btn");
       const deleteBtn = modal.querySelector(".delete-btn");
       cancelBtn.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "var(--gray-100)";
+        cancelBtn.style.background = "var(--aimd-interactive-hover)";
       });
       cancelBtn.addEventListener("mouseleave", () => {
         cancelBtn.style.background = "transparent";
       });
       deleteBtn.addEventListener("mouseenter", () => {
-        deleteBtn.style.background = "var(--danger-700)";
+        deleteBtn.style.background = "var(--aimd-color-red-700)";
       });
       deleteBtn.addEventListener("mouseleave", () => {
-        deleteBtn.style.background = "var(--danger-600)";
+        deleteBtn.style.background = "var(--aimd-interactive-danger)";
       });
       cancelBtn.addEventListener("click", () => {
         overlay.remove();
@@ -31762,7 +32129,7 @@ ${options.message}
    */
   showErrorSummary(errors) {
     const isDark = document.documentElement.classList.contains("dark");
-    const bgColor = isDark ? "var(--gray-800)" : "white";
+    const bgColor = isDark ? "var(--aimd-color-gray-800)" : "white";
     const overlay = document.createElement("div");
     overlay.style.cssText = `
             position: fixed;
@@ -31770,7 +32137,7 @@ ${options.message}
             left: 0;
             right: 0;
             bottom: 0;
-            background: var(--bg-overlay);
+            background: var(--aimd-bg-overlay);
             z-index: 2147483647;
             display: flex;
             align-items: center;
@@ -31779,8 +32146,8 @@ ${options.message}
     const modal = document.createElement("div");
     modal.style.cssText = `
             background: ${bgColor};
-            border-radius: var(--radius-medium);
-            box-shadow: var(--shadow-2xl);
+            border-radius: var(--aimd-radius-xl);
+            box-shadow: var(--aimd-shadow-xl);
             max-width: 500px;
             width: 90%;
             max-height: 80vh;
@@ -31816,10 +32183,10 @@ ${options.message}
     }
     const okBtn = modal.querySelector(".ok-btn");
     okBtn.addEventListener("mouseenter", () => {
-      okBtn.style.background = "var(--primary-100)";
+      okBtn.style.background = "var(--aimd-color-blue-100)";
     });
     okBtn.addEventListener("mouseleave", () => {
-      okBtn.style.background = "var(--primary-200)";
+      okBtn.style.background = "var(--aimd-color-blue-200)";
     });
     okBtn.addEventListener("click", () => {
       overlay.remove();
@@ -32294,7 +32661,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background: var(--modal-overlay-bg);
+                    background: var(--aimd-bg-overlay);
                     z-index: 2147483647;
                     display: flex;
                     align-items: center;
@@ -32303,46 +32670,46 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 }
 
                 .duplicate-dialog-modal {
-                    background: var(--modal-surface);
-                    color: var(--md-on-surface);
-                    border-radius: var(--radius-medium);
-                    box-shadow: var(--modal-shadow);
+                    background: var(--aimd-bg-primary);
+                    color: var(--aimd-text-primary);
+                    border-radius: var(--aimd-radius-xl);
+                    box-shadow: var(--aimd-modal-shadow);
                     max-width: 500px;
                     width: 90%;
                     max-height: 80vh;
                     overflow-y: auto;
-                    z-index: var(--z-modal);
-                    font-family: var(--font-sans);
+                    z-index: var(--aimd-z-modal);
+                    font-family: var(--aimd-font-sans);
                 }
 
                 /* Merge Dialog Styles */
                 .duplicate-dialog-content { padding: 20px; }
                 .duplicate-dialog-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-                .duplicate-dialog-icon { color: var(--warning-600); font-size: 24px; line-height: 1; flex-shrink: 0; }
-                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: var(--font-medium); color: var(--md-on-surface); line-height: 1.2; }
-                .duplicate-dialog-body { color: var(--md-on-surface); font-size: 14px; line-height: 1.5; }
+                .duplicate-dialog-icon { color: var(--aimd-color-amber-600); font-size: 24px; line-height: 1; flex-shrink: 0; }
+                .duplicate-dialog-title { margin: 0; font-size: 20px; font-weight: var(--aimd-font-medium); color: var(--aimd-text-primary); line-height: 1.2; }
+                .duplicate-dialog-body { color: var(--aimd-text-primary); font-size: 14px; line-height: 1.5; }
                 .duplicate-dialog-text { margin: 0 0 10px 0; }
                 .merge-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-                .merge-summary-item { background: var(--md-surface-variant); border-radius: var(--radius-small); padding: 8px 10px; }
-                .merge-summary-label { font-size: 12px; color: var(--md-on-surface-variant); display: block; }
-                .merge-summary-value { font-size: 16px; font-weight: var(--font-semibold); color: var(--md-on-surface); }
-                .merge-list-container { border: 1px solid var(--md-outline-variant); border-radius: var(--radius-small); max-height: 320px; overflow-y: auto; }
-                .merge-list-item { padding: 10px 12px; border-bottom: 1px solid var(--md-outline-variant); display: flex; flex-direction: column; gap: 4px; }
+                .merge-summary-item { background: var(--aimd-bg-secondary); border-radius: var(--aimd-radius-lg); padding: 8px 10px; }
+                .merge-summary-label { font-size: 12px; color: var(--aimd-text-secondary); display: block; }
+                .merge-summary-value { font-size: 16px; font-weight: var(--aimd-font-semibold); color: var(--aimd-text-primary); }
+                .merge-list-container { border: 1px solid var(--aimd-border-subtle); border-radius: var(--aimd-radius-lg); max-height: 320px; overflow-y: auto; }
+                .merge-list-item { padding: 10px 12px; border-bottom: 1px solid var(--aimd-border-subtle); display: flex; flex-direction: column; gap: 4px; }
                 .merge-list-item:last-child { border-bottom: none; }
                 .merge-item-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-                .merge-item-title { font-weight: var(--font-medium); color: var(--md-on-surface); word-break: break-word; }
-                .merge-item-path { font-size: 12px; color: var(--md-on-surface-variant); word-break: break-word; }
-                .merge-item-path-label { margin-right: 6px; color: var(--md-on-surface-variant); font-weight: var(--font-medium); }
-                .merge-item-rename { font-size: 12px; color: var(--danger-500); }
-                .merge-badge { font-size: 12px; padding: 2px 6px; border-radius: 999px; font-weight: var(--font-medium); white-space: nowrap; }
-                .merge-badge-normal { background: var(--success-50); color: var(--success-700); }
-                .merge-badge-rename { background: var(--warning-50); color: var(--warning-700); }
-                .merge-badge-import { background: var(--info-bg); color: var(--primary-700); }
-                .duplicate-dialog-hint { margin: 6px 0 0 0; color: var(--md-on-surface-variant); font-size: 13px; font-style: italic; opacity: 0.9; }
-                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--md-outline); }
-                .cancel-btn { padding: 8px 16px; border: none; border-radius: 6px; background: var(--gray-100); color: var(--md-on-surface); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s; }
-                .cancel-btn:hover { background: var(--gray-200); transform: translateY(-1px); }
-                .merge-btn { padding: 8px 16px; border: none; border-radius: 6px; background: var(--modal-primary-bg); color: var(--modal-primary-text); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s; }
+                .merge-item-title { font-weight: var(--aimd-font-medium); color: var(--aimd-text-primary); word-break: break-word; }
+                .merge-item-path { font-size: 12px; color: var(--aimd-text-secondary); word-break: break-word; }
+                .merge-item-path-label { margin-right: 6px; color: var(--aimd-text-secondary); font-weight: var(--aimd-font-medium); }
+                .merge-item-rename { font-size: 12px; color: var(--aimd-interactive-danger); }
+                .merge-badge { font-size: 12px; padding: 2px 6px; border-radius: 999px; font-weight: var(--aimd-font-medium); white-space: nowrap; }
+                .merge-badge-normal { background: var(--aimd-feedback-success-bg); color: var(--aimd-feedback-success-text); }
+                .merge-badge-rename { background: var(--aimd-feedback-warning-bg); color: var(--aimd-feedback-warning-text); }
+                .merge-badge-import { background: var(--aimd-feedback-info-bg); color: var(--aimd-color-blue-700); }
+                .duplicate-dialog-hint { margin: 6px 0 0 0; color: var(--aimd-text-secondary); font-size: 13px; font-style: italic; opacity: 0.9; }
+                .import-summary-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--aimd-border-default); }
+                .cancel-btn { padding: 8px 16px; border: none; border-radius: var(--aimd-radius-md); background: var(--aimd-bg-secondary); color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s; }
+                .cancel-btn:hover { background: var(--aimd-interactive-hover); transform: translateY(-1px); }
+                .merge-btn { padding: 8px 16px; border: none; border-radius: var(--aimd-radius-md); background: var(--modal-primary-bg); color: var(--modal-primary-text); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s; }
                 .merge-btn:hover { background: var(--modal-primary-hover-bg); box-shadow: var(--modal-primary-shadow); transform: translateY(-1px); }
             </style>
             <div class="duplicate-dialog-content">
@@ -32673,16 +33040,16 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * Monitors the host website's theme changes (html.dark class) and automatically
    * updates the panel's styles without requiring a page refresh.
    * 
-   * @see ThemeObserver - MutationObserver-based theme detection
-   * @see /src/styles/design-tokens.css - Global design tokens
+   * @see ThemeManager - Unified theme detection and synchronization
+   * @see /src/styles/tokens - New 3-tier design tokens
    */
   setupThemeObserver() {
-    this.themeObserver = new ThemeObserver();
-    this.themeObserver.subscribe((theme) => {
+    const themeManager = ThemeManager.getInstance();
+    this.themeUnsubscribe = themeManager.subscribe((theme) => {
       logger$1.info(`[SimpleBookmarkPanel] Theme changed to: ${theme}`);
       this.updateTheme();
     });
-    logger$1.debug("[SimpleBookmarkPanel] Theme observer initialized");
+    logger$1.debug("[SimpleBookmarkPanel] Theme manager subscription initialized");
   }
   /**
    * Update theme by re-injecting styles
@@ -32700,7 +33067,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
     if (styleElement) {
       styleElement.textContent = this.getStyles();
       if (this.overlay) {
-        this.overlay.dataset.theme = DesignTokens.isDarkMode() ? "dark" : "light";
+        this.overlay.dataset.theme = ThemeManager.getInstance().isDarkMode() ? "dark" : "light";
       }
       logger$1.debug("[SimpleBookmarkPanel] Theme styles updated");
     } else {
@@ -32719,7 +33086,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
    * @see https://shoelace.style/getting-started/themes
    */
   getStyles() {
-    const isDark = DesignTokens.isDarkMode();
+    const isDark = ThemeManager.getInstance().isDarkMode();
+    console.log("[SimpleBookmarkPanel] getStyles() called");
+    console.log("[SimpleBookmarkPanel] isDark:", isDark);
+    console.log("[SimpleBookmarkPanel] Theme:", isDark ? "DARK" : "LIGHT");
     return `
             /* ============================================================================
                SHADOW DOM ISOLATED DESIGN TOKENS
@@ -32739,7 +33109,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             :host {
                 /* T2.1.3: Inject all design tokens based on theme */
-                ${isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens()}
+                ${(() => {
+      const tokens = DesignTokens.getCompleteTokens(isDark);
+      console.log("[SimpleBookmarkPanel] Injecting tokens, length:", tokens.length);
+      console.log("[SimpleBookmarkPanel] Token preview (first 500 chars):", tokens.substring(0, 500));
+      const hasAimdTokens = tokens.includes("--aimd-text-primary");
+      const hasBorderDefault = tokens.includes("--aimd-border-default");
+      const hasBgPrimary = tokens.includes("--aimd-bg-primary");
+      console.log("[SimpleBookmarkPanel] Has --aimd-text-primary:", hasAimdTokens);
+      console.log("[SimpleBookmarkPanel] Has --aimd-border-default:", hasBorderDefault);
+      console.log("[SimpleBookmarkPanel] Has --aimd-bg-primary:", hasBgPrimary);
+      return tokens;
+    })()}
             }
 
 
@@ -32747,10 +33128,50 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 box-sizing: border-box;
             }
 
+            /* ============================================================================
+               CSS RESET - Form Elements
+               ============================================================================
+               Purpose: Remove browser default styles to ensure our tokens work correctly
+               Scope: Only affects elements within this Shadow DOM
+               Reference: Modern CSS Reset + Form-specific resets
+               ============================================================================ */
+            
+            input:not([type="checkbox"]):not([type="radio"]):not(.search-input),
+            button,
+            select,
+            textarea {
+                /* Remove browser appearance */
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                
+                /* Reset box model */
+                margin: 0;
+                padding: 0;
+                border: none;
+                background: none;
+                
+                /* Reset typography - inherit from parent */
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                color: inherit;
+                
+                /* Reset other properties */
+                outline: none;
+                box-sizing: border-box;
+            }
+
+            /* Restore useful defaults */
             button {
-                font-family: var(--font-sans);
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                cursor: pointer;
+                font-family: var(--aimd-font-sans);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
+            }
+
+            input::placeholder {
+                opacity: 1; /* Firefox default is 0.54 */
             }
 
             .panel {
@@ -32762,12 +33183,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 max-width: 1000px;  /* 最大宽度800px */
                 height: 85vh;
                 max-height: 800px;  /* 最大高度600px */
-                background: var(--md-surface);
-                border-radius: var(--radius-large);  /* Material Design 16px */
-                box-shadow: var(--elevation-3);      /* Material Design elevation */
+                background: var(--aimd-panel-bg);
+                border-radius: var(--aimd-radius-2xl);  /* Material Design 16px */
+                box-shadow: var(--aimd-shadow-lg);      /* Material Design elevation */
                 display: flex;
-                z-index: var(--z-fixed);
-                font-family: var(--font-sans);
+                z-index: var(--aimd-z-fixed);
+                font-family: var(--aimd-font-sans);
                 overflow: hidden;
             }
 
@@ -32778,11 +33199,11 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                =================================================================== */
             .toolbar {
                 display: flex;
-                gap: var(--space-2);  /* 8px */
-                padding: var(--space-3) var(--space-4);  /* 12px 16px, more horizontal space */
-                background: var(--gray-50);
+                gap: var(--aimd-space-2);  /* 8px */
+                padding: var(--aimd-space-3) var(--aimd-space-4);  /* 12px 16px, more horizontal space */
+                background: var(--aimd-bg-secondary);  /* Theme-aware background */
                 /* border-bottom: removed */
-                box-shadow: var(--shadow-xs);  /* Subtle separation */
+                box-shadow: var(--aimd-shadow-xs);  /* Subtle separation */
                 align-items: center;
                 flex-wrap: wrap;
             }
@@ -32790,41 +33211,41 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .toolbar-divider {
                 width: 1px;
                 height: 20px;  /* Slightly shorter */
-                background: var(--gray-300);
-                margin: 0 var(--space-1);  /* 4px */
+                background: var(--aimd-border-default);  /* Theme-aware divider */
+                margin: 0 var(--aimd-space-1);  /* 4px */
             }
 
             .new-folder-btn,
             .export-btn,
             .import-btn {
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border: 1px solid var(--gray-300);
-                background: var(--md-surface);  /* Theme-aware */
-                border-radius: var(--radius-sm);  /* 6px per design system */
-                font-size: var(--text-sm);  /* 13px */
-                font-weight: var(--font-medium);  /* 500 */
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
+                border: 1px solid var(--aimd-border-default);  /* Theme-aware */
+                background: var(--aimd-bg-primary);  /* Theme-aware */
+                border-radius: var(--aimd-radius-sm);  /* 6px per design system */
+                font-size: var(--aimd-text-sm);  /* 13px */
+                font-weight: var(--aimd-font-medium);  /* 500 */
                 cursor: pointer;
-                transition: all var(--duration-fast);  /* 150ms */
+                transition: all var(--aimd-duration-fast);  /* 150ms */
                 white-space: nowrap;
             }
 
             .new-folder-btn:hover,
             .export-btn:hover,
             .import-btn:hover {
-                background: var(--gray-100);
-                border-color: var(--gray-400);
+                background: var(--aimd-interactive-hover);  /* Theme-aware */
+                border-color: var(--aimd-border-strong);  /* Theme-aware */
                 transform: translateY(-1px);  /* Subtle lift */
-                box-shadow: var(--shadow-sm);  /* Hover elevation */
+                box-shadow: var(--aimd-shadow-sm);  /* Hover elevation */
             }
 
             .new-folder-btn {
                 font-weight: 500;
-                color: var(--primary-600);
-                border-color: var(--primary-600);
+                color: var(--aimd-color-blue-600);
+                border-color: var(--aimd-color-blue-600);
             }
 
             .new-folder-btn:hover {
-                background: var(--primary-50);
+                background: var(--aimd-interactive-hover);  /* Theme-aware */
             }
 
             /* ===================================================================
@@ -32835,42 +33256,42 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                =================================================================== */
             .sidebar {
                 width: 140px;
-                background: var(--gray-100);  /* Subtle darker background */
+                background: var(--aimd-glass-tint);  /* Transparent tint for glass effect */
                 /* border-right: removed - no borders per design system */
                 display: flex;
                 flex-direction: column;
-                padding: var(--space-4);  /* 16px, 8px grid */
-                gap: var(--space-2);  /* 8px between tabs */
+                padding: var(--aimd-space-4);  /* 16px, 8px grid */
+                gap: var(--aimd-space-2);  /* 8px between tabs */
             }
 
             .tab-btn {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: var(--space-2);  /* 8px */
-                padding: var(--space-3);  /* 12px, more breathing room */
+                gap: var(--aimd-space-2);  /* 8px */
+                padding: var(--aimd-space-3);  /* 12px, more breathing room */
                 border: none;  /* No borders */
                 background: transparent;
                 cursor: pointer;
-                transition: all var(--duration-fast);  /* 150ms per design system */
-                color: var(--gray-600);
-                font-size: var(--text-xs);  /* 12px */
-                border-radius: var(--radius-md);  /* 8px for card-like items */
+                transition: all var(--aimd-duration-fast);  /* 150ms per design system */
+                color: var(--aimd-text-secondary);
+                font-size: var(--aimd-text-xs);  /* 12px */
+                border-radius: var(--aimd-radius-md);  /* 8px for card-like items */
             }
 
             .tab-btn:hover {
-                background: var(--gray-200);  /* Subtle hover state */
-                color: var(--gray-900);
+                background: var(--aimd-interactive-hover);  /* Subtle hover state */
+                color: var(--aimd-text-primary);
                 transform: translateY(-1px);  /* Micro-animation */
             }
 
             .tab-btn.active {
-                background: var(--interactive-selected);
-                color: var(--primary-700);
-                font-weight: var(--font-semibold);  /* 600 */
+                background: var(--aimd-interactive-selected);
+                color: var(--aimd-text-primary);
+                font-weight: var(--aimd-font-semibold);  /* 600 */
                 /* Use box-shadow for accent instead of border */
-                box-shadow: inset 3px 0 0 var(--primary-500),
-                            var(--shadow-sm);  /* Subtle elevation */
+                box-shadow: inset 3px 0 0 var(--aimd-color-blue-500),
+                            var(--aimd-shadow-sm);  /* Subtle elevation */
             }
 
             .tab-icon {
@@ -32896,24 +33317,24 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                - Consistent padding with 8px grid
                =================================================================== */
             .header {
-                padding: var(--space-5) var(--space-6);  /* 20px 24px */
+                padding: var(--aimd-space-5) var(--aimd-space-6);  /* 20px 24px */
                 /* border-bottom: removed - use shadow instead */
-                box-shadow: var(--shadow-xs);  /* Subtle separation */
+                box-shadow: var(--aimd-shadow-xs);  /* Subtle separation */
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                background: var(--md-surface);
+                background: var(--aimd-bg-primary);
                 z-index: 1;  /* Ensure shadow appears above content */
             }
 
             .header h2 {
                 margin: 0;
-                font-size: var(--text-xl);  /* 18px */
-                font-weight: var(--font-semibold);  /* 600 */
-                color: var(--gray-900);
+                font-size: var(--aimd-text-xl);  /* 18px */
+                font-weight: var(--aimd-font-semibold);  /* 600 */
+                color: var(--aimd-text-primary);
                 display: flex;
                 align-items: center;
-                gap: var(--space-2);  /* 8px */
+                gap: var(--aimd-space-2);  /* 8px */
                 line-height: 1;
                 letter-spacing: -0.02em;  /* Tighter for modern feel */
             }
@@ -32923,29 +33344,29 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .close-btn {
-                background: var(--button-close-bg);
+                background: var(--aimd-button-icon-bg);
                 border: none;
                 font-size: 24px;  /* Slightly smaller */
-                color: var(--button-close-text);
+                color: var(--aimd-button-icon-text);
                 cursor: pointer;
-                padding: var(--space-1);  /* 4px */
+                padding: var(--aimd-space-1);  /* 4px */
                 width: 32px;
                 height: 32px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: var(--radius-sm);  /* 6px */
-                transition: all var(--duration-fast);  /* 150ms */
+                border-radius: var(--aimd-radius-sm);  /* 6px */
+                transition: all var(--aimd-duration-fast);  /* 150ms */
             }
 
             .close-btn:hover {
-                background: var(--button-close-hover);
-                color: var(--button-close-text-hover);
+                background: var(--aimd-button-icon-hover);
+                color: var(--aimd-button-icon-text-hover);
                 transform: scale(1.05);  /* Micro-animation */
             }
 
             .close-btn:active {
-                background: var(--button-close-active);
+                background: var(--aimd-button-icon-active);
                 transform: scale(0.95);  /* Press feedback */
             }
 
@@ -32954,25 +33375,25 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: flex;
                 align-items: center;
                 min-height: 30px;
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
                 position: relative;
                 cursor: pointer;
                 user-select: none;
                 
                 /* Styling properties (from Line 4059) */
-                gap: var(--space-2);
-                margin-bottom: var(--space-1);
-                border-radius: var(--radius-small);
-                transition: all var(--duration-base) var(--ease-out);
+                gap: var(--aimd-space-2);
+                margin-bottom: var(--aimd-space-1);
+                border-radius: var(--aimd-radius-lg);
+                transition: all var(--aimd-duration-base) var(--ease-out);
                 
                 /* Critical: Explicit background */
                 background: transparent;
                 border: none;
-                border-bottom: 1.8px solid var(--gray-300);  /* From Line 5003 */
+                border-bottom: 1px solid var(--aimd-border-subtle);  /* From Line 5003 */
             }
 
             .tree-item:hover {
-                background: var(--gray-100);
+                background: var(--aimd-interactive-hover);
             }
 
             /* Tab content */
@@ -32989,10 +33410,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             /* Toolbar */
             .toolbar {
-                padding: var(--space-3) var(--space-6);  /* 12px 24px */
-                border-bottom: 1px solid var(--md-outline-variant);  /* ✅ Subtle unified separator */
+                padding: var(--aimd-space-3) var(--aimd-space-6);  /* 12px 24px */
+                border-bottom: 1px solid var(--aimd-border-subtle);  /* ✅ Subtle unified separator */
                 display: flex;
-                gap: var(--space-3);  /* 12px */
+                gap: var(--aimd-space-3);  /* 12px */
                 align-items: center;
             }
 
@@ -33009,7 +33430,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: flex;
                 align-items: center;  /* 图标垂直居中 */
                 pointer-events: none;
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
             }
 
             .search-icon svg {
@@ -33021,61 +33442,61 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                - Blue focus ring per design system (3px rgba blue)
                - Cleaner border states
                =================================================================== */
-            .search-input {
+            input.search-input {
                 flex: 1;
-                padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);  /* Left padding for icon */
-                border: 1.5px solid var(--gray-200);  /* 1.5px per design system */
-                border-radius: var(--radius-sm);  /* 6px for inputs */
-                background: var(--md-surface);  /* Theme-aware */
-                color: var(--gray-900);
-                font-size: var(--text-base);  /* 14px */
-               transition: all var(--duration-fast);  /* 150ms */
+                padding: var(--aimd-space-2) var(--aimd-space-4) var(--aimd-space-2) var(--aimd-space-10);  /* Left padding for icon */
+                border: 1.5px solid var(--aimd-border-default);  /* Theme-aware border */
+                border-radius: var(--aimd-radius-lg);  /* 8px for better visual */
+                background: var(--aimd-bg-primary);  /* Theme-aware */
+                color: var(--aimd-text-primary);  /* Theme-aware text */
+                font-size: var(--aimd-text-base);  /* 14px */
+               transition: all var(--aimd-duration-fast);  /* 150ms */
             }
 
-            .search-input:hover {
-                border-color: var(--gray-300);
+            input.search-input:hover {
+                border-color: var(--aimd-border-strong);
             }
 
-            .search-input:focus {
+            input.search-input:focus {
                 outline: none;
-                border-color: var(--primary-500);
+                border-color: var(--aimd-color-blue-500);
                 /* Blue focus ring per design system */
-                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-                background: var(--md-surface);  /* Theme-aware */
+                box-shadow: var(--aimd-shadow-focus);
+                background: var(--aimd-bg-primary);  /* Theme-aware */
             }
 
-            .search-input::placeholder {
-                color: var(--gray-400);
+            input.search-input::placeholder {
+                color: var(--aimd-text-tertiary);
             }
 
-            .platform-filter {
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border: 1.5px solid var(--gray-200);
-                border-radius: var(--radius-sm);  /* 6px */
-                background: var(--md-surface);  /* Theme-aware */
-                color: var(--gray-700);
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+            button.platform-filter {
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
+                border: 1.5px solid var(--aimd-border-default);  /* Theme-aware */
+                border-radius: var(--aimd-radius-lg);  /* 8px */
+                background: var(--aimd-bg-primary);  /* Theme-aware */
+                color: var(--aimd-text-primary);  /* Theme-aware text */
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
-                transition: all var(--duration-fast);
+                transition: all var(--aimd-duration-fast);
             }
 
-            .platform-filter:hover {
-                background: var(--gray-50);
-                border-color: var(--gray-400);
+            button.platform-filter:hover {
+                background: var(--aimd-interactive-hover);  /* Theme-aware hover */
+                border-color: var(--aimd-border-strong);
             }
 
-            .platform-filter:focus {
+            button.platform-filter:focus {
                 outline: none;
-                border-color: var(--primary-600);
-                box-shadow: var(--shadow-focus);
+                border-color: var(--aimd-color-blue-600);
+                box-shadow: var(--aimd-shadow-focus);
             }
 
             .toolbar-divider {
                 width: 1px;
                 height: 24px;
-                background: var(--md-outline);
-                margin: 0 var(--space-1);  /* 4px */
+                background: var(--aimd-border-default);
+                margin: 0 var(--aimd-space-1);  /* 4px */
             }
 
 
@@ -33086,21 +33507,22 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                border: none;
-                border-radius: var(--radius-small);  /* 8px */
-                background: var(--button-icon-bg);
-                color: var(--button-icon-text);
+                border: 1px solid var(--aimd-border-subtle);  /* Subtle border for visibility */
+                border-radius: var(--aimd-radius-lg);  /* 8px */
+                background: var(--aimd-button-icon-bg);
+                color: var(--aimd-button-icon-text);
                 cursor: pointer;
-                transition: all var(--duration-base) var(--ease-out);
+                transition: all var(--aimd-duration-base) var(--ease-out);
             }
 
             .toolbar-icon-btn:hover {
-                background: var(--button-icon-hover);
-                color: var(--button-icon-text-hover);
+                background: var(--aimd-button-icon-hover);
+                color: var(--aimd-button-icon-text-hover);
+                border-color: var(--aimd-border-default);  /* Slightly more visible border on hover */
             }
 
             .toolbar-icon-btn:active {
-                background: var(--button-icon-active);
+                background: var(--aimd-button-icon-active);
                 transform: scale(0.95);
             }
 
@@ -33116,43 +33538,43 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .platform-selector {
                 display: inline-flex;
                 align-items: center;
-                gap: var(--space-2);  /* 8px */
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border: 1px solid var(--md-outline);
-                border-radius: var(--radius-small);  /* 8px */
-                background: var(--md-surface);
-                color: var(--md-on-surface);
-                font-size: var(--text-sm);
+                gap: var(--aimd-space-2);  /* 8px */
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);  /* 8px */
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                font-size: var(--aimd-text-sm);
                 font-weight: 500;
                 cursor: pointer;
-                transition: all var(--duration-base) var(--ease-out);
+                transition: all var(--aimd-duration-base) var(--ease-out);
                 min-width: 140px;
                 justify-content: space-between;
             }
 
             /* Mac tag风格 - 根据选中平台改变背景色 */
             .platform-selector[data-selected="all"] {
-                background: var(--bg-secondary);
-                color: var(--text-primary);
-                border-color: var(--border-default);
+                background: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
+                border-color: var(--aimd-border-default);
             }
 
             .platform-selector[data-selected="chatgpt"] {
-                background: var(--platform-chatgpt-bg);
-                color: var(--platform-chatgpt-text);
-                border-color: var(--platform-chatgpt-bg);
+                background: var(--aimd-platform-chatgpt-bg);
+                color: var(--aimd-platform-chatgpt-text);
+                border-color: var(--aimd-platform-chatgpt-bg);
             }
 
             .platform-selector[data-selected="gemini"] {
-                background: var(--platform-gemini-bg);
-                color: var(--platform-gemini-text);
-                border-color: var(--platform-gemini-bg);
+                background: var(--aimd-platform-gemini-bg);
+                color: var(--aimd-platform-gemini-text);
+                border-color: var(--aimd-platform-gemini-bg);
             }
 
             .platform-selector:hover {
-                background: var(--interactive-hover);
-                border-color: var(--interactive-primary);
-                box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+                background: var(--aimd-interactive-hover);
+                border-color: var(--aimd-interactive-primary);
+                box-shadow: var(--aimd-shadow-focus);
             }
 
             .platform-selector-label {
@@ -33164,7 +33586,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex-shrink: 0;
                 display: flex;
                 align-items: center;
-                transition: transform var(--duration-base) var(--ease-out);
+                transition: transform var(--aimd-duration-base) var(--ease-out);
             }
 
             .platform-selector-wrapper.open .platform-selector-icon {
@@ -33177,10 +33599,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 top: calc(100% + 4px);
                 left: 0;
                 right: 0;
-                background: var(--md-surface);
-                border: 1px solid var(--md-outline);
-                border-radius: var(--radius-small);
-                box-shadow: var(--elevation-2);
+                background: var(--aimd-bg-primary);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
+                box-shadow: var(--aimd-shadow-md);
                 z-index: 1000;
                 overflow: hidden;
             }
@@ -33188,21 +33610,21 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .platform-option {
                 display: flex;
                 align-items: center;
-                gap: var(--space-2);  /* 8px */
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
+                gap: var(--aimd-space-2);  /* 8px */
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
                 cursor: pointer;
-                transition: background var(--duration-base) var(--ease-out);
+                transition: background var(--aimd-duration-base) var(--ease-out);
             }
 
             .platform-option:hover {
-                background: var(--interactive-hover);
+                background: var(--aimd-interactive-hover);
             }
 
             .platform-option[data-selected="true"] {
-                background: var(--interactive-selected);
-                color: var(--text-primary);
+                background: var(--aimd-interactive-selected);
+                color: var(--aimd-text-primary);
                 font-weight: 600;
-                box-shadow: inset 3px 0 0 var(--interactive-primary);
+                box-shadow: inset 3px 0 0 var(--aimd-interactive-primary);
             }
 
             .platform-option-icon {
@@ -33220,22 +33642,22 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .platform-option-label {
                 flex: 1;
-                font-size: var(--text-sm);
+                font-size: var(--aimd-text-sm);
             }
 
             .export-btn {
-                padding: var(--space-2) var(--space-4);  /* 8px 16px */
-                background: var(--primary-600);
-                color: var(--white);
+                padding: var(--aimd-space-2) var(--aimd-space-4);  /* 8px 16px */
+                background: var(--aimd-color-blue-600);
+                color: var(--aimd-color-white);
                 border: none;
-                border-radius: 6px;
+                border-radius: var(--aimd-radius-md);
                 font-size: 14px;
                 cursor: pointer;
                 transition: all 0.2s;
             }
 
             .export-btn:hover {
-                background: var(--primary-700);
+                background: var(--aimd-color-blue-700);
                 transform: translateY(-1px);
             }
 
@@ -33243,13 +33665,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .content {
                 flex: 1;
                 overflow-y: auto;
-                padding: var(--space-4) var(--space-6);  /* 16px 24px */
+                padding: var(--aimd-space-4) var(--aimd-space-6);  /* 16px 24px */
             }
 
             .empty {
                 text-align: center;
-                padding: var(--space-15) var(--space-5);  /* 60px 20px */
-                color: var(--gray-500);
+                padding: var(--aimd-space-15) var(--aimd-space-5);  /* 60px 20px */
+                color: var(--aimd-text-tertiary);
                 font-size: 15px;
             }
 
@@ -33257,41 +33679,41 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .bookmark-list {
                 display: flex;
                 flex-direction: column;
-                gap: var(--space-2);  /* 8px */
+                gap: var(--aimd-space-2);  /* 8px */
             }
 
             .bookmark-item {
-                padding: var(--space-2) var(--space-4);
-                margin: var(--space-1) 3px;
+                padding: var(--aimd-space-2) var(--aimd-space-4);
+                margin: var(--aimd-space-1) 3px;
                 border: none;
-                border-radius: var(--radius-small);
-                background: var(--md-surface);
+                border-radius: var(--aimd-radius-lg);
+                background: transparent; /* ✅ Match folder style (transparent) */
                 cursor: pointer;
-                transition: all var(--duration-base) var(--ease-out);
+                transition: all var(--aimd-duration-base) var(--ease-out);
                 
                 min-height: 28px;
                 
-                /* ✅ Bottom border + subtle shadow (like folders) */
-                border-bottom: 1px solid var(--gray-200);
-                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+                /* ✅ Use standard tree item border (inherited from .tree-item) */
+                /* border-bottom: 1px solid var(--aimd-color-gray-200); REMOVED */
+                /* box-shadow: var(--aimd-shadow-xs); REMOVED */
                 
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);
+                gap: var(--aimd-space-3);
                 position: relative;
             }
 
             .bookmark-item:hover {
-                background: var(--primary-50);
-                border-bottom-color: var(--primary-200);
-                box-shadow: 0 2px 8px 0 rgba(33, 150, 243, 0.12);
-                transform: translateY(-1px);
+                background: var(--aimd-interactive-hover);
+                /* border-bottom-color: var(--aimd-color-blue-200); REMOVED */
+                /* box-shadow: var(--aimd-shadow-primary-sm); REMOVED */
+                /* transform: translateY(-1px); REMOVED - Keep tree items stable */
             }
 
             .platform-badge {
                 flex-shrink: 0;
-                padding: var(--space-1) var(--space-2);  /* 4px 8px */
-                border-radius: 4px;
+                padding: var(--aimd-space-1) var(--aimd-space-2);  /* 4px 8px */
+                border-radius: var(--aimd-radius-sm);
                 font-size: 12px;
                 font-weight: 500;
                 min-width: 90px;
@@ -33299,13 +33721,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .platform-badge.chatgpt {
-                background: var(--success-100);
-                color: var(--success-800);
+                background: var(--aimd-color-green-50);
+                color: var(--aimd-color-green-800);
             }
 
             .platform-badge.gemini {
-                background: var(--primary-100);
-                color: var(--primary-800);
+                background: var(--aimd-color-blue-100);
+                color: var(--aimd-color-blue-800);
             }
 
             /* Delete Confirmation Modal Styles */
@@ -33314,10 +33736,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                background: var(--md-surface);  /* ✅ Dark mode */
+                background: var(--aimd-bg-primary);  /* ✅ Dark mode */
                 padding: 12px;
-                border-radius: 12px;
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+                border-radius: var(--aimd-radius-xl);
+                box-shadow: var(--aimd-shadow-2xl);
                 z-index: 10001;
                 min-width: 400px;
                 max-width: 500px;
@@ -33328,18 +33750,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5) !important;
+                background: var(--aimd-bg-overlay) !important;
                 z-index: 10000;
             }
             .modal-content h3 {
                 margin: 0 0 12px 0;
                 font-size: 18px;
                 font-weight: 600;
-                color: var(--md-on-surface);  /* ✅ Dark mode */
+                color: var(--aimd-text-primary);  /* ✅ Dark mode */
             }
             .modal-content p {
                 margin: 0 0 20px 0;
-                color: var(--md-on-surface-variant);  /* ✅ Dark mode */
+                color: var(--aimd-text-secondary);  /* ✅ Dark mode */
                 line-height: 1.5;
             }
             .modal-actions {
@@ -33349,28 +33771,28 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
             .modal-btn {
                 padding: 8px 16px;
-                border-radius: 6px;
+                border-radius: var(--aimd-radius-md);
                 border: none;
                 cursor: pointer;
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 transition: all 0.2s;
             }
             .btn-cancel {
-                background: var(--button-secondary-bg);
-                color: var(--button-secondary-text);
+                background: var(--aimd-button-secondary-bg);
+                color: var(--aimd-button-secondary-text);
             }
             .btn-cancel:hover {
-                background: var(--button-secondary-hover);
-                color: var(--button-secondary-text-hover);
+                background: var(--aimd-button-secondary-hover);
+                color: var(--aimd-button-secondary-text-hover);
                 transform: translateY(-1px);
             }
             .btn-confirm {
-                background: var(--button-danger-bg);
-                color: var(--button-danger-text);
+                background: var(--aimd-button-danger-bg);
+                color: var(--aimd-button-danger-text);
             }
             .btn-confirm:hover {
-                background: var(--button-danger-hover);
+                background: var(--aimd-button-danger-hover);
                 transform: translateY(-1px);
             }
 
@@ -33378,7 +33800,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex: 2;
                 font-size: 14px;
                 font-weight: 500;
-                color: var(--gray-900);
+                color: var(--aimd-text-primary);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
@@ -33387,7 +33809,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .response {
                 flex: 3;
                 font-size: 13px;
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
@@ -33396,7 +33818,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .notes {
                 flex: 1;
                 font-size: 13px;
-                color: var(--gray-400);
+                color: var(--aimd-color-gray-400);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
@@ -33405,14 +33827,14 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .time {
                 flex-shrink: 0;
                 font-size: 12px;
-                color: var(--gray-400);
+                color: var(--aimd-color-gray-400);
                 min-width: 40px;
             }
 
             .actions {
                 flex-shrink: 0;
                 display: flex;
-                gap: var(--space-1);  /* 4px */
+                gap: var(--aimd-space-1);  /* 4px */
             }
 
             .action-btn {
@@ -33420,7 +33842,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 height: 24px;
                 border: none;
                 background: transparent;
-                border-radius: 4px;
+                border-radius: var(--aimd-radius-sm);
                 cursor: pointer;
                 display: flex;
                 align-items: center;
@@ -33430,18 +33852,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .action-btn:hover {
-                background: var(--gray-100);
+                background: var(--aimd-interactive-hover);
                 transform: scale(1.1);
             }
 
             .delete-btn:hover {
-                background: var(--danger-50);
+                background: var(--aimd-color-red-50);
             }
 
             /* Settings content */
             .settings-content,
             .support-content {
-                padding: var(--space-10);  /* 40px */
+                padding: var(--aimd-space-10);  /* 40px */
                 text-align: center;
             }
 
@@ -33449,30 +33871,30 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .support-content h3 {
                 margin: 0 0 16px 0;
                 font-size: 18px;
-                color: var(--gray-900);
+                color: var(--aimd-text-primary);
             }
 
             .settings-content p,
             .support-content p {
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
                 margin: 0 0 24px 0;
             }
             /* Support button */
             .support-btn {
                 display: inline-block;
-                padding: var(--space-3) var(--space-6);
-                background: var(--button-primary-bg);
-                color: var(--button-primary-text);
+                padding: var(--aimd-space-3) var(--aimd-space-6);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
                 text-decoration: none;
-                border-radius: var(--radius-small);  /* Material Design 8px */
-                font-weight: var(--font-medium);
-                transition: all var(--duration-base);
-                box-shadow: var(--elevation-1);  /* Material Design elevation */
+                border-radius: var(--aimd-radius-lg);  /* Material Design 8px */
+                font-weight: var(--aimd-font-medium);
+                transition: all var(--aimd-duration-base);
+                box-shadow: var(--aimd-shadow-sm);  /* Material Design elevation */
             }
 
             .support-btn:hover {
-                background: var(--button-primary-hover);
-                box-shadow: var(--elevation-2);  /* Material Design hover elevation */
+                background: var(--aimd-button-primary-hover);
+                box-shadow: var(--aimd-shadow-md);  /* Material Design hover elevation */
                 transform: translateY(-1px);
             }
 
@@ -33483,7 +33905,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background: rgba(0, 0, 0, 0.5);
+                background: var(--aimd-bg-overlay);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -33491,9 +33913,9 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .conflict-dialog {
-                background: var(--md-surface);  /* ✅ Theme-aware */
-                border-radius: var(--radius-large);
-                box-shadow: var(--shadow-2xl);
+                background: var(--aimd-bg-primary);  /* ✅ Theme-aware */
+                border-radius: var(--aimd-radius-2xl);
+                box-shadow: var(--aimd-shadow-xl);
                 max-width: 500px;
                 width: 90%;
                 max-height: 80vh;
@@ -33503,43 +33925,43 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .conflict-header {
-                padding: var(--space-5) var(--space-6);  /* 20px 24px */
-                border-bottom: 1px solid var(--gray-200);
-                background: var(--warning-100);
+                padding: var(--aimd-space-5) var(--aimd-space-6);  /* 20px 24px */
+                border-bottom: 1px solid var(--aimd-color-gray-200);
+                background: var(--aimd-color-amber-50);
             }
 
             .conflict-header h3 {
                 margin: 0;
                 font-size: 18px;
                 font-weight: 600;
-                color: var(--warning-800);
+                color: var(--aimd-color-amber-600);
             }
 
             .conflict-body {
-                padding: var(--space-6);  /* 24px */
+                padding: var(--aimd-space-6);  /* 24px */
                 overflow-y: auto;
                 flex: 1;
             }
 
             .conflict-body p {
                 margin: 0 0 16px 0;
-                color: var(--gray-700);
+                color: var(--aimd-text-secondary);
                 font-size: 14px;
             }
 
             .conflict-list {
                 margin-top: 16px;
-                border: 1px solid var(--gray-200);
-                border-radius: 8px;
+                border: 1px solid var(--aimd-color-gray-200);
+                border-radius: var(--aimd-radius-lg);
                 overflow: hidden;
             }
 
             .conflict-item {
-                padding: var(--space-3);  /* 12px */
-                border-bottom: 1px solid var(--gray-200);
+                padding: var(--aimd-space-3);  /* 12px */
+                border-bottom: 1px solid var(--aimd-color-gray-200);
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);  /* 12px */
+                gap: var(--aimd-space-3);  /* 12px */
             }
 
             .conflict-item:last-child {
@@ -33549,47 +33971,47 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .conflict-title {
                 flex: 1;
                 font-size: 13px;
-                color: var(--gray-700);
+                color: var(--aimd-text-secondary);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
 
             .conflict-more {
-                padding: var(--space-3);  /* 12px */
+                padding: var(--aimd-space-3);  /* 12px */
                 text-align: center;
                 font-size: 13px;
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
                 font-style: italic;
             }
 
             .conflict-footer {
-                padding: var(--space-4) var(--space-6);  /* 16px 24px */
-                border-top: 1px solid var(--gray-200);
+                padding: var(--aimd-space-4) var(--aimd-space-6);  /* 16px 24px */
+                border-top: 1px solid var(--aimd-color-gray-200);
                 display: flex;
-                gap: var(--space-3);  /* 12px */
+                gap: var(--aimd-space-3);  /* 12px */
                 justify-content: flex-end;
-                background: var(--gray-50);
+                background: var(--aimd-bg-secondary);
             }
 
-            .toolbar button {
-                padding: var(--space-2) var(--space-3);  /* 8px 12px */
-                border: 1px solid var(--gray-200);
-                background: var(--gray-100);
-                border-radius: 6px;
-                font-size: var(--text-sm);
+            /* Generic toolbar buttons (excluding icon buttons) */
+            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter) {
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
+                border: 1px solid var(--aimd-border-default);  /* Theme-aware */
+                background: var(--aimd-bg-secondary);  /* Theme-aware */
+                border-radius: var(--aimd-radius-md);
+                font-size: var(--aimd-text-sm);
                 cursor: pointer;
                 transition: all 0.2s ease;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                color: var(--gray-500);
+                color: var(--aimd-text-primary);  /* Theme-aware */
             }
 
-            .toolbar button:hover {
-                background: var(--gray-200);
-                border-color: var(--gray-400);
-                color: var(--gray-700);
+            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):hover {
+                background: var(--aimd-interactive-hover);  /* Theme-aware */
+                border-color: var(--aimd-border-strong);  /* Theme-aware */
             }
 
             .toolbar button svg {
@@ -33597,81 +34019,81 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .merge-btn {
-                background: var(--button-primary-bg);
-                color: var(--button-primary-text);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
             }
 
             .merge-btn:hover {
-                background: var(--button-primary-hover);
+                background: var(--aimd-button-primary-hover);
                 transform: translateY(-1px);
             }
 
             .cancel-btn {
                 padding: 8px 16px;
                 border: none;
-                border-radius: 4px;
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                border-radius: var(--aimd-radius-sm);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
                 transition: background 0.2s;
-                background: var(--button-secondary-bg); 
-                color: var(--button-secondary-text);
+                background: var(--aimd-button-secondary-bg); 
+                color: var(--aimd-button-secondary-text);
             }
 
             .cancel-btn:hover {
-                background: var(--button-secondary-hover); 
-                color: var(--button-secondary-text-hover);
+                background: var(--aimd-button-secondary-hover); 
+                color: var(--aimd-button-secondary-text-hover);
                 transform: translateY(-1px);
             }
 
             .delete-dialog-footer .delete-btn {
                 padding: 8px 16px;
                 border: none;
-                border-radius: 4px;
-                background: var(--button-danger-bg);
-                color: var(--button-danger-text);
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                border-radius: var(--aimd-radius-sm);
+                background: var(--aimd-button-danger-bg);
+                color: var(--aimd-button-danger-text);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
                 transition: background 0.2s;
             }
 
             .delete-dialog-footer .delete-btn:hover {
-                background: var(--button-danger-hover);
+                background: var(--aimd-button-danger-hover);
                 transform: translateY(-1px);
             }
             
             .confirm-btn {
                 padding: 8px 16px;
                 border: none;
-                border-radius: var(--radius-small);
-                background: var(--button-primary-bg);
-                color: var(--button-primary-text);
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                border-radius: var(--aimd-radius-lg);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
                 transition: all 0.2s;
             }
             
             .confirm-btn:hover {
-                background: var(--button-primary-hover);
+                background: var(--aimd-button-primary-hover);
                 transform: translateY(-1px);
             }
 
             .ok-btn {
                 padding: 8px 16px;
                 border: none;
-                border-radius: var(--radius-small);
-                background: var(--button-primary-bg);
-                color: var(--button-primary-text);
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                border-radius: var(--aimd-radius-lg);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
                 transition: all 0.2s;
             }
 
             .ok-btn:hover {
-                background: var(--button-primary-hover);
+                background: var(--aimd-button-primary-hover);
                 transform: translateY(-1px);
             }
 
@@ -33682,7 +34104,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: var(--bg-overlay);
+                background: var(--aimd-bg-overlay);
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
@@ -33691,10 +34113,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .import-summary-modal {
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                border-radius: var(--aimd-radius-xl);
+                box-shadow: var(--aimd-shadow-xl);
                 max-width: 450px;
                 width: 90%;
                 padding: 24px;
@@ -33703,13 +34125,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .import-summary-title {
                 margin: 0 0 16px 0;
                 font-size: 18px;
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
             }
 
             .import-summary-content {
                 font-size: 14px;
-                color: var(--text-primary);
+                color: var(--aimd-text-primary);
                 line-height: 1.6;
             }
 
@@ -33723,45 +34145,45 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .import-summary-warning {
-                background: var(--warning-bg);
-                border-left: 3px solid var(--warning-border);
+                background: var(--aimd-feedback-warning-bg);
+                border-left: 3px solid var(--aimd-color-amber-200);
                 padding: 12px;
-                border-radius: var(--radius-small);
+                border-radius: var(--aimd-radius-lg);
                 margin-bottom: 16px;
             }
 
             .import-summary-warning-title {
-                font-weight: var(--font-medium);
-                color: var(--warning-text);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-feedback-warning-text);
                 margin-bottom: 4px;
             }
 
             .import-summary-warning-text {
-                color: var(--warning-text);
+                color: var(--aimd-feedback-warning-text);
                 font-size: 13px;
             }
 
             .import-summary-footer {
                 display: flex;
                 justify-content: flex-end;
-                gap: var(--space-2);
+                gap: var(--aimd-space-2);
                 margin-top: 20px;
             }
 
             .proceed-btn {
                 padding: 8px 16px;
                 border: none;
-                border-radius: var(--radius-small);
-                background: var(--button-primary-bg);
-                color: var(--button-primary-text);
+                border-radius: var(--aimd-radius-lg);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
                 font-size: 14px;
-                font-weight: var(--font-medium);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
                 transition: all 0.2s;
             }
 
             .proceed-btn:hover {
-                background: var(--button-primary-hover);
+                background: var(--aimd-button-primary-hover);
                 transform: translateY(-1px);
             }
 
@@ -33778,7 +34200,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .duplicate-dialog-icon {
-                color: var(--warning-600);
+                color: var(--aimd-color-amber-600);
                 font-size: 24px;
                 line-height: 1;
                 flex-shrink: 0;
@@ -33787,13 +34209,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .duplicate-dialog-title {
                 margin: 0;
                 font-size: 20px;
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
                 line-height: 1.2;
             }
 
             .duplicate-dialog-body {
-                color: var(--text-primary);
+                color: var(--aimd-text-primary);
                 font-size: 14px;
                 line-height: 1.5;
             }
@@ -33803,8 +34225,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .duplicate-list-container {
-                background: var(--bg-tertiary);
-                border-radius: 8px;
+                background: var(--aimd-bg-tertiary);
+                border-radius: var(--aimd-radius-lg);
                 padding: 12px;
                 margin-bottom: 14px;
                 max-height: 300px;
@@ -33816,7 +34238,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 align-items: center;
                 gap: 8px;
                 padding: 6px 0;
-                border-bottom: 1px solid var(--border-subtle);
+                border-bottom: 1px solid var(--aimd-border-subtle);
             }
 
             .duplicate-list-item:last-child {
@@ -33826,19 +34248,19 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .duplicate-platform-badge {
                 flex-shrink: 0;
                 padding: 3px 8px;
-                border-radius: 4px;
+                border-radius: var(--aimd-radius-sm);
                 font-size: 12px;
-                font-weight: var(--font-semibold);
+                font-weight: var(--aimd-font-semibold);
             }
 
             .duplicate-platform-badge.platform-chatgpt {
-                background: var(--platform-chatgpt-bg);
-                color: var(--platform-chatgpt-text);
+                background: var(--aimd-platform-chatgpt-bg);
+                color: var(--aimd-platform-chatgpt-text);
             }
 
             .duplicate-platform-badge.platform-gemini {
-                background: var(--platform-gemini-bg);
-                color: var(--platform-gemini-text);
+                background: var(--aimd-platform-gemini-bg);
+                color: var(--aimd-platform-gemini-text);
             }
 
             .duplicate-bookmark-title {
@@ -33846,16 +34268,16 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                color: var(--text-primary);
+                color: var(--aimd-text-primary);
             }
 
             .duplicate-highlight {
-                color: var(--interactive-primary);
+                color: var(--aimd-interactive-primary);
             }
 
             .duplicate-dialog-hint {
                 margin: 6px 0 0 0;
-                color: var(--text-secondary);
+                color: var(--aimd-text-secondary);
                 font-size: 13px;
                 font-style: italic;
                 opacity: 0.9;
@@ -33869,7 +34291,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .info-dialog-header {
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);
+                gap: var(--aimd-space-3);
                 margin-bottom: 16px;
             }
 
@@ -33881,12 +34303,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .info-dialog-title {
                 margin: 0;
                 font-size: 18px;
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
             }
 
             .info-dialog-message {
-                color: var(--text-primary);
+                color: var(--aimd-text-primary);
                 font-size: 14px;
                 line-height: 1.6;
                 white-space: pre-wrap;
@@ -33896,7 +34318,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 padding: 12px 24px;
                 display: flex;
                 justify-content: flex-end;
-                border-top: 1px solid var(--border-default);
+                border-top: 1px solid var(--aimd-border-default);
             }
 
             /* Delete Confirmation Dialog */
@@ -33912,7 +34334,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .delete-dialog-icon {
-                color: var(--warning-600);
+                color: var(--aimd-color-amber-600);
                 font-size: 24px;
                 line-height: 1;
                 flex-shrink: 0;
@@ -33921,13 +34343,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .delete-dialog-title {
                 margin: 0;
                 font-size: 20px;
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
                 line-height: 1.2;
             }
 
             .delete-dialog-body {
-                color: var(--text-secondary);
+                color: var(--aimd-text-secondary);
                 font-size: 14px;
                 line-height: 1.5;
             }
@@ -33955,8 +34377,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .delete-dialog-warning {
                 margin: 12px 0 0 0;
-                font-weight: var(--font-medium);
-                color: var(--error);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-color-red-500);
             }
 
             .delete-dialog-footer {
@@ -33964,7 +34386,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: flex;
                 justify-content: flex-end;
                 gap: 8px;
-                border-top: 1px solid var(--border-default);
+                border-top: 1px solid var(--aimd-border-default);
             }
 
             /* Error Dialog */
@@ -33975,19 +34397,19 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .error-dialog-header {
                 display: flex;
                 align-items: center;
-                gap: var(--space-4);
+                gap: var(--aimd-space-4);
                 margin-bottom: 16px;
             }
 
             .error-dialog-title {
                 margin: 0;
                 font-size: 20px;
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
             }
 
             .error-dialog-body {
-                color: var(--text-primary);
+                color: var(--aimd-text-primary);
                 font-size: 14px;
                 line-height: 1.5;
             }
@@ -33999,8 +34421,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .error-list-container {
                 max-height: 300px;
                 overflow-y: auto;
-                background: var(--bg-tertiary);
-                border-radius: 4px;
+                background: var(--aimd-bg-tertiary);
+                border-radius: var(--aimd-radius-sm);
                 padding: 12px;
             }
 
@@ -34017,7 +34439,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 padding: 8px;
                 display: flex;
                 justify-content: flex-end;
-                border-top: 1px solid var(--border-default);
+                border-top: 1px solid var(--aimd-border-default);
             }
 
             /* Export Options Dialog */
@@ -34027,7 +34449,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: var(--bg-overlay);
+                background: var(--aimd-bg-overlay);
                 z-index: 2147483647;
                 display: flex;
                 align-items: center;
@@ -34036,10 +34458,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .export-dialog-modal {
-                background: var(--bg-surface);
-                color: var(--text-primary);
-                border-radius: var(--radius-medium);
-                box-shadow: var(--shadow-2xl);
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                border-radius: var(--aimd-radius-xl);
+                box-shadow: var(--aimd-shadow-xl);
                 max-width: 500px;
                 width: 90%;
             }
@@ -34051,13 +34473,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .export-dialog-title {
                 margin: 0 0 16px 0;
                 font-size: 18px;
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
             }
 
             .export-dialog-body {
                 margin-bottom: 20px;
-                color: var(--text-primary);
+                color: var(--aimd-text-primary);
                 font-size: 14px;
                 line-height: 1.5;
             }
@@ -34077,15 +34499,15 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 align-items: center;
                 gap: 12px;
                 padding: 12px;
-                border: 1px solid var(--border-default);
-                border-radius: var(--radius-medium);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-xl);
                 cursor: pointer;
                 transition: all 0.2s;
             }
 
             .export-option:hover {
-                border-color: var(--interactive-primary);
-                background: var(--interactive-hover);
+                border-color: var(--aimd-interactive-primary);
+                background: var(--aimd-interactive-hover);
             }
 
             .export-option-radio {
@@ -34095,13 +34517,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .export-option-label {
-                font-weight: var(--font-medium);
-                color: var(--text-primary);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
             }
 
             .export-option-desc {
                 font-size: 12px;
-                color: var(--text-secondary);
+                color: var(--aimd-text-secondary);
                 opacity: 0.9;
             }
 
@@ -34118,7 +34540,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.6);
+                background: var(--aimd-bg-overlay-heavy);
                 backdrop-filter: blur(8px);
                 display: flex;
                 align-items: center;
@@ -34133,18 +34555,14 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .detail-modal {
-                background: white;
-                border-radius: 16px;
+                background: var(--aimd-bg-primary);
+                border-radius: var(--aimd-radius-2xl);
                 width: 90%;
                 max-width: 800px;
                 max-height: 85vh;
                 display: flex;
                 flex-direction: column;
-                box-shadow: 
-                    0 0 0 1px rgba(0, 0, 0, 0.08),
-                    0 4px 12px rgba(0, 0, 0, 0.12),
-                    0 16px 48px rgba(0, 0, 0, 0.18),
-                    0 24px 80px rgba(0, 0, 0, 0.12);
+                box-shadow: var(--aimd-modal-shadow);
                 position: relative;
                 z-index: 2147483649;
                 animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -34176,7 +34594,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .detail-header {
                 padding: 16px 24px;
-                border-bottom: 1px solid #F0F0F0;
+                border-bottom: 1px solid var(--aimd-border-default);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -34187,7 +34605,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 margin: 0;
                 font-size: 18px;
                 font-weight: 600;
-                color: #1A1A1A;
+                color: var(--aimd-text-primary);
                 letter-spacing: -0.02em;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -34205,10 +34623,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .detail-header .close-btn {
                 width: 32px;
                 height: 32px;
-                border-radius: 8px;
+                border-radius: var(--aimd-radius-lg);
                 border: none;
                 background: transparent;
-                color: #6B7280;
+                color: var(--aimd-text-secondary);
                 cursor: pointer;
                 display: flex;
                 align-items: center;
@@ -34219,17 +34637,17 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .fullscreen-btn:hover,
             .detail-header .close-btn:hover {
-                background: #F3F4F6;
-                color: #1A1A1A;
+                background: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
             }
 
             .detail-meta {
                 padding: 10px 24px;
-                background: #F8F9FA;
+                background: var(--aimd-bg-tertiary);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                border-bottom: 1px solid #E8E8E8;
+                border-bottom: 1px solid var(--aimd-border-default);
                 flex-shrink: 0;
                 gap: 16px;
                 height: 44px;
@@ -34248,7 +34666,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 align-items: center;
                 gap: 6px;
                 padding: 4px 10px;
-                border-radius: 6px;
+                border-radius: var(--aimd-radius-md);
                 font-size: 13px;
                 font-weight: 500;
                 white-space: nowrap;
@@ -34256,18 +34674,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .detail-meta .platform-badge.chatgpt {
-                background: #D1FAE5;
-                color: #065F46;
+                background: var(--aimd-feedback-success-bg);
+                color: var(--aimd-feedback-success-text);
             }
 
             .detail-meta .platform-badge.gemini {
-                background: #DBEAFE;
-                color: #1E40AF;
+                background: var(--aimd-feedback-info-bg);
+                color: var(--aimd-feedback-info-text);
             }
 
             .detail-meta-right {
                 font-size: 13px;
-                color: #6B7280;
+                color: var(--aimd-text-secondary);
                 white-space: nowrap;
                 flex-shrink: 0;
             }
@@ -34280,7 +34698,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .detail-section {
                 padding: 28px;
-                border-bottom: 1px solid #F5F5F5;
+                border-bottom: 1px solid var(--aimd-border-subtle);
             }
 
             .detail-section:last-child {
@@ -34288,13 +34706,13 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .user-section {
-                background: #F0F7FF;
-                border-left: 3px solid #3B82F6;
+                background: var(--aimd-feedback-info-bg);
+                border-left: 3px solid var(--aimd-color-blue-500);
             }
 
             .ai-section {
-                background: #F0FDF4;
-                border-left: 3px solid #10B981;
+                background: var(--aimd-feedback-success-bg);
+                border-left: 3px solid var(--aimd-color-green-500);
             }
 
             .section-header {
@@ -34305,7 +34723,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .section-header svg {
-                color: #6B7280;
+                color: var(--aimd-text-secondary);
                 flex-shrink: 0;
             }
 
@@ -34313,7 +34731,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 margin: 0;
                 font-size: 14px;
                 font-weight: 600;
-                color: #6B7280;
+                color: var(--aimd-text-secondary);
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
             }
@@ -34321,35 +34739,35 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .detail-text {
                 font-size: 15px;
                 line-height: 1.7;
-                color: #1A1A1A;
+                color: var(--aimd-text-primary);
             }
 
             .detail-footer {
                 padding: 10px 24px;
-                border-top: 1px solid #F0F0F0;
+                border-top: 1px solid var(--aimd-border-default);
                 display: flex;
                 justify-content: flex-end;
-                background: white;
+                background: var(--aimd-bg-primary);
                 flex-shrink: 0;
-                border-radius: 0 0 16px 16px;
+                border-radius: 0 0 var(--aimd-radius-2xl) var(--aimd-radius-2xl);
                 min-height: 44px;
             }
 
             .open-conversation-btn {
                 padding: 8px 20px;
-                background: var(--button-primary-bg);
-                color: var(--button-primary-text);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
                 border: none;
-                border-radius: 8px;
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
+                border-radius: var(--aimd-radius-lg);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
                 cursor: pointer;
                 transition: all 0.15s ease;
             }
 
             .open-conversation-btn:hover {
-                background: var(--button-primary-hover);
-                box-shadow: var(--shadow-sm);
+                background: var(--aimd-button-primary-hover);
+                box-shadow: var(--aimd-shadow-sm);
                 transform: translateY(-1px);
             }
 
@@ -34362,26 +34780,23 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 bottom: -1px;  /* ✅ Hide completely, no white line */
                 left: 140px;
                 right: 0;
-                margin: 0 var(--space-3) var(--space-3) var(--space-3);
-                padding: var(--space-4) var(--space-5);
+                margin: 0 var(--aimd-space-3) var(--aimd-space-3) var(--aimd-space-3);
+                padding: var(--aimd-space-4) var(--aimd-space-5);
                 
                 /* ✅ Elevated card style with rounded corners */
-                background: var(--md-surface);
+                background: var(--aimd-bg-glass);
                 backdrop-filter: blur(20px) saturate(180%);
                 -webkit-backdrop-filter: blur(20px) saturate(180%);
-                border-radius: var(--radius-lg);
+                border-radius: var(--aimd-radius-lg);
                 
                 /* ✅ Prominent elevation shadow (no border) */
-                box-shadow: 
-                    0 8px 16px -4px rgba(0, 0, 0, 0.12),
-                    0 4px 8px -2px rgba(0, 0, 0, 0.08),
-                    0 0 0 1px var(--md-outline-variant);
+                box-shadow: var(--aimd-shadow-lg);
                 
                 display: flex;
                 align-items: center;
-                gap: var(--space-3);
+                gap: var(--aimd-space-3);
                 z-index: 100;
-                transform: translateY(calc(100% + var(--space-3) + 1px));  /* ✅ Extra 1px */
+                transform: translateY(calc(100% + var(--aimd-space-3) + 1px));  /* ✅ Extra 1px */
                 transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
@@ -34392,7 +34807,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .batch-actions-bar .selected-count {
                 font-size: 14px;
                 font-weight: 500;
-                color: var(--md-on-surface);  /* ✅ Theme-aware */
+                color: var(--aimd-text-primary);  /* ✅ Theme-aware */
                 margin-right: auto;
                 white-space: nowrap;
             }
@@ -34401,25 +34816,25 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: var(--space-2);
+                gap: var(--aimd-space-2);
                 
                 /* ✅ Match toolbar button style */
-                padding: var(--space-2) var(--space-3);
+                padding: var(--aimd-space-2) var(--aimd-space-3);
                 background: transparent;
                 border: none;
-                border-radius: var(--radius-sm);
+                border-radius: var(--aimd-radius-sm);
                 
                 cursor: pointer;
-                transition: all var(--duration-fast);
+                transition: all var(--aimd-duration-fast);
                 
-                font-size: var(--text-sm);
-                font-weight: var(--font-medium);
-                color: var(--md-on-surface);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
                 white-space: nowrap;
             }
 
             .batch-actions-bar button:hover {
-                background: var(--md-surface-container);
+                background: var(--aimd-bg-secondary);
                 transform: scale(1.02);
             }
 
@@ -34433,12 +34848,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .batch-actions-bar button.danger {
-                color: var(--button-danger-bg);
+                color: var(--aimd-button-danger-bg);
             }
 
             .batch-actions-bar button.danger:hover {
-                background: var(--danger-50);
-                border-color: var(--danger-200);
+                background: var(--aimd-color-red-50);
+                border-color: var(--aimd-color-red-50);
             }
             
             .bookmarks-tab .content {
@@ -34454,14 +34869,15 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex: 1;
                 overflow-y: auto;
                 overflow-x: hidden;
-                padding: var(--space-2);  /* 添加padding避免阴影被截断 */
+                padding: var(--aimd-space-2);  /* 添加padding避免阴影被截断 */
             }
 
             .tree-view {
                 flex: 1;
                 overflow-y: auto;
                 overflow-x: hidden;
-                background: var(--md-surface);  /* ✅ Theme-aware */
+                padding: var(--aimd-space-2) var(--aimd-space-3);  /* Add padding to prevent background overflow */
+                /* No background - inherit from parent */
             }
 
             /* Custom Scrollbar (macOS-style) */
@@ -34474,12 +34890,12 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .tree-view::-webkit-scrollbar-thumb {
-                background: var(--gray-300);
-                border-radius: 4px;
+                background: var(--aimd-color-gray-300);
+                border-radius: var(--aimd-radius-sm);
             }
 
             .tree-view::-webkit-scrollbar-thumb:hover {
-                background: var(--gray-400);
+                background: var(--aimd-color-gray-400);
             }
 
             /* Tree Item Base styles - MERGED into Line 4059 to avoid cascade conflicts */
@@ -34488,15 +34904,15 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: var(--space-2);
-                padding: var(--space-2) var(--space-4);
-                background: var(--md-surface);
-                border: 1px solid var(--md-outline);
-                border-radius: var(--radius-small);
+                gap: var(--aimd-space-2);
+                padding: var(--aimd-space-2) var(--aimd-space-4);
+                background: var(--aimd-bg-primary);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
                 cursor: pointer;
-                transition: all var(--duration-base);
-                font-size: var(--text-sm);
-                color: var(--md-on-surface);
+                transition: all var(--aimd-duration-base);
+                font-size: var(--aimd-text-sm);
+                color: var(--aimd-text-primary);
                 line-height: 1;  /* 移除额外的行高 */
             }
 
@@ -34505,11 +34921,11 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .tree-item:hover {
-                background: var(--gray-50);
+                background: var(--aimd-interactive-hover);
             }
 
             .tree-item:focus {
-                outline: 2px solid var(--primary-600);
+                outline: 2px solid var(--aimd-color-blue-600);
                 outline-offset: -2px;
                 z-index: 1;
             }
@@ -34525,20 +34941,20 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                - Dark mode compatible (uses CSS variables, not hardcoded colors)
                =================================================================== */
             .folder-item {
-                font-weight: var(--font-medium);  /* 500 */
+                font-weight: var(--aimd-font-medium);  /* 500 */
                 background: transparent;  /* Clean by default */
-                transition: all var(--duration-fast);  /* 150ms */
+                transition: all var(--aimd-duration-fast);  /* 150ms */
             }
 
             .folder-item:hover {
-                background: var(--gray-100);  /* Subtle hover - theme-aware */
+                background: var(--aimd-interactive-hover);  /* Subtle hover - theme-aware */
             }
 
             .folder-item.selected {
-                background: var(--interactive-selected);
-                color: var(--text-primary);
+                background: var(--aimd-interactive-selected);
+                color: var(--aimd-text-primary);
                 /* Left accent bar instead of full border */
-                box-shadow: inset 3px 0 0 var(--interactive-primary);
+                box-shadow: inset 3px 0 0 var(--aimd-interactive-primary);
             }
 
             .folder-item.is-editing:hover {
@@ -34552,7 +34968,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 width: 16px;
                 height: 16px;
                 font-size: 10px;
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
                 cursor: pointer;
                 user-select: none;
                 flex-shrink: 0;
@@ -34565,7 +34981,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .folder-toggle:hover {
-                color: var(--gray-900);
+                color: var(--aimd-text-primary);
             }
 
             .folder-icon {
@@ -34575,11 +34991,11 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .folder-name {
                 flex: 1;
-                font-weight: var(--font-medium);
-                color: var(--md-on-surface);
+                font-weight: var(--aimd-font-medium);
+                color: var(--aimd-text-primary);
                 display: flex;
                 align-items: center;  /* 图标和文字垂直居中对齐 */
-                gap: var(--space-2);  /* 8px */
+                gap: var(--aimd-space-2);  /* 8px */
                 line-height: 20px;  /* 匹配图标高度,确保完美对齐 */
                 user-select: none;
                 overflow: hidden;
@@ -34596,7 +35012,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .folder-count {
                 margin-left: 6px;
                 font-size: 12px;
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
                 font-weight: 400;
                 user-select: none;
             }
@@ -34609,14 +35025,14 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex: 1;
                 display: flex;
                 flex-direction: column;
-                gap: var(--space-1);
+                gap: var(--aimd-space-1);
                 min-width: 0;
             }
 
             .inline-edit-row {
                 display: flex;
                 align-items: center;
-                gap: var(--space-2);
+                gap: var(--aimd-space-2);
                 min-width: 0;
             }
 
@@ -34624,68 +35040,68 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex: 1;
                 min-width: 0;
                 padding: 2px 6px;
-                border: 1px solid var(--md-outline);
-                border-radius: var(--radius-extra-small);
-                font-size: var(--text-base);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-xs);
+                font-size: var(--aimd-text-base);
                 font-family: inherit;
-                background: var(--md-surface);
-                color: var(--md-on-surface);
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
                 outline: none;
                 line-height: 1.4;
             }
 
             .inline-edit-input:focus {
-                border-color: var(--primary-600);
-                box-shadow: var(--shadow-focus);
+                border-color: var(--aimd-color-blue-600);
+                box-shadow: var(--aimd-shadow-focus);
             }
 
             .inline-edit-input.error {
-                border-color: var(--danger-500);
-                box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+                border-color: var(--aimd-interactive-danger);
+                box-shadow: var(--aimd-shadow-error);
             }
 
             .inline-edit-actions {
                 display: inline-flex;
-                gap: var(--space-1);
+                gap: var(--aimd-space-1);
                 flex-shrink: 0;
             }
 
             .inline-edit-btn {
                 width: 24px;
                 height: 24px;
-                border: 1px solid var(--md-outline);
-                border-radius: 4px;
-                background: var(--md-surface);
-                color: var(--md-on-surface);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-sm);
+                background: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 padding: 0;
-                transition: all var(--duration-fast);
+                transition: all var(--aimd-duration-fast);
             }
 
             .inline-edit-btn:hover {
-                background: var(--gray-100);
+                background: var(--aimd-interactive-hover);
                 transform: translateY(-1px);
             }
 
             .inline-edit-confirm {
-                border-color: var(--success-200);
-                color: var(--success-600);
+                border-color: var(--aimd-color-green-50);
+                color: var(--aimd-color-green-600);
             }
 
             .inline-edit-confirm:hover {
-                background: var(--success-50);
+                background: var(--aimd-color-green-50);
             }
 
             .inline-edit-cancel {
-                border-color: var(--danger-200);
-                color: var(--danger-500);
+                border-color: var(--aimd-color-red-50);
+                color: var(--aimd-interactive-danger);
             }
 
             .inline-edit-cancel:hover {
-                background: var(--danger-50);
+                background: var(--aimd-color-red-50);
             }
 
             .inline-edit-btn:disabled {
@@ -34696,40 +35112,40 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .inline-edit-error {
                 font-size: 12px;
-                color: var(--danger-500);
+                color: var(--aimd-interactive-danger);
                 line-height: 1.2;
             }
 
             .inline-edit-suggestion {
                 display: none;
                 align-items: center;
-                gap: var(--space-2);
+                gap: var(--aimd-space-2);
                 font-size: 12px;
-                color: var(--danger-500);
+                color: var(--aimd-interactive-danger);
             }
 
             .inline-edit-suggestion-text {
-                color: var(--danger-500);
+                color: var(--aimd-interactive-danger);
             }
 
             .inline-edit-suggestion-value {
-                color: var(--md-on-surface);
-                font-weight: var(--font-medium);
+                color: var(--aimd-text-primary);
+                font-weight: var(--aimd-font-medium);
             }
 
             .inline-edit-auto-rename {
                 padding: 2px 8px;
-                border-radius: 6px;
-                border: 1px solid var(--primary-200);
-                background: var(--primary-50);
-                color: var(--primary-700);
+                border-radius: var(--aimd-radius-md);
+                border: 1px solid var(--aimd-color-blue-200);
+                background: var(--aimd-interactive-selected);
+                color: var(--aimd-color-blue-700);
                 font-size: 12px;
                 cursor: pointer;
-                transition: all var(--duration-fast);
+                transition: all var(--aimd-duration-fast);
             }
 
             .inline-edit-auto-rename:hover {
-                background: var(--primary-100);
+                background: var(--aimd-color-blue-100);
                 transform: translateY(-1px);
             }
 
@@ -34766,7 +35182,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .bookmark-title {
                 flex: 1;
                 font-size: 14px;
-                color: var(--gray-700);
+                color: var(--aimd-text-primary);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
@@ -34777,7 +35193,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 position: absolute;
                 right: 120px; /* Space for action buttons */
                 font-size: 11px;
-                color: var(--gray-400);
+                color: var(--aimd-color-gray-400);
                 pointer-events: none;
                 white-space: nowrap;
             }
@@ -34789,11 +35205,11 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 width: 16px;
                 height: 16px;
                 flex-shrink: 0;
-                accent-color: var(--primary-600);  /* 深蓝色 */
+                accent-color: var(--aimd-color-blue-600);  /* 深蓝色 */
             }
 
             .item-checkbox:focus {
-                outline: 2px solid var(--primary-600);
+                outline: 2px solid var(--aimd-color-blue-600);
                 outline-offset: 2px;
             }
 
@@ -34801,10 +35217,10 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             .item-actions {
                 display: none;  /* 默认隐藏 */
                 position: absolute;  /* 绝对定位,不影响高度 */
-                right: var(--space-3);
+                right: var(--aimd-space-3);
                 top: 50%;
                 transform: translateY(-50%);
-                gap: var(--space-1);
+                gap: var(--aimd-space-1);
                 align-items: center;
             }
 
@@ -34822,7 +35238,7 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 border: none;
                 background: transparent;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: var(--aimd-radius-sm);
                 font-size: 14px;
                 transition: background-color 0.15s ease;
                 display: flex;
@@ -34832,18 +35248,18 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
             }
 
             .action-btn:hover {
-                background: rgba(0, 0, 0, 0.05);
+                background: var(--aimd-bg-hint);
             }
 
             .action-btn:focus {
-                outline: 2px solid var(--primary-600);
+                outline: 2px solid var(--aimd-color-blue-600);
                 outline-offset: -2px;
             }
 
             .action-btn.delete-folder:hover,
             .action-btn.delete-bookmark:hover {
-                background: var(--danger-100);
-                color: var(--danger-500);
+                background: var(--aimd-color-red-50);
+                color: var(--aimd-interactive-danger);
             }
 
             /* Empty State */
@@ -34852,9 +35268,9 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                padding: var(--space-16) var(--space-8);  /* 64px 32px */
+                padding: var(--aimd-space-16) var(--aimd-space-8);  /* 64px 32px */
                 text-align: center;
-                color: var(--gray-500);
+                color: var(--aimd-text-tertiary);
             }
 
             .empty-icon {
@@ -34867,26 +35283,26 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 margin: 0 0 8px 0;
                 font-size: 16px;
                 font-weight: 600;
-                color: var(--gray-700);
+                color: var(--aimd-text-primary);
             }
 
             .tree-empty p {
                 margin: 0 0 24px 0;
                 font-size: 14px;
-                color: #6b7280;
+                color: var(--aimd-text-secondary);
             }
             .btn-primary,
             .create-first-folder {
-                padding: var(--space-2) var(--space-5);
-                background: var(--primary-600);
-                color: white;
+                padding: var(--aimd-space-2) var(--aimd-space-5);
+                background: var(--aimd-color-blue-600);
+                color: var(--aimd-text-on-primary);
                 border: none;
-                border-radius: var(--radius-small);  /* Material Design 8px */
+                border-radius: var(--aimd-radius-lg);  /* Material Design 8px */
                 cursor: pointer;
-                font-weight: var(--font-medium);
+                font-weight: var(--aimd-font-medium);
                 font-size: 14px;
-                transition: all var(--duration-base);
-                box-shadow: var(--elevation-1);  /* Material Design elevation */
+                transition: all var(--aimd-duration-base);
+                box-shadow: var(--aimd-shadow-sm);  /* Material Design elevation */
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
@@ -34894,8 +35310,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
 
             .btn-primary:hover,
             .create-first-folder:hover {
-                background: var(--primary-700);
-                box-shadow: var(--elevation-2);  /* Material Design hover elevation */
+                background: var(--aimd-color-blue-700);
+                box-shadow: var(--aimd-shadow-md);  /* Material Design hover elevation */
                 transform: translateY(-1px);
             }
 
@@ -34918,11 +35334,11 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 }
                 
                 .tree-item.selected {
-                background: var(--md-primary-container);
-                color: var(--md-on-primary-container);
-                border-radius: var(--radius-small);
-                font-weight: var(--font-medium);
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);  /* 与Tab选中一致的阴影 */
+                background: var(--aimd-interactive-selected);
+                color: var(--aimd-text-primary);
+                border-radius: var(--aimd-radius-lg);
+                font-weight: var(--aimd-font-medium);
+                box-shadow: var(--aimd-shadow-sm);  /* 与Tab选中一致的阴影 */
             }    }
             }
 
@@ -34937,8 +35353,8 @@ ${importCount} bookmark(s) without valid folder paths were placed in "Import" fo
                 width: 20px;  /* 放大图标 */
                 height: 20px;
                 flex-shrink: 0;
-            }    padding: var(--space-10);  /* 40px */
-                color: #6b7280;
+            }    padding: var(--aimd-space-10);  /* 40px */
+                color: var(--aimd-text-secondary);
             }
 
             .tree-loading::before {
@@ -35192,12 +35608,13 @@ class ContentScript {
     this.markdownParser = new MarkdownParser();
     this.mathClickHandler = new MathClickHandler();
     this.reRenderPanel = new ReaderPanel();
-    const darkModeDetector = DarkModeDetector.getInstance();
-    this.currentThemeIsDark = darkModeDetector.isDarkMode();
-    darkModeDetector.subscribe((isDark) => {
-      logger$1.info(`[DarkMode] Theme changed: ${isDark ? "dark" : "light"}`);
-      this.currentThemeIsDark = isDark;
-      this.applyTheme(isDark);
+    const themeManager = ThemeManager.getInstance();
+    themeManager.init();
+    this.currentThemeIsDark = themeManager.isDarkMode();
+    themeManager.subscribe((theme) => {
+      logger$1.info(`[ThemeManager] Theme changed: ${theme}`);
+      this.currentThemeIsDark = theme === "dark";
+      this.applyTheme(this.currentThemeIsDark);
     });
     logger$1.info("AI-MarkDone initialized");
   }

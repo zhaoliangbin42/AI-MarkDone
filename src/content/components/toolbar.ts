@@ -1,5 +1,6 @@
 import { toolbarStyles } from '../../styles/toolbar.css';
 import { DesignTokens } from '../../utils/design-tokens';
+import { ThemeManager } from '../../utils/ThemeManager';
 import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
 import { WordCounter } from '../parsers/word-counter';
@@ -39,7 +40,7 @@ export class Toolbar {
 
         // Inject styles
         this.injectStyles();
-        this.setTheme(DesignTokens.isDarkMode());
+        this.setTheme(ThemeManager.getInstance().isDarkMode());
 
         // Create UI
         this.createUI();

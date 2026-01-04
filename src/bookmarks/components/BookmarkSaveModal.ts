@@ -5,6 +5,7 @@ import { PathUtils, type FolderNameValidationError } from '../utils/path-utils';
 import { logger } from '../../utils/logger';
 import { Icons } from '../../assets/icons';
 import { DesignTokens } from '../../utils/design-tokens';
+import { ThemeManager } from '../../utils/ThemeManager';
 
 /**
  * Unified Bookmark Save Modal - Shadow DOM Version
@@ -60,7 +61,7 @@ export class BookmarkSaveModal {
         const existingStyle = this.shadowRoot.querySelector('style');
         if (existingStyle) existingStyle.remove();
 
-        const isDark = DesignTokens.isDarkMode();
+        const isDark = ThemeManager.getInstance().isDarkMode();
         const tokens = isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens();
 
         const styleElement = document.createElement('style');
@@ -70,56 +71,56 @@ export class BookmarkSaveModal {
             * { box-sizing: border-box; }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes slideIn { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-overlay); backdrop-filter: blur(6px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
-            .bookmark-save-modal { position: relative; width: 90%; max-width: 550px; max-height: 85vh; background: var(--md-surface); color: var(--md-on-surface); border-radius: 16px; box-shadow: var(--shadow-xl); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out; }
-            .save-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--gray-200); }
-            .save-modal-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--gray-900); }
-            .save-modal-close-btn { background: none; border: none; font-size: 24px; color: var(--gray-500); cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.15s ease; }
-            .save-modal-close-btn:hover { background: var(--gray-100); color: var(--gray-900); }
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--aimd-bg-overlay); backdrop-filter: blur(6px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
+            .bookmark-save-modal { position: relative; width: 90%; max-width: 550px; max-height: 85vh; background: var(--aimd-bg-primary); color: var(--aimd-text-primary); border-radius: 16px; box-shadow: var(--aimd-shadow-xl); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out; }
+            .save-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--aimd-border-default); }
+            .save-modal-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--aimd-text-primary); }
+            .save-modal-close-btn { background: none; border: none; font-size: 24px; color: var(--aimd-text-secondary); cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.15s ease; }
+            .save-modal-close-btn:hover { background: var(--aimd-interactive-hover); color: var(--aimd-text-primary); }
             .save-modal-body { flex: 1; overflow-y: auto; padding: 24px; }
             .title-section { margin-bottom: 24px; }
-            .title-label { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--gray-700); margin-bottom: 8px; }
-            .title-input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; background: var(--md-surface); color: var(--md-on-surface); box-shadow: inset 0 1px 2px rgba(0,0,0,0.04); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
-            .title-input:focus { border-color: var(--primary-300); box-shadow: var(--shadow-focus); }
-            .title-input.error { border-color: var(--danger-500); }
-            .title-input::placeholder { color: var(--gray-400); font-weight: 400; }
-            .bookmark-count-info { margin-bottom: 16px; padding: 10px 14px; background: var(--info-bg); border-left: 3px solid var(--primary-500); border-radius: 8px; font-size: 13px; color: var(--gray-800); }
-            .title-error { margin-top: 8px; font-size: 12px; color: var(--danger-500); display: none; }
+            .title-label { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--aimd-color-gray-700); margin-bottom: 8px; }
+            .title-input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--aimd-color-gray-200); border-radius: 8px; font-size: 13px; background: var(--aimd-bg-primary); color: var(--aimd-text-primary); box-shadow: var(--aimd-input-shadow); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
+            .title-input:focus { border-color: var(--aimd-color-blue-300); box-shadow: var(--aimd-shadow-focus); }
+            .title-input.error { border-color: var(--aimd-interactive-danger); }
+            .title-input::placeholder { color: var(--aimd-color-gray-400); font-weight: 400; }
+            .bookmark-count-info { margin-bottom: 16px; padding: 10px 14px; background: var(--aimd-feedback-info-bg); border-left: 3px solid var(--aimd-color-blue-500); border-radius: 8px; font-size: 13px; color: var(--aimd-color-gray-800); }
+            .title-error { margin-top: 8px; font-size: 12px; color: var(--aimd-interactive-danger); display: none; }
             .title-error.visible { display: block; }
             .folder-section { margin-bottom: 24px; }
             .folder-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-            .folder-label { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--gray-700); }
-            .new-folder-btn { background: var(--button-icon-bg); color: var(--button-icon-text); border: none; padding: 8px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; }
-            .new-folder-btn:hover { background: var(--button-icon-hover); color: var(--button-icon-text-hover); transform: scale(1.05); }
-            .folder-tree-container { border-radius: 12px; height: 300px; overflow-y: auto; background: var(--modal-tree-bg); }
+            .folder-label { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--aimd-color-gray-700); }
+            .new-folder-btn { background: var(--aimd-button-icon-bg); color: var(--aimd-button-icon-text); border: none; padding: 8px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; }
+            .new-folder-btn:hover { background: var(--aimd-button-icon-hover); color: var(--aimd-button-icon-text-hover); transform: scale(1.05); }
+            .folder-tree-container { border-radius: 12px; height: 300px; overflow-y: auto; background: var(--aimd-modal-tree-bg); }
             .folder-tree-body { padding: 0; }
             .folder-item { display: flex; align-items: center; min-height: 40px; padding: 10px 16px; cursor: pointer; transition: background 0.15s ease; position: relative; background: transparent; border-left: 3px solid transparent; }
-            .folder-item:not(.selected):hover { background: var(--modal-tree-item-hover); }
-            .folder-item.selected { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%); border-left: 3px solid var(--primary-400); }
+            .folder-item:not(.selected):hover { background: var(--aimd-modal-tree-item-hover); }
+            .folder-item.selected { background: var(--aimd-selected-gradient); border-left: 3px solid var(--aimd-color-blue-400); }
             .folder-item:hover .item-actions { opacity: 1; visibility: visible; }
-            .folder-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 4px; font-size: 10px; color: var(--gray-500); cursor: pointer; user-select: none; flex-shrink: 0; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+            .folder-toggle { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 4px; font-size: 10px; color: var(--aimd-text-secondary); cursor: pointer; user-select: none; flex-shrink: 0; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
             .folder-toggle.expanded { transform: rotate(90deg); }
-            .folder-icon { margin-right: 8px; font-size: 16px; flex-shrink: 0; color: var(--modal-tree-item-icon); }
-            .folder-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--modal-tree-item-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .folder-check { color: var(--primary-600); font-size: 16px; font-weight: 600; margin-left: 8px; flex-shrink: 0; }
+            .folder-icon { margin-right: 8px; font-size: 16px; flex-shrink: 0; color: var(--aimd-modal-tree-item-icon); }
+            .folder-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--aimd-modal-tree-item-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .folder-check { color: var(--aimd-color-blue-600); font-size: 16px; font-weight: 600; margin-left: 8px; flex-shrink: 0; }
             .item-actions { display: flex; gap: 4px; margin-left: 8px; opacity: 0; visibility: hidden; transition: all 150ms ease; }
-            .action-btn { background: var(--button-icon-bg); border: none; color: var(--button-icon-text); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 150ms ease; }
-            .action-btn:hover { background: var(--button-icon-hover); color: var(--button-icon-text-hover); }
-            .folder-empty { padding: 40px 20px; text-align: center; color: var(--gray-400); }
+            .action-btn { background: var(--aimd-button-icon-bg); border: none; color: var(--aimd-button-icon-text); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 150ms ease; }
+            .action-btn:hover { background: var(--aimd-button-icon-hover); color: var(--aimd-button-icon-text-hover); }
+            .folder-empty { padding: 40px 20px; text-align: center; color: var(--aimd-color-gray-400); }
             .folder-empty-icon { font-size: 48px; margin-bottom: 12px; }
             .folder-empty-text { font-size: 13px; }
-            .save-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--gray-200); }
-            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
-            .save-modal-btn-cancel { background: var(--button-secondary-bg); color: var(--button-secondary-text); }
-            .save-modal-btn-cancel:hover { background: var(--button-secondary-hover); color: var(--button-secondary-text-hover); transform: translateY(-1px); }
-            .save-modal-btn-save { background: var(--button-primary-bg); color: var(--button-primary-text); }
-            .save-modal-btn-save:hover:not(:disabled) { background: var(--button-primary-hover); color: var(--button-primary-text-hover); transform: translateY(-1px); }
+            .save-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--aimd-border-default); }
+            .save-modal-btn { padding: 10px 20px; border-radius: 8px; font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); cursor: pointer; transition: all 0.2s ease; border: none; transform: translateY(0); }
+            .save-modal-btn-cancel { background: var(--aimd-button-secondary-bg); color: var(--aimd-button-secondary-text); }
+            .save-modal-btn-cancel:hover { background: var(--aimd-button-secondary-hover); color: var(--aimd-button-secondary-text-hover); transform: translateY(-1px); }
+            .save-modal-btn-save { background: var(--aimd-button-primary-bg); color: var(--aimd-button-primary-text); }
+            .save-modal-btn-save:hover:not(:disabled) { background: var(--aimd-button-primary-hover); color: var(--aimd-button-primary-text-hover); transform: translateY(-1px); }
             
             /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
             /* 参考: Material Design Button States */
             .save-modal-btn-save:disabled { 
-                background: var(--button-primary-disabled); 
-                color: var(--button-primary-disabled-text); 
+                background: var(--aimd-button-primary-disabled); 
+                color: var(--aimd-button-primary-disabled-text); 
                 cursor: not-allowed; 
                 opacity: 0.6; 
             }
@@ -133,7 +134,7 @@ export class BookmarkSaveModal {
             /* ✅ Best Practice: Optimized backdrop-filter */
             /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
             .modal-overlay { 
-                background: rgba(0, 0, 0, 0.6);
+                background: var(--aimd-bg-overlay-heavy);
                 backdrop-filter: blur(3px);  /* 轻微模糊,性能与视觉平衡 */
                 -webkit-backdrop-filter: blur(3px);
             }
@@ -252,10 +253,20 @@ export class BookmarkSaveModal {
         this.saveButtonElement = this.modal.querySelector('.save-modal-btn-save') as HTMLButtonElement;
         this.errorDivElement = this.modal.querySelector('.title-error');
 
-        // Focus title input
+        // Focus title input and trigger validation
         setTimeout(() => {
             if (this.titleInputElement) {
                 this.titleInputElement.select(); // Select all text for easy editing
+
+                // ✅ Trigger validation on initial load to show error if title has invalid chars
+                const validation = this.validateTitle(this.titleInputElement.value);
+                this.titleValid = validation.valid;
+
+                if (!validation.valid && this.errorDivElement) {
+                    this.titleInputElement.classList.add('error');
+                    this.errorDivElement.textContent = validation.error!;
+                    this.errorDivElement.classList.add('visible');
+                }
             }
         }, 100);
 

@@ -178,7 +178,11 @@ export class MathClickHandler {
         // Add hover effect
         targetEl.style.cursor = 'pointer';
         targetEl.style.transition = 'background-color 0.2s';
-        const hoverColor = 'rgba(37, 99, 235, 0.12)'; // Theme blue hover
+        // Get theme-aware highlight color from CSS custom properties
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) =>
+            getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+        const hoverColor = getVar('--aimd-interactive-highlight', 'rgba(37, 99, 235, 0.12)');
 
         // Create named event listeners (so we can remove them later)
         const mouseenterHandler = () => {
@@ -244,15 +248,20 @@ export class MathClickHandler {
     private showCopyFeedback(element: HTMLElement): void {
         // Don't save originalBg - it might be the hover color
         // We'll clear it completely and re-apply if needed
-        element.style.backgroundColor = 'rgba(37, 99, 235, 0.28)';  // Theme blue flash on copy
+        // Get theme-aware flash color
+        const root = document.documentElement;
+        const getVar = (name: string, fallback: string) =>
+            getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+        const flashColor = getVar('--aimd-interactive-flash', 'rgba(37, 99, 235, 0.28)');
+        element.style.backgroundColor = flashColor;
 
         // Create tooltip
         const tooltip = document.createElement('div');
         tooltip.textContent = 'Copied!';
         tooltip.style.cssText = `
       position: absolute;
-      background: #2563EB;
-      color: white;
+      background: var(--aimd-color-blue-600, #2563EB);
+      color: var(--aimd-text-on-primary);
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
@@ -289,7 +298,9 @@ export class MathClickHandler {
 
             // Re-apply hover effect if mouse is still over element
             if (element.matches(':hover')) {
-                element.style.backgroundColor = 'rgba(37, 99, 235, 0.12)';  // Re-apply hover
+                const highlightColor = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--aimd-interactive-highlight').trim() || 'rgba(37, 99, 235, 0.12)';
+                element.style.backgroundColor = highlightColor;
             }
         }, 1500);
     }

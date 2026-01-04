@@ -1,0 +1,151 @@
+/**
+ * Component Design Tokens (Layer 3)
+ * 
+ * Component-specific tokens that reference semantic tokens.
+ * Each component has its own namespace for easy customization.
+ * 
+ * Naming: --aimd-{component}-{property}
+ */
+
+:root {
+    /* ===== Toolbar ===== */
+    --aimd-toolbar-bg: var(--aimd-bg-glass);
+    --aimd-toolbar-border: var(--aimd-border-default);
+    --aimd-toolbar-border-strong: var(--aimd-border-strong);
+    --aimd-toolbar-shadow-1: rgba(0, 0, 0, 0.05);
+    --aimd-toolbar-shadow-2: rgba(0, 0, 0, 0.03);
+    --aimd-toolbar-hover-shadow-1: rgba(0, 0, 0, 0.08);
+    --aimd-toolbar-hover-shadow-2: rgba(0, 0, 0, 0.05);
+    --aimd-toolbar-divider: var(--aimd-border-default);
+    --aimd-toolbar-button-text: var(--aimd-text-secondary);
+    --aimd-toolbar-button-hover-bg: var(--aimd-interactive-hover);
+    --aimd-toolbar-button-hover-text: var(--aimd-text-primary);
+    --aimd-toolbar-button-active-bg: var(--aimd-interactive-active);
+    --aimd-toolbar-bookmark-hover-bg: rgba(59, 130, 246, 0.15);
+    --aimd-toolbar-stats-text: var(--aimd-text-tertiary);
+    --aimd-toolbar-gradient-solid-from: var(--aimd-color-blue-500);
+    --aimd-toolbar-gradient-solid-to: var(--aimd-color-blue-700);
+    --aimd-toolbar-gradient-light-from: rgba(59, 130, 246, 0.15);
+    --aimd-toolbar-gradient-light-to: rgba(59, 130, 246, 0.08);
+    --aimd-toolbar-theme-color: var(--aimd-interactive-primary);
+
+    /* ===== Modal ===== */
+    --aimd-modal-overlay: var(--aimd-bg-overlay);
+    --aimd-modal-surface: var(--aimd-bg-primary);
+    --aimd-modal-shadow: var(--aimd-shadow-2xl);
+    --aimd-modal-header-bg: var(--aimd-bg-secondary);
+    --aimd-modal-header-border: var(--aimd-border-default);
+    --aimd-modal-primary-bg: var(--aimd-interactive-primary);
+    --aimd-modal-primary-hover-bg: var(--aimd-interactive-primary-hover);
+    --aimd-modal-primary-text: var(--aimd-text-on-primary);
+    --aimd-modal-primary-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    --aimd-modal-tree-bg: var(--aimd-bg-secondary);
+    --aimd-modal-tree-item-hover: var(--aimd-interactive-hover);
+    --aimd-modal-tree-item-text: var(--aimd-text-primary);
+    --aimd-modal-tree-item-icon: var(--aimd-text-secondary);
+
+    /* ===== Panel (Reader, Bookmark) ===== */
+    --aimd-panel-bg: var(--aimd-bg-glass);
+    --aimd-panel-border: var(--aimd-border-glass);
+    --aimd-panel-shadow: var(--aimd-shadow-xl);
+    --aimd-panel-header-bg: rgba(255, 255, 255, 0.1);
+    --aimd-panel-header-border: var(--aimd-border-subtle);
+    --aimd-panel-pagination-bg: transparent;
+    --aimd-panel-pagination-border: var(--aimd-border-subtle);
+
+    /* ===== Button ===== */
+    --aimd-button-primary-bg: var(--aimd-interactive-primary);
+    --aimd-button-primary-hover: var(--aimd-interactive-primary-hover);
+    --aimd-button-primary-active: var(--aimd-interactive-primary-active);
+    --aimd-button-primary-text: var(--aimd-text-on-primary);
+    --aimd-button-primary-disabled: var(--aimd-color-gray-300);
+    --aimd-button-primary-disabled-text: var(--aimd-color-gray-500);
+    --aimd-button-secondary-bg: transparent;
+    --aimd-button-secondary-hover: var(--aimd-interactive-hover);
+    --aimd-button-secondary-text: var(--aimd-text-primary);
+    --aimd-button-secondary-text-hover: var(--aimd-text-primary);
+    --aimd-button-ghost-bg: transparent;
+    --aimd-button-ghost-hover: var(--aimd-interactive-hover);
+    --aimd-button-ghost-text: var(--aimd-text-secondary);
+    --aimd-button-danger-bg: var(--aimd-interactive-danger);
+    --aimd-button-danger-hover: var(--aimd-interactive-danger-hover);
+    --aimd-button-danger-text: var(--aimd-text-on-danger);
+    --aimd-button-icon-bg: transparent;
+    --aimd-button-icon-hover: var(--aimd-interactive-hover);
+    --aimd-button-icon-text: var(--aimd-text-secondary);
+    --aimd-button-icon-text-hover: var(--aimd-text-primary);
+
+    /* ===== Input ===== */
+    --aimd-input-bg: var(--aimd-bg-primary);
+    --aimd-input-border: var(--aimd-border-default);
+    --aimd-input-focus-border: var(--aimd-border-focus);
+    --aimd-input-focus-shadow: var(--aimd-shadow-focus);
+    --aimd-input-placeholder: var(--aimd-text-tertiary);
+    --aimd-input-text: var(--aimd-text-primary);
+    --aimd-input-error-border: var(--aimd-color-red-500);
+
+    /* ===== Tree View ===== */
+    --aimd-tree-item-bg: transparent;
+    --aimd-tree-item-hover: var(--aimd-interactive-hover);
+    --aimd-tree-item-selected: var(--aimd-interactive-selected);
+    --aimd-tree-item-selected-border: var(--aimd-color-blue-400);
+    --aimd-tree-folder-icon: var(--aimd-text-secondary);
+    --aimd-tree-folder-text: var(--aimd-text-primary);
+    --aimd-tree-bookmark-icon: var(--aimd-text-secondary);
+    --aimd-tree-bookmark-text: var(--aimd-text-primary);
+    --aimd-tree-timestamp: var(--aimd-text-tertiary);
+
+    /* ===== Tooltip ===== */
+    --aimd-tooltip-bg: var(--aimd-color-gray-900);
+    --aimd-tooltip-text: var(--aimd-color-white);
+    --aimd-tooltip-shadow: var(--aimd-shadow-lg);
+
+    /* ===== Pagination Dots ===== */
+    --aimd-dot-border: var(--aimd-text-secondary);
+    --aimd-dot-border-hover: var(--aimd-text-primary);
+    --aimd-dot-active-bg: var(--aimd-interactive-primary);
+    --aimd-dot-active-border: var(--aimd-interactive-primary);
+    --aimd-dot-active-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+
+    /* ===== Navigation Buttons ===== */
+    --aimd-nav-button-bg: transparent;
+    --aimd-nav-button-hover-bg: rgba(59, 130, 246, 0.1);
+    --aimd-nav-button-active-bg: rgba(59, 130, 246, 0.15);
+    --aimd-nav-button-text: var(--aimd-text-secondary);
+    --aimd-nav-button-hover-text: var(--aimd-interactive-primary);
+
+    /* ===== Batch Actions Bar ===== */
+    --aimd-batch-bar-bg: var(--aimd-bg-elevated);
+    --aimd-batch-bar-shadow: var(--aimd-shadow-lg);
+    --aimd-batch-bar-border: var(--aimd-border-default);
+
+    /* ===== Notification ===== */
+    --aimd-notification-success-bg: var(--aimd-feedback-success-bg);
+    --aimd-notification-success-text: var(--aimd-feedback-success-text);
+    --aimd-notification-error-bg: var(--aimd-feedback-danger-bg);
+    --aimd-notification-error-text: var(--aimd-feedback-danger-text);
+    --aimd-notification-info-bg: var(--aimd-feedback-info-bg);
+    --aimd-notification-info-text: var(--aimd-feedback-info-text);
+}
+
+/* ===== Dark Mode Component Overrides ===== */
+:root[data-aimd-theme="dark"] {
+    /* Panel dark mode adjustments */
+    --aimd-panel-header-bg: rgba(255, 255, 255, 0.05);
+    --aimd-toolbar-shadow-1: rgba(0, 0, 0, 0.15);
+    --aimd-toolbar-shadow-2: rgba(0, 0, 0, 0.10);
+    --aimd-toolbar-hover-shadow-1: rgba(0, 0, 0, 0.20);
+    --aimd-toolbar-hover-shadow-2: rgba(0, 0, 0, 0.15);
+
+    /* Button dark mode specifics */
+    --aimd-button-primary-disabled: var(--aimd-color-gray-dark-300);
+    --aimd-button-primary-disabled-text: var(--aimd-color-gray-dark-400);
+
+    /* Tooltip dark mode */
+    --aimd-tooltip-bg: var(--aimd-color-gray-dark-100);
+    --aimd-tooltip-text: var(--aimd-color-white);
+
+    /* Nav button dark mode */
+    --aimd-nav-button-hover-bg: rgba(59, 130, 246, 0.15);
+    --aimd-nav-button-active-bg: rgba(59, 130, 246, 0.20);
+}

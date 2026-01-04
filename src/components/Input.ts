@@ -258,62 +258,62 @@ export class Input {
 
       /* Input Base */
       .input {
-        font-family: var(--font-sans);
-        font-size: var(--text-base);
-        color: var(--gray-900);
-        background: white;
-        border: 2px solid var(--gray-300);
-        border-radius: var(--radius-small);
+        font-family: var(--aimd-font-sans);
+        font-size: var(--aimd-text-base);
+        color: var(--aimd-text-primary);
+        background: var(--aimd-bg-primary);
+        border: 2px solid var(--aimd-color-gray-300);
+        border-radius: var(--aimd-radius-sm);
         outline: none;
-        transition: all var(--duration-fast) var(--ease-in-out);
+        transition: all var(--aimd-duration-fast) var(--aimd-ease-in-out);
         width: 100%;
       }
 
       .input::placeholder {
-        color: var(--gray-400);
+        color: var(--aimd-color-gray-400);
       }
 
       .input:focus {
-        border-color: var(--primary-500);
-        box-shadow: 0 0 0 3px var(--primary-100);
+        border-color: var(--aimd-color-blue-500);
+        box-shadow: var(--aimd-shadow-focus);
       }
 
       .input:disabled {
-        background: var(--gray-50);
-        color: var(--gray-500);
+        background: var(--aimd-color-gray-50);
+        color: var(--aimd-text-tertiary);
         cursor: not-allowed;
       }
 
       .input:read-only {
-        background: var(--gray-50);
+        background: var(--aimd-color-gray-50);
       }
 
       /* Sizes */
       .input-sm {
-        padding: var(--space-1) var(--space-3);
-        font-size: var(--text-sm);
+        padding: var(--aimd-space-1) var(--aimd-space-3);
+        font-size: var(--aimd-text-sm);
         height: 32px;
       }
 
       .input-md {
-        padding: var(--space-2) var(--space-3);
-        font-size: var(--text-base);
+        padding: var(--aimd-space-2) var(--aimd-space-3);
+        font-size: var(--aimd-text-base);
         height: 40px;
       }
 
       .input-lg {
-        padding: var(--space-3) var(--space-4);
-        font-size: var(--text-lg);
+        padding: var(--aimd-space-3) var(--aimd-space-4);
+        font-size: var(--aimd-text-lg);
         height: 48px;
       }
 
       /* With icon */
       .input-with-icon-left {
-        padding-left: var(--space-10);
+        padding-left: var(--aimd-space-10);
       }
 
       .input-with-icon-right {
-        padding-right: var(--space-10);
+        padding-right: var(--aimd-space-10);
       }
 
       /* Icon */
@@ -322,41 +322,41 @@ export class Input {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--gray-400);
+        color: var(--aimd-color-gray-400);
         pointer-events: none;
       }
 
       .input-icon-left {
-        left: var(--space-3);
+        left: var(--aimd-space-3);
       }
 
       .input-icon-right {
-        right: var(--space-3);
+        right: var(--aimd-space-3);
       }
 
       .input-icon svg {
-        width: var(--icon-sm);
-        height: var(--icon-sm);
+        width: 20px;
+        height: 20px;
       }
 
       .input:focus ~ .input-icon {
-        color: var(--primary-500);
+        color: var(--aimd-color-blue-500);
       }
 
       /* Error state */
       .input-error-state {
-        border-color: var(--danger-500);
+        border-color: var(--aimd-interactive-danger);
       }
 
       .input-error-state:focus {
-        border-color: var(--danger-500);
-        box-shadow: 0 0 0 3px var(--danger-100);
+        border-color: var(--aimd-interactive-danger);
+        box-shadow: var(--aimd-shadow-error);
       }
 
       .input-error {
-        margin-top: var(--space-1);
-        font-size: var(--text-sm);
-        color: var(--danger-600);
+        margin-top: var(--aimd-space-1);
+        font-size: var(--aimd-text-sm);
+        color: var(--aimd-interactive-danger);
       }
     `;
     }

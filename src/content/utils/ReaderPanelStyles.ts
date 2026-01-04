@@ -14,7 +14,7 @@ export const readerPanelStyles = `
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--aimd-bg-overlay-heavy);
   z-index: 999998;
   backdrop-filter: blur(3px);
 }
@@ -29,12 +29,12 @@ export const readerPanelStyles = `
   max-width: 900px;
   height: 80vh;
   
-  /* No solid background - pure transparency */
-  background: transparent;
+  /* Glass background from tokens */
+  background: var(--aimd-panel-bg);
   
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border-radius: var(--aimd-radius-2xl);
+  border: 1px solid var(--aimd-border-glass);
+  box-shadow: var(--aimd-shadow-xl);
   
   display: flex;
   flex-direction: column;
@@ -43,8 +43,8 @@ export const readerPanelStyles = `
   animation: modalFadeIn 0.2s ease;
   
   /* Strong blur for background separation */
-  backdrop-filter: blur(30px) saturate(180%) brightness(105%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(105%);
+  backdrop-filter: var(--aimd-glass-blur);
+  -webkit-backdrop-filter: var(--aimd-glass-blur);
 }
 
 @keyframes modalFadeIn {
@@ -65,12 +65,12 @@ export const readerPanelStyles = `
 
 /* Header - Semi-transparent white */
 .aicopy-panel-header {
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--panel-header-border);
+  padding: var(--aimd-space-3) var(--aimd-space-5);
+  border-bottom: 1px solid var(--aimd-border-default);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(249, 250, 251, 0.85);
+  background: var(--aimd-panel-header-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   flex-shrink: 0;
@@ -79,38 +79,38 @@ export const readerPanelStyles = `
 .aicopy-panel-header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--aimd-space-4);
 }
 
 .aicopy-panel-title {
-  font-size: var(--text-3xl);
-  font-weight: var(--font-medium);
-  color: var(--text-primary);
+  font-size: var(--aimd-text-2xl);
+  font-weight: var(--aimd-font-medium);
+  color: var(--aimd-text-primary);
   letter-spacing: -0.01em;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-family: var(--aimd-font-sans);
 }
 
 /* Header Buttons */
 .aicopy-panel-btn {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: var(--aimd-radius-md);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-3xl);
-  font-weight: var(--font-medium);
-  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+  font-size: var(--aimd-text-3xl);
+  font-weight: var(--aimd-font-medium);
+  transition: background var(--aimd-duration-fast) ease, color var(--aimd-duration-fast) ease;
 }
 
 .aicopy-panel-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text-primary);
+  background: var(--aimd-interactive-hover);
+  color: var(--aimd-text-primary);
 }
 
 /* Body - White background for readability */
@@ -118,8 +118,8 @@ export const readerPanelStyles = `
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px 32px;
-  background: rgba(255, 255, 255, 0.95);
+  padding: var(--aimd-space-6) var(--aimd-space-8);
+  background: transparent;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   overscroll-behavior: contain;
@@ -135,15 +135,15 @@ export const readerPanelStyles = `
 
 /* Dot Pagination Container - Semi-transparent */
 .aicopy-pagination {
-  padding: 12px 16px;
-  border-top: 1px solid var(--pagination-border);
+  padding: var(--aimd-space-3) var(--aimd-space-4);
+  border-top: 1px solid var(--aimd-panel-pagination-border);
   display: flex;
   justify-content: center;
   align-items: center;
   gap: var(--dot-gap, 8px);
   
   /* Semi-transparent with blur */
-  background: rgba(249, 250, 251, 0.9);
+  background: var(--aimd-panel-pagination-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   
@@ -157,7 +157,7 @@ export const readerPanelStyles = `
   width: var(--dot-size, 10px);
   height: var(--dot-size, 10px);
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.25);
+  border: 2px solid var(--aimd-text-secondary);
   background: transparent;
   cursor: pointer;
   position: relative;
@@ -165,22 +165,22 @@ export const readerPanelStyles = `
   /* GPU acceleration */
   will-change: transform;
   transform: translateZ(0);
-  transition: transform var(--duration-fast) var(--ease-in-out),
-              border-color var(--duration-fast) ease,
-              background-color var(--duration-fast) ease;
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              border-color var(--aimd-duration-fast) ease,
+              background-color var(--aimd-duration-fast) ease;
 }
 
 .aicopy-dot:hover {
   transform: scale(1.3) translateZ(0);
-  border-color: rgba(0, 0, 0, 0.4);
+  border-color: var(--aimd-text-primary);
 }
 
 .aicopy-dot.active {
   width: calc(var(--dot-size, 10px) * 1.4);
   height: calc(var(--dot-size, 10px) * 1.4);
-  background: var(--interactive-primary);
-  border-color: var(--interactive-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: var(--aimd-interactive-primary);
+  border-color: var(--aimd-interactive-primary);
+  box-shadow: var(--aimd-dot-active-shadow);
 }
 
 /* Custom Scrollbar */
@@ -193,12 +193,12 @@ export const readerPanelStyles = `
 }
 
 .aicopy-panel-body::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  background: var(--aimd-scrollbar-thumb);
+  border-radius: var(--aimd-radius-sm);
 }
 
 .aicopy-panel-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--aimd-scrollbar-thumb-hover);
 }
 
 /* Loading State */
@@ -210,8 +210,8 @@ export const readerPanelStyles = `
   transform: translate(-50%, -50%);
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--interactive-primary);
+  border: 3px solid var(--aimd-border-subtle);
+  border-top-color: var(--aimd-interactive-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -220,59 +220,19 @@ export const readerPanelStyles = `
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* Dark Mode Auto-Adaptation */
-@media (prefers-color-scheme: dark) {
-  .aicopy-panel {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(30px) saturate(180%) brightness(80%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(80%);
-  }
-  
-  .aicopy-panel-header {
-    background: rgba(39, 39, 42, 0.85);
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-  
-  .aicopy-panel-body {
-    background: rgba(30, 30, 30, 0.95);
-  }
-  
-  .aicopy-pagination {
-    background: rgba(39, 39, 42, 0.9);
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-  
-  .aicopy-panel-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-  
-  .aicopy-dot {
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-  
-  .aicopy-dot:hover {
-    border-color: rgba(255, 255, 255, 0.5);
-  }
-  
-  .aicopy-panel-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-  }
-  
-  .aicopy-panel-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-  }
-}
+/* Dark Mode: Now handled by ThemeManager + data-aimd-theme attribute */
+/* Removed redundant @media (prefers-color-scheme: dark) block */
 
 /* Navigation Buttons - Inline with Pagination */
 .aicopy-nav-button {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--aimd-radius-lg);
   border: none;
   
   /* Transparent by default, match pagination background */
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
   font-size: 16px;
   cursor: pointer;
   
@@ -280,21 +240,21 @@ export const readerPanelStyles = `
   align-items: center;
   justify-content: center;
   
-  transition: all var(--duration-fast) ease;
+  transition: all var(--aimd-duration-fast) ease;
   
   /* GPU acceleration */
   will-change: transform;
 }
 
 .aicopy-nav-button:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--interactive-primary);
+  background: var(--aimd-nav-button-hover-bg);
+  color: var(--aimd-interactive-primary);
   transform: scale(1.05);
 }
 
 .aicopy-nav-button:active:not(:disabled) {
   transform: scale(0.95);
-  background: rgba(59, 130, 246, 0.15);
+  background: var(--aimd-nav-button-active-bg);
 }
 
 .aicopy-nav-button:disabled {
@@ -302,16 +262,8 @@ export const readerPanelStyles = `
   cursor: not-allowed;
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  .aicopy-nav-button:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.15);
-  }
-  
-  .aicopy-nav-button:active:not(:disabled) {
-    background: rgba(59, 130, 246, 0.2);
-  }
-}
+/* Dark mode: Now handled by ThemeManager + semantic tokens */
+
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
@@ -324,13 +276,13 @@ export const readerPanelStyles = `
 .message-user-header {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px 24px;
-  background: rgba(0, 0, 0, 0.02);
-  border-bottom: 1px solid var(--panel-header-border);
-  border-radius: 12px; /* User requested rounded bottom corners too */
-  margin: 0 auto 24px;  /* Center + bottom margin */
-  max-width: 800px;     /* Match .markdown-body width */
+  gap: var(--aimd-space-3);
+  padding: var(--aimd-space-4) var(--aimd-space-6);
+  background: var(--aimd-bg-secondary);
+  border-bottom: 1px solid var(--aimd-border-default);
+  border-radius: var(--aimd-radius-xl);
+  margin: 0 auto 24px;
+  max-width: 800px;
   width: 100%;
 }
 
@@ -343,8 +295,7 @@ export const readerPanelStyles = `
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
 }
 
 .user-icon svg, .model-icon svg {
@@ -353,14 +304,14 @@ export const readerPanelStyles = `
 }
 
 .model-icon {
-  background: var(--interactive-primary);
-  color: white;
+  background: var(--aimd-bg-primary);
+  color: var(--aimd-text-secondary);
   margin-top: 4px;
 }
 
 .user-content {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--aimd-text-secondary);
   line-height: 1.5;
   font-weight: 500;
   white-space: pre-wrap;
@@ -369,10 +320,10 @@ export const readerPanelStyles = `
 
 .message-model-container {
   display: flex;
-  gap: 16px;
+  gap: var(--aimd-space-4);
   align-items: flex-start;
-  max-width: 800px;     /* Match .markdown-body and .message-user-header width */
-  margin: 0 auto;       /* Center horizontally */
+  max-width: 800px;
+  margin: 0 auto;
   width: 100%;
 }
 
@@ -380,29 +331,6 @@ export const readerPanelStyles = `
   display: none; /* Hidden visually, structure handled by margin */
 }
 
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .message-user-header {
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  .user-icon {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--text-primary);
-  }
-  
-  .model-icon {
-    background: var(--interactive-primary);
-    color: white;
-    /* Slight brightness boost for dark mode visibility */
-    filter: brightness(1.1);
-  }
-  
-  .user-content {
-    color: var(--text-primary); 
-    opacity: 0.9;
-  }
-}
+/* Dark mode: Now handled by ThemeManager + data-aimd-theme attribute */
 
 `;

@@ -7,7 +7,7 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build && npm run postbuild",
-        "postbuild": "cp manifest.json dist/ && mkdir -p dist/icons && cp public/icons/*.png dist/icons/",
+        "postbuild": "cp manifest.json dist/ && mkdir -p dist/icons && cp public/icons/*.png dist/icons/ && mkdir -p dist/styles/tokens && cp src/styles/tokens/*.css dist/styles/tokens/",
         "preview": "vite preview",
         "type-check": "tsc --noEmit",
         "test": "vitest",
