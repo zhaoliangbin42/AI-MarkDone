@@ -5,6 +5,27 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-01-08
+
+### Added
+- **StreamingDetector**: Cross-platform streaming completion detection (`src/content/adapters/streaming-detector.ts`)
+- **FloatingInput Size Memory**: Window size persists within session
+- **Reader Panel Navigation Fix**: Arrow states update correctly after new messages
+
+### Changed
+- **GEMINI.md 3.0**: Streamlined following Claude Code best practices
+- **Documentation Architecture**: Established "Documentation as Contract" system
+
+### Fixed
+- Trigger button state sync issue
+- Last message content not refreshing on re-entry
+
+## [2.1.0] - 2026-01-04
+
+### Added
+- Reader Mode for focused reading
+- Bookmark management system
+
 ## [0.5.0] - 2025-12-08
 
 ### 🎉 Initial Release

@@ -26,6 +26,10 @@ export interface FloatingInputOptions {
 }
 
 export class FloatingInput {
+    // Static size memory - persists across instances within session
+    private static savedWidth: number | null = null;
+    private static savedHeight: number | null = null;
+
     private container: HTMLElement | null = null;
     private textarea: HTMLTextAreaElement | null = null;
     private sendBtn: HTMLButtonElement | null = null;
@@ -190,7 +194,7 @@ export class FloatingInput {
         // Title on the left
         const title = document.createElement('span');
         title.className = 'aimd-float-title';
-        title.textContent = '输入消息';
+        title.textContent = 'Input Message';
         header.appendChild(title);
 
         // Collapse button on the right
@@ -247,6 +251,14 @@ export class FloatingInput {
         container.appendChild(header);
         container.appendChild(body);
         container.appendChild(footer);
+
+        // Restore saved size if available
+        if (FloatingInput.savedWidth) {
+            container.style.width = `${FloatingInput.savedWidth}px`;
+        }
+        if (FloatingInput.savedHeight) {
+            container.style.height = `${FloatingInput.savedHeight}px`;
+        }
 
         return container;
     }
@@ -329,13 +341,43 @@ export class FloatingInput {
             const deltaY = startY - e.clientY; // Inverted for top-right
 
             const newWidth = Math.max(280, Math.min(startWidth + deltaX, 800));
-            const newHeight = Math.max(150, Math.min(startHeight + deltaY, 600));
+
+            // Calculate max height based on available space above the floating input
+            const containerRect = container.getBoundingClientRect();
+            const bottomY = containerRect.bottom;
+
+            let topLimit = 20; // Default: 20px from viewport top
+
+            // Try to find the parent Reader Panel to respect its header
+            // Since we are in Shadow DOM, we might need to look outside or query specifically
+            if (this.shadowRoot) {
+                const panel = this.shadowRoot.querySelector('.aicopy-panel');
+                if (panel) {
+                    const panelRect = panel.getBoundingClientRect();
+                    const headerHeight = 60; // Approximate header height (includes padding)
+                    // The limit is the panel top + header height (so we don't cover the header)
+                    topLimit = panelRect.top + headerHeight;
+                }
+            }
+
+            const availableHeight = bottomY - topLimit;
+            // Ensure we have at least min-height space
+            const finalAvailableHeight = Math.max(150, availableHeight);
+            // Limit to 600px max (usability cap) OR available height
+            const maxHeight = Math.min(600, finalAvailableHeight);
+
+            const newHeight = Math.max(150, Math.min(startHeight + deltaY, maxHeight));
 
             container.style.width = `${newWidth}px`;
             container.style.height = `${newHeight}px`;
         };
 
         const onMouseUp = () => {
+            // Save size for next time
+            FloatingInput.savedWidth = container.offsetWidth;
+            FloatingInput.savedHeight = container.offsetHeight;
+            logger.debug('[FloatingInput] Size saved:', { width: FloatingInput.savedWidth, height: FloatingInput.savedHeight });
+
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
         };

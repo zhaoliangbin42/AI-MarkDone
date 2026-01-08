@@ -155,6 +155,16 @@ export const readerPanelStyles = `
   position: relative;
 }
 
+/* Dedicated Container for Dots - Structural Isolation */
+.aicopy-pagination-dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dot-gap, 8px);
+  /* Ensure it takes up space naturally between nav buttons */
+  flex-shrink: 0;
+}
+
 /* Individual Dot - GPU optimized */
 .aicopy-dot {
   width: var(--dot-size, 10px);

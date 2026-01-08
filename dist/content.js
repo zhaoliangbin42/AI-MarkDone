@@ -3065,6 +3065,56 @@ class WordCounter {
   }
 }
 
+class EventBus {
+  listeners = /* @__PURE__ */ new Map();
+  /**
+   * Subscribe to an event
+   * @returns Unsubscribe function
+   */
+  on(event, callback) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, /* @__PURE__ */ new Set());
+    }
+    this.listeners.get(event).add(callback);
+    return () => this.off(event, callback);
+  }
+  /**
+   * Subscribe to an event, but only once
+   */
+  once(event, callback) {
+    const wrapper = (data) => {
+      this.off(event, wrapper);
+      callback(data);
+    };
+    return this.on(event, wrapper);
+  }
+  /**
+   * Unsubscribe from an event
+   */
+  off(event, callback) {
+    this.listeners.get(event)?.delete(callback);
+  }
+  /**
+   * Emit an event
+   */
+  emit(event, data) {
+    this.listeners.get(event)?.forEach((callback) => {
+      try {
+        callback(data);
+      } catch (e) {
+        console.error(`[EventBus] Error in listener for "${event}":`, e);
+      }
+    });
+  }
+  /**
+   * Clear all listeners (for cleanup)
+   */
+  clear() {
+    this.listeners.clear();
+  }
+}
+const eventBus = new EventBus();
+
 class Toolbar {
   shadowRoot;
   container;
@@ -3349,7 +3399,8 @@ class Toolbar {
    * Set pending/disabled state for streaming/thinking messages
    */
   setPending(isPending) {
-    if (this.pending === isPending) return;
+    const wasPending = this.pending;
+    if (wasPending === isPending) return;
     this.pending = isPending;
     const toolbar = this.shadowRoot.querySelector(".aicopy-toolbar");
     if (toolbar) {
@@ -3364,6 +3415,10 @@ class Toolbar {
     const stats = this.shadowRoot.querySelector("#word-stats");
     if (stats) {
       stats.textContent = isPending ? "loading ..." : stats.textContent;
+    }
+    if (wasPending && !isPending) {
+      logger$1.debug("[Toolbar] Emitting toolbar:activated event");
+      eventBus.emit("toolbar:activated", {});
     }
     if (!isPending && !this.wordCountInitialized) {
       this.initWordCountWithRetry();
@@ -26036,6 +26091,17 @@ class LRUCache {
     }
   }
   /**
+   * Delete value by key (O(1))
+   */
+  delete(key) {
+    const node = this.map.get(key);
+    if (!node) return false;
+    this.removeNode(node);
+    this.map.delete(key);
+    this.currentSize--;
+    return true;
+  }
+  /**
    * Clear cache
    */
   clear() {
@@ -26502,30 +26568,11 @@ class DotPaginationController {
       return;
     }
     console.log(`[DotPaginationController] updateTotalItems: ${this.config.totalItems} -> ${newTotal}`);
-    const oldTotal = this.config.totalItems;
     this.config.totalItems = newTotal;
-    const sizing = this.calculateDotSize();
-    this.container.style.setProperty("--dot-size", `${sizing.size}px`);
-    this.container.style.setProperty("--dot-gap", `${sizing.gap}px`);
-    if (newTotal > oldTotal) {
-      for (let i = oldTotal; i < newTotal; i++) {
-        const dot = this.createDot(i);
-        this.dots.push(dot);
-        this.container.appendChild(dot);
-      }
-      console.log(`[DotPaginationController] Added ${newTotal - oldTotal} new dots`);
-    } else {
-      const dotsToRemove = oldTotal - newTotal;
-      for (let i = 0; i < dotsToRemove; i++) {
-        const dot = this.dots.pop();
-        dot?.remove();
-      }
-      console.log(`[DotPaginationController] Removed ${dotsToRemove} dots`);
-      if (this.config.currentIndex >= newTotal) {
-        this.config.currentIndex = newTotal - 1;
-      }
+    if (this.config.currentIndex >= newTotal) {
+      this.config.currentIndex = newTotal - 1;
     }
-    this.updateActiveDot();
+    this.render();
   }
   /**
    * Cleanup
@@ -26539,48 +26586,53 @@ class DotPaginationController {
 }
 
 class NavigationButtonsController {
-  container;
   config;
-  leftButton = null;
-  rightButton = null;
+  leftButton;
+  rightButton;
   destroyed = false;
-  constructor(container, config) {
-    this.container = container;
+  abortController = null;
+  /**
+   * @param leftButton - Existing DOM element for left navigation
+   * @param rightButton - Existing DOM element for right navigation
+   * @param config - Configuration options
+   */
+  constructor(leftButton, rightButton, config) {
+    if (!leftButton || !rightButton) {
+      throw new Error("[NavigationButtonsController] Constructor requires valid left and right button elements.");
+    }
+    this.leftButton = leftButton;
+    this.rightButton = rightButton;
     this.config = config;
   }
   /**
-   * Render navigation buttons
+   * Render navigation buttons (Bind events)
+   * Note: Does NOT create elements, only binds logic.
    */
   render() {
     if (this.destroyed) {
       console.warn("[NavigationButtons] Cannot render: controller is destroyed");
       return;
     }
-    this.leftButton = this.createButton("left", "◀", this.config.onPrevious);
-    this.rightButton = this.createButton("right", "▶", this.config.onNext);
-    this.container.insertBefore(this.leftButton, this.container.firstChild);
-    this.container.appendChild(this.rightButton);
-    this.updateButtonStates();
-  }
-  /**
-   * Create a single navigation button
-   */
-  createButton(direction, icon, onClick) {
-    const button = document.createElement("button");
-    button.className = `aicopy-nav-button aicopy-nav-button-${direction}`;
-    button.innerHTML = icon;
-    button.setAttribute("aria-label", direction === "left" ? "Previous message" : "Next message");
-    button.addEventListener("click", (e) => {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    this.abortController = new AbortController();
+    const { signal } = this.abortController;
+    this.leftButton.addEventListener("click", (e) => {
       e.stopPropagation();
-      onClick();
-    });
-    return button;
+      this.config.onPrevious();
+    }, { signal });
+    this.rightButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.config.onNext();
+    }, { signal });
+    this.updateButtonStates();
   }
   /**
    * Update button enabled/disabled states
    */
   updateButtonStates() {
-    if (!this.leftButton || !this.rightButton) return;
+    if (this.destroyed) return;
     if (this.config.canGoPrevious) {
       this.leftButton.removeAttribute("disabled");
       this.leftButton.classList.remove("disabled");
@@ -26614,13 +26666,12 @@ class NavigationButtonsController {
   }
   /**
    * Cleanup
+   * STRICT AUDIT: Only aborts events, NEVER removes DOM elements.
    */
   destroy() {
     if (this.destroyed) return;
-    this.leftButton?.remove();
-    this.rightButton?.remove();
-    this.leftButton = null;
-    this.rightButton = null;
+    this.abortController?.abort();
+    this.abortController = null;
     this.destroyed = true;
   }
 }
@@ -26772,6 +26823,16 @@ const readerPanelStyles = `
   
   /* For absolute positioning of trigger button */
   position: relative;
+}
+
+/* Dedicated Container for Dots - Structural Isolation */
+.aicopy-pagination-dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dot-gap, 8px);
+  /* Ensure it takes up space naturally between nav buttons */
+  flex-shrink: 0;
 }
 
 /* Individual Dot - GPU optimized */
@@ -26979,13 +27040,20 @@ const floatingInputStyles = `
 .aimd-floating-input {
   position: absolute;
   bottom: 100%;
-  left: 0;
+  left: 10px;
   margin-bottom: var(--aimd-space-2);
   
   width: 400px;
   height: 300px;
   min-width: 280px;
   min-height: 150px;
+  
+  /* 
+   * Max height constraint: prevent exceeding panel bounds in non-fullscreen mode
+   * The floating input should not overflow above the panel header
+   * calc: available height = panel height - header(~60px) - pagination(~60px) - margins
+   */
+  max-height: calc(100vh - 20vh - 120px);
   
   /* Glass background */
   background: var(--aimd-panel-bg);
@@ -27245,6 +27313,9 @@ const floatingInputStyles = `
 `;
 
 class FloatingInput {
+  // Static size memory - persists across instances within session
+  static savedWidth = null;
+  static savedHeight = null;
   container = null;
   textarea = null;
   sendBtn = null;
@@ -27368,7 +27439,7 @@ class FloatingInput {
     header.className = "aimd-float-header";
     const title = document.createElement("span");
     title.className = "aimd-float-title";
-    title.textContent = "输入消息";
+    title.textContent = "Input Message";
     header.appendChild(title);
     const collapseBtn = document.createElement("button");
     collapseBtn.className = "aimd-float-collapse-btn";
@@ -27409,6 +27480,12 @@ class FloatingInput {
     container.appendChild(header);
     container.appendChild(body);
     container.appendChild(footer);
+    if (FloatingInput.savedWidth) {
+      container.style.width = `${FloatingInput.savedWidth}px`;
+    }
+    if (FloatingInput.savedHeight) {
+      container.style.height = `${FloatingInput.savedHeight}px`;
+    }
     return container;
   }
   /**
@@ -27472,11 +27549,28 @@ class FloatingInput {
       const deltaX = e.clientX - startX;
       const deltaY = startY - e.clientY;
       const newWidth = Math.max(280, Math.min(startWidth + deltaX, 800));
-      const newHeight = Math.max(150, Math.min(startHeight + deltaY, 600));
+      const containerRect = container.getBoundingClientRect();
+      const bottomY = containerRect.bottom;
+      let topLimit = 20;
+      if (this.shadowRoot) {
+        const panel = this.shadowRoot.querySelector(".aicopy-panel");
+        if (panel) {
+          const panelRect = panel.getBoundingClientRect();
+          const headerHeight = 60;
+          topLimit = panelRect.top + headerHeight;
+        }
+      }
+      const availableHeight = bottomY - topLimit;
+      const finalAvailableHeight = Math.max(150, availableHeight);
+      const maxHeight = Math.min(600, finalAvailableHeight);
+      const newHeight = Math.max(150, Math.min(startHeight + deltaY, maxHeight));
       container.style.width = `${newWidth}px`;
       container.style.height = `${newHeight}px`;
     };
     const onMouseUp = () => {
+      FloatingInput.savedWidth = container.offsetWidth;
+      FloatingInput.savedHeight = container.offsetHeight;
+      logger$1.debug("[FloatingInput] Size saved:", { width: FloatingInput.savedWidth, height: FloatingInput.savedHeight });
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
@@ -27825,13 +27919,9 @@ function collectFromLivePage(getMarkdown) {
     id: index,
     userPrompt: ref.userPrompt || `Message ${index + 1}`,
     // 懒加载：只有访问时才解析 DOM
-    content: () => {
-      if (ref.parsed) {
-        return ref.parsed;
-      }
-      ref.parsed = getMarkdown(ref.element);
-      return ref.parsed;
-    },
+    // 注意：不再在此处缓存结果，由 ReaderPanel 的 LRUCache 统一管理
+    // 这样可以确保 "Volatile Tail" 策略正确生效
+    content: () => getMarkdown(ref.element),
     meta: {
       platform,
       platformIcon
@@ -27848,55 +27938,69 @@ function getDefaultIcon() {
     </svg>`;
 }
 
-class EventBus {
-  listeners = /* @__PURE__ */ new Map();
-  /**
-   * Subscribe to an event
-   * @returns Unsubscribe function
-   */
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, /* @__PURE__ */ new Set());
-    }
-    this.listeners.get(event).add(callback);
-    return () => this.off(event, callback);
+class StreamingDetector {
+  adapter;
+  observer = null;
+  lastCount = 0;
+  onComplete = null;
+  constructor(adapter) {
+    this.adapter = adapter;
   }
   /**
-   * Subscribe to an event, but only once
+   * Start watching for streaming completion (copy button appears)
+   * @param onComplete - Callback when streaming is detected as complete
+   * @returns Cleanup function to stop watching
    */
-  once(event, callback) {
-    const wrapper = (data) => {
-      this.off(event, wrapper);
-      callback(data);
-    };
-    return this.on(event, wrapper);
-  }
-  /**
-   * Unsubscribe from an event
-   */
-  off(event, callback) {
-    this.listeners.get(event)?.delete(callback);
-  }
-  /**
-   * Emit an event
-   */
-  emit(event, data) {
-    this.listeners.get(event)?.forEach((callback) => {
-      try {
-        callback(data);
-      } catch (e) {
-        console.error(`[EventBus] Error in listener for "${event}":`, e);
+  startWatching(onComplete) {
+    this.onComplete = onComplete;
+    const selector = this.adapter.getCopyButtonSelector();
+    this.lastCount = document.querySelectorAll(selector).length;
+    logger$1.debug(`[StreamingDetector] Starting watch. Initial count: ${this.lastCount}`);
+    const handleChange = debounce(() => {
+      const currentCount = document.querySelectorAll(selector).length;
+      if (currentCount > this.lastCount) {
+        logger$1.info(`[StreamingDetector] Copy button added: ${this.lastCount} → ${currentCount}`);
+        this.lastCount = currentCount;
+        this.stopWatching();
+        this.onComplete?.();
+      }
+    }, 300);
+    this.observer = new MutationObserver((mutations) => {
+      let foundNewButton = false;
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement) {
+            if (node.matches(selector) || node.querySelector(selector)) {
+              foundNewButton = true;
+              break;
+            }
+          }
+        }
+        if (foundNewButton) break;
+      }
+      if (foundNewButton) {
+        handleChange();
       }
     });
+    this.observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: false
+    });
+    logger$1.debug("[StreamingDetector] Observer started");
+    return () => this.stopWatching();
   }
   /**
-   * Clear all listeners (for cleanup)
+   * Stop watching
    */
-  clear() {
-    this.listeners.clear();
+  stopWatching() {
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+      logger$1.debug("[StreamingDetector] Observer stopped");
+    }
   }
 }
-const eventBus = new EventBus();
 
 class ReaderPanel {
   container = null;
@@ -27910,6 +28014,8 @@ class ReaderPanel {
   paginationController = null;
   navButtonsController = null;
   keyHandler = null;
+  getMarkdownFn = null;
+  fallbackParser = null;
   // Message sending UI components
   floatingInput = null;
   triggerBtn = null;
@@ -27945,6 +28051,7 @@ class ReaderPanel {
   async show(messageElement, getMarkdown) {
     const startTime = performance.now();
     logger$1.debug("[ReaderPanel] START show (compat layer)");
+    this.getMarkdownFn = getMarkdown;
     const items = collectFromLivePage(getMarkdown);
     if (items.length === 0) {
       logger$1.warn("[ReaderPanel] No messages found");
@@ -27986,22 +28093,54 @@ class ReaderPanel {
     this.unsubscribeNewMessage = null;
   }
   /**
+   * 统一 UI 同步方法 (The Unified Update Path)
+   * 核心逻辑：Data -> State -> UI Side Effects
+   */
+  syncUIWithData(newItems) {
+    const oldLength = this.items.length;
+    const newLength = newItems.length;
+    logger$1.debug(`[ReaderPanel] syncUIWithData: updating items ${this.items.length} -> ${newItems.length}`);
+    this.items = newItems;
+    this.paginationController?.updateTotalItems(newLength);
+    this.navButtonsController?.updateConfig({
+      canGoPrevious: this.currentIndex > 0,
+      canGoNext: this.currentIndex < newLength - 1
+    });
+    this.setupTooltips();
+    if (newLength > oldLength) {
+      logger$1.info(`[ReaderPanel] Synced UI: ${oldLength} -> ${newLength} items`);
+    }
+  }
+  /**
    * 刷新数据项（用于实时更新分页）
    */
-  async refreshItems() {
-    const adapter = adapterRegistry.getAdapter();
-    if (!adapter) return;
-    const messageSelector = adapter.getMessageSelector();
-    const newCount = document.querySelectorAll(messageSelector).length;
-    if (newCount === this.items.length) {
+  /**
+   * Get Markdown from message element via ContentScript linkage
+   * Note: This is a fallback if getMarkdownFn is missing.
+   * ideally we should depend on the one passed in show()
+   */
+  getMarkdown(messageElement) {
+    if (!this.fallbackParser) {
+      this.fallbackParser = new MarkdownParser();
+    }
+    return this.fallbackParser.parse(messageElement);
+  }
+  async refreshItems(force = false) {
+    if (!this.getMarkdownFn) {
+      logger$1.warn("[ReaderPanel] Cannot refresh: missing getMarkdownFn");
       return;
     }
-    logger$1.info(`[ReaderPanel] Refreshing items: ${this.items.length} -> ${newCount}`);
-    const wasAtLast = this.currentIndex === this.items.length - 1;
-    this.paginationController?.updateTotalItems(newCount);
-    if (wasAtLast && newCount > this.items.length) {
-      logger$1.info(`[ReaderPanel] New message available`);
+    const adapter = adapterRegistry.getAdapter();
+    if (!adapter) return;
+    const fn = this.getMarkdownFn || ((el) => this.getMarkdown(el));
+    const newItems = collectFromLivePage(fn);
+    logger$1.debug(`[ReaderPanel] refreshItems: collected ${newItems.length} items (current: ${this.items.length})`);
+    if (newItems.length === this.items.length && !force) {
+      logger$1.debug("[ReaderPanel] refreshItems: no count change, skipping update");
+      return;
     }
+    logger$1.info(`[ReaderPanel] New messages detected: ${this.items.length} -> ${newItems.length}`);
+    this.syncUIWithData(newItems);
   }
   /**
    * 设置主题
@@ -28036,8 +28175,12 @@ class ReaderPanel {
     this.setupKeyboardNavigation(panel);
     panel.focus();
     this.unsubscribeNewMessage = eventBus.on("message:new", ({ count }) => {
+      logger$1.debug(`[ReaderPanel] EventBus received 'message:new', count: ${count}, current items: ${this.items.length}`);
       if (count !== this.items.length) {
-        logger$1.info(`[ReaderPanel] New message detected: ${this.items.length} -> ${count}`);
+        logger$1.info(`[ReaderPanel] New message event detected change: ${this.items.length} -> ${count}`);
+        this.refreshItems();
+      } else {
+        logger$1.debug("[ReaderPanel] Event count matches current items, checking anyway");
         this.refreshItems();
       }
     });
@@ -28075,7 +28218,7 @@ class ReaderPanel {
     header.className = "aicopy-panel-header";
     header.innerHTML = `
             <div class="aicopy-panel-header-left">
-                <h2 class="aicopy-panel-title">Reader</h2>
+                <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
                 <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
@@ -28089,23 +28232,45 @@ class ReaderPanel {
     return header;
   }
   /**
-   * 创建分页控件
+   * 创建分页控件 (Refactored for Structural Isolation)
    */
   createPagination() {
     const paginationContainer = document.createElement("div");
     paginationContainer.className = "aicopy-pagination";
     logger$1.debug(`[ReaderPanel] Creating pagination for ${this.items.length} items`);
-    this.paginationController = new DotPaginationController(paginationContainer, {
+    const triggerWrapper = this.createMessageTriggerButton();
+    const leftBtn = document.createElement("button");
+    leftBtn.className = "aicopy-nav-button aicopy-nav-button-left";
+    leftBtn.innerHTML = "◀";
+    leftBtn.setAttribute("aria-label", "Previous message");
+    leftBtn.disabled = true;
+    const dotsContainer = document.createElement("div");
+    dotsContainer.className = "aicopy-pagination-dots-container";
+    const rightBtn = document.createElement("button");
+    rightBtn.className = "aicopy-nav-button aicopy-nav-button-right";
+    rightBtn.innerHTML = "▶";
+    rightBtn.setAttribute("aria-label", "Next message");
+    rightBtn.disabled = true;
+    const hint = document.createElement("span");
+    hint.className = "aicopy-keyboard-hint";
+    hint.textContent = '"← →" to navigate';
+    paginationContainer.appendChild(triggerWrapper);
+    paginationContainer.appendChild(leftBtn);
+    paginationContainer.appendChild(dotsContainer);
+    paginationContainer.appendChild(rightBtn);
+    paginationContainer.appendChild(hint);
+    this.paginationController = new DotPaginationController(dotsContainer, {
       totalItems: this.items.length,
       currentIndex: this.currentIndex,
       onNavigate: (index) => this.navigateTo(index)
     });
     this.paginationController.render();
-    logger$1.debug(`[ReaderPanel] Pagination rendered, container has ${this.paginationController.getDots().length} dots`);
-    const triggerWrapper = this.createMessageTriggerButton();
-    paginationContainer.insertBefore(triggerWrapper, paginationContainer.firstChild);
+    if (!leftBtn || !rightBtn) {
+      throw new Error("[ReaderPanel] Critical: Navigation buttons not created");
+    }
     this.navButtonsController = new NavigationButtonsController(
-      paginationContainer,
+      leftBtn,
+      rightBtn,
       {
         onPrevious: () => {
           if (this.currentIndex > 0) {
@@ -28122,21 +28287,7 @@ class ReaderPanel {
       }
     );
     this.navButtonsController.render();
-    if (this.shadowRoot) {
-      this.tooltipManager = new TooltipManager(this.shadowRoot);
-      const dots = this.paginationController.getDots();
-      dots.forEach((dot, index) => {
-        this.tooltipManager.attach(dot, {
-          index,
-          text: this.items[index].userPrompt || `Message ${index + 1}`,
-          maxLength: 100
-        });
-      });
-    }
-    const hint = document.createElement("span");
-    hint.className = "aicopy-keyboard-hint";
-    hint.textContent = '"← →" to navigate';
-    paginationContainer.appendChild(hint);
+    this.setupTooltips();
     return paginationContainer;
   }
   /**
@@ -28160,23 +28311,26 @@ class ReaderPanel {
         logger$1.debug("[ReaderPanel] Send clicked:", text.substring(0, 50));
         this.floatingInput?.hide();
         this.setTriggerButtonState("waiting");
-        let unwatch;
-        if (this.messageSender) {
-          unwatch = this.messageSender.watchSendButtonState((isLoading) => {
-            this.setTriggerButtonState(isLoading ? "waiting" : "default");
-            if (!isLoading && unwatch) {
-              unwatch();
-            }
-          });
-        }
         if (this.messageSender) {
           const success = await this.messageSender.send(text);
           logger$1.debug("[ReaderPanel] Send result:", success);
         }
-        setTimeout(() => {
-          unwatch?.();
-          this.setTriggerButtonState("default");
-        }, 1e4);
+        const adapter2 = adapterRegistry.getAdapter();
+        if (adapter2) {
+          const watcher = new StreamingDetector(adapter2);
+          const stopWatching = watcher.startWatching(() => {
+            logger$1.info("[ReaderPanel] Streaming complete detected via StreamingDetector");
+            this.setTriggerButtonState("default");
+          });
+          setTimeout(() => {
+            stopWatching();
+            this.setTriggerButtonState("default");
+          }, 3e4);
+        } else {
+          setTimeout(() => {
+            this.setTriggerButtonState("default");
+          }, 5e3);
+        }
       },
       onCollapse: (text) => {
         logger$1.debug("[ReaderPanel] FloatingInput collapsed, text length:", text.length);
@@ -28274,7 +28428,14 @@ class ReaderPanel {
    */
   async renderMessage(index) {
     const item = this.items[index];
+    const isLastItem = index === this.items.length - 1;
+    logger$1.debug(`[ReaderPanel] renderMessage(${index}/${this.items.length}), isLastItem=${isLastItem}`);
     let html = this.cache.get(index);
+    if (html && isLastItem) {
+      logger$1.warn(`[ReaderPanel] BUG: Last item has cached content! Invalidating...`);
+      this.cache.delete(index);
+      html = void 0;
+    }
     if (!html) {
       try {
         const t0 = performance.now();
@@ -28285,7 +28446,11 @@ class ReaderPanel {
         logger$1.debug(`[ReaderPanel] MarkdownRenderer.render: ${(performance.now() - t1).toFixed(2)}ms`);
         html = result.success ? result.html : result.fallback;
         html = html.replace(/^\s+/, "").trim();
-        this.cache.set(index, html);
+        if (index < this.items.length - 1) {
+          this.cache.set(index, html);
+        } else {
+          logger$1.debug(`[ReaderPanel] Volatile Tail: skipping cache for item ${index}`);
+        }
       } catch (error) {
         logger$1.error("[ReaderPanel] Render failed:", error);
         html = '<div class="markdown-fallback">Failed to render content</div>';
@@ -28319,6 +28484,22 @@ class ReaderPanel {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+  }
+  setupTooltips() {
+    if (!this.shadowRoot || !this.paginationController) return;
+    if (this.tooltipManager) {
+      this.tooltipManager.destroy();
+    }
+    this.tooltipManager = new TooltipManager(this.shadowRoot);
+    const dots = this.paginationController.getDots();
+    dots.forEach((dot, index) => {
+      if (index >= this.items.length) return;
+      this.tooltipManager.attach(dot, {
+        index,
+        text: this.items[index].userPrompt || `Message ${index + 1}`,
+        maxLength: 100
+      });
+    });
   }
   /**
    * 切换全屏模式
@@ -37087,6 +37268,7 @@ class ContentScript {
       const messageSelector = adapter2.getMessageSelector();
       const allMessages = document.querySelectorAll(messageSelector);
       eventBus.emit("message:new", { count: allMessages.length });
+      eventBus.emit("message:complete", { count: allMessages.length });
     }
   }
   /**

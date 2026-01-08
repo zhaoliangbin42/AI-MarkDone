@@ -15,19 +15,29 @@ export interface NavigationButtonsConfig {
 }
 
 export class NavigationButtonsController {
-    private container: HTMLElement;
     private config: NavigationButtonsConfig;
-    private leftButton: HTMLElement | null = null;
-    private rightButton: HTMLElement | null = null;
+    private leftButton: HTMLElement;
+    private rightButton: HTMLElement;
     private destroyed: boolean = false;
+    private abortController: AbortController | null = null;
 
-    constructor(container: HTMLElement, config: NavigationButtonsConfig) {
-        this.container = container;
+    /**
+     * @param leftButton - Existing DOM element for left navigation
+     * @param rightButton - Existing DOM element for right navigation
+     * @param config - Configuration options
+     */
+    constructor(leftButton: HTMLElement, rightButton: HTMLElement, config: NavigationButtonsConfig) {
+        if (!leftButton || !rightButton) {
+            throw new Error('[NavigationButtonsController] Constructor requires valid left and right button elements.');
+        }
+        this.leftButton = leftButton;
+        this.rightButton = rightButton;
         this.config = config;
     }
 
     /**
-     * Render navigation buttons
+     * Render navigation buttons (Bind events)
+     * Note: Does NOT create elements, only binds logic.
      */
     render(): void {
         if (this.destroyed) {
@@ -35,40 +45,33 @@ export class NavigationButtonsController {
             return;
         }
 
-        // Create buttons
-        this.leftButton = this.createButton('left', '◀', this.config.onPrevious);
-        this.rightButton = this.createButton('right', '▶', this.config.onNext);
+        // Cleanup previous listeners if any
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+        this.abortController = new AbortController();
+        const { signal } = this.abortController;
 
-        // Insert left button at beginning, right button at end
-        this.container.insertBefore(this.leftButton, this.container.firstChild);
-        this.container.appendChild(this.rightButton);
+        // Bind events
+        this.leftButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.config.onPrevious();
+        }, { signal });
+
+        this.rightButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.config.onNext();
+        }, { signal });
 
         // Update enabled state
         this.updateButtonStates();
     }
 
     /**
-     * Create a single navigation button
-     */
-    private createButton(direction: 'left' | 'right', icon: string, onClick: () => void): HTMLElement {
-        const button = document.createElement('button');
-        button.className = `aicopy-nav-button aicopy-nav-button-${direction}`;
-        button.innerHTML = icon;
-        button.setAttribute('aria-label', direction === 'left' ? 'Previous message' : 'Next message');
-
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onClick();
-        });
-
-        return button;
-    }
-
-    /**
      * Update button enabled/disabled states
      */
     updateButtonStates(): void {
-        if (!this.leftButton || !this.rightButton) return;
+        if (this.destroyed) return;
 
         if (this.config.canGoPrevious) {
             this.leftButton.removeAttribute('disabled');
@@ -98,7 +101,7 @@ export class NavigationButtonsController {
     /**
      * Get button elements
      */
-    getButtons(): { left: HTMLElement | null; right: HTMLElement | null } {
+    getButtons(): { left: HTMLElement; right: HTMLElement } {
         return {
             left: this.leftButton,
             right: this.rightButton
@@ -107,14 +110,16 @@ export class NavigationButtonsController {
 
     /**
      * Cleanup
+     * STRICT AUDIT: Only aborts events, NEVER removes DOM elements.
      */
     destroy(): void {
         if (this.destroyed) return;
 
-        this.leftButton?.remove();
-        this.rightButton?.remove();
-        this.leftButton = null;
-        this.rightButton = null;
+        // Abort all event listeners
+        this.abortController?.abort();
+        this.abortController = null;
+
+        // Mark as destroyed but keep references (or nullify if preferred, but DOM stays)
         this.destroyed = true;
     }
 }

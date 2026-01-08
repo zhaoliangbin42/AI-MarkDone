@@ -206,45 +206,16 @@ export class DotPaginationController {
 
         console.log(`[DotPaginationController] updateTotalItems: ${this.config.totalItems} -> ${newTotal}`);
 
-        const oldTotal = this.config.totalItems;
+
         this.config.totalItems = newTotal;
 
-        // Recalculate sizing for new count
-        const sizing = this.calculateDotSize();
-        this.container.style.setProperty('--dot-size', `${sizing.size}px`);
-        this.container.style.setProperty('--dot-gap', `${sizing.gap}px`);
-
-        if (newTotal > oldTotal) {
-            // Find right navigation button to insert before it
-            const rightNavBtn = this.container.querySelector('.aicopy-nav-button-right');
-
-            // Add new dots before the right nav button (or at end if not found)
-            for (let i = oldTotal; i < newTotal; i++) {
-                const dot = this.createDot(i);
-                this.dots.push(dot);
-                if (rightNavBtn) {
-                    this.container.insertBefore(dot, rightNavBtn);
-                } else {
-                    this.container.appendChild(dot);
-                }
-            }
-            console.log(`[DotPaginationController] Added ${newTotal - oldTotal} new dots`);
-        } else {
-            // Remove dots from the end
-            const dotsToRemove = oldTotal - newTotal;
-            for (let i = 0; i < dotsToRemove; i++) {
-                const dot = this.dots.pop();
-                dot?.remove();
-            }
-            console.log(`[DotPaginationController] Removed ${dotsToRemove} dots`);
-
-            // Adjust current index if needed
-            if (this.config.currentIndex >= newTotal) {
-                this.config.currentIndex = newTotal - 1;
-            }
+        // Check if index adjustment is needed before render
+        if (this.config.currentIndex >= newTotal) {
+            this.config.currentIndex = newTotal - 1;
         }
 
-        this.updateActiveDot();
+        // Dedicated container allows full re-render safely
+        this.render();
     }
 
     /**

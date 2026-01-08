@@ -381,6 +381,8 @@ class ContentScript {
             const messageSelector = adapter2.getMessageSelector();
             const allMessages = document.querySelectorAll(messageSelector);
             eventBus.emit('message:new', { count: allMessages.length });
+            // ✅ Emit completion event for ReaderPanel trigger button state
+            eventBus.emit('message:complete', { count: allMessages.length });
         }
     }
     /**

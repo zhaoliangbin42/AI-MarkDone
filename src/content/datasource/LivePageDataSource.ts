@@ -33,13 +33,9 @@ export function collectFromLivePage(getMarkdown: GetMarkdownFn): ReaderItem[] {
         id: index,
         userPrompt: ref.userPrompt || `Message ${index + 1}`,
         // 懒加载：只有访问时才解析 DOM
-        content: () => {
-            if (ref.parsed) {
-                return ref.parsed;
-            }
-            ref.parsed = getMarkdown(ref.element);
-            return ref.parsed;
-        },
+        // 注意：不再在此处缓存结果，由 ReaderPanel 的 LRUCache 统一管理
+        // 这样可以确保 "Volatile Tail" 策略正确生效
+        content: () => getMarkdown(ref.element),
         meta: {
             platform,
             platformIcon

@@ -12,13 +12,20 @@ export const floatingInputStyles = `
 .aimd-floating-input {
   position: absolute;
   bottom: 100%;
-  left: 0;
+  left: 10px;
   margin-bottom: var(--aimd-space-2);
   
   width: 400px;
   height: 300px;
   min-width: 280px;
   min-height: 150px;
+  
+  /* 
+   * Max height constraint: prevent exceeding panel bounds in non-fullscreen mode
+   * The floating input should not overflow above the panel header
+   * calc: available height = panel height - header(~60px) - pagination(~60px) - margins
+   */
+  max-height: calc(100vh - 20vh - 120px);
   
   /* Glass background */
   background: var(--aimd-panel-bg);

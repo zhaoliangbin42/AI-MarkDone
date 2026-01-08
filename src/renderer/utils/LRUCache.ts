@@ -67,6 +67,19 @@ export class LRUCache<K, V> {
     }
 
     /**
+     * Delete value by key (O(1))
+     */
+    delete(key: K): boolean {
+        const node = this.map.get(key);
+        if (!node) return false;
+
+        this.removeNode(node);
+        this.map.delete(key);
+        this.currentSize--;
+        return true;
+    }
+
+    /**
      * Clear cache
      */
     clear(): void {

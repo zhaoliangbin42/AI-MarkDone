@@ -16,6 +16,8 @@ import { logger } from '../../utils/logger';
 import { ReaderItem, resolveContent } from '../types/ReaderTypes';
 import { collectFromLivePage, getMessageRefs } from '../datasource/LivePageDataSource';
 import { eventBus } from '../utils/EventBus';
+import { MarkdownParser } from '../parsers/markdown-parser';
+import { StreamingDetector } from '../adapters/streaming-detector';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -45,6 +47,8 @@ export class ReaderPanel {
     private paginationController: DotPaginationController | null = null;
     private navButtonsController: NavigationButtonsController | null = null;
     private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+    private getMarkdownFn: GetMarkdownFn | null = null;
+    private fallbackParser: MarkdownParser | null = null;
 
     // Message sending UI components
     private floatingInput: FloatingInput | null = null;
@@ -91,6 +95,9 @@ export class ReaderPanel {
     async show(messageElement: HTMLElement, getMarkdown: GetMarkdownFn): Promise<void> {
         const startTime = performance.now();
         logger.debug('[ReaderPanel] START show (compat layer)');
+
+        // Save strategy for dynamic updates
+        this.getMarkdownFn = getMarkdown;
 
         // 使用新的数据源适配器收集数据
         const items = collectFromLivePage(getMarkdown);
@@ -139,6 +146,9 @@ export class ReaderPanel {
         this.isSending = false;
         this.messageSender?.destroy();
         this.messageSender = null;
+        // Do NOT clear getMarkdownFn here, as hide() is called just before show()
+        // If we clear it, showWithData might lose access if it relies on persistent fn
+        // this.getMarkdownFn = null;
 
         if (this.keyHandler) {
             document.removeEventListener('keydown', this.keyHandler);
@@ -151,34 +161,82 @@ export class ReaderPanel {
     }
 
     /**
+     * 统一 UI 同步方法 (The Unified Update Path)
+     * 核心逻辑：Data -> State -> UI Side Effects
+     */
+    private syncUIWithData(newItems: ReaderItem[]): void {
+        const oldLength = this.items.length;
+        const newLength = newItems.length;
+
+        // 1. Data Desync Fix: Update Source of Truth
+        logger.debug(`[ReaderPanel] syncUIWithData: updating items ${this.items.length} -> ${newItems.length}`);
+        this.items = newItems;
+
+        // 2. Pagination Update (Visual)
+        // DotPaginationController handles re-rendering internally
+        this.paginationController?.updateTotalItems(newLength);
+
+        // 3. Navigation Buttons Update (Enable/Disable based on current position)
+        // ✅ FIX: Update nav buttons when items change
+        this.navButtonsController?.updateConfig({
+            canGoPrevious: this.currentIndex > 0,
+            canGoNext: this.currentIndex < newLength - 1
+        });
+
+        // 4. Side Effects Restoration (Tooltips)
+        // Re-bind tooltips to new elements
+        this.setupTooltips();
+
+        // 5. Notify User
+        if (newLength > oldLength) {
+            logger.info(`[ReaderPanel] Synced UI: ${oldLength} -> ${newLength} items`);
+        }
+    }
+
+    /**
      * 刷新数据项（用于实时更新分页）
      */
-    private async refreshItems(): Promise<void> {
-        // 获取 adapter 来查询消息
+    /**
+     * Get Markdown from message element via ContentScript linkage
+     * Note: This is a fallback if getMarkdownFn is missing.
+     * ideally we should depend on the one passed in show()
+     */
+    private getMarkdown(messageElement: HTMLElement): string {
+        // Lazy instantiate parser if needed
+        if (!this.fallbackParser) {
+            this.fallbackParser = new MarkdownParser();
+        }
+        return this.fallbackParser.parse(messageElement);
+    }
+
+    private async refreshItems(force: boolean = false): Promise<void> {
+        if (!this.getMarkdownFn) {
+            logger.warn('[ReaderPanel] Cannot refresh: missing getMarkdownFn');
+            return;
+        }
+
+        // 1. Re-collect Data (To ensure correct length and IDs)
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) return;
 
-        const messageSelector = adapter.getMessageSelector();
-        const newCount = document.querySelectorAll(messageSelector).length;
+        // Optimization: Quick check count first ?
+        // But collecting is fast (DOM scan), so we just collect to be safe
+        // Or wait, MessageCollector.collectMessages() scans all.
+        // Let's just run collection.
+        // If no external parser fn provided, fallback to internal method if possible
+        const fn = this.getMarkdownFn || ((el: HTMLElement) => this.getMarkdown(el));
+        const newItems = collectFromLivePage(fn);
+        logger.debug(`[ReaderPanel] refreshItems: collected ${newItems.length} items (current: ${this.items.length})`);
 
-        if (newCount === this.items.length) {
-            return; // 没有变化
+        if (newItems.length === this.items.length && !force) {
+            logger.debug('[ReaderPanel] refreshItems: no count change, skipping update');
+            return;
         }
 
-        logger.info(`[ReaderPanel] Refreshing items: ${this.items.length} -> ${newCount}`);
+        logger.info(`[ReaderPanel] New messages detected: ${this.items.length} -> ${newItems.length}`);
 
-        // 注意：这里只更新分页数量，不重新收集 items
-        // 因为 items 已经绑定了 getMarkdown 函数，我们只需要更新分页点
-        const wasAtLast = this.currentIndex === this.items.length - 1;
-
-        // 更新分页控制器
-        this.paginationController?.updateTotalItems(newCount);
-
-        // 提示用户有新消息（可选）
-        if (wasAtLast && newCount > this.items.length) {
-            // 可以在这里添加视觉提示
-            logger.info(`[ReaderPanel] New message available`);
-        }
+        // 2. Execute Unified Update
+        this.syncUIWithData(newItems);
     }
 
     /**
@@ -234,8 +292,16 @@ export class ReaderPanel {
 
         // 订阅新消息事件，用于实时更新分页
         this.unsubscribeNewMessage = eventBus.on<{ count: number }>('message:new', ({ count }) => {
+            logger.debug(`[ReaderPanel] EventBus received 'message:new', count: ${count}, current items: ${this.items.length}`);
             if (count !== this.items.length) {
-                logger.info(`[ReaderPanel] New message detected: ${this.items.length} -> ${count}`);
+                logger.info(`[ReaderPanel] New message event detected change: ${this.items.length} -> ${count}`);
+                this.refreshItems();
+            } else {
+                // Double check in case event count is stale but DOM is new
+                // Sometimes mutation observer fires before querySelectorAll catches up?
+                // Or maybe we should trust the event?
+                // Let's force a check if we suspect desync, but for now just log.
+                logger.debug('[ReaderPanel] Event count matches current items, checking anyway');
                 this.refreshItems();
             }
         });
@@ -283,7 +349,7 @@ export class ReaderPanel {
         header.className = 'aicopy-panel-header';
         header.innerHTML = `
             <div class="aicopy-panel-header-left">
-                <h2 class="aicopy-panel-title">Reader</h2>
+                <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
                 <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
@@ -300,32 +366,68 @@ export class ReaderPanel {
     }
 
     /**
-     * 创建分页控件
+     * 创建分页控件 (Refactored for Structural Isolation)
      */
     private createPagination(): HTMLElement {
+        // STRICT AUDIT: Structural Isolation Pattern
+        // ReaderPanel explicitly constructs the layout skeleton.
         const paginationContainer = document.createElement('div');
         paginationContainer.className = 'aicopy-pagination';
 
         logger.debug(`[ReaderPanel] Creating pagination for ${this.items.length} items`);
 
-        // 初始化分页控制器
-        this.paginationController = new DotPaginationController(paginationContainer, {
+        // 1. Trigger Area (Created via existing method)
+        // Note: The Trigger is complex (floating input etc), so we keep creating it via helper
+        const triggerWrapper = this.createMessageTriggerButton();
+
+        // 2. Navigation Left
+        const leftBtn = document.createElement('button');
+        leftBtn.className = 'aicopy-nav-button aicopy-nav-button-left';
+        leftBtn.innerHTML = '◀';
+        leftBtn.setAttribute('aria-label', 'Previous message'); // Accessibility
+        leftBtn.disabled = true; // Initial state
+
+        // 3. Dots Container (Dedicated Isolation Zone)
+        const dotsContainer = document.createElement('div');
+        dotsContainer.className = 'aicopy-pagination-dots-container';
+
+        // 4. Navigation Right
+        const rightBtn = document.createElement('button');
+        rightBtn.className = 'aicopy-nav-button aicopy-nav-button-right';
+        rightBtn.innerHTML = '▶';
+        rightBtn.setAttribute('aria-label', 'Next message');
+        rightBtn.disabled = true;
+
+        // 5. Hint
+        const hint = document.createElement('span');
+        hint.className = 'aicopy-keyboard-hint';
+        hint.textContent = '"← →" to navigate';
+
+        // Assemble Skeleton (Explicit Order)
+        paginationContainer.appendChild(triggerWrapper);
+        paginationContainer.appendChild(leftBtn);
+        paginationContainer.appendChild(dotsContainer);
+        paginationContainer.appendChild(rightBtn);
+        paginationContainer.appendChild(hint);
+
+        // --- Controller Initialization ---
+
+        // 1. DotPaginationController (Inject Dedicated Container)
+        this.paginationController = new DotPaginationController(dotsContainer, {
             totalItems: this.items.length,
             currentIndex: this.currentIndex,
             onNavigate: (index) => this.navigateTo(index)
         });
-
         this.paginationController.render();
 
-        logger.debug(`[ReaderPanel] Pagination rendered, container has ${this.paginationController.getDots().length} dots`);
+        // 2. NavigationButtonsController (Inject Buttons + Defensive Check)
+        if (!leftBtn || !rightBtn) {
+            throw new Error('[ReaderPanel] Critical: Navigation buttons not created');
+        }
 
-        // 创建消息发送触发按钮（插入到最左侧）
-        const triggerWrapper = this.createMessageTriggerButton();
-        paginationContainer.insertBefore(triggerWrapper, paginationContainer.firstChild);
-
-        // 创建导航按钮控制器
         this.navButtonsController = new NavigationButtonsController(
-            paginationContainer,
+            leftBtn,
+            rightBtn,
             {
                 onPrevious: () => {
                     if (this.currentIndex > 0) {
@@ -343,25 +445,8 @@ export class ReaderPanel {
         );
         this.navButtonsController.render();
 
-        // 初始化提示管理器
-        if (this.shadowRoot) {
-            this.tooltipManager = new TooltipManager(this.shadowRoot);
-            const dots = this.paginationController.getDots();
-
-            dots.forEach((dot, index) => {
-                this.tooltipManager!.attach(dot, {
-                    index,
-                    text: this.items[index].userPrompt || `Message ${index + 1}`,
-                    maxLength: 100
-                });
-            });
-        }
-
-        // 添加键盘提示
-        const hint = document.createElement('span');
-        hint.className = 'aicopy-keyboard-hint';
-        hint.textContent = '"← →" to navigate';
-        paginationContainer.appendChild(hint);
+        // 3. Tooltips Setup (Unified Logic)
+        this.setupTooltips();
 
         return paginationContainer;
     }
@@ -394,28 +479,32 @@ export class ReaderPanel {
                 this.floatingInput?.hide();
                 this.setTriggerButtonState('waiting');
 
-                // 监听官方按钮状态
-                let unwatch: (() => void) | undefined;
-                if (this.messageSender) {
-                    unwatch = this.messageSender.watchSendButtonState((isLoading) => {
-                        this.setTriggerButtonState(isLoading ? 'waiting' : 'default');
-                        if (!isLoading && unwatch) {
-                            unwatch();
-                        }
-                    });
-                }
-
                 // 发送消息
                 if (this.messageSender) {
                     const success = await this.messageSender.send(text);
                     logger.debug('[ReaderPanel] Send result:', success);
                 }
 
-                // 超时保护（10秒）
-                setTimeout(() => {
-                    unwatch?.();
-                    this.setTriggerButtonState('default');
-                }, 10000);
+                // 使用与工具栏完全相同的检测逻辑：Copy Button 出现
+                const adapter = adapterRegistry.getAdapter();
+                if (adapter) {
+                    const watcher = new StreamingDetector(adapter);
+                    const stopWatching = watcher.startWatching(() => {
+                        logger.info('[ReaderPanel] Streaming complete detected via StreamingDetector');
+                        this.setTriggerButtonState('default');
+                    });
+
+                    // 超时保护（30秒，仅作为最后防线）
+                    setTimeout(() => {
+                        stopWatching();
+                        this.setTriggerButtonState('default');
+                    }, 30000);
+                } else {
+                    // 无 adapter 时直接超时恢复
+                    setTimeout(() => {
+                        this.setTriggerButtonState('default');
+                    }, 5000);
+                }
             },
             onCollapse: (text) => {
                 logger.debug('[ReaderPanel] FloatingInput collapsed, text length:', text.length);
@@ -538,9 +627,18 @@ export class ReaderPanel {
      */
     private async renderMessage(index: number): Promise<void> {
         const item = this.items[index];
+        const isLastItem = index === this.items.length - 1;
 
-        // 检查缓存
+        logger.debug(`[ReaderPanel] renderMessage(${index}/${this.items.length}), isLastItem=${isLastItem}`);
+
+        // 检查缓存 - 注意：最后一条消息永远不会被缓存，所以这里应该返回 undefined
         let html = this.cache.get(index);
+        if (html && isLastItem) {
+            // 这不应该发生！如果发生了，说明有 bug
+            logger.warn(`[ReaderPanel] BUG: Last item has cached content! Invalidating...`);
+            this.cache.delete(index);
+            html = undefined;
+        }
 
         if (!html) {
             try {
@@ -558,8 +656,14 @@ export class ReaderPanel {
                 // 清理空白
                 html = html.replace(/^\s+/, '').trim();
 
-                // 缓存
-                this.cache.set(index, html);
+                // 缓存策略：只有非最后一条消息才缓存 (Volatile Tail: Last item is always fresh)
+                // 这样每次进入最后一条消息都会重新获取内容，保证流式更新可见
+                // 而历史消息则永久缓存，保证效率
+                if (index < this.items.length - 1) {
+                    this.cache.set(index, html);
+                } else {
+                    logger.debug(`[ReaderPanel] Volatile Tail: skipping cache for item ${index}`);
+                }
             } catch (error) {
                 logger.error('[ReaderPanel] Render failed:', error);
                 html = '<div class="markdown-fallback">Failed to render content</div>';
@@ -604,6 +708,29 @@ export class ReaderPanel {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    private setupTooltips(): void {
+        if (!this.shadowRoot || !this.paginationController) return;
+
+        // Destroy old manager if exists to clear bindings
+        if (this.tooltipManager) {
+            this.tooltipManager.destroy();
+        }
+
+        this.tooltipManager = new TooltipManager(this.shadowRoot);
+        const dots = this.paginationController.getDots();
+
+        dots.forEach((dot, index) => {
+            // Safety check for index mismatch
+            if (index >= this.items.length) return;
+
+            this.tooltipManager!.attach(dot, {
+                index,
+                text: this.items[index].userPrompt || `Message ${index + 1}`,
+                maxLength: 100
+            });
+        });
     }
 
     /**

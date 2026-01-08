@@ -27,7 +27,7 @@ cat docs/antigravity/style/LESSONS_LEARNED.md
 cat docs/antigravity/style/ICON_GUIDELINES.md
 
 # 查看 AI 开发规则 (通用规则)
-cat docs/antigravity/AI_DEVELOPMENT_RULES.md
+cat GEMINI.md
 ```
 
 ### 0.2 确认修改范围
@@ -240,7 +240,7 @@ grep -c "aimd-color-gray\|aimd-radius-small\|aimd-radius-medium\|aimd-radius-lar
 | Token 规范 | `docs/antigravity/style/TOKEN_REFERENCE.md` | 所有可用 Token |
 | 踩坑经验 | `docs/antigravity/style/LESSONS_LEARNED.md` | 历史问题与解决方案 |
 | 图标规范 | `docs/antigravity/style/ICON_GUIDELINES.md` | 图标存储与使用规则 |
-| AI 规则 | `docs/antigravity/AI_DEVELOPMENT_RULES.md` | 通用开发规范 |
+| AI 规则 | `GEMINI.md` | 通用开发规范 |
 | 设计 Token | `src/utils/design-tokens.ts` | Token 定义源码 |
 
 ---

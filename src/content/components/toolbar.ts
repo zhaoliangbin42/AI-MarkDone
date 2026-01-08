@@ -5,6 +5,7 @@ import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
 import { WordCounter } from '../parsers/word-counter';
 import { Icons } from '../../assets/icons';
+import { eventBus } from '../utils/EventBus';
 
 export interface ToolbarCallbacks {
     onCopyMarkdown: () => Promise<string>;
@@ -403,7 +404,8 @@ export class Toolbar {
      * Set pending/disabled state for streaming/thinking messages
      */
     setPending(isPending: boolean): void {
-        if (this.pending === isPending) return;
+        const wasPending = this.pending;
+        if (wasPending === isPending) return;
         this.pending = isPending;
 
         const toolbar = this.shadowRoot.querySelector('.aicopy-toolbar');
@@ -421,6 +423,12 @@ export class Toolbar {
         const stats = this.shadowRoot.querySelector('#word-stats');
         if (stats) {
             stats.textContent = isPending ? 'loading ...' : stats.textContent;
+        }
+
+        // ✅ Emit event when transitioning from pending to active
+        if (wasPending && !isPending) {
+            logger.debug('[Toolbar] Emitting toolbar:activated event');
+            eventBus.emit('toolbar:activated', {});
         }
 
         if (!isPending && !this.wordCountInitialized) {
