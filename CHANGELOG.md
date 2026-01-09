@@ -5,6 +5,24 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Dialog System**: Unified `DialogManager` and `DialogHost` for accessible, Shadow DOM-based alerts, confirms, and prompts.
+- **Bookmark Import**: Duplicate detection and merge dialog for imports.
+- **Storage Warning**: Storage quota warning system (95%/98% threshold alerts).
+
+### Changed
+- **Architecture**: Redesigned Z-Index architecture to use a rational hierarchy (1-10000) instead of `z-max`, fixing layering issues.
+- **Performance**: Significantly improved bookmark batch import speed (10-50x).
+- **Performance**: Significantly improved bookmark batch delete speed (25-75x).
+- **UI**: Changed import dialog interface to English.
+
+### Fixed
+- **Bookmarks**: Fixed duplicate handling logic during bookmark import.
+- **Bookmarks**: Fixed detailed count display in import success message.
+- **Storage**: Corrected storage limit constant (5MB → 10MB).
+
 ## [2.2.0] - 2026-01-08
 
 ### Added
@@ -85,7 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## Roadmap
 
 ### Planned for v0.6
 - Keyboard shortcuts (Cmd+C override)

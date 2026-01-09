@@ -2502,7 +2502,10 @@ class DesignTokens {
                 --aimd-z-modal: 1050;
                 --aimd-z-popover: 1060;
                 --aimd-z-tooltip: 1070;
-                --aimd-z-max: 2147483647;
+                --aimd-z-panel: 9000;
+                --aimd-z-dialog: 9500;
+                --aimd-z-notification: 9800;
+                --aimd-z-max: 10000;
                 
                 /* --- Shadow Tokens (Dark Mode) --- */
                 --aimd-shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.25);
@@ -2746,7 +2749,10 @@ class DesignTokens {
                 --aimd-z-modal: 1050;
                 --aimd-z-popover: 1060;
                 --aimd-z-tooltip: 1070;
-                --aimd-z-max: 2147483647;
+                --aimd-z-panel: 9000;
+                --aimd-z-dialog: 9500;
+                --aimd-z-notification: 9800;
+                --aimd-z-max: 10000;
                 
                 /* --- Shadow Tokens (Light Mode) --- */
                 --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.15);
@@ -26685,7 +26691,7 @@ const readerPanelStyles = `
   right: 0;
   bottom: 0;
   background: var(--aimd-bg-overlay-heavy);
-  z-index: var(--aimd-z-max);
+  z-index: var(--aimd-z-panel);
   backdrop-filter: blur(3px);
 }
 
@@ -26708,7 +26714,7 @@ const readerPanelStyles = `
   
   display: flex;
   flex-direction: column;
-  z-index: var(--aimd-z-max);
+  z-index: var(--aimd-z-panel);
   overflow: hidden;
   animation: modalFadeIn 0.2s ease;
   
@@ -30374,6 +30380,620 @@ class TreeBuilder {
   }
 }
 
+const dialogStyles = `
+    /* ============================================
+       DIALOG OVERLAY
+       ============================================ */
+    .dialog-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: var(--aimd-z-dialog);
+        background: var(--aimd-bg-overlay-heavy);
+        backdrop-filter: var(--aimd-overlay-backdrop);
+        -webkit-backdrop-filter: var(--aimd-overlay-backdrop);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: dialogFadeIn var(--aimd-duration-fast) var(--aimd-ease-out);
+        pointer-events: auto; /* Restore click handling (container has pointer-events: none) */
+    }
+
+    /* ============================================
+       DIALOG CONTAINER
+       ============================================ */
+    .dialog-container {
+        position: relative;
+        background: var(--aimd-bg-primary);
+        color: var(--aimd-text-primary);
+        border: 1px solid var(--aimd-border-default);
+        border-radius: var(--aimd-radius-xl);
+        box-shadow: var(--aimd-shadow-xl);
+        min-width: 320px;
+        max-width: 480px;
+        width: 90%;
+        padding: 0;
+        margin: 0;
+        animation: dialogSlideIn var(--aimd-duration-base) var(--aimd-ease-out);
+        font-family: var(--aimd-font-sans);
+    }
+
+    /* Native dialog reset */
+    .dialog-container::backdrop {
+        display: none;
+    }
+
+    /* ============================================
+       DIALOG HEADER
+       ============================================ */
+    .dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--aimd-space-4) var(--aimd-space-6);
+        border-bottom: 1px solid var(--aimd-border-subtle);
+    }
+
+    .dialog-title {
+        margin: 0;
+        font-size: var(--aimd-text-lg);
+        font-weight: var(--aimd-font-semibold);
+        color: var(--aimd-text-primary);
+    }
+
+    .dialog-close-btn {
+        background: none;
+        border: none;
+        font-size: var(--aimd-text-2xl);
+        color: var(--aimd-text-secondary);
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--aimd-radius-md);
+        transition: all var(--aimd-duration-fast) var(--aimd-ease-in-out);
+    }
+
+    .dialog-close-btn:hover {
+        background: var(--aimd-interactive-hover);
+        color: var(--aimd-text-primary);
+    }
+
+    /* ============================================
+       DIALOG BODY
+       ============================================ */
+    .dialog-body {
+        padding: var(--aimd-space-4) var(--aimd-space-6);
+    }
+
+    .dialog-message {
+        margin: 0;
+        font-size: var(--aimd-text-base);
+        color: var(--aimd-text-secondary);
+        line-height: var(--aimd-leading-normal);
+    }
+
+    /* ============================================
+       DIALOG INPUT (for Prompt)
+       ============================================ */
+    .dialog-input-wrapper {
+        margin-top: var(--aimd-space-3);
+    }
+
+    .dialog-input {
+        width: 100%;
+        padding: var(--aimd-space-2) var(--aimd-space-3);
+        border: 1.5px solid var(--aimd-border-default);
+        border-radius: var(--aimd-radius-md);
+        font-size: var(--aimd-text-base);
+        font-family: var(--aimd-font-sans);
+        background: var(--aimd-bg-primary);
+        color: var(--aimd-text-primary);
+        box-sizing: border-box;
+        transition: border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+                    box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+    }
+
+    .dialog-input::placeholder {
+        color: var(--aimd-text-tertiary);
+    }
+
+    .dialog-input:focus {
+        outline: none;
+        border-color: var(--aimd-border-focus);
+        box-shadow: var(--aimd-shadow-focus);
+    }
+
+    .dialog-input.error {
+        border-color: var(--aimd-interactive-danger);
+    }
+
+    .dialog-input-error {
+        margin-top: var(--aimd-space-1);
+        font-size: var(--aimd-text-sm);
+        color: var(--aimd-interactive-danger);
+        display: none;
+    }
+
+    .dialog-input-error.visible {
+        display: block;
+    }
+
+    /* ============================================
+       DIALOG FOOTER
+       ============================================ */
+    .dialog-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--aimd-space-2);
+        padding: var(--aimd-space-4) var(--aimd-space-6);
+        border-top: 1px solid var(--aimd-border-subtle);
+    }
+
+    /* ============================================
+       DIALOG BUTTONS
+       ============================================ */
+    .dialog-btn {
+        padding: var(--aimd-space-2) var(--aimd-space-4);
+        border-radius: var(--aimd-radius-md);
+        font-size: var(--aimd-text-sm);
+        font-weight: var(--aimd-font-medium);
+        font-family: var(--aimd-font-sans);
+        cursor: pointer;
+        border: none;
+        transition: all var(--aimd-duration-fast) var(--aimd-ease-in-out);
+    }
+
+    .dialog-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* Secondary Button (Cancel) */
+    .dialog-btn-secondary {
+        background: var(--aimd-button-secondary-bg);
+        color: var(--aimd-button-secondary-text);
+        border: 1px solid var(--aimd-border-default);
+    }
+
+    .dialog-btn-secondary:hover:not(:disabled) {
+        background: var(--aimd-button-secondary-hover);
+    }
+
+    /* Primary Button (OK/Confirm) */
+    .dialog-btn-primary {
+        background: var(--aimd-button-primary-bg);
+        color: var(--aimd-button-primary-text);
+    }
+
+    .dialog-btn-primary:hover:not(:disabled) {
+        background: var(--aimd-button-primary-hover);
+    }
+
+    /* Danger Button (Delete/Destructive) */
+    .dialog-btn-danger {
+        background: var(--aimd-button-danger-bg);
+        color: var(--aimd-button-danger-text);
+    }
+
+    .dialog-btn-danger:hover:not(:disabled) {
+        background: var(--aimd-button-danger-hover);
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    @keyframes dialogFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes dialogSlideIn {
+        from { 
+            opacity: 0; 
+            transform: translateY(-20px) scale(0.95); 
+        }
+        to { 
+            opacity: 1; 
+            transform: translateY(0) scale(1); 
+        }
+    }
+
+    @keyframes dialogFadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+    }
+
+    @keyframes dialogSlideOut {
+        from { 
+            opacity: 1; 
+            transform: translateY(0) scale(1); 
+        }
+        to { 
+            opacity: 0; 
+            transform: translateY(-20px) scale(0.95); 
+        }
+    }
+`;
+
+class DialogHost {
+  container = null;
+  shadowRoot = null;
+  abortController = null;
+  resolvePromise = null;
+  /**
+   * Mount the dialog host to the document body
+   */
+  mount() {
+    if (this.container) return;
+    this.container = document.createElement("div");
+    this.container.className = "aimd-dialog-host";
+    this.container.style.position = "fixed";
+    this.container.style.inset = "0";
+    this.container.style.zIndex = "var(--aimd-z-dialog)";
+    this.container.style.pointerEvents = "none";
+    this.shadowRoot = this.container.attachShadow({ mode: "open" });
+    this.injectStyles();
+    document.body.appendChild(this.container);
+  }
+  /**
+   * Unmount and cleanup the dialog host
+   */
+  unmount() {
+    this.abortController?.abort();
+    this.abortController = null;
+    if (this.container && this.container.parentNode) {
+      this.container.remove();
+    }
+    this.container = null;
+    this.shadowRoot = null;
+    this.resolvePromise = null;
+  }
+  /**
+   * Show an alert dialog
+   */
+  async showAlert(options) {
+    return new Promise((resolve) => {
+      this.resolvePromise = resolve;
+      this.renderAlertDialog(options);
+    });
+  }
+  /**
+   * Show a confirm dialog
+   */
+  async showConfirm(options) {
+    return new Promise((resolve) => {
+      this.resolvePromise = resolve;
+      this.renderConfirmDialog(options);
+    });
+  }
+  /**
+   * Show a prompt dialog
+   */
+  async showPrompt(options) {
+    return new Promise((resolve) => {
+      this.resolvePromise = resolve;
+      this.renderPromptDialog(options);
+    });
+  }
+  /**
+   * Inject styles into Shadow DOM
+   */
+  injectStyles() {
+    if (!this.shadowRoot) return;
+    const isDark = ThemeManager.getInstance().isDarkMode();
+    const tokens = isDark ? DesignTokens.getDarkTokens() : DesignTokens.getLightTokens();
+    const styleElement = document.createElement("style");
+    styleElement.textContent = `
+            :host { ${tokens} }
+            * { box-sizing: border-box; }
+            ${dialogStyles}
+        `;
+    this.shadowRoot.appendChild(styleElement);
+  }
+  /**
+   * Render alert dialog
+   */
+  renderAlertDialog(options) {
+    if (!this.shadowRoot) return;
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+    const overlay = this.createOverlay();
+    const dialog = document.createElement("div");
+    dialog.className = "dialog-container";
+    dialog.setAttribute("role", "alertdialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "dialog-title");
+    const title = options.title || "Notice";
+    const buttonText = options.buttonText || "OK";
+    dialog.innerHTML = `
+            <div class="dialog-header">
+                <h2 class="dialog-title" id="dialog-title">${this.escapeHtml(title)}</h2>
+            </div>
+            <div class="dialog-body">
+                <p class="dialog-message">${this.escapeHtml(options.message)}</p>
+            </div>
+            <div class="dialog-footer">
+                <button class="dialog-btn dialog-btn-primary" id="dialog-ok">${this.escapeHtml(buttonText)}</button>
+            </div>
+        `;
+    overlay.appendChild(dialog);
+    this.shadowRoot.appendChild(overlay);
+    const okBtn = dialog.querySelector("#dialog-ok");
+    okBtn?.focus();
+    okBtn?.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(void 0);
+    }, { signal });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        this.closeDialog();
+        this.resolvePromise?.(void 0);
+      }
+    }, { signal });
+    dialog.addEventListener("click", (e) => e.stopPropagation(), { signal });
+    overlay.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(void 0);
+    }, { signal });
+  }
+  /**
+   * Render confirm dialog
+   */
+  renderConfirmDialog(options) {
+    if (!this.shadowRoot) return;
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+    const overlay = this.createOverlay();
+    const dialog = document.createElement("div");
+    dialog.className = "dialog-container";
+    dialog.setAttribute("role", "alertdialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "dialog-title");
+    const title = options.title || "Confirm";
+    const confirmText = options.confirmText || "Confirm";
+    const cancelText = options.cancelText || "Cancel";
+    const confirmBtnClass = options.danger ? "dialog-btn-danger" : "dialog-btn-primary";
+    dialog.innerHTML = `
+            <div class="dialog-header">
+                <h2 class="dialog-title" id="dialog-title">${this.escapeHtml(title)}</h2>
+            </div>
+            <div class="dialog-body">
+                <p class="dialog-message">${this.escapeHtml(options.message)}</p>
+            </div>
+            <div class="dialog-footer">
+                <button class="dialog-btn dialog-btn-secondary" id="dialog-cancel">${this.escapeHtml(cancelText)}</button>
+                <button class="dialog-btn ${confirmBtnClass}" id="dialog-confirm">${this.escapeHtml(confirmText)}</button>
+            </div>
+        `;
+    overlay.appendChild(dialog);
+    this.shadowRoot.appendChild(overlay);
+    const confirmBtn = dialog.querySelector("#dialog-confirm");
+    confirmBtn?.focus();
+    const cancelBtn = dialog.querySelector("#dialog-cancel");
+    confirmBtn?.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(true);
+    }, { signal });
+    cancelBtn?.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(false);
+    }, { signal });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        this.closeDialog();
+        this.resolvePromise?.(false);
+      }
+    }, { signal });
+    dialog.addEventListener("click", (e) => e.stopPropagation(), { signal });
+    overlay.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(false);
+    }, { signal });
+  }
+  /**
+   * Render prompt dialog
+   */
+  renderPromptDialog(options) {
+    if (!this.shadowRoot) return;
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+    const overlay = this.createOverlay();
+    const dialog = document.createElement("div");
+    dialog.className = "dialog-container";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "dialog-title");
+    const title = options.title || "Input";
+    const confirmText = options.confirmText || "OK";
+    const cancelText = options.cancelText || "Cancel";
+    const placeholder = options.placeholder || "";
+    const defaultValue = options.defaultValue || "";
+    dialog.innerHTML = `
+            <div class="dialog-header">
+                <h2 class="dialog-title" id="dialog-title">${this.escapeHtml(title)}</h2>
+            </div>
+            <div class="dialog-body">
+                ${options.message ? `<p class="dialog-message">${this.escapeHtml(options.message)}</p>` : ""}
+                <div class="dialog-input-wrapper">
+                    <input type="text" 
+                           class="dialog-input" 
+                           id="dialog-input"
+                           placeholder="${this.escapeAttr(placeholder)}"
+                           value="${this.escapeAttr(defaultValue)}"
+                           autocomplete="off">
+                    <div class="dialog-input-error" id="dialog-error"></div>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="dialog-btn dialog-btn-secondary" id="dialog-cancel">${this.escapeHtml(cancelText)}</button>
+                <button class="dialog-btn dialog-btn-primary" id="dialog-confirm">${this.escapeHtml(confirmText)}</button>
+            </div>
+        `;
+    overlay.appendChild(dialog);
+    this.shadowRoot.appendChild(overlay);
+    const inputEl = dialog.querySelector("#dialog-input");
+    const confirmBtn = dialog.querySelector("#dialog-confirm");
+    const cancelBtn = dialog.querySelector("#dialog-cancel");
+    const errorEl = dialog.querySelector("#dialog-error");
+    inputEl?.focus();
+    inputEl?.select();
+    const validateInput = () => {
+      if (!options.validation) return true;
+      const result = options.validation(inputEl.value);
+      if (!result.valid) {
+        inputEl.classList.add("error");
+        errorEl.textContent = result.error || "Invalid input";
+        errorEl.classList.add("visible");
+        return false;
+      } else {
+        inputEl.classList.remove("error");
+        errorEl.classList.remove("visible");
+        return true;
+      }
+    };
+    const handleSubmit = () => {
+      if (validateInput()) {
+        this.closeDialog();
+        this.resolvePromise?.(inputEl.value);
+      }
+    };
+    confirmBtn?.addEventListener("click", handleSubmit, { signal });
+    cancelBtn?.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(null);
+    }, { signal });
+    inputEl?.addEventListener("input", () => {
+      if (options.validation) {
+        validateInput();
+      }
+    }, { signal });
+    inputEl?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSubmit();
+      }
+    }, { signal });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        this.closeDialog();
+        this.resolvePromise?.(null);
+      }
+    }, { signal });
+    dialog.addEventListener("click", (e) => e.stopPropagation(), { signal });
+    overlay.addEventListener("click", () => {
+      this.closeDialog();
+      this.resolvePromise?.(null);
+    }, { signal });
+  }
+  /**
+   * Create overlay element
+   */
+  createOverlay() {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    return overlay;
+  }
+  /**
+   * Close the current dialog
+   */
+  closeDialog() {
+    this.abortController?.abort();
+    this.abortController = null;
+    if (this.shadowRoot) {
+      const overlay = this.shadowRoot.querySelector(".dialog-overlay");
+      overlay?.remove();
+    }
+  }
+  /**
+   * Escape HTML for safe rendering
+   */
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  /**
+   * Escape attribute value
+   */
+  escapeAttr(text) {
+    return text.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+}
+
+class DialogManager {
+  static instance = null;
+  host = null;
+  /**
+   * Private constructor for singleton pattern
+   */
+  constructor() {
+  }
+  /**
+   * Get the singleton instance
+   */
+  static getInstance() {
+    if (!DialogManager.instance) {
+      DialogManager.instance = new DialogManager();
+    }
+    return DialogManager.instance;
+  }
+  /**
+   * Ensure the dialog host is mounted
+   */
+  ensureHost() {
+    if (!this.host) {
+      this.host = new DialogHost();
+    }
+    this.host.mount();
+    return this.host;
+  }
+  /**
+   * Show an alert dialog
+   * 
+   * @param options Alert options
+   * @returns Promise that resolves when dialog is closed
+   */
+  static async alert(options) {
+    const manager = DialogManager.getInstance();
+    const host = manager.ensureHost();
+    return host.showAlert(options);
+  }
+  /**
+   * Show a confirm dialog
+   * 
+   * @param options Confirm options
+   * @returns Promise that resolves to true if confirmed, false if cancelled
+   */
+  static async confirm(options) {
+    const manager = DialogManager.getInstance();
+    const host = manager.ensureHost();
+    return host.showConfirm(options);
+  }
+  /**
+   * Show a prompt dialog
+   * 
+   * @param options Prompt options
+   * @returns Promise that resolves to the input value, or null if cancelled
+   */
+  static async prompt(options) {
+    const manager = DialogManager.getInstance();
+    const host = manager.ensureHost();
+    return host.showPrompt(options);
+  }
+  /**
+   * Cleanup and destroy the dialog manager
+   */
+  static destroy() {
+    const manager = DialogManager.getInstance();
+    manager.host?.unmount();
+    manager.host = null;
+    DialogManager.instance = null;
+  }
+}
+
 class BookmarkSaveModal {
   // ✅ Shadow DOM infrastructure
   container = null;
@@ -30421,7 +31041,7 @@ class BookmarkSaveModal {
             * { box-sizing: border-box; }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes slideIn { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--aimd-bg-overlay-heavy); backdrop-filter: var(--aimd-overlay-backdrop); z-index: var(--aimd-z-max); display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--aimd-bg-overlay-heavy); backdrop-filter: var(--aimd-overlay-backdrop); z-index: var(--aimd-z-panel); display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
             .bookmark-save-modal { position: relative; width: 90%; max-width: 550px; max-height: 85vh; background: var(--aimd-bg-primary); color: var(--aimd-text-primary); border-radius: 16px; box-shadow: var(--aimd-shadow-xl); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out; }
             .save-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--aimd-border-default); }
             .save-modal-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--aimd-text-primary); }
@@ -30873,25 +31493,47 @@ class BookmarkSaveModal {
   /**
    * Show create root folder input (placeholder for T3.1)
    */
-  showCreateRootFolderInput() {
-    const name = prompt("Enter folder name:");
+  async showCreateRootFolderInput() {
+    const name = await DialogManager.prompt({
+      title: "New Folder",
+      placeholder: "Enter folder name",
+      validation: (value) => {
+        if (!value.trim()) {
+          return { valid: false, error: "Folder name cannot be empty" };
+        }
+        return { valid: true };
+      }
+    });
     if (!name) return;
     this.createFolder(name, null);
   }
   /**
    * Show create subfolder input (placeholder for T3.3)
    */
-  showCreateSubfolderInput(parentPath) {
-    const name = prompt("Enter folder name:");
+  async showCreateSubfolderInput(parentPath) {
+    const name = await DialogManager.prompt({
+      title: "New Subfolder",
+      message: `Creating subfolder in: ${parentPath}`,
+      placeholder: "Enter folder name",
+      validation: (value) => {
+        if (!value.trim()) {
+          return { valid: false, error: "Folder name cannot be empty" };
+        }
+        return { valid: true };
+      }
+    });
     if (!name) return;
     this.createFolder(name, parentPath);
   }
   /**
    * Show simple notification (for BookmarkSaveModal errors)
-   * Uses browser alert as fallback since this modal is not in Shadow DOM
+   * Uses custom DialogManager for consistent styling
    */
-  showSimpleNotification(_type, message) {
-    alert(message);
+  async showSimpleNotification(_type, message) {
+    await DialogManager.alert({
+      title: _type === "error" ? "Error" : _type === "warning" ? "Warning" : "Notice",
+      message
+    });
   }
   getFolderNameErrorMessage(errors) {
     if (errors.includes("empty")) {
@@ -31534,7 +32176,7 @@ class SimpleBookmarkPanel {
     this.overlay.style.left = "0";
     this.overlay.style.right = "0";
     this.overlay.style.bottom = "0";
-    this.overlay.style.zIndex = "var(--aimd-z-max)";
+    this.overlay.style.zIndex = "var(--aimd-z-panel)";
     this.overlay.style.display = "flex";
     this.overlay.style.alignItems = "center";
     this.overlay.style.justifyContent = "center";
@@ -32626,17 +33268,24 @@ Please create a new root folder or organize within existing folders.`
    * Task 2.1.1
    */
   async showCreateFolderInput(parentPath) {
-    const name = prompt("Enter folder name:");
+    const name = await DialogManager.prompt({
+      title: parentPath ? "New Subfolder" : "New Folder",
+      message: parentPath ? `Creating subfolder in: ${parentPath}` : void 0,
+      placeholder: "Enter folder name",
+      validation: (value) => {
+        const validation2 = PathUtils.getFolderNameValidation(value);
+        if (!validation2.isValid) {
+          return {
+            valid: false,
+            error: this.getFolderNameErrorMessage(validation2.errors)
+          };
+        }
+        return { valid: true };
+      }
+    });
     if (!name) return;
     const validation = PathUtils.getFolderNameValidation(name);
-    if (!validation.isValid) {
-      await this.showNotification({
-        type: "error",
-        title: "Invalid Folder Name",
-        message: this.getFolderNameErrorMessage(validation.errors)
-      });
-      return;
-    }
+    if (!validation.isValid) return;
     this.handleCreateFolder(parentPath, validation.normalized);
   }
   getFolderNameErrorMessage(errors) {
@@ -33235,11 +33884,15 @@ Please create a new root folder or organize within existing folders.`
       (b) => b.url === url && b.position === position
     );
     if (!bookmark) return;
-    const confirmed = confirm(
-      `Delete bookmark "${bookmark.title || bookmark.userMessage.substring(0, 50)}"?
+    const confirmed = await DialogManager.confirm({
+      title: "Delete Bookmark",
+      message: `Delete bookmark "${bookmark.title || bookmark.userMessage.substring(0, 50)}"?
 
-Tip: You can export your bookmarks first to create a backup.`
-    );
+Tip: You can export your bookmarks first to create a backup.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      danger: true
+    });
     if (!confirmed) return;
     try {
       await SimpleBookmarkStorage.remove(url, position);

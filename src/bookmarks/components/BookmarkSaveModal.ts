@@ -6,6 +6,7 @@ import { logger } from '../../utils/logger';
 import { Icons } from '../../assets/icons';
 import { DesignTokens } from '../../utils/design-tokens';
 import { ThemeManager } from '../../utils/ThemeManager';
+import { DialogManager } from '../../components/DialogManager';
 
 /**
  * Unified Bookmark Save Modal - Shadow DOM Version
@@ -71,7 +72,7 @@ export class BookmarkSaveModal {
             * { box-sizing: border-box; }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes slideIn { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--aimd-bg-overlay-heavy); backdrop-filter: var(--aimd-overlay-backdrop); z-index: var(--aimd-z-max); display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--aimd-bg-overlay-heavy); backdrop-filter: var(--aimd-overlay-backdrop); z-index: var(--aimd-z-panel); display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease-out; }
             .bookmark-save-modal { position: relative; width: 90%; max-width: 550px; max-height: 85vh; background: var(--aimd-bg-primary); color: var(--aimd-text-primary); border-radius: 16px; box-shadow: var(--aimd-shadow-xl); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out; }
             .save-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--aimd-border-default); }
             .save-modal-header h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--aimd-text-primary); }
@@ -701,9 +702,17 @@ export class BookmarkSaveModal {
     /**
      * Show create root folder input (placeholder for T3.1)
      */
-    private showCreateRootFolderInput(): void {
-        // TODO: Implement in T3.1
-        const name = prompt('Enter folder name:');
+    private async showCreateRootFolderInput(): Promise<void> {
+        const name = await DialogManager.prompt({
+            title: 'New Folder',
+            placeholder: 'Enter folder name',
+            validation: (value) => {
+                if (!value.trim()) {
+                    return { valid: false, error: 'Folder name cannot be empty' };
+                }
+                return { valid: true };
+            }
+        });
         if (!name) return;
 
         this.createFolder(name, null);
@@ -712,21 +721,31 @@ export class BookmarkSaveModal {
     /**
      * Show create subfolder input (placeholder for T3.3)
      */
-    private showCreateSubfolderInput(parentPath: string): void {
-        // TODO: Implement in T3.3
-        const name = prompt('Enter folder name:');
+    private async showCreateSubfolderInput(parentPath: string): Promise<void> {
+        const name = await DialogManager.prompt({
+            title: 'New Subfolder',
+            message: `Creating subfolder in: ${parentPath}`,
+            placeholder: 'Enter folder name',
+            validation: (value) => {
+                if (!value.trim()) {
+                    return { valid: false, error: 'Folder name cannot be empty' };
+                }
+                return { valid: true };
+            }
+        });
         if (!name) return;
         this.createFolder(name, parentPath);
     }
 
     /**
      * Show simple notification (for BookmarkSaveModal errors)
-     * Uses browser alert as fallback since this modal is not in Shadow DOM
+     * Uses custom DialogManager for consistent styling
      */
-    private showSimpleNotification(_type: 'error' | 'warning' | 'info', message: string): void {
-        // For now, use alert as it's simple and works everywhere
-        // TODO: Consider creating a lightweight toast notification
-        alert(message);
+    private async showSimpleNotification(_type: 'error' | 'warning' | 'info', message: string): Promise<void> {
+        await DialogManager.alert({
+            title: _type === 'error' ? 'Error' : _type === 'warning' ? 'Warning' : 'Notice',
+            message: message
+        });
     }
 
     private getFolderNameErrorMessage(errors: FolderNameValidationError[]): string {

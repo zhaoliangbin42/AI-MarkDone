@@ -1048,7 +1048,10 @@ export class DesignTokens {
                 --aimd-z-modal: 1050;
                 --aimd-z-popover: 1060;
                 --aimd-z-tooltip: 1070;
-                --aimd-z-max: 2147483647;
+                --aimd-z-panel: 9000;
+                --aimd-z-dialog: 9500;
+                --aimd-z-notification: 9800;
+                --aimd-z-max: 10000;
                 
                 /* --- Shadow Tokens (Dark Mode) --- */
                 --aimd-shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.25);
@@ -1292,7 +1295,10 @@ export class DesignTokens {
                 --aimd-z-modal: 1050;
                 --aimd-z-popover: 1060;
                 --aimd-z-tooltip: 1070;
-                --aimd-z-max: 2147483647;
+                --aimd-z-panel: 9000;
+                --aimd-z-dialog: 9500;
+                --aimd-z-notification: 9800;
+                --aimd-z-max: 10000;
                 
                 /* --- Shadow Tokens (Light Mode) --- */
                 --aimd-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.15);

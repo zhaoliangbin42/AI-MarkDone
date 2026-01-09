@@ -1,4 +1,3 @@
-
 import { SimpleBookmarkStorage } from '../storage/SimpleBookmarkStorage';
 import { Bookmark, Folder, FolderTreeNode } from '../storage/types';
 import { logger } from '../../utils/logger';
@@ -14,6 +13,7 @@ import { ThemeManager } from '../../utils/ThemeManager';
 import { DesignTokens } from '../../utils/design-tokens';  // T2.1.1: Import DesignTokens class
 import { ReaderPanel } from '../../content/features/re-render';
 import { fromBookmarks, findBookmarkIndex } from '../datasource/BookmarkDataSource';
+import { DialogManager } from '../../components/DialogManager';
 
 type ImportMergeStatus = 'normal' | 'rename' | 'import' | 'duplicate';
 
@@ -105,7 +105,7 @@ export class SimpleBookmarkPanel {
         this.overlay.style.left = '0';
         this.overlay.style.right = '0';
         this.overlay.style.bottom = '0';
-        this.overlay.style.zIndex = 'var(--aimd-z-max)'; // Maximum z-index
+        this.overlay.style.zIndex = 'var(--aimd-z-panel)'; // Panel layer
         this.overlay.style.display = 'flex';
         this.overlay.style.alignItems = 'center';
         this.overlay.style.justifyContent = 'center';
@@ -1556,20 +1556,27 @@ export class SimpleBookmarkPanel {
      * Task 2.1.1
      */
     private async showCreateFolderInput(parentPath: string | null): Promise<void> {
-        // For root level creation, we'll use a temporary placeholder in the tree
-        // For now, use prompt as a quick implementation
-        // TODO: Implement inline creation in tree view
-        const name = prompt('Enter folder name:');
+        const name = await DialogManager.prompt({
+            title: parentPath ? 'New Subfolder' : 'New Folder',
+            message: parentPath ? `Creating subfolder in: ${parentPath}` : undefined,
+            placeholder: 'Enter folder name',
+            validation: (value) => {
+                const validation = PathUtils.getFolderNameValidation(value);
+                if (!validation.isValid) {
+                    return {
+                        valid: false,
+                        error: this.getFolderNameErrorMessage(validation.errors)
+                    };
+                }
+                return { valid: true };
+            }
+        });
+
         if (!name) return;
+
+        // Re-validate to get normalized name
         const validation = PathUtils.getFolderNameValidation(name);
-        if (!validation.isValid) {
-            await this.showNotification({
-                type: 'error',
-                title: 'Invalid Folder Name',
-                message: this.getFolderNameErrorMessage(validation.errors)
-            });
-            return;
-        }
+        if (!validation.isValid) return; // Should not happen due to dialog validation
 
         this.handleCreateFolder(parentPath, validation.normalized);
     }
@@ -2308,10 +2315,13 @@ export class SimpleBookmarkPanel {
         if (!bookmark) return;
 
         // Show confirmation dialog
-        const confirmed = confirm(
-            `Delete bookmark "${bookmark.title || bookmark.userMessage.substring(0, 50)}"?\n\n` +
-            `Tip: You can export your bookmarks first to create a backup.`
-        );
+        const confirmed = await DialogManager.confirm({
+            title: 'Delete Bookmark',
+            message: `Delete bookmark "${bookmark.title || bookmark.userMessage.substring(0, 50)}"?\n\nTip: You can export your bookmarks first to create a backup.`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            danger: true
+        });
 
         if (!confirmed) return;
 

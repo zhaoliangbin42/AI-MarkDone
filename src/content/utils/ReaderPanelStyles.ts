@@ -15,7 +15,7 @@ export const readerPanelStyles = `
   right: 0;
   bottom: 0;
   background: var(--aimd-bg-overlay-heavy);
-  z-index: var(--aimd-z-max);
+  z-index: var(--aimd-z-panel);
   backdrop-filter: blur(3px);
 }
 
@@ -38,7 +38,7 @@ export const readerPanelStyles = `
   
   display: flex;
   flex-direction: column;
-  z-index: var(--aimd-z-max);
+  z-index: var(--aimd-z-panel);
   overflow: hidden;
   animation: modalFadeIn 0.2s ease;
   
