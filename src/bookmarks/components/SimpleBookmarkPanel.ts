@@ -64,7 +64,7 @@ export class SimpleBookmarkPanel {
     private themeUnsubscribe: (() => void) | null = null;
 
     // ReaderPanel 实例（用于书签预览）
-    private readerPanel: ReaderPanel = new ReaderPanel();
+    private readerPanel: ReaderPanel = new ReaderPanel({ hideTriggerButton: true });
 
     /**
      * Show the bookmark panel
@@ -331,13 +331,13 @@ export class SimpleBookmarkPanel {
                 </button>
                 <button class="tab-btn" data-tab="support">
                     <span class="tab-icon">${Icons.coffee}</span>
-                    <span class="tab-label">Support on GitHub</span>
+                    <span class="tab-label">Sponsor</span>
                 </button>
             </div>
 
             <div class="main">
                 <div class="header">
-                    <h2>${Icons.bookmark} Bookmarks (${this.bookmarks.length})</h2>
+                    <h2>${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})</h2>
                     <button class="close-btn" aria-label="Close">×</button>
                 </div>
 
@@ -394,11 +394,35 @@ export class SimpleBookmarkPanel {
 
                 <div class="tab-content support-tab">
                     <div class="support-content">
-                        <h3>${Icons.coffee} Support on GitHub</h3>
-                        <p>If this extension helps you, please support it on GitHub.</p>
-                        <a href="https://github.com/zhaoliangbin42/AI-MarkDone" target="_blank" rel="noopener noreferrer" class="support-btn">
-                            Open GitHub
-                        </a>
+                        <!-- Open Source Section -->
+                        <div class="support-section">
+                            <h3>Support Development</h3>
+                            <p>AI-MarkDone is open source. Star us on GitHub.</p>
+                            <a href="https://github.com/zhaoliangbin42/AI-MarkDone" target="_blank" rel="noopener noreferrer" class="primary-btn">
+                                ${Icons.github}
+                                Star on GitHub
+                            </a>
+                        </div>
+
+                        <!-- Donation Section -->
+                        <div class="support-section">
+                            <h3>If this project helps you</h3>
+                            <p>Support the developer with a coffee ☕️</p>
+                            <div class="qr-cards-row">
+                                <div class="qr-card">
+                                    <a href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer" class="qr-card-label-link">Buy Me a Coffee</a>
+                                    <div class="qr-image-wrapper">
+                                        <img src="${chrome.runtime.getURL('icons/bmc_qr.png')}" alt="Buy Me A Coffee" class="qr-image">
+                                    </div>
+                                </div>
+                                <div class="qr-card">
+                                    <span class="qr-card-label">微信赞赏码</span>
+                                    <div class="qr-image-wrapper">
+                                        <img src="${chrome.runtime.getURL('icons/wechat_qr.png')}" alt="WeChat Reward" class="qr-image">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -643,7 +667,7 @@ export class SimpleBookmarkPanel {
 
             const header = this.shadowRoot.querySelector('h2');
             if (header) {
-                header.innerHTML = `${Icons.bookmark} Bookmarks (${this.bookmarks.length})`;
+                header.innerHTML = `${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})`;
             }
 
             // Update batch actions bar state
@@ -4438,6 +4462,11 @@ ${options.message}
                 display: flex;
             }
 
+            /* Support tab needs scroll */
+            .support-tab.active {
+                overflow-y: auto;
+            }
+
             /* Toolbar */
             .toolbar {
                 padding: var(--aimd-space-3) var(--aimd-space-6);  /* 12px 24px */
@@ -4874,40 +4903,163 @@ ${options.message}
             }
 
             /* Settings content */
-            .settings-content,
-            .support-content {
+            .settings-content {
                 padding: var(--aimd-space-10);  /* 40px */
                 text-align: center;
             }
 
-            .settings-content h3,
-            .support-content h3 {
+            .settings-content h3 {
                 margin: 0 0 16px 0;
                 font-size: 18px;
                 color: var(--aimd-text-primary);
             }
 
-            .settings-content p,
-            .support-content p {
+            .settings-content p {
                 color: var(--aimd-text-tertiary);
                 margin: 0 0 24px 0;
             }
-            /* Support button */
+
+            /* Support Content - Redesigned */
+            .support-content {
+                padding: var(--aimd-space-6);
+                max-width: 480px;
+                margin: 0 auto;
+                display: flex;
+                flex-direction: column;
+                gap: var(--aimd-space-6);
+            }
+
+            .support-section {
+                text-align: center;
+                padding: var(--aimd-space-5);
+                background: var(--aimd-bg-tertiary);
+                border-radius: var(--aimd-radius-xl);
+                border: 1px solid var(--aimd-border-default);
+            }
+
+            .support-section h3 {
+                margin: 0 0 var(--aimd-space-2) 0;
+                font-size: 16px;
+                color: var(--aimd-text-primary);
+                font-weight: 600;
+            }
+
+            .support-section p {
+                margin: 0 0 var(--aimd-space-4) 0;
+                color: var(--aimd-text-secondary);
+                font-size: 13px;
+            }
+
+            /* Primary Button (GitHub) */
+            .primary-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--aimd-space-2);
+                padding: var(--aimd-space-3) var(--aimd-space-5);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
+                border: none;
+                border-radius: var(--aimd-radius-lg);
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+                text-decoration: none;
+                transition: background 0.2s, box-shadow 0.2s;
+                box-shadow: var(--aimd-shadow-sm);
+            }
+
+            .primary-btn:hover {
+                background: var(--aimd-button-primary-hover);
+                box-shadow: var(--aimd-shadow-md);
+            }
+
+            .primary-btn svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            /* QR Code Cards Container */
+            .qr-cards-row {
+                display: flex;
+                justify-content: center;
+                gap: var(--aimd-space-6);
+                flex-wrap: wrap;
+            }
+
+            .qr-card {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: var(--aimd-space-2);
+            }
+
+            .qr-card-label,
+            .qr-card-label-link {
+                font-size: 12px;
+                color: var(--aimd-text-tertiary);
+                margin-bottom: var(--aimd-space-1);
+                text-decoration: none;
+                transition: color 0.2s;
+            }
+
+            .qr-card-label-link:hover {
+                text-decoration: underline;
+                color: var(--aimd-text-link);
+            }
+
+            .qr-image-wrapper {
+                padding: var(--aimd-space-3);
+                background: white;
+                border-radius: var(--aimd-radius-lg);
+                box-shadow: var(--aimd-shadow-sm);
+            }
+
+            .qr-image {
+                width: 120px;
+                height: 120px;
+                display: block;
+                border-radius: var(--aimd-radius-md);
+            }
+
+            .support-link {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: var(--aimd-space-2) var(--aimd-space-3);
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-link);
+                text-decoration: none;
+                font-size: 11px;
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
+                transition: all 0.2s ease;
+                margin-top: var(--aimd-space-3);
+                max-width: 160px;
+                text-align: center;
+                line-height: 1.3;
+            }
+
+            .support-link:hover {
+                background: var(--aimd-interactive-selected);
+                border-color: var(--aimd-text-link);
+            }
+
+            /* Support button (legacy, keep for compatibility) */
             .support-btn {
                 display: inline-block;
                 padding: var(--aimd-space-3) var(--aimd-space-6);
                 background: var(--aimd-button-primary-bg);
                 color: var(--aimd-button-primary-text);
                 text-decoration: none;
-                border-radius: var(--aimd-radius-lg);  /* Material Design 8px */
+                border-radius: var(--aimd-radius-lg);
                 font-weight: var(--aimd-font-medium);
                 transition: all var(--aimd-duration-base);
-                box-shadow: var(--aimd-shadow-sm);  /* Material Design elevation */
+                box-shadow: var(--aimd-shadow-sm);
             }
 
             .support-btn:hover {
                 background: var(--aimd-button-primary-hover);
-                box-shadow: var(--aimd-shadow-md);  /* Material Design hover elevation */
+                box-shadow: var(--aimd-shadow-md);
                 transform: translateY(-1px);
             }
 

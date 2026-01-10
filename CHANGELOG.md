@@ -8,17 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Sponsor Section**: New donation options for "Buy Me a Coffee" and WeChat.
 - **Dialog System**: Unified `DialogManager` and `DialogHost` for accessible, Shadow DOM-based alerts, confirms, and prompts.
 - **Bookmark Import**: Duplicate detection and merge dialog for imports.
 - **Storage Warning**: Storage quota warning system (95%/98% threshold alerts).
 
 ### Changed
+- **UI**: Renamed bookmark panel header to "AI-MarkDone".
 - **Architecture**: Redesigned Z-Index architecture to use a rational hierarchy (1-10000) instead of `z-max`, fixing layering issues.
 - **Performance**: Significantly improved bookmark batch import speed (10-50x).
 - **Performance**: Significantly improved bookmark batch delete speed (25-75x).
 - **UI**: Changed import dialog interface to English.
 
 ### Fixed
+- **Reader UI**: Hidden redundant bubble button within the Reader view.
 - **Bookmarks**: Fixed duplicate handling logic during bookmark import.
 - **Bookmarks**: Fixed detailed count display in import success message.
 - **Storage**: Corrected storage limit constant (5MB → 10MB).

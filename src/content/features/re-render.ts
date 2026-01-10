@@ -34,6 +34,23 @@ type GetMarkdownFn = (element: HTMLElement) => string;
  * - TooltipManager: 提示框
  * - MarkdownRenderer: 内容渲染
  */
+export interface ReaderPanelOptions {
+    hideTriggerButton?: boolean;
+}
+
+/**
+ * Reader Panel - 通用 Markdown 阅读器
+ * 
+ * 设计原则（重构后）：
+ * - 数据驱动：通过 ReaderItem[] 接收数据
+ * - 与数据源解耦：不关心数据来自 DOM 还是存储
+ * - 支持懒加载：ContentProvider 可以是函数
+ * 
+ * 协调模块：
+ * - DotPaginationController: 分页 UI
+ * - TooltipManager: 提示框
+ * - MarkdownRenderer: 内容渲染
+ */
 export class ReaderPanel {
     private container: HTMLElement | null = null;
     private shadowRoot: ShadowRoot | null = null;
@@ -58,6 +75,13 @@ export class ReaderPanel {
 
     // EventBus subscription cleanup
     private unsubscribeNewMessage: (() => void) | null = null;
+
+    // Configuration options
+    private options: ReaderPanelOptions;
+
+    constructor(options: ReaderPanelOptions = {}) {
+        this.options = options;
+    }
 
     /**
      * 【新方法】通用入口：接受标准化的 ReaderItem[]
@@ -378,7 +402,11 @@ export class ReaderPanel {
 
         // 1. Trigger Area (Created via existing method)
         // Note: The Trigger is complex (floating input etc), so we keep creating it via helper
-        const triggerWrapper = this.createMessageTriggerButton();
+        // ✨ FEATURE: Conditionally render based on options
+        if (!this.options.hideTriggerButton) {
+            const triggerWrapper = this.createMessageTriggerButton();
+            paginationContainer.appendChild(triggerWrapper);
+        }
 
         // 2. Navigation Left
         const leftBtn = document.createElement('button');
@@ -404,7 +432,6 @@ export class ReaderPanel {
         hint.textContent = '"← →" to navigate';
 
         // Assemble Skeleton (Explicit Order)
-        paginationContainer.appendChild(triggerWrapper);
         paginationContainer.appendChild(leftBtn);
         paginationContainer.appendChild(dotsContainer);
         paginationContainer.appendChild(rightBtn);

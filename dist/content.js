@@ -447,7 +447,26 @@ const Icons = {
    * Source: Google official branding
    * Color: Blue gradient star design
    */
-  gemini: `<svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>Gemini</title><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-2)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>`
+  gemini: `<svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>Gemini</title><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-2)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>`,
+  /**
+   * GitHub icon
+   * Usage: Support on GitHub
+   * Source: Lucide Icons (ISC License) with modifications for fill
+   */
+  github: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/>
+        <path d="M9 18c-4.51 2-5-2-7-2"/>
+    </svg>`,
+  /**
+   * WeChat Pay icon
+   * Source: Simple Icons (CC0)
+   */
+  wechatPay: `<svg role="img" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><title>WeChat</title><path d="M8.696 16.59c-4.47 0-8.118-3.328-8.118-7.447 0-4.113 3.636-7.453 8.118-7.453 4.475 0 8.111 3.34 8.111 7.453 0 4.12-3.636 7.448-8.111 7.448-.908 0-1.78-.13-2.604-.367l-2.074 1.13c-.22.12-.487.03-.607-.193-.05-.094-.06-.204-.025-.306l.542-1.61c-2.02-1.57-3.344-3.82-3.344-6.32 0-4.665 4.342-8.448 9.695-8.448 5.348 0 9.69 3.783 9.69 8.448 0 4.67-4.342 8.453-9.69 8.453-.7 0-1.39-.06-2.06-.18l-1.87 1.02c-.22.123-.5.043-.623-.176-.06-.108-.07-.236-.027-.354l.43-1.18c-1.353-1.306-2.185-3.09-2.185-5.018 0-3.95 3.585-7.147 8.01-7.147 4.42 0 8.01 3.197 8.01 7.147s-3.59 7.153-8.01 7.153c-1.07 0-2.1-.19-3.05-.53l-2.48 1.35c-.22.12-.495.04-.615-.18-.06-.113-.07-.248-.027-.37l.63-1.72c-1.64-1.62-2.65-3.84-2.65-6.26 0-4.94 4.54-8.94 10.14-8.94 5.59 0 10.14 4 10.14 8.94 0 4.93-4.55 8.93-10.14 8.93zm9.14-6.23c.36 0 .65-.29.65-.65 0-.35-.29-.64-.65-.64-.35 0-.64.29-.64.64 0 .36.29.65.64.65zm-3.5 0c.36 0 .65-.29.65-.65 0-.35-.29-.64-.65-.64-.35 0-.64.29-.64.64 0 .36.29.65.64.65z"/></svg>`,
+  /**
+   * Alipay icon
+   * Source: Simple Icons (CC0) simplified
+   */
+  alipay: `<svg role="img" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><title>Alipay</title><path d="M18.84 21.06c-2.47 1.25-5.32 1.34-6.73.54-.91-.52 1.13-5.28 1.13-5.28s1.6 3.1 3.18 3.99c1.07.6 1.94.75 2.42.75m-6.49-5.11s-2.91-4.2-3.41-5.18c-1.27-.08-2.69-.32-2.69-.32.32-.82.68-1.57.68-1.57h2.88c.17-.61.34-1.4.34-1.4h-3.6V5.45H10.5V2.9h1.96v2.55h5.54v2.03H12.9v.03c-.23 1.25-.56 2.62-.97 3.84h6.05l-.43 2.53H6.84c.33.68 1.76 3.49 2.21 4.29 0 0-4.66 1.4-6.15-2.03l-1.83 1.05c.87 2.1 2.37 3.65 3.86 4.5 1.5.85 3.75 1.05 5.25 1.05 1.5 0 3.7-.2 5.09-.99 2.3-1.3 3.12-3.47 3.12-3.47l-1.92-1.07c-.4 1.15-2.02 2.6-4.12 1.42.01-.01-1.01-.58-1.-5.84z"/></svg>`
 };
 
 let ChatGPTAdapter$1 = class ChatGPTAdapter extends SiteAdapter {
@@ -28029,6 +28048,11 @@ class ReaderPanel {
   messageSender = null;
   // EventBus subscription cleanup
   unsubscribeNewMessage = null;
+  // Configuration options
+  options;
+  constructor(options = {}) {
+    this.options = options;
+  }
   /**
    * 【新方法】通用入口：接受标准化的 ReaderItem[]
    * 
@@ -28244,7 +28268,10 @@ class ReaderPanel {
     const paginationContainer = document.createElement("div");
     paginationContainer.className = "aicopy-pagination";
     logger$1.debug(`[ReaderPanel] Creating pagination for ${this.items.length} items`);
-    const triggerWrapper = this.createMessageTriggerButton();
+    if (!this.options.hideTriggerButton) {
+      const triggerWrapper = this.createMessageTriggerButton();
+      paginationContainer.appendChild(triggerWrapper);
+    }
     const leftBtn = document.createElement("button");
     leftBtn.className = "aicopy-nav-button aicopy-nav-button-left";
     leftBtn.innerHTML = "◀";
@@ -28260,7 +28287,6 @@ class ReaderPanel {
     const hint = document.createElement("span");
     hint.className = "aicopy-keyboard-hint";
     hint.textContent = '"← →" to navigate';
-    paginationContainer.appendChild(triggerWrapper);
     paginationContainer.appendChild(leftBtn);
     paginationContainer.appendChild(dotsContainer);
     paginationContainer.appendChild(rightBtn);
@@ -32153,7 +32179,7 @@ class SimpleBookmarkPanel {
   // Theme manager subscription for dynamic theme switching
   themeUnsubscribe = null;
   // ReaderPanel 实例（用于书签预览）
-  readerPanel = new ReaderPanel();
+  readerPanel = new ReaderPanel({ hideTriggerButton: true });
   /**
    * Show the bookmark panel
    */
@@ -32338,13 +32364,13 @@ class SimpleBookmarkPanel {
                 </button>
                 <button class="tab-btn" data-tab="support">
                     <span class="tab-icon">${Icons.coffee}</span>
-                    <span class="tab-label">Support on GitHub</span>
+                    <span class="tab-label">Sponsor</span>
                 </button>
             </div>
 
             <div class="main">
                 <div class="header">
-                    <h2>${Icons.bookmark} Bookmarks (${this.bookmarks.length})</h2>
+                    <h2>${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})</h2>
                     <button class="close-btn" aria-label="Close">×</button>
                 </div>
 
@@ -32401,11 +32427,35 @@ class SimpleBookmarkPanel {
 
                 <div class="tab-content support-tab">
                     <div class="support-content">
-                        <h3>${Icons.coffee} Support on GitHub</h3>
-                        <p>If this extension helps you, please support it on GitHub.</p>
-                        <a href="https://github.com/zhaoliangbin42/AI-MarkDone" target="_blank" rel="noopener noreferrer" class="support-btn">
-                            Open GitHub
-                        </a>
+                        <!-- Open Source Section -->
+                        <div class="support-section">
+                            <h3>Support Development</h3>
+                            <p>AI-MarkDone is open source. Star us on GitHub.</p>
+                            <a href="https://github.com/zhaoliangbin42/AI-MarkDone" target="_blank" rel="noopener noreferrer" class="primary-btn">
+                                ${Icons.github}
+                                Star on GitHub
+                            </a>
+                        </div>
+
+                        <!-- Donation Section -->
+                        <div class="support-section">
+                            <h3>If this project helps you</h3>
+                            <p>Support the developer with a coffee ☕️</p>
+                            <div class="qr-cards-row">
+                                <div class="qr-card">
+                                    <a href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer" class="qr-card-label-link">Buy Me a Coffee</a>
+                                    <div class="qr-image-wrapper">
+                                        <img src="${chrome.runtime.getURL("icons/bmc_qr.png")}" alt="Buy Me A Coffee" class="qr-image">
+                                    </div>
+                                </div>
+                                <div class="qr-card">
+                                    <span class="qr-card-label">微信赞赏码</span>
+                                    <div class="qr-image-wrapper">
+                                        <img src="${chrome.runtime.getURL("icons/wechat_qr.png")}" alt="WeChat Reward" class="qr-image">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -32609,7 +32659,7 @@ class SimpleBookmarkPanel {
       }
       const header = this.shadowRoot.querySelector("h2");
       if (header) {
-        header.innerHTML = `${Icons.bookmark} Bookmarks (${this.bookmarks.length})`;
+        header.innerHTML = `${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})`;
       }
       this.updateBatchActionsBar();
     }
@@ -35648,6 +35698,11 @@ ${options.message}
                 display: flex;
             }
 
+            /* Support tab needs scroll */
+            .support-tab.active {
+                overflow-y: auto;
+            }
+
             /* Toolbar */
             .toolbar {
                 padding: var(--aimd-space-3) var(--aimd-space-6);  /* 12px 24px */
@@ -36084,40 +36139,163 @@ ${options.message}
             }
 
             /* Settings content */
-            .settings-content,
-            .support-content {
+            .settings-content {
                 padding: var(--aimd-space-10);  /* 40px */
                 text-align: center;
             }
 
-            .settings-content h3,
-            .support-content h3 {
+            .settings-content h3 {
                 margin: 0 0 16px 0;
                 font-size: 18px;
                 color: var(--aimd-text-primary);
             }
 
-            .settings-content p,
-            .support-content p {
+            .settings-content p {
                 color: var(--aimd-text-tertiary);
                 margin: 0 0 24px 0;
             }
-            /* Support button */
+
+            /* Support Content - Redesigned */
+            .support-content {
+                padding: var(--aimd-space-6);
+                max-width: 480px;
+                margin: 0 auto;
+                display: flex;
+                flex-direction: column;
+                gap: var(--aimd-space-6);
+            }
+
+            .support-section {
+                text-align: center;
+                padding: var(--aimd-space-5);
+                background: var(--aimd-bg-tertiary);
+                border-radius: var(--aimd-radius-xl);
+                border: 1px solid var(--aimd-border-default);
+            }
+
+            .support-section h3 {
+                margin: 0 0 var(--aimd-space-2) 0;
+                font-size: 16px;
+                color: var(--aimd-text-primary);
+                font-weight: 600;
+            }
+
+            .support-section p {
+                margin: 0 0 var(--aimd-space-4) 0;
+                color: var(--aimd-text-secondary);
+                font-size: 13px;
+            }
+
+            /* Primary Button (GitHub) */
+            .primary-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--aimd-space-2);
+                padding: var(--aimd-space-3) var(--aimd-space-5);
+                background: var(--aimd-button-primary-bg);
+                color: var(--aimd-button-primary-text);
+                border: none;
+                border-radius: var(--aimd-radius-lg);
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+                text-decoration: none;
+                transition: background 0.2s, box-shadow 0.2s;
+                box-shadow: var(--aimd-shadow-sm);
+            }
+
+            .primary-btn:hover {
+                background: var(--aimd-button-primary-hover);
+                box-shadow: var(--aimd-shadow-md);
+            }
+
+            .primary-btn svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            /* QR Code Cards Container */
+            .qr-cards-row {
+                display: flex;
+                justify-content: center;
+                gap: var(--aimd-space-6);
+                flex-wrap: wrap;
+            }
+
+            .qr-card {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: var(--aimd-space-2);
+            }
+
+            .qr-card-label,
+            .qr-card-label-link {
+                font-size: 12px;
+                color: var(--aimd-text-tertiary);
+                margin-bottom: var(--aimd-space-1);
+                text-decoration: none;
+                transition: color 0.2s;
+            }
+
+            .qr-card-label-link:hover {
+                text-decoration: underline;
+                color: var(--aimd-text-link);
+            }
+
+            .qr-image-wrapper {
+                padding: var(--aimd-space-3);
+                background: white;
+                border-radius: var(--aimd-radius-lg);
+                box-shadow: var(--aimd-shadow-sm);
+            }
+
+            .qr-image {
+                width: 120px;
+                height: 120px;
+                display: block;
+                border-radius: var(--aimd-radius-md);
+            }
+
+            .support-link {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: var(--aimd-space-2) var(--aimd-space-3);
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-link);
+                text-decoration: none;
+                font-size: 11px;
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
+                transition: all 0.2s ease;
+                margin-top: var(--aimd-space-3);
+                max-width: 160px;
+                text-align: center;
+                line-height: 1.3;
+            }
+
+            .support-link:hover {
+                background: var(--aimd-interactive-selected);
+                border-color: var(--aimd-text-link);
+            }
+
+            /* Support button (legacy, keep for compatibility) */
             .support-btn {
                 display: inline-block;
                 padding: var(--aimd-space-3) var(--aimd-space-6);
                 background: var(--aimd-button-primary-bg);
                 color: var(--aimd-button-primary-text);
                 text-decoration: none;
-                border-radius: var(--aimd-radius-lg);  /* Material Design 8px */
+                border-radius: var(--aimd-radius-lg);
                 font-weight: var(--aimd-font-medium);
                 transition: all var(--aimd-duration-base);
-                box-shadow: var(--aimd-shadow-sm);  /* Material Design elevation */
+                box-shadow: var(--aimd-shadow-sm);
             }
 
             .support-btn:hover {
                 background: var(--aimd-button-primary-hover);
-                box-shadow: var(--aimd-shadow-md);  /* Material Design hover elevation */
+                box-shadow: var(--aimd-shadow-md);
                 transform: translateY(-1px);
             }
 
