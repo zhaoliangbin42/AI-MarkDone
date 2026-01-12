@@ -5,6 +5,14 @@
 
 ---
 
+## Command Restrictions
+
+- The project runs in a blacklist mode for critical CLI commands.
+- You must obtain explicit approval from the user before running any `git` or `rm` commands.
+- Other commands can proceed with standard safety precautions.
+
+---
+
 ## Project Overview
 
 | Field | Value |

@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
 
+# LLM
+openspec/
+.claude/
+.opencode/
+
 # Build output
 coverage/
 dist/
