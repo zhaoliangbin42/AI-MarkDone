@@ -18,23 +18,20 @@ export class ClaudeAdapter extends SiteAdapter {
     }
 
     getMessageContentSelector(): string {
-        // Main markdown content area inside Claude responses
-        return '.standard-markdown, .font-claude-response-body';
+        // Return the entire response container to capture all content
+        // including content after Artifacts (which are filtered by isNoiseNode)
+        return '.font-claude-response';
     }
 
     /**
      * Action bar selector for Claude.ai
-     * Key insight: For Claude, we want to inject the toolbar AFTER the message content,
-     * not after the actual action bar. This is because the toolbar uses absolute
-     * positioning (right: 0), and we need it to position relative to the message content width.
      *
-     * By returning the message content selector, the injector will place the toolbar
-     * after the message content, making it position correctly within the content width.
+     * Returns the actual official action bar element.
+     * We'll inject our toolbar BEFORE this element (but after message content).
      */
     getActionBarSelector(): string {
-        // Return message content selector instead of actual action bar
-        // This makes toolbar inject after message content, positioning correctly
-        return '.font-claude-response';
+        // Official action bar with copy button
+        return 'div[role="group"][aria-label="Message actions"]';
     }
 
     getCopyButtonSelector(): string {
@@ -93,6 +90,47 @@ export class ClaudeAdapter extends SiteAdapter {
         return index >= 0 ? `claude-message-${index}` : null;
     }
 
+    /**
+     * Claude-specific noise filtering
+     *
+     * Filters out Claude.ai specific elements that should not be included in Markdown:
+     * - Artifact preview cards (collapsible content blocks)
+     * - Other UI elements that are not part of the actual response content
+     *
+     * IMPORTANT: Only filter the exact Artifact elements, not their containers,
+     * to avoid filtering out legitimate content that comes after.
+     *
+     * @param node - DOM node to check
+     * @param context - Optional context for position-based detection
+     * @returns true if node should be filtered out
+     */
+    isNoiseNode(node: Node, _context?: { nextSibling?: Element | null }): boolean {
+        if (!(node instanceof HTMLElement)) return false;
+
+        // Filter: Artifact preview button container (exact match)
+        const isArtifactButton =
+            node.getAttribute('role') === 'button' &&
+            node.getAttribute('aria-label') === 'Preview contents' &&
+            node.classList.contains('flex') &&
+            node.classList.contains('cursor-pointer');
+
+        return isArtifactButton;
+    }
+
+    /**
+     * Get placeholder text for Artifact elements
+     * Returns a formatted placeholder like "Artifact: 【标题】"
+     */
+    getArtifactPlaceholder(node: HTMLElement): string | undefined {
+        if (node.getAttribute('role') === 'button' &&
+            node.getAttribute('aria-label') === 'Preview contents') {
+            const titleEl = node.querySelector('.leading-tight');
+            const title = titleEl?.textContent?.trim() || 'Untitled';
+            return `[Artifact: [${title}]]`;
+        }
+        return undefined;
+    }
+
     getObserverContainer(): HTMLElement | null {
         // Try multiple possible containers for Claude.ai
         const selectors = [
@@ -141,28 +179,68 @@ export class ClaudeAdapter extends SiteAdapter {
 
     /**
      * Extract user prompt by traversing DOM backwards from the model response
+     *
+     * Claude.ai DOM structure:
+     * <div data-test-render-count="2">
+     *   <div class="mb-1 mt-6 group">
+     *     <div data-testid="user-message">...</div>  ← User message (we need this)
+     *   </div>
+     * </div>
+     * <div data-test-render-count="2">
+     *   <div class="group">
+     *     <div data-is-streaming="false">...</div>  ← responseElement (start here)
+     *   </div>
+     * </div>
      */
     extractUserPrompt(responseElement: HTMLElement): string | null {
         try {
+            // Strategy 1: Check previous siblings of responseElement
             let current: Element | null = responseElement;
-
-            // Traverse previous siblings
             while (current) {
                 current = current.previousElementSibling;
                 if (!current) break;
 
-                // Check if this sibling is a user message
-                if (current.getAttribute('data-testid') === 'user-message') {
-                    return this.cleanUserContent(current as HTMLElement);
+                const userMessage = current.querySelector('[data-testid="user-message"]');
+                if (userMessage) {
+                    return this.cleanUserContent(userMessage as HTMLElement);
                 }
             }
 
-            // Fallback: Check parent's previous sibling (for nested structures)
+            // Strategy 2: Check parent's previous sibling and its descendants
             const parent = responseElement.parentElement;
             if (parent) {
                 const parentPrev = parent.previousElementSibling;
-                if (parentPrev && parentPrev.getAttribute('data-testid') === 'user-message') {
-                    return this.cleanUserContent(parentPrev as HTMLElement);
+                if (parentPrev) {
+                    const userMessage = parentPrev.querySelector('[data-testid="user-message"]');
+                    if (userMessage) {
+                        return this.cleanUserContent(userMessage as HTMLElement);
+                    }
+                }
+            }
+
+            // Strategy 3: Check grandparent's previous sibling
+            const grandparent = parent?.parentElement;
+            if (grandparent) {
+                const grandparentPrev = grandparent.previousElementSibling;
+                if (grandparentPrev) {
+                    const userMessage = grandparentPrev.querySelector('[data-testid="user-message"]');
+                    if (userMessage) {
+                        return this.cleanUserContent(userMessage as HTMLElement);
+                    }
+                }
+            }
+
+            // Strategy 4: Search all previous data-test-render-count elements
+            // This handles cases where the user message is in a separate render count container
+            const container = responseElement.closest('[data-test-render-count]');
+            if (container) {
+                let prevContainer = container.previousElementSibling;
+                while (prevContainer) {
+                    const userMessage = prevContainer.querySelector('[data-testid="user-message"]');
+                    if (userMessage) {
+                        return this.cleanUserContent(userMessage as HTMLElement);
+                    }
+                    prevContainer = prevContainer.previousElementSibling;
                 }
             }
 
@@ -198,29 +276,22 @@ export class ClaudeAdapter extends SiteAdapter {
     /**
      * Claude-specific toolbar injection
      *
-     * Key insight: For Claude.ai, the getActionBarSelector() returns the message
-     * content element (.font-claude-response), not the actual action bar. This is
-     * because the toolbar uses absolute positioning and needs to position relative
-     * to the message content width for proper alignment.
+     * Use default implementation from base class which injects BEFORE the action bar.
+     * This is perfect for Claude.ai since:
+     * - Message content comes first
+     * - Then our toolbar (injected before action bar)
+     * - Then official action bar (last)
      *
-     * Therefore, we inject the toolbar AFTER the message content, not before.
+     * No custom logic needed - delegate to base class.
      */
     injectToolbar(messageElement: HTMLElement, toolbarWrapper: HTMLElement): boolean {
-        // Find the message content (actionBar selector points to .font-claude-response)
-        const messageContent = messageElement.querySelector(this.getActionBarSelector());
-
-        if (!messageContent || !messageContent.parentElement) {
+        // Use default base class implementation
+        // This will insert toolbar before the action bar (returned by getActionBarSelector())
+        const actionBar = messageElement.querySelector(this.getActionBarSelector());
+        if (!actionBar || !actionBar.parentElement) {
             return false;
         }
-
-        // Insert toolbar AFTER the message content
-        // Using nextSibling to insert after instead of before
-        if (messageContent.nextSibling) {
-            messageContent.parentElement.insertBefore(toolbarWrapper, messageContent.nextSibling);
-        } else {
-            messageContent.parentElement.appendChild(toolbarWrapper);
-        }
-
+        actionBar.parentElement.insertBefore(toolbarWrapper, actionBar);
         return true;
     }
 }

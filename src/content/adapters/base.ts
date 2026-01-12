@@ -85,6 +85,16 @@ export abstract class SiteAdapter {
         return false;  // Default: no filtering
     }
 
+    /**
+     * Get placeholder text for noise nodes (e.g., Artifacts)
+     * If returns a string, the node will be replaced with a placeholder instead of removed
+     * @param node - DOM node to get placeholder for
+     * @returns Placeholder text or undefined to remove the node
+     */
+    getArtifactPlaceholder(_node: HTMLElement): string | undefined {
+        return undefined;  // Default: remove without placeholder
+    }
+
     // ========================================
     // Message Sending Support (Phase 3)
     // ========================================

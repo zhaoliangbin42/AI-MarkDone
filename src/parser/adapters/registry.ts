@@ -12,6 +12,7 @@
 import type { IPlatformAdapter } from './IPlatformAdapter';
 import { ChatGPTAdapter } from './ChatGPTAdapter';
 import { GeminiAdapter } from './GeminiAdapter';
+import { ClaudeAdapter } from './ClaudeAdapter';
 
 interface AdapterRegistration {
     /** URL patterns to match (substring match) */
@@ -48,11 +49,11 @@ class ParserAdapterRegistry {
             create: () => new ChatGPTAdapter(),
         });
 
-        // Future platforms can be added here:
-        // this.register({
-        //     patterns: ['claude.ai'],
-        //     create: () => new ClaudeAdapter(),
-        // });
+        // Claude.ai
+        this.register({
+            patterns: ['claude.ai'],
+            create: () => new ClaudeAdapter(),
+        });
     }
 
     /**

@@ -4,7 +4,7 @@ import { adapterRegistry } from '../adapters/registry';
 
 /**
  * MarkdownParser - Uses new v3 high-performance parser
- * 
+ *
  * Old unified pipeline has been removed to reduce bundle size (~1.5MB savings)
  */
 export class MarkdownParser {
@@ -14,7 +14,7 @@ export class MarkdownParser {
 
     /**
      * Parse HTML element to Markdown with noise filtering
-     * 
+     *
      * Pre-processes DOM to remove platform-specific noise before markdown conversion
      * @param element - HTML element to parse
      * @returns Markdown string
@@ -26,8 +26,8 @@ export class MarkdownParser {
         // Step 1: Clone element to avoid mutating original DOM
         const clone = element.cloneNode(true) as HTMLElement;
 
-        // Step 2: Remove noise nodes (platform-specific metadata)
-        this.removeNoiseNodes(clone);
+        // Step 2: Process noise nodes (replace with placeholders or remove)
+        this.processNoiseNodes(clone);
 
         // Step 3: Parse cleaned DOM to markdown
         const markdown = this.parser.parse(clone);
@@ -38,12 +38,12 @@ export class MarkdownParser {
     }
 
     /**
-     * Remove platform-specific noise nodes from DOM tree
-     * Uses adapter's isNoiseNode() method with structural markers
-     * 
+     * Process platform-specific noise nodes from DOM tree
+     * Uses adapter's isNoiseNode() and getArtifactPlaceholder() methods
+     *
      * @param root - Root element to clean (will be mutated)
      */
-    private removeNoiseNodes(root: HTMLElement): void {
+    private processNoiseNodes(root: HTMLElement): void {
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) {
             logger.warn('[MarkdownParser] No adapter found, skipping noise filtering');
@@ -56,30 +56,40 @@ export class MarkdownParser {
             NodeFilter.SHOW_ELEMENT
         );
 
-        const nodesToRemove: Node[] = [];
+        const nodesToProcess: { node: Node; placeholder?: string }[] = [];
         let node: Node | null;
 
-        // Collect nodes to remove (can't remove during traversal)
+        // Collect nodes to process (can't modify during traversal)
         while ((node = walker.nextNode())) {
             try {
                 const nextSibling = (node as Element).nextElementSibling;
                 if (adapter.isNoiseNode(node, { nextSibling })) {
-                    nodesToRemove.push(node);
+                    // Check if adapter provides a placeholder for this node
+                    const placeholder = adapter.getArtifactPlaceholder?.(node as HTMLElement);
+                    nodesToProcess.push({ node, placeholder });
                 }
             } catch (error) {
-                // Graceful degradation: log error and continue with next node
                 logger.warn('[MarkdownParser] Noise detection error, skipping node:', error);
             }
         }
 
-        // Remove in reverse order (children before parents prevents orphans)
-        nodesToRemove.reverse().forEach(n => {
-            logger.debug('[MarkdownParser] Removing noise node:', n);
-            n.parentNode?.removeChild(n);
+        // Process in reverse order (children before parents)
+        nodesToProcess.reverse().forEach(({ node, placeholder }) => {
+            if (placeholder) {
+                // Replace with placeholder text
+                const placeholderEl = document.createElement('p');
+                placeholderEl.textContent = placeholder;
+                node.parentNode?.replaceChild(placeholderEl, node);
+                logger.debug('[MarkdownParser] Replaced noise node with placeholder:', placeholder);
+            } else {
+                // Remove completely
+                node.parentNode?.removeChild(node);
+                logger.debug('[MarkdownParser] Removed noise node');
+            }
         });
 
-        if (nodesToRemove.length > 0) {
-            logger.debug(`[MarkdownParser] Removed ${nodesToRemove.length} noise nodes`);
+        if (nodesToProcess.length > 0) {
+            logger.debug(`[MarkdownParser] Processed ${nodesToProcess.length} noise nodes`);
         }
     }
 }

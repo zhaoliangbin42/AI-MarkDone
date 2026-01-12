@@ -18,12 +18,6 @@ export const toolbarStyles = `
   --theme-color: var(--aimd-toolbar-theme-color);
 }
 
-/* Wrapper for positioning (injected into DOM) */
-.aicopy-toolbar-wrapper {
-  display: block;
-  position: relative;
-  z-index: var(--aimd-z-base); /* Ensure it sits above standard content */
-}
 
 /* Notion-style floating toolbar */
 .aicopy-toolbar {
@@ -49,11 +43,7 @@ export const toolbarStyles = `
   
   /* Compact padding */
   padding: 4px;
-  
-  /* Right alignment */
-  position: absolute;
-  right: 0;
-  
+
   /* Ensure clickability */
   z-index: var(--aimd-z-base);
   pointer-events: auto;
