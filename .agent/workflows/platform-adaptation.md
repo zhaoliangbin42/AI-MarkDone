@@ -58,6 +58,7 @@ export class [Platform]Adapter extends SiteAdapter {
     getIcon(): string { /* ... */ }
     getPlatformName(): string { return '[Platform]'; } // 用于书签存储
     getThemeDetector(): ThemeDetector { /* ... */ }
+    normalizeDOM(element: HTMLElement): void { /* Optional: Standardise DOM */ }
 }
 ```
 

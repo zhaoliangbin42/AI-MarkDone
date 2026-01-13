@@ -180,22 +180,95 @@ export class DeepseekAdapter extends SiteAdapter {
     }
 
     /**
+     * Normalize Deepseek DOM structure
+     * 
+     * Transforms:
+     * <div class="md-code-block">
+     *   <div class="md-code-block-banner-wrap">...python...</div>
+     *   <pre>print('hello')</pre>
+     * </div>
+     * 
+     * Into:
+     * <div class="md-code-block">
+     *   <pre><code class="language-python">print('hello')</code></pre>
+     * </div>
+     */
+    normalizeDOM(element: HTMLElement): void {
+        const codeBlocks = element.querySelectorAll('.md-code-block');
+
+        codeBlocks.forEach(block => {
+            const banner = block.querySelector('.md-code-block-banner-wrap');
+            const pre = block.querySelector('pre');
+
+            if (!pre) return;
+
+            // Extract language
+            let language = '';
+            if (banner) {
+                const langSpan = banner.querySelector('.d813de27');
+                if (langSpan?.textContent) {
+                    language = langSpan.textContent.trim();
+                }
+                // Remove banner (it's noise)
+                banner.remove();
+            }
+
+            // If pre already has code, skip
+            if (pre.querySelector('code')) return;
+
+            // Wrap content in code tag
+            const code = document.createElement('code');
+            if (language) {
+                code.className = `language-${language}`;
+            }
+
+            // Move all child nodes of pre to code
+            while (pre.firstChild) {
+                code.appendChild(pre.firstChild);
+            }
+
+            pre.appendChild(code);
+        });
+    }
+
+    /**
      * Deepseek-specific toolbar injection
      * 
      * Inject toolbar before the action bar (after message content)
      */
     injectToolbar(messageElement: HTMLElement, toolbarWrapper: HTMLElement): boolean {
+        // DEBUG LOGGING START
+        console.log('[DeepseekAdapter] Injecting toolbar...', {
+            messageClasses: messageElement.className,
+            childCount: messageElement.childElementCount
+        });
+
         const actionBar = messageElement.querySelector(this.getActionBarSelector());
-        if (!actionBar || !actionBar.parentElement) {
-            // Fallback: append to message element
-            const messageContent = messageElement.querySelector('.ds-markdown');
-            if (messageContent && messageContent.parentElement) {
-                messageContent.parentElement.appendChild(toolbarWrapper);
-                return true;
-            }
+        console.log('[DeepseekAdapter] ActionBar found?', !!actionBar);
+
+        if (actionBar && actionBar.parentElement) {
+            console.log('[DeepseekAdapter] Inserting BEFORE ActionBar', {
+                actionBarParent: actionBar.parentElement.className,
+                actionBarClasses: actionBar.className
+            });
+            actionBar.parentElement.insertBefore(toolbarWrapper, actionBar);
+            return true;
+        }
+
+        // Fallback logic
+        console.log('[DeepseekAdapter] Fallback: Checking for main markdown content');
+
+        // Check if there is any MAIN markdown content (exclude thinking)
+        const allMarkdowns = Array.from(messageElement.querySelectorAll('.ds-markdown'));
+        const hasMainMarkdown = allMarkdowns.some(md => !md.closest('.ds-think-content'));
+
+        if (!hasMainMarkdown) {
+            console.log('[DeepseekAdapter] Still thinking (no main markdown), skipping toolbar injection');
             return false;
         }
-        actionBar.parentElement.insertBefore(toolbarWrapper, actionBar);
+
+        console.log('[DeepseekAdapter] Main markdown found, appending toolbar to messageElement');
+        messageElement.appendChild(toolbarWrapper);
         return true;
     }
 

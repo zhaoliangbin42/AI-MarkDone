@@ -26,6 +26,13 @@ export class MarkdownParser {
         // Step 1: Clone element to avoid mutating original DOM
         const clone = element.cloneNode(true) as HTMLElement;
 
+        // Step 1.5: Normalize DOM structure (platform-specific fixups)
+        const adapter = adapterRegistry.getAdapter();
+        if (adapter) {
+            adapter.normalizeDOM(clone);
+            logger.debug('[MarkdownParser] Normalized DOM structure');
+        }
+
         // Step 2: Process noise nodes (replace with placeholders or remove)
         this.processNoiseNodes(clone);
 

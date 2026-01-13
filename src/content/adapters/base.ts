@@ -168,6 +168,18 @@ export abstract class SiteAdapter {
         return undefined;  // Default: remove without placeholder
     }
 
+    /**
+     * Normalize DOM structure before Markdown parsing
+     * 
+     * Allows adapters to standardise platform-specific HTML structures
+     * (e.g., code blocks) into standard HTML that the Parser can handle.
+     * 
+     * @param element - The root element to normalize (will be mutated in place)
+     */
+    normalizeDOM(_element: HTMLElement): void {
+        // Default: do nothing
+    }
+
     // ========================================
     // Message Sending Support (Phase 3)
     // ========================================
