@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ChatGPT Formula Extraction**: Fixed inline formulas that failed to render correctly, restoring underscores that were incorrectly converted to italics.
 - **Block Math Formatting**: Normalized block math output to remove extra blank lines between `$$` delimiters.
 - **Reader Formula Rendering**: Fixed long block formulas not rendering in Reader mode due to chunk splitting during Markdown processing.
+- **Floating Input**: Fixed newline characters lost when syncing between floating input and native platform input.
+- **Floating Input**: Fixed Shift+Enter triggering host page send action instead of creating newline in Reader's floating input.
+- **Reader Panel**: Fixed last page content not reloading when navigating back from other pages.
 
 ## [2.5.0] - 2026-01-10
 

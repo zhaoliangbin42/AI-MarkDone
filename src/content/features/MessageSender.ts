@@ -14,21 +14,86 @@
 import { SiteAdapter } from '../adapters/base';
 import { logger } from '../../utils/logger';
 
+// ========================================
+// Contenteditable Serialization Utilities
+// ========================================
+
+/**
+ * Parse contenteditable HTML to plain text, preserving exact newlines.
+ * Uses DOM manipulation for cross-browser compatibility.
+ * 
+ * ProseMirror structure:
+ * - Each <p> represents one line
+ * - Empty lines are <p><br></p> (br is just a placeholder, not an extra newline)
+ * - Other editors may use <div> or <br> directly
+ * 
+ * @param element - The contenteditable element
+ * @returns Plain text with preserved newlines
+ */
+function parseToPlainText(element: HTMLElement): string {
+    // Check if content uses block elements (ProseMirror style)
+    const blocks = element.querySelectorAll('p, div');
+
+    if (blocks.length > 0) {
+        // ProseMirror/Block-based: each block = one line
+        const lines: string[] = [];
+        blocks.forEach(block => {
+            // Get text content, empty block (<p><br></p>) = empty string
+            const text = block.textContent || '';
+            lines.push(text);
+        });
+        return lines.join('\n');
+    }
+
+    // Fallback: simple br-based content (Firefox style)
+    // Clone to avoid mutating original DOM
+    const clone = element.cloneNode(true) as HTMLElement;
+
+    // Replace <br> with newline
+    clone.querySelectorAll('br').forEach(br => {
+        br.replaceWith('\n');
+    });
+
+    return clone.textContent || '';
+}
+
+/**
+ * Convert plain text to HTML for contenteditable (ProseMirror format).
+ * Each line becomes a <p> element; empty lines become <p><br></p>.
+ * 
+ * @param text - Plain text with newlines
+ * @returns HTML string
+ */
+function toHTML(text: string): string {
+    return text.split('\n').map(line => {
+        if (line === '') {
+            return '<p><br></p>';  // Empty line
+        }
+        return `<p>${escapeHTML(line)}</p>`;
+    }).join('');
+}
+
+/**
+ * Escape HTML special characters.
+ */
+function escapeHTML(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 export interface MessageSenderOptions {
     /** Adapter for current platform */
     adapter: SiteAdapter;
-    /** Debounce delay for input sync (ms) */
-    debounceMs?: number;
 }
 
 export class MessageSender {
     private adapter: SiteAdapter;
-    private debounceMs: number;
-    private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(options: MessageSenderOptions) {
         this.adapter = options.adapter;
-        this.debounceMs = options.debounceMs ?? 500;  // Default 500ms for trailing debounce
     }
 
     /**
@@ -53,10 +118,14 @@ export class MessageSender {
             return value;
         }
 
-        // Contenteditable element
+        // Contenteditable element - use DOM-based serialization for accuracy
         if (input.getAttribute('contenteditable') === 'true') {
-            const text = input.textContent || '';
-            logger.info('[MessageSender] Read from contenteditable', { length: text.length, preview: text.substring(0, 50) });
+            const text = parseToPlainText(input);
+            logger.info('[MessageSender] 🔍 Read from contenteditable', {
+                length: text.length,
+                preview: text.substring(0, 80).replace(/\n/g, '\\n'),
+                newlineCount: (text.match(/\n/g) || []).length
+            });
             return text;
         }
 
@@ -100,27 +169,18 @@ export class MessageSender {
         return success;
     }
 
-    /**
-     * Debounced sync to native input (background sync, no focus stealing)
-     * Uses silentSync for background updates
-     */
-    syncToNativeDebounced(text: string): void {
-        if (this.debounceTimer) {
-            clearTimeout(this.debounceTimer);
-        }
 
-        this.debounceTimer = setTimeout(() => {
-            this.silentSync(text);
-            this.debounceTimer = null;
-        }, this.debounceMs);
-    }
 
     /**
      * Sync to native input using input event simulation
      * Triggers beforeinput + input events to notify framework of changes
      */
     silentSync(text: string): boolean {
-        logger.info('[MessageSender] silentSync called', { textLength: text.length, preview: text.substring(0, 30) });
+        logger.info('[MessageSender] 🔍 silentSync called', {
+            textLength: text.length,
+            preview: text.substring(0, 50).replace(/\n/g, '\\n'),
+            newlineCount: (text.match(/\n/g) || []).length
+        });
         const input = this.adapter.getInputElement();
         if (!input) {
             logger.warn('[MessageSender] Native input not found for silentSync');
@@ -133,8 +193,13 @@ export class MessageSender {
                 input.value = text;
                 logger.info('[MessageSender] Set textarea/input value');
             } else {
-                input.textContent = text;
-                logger.info('[MessageSender] Set contenteditable textContent');
+                // For contenteditable, use DOM-based serialization with proper escaping
+                const html = toHTML(text);
+                input.innerHTML = html;
+                logger.info('[MessageSender] 🔍 Set contenteditable innerHTML', {
+                    lineCount: text.split('\n').length,
+                    htmlPreview: html.substring(0, 100)
+                });
             }
 
             // 2. Dispatch input events to trigger framework state update
@@ -154,7 +219,7 @@ export class MessageSender {
             }));
             logger.info('[MessageSender] Dispatched input event');
 
-            logger.info('[MessageSender] silentSync completed successfully');
+            logger.info('[MessageSender] 🔍 silentSync completed successfully');
             return true;
         } catch (e) {
             logger.error('[MessageSender] silentSync failed:', e);
@@ -163,13 +228,9 @@ export class MessageSender {
     }
 
     /**
-     * Force sync (cancel debounce and sync immediately, no focus stealing)
+     * Force sync to native input immediately (no focus stealing)
      */
     forceSyncToNative(text: string): boolean {
-        if (this.debounceTimer) {
-            clearTimeout(this.debounceTimer);
-            this.debounceTimer = null;
-        }
         return this.silentSync(text);
     }
 
@@ -242,13 +303,10 @@ export class MessageSender {
     }
 
     /**
-     * Cleanup resources
+     * Cleanup resources (no-op currently, placeholder for future cleanup)
      */
     destroy(): void {
-        if (this.debounceTimer) {
-            clearTimeout(this.debounceTimer);
-            this.debounceTimer = null;
-        }
+        // No resources to cleanup currently
     }
 
     /**
