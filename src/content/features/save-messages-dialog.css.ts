@@ -1,13 +1,13 @@
 /**
- * Export Dialog Styles
+ * Save Messages Dialog Styles
  * 
  * Uses design tokens only (no hardcoded values).
  * Supports light/dark mode via semantic tokens.
  */
 
-export const exportDialogStyles = `
+export const saveMessagesDialogStyles = `
     /* Dialog Overlay */
-    .export-overlay {
+    .save-messages-overlay {
         position: fixed;
         inset: 0;
         background: var(--bg-overlay, rgba(0, 0, 0, 0.5));
@@ -24,7 +24,7 @@ export const exportDialogStyles = `
     }
 
     /* Dialog Container */
-    .export-dialog {
+    .save-messages-dialog {
         position: relative;  /* Required for tooltip absolute positioning */
         background: var(--bg-surface, #fff);
         border-radius: var(--radius-lg, 12px);
@@ -50,7 +50,7 @@ export const exportDialogStyles = `
     }
 
     /* Header */
-    .export-header {
+    .save-messages-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -58,14 +58,14 @@ export const exportDialogStyles = `
         border-bottom: 1px solid var(--border-default, #e5e7eb);
     }
 
-    .export-title {
+    .save-messages-title {
         font-size: var(--font-size-lg, 18px);
         font-weight: 600;
         color: var(--text-primary, #111827);
         margin: 0;
     }
 
-    .export-close-btn {
+    .save-messages-close-btn {
         background: transparent;
         border: none;
         padding: var(--space-xs, 4px);
@@ -77,27 +77,27 @@ export const exportDialogStyles = `
         justify-content: center;
     }
 
-    .export-close-btn:hover {
+    .save-messages-close-btn:hover {
         background: var(--interactive-hover, #f3f4f6);
         color: var(--text-primary, #111827);
     }
 
     /* Body */
-    .export-body {
+    .save-messages-body {
         padding: var(--space-md, 16px);
         overflow-y: auto;
         flex: 1;
     }
 
-    .export-section {
+    .save-messages-section {
         margin-bottom: var(--space-md, 16px);
     }
 
-    .export-section:last-child {
+    .save-messages-section:last-child {
         margin-bottom: 0;
     }
 
-    .export-label {
+    .save-messages-label {
         display: block;
         font-size: var(--font-size-sm, 14px);
         font-weight: 500;
@@ -263,7 +263,7 @@ export const exportDialogStyles = `
     }
 
     /* Footer */
-    .export-footer {
+    .save-messages-footer {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -272,12 +272,12 @@ export const exportDialogStyles = `
         gap: var(--space-sm, 8px);
     }
 
-    .export-actions-left {
+    .save-messages-actions-left {
         display: flex;
         gap: var(--space-sm, 8px);
     }
 
-    .export-btn {
+    .save-messages-btn {
         padding: var(--space-sm, 8px) var(--space-md, 16px);
         border-radius: var(--radius-sm, 4px);
         font-size: var(--font-size-sm, 14px);
@@ -285,29 +285,29 @@ export const exportDialogStyles = `
         transition: all 0.15s ease;
     }
 
-    .export-btn-secondary {
+    .save-messages-btn-secondary {
         background: transparent;
         border: 1px solid var(--border-default, #e5e7eb);
         color: var(--text-primary, #111827);
     }
 
-    .export-btn-secondary:hover {
+    .save-messages-btn-secondary:hover {
         background: var(--interactive-hover, #f3f4f6);
         border-color: var(--border-strong, #d1d5db);
     }
 
-    .export-btn-primary {
+    .save-messages-btn-primary {
         background: var(--interactive-primary, #2563eb);
         border: 1px solid var(--interactive-primary, #2563eb);
         color: var(--text-on-primary, #fff);
     }
 
-    .export-btn-primary:hover {
+    .save-messages-btn-primary:hover {
         background: var(--interactive-primary-hover, #1d4ed8);
         border-color: var(--interactive-primary-hover, #1d4ed8);
     }
 
-    .export-btn-primary:disabled {
+    .save-messages-btn-primary:disabled {
         background: var(--interactive-disabled, #d1d5db);
         border-color: var(--interactive-disabled, #d1d5db);
         cursor: not-allowed;

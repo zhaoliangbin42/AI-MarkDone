@@ -12,7 +12,7 @@ export interface ToolbarCallbacks {
     onViewSource: () => void;
     onReRender: () => void;
     onBookmark?: () => void;
-    onExport?: () => void;
+    onSaveMessages?: () => void;
 }
 
 /**
@@ -114,12 +114,12 @@ export class Toolbar {
             () => this.handleReRender()
         );
 
-        // Export button (file-box icon)
-        const exportBtn = this.createIconButton(
-            'export-btn',
+        // Save as button (file-box icon)
+        const saveMessagesBtn = this.createIconButton(
+            'save-messages-btn',
             Icons.fileBox,
-            'Export',
-            () => this.handleExport()
+            'Save as',
+            () => this.handleSaveMessages()
         );
 
         // Word count stats (right side)
@@ -139,7 +139,7 @@ export class Toolbar {
         buttonGroup.appendChild(copyBtn);
         buttonGroup.appendChild(sourceBtn);
         buttonGroup.appendChild(reRenderBtn);
-        buttonGroup.appendChild(exportBtn);
+        buttonGroup.appendChild(saveMessagesBtn);
 
         wrapper.appendChild(buttonGroup);
         wrapper.appendChild(divider);
@@ -374,14 +374,14 @@ export class Toolbar {
     }
 
     /**
-     * Handle Export button click
+     * Handle Save as button click
      */
-    private handleExport(): void {
-        logger.debug('Export clicked');
-        if (this.callbacks.onExport) {
-            this.callbacks.onExport();
-            const btn = this.shadowRoot.querySelector('#export-btn') as HTMLButtonElement;
-            if (btn) this.showFeedback(btn, 'Exporting...');
+    private handleSaveMessages(): void {
+        logger.debug('[AI-MarkDone][Toolbar] Save messages clicked');
+        if (this.callbacks.onSaveMessages) {
+            this.callbacks.onSaveMessages();
+            const btn = this.shadowRoot.querySelector('#save-messages-btn') as HTMLButtonElement;
+            if (btn) this.showFeedback(btn, 'Saving...');
         }
     }
 

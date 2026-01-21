@@ -1,5 +1,5 @@
 /**
- * Export Dialog Component
+ * Save Messages Dialog Component
  * 
  * Message selection dialog with format choice (Markdown/PDF).
  * Uses Shadow DOM for style isolation.
@@ -9,37 +9,37 @@
 import { logger } from '../../utils/logger';
 import { DesignTokens } from '../../utils/design-tokens';
 import { ThemeManager } from '../../utils/ThemeManager';
-import { exportDialogStyles } from './export-dialog.css';
-import type { ChatTurn, ConversationMetadata, ExportFormat } from './export';
+import { saveMessagesDialogStyles } from './save-messages-dialog.css';
+import type { ChatTurn, ConversationMetadata, SaveFormat } from './save-messages';
 
 /**
- * Callback type for export action
+ * Callback type for save messages action
  */
-export type OnExportCallback = (
+export type OnSaveMessagesCallback = (
     selectedIndices: number[],
-    format: ExportFormat
+    format: SaveFormat
 ) => Promise<void>;
 
 /**
- * Export Dialog Component
+ * Save Messages Dialog Component
  */
-export class ExportDialog {
+export class SaveMessagesDialog {
     private host: HTMLElement | null = null;
     private shadowRoot: ShadowRoot | null = null;
     private selectedIndices: Set<number> = new Set();
-    private format: ExportFormat = 'markdown';
+    private format: SaveFormat = 'markdown';
     private turns: ChatTurn[] = [];
     private metadata: ConversationMetadata | null = null;
-    private onExport: OnExportCallback | null = null;
+    private onSaveMessages: OnSaveMessagesCallback | null = null;
     private tooltipTimeout: number | null = null;
 
     /**
-     * Open the export dialog
+     * Open the save messages dialog
      */
     open(
         turns: ChatTurn[],
         metadata: ConversationMetadata,
-        onExport: OnExportCallback
+        onSaveMessages: OnSaveMessagesCallback
     ): void {
         if (this.host) {
             this.close();
@@ -47,7 +47,7 @@ export class ExportDialog {
 
         this.turns = turns;
         this.metadata = metadata;
-        this.onExport = onExport;
+        this.onSaveMessages = onSaveMessages;
 
         // Select all messages by default
         this.selectedIndices = new Set(turns.map((_, i) => i));
@@ -55,7 +55,7 @@ export class ExportDialog {
 
         // Create host element
         this.host = document.createElement('div');
-        this.host.id = 'aimd-export-dialog';
+        this.host.id = 'aimd-save-messages-dialog';
         this.shadowRoot = this.host.attachShadow({ mode: 'open' });
 
         // Inject styles
@@ -67,7 +67,7 @@ export class ExportDialog {
         // Append to body
         document.body.appendChild(this.host);
 
-        logger.info('[ExportDialog] Opened with', turns.length, 'messages');
+        logger.info('[AI-MarkDone][SaveMessagesDialog] Opened with', turns.length, 'messages');
     }
 
     /**
@@ -87,10 +87,10 @@ export class ExportDialog {
 
         this.turns = [];
         this.metadata = null;
-        this.onExport = null;
+        this.onSaveMessages = null;
         this.selectedIndices.clear();
 
-        logger.debug('[ExportDialog] Closed');
+        logger.debug('[AI-MarkDone][SaveMessagesDialog] Closed');
     }
 
     /**
@@ -107,7 +107,7 @@ export class ExportDialog {
 
         // Component styles
         const componentStyle = document.createElement('style');
-        componentStyle.textContent = exportDialogStyles;
+        componentStyle.textContent = saveMessagesDialogStyles;
         this.shadowRoot.appendChild(componentStyle);
     }
 
@@ -118,7 +118,7 @@ export class ExportDialog {
         if (!this.shadowRoot || !this.metadata) return;
 
         const container = document.createElement('div');
-        container.className = 'export-overlay';
+        container.className = 'save-messages-overlay';
         container.addEventListener('click', (e) => {
             if (e.target === container) {
                 this.close();
@@ -126,30 +126,30 @@ export class ExportDialog {
         });
 
         const dialog = document.createElement('div');
-        dialog.className = 'export-dialog';
+        dialog.className = 'save-messages-dialog';
 
         // Header
         const header = document.createElement('div');
-        header.className = 'export-header';
+        header.className = 'save-messages-header';
         header.innerHTML = `
-            <h2 class="export-title">Export Conversation</h2>
+            <h2 class="save-messages-title">Save Messages As</h2>
         `;
 
         const closeBtn = document.createElement('button');
-        closeBtn.className = 'export-close-btn';
+        closeBtn.className = 'save-messages-close-btn';
         closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
         closeBtn.addEventListener('click', () => this.close());
         header.appendChild(closeBtn);
 
         // Body
         const body = document.createElement('div');
-        body.className = 'export-body';
+        body.className = 'save-messages-body';
 
         // Message selector section
         const selectorSection = document.createElement('div');
-        selectorSection.className = 'export-section';
+        selectorSection.className = 'save-messages-section';
         selectorSection.innerHTML = `
-            <label class="export-label">Select messages to export:</label>
+            <label class="save-messages-label">Select messages to save:</label>
         `;
 
         // Scroll container with padding for tooltips
@@ -163,9 +163,9 @@ export class ExportDialog {
 
         // Format section
         const formatSection = document.createElement('div');
-        formatSection.className = 'export-section';
+        formatSection.className = 'save-messages-section';
         formatSection.innerHTML = `
-            <label class="export-label">Format:</label>
+            <label class="save-messages-label">Format:</label>
             <div class="format-buttons">
                 <button type="button" class="format-btn active" data-format="markdown">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -194,7 +194,7 @@ export class ExportDialog {
                 formatSection.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 // Update format
-                this.format = (btn as HTMLElement).dataset.format as ExportFormat;
+                this.format = (btn as HTMLElement).dataset.format as SaveFormat;
             });
         });
 
@@ -276,13 +276,13 @@ export class ExportDialog {
             this.hideTooltipElement();
 
             // Use overlay as container (no overflow restriction, unlike dialog)
-            const overlay = this.shadowRoot?.querySelector('.export-overlay') as HTMLElement;
+            const overlay = this.shadowRoot?.querySelector('.save-messages-overlay') as HTMLElement;
             if (!overlay) return;
 
             // Create tooltip element
             const tooltip = document.createElement('div');
             tooltip.className = 'message-tooltip';
-            tooltip.id = 'export-tooltip';
+            tooltip.id = 'save-messages-tooltip';
 
             // Show truncated text only (no index, since user is hovering on the button)
             const maxLen = 100;
@@ -332,7 +332,7 @@ export class ExportDialog {
      * Remove tooltip element from DOM
      */
     private hideTooltipElement(): void {
-        const tooltip = this.shadowRoot?.querySelector('#export-tooltip');
+        const tooltip = this.shadowRoot?.querySelector('#save-messages-tooltip');
         if (tooltip) {
             tooltip.remove();
         }
@@ -343,42 +343,42 @@ export class ExportDialog {
      */
     private renderFooter(): HTMLElement {
         const footer = document.createElement('div');
-        footer.className = 'export-footer';
-        footer.id = 'export-footer';
+        footer.className = 'save-messages-footer';
+        footer.id = 'save-messages-footer';
 
         // Left: Select All / Deselect All
         const actionsLeft = document.createElement('div');
-        actionsLeft.className = 'export-actions-left';
+        actionsLeft.className = 'save-messages-actions-left';
 
         const selectAllBtn = document.createElement('button');
-        selectAllBtn.className = 'export-btn export-btn-secondary';
+        selectAllBtn.className = 'save-messages-btn save-messages-btn-secondary';
         selectAllBtn.textContent = 'Select All';
         selectAllBtn.addEventListener('click', () => this.selectAll());
 
         const deselectAllBtn = document.createElement('button');
-        deselectAllBtn.className = 'export-btn export-btn-secondary';
+        deselectAllBtn.className = 'save-messages-btn save-messages-btn-secondary';
         deselectAllBtn.textContent = 'Deselect All';
         deselectAllBtn.addEventListener('click', () => this.deselectAll());
 
         actionsLeft.appendChild(selectAllBtn);
         actionsLeft.appendChild(deselectAllBtn);
 
-        // Right: Count + Export button
+        // Right: Count + Save button
         const count = document.createElement('span');
         count.className = 'selection-count';
         count.id = 'selection-count';
         count.textContent = `${this.selectedIndices.size} / ${this.turns.length} selected`;
 
-        const exportBtn = document.createElement('button');
-        exportBtn.className = 'export-btn export-btn-primary';
-        exportBtn.id = 'export-btn';
-        exportBtn.textContent = 'Export';
-        exportBtn.disabled = this.selectedIndices.size === 0;
-        exportBtn.addEventListener('click', () => this.handleExport());
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'save-messages-btn save-messages-btn-primary';
+        saveBtn.id = 'save-messages-btn';
+        saveBtn.textContent = 'Save';
+        saveBtn.disabled = this.selectedIndices.size === 0;
+        saveBtn.addEventListener('click', () => this.handleSaveMessages());
 
         footer.appendChild(actionsLeft);
         footer.appendChild(count);
-        footer.appendChild(exportBtn);
+        footer.appendChild(saveBtn);
 
         return footer;
     }
@@ -425,37 +425,37 @@ export class ExportDialog {
             count.textContent = `${this.selectedIndices.size} / ${this.turns.length} selected`;
         }
 
-        const exportBtn = this.shadowRoot.querySelector('#export-btn') as HTMLButtonElement;
-        if (exportBtn) {
-            exportBtn.disabled = this.selectedIndices.size === 0;
+        const saveBtn = this.shadowRoot.querySelector('#save-messages-btn') as HTMLButtonElement;
+        if (saveBtn) {
+            saveBtn.disabled = this.selectedIndices.size === 0;
         }
     }
 
     /**
-     * Handle export button click
+     * Handle save messages button click
      */
-    private async handleExport(): Promise<void> {
-        if (!this.onExport || this.selectedIndices.size === 0) return;
+    private async handleSaveMessages(): Promise<void> {
+        if (!this.onSaveMessages || this.selectedIndices.size === 0) return;
 
-        const exportBtn = this.shadowRoot?.querySelector('#export-btn') as HTMLButtonElement;
-        if (exportBtn) {
-            exportBtn.textContent = 'Exporting...';
-            exportBtn.disabled = true;
+        const saveBtn = this.shadowRoot?.querySelector('#save-messages-btn') as HTMLButtonElement;
+        if (saveBtn) {
+            saveBtn.textContent = 'Saving...';
+            saveBtn.disabled = true;
         }
 
         try {
             const indices = Array.from(this.selectedIndices).sort((a, b) => a - b);
-            await this.onExport(indices, this.format);
+            await this.onSaveMessages(indices, this.format);
             this.close();
         } catch (error) {
-            logger.error('[ExportDialog] Export failed:', error);
-            if (exportBtn) {
-                exportBtn.textContent = 'Export';
-                exportBtn.disabled = false;
+            logger.error('[AI-MarkDone][SaveMessagesDialog] Save failed:', error);
+            if (saveBtn) {
+                saveBtn.textContent = 'Save';
+                saveBtn.disabled = false;
             }
         }
     }
 }
 
 // Singleton instance
-export const exportDialog = new ExportDialog();
+export const saveMessagesDialog = new SaveMessagesDialog();

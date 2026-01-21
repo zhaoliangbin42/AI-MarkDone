@@ -1,7 +1,7 @@
 /**
- * Export Feature
+ * Save Messages Feature
  * 
- * Provides conversation export functionality (Markdown/PDF).
+ * Provides conversation save functionality (Markdown/PDF).
  * Located in src/content/features/ per GEMINI.md architecture.
  */
 
@@ -36,17 +36,17 @@ export interface ConversationMetadata {
 }
 
 /**
- * Export format options
+ * Save format options
  */
-export type ExportFormat = 'markdown' | 'pdf';
+export type SaveFormat = 'markdown' | 'pdf';
 
 /**
- * Export handler function type
+ * Save messages handler function type
  */
-export type ExportHandler = (
+export type SaveMessagesHandler = (
     messages: ChatTurn[],
     selectedIndices: number[],
-    format: ExportFormat,
+    format: SaveFormat,
     metadata: ConversationMetadata
 ) => Promise<void>;
 
@@ -66,10 +66,10 @@ export function collectAllMessages(
     // Reuse MessageCollector (same as ReaderPanel)
     const messageRefs = MessageCollector.collectMessages();
 
-    logger.debug(`[Export] MessageCollector returned ${messageRefs.length} messages`);
+    logger.debug(`[AI-MarkDone][SaveMessages] MessageCollector returned ${messageRefs.length} messages`);
 
     if (messageRefs.length === 0) {
-        logger.warn('[Export] No messages found');
+        logger.warn('[AI-MarkDone][SaveMessages] No messages found');
         return [];
     }
 
@@ -137,9 +137,9 @@ export function getConversationMetadata(adapter: SiteAdapter, count: number): Co
 }
 
 /**
- * Export messages as Markdown
+ * Save messages as Markdown
  */
-export async function exportAsMarkdown(
+export async function saveMessagesAsMarkdown(
     messages: ChatTurn[],
     selectedIndices: number[],
     metadata: ConversationMetadata
@@ -147,7 +147,7 @@ export async function exportAsMarkdown(
     const selectedMessages = selectedIndices.map(i => messages[i]).filter(Boolean);
 
     if (selectedMessages.length === 0) {
-        logger.warn('[Export] No messages selected');
+        logger.warn('[AI-MarkDone][SaveMessages] No messages selected for Markdown');
         return;
     }
 
@@ -182,17 +182,17 @@ export async function exportAsMarkdown(
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    logger.info(`[Export] Markdown exported: ${filename}`);
+    logger.info(`[AI-MarkDone][SaveMessages] Markdown saved: ${filename}`);
 }
 
 /**
- * Export messages as PDF (via print dialog)
+ * Save messages as PDF (via print dialog)
  * 
  * Uses MarkdownRenderer to properly render content including formulas.
  * Each message starts on a new page.
  * Uses design tokens for platform-agnostic styling.
  */
-export async function exportAsPdf(
+export async function saveMessagesAsPdf(
     messages: ChatTurn[],
     selectedIndices: number[],
     metadata: ConversationMetadata
@@ -200,11 +200,11 @@ export async function exportAsPdf(
     const selectedMessages = selectedIndices.map(i => messages[i]).filter(Boolean);
 
     if (selectedMessages.length === 0) {
-        logger.warn('[Export] No messages selected for PDF');
+        logger.warn('[AI-MarkDone][SaveMessages] No messages selected for PDF');
         return;
     }
 
-    logger.info('[Export] Creating PDF print container with rendered content');
+    logger.info('[AI-MarkDone][SaveMessages] Creating PDF print container with rendered content');
 
     // Import MarkdownRenderer for proper content rendering
     const { MarkdownRenderer } = await import('../../renderer/core/MarkdownRenderer');
@@ -384,7 +384,7 @@ export async function exportAsPdf(
                 renderedAssistant = result.html;
             }
         } catch (e) {
-            logger.warn('[Export] Failed to render markdown, using raw content');
+            logger.warn('[AI-MarkDone][SaveMessages] Failed to render markdown, using raw content');
         }
 
         html += `
@@ -409,14 +409,14 @@ export async function exportAsPdf(
     const cleanup = () => {
         window.removeEventListener('afterprint', cleanup);
         printContainer.remove();
-        logger.debug('[Export] PDF print container cleaned up');
+        logger.debug('[AI-MarkDone][SaveMessages] PDF print container cleaned up');
     };
     window.addEventListener('afterprint', cleanup);
 
     // Trigger print after next frame (ensures DOM and styles are fully processed)
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            logger.info('[Export] Opening print dialog for PDF export');
+            logger.info('[AI-MarkDone][SaveMessages] Opening print dialog for PDF');
             window.print();
         });
     });

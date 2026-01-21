@@ -15,8 +15,8 @@ import { pageHeaderIcon } from './components/PageHeaderIcon';
 import { geminiPanelButton } from './components/GeminiPanelButton';
 import { ThemeManager, Theme } from '../utils/ThemeManager';
 import { eventBus } from './utils/EventBus';
-import { collectAllMessages, getConversationMetadata, exportAsMarkdown, exportAsPdf } from './features/export';
-import { exportDialog } from './features/ExportDialog';
+import { collectAllMessages, getConversationMetadata, saveMessagesAsMarkdown, saveMessagesAsPdf } from './features/save-messages';
+import { saveMessagesDialog } from './features/SaveMessagesDialog';
 
 /**
  * Listen for messages from background script
@@ -330,8 +330,8 @@ class ContentScript {
             onBookmark: async () => {
                 await this.handleBookmark(messageElement);
             },
-            onExport: () => {
-                this.handleExport();
+            onSaveMessages: () => {
+                this.handleSaveMessages();
             }
         };
 
@@ -447,13 +447,13 @@ class ContentScript {
     }
 
     /**
-     * Handle export button click
-     * Opens export dialog for message selection
+     * Handle save messages button click
+     * Opens save messages dialog for message selection
      */
-    private handleExport(): void {
+    private handleSaveMessages(): void {
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) {
-            logger.error('[handleExport] No adapter found');
+            logger.error('[AI-MarkDone][ContentScript] No adapter found for save messages');
             return;
         }
 
@@ -461,19 +461,19 @@ class ContentScript {
         const turns = collectAllMessages(adapter, this.markdownParser);
 
         if (turns.length === 0) {
-            logger.warn('[handleExport] No messages found to export');
+            logger.warn('[AI-MarkDone][ContentScript] No messages found to save');
             return;
         }
 
         // Get conversation metadata
         const metadata = getConversationMetadata(adapter, turns.length);
 
-        // Open export dialog with callback
-        exportDialog.open(turns, metadata, async (selectedIndices, format) => {
+        // Open save messages dialog with callback
+        saveMessagesDialog.open(turns, metadata, async (selectedIndices, format) => {
             if (format === 'markdown') {
-                await exportAsMarkdown(turns, selectedIndices, metadata);
+                await saveMessagesAsMarkdown(turns, selectedIndices, metadata);
             } else {
-                await exportAsPdf(turns, selectedIndices, metadata);
+                await saveMessagesAsPdf(turns, selectedIndices, metadata);
             }
         });
     }
