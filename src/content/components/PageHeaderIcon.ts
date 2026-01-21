@@ -74,7 +74,7 @@ export class PageHeaderIcon {
     }
 
     /**
-     * Handle button click
+     * Handle button click - open bookmark panel
      */
     private async handleClick(): Promise<void> {
         try {

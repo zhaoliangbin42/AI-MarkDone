@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Fluid Input**: Synchronized floating input box for seamless typing.
   - **Code Block Formatting**: Normalization of Deepseek's code blocks for standard rendering.
   - **Reliable Sending**: Robust "Anti-Fragile" send button detection logic.
+- **Export Conversations**: New Export button in toolbar to download conversations as Markdown files.
 
 ### Fixed
 - **Theme System**: Fixed theme detection regression to ensure toolbar colors match the platform theme (Dark/Light).
@@ -26,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Floating Input**: Fixed newline characters lost when syncing between floating input and native platform input.
 - **Floating Input**: Fixed Shift+Enter triggering host page send action instead of creating newline in Reader's floating input.
 - **Reader Panel**: Fixed last page content not reloading when navigating back from other pages.
+- **PDF Export**: Fixed cross-platform typography inconsistencies (paragraph margins, heading spacing) between ChatGPT and Gemini.
+- **PDF Export**: Fixed Chinese font rendering in print context by adding explicit font stack.
+- **Export Dialog**: Fixed tooltip animation appearing from wrong direction.
+
+### Changed
+- **Export Icon**: Updated toolbar export button icon from download to file-box for better clarity.
+- **Export Title**: Truncated long conversation titles to 100 characters (prevents overflow from verbose Gemini titles).
+- **Export Timing**: Replaced setTimeout with requestAnimationFrame for more reliable print timing.
 
 ## [2.5.0] - 2026-01-10
 

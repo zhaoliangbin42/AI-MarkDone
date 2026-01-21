@@ -232,6 +232,23 @@ export abstract class SiteAdapter {
     abstract getPlatformName(): string;
 
     /**
+     * Get conversation title from platform UI (optional)
+     * 
+     * Some platforms (e.g., Gemini) don't include conversation title in <title> tag.
+     * This method allows adapters to extract title from platform-specific DOM elements.
+     * 
+     * @returns Conversation title or null if not available
+     * 
+     * @example
+     * // Gemini: Extract from conversation title element
+     * getConversationTitle() {
+     *     const titleEl = document.querySelector('[data-test-id="conversation-title"]');
+     *     return titleEl?.textContent?.trim() || null;
+     * }
+     */
+    getConversationTitle?(): string | null;
+
+    /**
      * Get platform-specific focus protection strategy
      * 
      * Some platforms (e.g., Claude.ai) aggressively steal focus from modal inputs

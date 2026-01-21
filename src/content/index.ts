@@ -15,6 +15,8 @@ import { pageHeaderIcon } from './components/PageHeaderIcon';
 import { geminiPanelButton } from './components/GeminiPanelButton';
 import { ThemeManager, Theme } from '../utils/ThemeManager';
 import { eventBus } from './utils/EventBus';
+import { collectAllMessages, getConversationMetadata, exportAsMarkdown, exportAsPdf } from './features/export';
+import { exportDialog } from './features/ExportDialog';
 
 /**
  * Listen for messages from background script
@@ -327,6 +329,9 @@ class ContentScript {
             },
             onBookmark: async () => {
                 await this.handleBookmark(messageElement);
+            },
+            onExport: () => {
+                this.handleExport();
             }
         };
 
@@ -439,6 +444,38 @@ class ContentScript {
             messageElement,
             (el: HTMLElement) => this.getMarkdown(el)
         );
+    }
+
+    /**
+     * Handle export button click
+     * Opens export dialog for message selection
+     */
+    private handleExport(): void {
+        const adapter = adapterRegistry.getAdapter();
+        if (!adapter) {
+            logger.error('[handleExport] No adapter found');
+            return;
+        }
+
+        // Collect all messages using MarkdownParser for content extraction
+        const turns = collectAllMessages(adapter, this.markdownParser);
+
+        if (turns.length === 0) {
+            logger.warn('[handleExport] No messages found to export');
+            return;
+        }
+
+        // Get conversation metadata
+        const metadata = getConversationMetadata(adapter, turns.length);
+
+        // Open export dialog with callback
+        exportDialog.open(turns, metadata, async (selectedIndices, format) => {
+            if (format === 'markdown') {
+                await exportAsMarkdown(turns, selectedIndices, metadata);
+            } else {
+                await exportAsPdf(turns, selectedIndices, metadata);
+            }
+        });
     }
 
     /**

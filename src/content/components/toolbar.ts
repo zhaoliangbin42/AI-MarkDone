@@ -12,6 +12,7 @@ export interface ToolbarCallbacks {
     onViewSource: () => void;
     onReRender: () => void;
     onBookmark?: () => void;
+    onExport?: () => void;
 }
 
 /**
@@ -113,6 +114,14 @@ export class Toolbar {
             () => this.handleReRender()
         );
 
+        // Export button (file-box icon)
+        const exportBtn = this.createIconButton(
+            'export-btn',
+            Icons.fileBox,
+            'Export',
+            () => this.handleExport()
+        );
+
         // Word count stats (right side)
         const stats = document.createElement('span');
         stats.className = 'aicopy-stats';
@@ -130,6 +139,7 @@ export class Toolbar {
         buttonGroup.appendChild(copyBtn);
         buttonGroup.appendChild(sourceBtn);
         buttonGroup.appendChild(reRenderBtn);
+        buttonGroup.appendChild(exportBtn);
 
         wrapper.appendChild(buttonGroup);
         wrapper.appendChild(divider);
@@ -362,6 +372,19 @@ export class Toolbar {
             // to show context-aware messages (Saving/Removing)
         }
     }
+
+    /**
+     * Handle Export button click
+     */
+    private handleExport(): void {
+        logger.debug('Export clicked');
+        if (this.callbacks.onExport) {
+            this.callbacks.onExport();
+            const btn = this.shadowRoot.querySelector('#export-btn') as HTMLButtonElement;
+            if (btn) this.showFeedback(btn, 'Exporting...');
+        }
+    }
+
 
 
     /**
