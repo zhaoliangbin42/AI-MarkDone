@@ -1,3 +1,16 @@
+---
+description: 新平台适配工作流
+---
+
+# 新平台适配工作流
+
+> **触发命令**: `/adapt`
+> **使用 Artifact**: `implementation_plan.md` (适配方案), `task.md` (进度跟踪), `walkthrough.md` (完成总结)
+> **激活 Skill**: `test-driven-development` (按需), `verification-before-completion` (Build 验证)
+
+---
+
+## Phase 1: DOM 分析
 
 ### 1.1 获取页面 HTML
 
@@ -56,41 +69,17 @@ export class [Platform]Adapter extends SiteAdapter {
     getInputSelector(): string { /* ... */ }
     getSendButtonSelector(): string { /* ... */ }
     getIcon(): string { /* ... */ }
+    getPlatformName(): string { return '[Platform]'; }
     getThemeDetector(): ThemeDetector { /* ... */ }
+    normalizeDOM(element: HTMLElement): void { /* Optional */ }
 }
 ```
 
-### 2.2 实现 ThemeDetector
-
-```typescript
-getThemeDetector(): ThemeDetector {
-    return {
-        detect: () => {
-            // 根据平台的主题指示器检测
-            const html = document.documentElement;
-            const value = html.getAttribute('data-xxx');
-            if (value === 'dark') return 'dark';
-            if (value === 'light') return 'light';
-            return null;
-        },
-        getObserveTargets: () => [{
-            element: 'html',  // 或 'body'
-            attributes: ['data-xxx']  // 需要监听的属性
-        }],
-        hasExplicitTheme: () => {
-            return !!document.documentElement.getAttribute('data-xxx');
-        }
-    };
-}
-```
-
-### 2.3 可选：覆盖默认方法
-
-| 方法 | 何时覆盖 |
-|:----|:--------|
-| `isNoiseNode()` | 平台有特殊噪音节点需过滤 |
-| `injectToolbar()` | 工具栏注入位置与默认不同 |
-| `getFocusProtectionStrategy()` | 平台有焦点抢夺问题 |
+> **🛑 用户调试点**
+> 
+> Adapter 核心方法实现后暂停，请用户：
+> 1. 加载扩展到浏览器测试基本注入
+> 2. 确认工具栏显示后回复"继续"
 
 ---
 
@@ -102,8 +91,6 @@ getThemeDetector(): ThemeDetector {
 
 ```typescript
 import { [Platform]Adapter } from './[platform]';
-
-// 在构造函数中添加
 this.register(new [Platform]Adapter());
 ```
 
@@ -111,73 +98,31 @@ this.register(new [Platform]Adapter());
 
 ```json
 {
-  "host_permissions": [
-    "https://[platform-domain]/*"
-  ],
-  "content_scripts": [{
-    "matches": [
-      "https://[platform-domain]/*"
-    ]
-  }]
+  "host_permissions": ["https://[platform-domain]/*"],
+  "content_scripts": [{"matches": ["https://[platform-domain]/*"]}]
 }
 ```
 
-### 3.3 更新 Service Worker
-
-**文件**: `src/background/service-worker.ts`
-
-```typescript
-const SUPPORTED_HOSTS = [
-    'chatgpt.com',
-    'gemini.google.com',
-    '[platform-domain]'  // 新增
-];
-```
-
-### 3.4 更新 Popup
-
-**文件**: `src/popup/popup.html`
-
-- 添加平台链接按钮
-- 添加平台图标
-
-### 3.5 添加平台图标
+### 3.3 添加平台图标
 
 **文件**: `src/assets/icons.ts`
-
-```typescript
-export const Icons = {
-    [platform]: `<svg>...</svg>`
-};
-```
 
 ---
 
 ## Phase 4: 验证测试
 
-### 4.1 构建验证
-
 ```bash
+// turbo
 npm run build
-# 确保无 TypeScript 错误
 ```
 
-### 4.2 功能测试清单
+### 功能测试清单
 
 - [ ] 扩展图标在平台页面上变为彩色
 - [ ] 工具栏正确注入到 AI 消息
 - [ ] Copy Markdown 功能正常
-- [ ] 字数统计正常显示
-- [ ] 流式消息检测正常
 - [ ] 主题切换热更新正常
 - [ ] 书签功能正常
-- [ ] Reader Panel 正常打开
-
-### 4.3 主题切换测试
-
-1. 在平台设置中切换深色/浅色模式
-2. 观察工具栏样式是否立即更新
-3. 检查控制台日志：`[ThemeManager] Detected via adapter: dark/light`
 
 ---
 
@@ -189,60 +134,42 @@ npm run build
 |:----|:--------|
 | `docs/antigravity/platform/CAPABILITY_MATRIX.md` | 添加新平台功能支持状态 |
 
-### 5.2 创建平台文档
-
-**路径**: `docs/platform-support/[PLATFORM]_IMPLEMENTATION.md`
-
-包含：
-- 关键技术决策
-- DOM 结构说明
-- 选择器参考
-- 测试清单
-- 与其他平台的对比
-
-### 5.3 更新 CHANGELOG
+### 5.2 更新 CHANGELOG
 
 ```markdown
 ## [x.x.0] - YYYY-MM-DD
 
 ### Added
 - [Platform] platform support
-- Toolbar injection for [Platform] messages
 ```
 
 ---
 
-## 📋 快速检查清单
+## ✅ 完成检查清单
 
-```
-□ Phase 1: DOM 分析
-  □ 保存 Mock HTML
-  □ 识别所有关键选择器
-  □ 识别主题切换机制
+- [ ] Phase 1: DOM 分析完成，Mock HTML 已保存
+- [ ] Phase 2: Adapter 实现，用户已调试确认
+- [ ] Phase 3: 注册配置完成
+- [ ] Phase 4: `npm run build` 成功，功能测试通过
+- [ ] Phase 5: 文档已更新
 
-□ Phase 2: Adapter 实现
-  □ 创建 [platform].ts
-  □ 实现所有 abstract 方法
-  □ 实现 getThemeDetector()
-  □ 根据需要覆盖可选方法
+**结束条件**: Build 成功，用户确认新平台功能正常
 
-□ Phase 3: 注册配置
-  □ 在 registry.ts 注册
-  □ 更新 manifest.json
-  □ 更新 service-worker.ts
-  □ 更新 popup.html
-  □ 添加平台图标
+---
 
-□ Phase 4: 验证测试
-  □ npm run build 成功
-  □ 功能测试通过
-  □ 主题切换测试通过
+## ⚠️ 常见陷阱与解决方案
 
-□ Phase 5: 文档更新
-  □ CAPABILITY_MATRIX.md
-  □ [PLATFORM]_IMPLEMENTATION.md
-  □ CHANGELOG.md
-```
+### 1. React 输入框同步问题
+**现象**：直接修改 `input.value` 后，React 内部状态未更新。
+**解决方案**：使用 `Object.getOwnPropertyDescriptor` 绕过 React 的 setter 劫持。
+
+### 2. 抗变脆弱性
+**现象**：使用构建哈希类名导致平台更新后插件失效。
+**解决方案**：使用语义拓扑锚定（如 `input[type="file"]`）进行相对查找。
+
+### 3. DOM 标准化
+**现象**：平台使用非标准 HTML 结构。
+**解决方案**：在 Adapter 中实现 `normalizeDOM` 钩子。
 
 ---
 
@@ -250,14 +177,4 @@ npm run build
 
 | 文档 | 用途 |
 |:----|:-----|
-| [ADAPTER_CONTRACT.md](../antigravity/platform/ADAPTER_CONTRACT.md) | Adapter 接口完整定义 |
-| [CAPABILITY_MATRIX.md](../antigravity/platform/CAPABILITY_MATRIX.md) | 平台功能支持矩阵 |
-| [CLAUDE_IMPLEMENTATION.md](CLAUDE_IMPLEMENTATION.md) | Claude 适配参考实现 |
-
----
-
-## 变更记录
-
-| 版本 | 日期 | 变更内容 |
-|:---|:---|:---|
-| 1.0.0 | 2026-01-12 | 初始版本，基于 Claude 适配经验 |
+| [CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md) | 平台功能支持矩阵 |

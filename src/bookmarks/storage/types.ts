@@ -25,7 +25,7 @@ export interface Bookmark {
     aiResponse?: string; // AI response text (optional, based on settings)
     timestamp: number;
     title: string; // Custom title (required)
-    platform: 'ChatGPT' | 'Gemini'; // Platform identifier (required)
+    platform: 'ChatGPT' | 'Gemini' | 'Claude' | 'Deepseek' | string; // Platform identifier (extensible)
     folderPath: string; // Full folder path (required, e.g., "Work/AI Research")
 }
 

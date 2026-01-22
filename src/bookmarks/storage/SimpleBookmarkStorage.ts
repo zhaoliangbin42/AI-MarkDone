@@ -75,7 +75,7 @@ export class SimpleBookmarkStorage {
         userMessage: string,
         aiResponse?: string,
         title?: string,
-        platform?: 'ChatGPT' | 'Gemini',
+        platform?: string,
         timestamp?: number,
         folderPath?: string
     ): Promise<void> {
@@ -449,7 +449,7 @@ export class SimpleBookmarkStorage {
             typeof bookmark.timestamp === 'number' &&
             (bookmark.aiResponse === undefined || typeof bookmark.aiResponse === 'string') &&
             (bookmark.title === undefined || typeof bookmark.title === 'string') &&
-            (bookmark.platform === undefined || bookmark.platform === 'ChatGPT' || bookmark.platform === 'Gemini') &&
+            (bookmark.platform === undefined || typeof bookmark.platform === 'string') &&
             (bookmark.folderPath === undefined || typeof bookmark.folderPath === 'string') &&
             (bookmark.urlWithoutProtocol === undefined || typeof bookmark.urlWithoutProtocol === 'string')
         );

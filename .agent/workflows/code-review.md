@@ -5,8 +5,8 @@ description: 代码审查工作流 - AI 自我审查和交叉审查
 # 代码审查工作流
 
 > 触发命令: `/review`
-
----
+> 
+> **激活 Skills**: `requesting-code-review` (发起审查), `receiving-code-review` (响应反馈)
 
 ## 🚨 Critical Rules (红线规则)
 

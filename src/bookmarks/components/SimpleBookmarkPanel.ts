@@ -17,6 +17,20 @@ import { DialogManager } from '../../components/DialogManager';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
 
+/**
+ * Get platform icon by platform name
+ * Supports: ChatGPT, Gemini, Claude, Deepseek
+ */
+function getPlatformIcon(platform?: string): string {
+    const p = platform?.toLowerCase() || 'chatgpt';
+    switch (p) {
+        case 'gemini': return Icons.gemini;
+        case 'claude': return Icons.claude;
+        case 'deepseek': return Icons.deepseek;
+        default: return Icons.chatgpt;
+    }
+}
+
 type ImportMergeStatus = 'normal' | 'rename' | 'import' | 'duplicate';
 
 type ImportMergeEntry = {
@@ -612,7 +626,7 @@ export class SimpleBookmarkPanel {
      * Reference: Notion list items, Linear task items
      */
     private renderBookmarkItemInTree(bookmark: Bookmark, depth: number): string {
-        const icon = bookmark.platform === 'ChatGPT' ? Icons.chatgpt : Icons.gemini;
+        const icon = getPlatformIcon(bookmark.platform);
         const indent = 3 + depth * 28;
         const timestamp = this.formatTimestamp(bookmark.timestamp);
         const key = `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
@@ -4516,6 +4530,8 @@ ${options.message}
                 // Check if AIMD tokens are included
                 return tokens;
             })()}
+                /* Fix: Ensure SVG icons using currentColor inherit our color, not platform's */
+                color: var(--aimd-text-primary);
             }
 
 

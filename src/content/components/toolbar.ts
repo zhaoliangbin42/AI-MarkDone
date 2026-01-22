@@ -12,6 +12,7 @@ export interface ToolbarCallbacks {
     onViewSource: () => void;
     onReRender: () => void;
     onBookmark?: () => void;
+    onSaveMessages?: () => void;
 }
 
 /**
@@ -113,6 +114,14 @@ export class Toolbar {
             () => this.handleReRender()
         );
 
+        // Save as button (file-box icon)
+        const saveMessagesBtn = this.createIconButton(
+            'save-messages-btn',
+            Icons.fileBox,
+            'Save as',
+            () => this.handleSaveMessages()
+        );
+
         // Word count stats (right side)
         const stats = document.createElement('span');
         stats.className = 'aicopy-stats';
@@ -130,6 +139,7 @@ export class Toolbar {
         buttonGroup.appendChild(copyBtn);
         buttonGroup.appendChild(sourceBtn);
         buttonGroup.appendChild(reRenderBtn);
+        buttonGroup.appendChild(saveMessagesBtn);
 
         wrapper.appendChild(buttonGroup);
         wrapper.appendChild(divider);
@@ -362,6 +372,19 @@ export class Toolbar {
             // to show context-aware messages (Saving/Removing)
         }
     }
+
+    /**
+     * Handle Save as button click
+     */
+    private handleSaveMessages(): void {
+        logger.debug('[AI-MarkDone][Toolbar] Save messages clicked');
+        if (this.callbacks.onSaveMessages) {
+            this.callbacks.onSaveMessages();
+            const btn = this.shadowRoot.querySelector('#save-messages-btn') as HTMLButtonElement;
+            if (btn) this.showFeedback(btn, 'Saving...');
+        }
+    }
+
 
 
     /**

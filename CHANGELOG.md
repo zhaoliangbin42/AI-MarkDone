@@ -5,7 +5,7 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.8.0] - 2026-01-22
 
 ### Added
 - **Claude Support**: Full support for `claude.ai`, including:
@@ -13,9 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Reader Mode**: Dedicated reader view for focused reading of Claude conversations.
   - **Bookmarks**: Save and manage bookmarks directly from Claude chat history.
   - **Message Extraction**: Accurate parsing of Claude's message structure and artifacts.
+- **Deepseek Support**: Full support for `chat.deepseek.com` (Deepseek-V3), including:
+  - **Fluid Input**: Synchronized floating input box for seamless typing.
+  - **Code Block Formatting**: Normalization of Deepseek's code blocks for standard rendering.
+  - **Reliable Sending**: Robust "Anti-Fragile" send button detection logic.
+- **Export Conversations**: New Export button in toolbar to download conversations as Markdown files.
+- **Header Bookmark Button**: Quick-access bookmark panel button added to page header for Claude and Deepseek platforms.
 
 ### Fixed
 - **Theme System**: Fixed theme detection regression to ensure toolbar colors match the platform theme (Dark/Light).
+- **ChatGPT Formula Extraction**: Fixed inline formulas that failed to render correctly, restoring underscores that were incorrectly converted to italics.
+- **Block Math Formatting**: Normalized block math output to remove extra blank lines between `$$` delimiters.
+- **Reader Formula Rendering**: Fixed long block formulas not rendering in Reader mode due to chunk splitting during Markdown processing.
+- **Floating Input**: Fixed newline characters lost when syncing between floating input and native platform input.
+- **Floating Input**: Fixed Shift+Enter triggering host page send action instead of creating newline in Reader's floating input.
+- **Reader Panel**: Fixed last page content not reloading when navigating back from other pages.
+- **PDF Export**: Fixed cross-platform typography inconsistencies (paragraph margins, heading spacing) between ChatGPT and Gemini.
+- **PDF Export**: Fixed Chinese font rendering in print context by adding explicit font stack.
+- **Export Dialog**: Fixed tooltip animation appearing from wrong direction.
+
+### Changed
+- **Export Icon**: Updated toolbar export button icon from download to file-box for better clarity.
+- **Export Title**: Truncated long conversation titles to 100 characters (prevents overflow from verbose Gemini titles).
+- **Export Timing**: Replaced setTimeout with requestAnimationFrame for more reliable print timing.
 
 ## [2.5.0] - 2026-01-10
 

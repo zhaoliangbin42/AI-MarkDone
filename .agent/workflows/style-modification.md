@@ -4,11 +4,11 @@ description: AI 样式修改工作流 - 用于新增或修改组件样式时必�
 
 # 样式修改 Workflow (Style Modification)
 
+> **触发命令**: `/style`
+> **使用 Artifact**: `task.md` (跟踪修改进度)
+> **激活 Skill**: `verification-before-completion` (Build 验证)
+>
 > **强制约束**: 本 Workflow 是所有样式修改的唯一入口，违反任何步骤将导致代码审查失败。
-> **适用范围**: 所有 UI 组件、面板、弹窗、按钮、图标等视觉元素的样式修改。
-> **扫描规则**: 详见 `docs/antigravity/style/SCAN_RULES.md`
-
----
 
 ## 📋 Phase 0: 强制前置检查
 
@@ -266,3 +266,22 @@ grep -c "aimd-color-gray\|aimd-radius-small\|aimd-radius-medium\|aimd-radius-lar
 - 修改内容: [具体修改]
 - 验证: [build 结果]
 ```
+
+> **🛑 用户调试点**
+> 
+> 样式修改完成后暂停，请用户：
+> 1. 在浏览器中验证样式效果
+> 2. 确认无视觉问题后回复"继续"
+
+---
+
+## ✅ 完成检查清单
+
+- [ ] Phase 0: 参考文档已阅读
+- [ ] Phase 1: 全局扫描已完成
+- [ ] Phase 2: Token 已验证存在
+- [ ] Phase 4: 修改已完成，无硬编码
+- [ ] Phase 5: `npm run build` 成功
+- [ ] 用户已调试确认样式效果
+
+**结束条件**: Build 成功，用户确认样式效果正常

@@ -2,6 +2,7 @@ import { SiteAdapter } from './base';
 import { ChatGPTAdapter } from './chatgpt';
 import { GeminiAdapter } from './gemini';
 import { ClaudeAdapter } from './claude';
+import { DeepseekAdapter } from './deepseek';
 
 /**
  * Adapter registry for managing multiple platform adapters
@@ -15,6 +16,7 @@ class AdapterRegistry {
         this.register(new ChatGPTAdapter());
         this.register(new GeminiAdapter());
         this.register(new ClaudeAdapter());
+        this.register(new DeepseekAdapter());
     }
 
     /**

@@ -29,40 +29,26 @@ export class ToolbarInjector {
     inject(messageElement: HTMLElement, toolbar: HTMLElement): boolean {
         const currentState = this.getState(messageElement);
 
-        logger.info(`[toolbar] 🔧 inject() called. currentState=${currentState}`);
-
         // Skip if already injected or active
         if (currentState !== ToolbarState.NULL) {
-            logger.info(`[toolbar] ⏭️  inject() skipped: already ${currentState}`);
-            return false;
-        }
-
-        // Find action bar
-        const selector = this.adapter.getActionBarSelector();
-        const actionBar = messageElement.querySelector(selector);
-
-        if (!actionBar || !actionBar.parentElement) {
             return false;
         }
 
         // Create wrapper and insert (hidden)
         const wrapper = this.createWrapper(toolbar);
-
-        // 🔑 Key: Insert hidden
         wrapper.style.display = 'none';
 
         // Use adapter's injectToolbar method for platform-specific injection logic
-        // This delegates the injection strategy to each platform adapter
+        // Each adapter handles its own fallback logic if action bar is not found
         const injected = this.adapter.injectToolbar(messageElement, wrapper);
 
         if (!injected) {
-            logger.warn('[toolbar] ❌ Adapter failed to inject toolbar');
+            logger.warn('[Injector] Adapter failed to inject toolbar');
             return false;
         }
 
         // Update state
         this.messageStates.set(messageElement, ToolbarState.INJECTED);
-
         return true;
     }
 
@@ -81,18 +67,15 @@ export class ToolbarInjector {
         // Find wrapper
         const wrapper = messageElement.querySelector('.aicopy-toolbar-wrapper') as HTMLElement;
         if (!wrapper) {
-            logger.error(`[toolbar] ❌ activate() failed: Wrapper not found in DOM`);
+            logger.error('[Injector] activate() failed: Wrapper not found in DOM');
             return false;
         }
 
-        logger.info(`[toolbar] 👁️  Making wrapper visible (display: flex)`);
-
-        // 🔑 Key: Make visible
+        // Make visible
         wrapper.style.display = 'flex';
 
         // Update state
         this.messageStates.set(messageElement, ToolbarState.ACTIVE);
-
         return true;
     }
 
@@ -136,7 +119,7 @@ export class ToolbarInjector {
         toolbar.style.position = 'absolute';
         toolbar.style.right = '0';
         toolbar.style.zIndex = 'var(--aimd-z-base)';
-        
+
         wrapper.appendChild(toolbar);
         return wrapper;
     }

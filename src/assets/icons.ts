@@ -184,6 +184,43 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Share icon
+     * Usage: Share/export content
+     * Source: Lucide Icons (ISC License)
+     */
+    share: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+    <polyline points="16 6 12 2 8 6"/>
+    <line x1="12" y1="2" x2="12" y2="15"/>
+  </svg>`,
+
+    /**
+     * File text icon (document/PDF)
+     * Usage: Export as PDF/document
+     * Source: Lucide Icons (ISC License)
+     */
+    fileText: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+    <line x1="10" y1="9" x2="8" y2="9"/>
+  </svg>`,
+
+    /**
+     * File box icon (archive/export)
+     * Usage: Export/archive files
+     * Source: Lucide Icons (ISC License)
+     */
+    fileBox: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+    <path d="M3 13.1a2 2 0 0 0-1 1.76v3.24a2 2 0 0 0 .97 1.78L6 21.7a2 2 0 0 0 2.03.01L11 19.9a2 2 0 0 0 1-1.76V14.9a2 2 0 0 0-.97-1.78L8 11.3a2 2 0 0 0-2.03-.01Z"/>
+    <path d="M7 17v5"/>
+    <path d="M11.7 14.2 7 17l-4.7-2.8"/>
+  </svg>`,
+
+    /**
      * Upload icon (Import)
      * Usage: Import bookmarks from file
      * More intuitive: Shows file with up arrow
@@ -404,6 +441,13 @@ export const Icons = {
 `,
 
     /**
+     * Deepseek official icon
+     * Source: Deepseek official branding
+     * Color: Brand blue (#4D6BFE)
+     */
+    deepseek: `<svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>DeepSeek</title><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg>`,
+
+    /**
      * GitHub icon
      * Usage: Support on GitHub
      * Source: Lucide Icons (ISC License) with modifications for fill
@@ -424,6 +468,23 @@ export const Icons = {
      * Source: Simple Icons (CC0) simplified
      */
     alipay: `<svg role="img" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><title>Alipay</title><path d="M18.84 21.06c-2.47 1.25-5.32 1.34-6.73.54-.91-.52 1.13-5.28 1.13-5.28s1.6 3.1 3.18 3.99c1.07.6 1.94.75 2.42.75m-6.49-5.11s-2.91-4.2-3.41-5.18c-1.27-.08-2.69-.32-2.69-.32.32-.82.68-1.57.68-1.57h2.88c.17-.61.34-1.4.34-1.4h-3.6V5.45H10.5V2.9h1.96v2.55h5.54v2.03H12.9v.03c-.23 1.25-.56 2.62-.97 3.84h6.05l-.43 2.53H6.84c.33.68 1.76 3.49 2.21 4.29 0 0-4.66 1.4-6.15-2.03l-1.83 1.05c.87 2.1 2.37 3.65 3.86 4.5 1.5.85 3.75 1.05 5.25 1.05 1.5 0 3.7-.2 5.09-.99 2.3-1.3 3.12-3.47 3.12-3.47l-1.92-1.07c-.4 1.15-2.02 2.6-4.12 1.42.01-.01-1.01-.58-1.-5.84z"/></svg>`,
+
+    // ============================================
+    // BRAND ICON HELPER
+    // ============================================
+
+    /**
+     * Brand icon helper
+     * Creates IMG element with AI-MarkDone brand icon (128x128 PNG)
+     * Size controlled by parent container CSS
+     */
+    createBrandIcon(): HTMLImageElement {
+        const img = document.createElement('img');
+        img.src = chrome.runtime.getURL('icons/icon128.png');
+        img.alt = 'AI-MarkDone';
+        img.style.display = 'block';
+        return img;
+    }
 } as const;
 
 /**

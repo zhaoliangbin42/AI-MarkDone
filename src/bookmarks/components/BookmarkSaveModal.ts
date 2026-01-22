@@ -68,7 +68,7 @@ export class BookmarkSaveModal {
 
         const styleElement = document.createElement('style');
         styleElement.textContent = `
-            :host { ${tokens} }
+            :host { ${tokens} color: var(--aimd-text-primary); }
             
             * { box-sizing: border-box; }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

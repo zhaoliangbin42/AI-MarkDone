@@ -273,6 +273,10 @@ export class ClaudeAdapter extends SiteAdapter {
         return Icons.claude;
     }
 
+    getPlatformName(): string {
+        return 'Claude';
+    }
+
     /**
      * Claude-specific focus protection strategy
      * 

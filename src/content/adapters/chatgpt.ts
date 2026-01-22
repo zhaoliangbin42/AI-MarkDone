@@ -288,6 +288,10 @@ export class ChatGPTAdapter extends SiteAdapter {
         return Icons.chatgpt;
     }
 
+    getPlatformName(): string {
+        return 'ChatGPT';
+    }
+
     getThemeDetector(): ThemeDetector {
         return {
             detect: () => {

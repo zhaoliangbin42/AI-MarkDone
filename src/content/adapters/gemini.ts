@@ -284,6 +284,46 @@ export class GeminiAdapter extends SiteAdapter {
         return Icons.gemini;
     }
 
+    /**
+     * Get conversation title from Gemini UI
+     * Gemini stores title in specific elements, not in <title> tag
+     */
+    getConversationTitle(): string | null {
+        try {
+            // Strategy 1: Try data-test-id selector (most stable)
+            const titleEl = document.querySelector('[data-test-id="conversation-title"]');
+            if (titleEl?.textContent?.trim()) {
+                return titleEl.textContent.trim();
+            }
+
+            // Strategy 2: Try common title selectors
+            const selectors = [
+                '.conversation-title',
+                '[aria-label*="Conversation"]',
+                'h1.chat-title',
+                '.chat-header h1',
+                '.conversation-header h1'
+            ];
+
+            for (const selector of selectors) {
+                const el = document.querySelector(selector);
+                if (el?.textContent?.trim()) {
+                    return el.textContent.trim();
+                }
+            }
+
+            logger.debug('[GeminiAdapter] No conversation title found');
+            return null;
+        } catch (err) {
+            logger.warn('[GeminiAdapter] getConversationTitle failed:', err);
+            return null;
+        }
+    }
+
+    getPlatformName(): string {
+        return 'Gemini';
+    }
+
     getThemeDetector(): ThemeDetector {
         return {
             detect: () => {

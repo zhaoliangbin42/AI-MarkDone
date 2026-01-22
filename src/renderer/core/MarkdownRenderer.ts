@@ -43,7 +43,6 @@ export class MarkdownRenderer {
      * Create marked instance (per-render isolation)
      */
     private static createMarkedInstance(): Marked {
-        const t0 = performance.now();
         const instance = new Marked();
         instance.setOptions({
             breaks: true,
@@ -55,8 +54,6 @@ export class MarkdownRenderer {
             output: 'html',
             nonStandard: true,
         }));
-        const t1 = performance.now();
-        console.log(`[AI-MarkDone][Renderer] createMarkedInstance: ${(t1 - t0).toFixed(2)}ms`);
         return instance;
     }
 
@@ -67,13 +64,9 @@ export class MarkdownRenderer {
         markdown: string,
         options: RenderOptions = {}
     ): Promise<RenderResult> {
-        const renderStartTime = performance.now();
-        console.log(`[AI-MarkDone][Renderer] ⏱️ START render, length: ${markdown.length} chars`);
-
         const key = markdown.slice(0, 100);
 
         if (this.renderLock.has(key)) {
-            console.log('[Renderer] 🔄 Reusing in-flight render (dedup)');
             return this.renderLock.get(key)!;
         }
 
@@ -91,8 +84,6 @@ export class MarkdownRenderer {
 
         try {
             const result = await promise;
-            const renderEndTime = performance.now();
-            console.log(`[AI-MarkDone][Renderer] ✅ END render: ${(renderEndTime - renderStartTime).toFixed(2)}ms, success: ${result.success}`);
             return result;
         } finally {
             this.renderLock.delete(key);
@@ -110,9 +101,7 @@ export class MarkdownRenderer {
         const opts = { ...this.DEFAULT_OPTIONS, ...options };
 
         // 1. Input validation
-        const t0 = performance.now();
         const validation = InputValidator.validate(markdown, opts.maxInputSize);
-        console.log(`[AI-MarkDone][Renderer]   validate: ${(performance.now() - t0).toFixed(2)}ms`);
 
         if (!validation.valid) {
             console.warn(`[Renderer] ❌ Validation failed: ${validation.error}`);
@@ -125,14 +114,12 @@ export class MarkdownRenderer {
 
         // 2. Render with timeout (chunked, interruptible)
         try {
-            const t1 = performance.now();
             const html = await this.renderWithTimeout(
                 validation.sanitized,
                 opts.timeout,
                 markedInstance,
                 opts.onProgress  // ✅ 传递进度回调
             );
-            console.log(`[AI-MarkDone][Renderer]   renderWithTimeout: ${(performance.now() - t1).toFixed(2)}ms`);
 
 
             // 3. Output size check
@@ -142,13 +129,9 @@ export class MarkdownRenderer {
             }
 
             // 4. XSS sanitization
-            const t2 = performance.now();
             const safeHtml = opts.sanitize
                 ? this.sanitizer.sanitize(html)
                 : html;
-            if (opts.sanitize) {
-                console.log(`[AI-MarkDone][Renderer]   sanitize: ${(performance.now() - t2).toFixed(2)}ms`);
-            }
 
             return { success: true, html: safeHtml };
 
@@ -166,17 +149,11 @@ export class MarkdownRenderer {
         markedInstance: Marked,
         onProgress?: (percent: number) => void
     ): Promise<string> {
-        const startTime = performance.now();
         const overallStart = Date.now();
 
         return new Promise((resolve, reject) => {
-            const t0 = performance.now();
             const processed = this.preprocessFormulas(markdown);
-            console.log(`[AI-MarkDone][Renderer]     preprocessFormulas: ${(performance.now() - t0).toFixed(2)}ms`);
-
-            const t1 = performance.now();
-            const chunks = this.chunkMarkdown(processed, 5000);
-            console.log(`[AI-MarkDone][Renderer]     chunkMarkdown: ${(performance.now() - t1).toFixed(2)}ms, chunks: ${chunks.length}`);
+            const chunks = this.chunkMarkdown(processed, 20000);
 
             let result = '';
             let currentIndex = 0;
@@ -194,10 +171,7 @@ export class MarkdownRenderer {
                         return;
                     }
 
-                    const chunkStart = performance.now();
                     result += await markedInstance.parse(chunks[currentIndex]);
-                    const chunkTime = performance.now() - chunkStart;
-                    console.log(`[AI-MarkDone][Renderer]     chunk ${currentIndex + 1}/${chunks.length}: ${chunkTime.toFixed(2)}ms (${chunks[currentIndex].length} chars)`);
 
                     currentIndex++;
 
@@ -214,7 +188,6 @@ export class MarkdownRenderer {
                         await new Promise<void>(r => { queueMicrotask(() => r()); });
                         processChunk();
                     } else {
-                        console.log(`[AI-MarkDone][Renderer]     ✅ All chunks done, total: ${(performance.now() - startTime).toFixed(2)}ms`);
                         resolve(result);
                     }
                 } catch (error) {

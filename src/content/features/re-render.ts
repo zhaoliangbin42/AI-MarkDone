@@ -541,9 +541,10 @@ export class ReaderPanel {
                     this.messageSender.forceSyncToNative(text);
                 }
             },
-            onInput: (text) => {
-                // debounce 同步到官方输入框
-                this.messageSender?.syncToNativeDebounced(text);
+            onInput: () => {
+                // Real-time sync disabled: dispatching InputEvent with newlines triggers 
+                // ChatGPT's Enter detection and causes unwanted message sends.
+                // Content is synced on collapse (onCollapse) and send (onSend) instead.
             },
             initialText: this.messageSender?.readFromNative() || ''
         });
@@ -704,12 +705,11 @@ export class ReaderPanel {
         const item = this.items[index];
         const isLastItem = index === this.items.length - 1;
 
-        logger.debug(`[ReaderPanel] renderMessage(${index}/${this.items.length}), isLastItem=${isLastItem}`);
-
-        // 检查缓存 - 注意：最后一条消息永远不会被缓存，所以这里应该返回 undefined
+        // 检查缓存 - 注意：最后一条消息永远不会被缓存
         let html = this.cache.get(index);
+
         if (html && isLastItem) {
-            // 这不应该发生！如果发生了，说明有 bug
+            // 最后一条消息不应有缓存，清除它
             logger.warn(`[ReaderPanel] BUG: Last item has cached content! Invalidating...`);
             this.cache.delete(index);
             html = undefined;
@@ -719,13 +719,26 @@ export class ReaderPanel {
             try {
                 // 解析内容（支持懒加载）
                 const t0 = performance.now();
-                let markdown = await resolveContent(item.content);
+                let markdown: string;
+
+                // For the last item, bypass LazyProvider closure and re-fetch from live DOM
+                if (isLastItem && this.getMarkdownFn) {
+                    const freshRefs = getMessageRefs();
+                    const freshElement = freshRefs[index]?.element;
+                    if (freshElement) {
+                        markdown = this.getMarkdownFn(freshElement);
+                    } else {
+                        markdown = await resolveContent(item.content);
+                    }
+                } else {
+                    markdown = await resolveContent(item.content);
+                }
+
                 logger.debug(`[ReaderPanel] resolveContent: ${(performance.now() - t0).toFixed(2)}ms`);
 
                 // 检查设置：是否渲染代码块
                 const settings = await SettingsManager.getInstance().get('behavior');
                 if (!settings.renderCodeInReader) {
-                    // 过滤代码块：移除 ```...``` 块
                     markdown = markdown.replace(/```[\s\S]*?```/g, '*[Code block hidden by settings]*');
                     logger.debug('[ReaderPanel] Code blocks filtered out');
                 }
@@ -740,19 +753,13 @@ export class ReaderPanel {
                 html = html.replace(/^\s+/, '').trim();
 
                 // 缓存策略：只有非最后一条消息才缓存 (Volatile Tail: Last item is always fresh)
-                // 这样每次进入最后一条消息都会重新获取内容，保证流式更新可见
-                // 而历史消息则永久缓存，保证效率
                 if (index < this.items.length - 1) {
                     this.cache.set(index, html);
-                } else {
-                    logger.debug(`[ReaderPanel] Volatile Tail: skipping cache for item ${index}`);
                 }
             } catch (error) {
                 logger.error('[ReaderPanel] Render failed:', error);
                 html = '<div class="markdown-fallback">Failed to render content</div>';
             }
-        } else {
-            logger.debug(`[ReaderPanel] Using cache for item ${index}`);
         }
 
         // 更新 DOM

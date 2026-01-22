@@ -93,8 +93,13 @@ export class GeminiPanelButton {
         button.setAttribute('type', 'button');
         button.style.cssText = 'margin-left: 12px; color: var(--gem-sys-color--on-surface);';
 
-        // Use bookMarked icon from Icons
-        button.innerHTML = Icons.bookMarked;
+        // Create Material Design ripple overlay for hover effect
+        const overlay = document.createElement('span');
+        overlay.className = 'mat-mdc-button-persistent-ripple mdc-icon-button__ripple';
+        button.appendChild(overlay);
+
+        // Use brand icon
+        button.appendChild(Icons.createBrandIcon());
 
         button.addEventListener('click', () => this.handleClick());
 

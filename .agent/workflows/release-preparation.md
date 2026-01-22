@@ -4,9 +4,9 @@ description: 发版准备工作流 - 从扫描到发布的完整SOP
 
 # 发版准备工作流
 
-> 触发命令: `/release`
-
----
+> **触发命令**: `/release`
+> **使用 Artifact**: `task.md` (跟踪发版步骤)
+> **激活 Skill**: `verification-before-completion` (Build 验证)
 
 ## 🚨 Critical Rules (红线规则)
 

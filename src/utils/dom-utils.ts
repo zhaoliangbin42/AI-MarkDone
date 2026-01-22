@@ -142,16 +142,11 @@ export function safeQuerySelector(
         return null;
     }
 }
-
 /**
  * Setup keyboard/mouse event isolation on an input element
  * 
- * Prevents host pages (Claude.ai, ChatGPT, Gemini) from:
- * - Stealing focus via requestAnimationFrame loops
- * - Intercepting keyboard events
- * - Interfering with IME composition
- * 
- * Uses capture phase to intercept events before they reach page listeners.
+ * Prevents host pages (Claude.ai, ChatGPT, Gemini) from intercepting keyboard events.
+ * Uses element-level stopPropagation since the element is inside Shadow DOM.
  * 
  * @param element - The input or textarea element to protect
  * @param options - Configuration options
@@ -167,24 +162,25 @@ export function setupKeyboardIsolation(
 ): void {
     const { allowTab = true } = options;
 
-    const stopKeyboard = (e: KeyboardEvent) => {
-        if (allowTab && e.key === 'Tab') return;
+    // Keyboard events - stop propagation to prevent host page interception
+    element.addEventListener('keydown', (e) => {
+        const ke = e as KeyboardEvent;
+        if (allowTab && ke.key === 'Tab') return;
         e.stopPropagation();
-        e.stopImmediatePropagation();
-    };
+    });
 
-    const stopMouse = (e: Event) => {
+    element.addEventListener('keyup', (e) => {
+        const ke = e as KeyboardEvent;
+        if (allowTab && ke.key === 'Tab') return;
         e.stopPropagation();
-        e.stopImmediatePropagation();
-    };
+    });
 
-    // Keyboard events - capture phase
-    element.addEventListener('keydown', stopKeyboard as EventListener, true);
-    element.addEventListener('keyup', stopKeyboard as EventListener, true);
-    element.addEventListener('keypress', stopKeyboard as EventListener, true);
+    element.addEventListener('keypress', (e) => {
+        e.stopPropagation();
+    });
 
-    // Mouse/focus events - capture phase
-    element.addEventListener('mousedown', stopMouse, true);
-    element.addEventListener('click', stopMouse, true);
-    element.addEventListener('focus', stopMouse, true);
+    // Mouse/focus events - stop propagation
+    element.addEventListener('mousedown', (e) => e.stopPropagation());
+    element.addEventListener('click', (e) => e.stopPropagation());
+    element.addEventListener('focus', (e) => e.stopPropagation());
 }

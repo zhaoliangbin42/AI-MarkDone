@@ -13,13 +13,22 @@ import { Icons } from '../../assets/icons';
 
 /**
  * 获取平台图标
+ * 
+ * @param platform - 平台名称 ('ChatGPT' | 'Gemini' | 'Claude' | 'Deepseek')
+ * @returns 对应平台的 SVG 图标
  */
 function getPlatformIcon(platform?: string): string {
     const p = platform?.toLowerCase() || 'chatgpt';
-    if (p === 'gemini') {
-        return Icons.gemini;
+    switch (p) {
+        case 'gemini':
+            return Icons.gemini;
+        case 'claude':
+            return Icons.claude;
+        case 'deepseek':
+            return Icons.deepseek;
+        default:
+            return Icons.chatgpt;
     }
-    return Icons.chatgpt;
 }
 
 /**

@@ -168,6 +168,18 @@ export abstract class SiteAdapter {
         return undefined;  // Default: remove without placeholder
     }
 
+    /**
+     * Normalize DOM structure before Markdown parsing
+     * 
+     * Allows adapters to standardise platform-specific HTML structures
+     * (e.g., code blocks) into standard HTML that the Parser can handle.
+     * 
+     * @param element - The root element to normalize (will be mutated in place)
+     */
+    normalizeDOM(_element: HTMLElement): void {
+        // Default: do nothing
+    }
+
     // ========================================
     // Message Sending Support (Phase 3)
     // ========================================
@@ -206,6 +218,35 @@ export abstract class SiteAdapter {
      * Get platform-specific icon (SVG string)
      */
     abstract getIcon(): string;
+
+    /**
+     * Get platform name for identification (e.g., bookmarks, analytics)
+     * 
+     * @returns Platform name string (e.g., 'ChatGPT', 'Gemini', 'Claude', 'Deepseek')
+     * 
+     * This is used for:
+     * - Storing platform identifier in bookmarks
+     * - Displaying correct platform icon in bookmark list
+     * - Platform-specific analytics (future)
+     */
+    abstract getPlatformName(): string;
+
+    /**
+     * Get conversation title from platform UI (optional)
+     * 
+     * Some platforms (e.g., Gemini) don't include conversation title in <title> tag.
+     * This method allows adapters to extract title from platform-specific DOM elements.
+     * 
+     * @returns Conversation title or null if not available
+     * 
+     * @example
+     * // Gemini: Extract from conversation title element
+     * getConversationTitle() {
+     *     const titleEl = document.querySelector('[data-test-id="conversation-title"]');
+     *     return titleEl?.textContent?.trim() || null;
+     * }
+     */
+    getConversationTitle?(): string | null;
 
     /**
      * Get platform-specific focus protection strategy

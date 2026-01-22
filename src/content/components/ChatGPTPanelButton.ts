@@ -3,10 +3,10 @@ import { simpleBookmarkPanel } from '../../bookmarks/components/SimpleBookmarkPa
 import { Icons } from '../../assets/icons';
 
 /**
- * Page Header Archive Icon
- * Integrates archive button into ChatGPT's native header toolbar
+ * ChatGPT Header Panel Button
+ * Adds bookmark panel toggle button to ChatGPT header
  */
-export class PageHeaderIcon {
+export class ChatGPTPanelButton {
     private button: HTMLElement | null = null;
     private observer: MutationObserver | null = null;
 
@@ -20,7 +20,7 @@ export class PageHeaderIcon {
         // Watch for header changes (SPA navigation)
         this.startObserver();
 
-        logger.info('[PageHeaderIcon] Initialized');
+        logger.info('[ChatGPTPanelButton] Initialized');
     }
 
     /**
@@ -30,14 +30,14 @@ export class PageHeaderIcon {
         // Find the header actions container
         const header = document.querySelector('#page-header');
         if (!header) {
-            logger.debug('[PageHeaderIcon] Header not found, will retry');
+            logger.debug('[ChatGPTPanelButton] Header not found, will retry');
             return;
         }
 
         // Find the inner container with conversation actions
         const actionsContainer = header.querySelector('#conversation-header-actions');
         if (!actionsContainer) {
-            logger.debug('[PageHeaderIcon] Actions container not found');
+            logger.debug('[ChatGPTPanelButton] Actions container not found');
             return;
         }
 
@@ -52,7 +52,7 @@ export class PageHeaderIcon {
         // Insert at the beginning of the actions container
         actionsContainer.insertBefore(this.button, actionsContainer.firstChild);
 
-        logger.info('[PageHeaderIcon] Button injected into header');
+        logger.info('[ChatGPTPanelButton] Button injected successfully');
     }
 
     /**
@@ -62,11 +62,14 @@ export class PageHeaderIcon {
         const button = document.createElement('button');
         button.id = 'ai-markdone-bookmark-btn';
         button.className = 'text-token-text-primary no-draggable hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover touch:h-10 touch:w-10 flex h-9 w-9 items-center justify-center rounded-lg focus:outline-none disabled:opacity-50';
-        button.setAttribute('aria-label', 'View Archive');
+        button.setAttribute('aria-label', 'View Bookmarks');
         button.setAttribute('type', 'button');
 
-        // Use bookMarked icon from Icons
-        button.innerHTML = Icons.bookMarked;
+        // Use brand icon with explicit 18px size for ChatGPT
+        const icon = Icons.createBrandIcon();
+        icon.style.width = '22px';
+        icon.style.height = '22px';
+        button.appendChild(icon);
 
         button.addEventListener('click', () => this.handleClick());
 
@@ -74,13 +77,13 @@ export class PageHeaderIcon {
     }
 
     /**
-     * Handle button click
+     * Handle button click - open bookmark panel
      */
     private async handleClick(): Promise<void> {
         try {
             await simpleBookmarkPanel.toggle();
         } catch (error) {
-            logger.error('[PageHeaderIcon] Failed to open panel:', error);
+            logger.error('[ChatGPTPanelButton] Failed to open panel:', error);
         }
     }
 
@@ -118,4 +121,4 @@ export class PageHeaderIcon {
 }
 
 // Singleton instance
-export const pageHeaderIcon = new PageHeaderIcon();
+export const chatGPTPanelButton = new ChatGPTPanelButton();
