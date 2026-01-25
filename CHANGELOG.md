@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PDF Export**: Fixed cross-platform typography inconsistencies (paragraph margins, heading spacing) between ChatGPT and Gemini.
 - **PDF Export**: Fixed Chinese font rendering in print context by adding explicit font stack.
 - **Export Dialog**: Fixed tooltip animation appearing from wrong direction.
+- **Popup Icon**: Fixed incorrect Deepseek icon.
 
 ### Changed
 - **Export Icon**: Updated toolbar export button icon from download to file-box for better clarity.

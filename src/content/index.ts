@@ -114,13 +114,14 @@ class ContentScript {
             }
         );
 
-        // Initialize Deep Research handler for Gemini
+        // Initialize platform-specific panel buttons
         if ('isGemini' in adapter && typeof adapter.isGemini === 'function' && adapter.isGemini()) {
-            this.deepResearchHandler = new DeepResearchHandler();
-            this.deepResearchHandler.enable();
-
             // Initialize Gemini panel button
             geminiPanelButton.init();
+
+            // Initialize Deep Research handler for panel button injection
+            this.deepResearchHandler = new DeepResearchHandler();
+            this.deepResearchHandler.enable();
         } else if (window.location.href.includes('claude.ai')) {
             // Initialize Claude panel button
             claudePanelButton.init();
@@ -420,6 +421,28 @@ class ContentScript {
         if (messageElement.tagName.toLowerCase() === 'article') {
             logger.debug('[getMarkdown] Article element detected, parsing entire article');
             return this.markdownParser.parse(messageElement);
+        }
+
+        // Check if this is a Deep Research message (Gemini-specific)
+        // If the Deep Research panel is open, extract content from there
+        if ('isDeepResearchMessage' in adapter &&
+            typeof adapter.isDeepResearchMessage === 'function' &&
+            adapter.isDeepResearchMessage(messageElement)) {
+
+            logger.debug('[getMarkdown] Deep Research message detected');
+
+            // Try to get content from the open panel
+            if ('getDeepResearchContent' in adapter &&
+                typeof adapter.getDeepResearchContent === 'function') {
+                const panelContent = adapter.getDeepResearchContent();
+                if (panelContent) {
+                    logger.info('[getMarkdown] Extracting from Deep Research panel');
+                    return this.markdownParser.parse(panelContent);
+                }
+            }
+
+            // Panel not open - fall through to regular extraction
+            logger.debug('[getMarkdown] Deep Research panel not open, using regular extraction');
         }
 
         // For regular messages, find the content element
