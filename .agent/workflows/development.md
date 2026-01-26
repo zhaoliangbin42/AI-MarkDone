@@ -27,13 +27,21 @@ description: 新功能开发工作流 - 从需求到验证的完整SOP
 ## Phase 1: 需求分析
 
 > **使用 Artifact**: `implementation_plan.md`
-> **激活 Skill**: `brainstorming` (如需对话探索)
+> **激活 Skill**: `brainstorming` (必须)
 
-### 1.1 需求理解
+### 1.1 Brainstorming (必须)
 
-如用户需求不清晰，使用 brainstorming skill 的对话技巧：
+新功能开发**必须**先激活 `brainstorming` skill 探索需求：
+
+| 触发条件 | 说明 |
+|:---------|:-----|
+| 新增功能 | Adding functionality |
+| 行为修改 | Modifying behavior |
+| 组件创建 | Creating components |
+
+**对话技巧：**
 - 一次只问一个问题
-- 提供多选项供选择
+- 提供多选项供选择 (A/B/C)
 - 分段呈现设计 (200-300字/段)
 
 ### 1.2 生成实现计划

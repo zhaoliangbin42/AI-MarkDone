@@ -737,7 +737,7 @@ export class ReaderPanel {
                 logger.debug(`[ReaderPanel] resolveContent: ${(performance.now() - t0).toFixed(2)}ms`);
 
                 // 检查设置：是否渲染代码块
-                const settings = await SettingsManager.getInstance().get('behavior');
+                const settings = await SettingsManager.getInstance().get('reader');
                 if (!settings.renderCodeInReader) {
                     markdown = markdown.replace(/```[\s\S]*?```/g, '*[Code block hidden by settings]*');
                     logger.debug('[ReaderPanel] Code blocks filtered out');

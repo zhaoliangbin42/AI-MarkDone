@@ -19,6 +19,7 @@ import { ThemeManager, Theme } from '../utils/ThemeManager';
 import { eventBus } from './utils/EventBus';
 import { collectAllMessages, getConversationMetadata, saveMessagesAsMarkdown, saveMessagesAsPdf } from './features/save-messages';
 import { saveMessagesDialog } from './features/SaveMessagesDialog';
+import { SettingsManager } from '../settings/SettingsManager';
 
 /**
  * Listen for messages from background script
@@ -96,6 +97,16 @@ class ContentScript {
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) {
             logger.warn('No adapter found for current site');
+            return;
+        }
+
+        // Check platform settings: is this platform enabled?
+        const platformSettings = await SettingsManager.getInstance().get('platforms');
+        const platformName = adapter.getPlatformName().toLowerCase();
+        const platformKey = platformName as keyof typeof platformSettings;
+
+        if (platformSettings[platformKey] === false) {
+            logger.info(`[ContentScript] Platform "${platformName}" is disabled in settings, skipping initialization`);
             return;
         }
 

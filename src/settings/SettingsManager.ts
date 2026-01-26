@@ -16,14 +16,23 @@ import { logger } from '../utils/logger';
  * Application settings schema
  */
 export interface AppSettings {
-    version: 1;
-    behavior: {
-        renderCodeInReader: boolean;  // default: true
-        enableClickToCopy: boolean;   // default: true
+    version: 2;
+    platforms: {
+        chatgpt: boolean;   // default: true
+        gemini: boolean;    // default: true
+        claude: boolean;    // default: true
+        deepseek: boolean;  // default: true
     };
-    storage: {
-        saveContextOnly: boolean;     // default: false
+    behavior: {
+        showViewSource: boolean;     // default: true
+        showSaveMessages: boolean;   // default: true
+        showWordCount: boolean;      // default: true
+        enableClickToCopy: boolean;  // default: true
+        saveContextOnly: boolean;    // default: false
         _contextOnlyConfirmed: boolean; // internal flag for destructive action confirmation
+    };
+    reader: {
+        renderCodeInReader: boolean;  // default: true
     };
 }
 
@@ -31,14 +40,23 @@ export interface AppSettings {
  * Default settings
  */
 const DEFAULT_SETTINGS: AppSettings = {
-    version: 1,
-    behavior: {
-        renderCodeInReader: true,
-        enableClickToCopy: true,
+    version: 2,
+    platforms: {
+        chatgpt: true,
+        gemini: true,
+        claude: true,
+        deepseek: true,
     },
-    storage: {
+    behavior: {
+        showViewSource: true,
+        showSaveMessages: true,
+        showWordCount: true,
+        enableClickToCopy: true,
         saveContextOnly: false,
         _contextOnlyConfirmed: false,
+    },
+    reader: {
+        renderCodeInReader: true,
     },
 };
 
@@ -129,13 +147,18 @@ export class SettingsManager {
         this.initPromise = (async () => {
             try {
                 const result = await chrome.storage.sync.get(STORAGE_KEY);
-                const stored = result[STORAGE_KEY] as AppSettings | undefined;
+                const stored = result[STORAGE_KEY] as any; // Use 'any' for migration compatibility
 
-                if (stored && stored.version === DEFAULT_SETTINGS.version) {
-                    // Merge with defaults to handle new settings
-                    this.cache = this.mergeWithDefaults(stored);
+                if (stored && stored.version === 2) {
+                    // Same version - merge with defaults to handle new settings
+                    this.cache = this.mergeWithDefaults(stored as AppSettings);
+                } else if (stored && stored.version === 1) {
+                    // Migrate from v1 to v2
+                    this.cache = this.migrateFromV1(stored);
+                    await this.persist();
+                    logger.info('[SettingsManager] Migrated from v1 to v2');
                 } else {
-                    // No settings or version mismatch - use defaults
+                    // No settings or unknown version - use defaults
                     this.cache = { ...DEFAULT_SETTINGS };
                     await this.persist();
                 }
@@ -152,18 +175,48 @@ export class SettingsManager {
     }
 
     /**
+     * Migrate settings from v1 to v2
+     * v1 had 'behavior', v2 renamed it to 'reader' and added 'platforms' + 'toolbar'
+     */
+    private migrateFromV1(v1Settings: any): AppSettings {
+        return {
+            version: 2,
+            platforms: {
+                ...DEFAULT_SETTINGS.platforms,
+            },
+            behavior: {
+                ...DEFAULT_SETTINGS.behavior,
+                // Migrate old behavior.enableClickToCopy
+                enableClickToCopy: v1Settings.behavior?.enableClickToCopy ?? true,
+                // Migrate old storage.saveContextOnly
+                saveContextOnly: v1Settings.storage?.saveContextOnly ?? false,
+                _contextOnlyConfirmed: v1Settings.storage?._contextOnlyConfirmed ?? false,
+            },
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                // Migrate old behavior.renderCodeInReader
+                renderCodeInReader: v1Settings.behavior?.renderCodeInReader ?? true,
+            },
+        };
+    }
+
+    /**
      * Merge stored settings with defaults (handles new settings)
      */
     private mergeWithDefaults(stored: AppSettings): AppSettings {
         return {
             version: DEFAULT_SETTINGS.version,
+            platforms: {
+                ...DEFAULT_SETTINGS.platforms,
+                ...stored.platforms,
+            },
             behavior: {
                 ...DEFAULT_SETTINGS.behavior,
                 ...stored.behavior,
             },
-            storage: {
-                ...DEFAULT_SETTINGS.storage,
-                ...stored.storage,
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                ...stored.reader,
             },
         };
     }

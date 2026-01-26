@@ -406,21 +406,101 @@ export class SimpleBookmarkPanel {
 
                 <div class="tab-content settings-tab">
                     <div class="settings-content">
-                        <!-- Behavior Group -->
+                        <!-- Platforms Group -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">
+                                ${Icons.globe}
+                                <span>Platforms</span>
+                            </h3>
+                            
+                            <!-- ChatGPT Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.chatgpt} ChatGPT</span>
+                                    <span class="settings-item-desc">Enable extension on ChatGPT</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.chatgpt" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Gemini Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.gemini} Gemini</span>
+                                    <span class="settings-item-desc">Enable extension on Gemini</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.gemini" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Claude Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.claude} Claude</span>
+                                    <span class="settings-item-desc">Enable extension on Claude</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.claude" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Deepseek Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.deepseek} Deepseek</span>
+                                    <span class="settings-item-desc">Enable extension on Deepseek</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.deepseek" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Behavior Group (includes toolbar buttons + click-to-copy + context-only) -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">
                                 ${Icons.settings}
                                 <span>Behavior</span>
                             </h3>
                             
-                            <!-- Render Code Toggle -->
+                            <!-- View Source Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Render Code Blocks</span>
-                                    <span class="settings-item-desc">Display syntax-highlighted code in Reader Mode</span>
+                                    <span class="settings-item-label">View Source</span>
+                                    <span class="settings-item-desc">Show "View Source" button in toolbar</span>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" data-setting="behavior.renderCodeInReader" checked>
+                                    <input type="checkbox" data-setting="behavior.showViewSource" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Save Messages Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">Save Messages</span>
+                                    <span class="settings-item-desc">Show "Save as" button in toolbar</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="behavior.showSaveMessages" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Word Count Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">Word Count</span>
+                                    <span class="settings-item-desc">Show word count statistics in toolbar</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="behavior.showWordCount" checked>
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
@@ -436,14 +516,6 @@ export class SimpleBookmarkPanel {
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
-                        </div>
-                        
-                        <!-- Storage Group -->
-                        <div class="settings-group">
-                            <h3 class="settings-group-title">
-                                ${Icons.folder}
-                                <span>Storage</span>
-                            </h3>
                             
                             <!-- Context Only Save -->
                             <div class="settings-item">
@@ -452,7 +524,27 @@ export class SimpleBookmarkPanel {
                                     <span class="settings-item-desc">Save space by keeping only 500 chars. Full preview will be specific to the context.</span>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" data-setting="storage.saveContextOnly">
+                                    <input type="checkbox" data-setting="behavior.saveContextOnly">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Reader Group (only renderCodeInReader) -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">
+                                ${Icons.bookOpen}
+                                <span>Reader</span>
+                            </h3>
+                            
+                            <!-- Render Code Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">Render Code Blocks</span>
+                                    <span class="settings-item-desc">Display syntax-highlighted code in Reader Mode</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="reader.renderCodeInReader" checked>
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
@@ -1128,13 +1220,6 @@ export class SimpleBookmarkPanel {
 
             overlay.querySelector('.settings-confirm-ok')?.addEventListener('click', async () => {
                 cleanup();
-                // Set confirmation flag
-                const manager = SettingsManager.getInstance();
-                const storage = await manager.get('storage');
-                await manager.set('storage', {
-                    ...storage,
-                    _contextOnlyConfirmed: true,
-                });
                 resolve(true);
             });
 
@@ -1157,12 +1242,55 @@ export class SimpleBookmarkPanel {
             const manager = SettingsManager.getInstance();
             const settings = await manager.getAll();
 
-            // Restore behavior settings
-            const renderCodeToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="behavior.renderCodeInReader"]'
+            // Restore platforms settings
+            const chatgptToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="platforms.chatgpt"]'
             ) as HTMLInputElement;
-            if (renderCodeToggle) {
-                renderCodeToggle.checked = settings.behavior.renderCodeInReader;
+            if (chatgptToggle) {
+                chatgptToggle.checked = settings.platforms.chatgpt;
+            }
+
+            const geminiToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="platforms.gemini"]'
+            ) as HTMLInputElement;
+            if (geminiToggle) {
+                geminiToggle.checked = settings.platforms.gemini;
+            }
+
+            const claudeToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="platforms.claude"]'
+            ) as HTMLInputElement;
+            if (claudeToggle) {
+                claudeToggle.checked = settings.platforms.claude;
+            }
+
+            const deepseekToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="platforms.deepseek"]'
+            ) as HTMLInputElement;
+            if (deepseekToggle) {
+                deepseekToggle.checked = settings.platforms.deepseek;
+            }
+
+            // Restore behavior settings (includes toolbar buttons, click-to-copy, context-only)
+            const showViewSourceToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="behavior.showViewSource"]'
+            ) as HTMLInputElement;
+            if (showViewSourceToggle) {
+                showViewSourceToggle.checked = settings.behavior.showViewSource;
+            }
+
+            const showSaveMessagesToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="behavior.showSaveMessages"]'
+            ) as HTMLInputElement;
+            if (showSaveMessagesToggle) {
+                showSaveMessagesToggle.checked = settings.behavior.showSaveMessages;
+            }
+
+            const showWordCountToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="behavior.showWordCount"]'
+            ) as HTMLInputElement;
+            if (showWordCountToggle) {
+                showWordCountToggle.checked = settings.behavior.showWordCount;
             }
 
             const clickToCopyToggle = this.shadowRoot?.querySelector(
@@ -1172,12 +1300,19 @@ export class SimpleBookmarkPanel {
                 clickToCopyToggle.checked = settings.behavior.enableClickToCopy;
             }
 
-            // Restore storage settings
             const contextOnlyToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="storage.saveContextOnly"]'
+                'input[data-setting="behavior.saveContextOnly"]'
             ) as HTMLInputElement;
             if (contextOnlyToggle) {
-                contextOnlyToggle.checked = settings.storage.saveContextOnly;
+                contextOnlyToggle.checked = settings.behavior.saveContextOnly;
+            }
+
+            // Restore reader settings
+            const renderCodeToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="reader.renderCodeInReader"]'
+            ) as HTMLInputElement;
+            if (renderCodeToggle) {
+                renderCodeToggle.checked = settings.reader.renderCodeInReader;
             }
 
             // Calculate and display storage usage

@@ -83,7 +83,9 @@ export class SimpleBookmarkStorage {
         const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
 
         // Check settings: should we save context only?
-        const settings = await SettingsManager.getInstance().get('storage');
+        const settings = await SettingsManager.getInstance().get('behavior');
+
+        // Determine AI response content based on settings
         let finalUserMessage = userMessage;
         let finalAiResponse = aiResponse;
 

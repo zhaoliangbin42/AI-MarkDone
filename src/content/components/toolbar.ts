@@ -6,6 +6,7 @@ import { logger } from '../../utils/logger';
 import { WordCounter } from '../parsers/word-counter';
 import { Icons } from '../../assets/icons';
 import { eventBus } from '../utils/EventBus';
+import { SettingsManager } from '../../settings/SettingsManager';
 
 export interface ToolbarCallbacks {
     onCopyMarkdown: () => Promise<string>;
@@ -49,7 +50,7 @@ export class Toolbar {
             this.setTheme(theme === 'dark');
         });
 
-        // Create UI
+        // Create UI (async, non-blocking)
         this.createUI();
     }
 
@@ -78,11 +79,14 @@ export class Toolbar {
     /**
      * Create toolbar UI
      */
-    private createUI(): void {
+    private async createUI(): Promise<void> {
+        // Load behavior settings (includes toolbar button visibility)
+        const behaviorSettings = await SettingsManager.getInstance().get('behavior');
+
         const wrapper = document.createElement('div');
         wrapper.className = 'aicopy-toolbar';
 
-        // Bookmark button (bookmark icon)
+        // Bookmark button (bookmark icon) - always shown
         const bookmarkBtn = this.createIconButton(
             'bookmark-btn',
             Icons.bookmark,
@@ -90,7 +94,7 @@ export class Toolbar {
             () => this.handleBookmark()
         );
 
-        // Copy Markdown button (clipboard icon)
+        // Copy Markdown button (clipboard icon) - always shown
         const copyBtn = this.createIconButton(
             'copy-md-btn',
             Icons.copy,
@@ -98,15 +102,18 @@ export class Toolbar {
             () => this.handleCopyMarkdown()
         );
 
-        // View Source button (code icon)
-        const sourceBtn = this.createIconButton(
-            'source-btn',
-            Icons.code,
-            'View Source',
-            () => this.handleViewSource()
-        );
+        // View Source button (code icon) - conditional
+        let sourceBtn: HTMLElement | null = null;
+        if (behaviorSettings.showViewSource) {
+            sourceBtn = this.createIconButton(
+                'source-btn',
+                Icons.code,
+                'View Source',
+                () => this.handleViewSource()
+            );
+        }
 
-        // Re-render button (book open icon - Reader)
+        // Re-render button (book open icon - Reader) - always shown
         const reRenderBtn = this.createIconButton(
             're-render-btn',
             Icons.bookOpen,
@@ -114,41 +121,50 @@ export class Toolbar {
             () => this.handleReRender()
         );
 
-        // Save as button (file-box icon)
-        const saveMessagesBtn = this.createIconButton(
-            'save-messages-btn',
-            Icons.fileBox,
-            'Save as',
-            () => this.handleSaveMessages()
-        );
+        // Save as button (file-box icon) - conditional
+        let saveMessagesBtn: HTMLElement | null = null;
+        if (behaviorSettings.showSaveMessages) {
+            saveMessagesBtn = this.createIconButton(
+                'save-messages-btn',
+                Icons.fileBox,
+                'Save as',
+                () => this.handleSaveMessages()
+            );
+        }
 
-        // Word count stats (right side)
-        const stats = document.createElement('span');
-        stats.className = 'aicopy-stats';
-        stats.id = 'word-stats';
-        stats.textContent = 'Loading...';
+        // Word count stats (right side) - conditional
+        let stats: HTMLElement | null = null;
+        let divider: HTMLElement | null = null;
+        if (behaviorSettings.showWordCount) {
+            stats = document.createElement('span');
+            stats.className = 'aicopy-stats';
+            stats.id = 'word-stats';
+            stats.textContent = 'Loading...';
 
-        // Visual divider between buttons and stats
-        const divider = document.createElement('div');
-        divider.className = 'aicopy-divider';
+            // Visual divider between buttons and stats
+            divider = document.createElement('div');
+            divider.className = 'aicopy-divider';
+        }
 
         // Button group for left-aligned buttons
         const buttonGroup = document.createElement('div');
         buttonGroup.className = 'aicopy-button-group';
         buttonGroup.appendChild(bookmarkBtn);
         buttonGroup.appendChild(copyBtn);
-        buttonGroup.appendChild(sourceBtn);
+        if (sourceBtn) buttonGroup.appendChild(sourceBtn);
         buttonGroup.appendChild(reRenderBtn);
-        buttonGroup.appendChild(saveMessagesBtn);
+        if (saveMessagesBtn) buttonGroup.appendChild(saveMessagesBtn);
 
         wrapper.appendChild(buttonGroup);
-        wrapper.appendChild(divider);
-        wrapper.appendChild(stats);
+        if (divider) wrapper.appendChild(divider);
+        if (stats) wrapper.appendChild(stats);
 
         this.shadowRoot.appendChild(wrapper);
 
         // Initialize word count with retry (wait for content to load)
-        this.initWordCountWithRetry();
+        if (behaviorSettings.showWordCount) {
+            this.initWordCountWithRetry();
+        }
     }
 
 
