@@ -15,6 +15,7 @@
 
 import { Folder } from './types';
 import { PathUtils, PathValidationError } from '../utils/path-utils';
+import { browser } from '../../utils/browser';
 
 /**
  * Logger utility (matches existing pattern)
@@ -119,7 +120,7 @@ export class FolderStorage {
 
             // Save to storage (atomic operation)
             const key = this.getStorageKey(path);
-            await chrome.storage.local.set({ [key]: folder });
+            await browser.storage.local.set({ [key]: folder });
 
             // Update index
             await this.addToIndex(path);
@@ -148,8 +149,8 @@ export class FolderStorage {
         try {
             const normalized = PathUtils.normalize(path);
             const key = this.getStorageKey(normalized);
-            const result = await chrome.storage.local.get(key);
-            return result[key] || null;
+            const result = await browser.storage.local.get(key);
+            return (result[key] as Folder) || null;
         } catch (error) {
             logger.error(`Failed to get folder: ${path}`, error);
             return null;
@@ -169,7 +170,7 @@ export class FolderStorage {
             }
 
             const keys = index.map(path => this.getStorageKey(path));
-            const result = await chrome.storage.local.get(keys);
+            const result = await browser.storage.local.get(keys);
 
             const folders = Object.values(result) as Folder[];
 
@@ -268,13 +269,13 @@ export class FolderStorage {
 
             // Execute updates atomically
             if (Object.keys(folderUpdates).length > 0) {
-                await chrome.storage.local.set(folderUpdates);
+                await browser.storage.local.set(folderUpdates);
             }
             if (Object.keys(bookmarkUpdates).length > 0) {
-                await chrome.storage.local.set(bookmarkUpdates);
+                await browser.storage.local.set(bookmarkUpdates);
             }
             if (folderDeletes.length > 0) {
-                await chrome.storage.local.remove(folderDeletes);
+                await browser.storage.local.remove(folderDeletes);
             }
 
             // Update index
@@ -330,7 +331,7 @@ export class FolderStorage {
 
             // Delete folder
             const key = this.getStorageKey(path);
-            await chrome.storage.local.remove(key);
+            await browser.storage.local.remove(key);
 
             // Update index
             await this.removeFromIndex(path);
@@ -366,12 +367,12 @@ export class FolderStorage {
 
         try {
             // Remove folder data
-            await chrome.storage.local.remove(keys);
+            await browser.storage.local.remove(keys);
 
             // Update index (remove all paths)
             const index = await this.getIndex();
             const updatedIndex = index.filter(p => !paths.includes(p));
-            await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updatedIndex });
+            await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updatedIndex });
 
             const perfEnd = performance.now();
             logger.info(`Bulk deleted ${paths.length} folders in ${(perfEnd - perfStart).toFixed(0)}ms`);
@@ -464,8 +465,8 @@ export class FolderStorage {
      */
     private static async getIndex(): Promise<string[]> {
         try {
-            const result = await chrome.storage.local.get(this.FOLDER_INDEX_KEY);
-            return result[this.FOLDER_INDEX_KEY] || [];
+            const result = await browser.storage.local.get(this.FOLDER_INDEX_KEY);
+            return (result[this.FOLDER_INDEX_KEY] as string[]) || [];
         } catch (error) {
             logger.error('Failed to get folder index', error);
             return [];
@@ -479,7 +480,7 @@ export class FolderStorage {
         const index = await this.getIndex();
         if (!index.includes(path)) {
             index.push(path);
-            await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: index });
+            await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: index });
         }
     }
 
@@ -489,7 +490,7 @@ export class FolderStorage {
     private static async removeFromIndex(path: string): Promise<void> {
         const index = await this.getIndex();
         const updated = index.filter(p => p !== path);
-        await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
+        await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
     }
 
     /**
@@ -500,7 +501,7 @@ export class FolderStorage {
         const updated = index.map(p =>
             PathUtils.updatePathPrefix(oldPath, newPath, p)
         );
-        await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
+        await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
     }
 
     /**

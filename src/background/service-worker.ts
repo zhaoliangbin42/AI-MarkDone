@@ -3,6 +3,9 @@
  * Handles extension lifecycle and background tasks
  */
 
+// Chrome API type declaration
+declare const chrome: any;
+
 const SUPPORTED_HOSTS = [
     'chatgpt.com',
     'chat.openai.com',
@@ -59,19 +62,19 @@ async function updateActionState(tabId: number, url?: string) {
 }
 
 // Listen for tab updates (navigation)
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener((tabId: any, changeInfo: any, tab: any) => {
     if (changeInfo.status === 'complete' || changeInfo.url) {
         updateActionState(tabId, tab.url);
     }
 });
 
 // Listen for tab activation (switching tabs)
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+chrome.tabs.onActivated.addListener(async (activeInfo: any) => {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     updateActionState(activeInfo.tabId, tab.url);
 });
 
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener((details: any) => {
     if (details.reason === 'install') {
         // console.log('[AI-MarkDone] Extension installed');
     } else if (details.reason === 'update') {
@@ -85,7 +88,7 @@ chrome.runtime.onStartup.addListener(() => {
 
 // Handle extension icon click
 // This is only triggered when popup is set to empty string (supported sites)
-chrome.action.onClicked.addListener((tab) => {
+chrome.action.onClicked.addListener((tab: any) => {
     // Send message to active tab to open bookmark panel
     if (tab.id) {
         chrome.tabs.sendMessage(tab.id, { action: 'openBookmarkPanel' });
@@ -93,7 +96,7 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 // Listen for messages from content scripts
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: any) => {
     // console.log('[AI-MarkDone] Message received:', message);
 
     // Handle different message types here if needed

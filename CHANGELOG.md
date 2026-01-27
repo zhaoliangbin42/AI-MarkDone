@@ -5,6 +5,30 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Firefox Browser Support**: Full Firefox compatibility with separated architecture
+  - Chrome: MV3 with `service-worker.ts` using `chrome.*` API
+  - Firefox: MV2 with `background-firefox.js` using `browser.*` API
+  - Content Script: 100% shared code (43,384 lines)
+  - Dual-manifest system: `manifest.chrome.json` (MV3) and `manifest.firefox.json` (MV2)
+  - Dual-build system: `npm run build:chrome` and `npm run build:firefox`
+
+- **Toolbar Toggle Settings**: Allow users to show/hide individual toolbar buttons
+  - Settings schema upgraded from v1 to v2 with automatic migration
+  - Added toggles for View Source, Save Messages, Word Count buttons
+  - Added platform-specific enable/disable toggles (ChatGPT, Gemini, Claude, Deepseek)
+
+### Fixed
+- **Bookmark Highlight**: Fixed toolbar highlight not showing after page refresh due to async createUI race condition
+- **Settings Path**: Fixed `saveContextOnly` setting path from `storage.*` to `behavior.*`
+
+### Technical Details
+- Separated architecture: Background scripts are browser-specific, Content Script is shared
+- Added `ready` Promise and `pendingBookmarkState` pattern to handle async toolbar creation
+- Settings migration test suite with 7 test cases
+
 ## [2.8.0] - 2026-01-22
 
 ### Added

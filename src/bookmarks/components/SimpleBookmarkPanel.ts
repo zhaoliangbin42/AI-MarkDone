@@ -1,6 +1,7 @@
 import { SimpleBookmarkStorage } from '../storage/SimpleBookmarkStorage';
 import { Bookmark, Folder, FolderTreeNode } from '../storage/types';
 import { logger } from '../../utils/logger';
+import { browser } from '../../utils/browser';
 import { FolderStorage } from '../storage/FolderStorage';
 import { FolderState } from '../state/FolderState';
 import { FolderOperationsManager } from '../managers/FolderOperationsManager';
@@ -235,7 +236,7 @@ export class SimpleBookmarkPanel {
 
         // 3. Remove storage listener
         if (this.storageListener) {
-            chrome.storage.onChanged.removeListener(this.storageListener);
+            browser.storage.onChanged.removeListener(this.storageListener);
             this.storageListener = null;
         }
 
@@ -602,13 +603,13 @@ export class SimpleBookmarkPanel {
                                 <div class="qr-card">
                                     <a href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer" class="qr-card-label-link">Buy Me a Coffee</a>
                                     <div class="qr-image-wrapper">
-                                        <img src="${chrome.runtime.getURL('icons/bmc_qr.png')}" alt="Buy Me A Coffee" class="qr-image">
+                                        <img src="${browser.runtime.getURL('icons/bmc_qr.png')}" alt="Buy Me A Coffee" class="qr-image">
                                     </div>
                                 </div>
                                 <div class="qr-card">
                                     <span class="qr-card-label">微信赞赏码</span>
                                     <div class="qr-image-wrapper">
-                                        <img src="${chrome.runtime.getURL('icons/wechat_qr.png')}" alt="WeChat Reward" class="qr-image">
+                                        <img src="${browser.runtime.getURL('icons/wechat_qr.png')}" alt="WeChat Reward" class="qr-image">
                                     </div>
                                 </div>
                             </div>
@@ -1093,7 +1094,7 @@ export class SimpleBookmarkPanel {
         logger.info(`[Settings] ${setting} changed to: ${value}`);
 
         // Special handling for destructive action
-        if (setting === 'storage.saveContextOnly' && value) {
+        if (setting === 'behavior.saveContextOnly' && value) {
             const confirmed = await this.confirmContextOnlySave();
             if (!confirmed) {
                 input.checked = false;
@@ -3805,12 +3806,23 @@ ${options.message}
                 }
 
                 logger.info(`[Import] Checking ${folderPathsNeeded.size} unique folder paths`);
-                for (const folderPath of folderPathsNeeded) {
+
+                // Sort folder paths by depth (number of '/') to create parent folders first
+                // This ensures "Work" is created before "Work/AI"
+                const sortedFolderPaths = Array.from(folderPathsNeeded).sort((a, b) => {
+                    const depthA = (a.match(/\//g) || []).length;
+                    const depthB = (b.match(/\//g) || []).length;
+                    return depthA - depthB;
+                });
+
+                for (const folderPath of sortedFolderPaths) {
                     const exists = this.folders.some(f => f.path === folderPath);
                     if (!exists) {
                         logger.info(`[Import] Creating missing folder: ${folderPath}`);
                         try {
                             await FolderStorage.create(folderPath);
+                            // Refresh folders after each creation so parent checks pass
+                            this.folders = await FolderStorage.getAll();
                         } catch (error) {
                             logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
                         }
@@ -4368,7 +4380,7 @@ ${options.message}
             }
         };
 
-        chrome.storage.onChanged.addListener(this.storageListener);
+        browser.storage.onChanged.addListener(this.storageListener);
         logger.info('[SimpleBookmarkPanel] Storage listener setup');
     }
 
@@ -4479,7 +4491,7 @@ ${options.message}
     private async setNavigateData(key: string, value: any): Promise<void> {
         try {
             const storageKey = `bookmarkNavigate:${key}`;
-            await chrome.storage.local.set({ [storageKey]: value });
+            await browser.storage.local.set({ [storageKey]: value });
         } catch (error) {
             logger.error('[SimpleBookmarkPanel] setNavigateData Error:', error);
         }
@@ -4488,12 +4500,12 @@ ${options.message}
     private async getNavigateData(key: string): Promise<any> {
         try {
             const storageKey = `bookmarkNavigate:${key}`;
-            const result = await chrome.storage.local.get(storageKey);
+            const result = await browser.storage.local.get(storageKey);
             const val = result[storageKey];
 
             if (val !== undefined) {
                 // Clear after reading
-                await chrome.storage.local.remove(storageKey);
+                await browser.storage.local.remove(storageKey);
                 logger.debug(`[SimpleBookmarkPanel] Got ${storageKey} = ${val}`);
                 return val;
             }
@@ -4557,7 +4569,7 @@ ${options.message}
      */
     destroy(): void {
         if (this.storageListener) {
-            chrome.storage.onChanged.removeListener(this.storageListener);
+            browser.storage.onChanged.removeListener(this.storageListener);
             this.storageListener = null;
         }
 

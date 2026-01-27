@@ -11,6 +11,7 @@
  */
 
 import { logger } from '../utils/logger';
+import { browser } from '../utils/browser';
 
 /**
  * Application settings schema
@@ -109,7 +110,7 @@ export class SettingsManager {
      */
     private constructor() {
         // Listen for storage changes from other tabs/windows
-        chrome.storage.onChanged.addListener((changes, areaName) => {
+        browser.storage.onChanged.addListener((changes, areaName) => {
             if (areaName === 'sync' && changes[STORAGE_KEY]) {
                 const newSettings = changes[STORAGE_KEY].newValue as AppSettings;
                 if (newSettings) {
@@ -146,7 +147,7 @@ export class SettingsManager {
 
         this.initPromise = (async () => {
             try {
-                const result = await chrome.storage.sync.get(STORAGE_KEY);
+                const result = await browser.storage.sync.get(STORAGE_KEY);
                 const stored = result[STORAGE_KEY] as any; // Use 'any' for migration compatibility
 
                 if (stored && stored.version === 2) {
@@ -228,7 +229,7 @@ export class SettingsManager {
         if (!this.cache) return;
 
         try {
-            await chrome.storage.sync.set({ [STORAGE_KEY]: this.cache });
+            await browser.storage.sync.set({ [STORAGE_KEY]: this.cache });
             logger.debug('[SettingsManager] Persisted to storage');
         } catch (error) {
             logger.error('[SettingsManager] Failed to persist', error);
