@@ -9,6 +9,7 @@
 
 import { FolderStorage } from './FolderStorage';
 import { SimpleBookmarkStorage } from './SimpleBookmarkStorage';
+import { browser } from '../../utils/browser';
 
 /**
  * Logger utility
@@ -98,7 +99,7 @@ export class BookmarkMigration {
 
             // Batch update all bookmarks
             if (Object.keys(updates).length > 0) {
-                await chrome.storage.local.set(updates);
+                await browser.storage.local.set(updates);
                 logger.info(`Migrated ${migratedCount} bookmarks to "Import" folder`);
             } else {
                 logger.info('No bookmarks needed migration');
@@ -117,7 +118,7 @@ export class BookmarkMigration {
      */
     private static async isMigrated(): Promise<boolean> {
         try {
-            const result = await chrome.storage.local.get(this.MIGRATION_FLAG_KEY);
+            const result = await browser.storage.local.get(this.MIGRATION_FLAG_KEY);
             return !!result[this.MIGRATION_FLAG_KEY];
         } catch (error) {
             logger.error('Failed to check migration status:', error);
@@ -130,7 +131,7 @@ export class BookmarkMigration {
      */
     private static async setMigrated(): Promise<void> {
         try {
-            await chrome.storage.local.set({
+            await browser.storage.local.set({
                 [this.MIGRATION_FLAG_KEY]: true,
                 migrationDate: Date.now()
             });
@@ -148,7 +149,7 @@ export class BookmarkMigration {
      */
     static async resetMigration(): Promise<void> {
         try {
-            await chrome.storage.local.remove([this.MIGRATION_FLAG_KEY, 'migrationDate']);
+            await browser.storage.local.remove([this.MIGRATION_FLAG_KEY, 'migrationDate']);
             logger.warn('Migration flag reset - migration will run on next load');
         } catch (error) {
             logger.error('Failed to reset migration flag:', error);
@@ -167,8 +168,8 @@ export class BookmarkMigration {
     }> {
         try {
             const migrated = await this.isMigrated();
-            const result = await chrome.storage.local.get('migrationDate');
-            const migrationDate = result.migrationDate;
+            const result = await browser.storage.local.get('migrationDate');
+            const migrationDate = result.migrationDate as number | undefined;
 
             const allBookmarks = await SimpleBookmarkStorage.getAllBookmarks();
             const bookmarksInImport = allBookmarks.filter(b => b.folderPath === this.IMPORT_FOLDER_PATH).length;

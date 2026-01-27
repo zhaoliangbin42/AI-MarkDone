@@ -109,6 +109,7 @@ if (!element) {
 
 ```bash
 // turbo
+# 同时构建 Chrome 和 Firefox
 npm run build
 ```
 
@@ -145,7 +146,7 @@ Antigravity 将自动生成变更总结。
 
 | 条件 | 需更新的文档 |
 |:-----|:-------------|
-| 新增/修改公共接口 | `PLATFORM_ADAPTATION_GUIDE.md` |
+| 新增/修改 Background 功能 | `docs/BROWSER_COMPATIBILITY.md` + 两个 background 文件 |
 | 新增平台功能 | `CAPABILITY_MATRIX.md` |
 
 ### 7.2 更新 CHANGELOG
@@ -163,8 +164,9 @@ Antigravity 将自动生成变更总结。
 
 - [ ] Phase 1: 实现计划已获用户确认
 - [ ] Phase 3: 代码修改完成，用户已调试确认
-- [ ] Phase 4: `npm run build` 成功
+- [ ] Phase 4: `npm run build` 成功 (Chrome + Firefox)
 - [ ] Phase 5: walkthrough 已生成
 - [ ] Phase 7: CHANGELOG 已更新
+- [ ] Background 变更已同步到两个浏览器
 
 **结束条件**: walkthrough 已生成，用户已确认功能正常

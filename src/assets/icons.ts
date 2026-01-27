@@ -1,3 +1,5 @@
+import { browser } from '../utils/browser';
+
 /**
  * Icon System - Inline SVG Icons
  * 
@@ -480,7 +482,7 @@ export const Icons = {
      */
     createBrandIcon(): HTMLImageElement {
         const img = document.createElement('img');
-        img.src = chrome.runtime.getURL('icons/icon128.png');
+        img.src = browser.runtime.getURL('icons/icon128.png');
         img.alt = 'AI-MarkDone';
         img.style.display = 'block';
         return img;

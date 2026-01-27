@@ -8,6 +8,7 @@ import { MathClickHandler } from './features/math-click';
 import { ReaderPanel } from './features/re-render';
 import { DeepResearchHandler } from './features/deep-research-handler';
 import { logger, LogLevel } from '../utils/logger';
+import { browser } from '../utils/browser';
 import { SimpleBookmarkStorage } from '../bookmarks/storage/SimpleBookmarkStorage';
 import { BookmarkSaveModal } from '../bookmarks/components/BookmarkSaveModal';
 import { simpleBookmarkPanel } from '../bookmarks/components/SimpleBookmarkPanel';
@@ -24,10 +25,11 @@ import { SettingsManager } from '../settings/SettingsManager';
 /**
  * Listen for messages from background script
  */
-chrome.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
+browser.runtime.onMessage.addListener((request: any, _sender, _sendResponse) => {
     if (request.action === 'openBookmarkPanel') {
         simpleBookmarkPanel.toggle();
     }
+    return true; // Keep message channel open
 });
 
 /**
@@ -226,7 +228,7 @@ class ContentScript {
             }
         };
 
-        chrome.storage.onChanged.addListener(this.storageListener);
+        browser.storage.onChanged.addListener(this.storageListener);
         logger.info('[ContentScript] Storage listener setup for bookmark sync');
     }
 

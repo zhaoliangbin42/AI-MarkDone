@@ -29,6 +29,13 @@ export class Toolbar {
     private pending: boolean = false;
     private wordCountInitialized: boolean = false;
     private wordCountInitInFlight: boolean = false;
+    private pendingBookmarkState: boolean | null = null;
+
+    /**
+     * Promise that resolves when toolbar UI is ready
+     * Use this to ensure setBookmarkState works correctly
+     */
+    public readonly ready: Promise<void>;
 
     constructor(callbacks: ToolbarCallbacks) {
         this.callbacks = callbacks;
@@ -50,8 +57,10 @@ export class Toolbar {
             this.setTheme(theme === 'dark');
         });
 
-        // Create UI (async, non-blocking)
-        this.createUI();
+        // Create UI (async) - expose promise for callers to await
+        this.ready = this.createUI().catch(err => {
+            logger.error('[Toolbar] Failed to create UI:', err);
+        });
     }
 
     /**
@@ -164,6 +173,12 @@ export class Toolbar {
         // Initialize word count with retry (wait for content to load)
         if (behaviorSettings.showWordCount) {
             this.initWordCountWithRetry();
+        }
+
+        // Apply any pending bookmark state that was set before UI was ready
+        if (this.pendingBookmarkState !== null) {
+            this.setBookmarkState(this.pendingBookmarkState);
+            this.pendingBookmarkState = null;
         }
     }
 
@@ -428,7 +443,12 @@ export class Toolbar {
     setBookmarkState(isBookmarked: boolean): void {
         const toolbar = this.shadowRoot.querySelector('.aicopy-toolbar');
         const bookmarkBtn = this.shadowRoot.querySelector('#bookmark-btn') as HTMLButtonElement;
-        if (!bookmarkBtn || !toolbar) return;
+
+        // If UI not ready yet, save pending state to be applied when ready
+        if (!bookmarkBtn || !toolbar) {
+            this.pendingBookmarkState = isBookmarked;
+            return;
+        }
 
         if (isBookmarked) {
             // Add bookmarked class to both toolbar and button

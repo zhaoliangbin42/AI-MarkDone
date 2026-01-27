@@ -10,7 +10,7 @@
 | 属性 | 值 |
 |:-----|:---|
 | 项目名称 | AI-MarkDone |
-| 类型 | Chrome 浏览器扩展 (Manifest V3) |
+| 类型 | 浏览器扩展 (Chrome MV3 / Firefox MV2) |
 | 目标平台 | ChatGPT, Gemini, Claude, Deepseek |
 | 技术栈 | TypeScript, Vite, Shadow DOM |
 | 核心功能 | 公式复制、Markdown 复制、实时预览、字数统计、书签管理 |
@@ -85,6 +85,7 @@
 
 ```
 src/
+├── background/       # Background Script (Chrome: service-worker.ts, Firefox: background-firefox.js)
 ├── content/          # Content Script 主入口
 │   ├── adapters/     # 平台适配器 (ChatGPT/Gemini/Claude/Deepseek)
 │   ├── features/     # 功能模块
@@ -111,7 +112,7 @@ src/
 ## 参考文档
 
 | 文档 | 用途 |
-|:----|:----|
+|:----|:----|\n| [BROWSER_COMPATIBILITY.md](docs/BROWSER_COMPATIBILITY.md) | Chrome/Firefox 兼容性指南 |
 | [CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md) | 平台功能支持矩阵 |
 | [platform-adaptation.md](.agent/workflows/platform-adaptation.md) | Platform Integration Manual |
 | [ALGORITHM_NOTES.md](docs/ALGORITHM_NOTES.md) | 算法复盘笔记（仅用户明确要求时编写） |
@@ -120,6 +121,6 @@ src/
 
 ## 提交前检查
 
-- [ ] `npm run build` 成功
-- [ ] 接口变更已更新 `PLATFORM_ADAPTATION_GUIDE.md`
+- [ ] `npm run build` 成功 (同时构建 Chrome 和 Firefox)
+- [ ] 接口变更已更新相关文档
 - [ ] `CHANGELOG.md` 已更新（见 [changelog.md](.agent/rules/changelog.md)），必须使用英文

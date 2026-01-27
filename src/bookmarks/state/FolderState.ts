@@ -7,6 +7,7 @@
  * - Auto-expand for navigation
  */
 
+import { browser } from '../../utils/browser';
 import { PathUtils } from '../utils/path-utils';
 
 /**
@@ -29,8 +30,8 @@ export class FolderState {
      */
     async load(): Promise<void> {
         try {
-            const result = await chrome.storage.local.get(FolderState.LAST_SELECTED_KEY);
-            this.selectedPath = result[FolderState.LAST_SELECTED_KEY] || null;
+            const result = await browser.storage.local.get(FolderState.LAST_SELECTED_KEY);
+            this.selectedPath = (result[FolderState.LAST_SELECTED_KEY] as string) || null;
 
             // Auto-expand path to selected folder
             if (this.selectedPath) {
@@ -49,7 +50,7 @@ export class FolderState {
     async saveLastSelected(path: string): Promise<void> {
         try {
             this.selectedPath = path;
-            await chrome.storage.local.set({ [FolderState.LAST_SELECTED_KEY]: path });
+            await browser.storage.local.set({ [FolderState.LAST_SELECTED_KEY]: path });
         } catch (error) {
             console.error('[FolderState] Failed to save last selected:', error);
         }
