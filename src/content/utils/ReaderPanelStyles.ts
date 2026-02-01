@@ -113,6 +113,11 @@ export const readerPanelStyles = `
   color: var(--aimd-text-primary);
 }
 
+.aicopy-panel-btn.bookmarked {
+  color: var(--aimd-text-on-primary);
+  background: linear-gradient(135deg, var(--aimd-toolbar-gradient-solid-from), var(--aimd-toolbar-gradient-solid-to));
+}
+
 /* Body - White background for readability */
 .aicopy-panel-body {
   flex: 1;
@@ -194,6 +199,31 @@ export const readerPanelStyles = `
   background: var(--aimd-interactive-primary);
   border-color: var(--aimd-interactive-primary);
   box-shadow: var(--aimd-dot-active-shadow);
+}
+
+/* Bookmarked Dot - Filled Square */
+.aicopy-dot.bookmarked {
+  border-radius: 2px;
+  transform: scale(0.85);
+  transform-origin: center;
+  background: var(--aimd-interactive-primary);
+  border-color: var(--aimd-interactive-primary);
+}
+
+.aicopy-dot.bookmarked:hover {
+  transform: scale(1.1);
+}
+
+.aicopy-dot.bookmarked.active {
+  transform: scale(1.2);
+  box-shadow: var(--aimd-dot-active-shadow);
+}
+
+/* Header Actions Container */
+.aicopy-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
 }
 
 /* Custom Scrollbar */

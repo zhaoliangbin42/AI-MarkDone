@@ -1,5 +1,6 @@
 import { adapterRegistry } from './adapters/registry';
 import { MessageObserver } from './observers/mutation-observer';
+import { SelectorMessageObserver } from './observers/selector-message-observer';
 import { ToolbarInjector, ToolbarState } from './injectors/toolbar-injector';
 import { Toolbar, ToolbarCallbacks } from './components/toolbar';
 import { Modal } from './components/modal';
@@ -36,7 +37,7 @@ browser.runtime.onMessage.addListener((request: any, _sender, _sendResponse) => 
  * Main content script controller
  */
 class ContentScript {
-    private observer: MessageObserver | null = null;
+    private observer: MessageObserver | SelectorMessageObserver | null = null;
     private injector: ToolbarInjector | null = null;
     private markdownParser: MarkdownParser;
     private mathClickHandler: MathClickHandler;
@@ -61,6 +62,15 @@ class ContentScript {
 
     // Track current theme to keep shadow-root tokens in sync
     private currentThemeIsDark: boolean = false;
+
+    // Toggle with: localStorage.setItem('aicopy:debug:toolbar','1')
+    private readonly verboseToolbarDebug: boolean = (() => {
+        try {
+            return window.localStorage.getItem('aicopy:debug:toolbar') === '1';
+        } catch {
+            return false;
+        }
+    })();
 
     constructor() {
         // Use INFO in production; switch to DEBUG locally when needed
@@ -119,13 +129,24 @@ class ContentScript {
 
         // Create observer with injector dependency
 
-        this.observer = new MessageObserver(
-            adapter,
-            this.injector,
-            (messageElement) => {
-                this.handleNewMessage(messageElement);
-            }
-        );
+        const platformNameRaw = adapter.getPlatformName();
+        if (platformNameRaw === 'ChatGPT') {
+            this.observer = new SelectorMessageObserver(
+                adapter,
+                this.injector,
+                (messageElement) => {
+                    this.handleNewMessage(messageElement);
+                }
+            );
+        } else {
+            this.observer = new MessageObserver(
+                adapter,
+                this.injector,
+                (messageElement) => {
+                    this.handleNewMessage(messageElement);
+                }
+            );
+        }
 
         // Initialize platform-specific panel buttons
         if ('isGemini' in adapter && typeof adapter.isGemini === 'function' && adapter.isGemini()) {
@@ -250,6 +271,10 @@ class ContentScript {
      * Handle new message detected
      */
     private handleNewMessage(messageElement: HTMLElement): void {
+        const dbg = (...args: any[]): void => {
+            if (this.verboseToolbarDebug) logger.debug(...args);
+        };
+
         logger.debug('Handling new message');
 
         // Get adapter
@@ -263,6 +288,20 @@ class ContentScript {
         const hasActionBar = (isArticle || isModelResponse)
             ? messageElement.querySelector(adapter.getActionBarSelector()) !== null
             : true;
+
+        const messageIdForLog = adapter.getMessageId(messageElement);
+        const injectorState = this.injector ? this.injector.getState(messageElement) : 'no-injector';
+        dbg('[ToolbarDebug] detect', {
+            platform: adapter.getPlatformName(),
+            url: window.location.href,
+            tag: messageElement.tagName,
+            messageId: messageIdForLog,
+            injectorState,
+            hasActionBar,
+            isStreaming: typeof adapter.isStreamingMessage === 'function' ? adapter.isStreamingMessage(messageElement) : false,
+            hasExistingContainer: messageElement.querySelector('.aicopy-toolbar-container') !== null,
+            hasExistingWrapper: messageElement.querySelector('.aicopy-toolbar-wrapper') !== null
+        });
 
 
         // Get message ID for tracking
@@ -309,6 +348,12 @@ class ContentScript {
         if (existingToolbarContainer) {
             logger.debug('Toolbar already exists, checking state');
 
+            dbg('[ToolbarDebug] existing toolbar container found', {
+                messageId,
+                hasActionBar,
+                injectorState: this.injector ? this.injector.getState(messageElement) : 'no-injector'
+            });
+
             // 🔑 FIX: Activate toolbar if it was injected but not yet visible
             // This happens when streaming completes (Copy button triggers re-detection)
             if (this.injector) {
@@ -316,6 +361,11 @@ class ContentScript {
                 if (currentState === ToolbarState.INJECTED) {
                     logger.debug('[toolbar] Existing toolbar in INJECTED state, activating now');
                     const activated = this.injector.activate(messageElement);
+                    dbg('[ToolbarDebug] activate existing injected', {
+                        messageId,
+                        activated,
+                        stateAfter: this.injector.getState(messageElement)
+                    });
                     if (activated) {
                         const existingToolbar = (existingToolbarContainer as any).__toolbar;
                         if (existingToolbar && typeof existingToolbar.setPending === 'function') {
@@ -368,16 +418,40 @@ class ContentScript {
         if (this.injector) {
             const injected = this.injector.inject(messageElement, toolbar.getElement());
 
+            dbg('[ToolbarDebug] inject result', {
+                messageId,
+                injected,
+                stateAfterInject: this.injector.getState(messageElement),
+                wrapperExistsAfterInject: messageElement.querySelector('.aicopy-toolbar-wrapper') !== null,
+                containerExistsAfterInject: messageElement.querySelector('.aicopy-toolbar-container') !== null,
+                hasActionBar,
+                isStreaming: typeof adapter.isStreamingMessage === 'function' ? adapter.isStreamingMessage(messageElement) : false
+            });
+
             // 🔑 FIX: Activate immediately for non-streaming messages
             // Streaming messages will be activated when Copy button appears
             if (injected) {
                 const isStreaming = adapter.isStreamingMessage && adapter.isStreamingMessage(messageElement);
                 if (!isStreaming && hasActionBar) {
                     const activated = this.injector.activate(messageElement);
+                    dbg('[ToolbarDebug] activate after inject (non-streaming + hasActionBar)', {
+                        messageId,
+                        activated,
+                        stateAfterActivate: this.injector.getState(messageElement)
+                    });
                     if (activated) {
                         logger.debug('[toolbar] Non-streaming message: activated immediately');
                         toolbar.setPending(false);
                     }
+                } else {
+                    dbg('[ToolbarDebug] skipped immediate activate', {
+                        messageId,
+                        reason: {
+                            isStreaming,
+                            hasActionBar
+                        },
+                        stateNow: this.injector.getState(messageElement)
+                    });
                 }
             }
         }
@@ -760,6 +834,10 @@ let lastUrl: string = window.location.href;
 let navVersion = 0;
 let routeListenersAttached = false;
 
+// Single source of truth for the active content script instance.
+// This prevents "multiple start, missing stop" issues across SPA navigations.
+let activeContentScript: ContentScript | null = null;
+
 /**
  * Wait for page to be ready by checking for key DOM elements
  * Uses polling with exponential backoff instead of fixed delay
@@ -857,19 +935,10 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
         // Safe to reinitialize
         logger.info('[Navigation] Reinitializing extension');
 
-        // 🔑 FIX: Reset observer to clear processedMessages Set (prevent memory growth)
-        if (contentScript && (contentScript as any).observer) {
-            (contentScript as any).observer.reset();
-            logger.debug('[Navigation] Observer reset completed');
-        }
-
-        contentScript?.stop();
-        const newContentScript = new ContentScript();
-        await newContentScript.start();
-
-
-        // Update closure reference
-        contentScript = newContentScript;
+        // Always stop the *actual* active instance (single source of truth)
+        activeContentScript?.stop();
+        activeContentScript = new ContentScript();
+        await activeContentScript.start();
     })();
 
     return contentScript;
@@ -884,15 +953,41 @@ function initExtension() {
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
 
-    let contentScript: ContentScript | null = new ContentScript();
-    contentScript.start(); // Fire and forget - initial load
+    activeContentScript = new ContentScript();
+
+    const safeStart = async (): Promise<void> => {
+        if (!activeContentScript) {
+            activeContentScript = new ContentScript();
+        }
+        try {
+            await activeContentScript.start();
+        } catch (err) {
+            // If start() throws (unhandled async error), the whole extension can silently die.
+            // Retry once with a fresh instance to recover from transient SPA / extension-context issues.
+            logger.error('[Init] ContentScript.start() failed, retrying with fresh instance:', err);
+            try {
+                activeContentScript.stop();
+            } catch {
+                // ignore
+            }
+            activeContentScript = new ContentScript();
+            try {
+                await activeContentScript.start();
+            } catch (err2) {
+                logger.error('[Init] Retry ContentScript.start() failed:', err2);
+            }
+        }
+    };
+
+    // Initial load
+    void safeStart();
 
     const handleUrlChange = () => {
         const currentUrl = window.location.href;
         if (currentUrl !== lastUrl) {
             lastUrl = currentUrl;
             logger.info('[Observer] URL changed:', currentUrl);
-            contentScript = handleNavigation(contentScript);
+            handleNavigation(activeContentScript);
         }
     };
 
@@ -961,6 +1056,15 @@ function cleanupExtension() {
     if (debounceTimeout !== null) {
         clearTimeout(debounceTimeout);
         debounceTimeout = null;
+    }
+
+    if (activeContentScript) {
+        try {
+            activeContentScript.stop();
+        } catch {
+            // ignore
+        }
+        activeContentScript = null;
     }
 
     logger.info('[Cleanup] Extension cleanup complete');

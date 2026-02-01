@@ -19,6 +19,8 @@ import { eventBus } from '../utils/EventBus';
 import { MarkdownParser } from '../parsers/markdown-parser';
 import { StreamingDetector } from '../adapters/streaming-detector';
 import { SettingsManager } from '../../settings/SettingsManager';
+import { SimpleBookmarkStorage } from '../../bookmarks/storage/SimpleBookmarkStorage';
+import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -77,6 +79,9 @@ export class ReaderPanel {
     // EventBus subscription cleanup
     private unsubscribeNewMessage: (() => void) | null = null;
 
+    // Bookmark state for pagination indicators
+    private bookmarkedPositions: Set<number> = new Set();
+
     // Configuration options
     private options: ReaderPanelOptions;
 
@@ -106,8 +111,14 @@ export class ReaderPanel {
         this.currentIndex = Math.max(0, Math.min(startIndex, this.items.length - 1));
         logger.debug(`[ReaderPanel] currentIndex: ${this.currentIndex}/${this.items.length}`);
 
+        // Load bookmarked positions before creating panel
+        await this.loadBookmarkedPositions();
+
         // 创建面板 UI
         await this.createPanel();
+
+        // Update bookmark button state for current message (position is 1-indexed)
+        this.updateBookmarkButtonState(this.bookmarkedPositions.has(this.currentIndex + 1));
 
         logger.debug(`[ReaderPanel] END showWithData: ${(performance.now() - startTime).toFixed(2)}ms`);
     }
@@ -375,17 +386,31 @@ export class ReaderPanel {
         header.innerHTML = `
             <div class="aicopy-panel-header-left">
                 <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
-                <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                    </svg>
-                </button>
+                <div class="aicopy-header-actions">
+                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                        </svg>
+                    </button>
+                    <button class="aicopy-panel-btn" id="bookmark-btn" title="Bookmark">
+                        ${Icons.bookmark}
+                    </button>
+                    <button class="aicopy-panel-btn" id="copy-btn" title="Copy Markdown">
+                        ${Icons.copy}
+                    </button>
+                    <button class="aicopy-panel-btn" id="source-btn" title="View Source">
+                        ${Icons.code}
+                    </button>
+                </div>
             </div>
             <button class="aicopy-panel-btn" id="close-btn" title="Close">×</button>
         `;
 
         header.querySelector('#close-btn')?.addEventListener('click', () => this.hide());
         header.querySelector('#fullscreen-btn')?.addEventListener('click', () => this.toggleFullscreen());
+        header.querySelector('#bookmark-btn')?.addEventListener('click', () => this.handleReaderBookmark());
+        header.querySelector('#copy-btn')?.addEventListener('click', () => this.handleReaderCopyMarkdown());
+        header.querySelector('#source-btn')?.addEventListener('click', () => this.handleReaderViewSource());
 
         return header;
     }
@@ -444,7 +469,8 @@ export class ReaderPanel {
         this.paginationController = new DotPaginationController(dotsContainer, {
             totalItems: this.items.length,
             currentIndex: this.currentIndex,
-            onNavigate: (index) => this.navigateTo(index)
+            onNavigate: (index) => this.navigateTo(index),
+            bookmarkedPositions: this.bookmarkedPositions
         });
         this.paginationController.render();
 
@@ -683,6 +709,9 @@ export class ReaderPanel {
         this.currentIndex = index;
         this.paginationController?.setActiveIndex(index);
 
+        // Update bookmark button state for current message (position is 1-indexed)
+        this.updateBookmarkButtonState(this.bookmarkedPositions.has(index + 1));
+
         // 更新导航按钮状态
         this.navButtonsController?.updateConfig({
             canGoPrevious: index > 0,
@@ -830,5 +859,153 @@ export class ReaderPanel {
         if (!this.shadowRoot) return;
         const panel = this.shadowRoot.querySelector('.aicopy-panel');
         panel?.classList.toggle('aicopy-panel-fullscreen');
+    }
+
+    /**
+     * Load bookmarked positions for current page on panel open
+     */
+    private async loadBookmarkedPositions(): Promise<void> {
+        try {
+            const url = window.location.href;
+            this.bookmarkedPositions = await SimpleBookmarkStorage.loadAllPositions(url);
+            logger.debug(`[ReaderPanel] Loaded ${this.bookmarkedPositions.size} bookmarked positions`);
+        } catch (error) {
+            logger.error('[ReaderPanel] Failed to load bookmarked positions:', error);
+        }
+    }
+
+    /**
+     * Copy current message markdown to clipboard
+     */
+    private async handleReaderCopyMarkdown(): Promise<void> {
+        const currentItem = this.items[this.currentIndex];
+        if (!currentItem) return;
+
+        try {
+            const content = await resolveContent(currentItem.content);
+            await navigator.clipboard.writeText(content);
+            logger.debug('[ReaderPanel] Copied markdown to clipboard');
+
+            // Visual feedback on copy button
+            const copyBtn = this.shadowRoot?.querySelector('#copy-btn');
+            if (copyBtn) {
+                copyBtn.classList.add('success');
+                setTimeout(() => copyBtn.classList.remove('success'), 1000);
+            }
+        } catch (error) {
+            logger.error('[ReaderPanel] Failed to copy markdown:', error);
+        }
+    }
+
+    /**
+     * View source for current message
+     */
+    private handleReaderViewSource(): void {
+        const currentItem = this.items[this.currentIndex];
+        if (!currentItem) return;
+
+        // Resolve content and show in modal
+        resolveContent(currentItem.content).then(content => {
+            // Create simple modal for source view
+            const modal = document.createElement('div');
+            modal.className = 'aicopy-source-modal';
+            modal.innerHTML = `
+                <div class="aicopy-source-modal-content">
+                    <div class="aicopy-source-modal-header">
+                        <h3>Markdown Source</h3>
+                        <button class="aicopy-source-modal-close">&times;</button>
+                    </div>
+                    <pre class="aicopy-source-modal-body">${this.escapeHtml(content)}</pre>
+                </div>
+            `;
+
+            modal.querySelector('.aicopy-source-modal-close')?.addEventListener('click', () => modal.remove());
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+
+            document.body.appendChild(modal);
+        });
+    }
+
+    /**
+     * Toggle bookmark for current message - reuses toolbar bookmark logic
+     * Position is 1-indexed to match toolbar behavior
+     */
+    private async handleReaderBookmark(): Promise<void> {
+        const url = window.location.href;
+        const position = this.currentIndex + 1; // 1-indexed to match toolbar
+        const wasBookmarked = this.bookmarkedPositions.has(position);
+
+        try {
+            if (wasBookmarked) {
+                // Remove bookmark directly
+                await SimpleBookmarkStorage.remove(url, position);
+                this.bookmarkedPositions.delete(position);
+                this.paginationController?.setBookmarked(this.currentIndex, false);
+                this.updateBookmarkButtonState(false);
+                logger.info(`[ReaderPanel] Removed bookmark at position ${position}`);
+            } else {
+                // Add bookmark - show save modal (same as toolbar)
+                const currentItem = this.items[this.currentIndex];
+                const userMessage = currentItem?.userPrompt || '';
+
+                if (!userMessage) {
+                    logger.error('[ReaderPanel] Failed to extract user message');
+                    alert('Failed to extract user message. Please try again.');
+                    return;
+                }
+
+                const adapter = adapterRegistry.getAdapter();
+                const platform = adapter?.getPlatformName() || 'AI Platform';
+                const aiResponse = await resolveContent(currentItem?.content || '');
+                const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
+                const lastUsedFolder = localStorage.getItem('lastUsedFolder') || 'Import';
+
+                // Show save modal
+                const saveModal = new BookmarkSaveModal();
+                saveModal.show({
+                    defaultTitle,
+                    lastUsedFolder,
+                    onSave: async (title, folderPath) => {
+                        await SimpleBookmarkStorage.save(
+                            url,
+                            position,
+                            userMessage,
+                            aiResponse,
+                            title,
+                            platform,
+                            Date.now(),
+                            folderPath
+                        );
+
+                        this.bookmarkedPositions.add(position);
+                        this.paginationController?.setBookmarked(this.currentIndex, true);
+                        this.updateBookmarkButtonState(true);
+                        localStorage.setItem('lastUsedFolder', folderPath);
+                        logger.info(`[ReaderPanel] Saved "${title}" to "${folderPath}"`);
+                    }
+                });
+            }
+        } catch (error) {
+            logger.error('[ReaderPanel] Bookmark operation failed:', error);
+            alert('Failed to toggle bookmark: ' + (error instanceof Error ? error.message : String(error)));
+        }
+    }
+
+    /**
+     * Update bookmark button state (highlight/dim) based on bookmark status
+     */
+    private updateBookmarkButtonState(isBookmarked: boolean): void {
+        const bookmarkBtn = this.shadowRoot?.querySelector('#bookmark-btn');
+        if (!bookmarkBtn) return;
+
+        if (isBookmarked) {
+            bookmarkBtn.classList.add('bookmarked');
+            bookmarkBtn.setAttribute('title', 'Remove Bookmark');
+        } else {
+            bookmarkBtn.classList.remove('bookmarked');
+            bookmarkBtn.setAttribute('title', 'Bookmark');
+        }
     }
 }

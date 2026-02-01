@@ -20,6 +20,7 @@ export interface DotPaginationConfig {
     currentIndex: number;
     containerWidth?: number;
     onNavigate?: (index: number) => void;
+    bookmarkedPositions?: Set<number>;
 }
 
 export interface DotSizeConfig {
@@ -108,6 +109,17 @@ export class DotPaginationController {
         const dot = document.createElement('div');
         dot.className = 'aicopy-dot';
         dot.dataset.index = index.toString();
+
+        // Apply bookmarked class if position is in bookmarked set
+        // Note: bookmarkedPositions stores 1-indexed positions from toolbar
+        // But createDot receives 0-indexed, so we need to check index+1
+        // However, if bookmark button works with index+1 but dots don't,
+        // the issue might be the Set reference - let's trace
+        const position = index + 1;
+        console.log(`[DotPagination] createDot(${index}): checking position ${position}, isBookmarked: ${this.config.bookmarkedPositions?.has(position)}, positions:`, this.config.bookmarkedPositions);
+        if (this.config.bookmarkedPositions?.has(position)) {
+            dot.classList.add('bookmarked');
+        }
 
         // Click handler
         dot.addEventListener('click', () => {
@@ -216,6 +228,26 @@ export class DotPaginationController {
 
         // Dedicated container allows full re-render safely
         this.render();
+    }
+
+    /**
+     * Set bookmark state for a specific dot
+     * Used for real-time sync when user toggles bookmark
+     */
+    setBookmarked(index: number, isBookmarked: boolean): void {
+        const dot = this.dots[index];
+        if (!dot) return;
+        dot.classList.toggle('bookmarked', isBookmarked);
+    }
+
+    /**
+     * Update bookmarked positions and refresh all dots
+     */
+    updateBookmarkedPositions(positions: Set<number>): void {
+        this.config.bookmarkedPositions = positions;
+        this.dots.forEach((dot, i) => {
+            dot.classList.toggle('bookmarked', positions.has(i + 1)); // positions are 1-indexed
+        });
     }
 
     /**

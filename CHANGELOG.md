@@ -19,10 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Settings schema upgraded from v1 to v2 with automatic migration
   - Added toggles for View Source, Save Messages, Word Count buttons
   - Added platform-specific enable/disable toggles (ChatGPT, Gemini, Claude, Deepseek)
+- **Reader Actions**: Added Bookmark, Copy, and View Source buttons to the Reader panel header for quick access.
+
+### Changed
+- **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.
+- **Button Styling**: Enhanced bookmark button with gradient background for clearer active state.
 
 ### Fixed
 - **Bookmark Highlight**: Fixed toolbar highlight not showing after page refresh due to async createUI race condition
 - **Settings Path**: Fixed `saveContextOnly` setting path from `storage.*` to `behavior.*`
+- **Design Tokens**: Standardized CSS token usage in Reader panel styles to comply with design system.
+- **Reader Pagination**: Fixed bookmark status indicator offset in pagination dots.
 
 ### Technical Details
 - Separated architecture: Background scripts are browser-specific, Content Script is shared

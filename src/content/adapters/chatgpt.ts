@@ -35,6 +35,44 @@ export class ChatGPTAdapter extends SiteAdapter {
         return 'div.z-0.flex.min-h-\\[46px\\].justify-start';
     }
 
+    /**
+     * ChatGPT-specific toolbar injection with robust fallbacks.
+     *
+     * ChatGPT DOM is frequently A/B tested; class-based action bar selectors
+     * can break and cause a global "no toolbar" failure.
+     *
+     * Strategy:
+     * 1) Preferred: insert before action bar (if found)
+     * 2) Fallback: insert right after message content container
+     * 3) Last resort: append to message element
+     */
+    injectToolbar(messageElement: HTMLElement, toolbarWrapper: HTMLElement): boolean {
+        try {
+            const actionBar = messageElement.querySelector(this.getActionBarSelector());
+            if (actionBar && actionBar.parentElement) {
+                actionBar.parentElement.insertBefore(toolbarWrapper, actionBar);
+                return true;
+            }
+
+            const contentElement = messageElement.querySelector(this.getMessageContentSelector());
+            if (contentElement && contentElement.parentElement) {
+                contentElement.parentElement.insertBefore(toolbarWrapper, contentElement.nextSibling);
+                return true;
+            }
+
+            messageElement.appendChild(toolbarWrapper);
+            return true;
+        } catch (err) {
+            logger.warn('[ChatGPTAdapter] injectToolbar failed, falling back to append:', err);
+            try {
+                messageElement.appendChild(toolbarWrapper);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+    }
+
 
     getCopyButtonSelector(): string {
         // ChatGPT uses exact "Copy" aria-label

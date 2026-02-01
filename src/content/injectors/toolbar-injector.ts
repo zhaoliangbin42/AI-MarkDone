@@ -17,6 +17,7 @@ export enum ToolbarState {
 export class ToolbarInjector {
     private adapter: SiteAdapter;
     private messageStates = new WeakMap<HTMLElement, ToolbarState>();
+    private messageWrappers = new WeakMap<HTMLElement, HTMLElement>();
 
     constructor(adapter: SiteAdapter) {
         this.adapter = adapter;
@@ -40,16 +41,58 @@ export class ToolbarInjector {
 
         // Use adapter's injectToolbar method for platform-specific injection logic
         // Each adapter handles its own fallback logic if action bar is not found
-        const injected = this.adapter.injectToolbar(messageElement, wrapper);
+        let injected = false;
+        try {
+            injected = this.adapter.injectToolbar(messageElement, wrapper);
+        } catch (err) {
+            logger.warn('[Injector] Adapter injectToolbar threw; will fallback inject:', err);
+            injected = false;
+        }
+
+        // Some adapters may append to DOM but return false; treat connected wrapper as success.
+        if (!injected && wrapper.isConnected) {
+            injected = true;
+        }
+
+        // Last-resort fallback to avoid global "no toolbar" failures when anchors shift.
+        if (!injected) {
+            injected = this.fallbackInject(messageElement, wrapper);
+        }
 
         if (!injected) {
-            logger.warn('[Injector] Adapter failed to inject toolbar');
+            logger.warn('[Injector] Failed to inject toolbar (adapter + fallback)');
             return false;
         }
 
         // Update state
         this.messageStates.set(messageElement, ToolbarState.INJECTED);
+        this.messageWrappers.set(messageElement, wrapper);
         return true;
+    }
+
+    private fallbackInject(messageElement: HTMLElement, wrapper: HTMLElement): boolean {
+        try {
+            const contentSelector = this.adapter.getMessageContentSelector();
+            if (contentSelector) {
+                const content = messageElement.querySelector(contentSelector);
+                if (content && content.parentElement) {
+                    content.insertAdjacentElement('afterend', wrapper);
+                    logger.debug('[Injector] Fallback injected after message content');
+                    return true;
+                }
+            }
+        } catch {
+            // ignore selector/DOM errors; continue to append
+        }
+
+        try {
+            messageElement.appendChild(wrapper);
+            logger.debug('[Injector] Fallback injected by appending to message');
+            return true;
+        } catch (err) {
+            logger.warn('[Injector] Fallback append failed:', err);
+            return false;
+        }
     }
 
     /**
@@ -64,10 +107,19 @@ export class ToolbarInjector {
             return false;
         }
 
-        // Find wrapper
-        const wrapper = messageElement.querySelector('.aicopy-toolbar-wrapper') as HTMLElement;
+        // Find wrapper (prefer tracked reference; fallback to query)
+        const wrapper = (this.messageWrappers.get(messageElement) ||
+            (messageElement.querySelector('.aicopy-toolbar-wrapper') as HTMLElement | null)) as HTMLElement | null;
         if (!wrapper) {
             logger.error('[Injector] activate() failed: Wrapper not found in DOM');
+            this.messageStates.set(messageElement, ToolbarState.NULL);
+            return false;
+        }
+
+        // If SPA re-render removed it, reset and let observer re-inject.
+        if (!wrapper.isConnected) {
+            logger.warn('[Injector] activate() wrapper is disconnected; resetting state to NULL');
+            this.messageStates.set(messageElement, ToolbarState.NULL);
             return false;
         }
 
@@ -83,7 +135,28 @@ export class ToolbarInjector {
      * Get current state of toolbar for a message
      */
     getState(messageElement: HTMLElement): ToolbarState {
-        return this.messageStates.get(messageElement) || ToolbarState.NULL;
+        const state = this.messageStates.get(messageElement) || ToolbarState.NULL;
+
+        // Self-heal: if the wrapper was removed by SPA re-render/hydration,
+        // do not keep returning INJECTED/ACTIVE forever.
+        if (state !== ToolbarState.NULL) {
+            const wrapper = this.messageWrappers.get(messageElement);
+            if (wrapper && !wrapper.isConnected) {
+                logger.warn('[Injector] Wrapper disconnected; downgrading state to NULL');
+                this.messageStates.set(messageElement, ToolbarState.NULL);
+                return ToolbarState.NULL;
+            }
+        }
+
+        return state;
+    }
+
+    /**
+     * Clear internal state for message (used when cleaning up or self-healing)
+     */
+    public resetMessageState(messageElement: HTMLElement): void {
+        this.messageStates.set(messageElement, ToolbarState.NULL);
+        this.messageWrappers.delete(messageElement);
     }
 
     /**
