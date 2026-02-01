@@ -60,7 +60,10 @@ export class MessageObserver {
                 setTimeout(() => this.startWithRetry(attempt + 1), 500);
                 return;
             } else {
-                logger.warn('Observer container not found after 10 attempts');
+                // Do NOT give up permanently: some SPA states may delay container creation
+                // for longer than 5s, and a permanent stop causes a global "no toolbar" failure.
+                logger.warn('Observer container not found after 10 attempts; will keep retrying (2s interval)');
+                setTimeout(() => this.startWithRetry(attempt + 1), 2000);
                 return;
             }
         }
@@ -315,11 +318,6 @@ export class MessageObserver {
 
             // Mark as processed
             this.processedMessages.add(messageId);
-            newMessages++;
-
-            // Trigger callback
-            logger.debug('New message detected:', messageId);
-            this.onMessageDetected(message);
             newMessages++;
 
             // Trigger callback
