@@ -2,6 +2,8 @@
  * Circuit Breaker pattern implementation
  * Prevents cascading failures by opening circuit after threshold failures
  */
+import { logger } from '../../utils/logger';
+
 export class CircuitBreaker {
     private failures = 0;
     private lastFailure = 0;
@@ -18,9 +20,9 @@ export class CircuitBreaker {
         if (this.state === 'OPEN') {
             if (Date.now() - this.lastFailure > this.timeout) {
                 this.state = 'HALF_OPEN';
-                console.log('[CircuitBreaker] Trying HALF_OPEN');
+                logger.info('[CircuitBreaker] Trying HALF_OPEN');
             } else {
-                console.warn('[CircuitBreaker] Circuit is OPEN, using fallback');
+                logger.warn('[CircuitBreaker] Circuit is OPEN, using fallback');
                 return fallback;
             }
         }
@@ -31,7 +33,7 @@ export class CircuitBreaker {
             return result;
         } catch (error) {
             this.onFailure();
-            console.error('[CircuitBreaker] Execution failed:', error);
+            logger.error('[CircuitBreaker] Execution failed:', error);
             return fallback;
         }
     }
@@ -39,7 +41,7 @@ export class CircuitBreaker {
     private onSuccess(): void {
         this.failures = 0;
         if (this.state === 'HALF_OPEN') {
-            console.log('[CircuitBreaker] Recovered, closing circuit');
+            logger.info('[CircuitBreaker] Recovered, closing circuit');
         }
         this.state = 'CLOSED';
     }
@@ -50,9 +52,7 @@ export class CircuitBreaker {
 
         if (this.failures >= this.threshold) {
             this.state = 'OPEN';
-            console.error(
-                `[CircuitBreaker] Threshold reached (${this.failures}), OPENING circuit`
-            );
+            logger.error(`[CircuitBreaker] Threshold reached (${this.failures}), OPENING circuit`);
         }
     }
 

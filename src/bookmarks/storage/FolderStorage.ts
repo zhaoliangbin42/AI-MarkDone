@@ -16,14 +16,12 @@
 import { Folder } from './types';
 import { PathUtils, PathValidationError } from '../utils/path-utils';
 import { browser } from '../../utils/browser';
+import { logger } from '../../utils/logger';
 
-/**
- * Logger utility (matches existing pattern)
- */
-const logger = {
-    info: (message: string, ...args: any[]) => console.log(`[FolderStorage] ${message}`, ...args),
-    error: (message: string, ...args: any[]) => console.error(`[FolderStorage] ${message}`, ...args),
-    warn: (message: string, ...args: any[]) => console.warn(`[FolderStorage] ${message}`, ...args),
+const folderLogger = {
+    info: (message: string, ...args: any[]) => logger.info('[AI-MarkDone][FolderStorage]', message, ...args),
+    error: (message: string, ...args: any[]) => logger.error('[AI-MarkDone][FolderStorage]', message, ...args),
+    warn: (message: string, ...args: any[]) => logger.warn('[AI-MarkDone][FolderStorage]', message, ...args),
 };
 
 /**
@@ -125,7 +123,7 @@ export class FolderStorage {
             // Update index
             await this.addToIndex(path);
 
-            logger.info(`Created folder: ${path}`);
+            folderLogger.info(`Created folder: ${path}`);
             return folder;
 
         } catch (error) {
@@ -152,7 +150,7 @@ export class FolderStorage {
             const result = await browser.storage.local.get(key);
             return (result[key] as Folder) || null;
         } catch (error) {
-            logger.error(`Failed to get folder: ${path}`, error);
+            folderLogger.error(`Failed to get folder: ${path}`, error);
             return null;
         }
     }
@@ -179,7 +177,7 @@ export class FolderStorage {
                 a.path.localeCompare(b.path, undefined, { sensitivity: 'base' })
             );
         } catch (error) {
-            logger.error('Failed to get all folders', error);
+            folderLogger.error('Failed to get all folders', error);
             return [];
         }
     }
@@ -238,7 +236,7 @@ export class FolderStorage {
             const affectedFolders = await this.getDescendants(oldPath, true);
             const affectedBookmarks = await this.getBookmarksInFolder(oldPath, true);
 
-            logger.info(`Renaming folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`);
+            folderLogger.info(`Renaming folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`);
 
             // Prepare updates (transaction phase)
             const folderUpdates: Record<string, Folder> = {};
@@ -281,7 +279,7 @@ export class FolderStorage {
             // Update index
             await this.updateIndex(oldPath, newPath);
 
-            logger.info(`Renamed folder successfully: ${oldPath} → ${newPath}`);
+            folderLogger.info(`Renamed folder successfully: ${oldPath} → ${newPath}`);
 
         } catch (error) {
             if (error instanceof PathValidationError || error instanceof FolderOperationError) {
@@ -336,7 +334,7 @@ export class FolderStorage {
             // Update index
             await this.removeFromIndex(path);
 
-            logger.info(`Deleted folder: ${path}`);
+            folderLogger.info(`Deleted folder: ${path}`);
 
         } catch (error) {
             if (error instanceof FolderOperationError) {
@@ -375,10 +373,10 @@ export class FolderStorage {
             await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updatedIndex });
 
             const perfEnd = performance.now();
-            logger.info(`Bulk deleted ${paths.length} folders in ${(perfEnd - perfStart).toFixed(0)}ms`);
+            folderLogger.info(`Bulk deleted ${paths.length} folders in ${(perfEnd - perfStart).toFixed(0)}ms`);
             return paths.length;
         } catch (error) {
-            logger.error('Bulk delete folders failed:', error);
+            folderLogger.error('Bulk delete folders failed:', error);
             throw new FolderOperationError(
                 `Failed to bulk delete folders: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 'bulkDelete'
@@ -435,7 +433,7 @@ export class FolderStorage {
             // Use rename logic (same implementation)
             await this.rename(sourcePath, folderName);
 
-            logger.info(`Moved folder: ${sourcePath} → ${newPath}`);
+            folderLogger.info(`Moved folder: ${sourcePath} → ${newPath}`);
 
         } catch (error) {
             if (error instanceof FolderOperationError) {
@@ -468,7 +466,7 @@ export class FolderStorage {
             const result = await browser.storage.local.get(this.FOLDER_INDEX_KEY);
             return (result[this.FOLDER_INDEX_KEY] as string[]) || [];
         } catch (error) {
-            logger.error('Failed to get folder index', error);
+            folderLogger.error('Failed to get folder index', error);
             return [];
         }
     }
@@ -566,7 +564,7 @@ export class FolderStorage {
                 return bookmarks.filter((b: any) => b.folderPath === path);
             }
         } catch (error) {
-            logger.error(`Failed to get bookmarks in folder: ${path}`, error);
+            folderLogger.error(`Failed to get bookmarks in folder: ${path}`, error);
             return [];
         }
     }

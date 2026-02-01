@@ -11,7 +11,7 @@
  *   variant: 'primary',
  *   size: 'md',
  *   icon: Icons.check,
- *   onClick: () => console.log('Clicked!')
+ *   onClick: () => {}
  * });
  * 
  * container.appendChild(button.render());

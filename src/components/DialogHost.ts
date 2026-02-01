@@ -388,10 +388,7 @@ export class DialogHost {
             }
         }, { signal });
 
-        // ✅ CRITICAL FIX: Comprehensive keyboard event blocking
-        // Prevents external pages (Claude.ai, ChatGPT, Gemini) from stealing focus
-        // and interrupting IME composition during input.
-        // Fixes reported input lag issue when creating folders.
+        // Why: prevent host pages (ChatGPT/Gemini/Claude) from stealing focus / breaking IME composition.
         this.blockPageKeyboardEvents(signal);
 
         // ESC key handler

@@ -11,7 +11,7 @@
  * @verified Against 6 Gemini mock files (19.6MB total):
  * - Gemini-Sample.html (31 math nodes, 2 code blocks)
  * - Gemini-DeepResearch.html (137 math nodes)
- * - Gemini-公式无渲染.html (33 data-math, unrendered formulas)
+ * - Gemini unrendered-math mock file (33 data-math, unrendered formulas)
  * - Gemini-All.html (35 math nodes, 4 code blocks, 4 tables)
  * - Gemini-DeepThink.html (29 math nodes)
  * - Gemini-miss-equs.html (28 math nodes)
@@ -37,7 +37,7 @@ export class GeminiAdapter implements IPlatformAdapter {
      */
     selectMathNodes(root: HTMLElement): HTMLElement[] {
         // Primary selectors: Gemini-specific classes with data-math
-        // 这些是正确的外层容器,包含data-math属性
+        // These are the correct outer containers with the `data-math` attribute.
         const mathInline = Array.from(
             root.querySelectorAll<HTMLElement>('.math-inline[data-math]')
         );
@@ -45,9 +45,7 @@ export class GeminiAdapter implements IPlatformAdapter {
             root.querySelectorAll<HTMLElement>('.math-block[data-math]')
         );
 
-        // ✅ 修复: 移除会选中内层.katex的selector
-        // 之前的'.katex:not(.math-inline .katex)'仍会匹配内层.katex
-        // 导致选中没有data-math的内层元素,触发不必要的fallback
+        // Why: only select outer containers with `[data-math]`; inner `.katex` nodes would trigger redundant fallbacks.
 
         return [...mathInline, ...mathBlock];
     }
@@ -103,24 +101,22 @@ export class GeminiAdapter implements IPlatformAdapter {
      */
     extractLatex(mathNode: HTMLElement): LatexResult | null {
         try {
-            // ✅ UNIVERSAL FIX: Skip inner rendering nodes wrapped by math container
-            // 使用closest()支持多层嵌套,平台无关
+            // Why: only the outer `[data-math]` container should be extracted; skip inner rendering nodes.
             const mathContainer = mathNode.closest('[data-math]');
             if (mathContainer && mathContainer !== mathNode) {
-                // mathNode被包裹在有data-math的容器中,跳过
                 return null;
             }
 
 
-            // Strategy 1: data-math attribute (PRIMARY)
+            // Strategy 1: data-math attribute (primary)
             const result = this.extractFromDataMath(mathNode);
             if (result) return result;
 
-            // Strategy 2: Fallback to .katex-html text content
+            // Strategy 2: fallback to `.katex-html` text content
             const katexResult = this.extractFromKatexHtml(mathNode);
             if (katexResult) return katexResult;
 
-            // Strategy 3: Ultimate fallback - preserve original HTML
+            // Strategy 3: ultimate fallback - preserve original HTML
             console.warn('[GeminiAdapter] extractLatex: All strategies failed, preserving HTML');
             return {
                 latex: mathNode.outerHTML,
@@ -129,7 +125,7 @@ export class GeminiAdapter implements IPlatformAdapter {
         } catch (error) {
             console.error('[GeminiAdapter] extractLatex failed:', error);
 
-            // Graceful degradation - never lose content
+            // Graceful degradation: never lose content.
             return {
                 latex: mathNode.textContent || mathNode.outerHTML,
                 isBlock: this.isBlockMath(mathNode),
@@ -173,7 +169,7 @@ export class GeminiAdapter implements IPlatformAdapter {
             const textContent = katexHtml.textContent?.trim();
 
             if (textContent && this.validateLatex(textContent)) {
-                // ⚠️ Fallback: data-math缺失(不应该发生)
+                // Why: data-math should exist on rendered nodes; log when missing to catch regressions.
                 console.warn(
                     '[GeminiAdapter] Fallback triggered (bug fixed - this should not appear)',
                     'className:', mathNode.className

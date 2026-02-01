@@ -2,7 +2,7 @@ import { IStorageAdapter } from './IStorageAdapter';
 import { ChromeStorageAdapter } from './ChromeStorageAdapter';
 import { MockStorageAdapter } from './MockStorageAdapter';
 
-// 声明全局 chrome 变量
+// Declare global `chrome` for extension environments.
 declare const chrome: any;
 
 /**

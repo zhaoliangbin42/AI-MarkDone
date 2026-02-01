@@ -26,8 +26,7 @@ export const toolbarStyles = `
   align-items: center;
   gap: var(--aimd-space-1);
   
-  /* Glassmorphism - ✅ Optimized: 降低blur值提升性能 */
-  /* 参考: Gemini官网 - blur值从12px降到4px */
+  /* Why: lower blur improves performance while preserving the glass effect. */
   background: var(--aimd-toolbar-bg);
   backdrop-filter: blur(4px) saturate(150%);
   -webkit-backdrop-filter: blur(4px) saturate(150%);
@@ -48,8 +47,6 @@ export const toolbarStyles = `
   z-index: var(--aimd-z-base);
   pointer-events: auto;
   
-  /* ✅ Best Practice: 只transition变化的属性 */
-  /* 参考: Material Design Motion */
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -108,7 +105,6 @@ export const toolbarStyles = `
   background: transparent;
   color: var(--aimd-toolbar-button-text);
   cursor: pointer;
-  /* ✅ Best Practice: 只transition需要动画的属性 */
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   pointer-events: auto;

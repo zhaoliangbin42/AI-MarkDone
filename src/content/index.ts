@@ -44,7 +44,7 @@ class ContentScript {
     private reRenderPanel: ReaderPanel;
     private deepResearchHandler?: DeepResearchHandler;
 
-    // Simple Set-based bookmark state tracking - AITimeline pattern
+    // Bookmark state tracking (1-indexed positions).
     private bookmarkedPositions: Set<number> = new Set();
 
     // Toolbar references for direct state updates
@@ -53,7 +53,6 @@ class ContentScript {
     // Storage listener for real-time bookmark sync
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
 
-    // Navigation check flag - AITimeline pattern
     private navigationChecked: boolean = false;
 
     // Track messages being processed to prevent duplicate toolbar injection
@@ -62,15 +61,6 @@ class ContentScript {
 
     // Track current theme to keep shadow-root tokens in sync
     private currentThemeIsDark: boolean = false;
-
-    // Toggle with: localStorage.setItem('aicopy:debug:toolbar','1')
-    private readonly verboseToolbarDebug: boolean = (() => {
-        try {
-            return window.localStorage.getItem('aicopy:debug:toolbar') === '1';
-        } catch {
-            return false;
-        }
-    })();
 
     constructor() {
         // Use INFO in production; switch to DEBUG locally when needed
@@ -167,7 +157,7 @@ class ContentScript {
             chatGPTPanelButton.init();
         }
 
-        // Load bookmarks for current page BEFORE starting observer - AITimeline pattern
+        // Why: load bookmarks before observing to avoid processing messages with stale bookmark state.
         // This prevents race condition where messages are processed before bookmarks are loaded
         await this.loadBookmarks();
 
@@ -219,7 +209,7 @@ class ContentScript {
             logger.info(`[ContentScript] 📊 Result: bookmarkKeysChanged = ${bookmarkKeysChanged}`);
 
             if (bookmarkKeysChanged) {
-                logger.info('[ContentScript] ✅ Bookmark-related keys changed, reloading...');
+                logger.info('[ContentScript] Bookmark-related keys changed, reloading...');
                 logger.info('[ContentScript] 📝 Bookmark keys:', changedKeys.filter(k => k.startsWith('bookmark:')));
 
                 // Reload bookmarked positions for current page
@@ -243,7 +233,7 @@ class ContentScript {
                     detail: { positions: Array.from(this.bookmarkedPositions) }
                 }));
 
-                logger.info(`[ContentScript] ✅ Updated ${updatedCount} toolbars via direct reference`);
+                logger.info(`[ContentScript] Updated ${updatedCount} toolbars via direct reference`);
             } else {
                 logger.info('[ContentScript] ⏭️  Skipping: no bookmark keys changed');
             }
@@ -260,7 +250,7 @@ class ContentScript {
 
 
     /**
-     * Check for cross-page bookmark navigation - AITimeline pattern
+     * Check for cross-page bookmark navigation.
      */
     private async checkBookmarkNavigation(): Promise<void> {
         const { simpleBookmarkPanel } = await import('../bookmarks/components/SimpleBookmarkPanel');
@@ -271,10 +261,6 @@ class ContentScript {
      * Handle new message detected
      */
     private handleNewMessage(messageElement: HTMLElement): void {
-        const dbg = (...args: any[]): void => {
-            if (this.verboseToolbarDebug) logger.debug(...args);
-        };
-
         logger.debug('Handling new message');
 
         // Get adapter
@@ -289,19 +275,6 @@ class ContentScript {
             ? messageElement.querySelector(adapter.getActionBarSelector()) !== null
             : true;
 
-        const messageIdForLog = adapter.getMessageId(messageElement);
-        const injectorState = this.injector ? this.injector.getState(messageElement) : 'no-injector';
-        dbg('[ToolbarDebug] detect', {
-            platform: adapter.getPlatformName(),
-            url: window.location.href,
-            tag: messageElement.tagName,
-            messageId: messageIdForLog,
-            injectorState,
-            hasActionBar,
-            isStreaming: typeof adapter.isStreamingMessage === 'function' ? adapter.isStreamingMessage(messageElement) : false,
-            hasExistingContainer: messageElement.querySelector('.aicopy-toolbar-container') !== null,
-            hasExistingWrapper: messageElement.querySelector('.aicopy-toolbar-wrapper') !== null
-        });
 
 
         // Get message ID for tracking
@@ -335,7 +308,7 @@ class ContentScript {
             this.processingMessages.add(messageId);
         }
 
-        // ✅ AITimeline pattern: Check navigation target on first message detection
+        // Why: check navigation target once after the first message is detected.
         if (!this.navigationChecked) {
             this.navigationChecked = true;
             logger.info('[ContentScript] First message detected, checking bookmark navigation');
@@ -348,11 +321,6 @@ class ContentScript {
         if (existingToolbarContainer) {
             logger.debug('Toolbar already exists, checking state');
 
-            dbg('[ToolbarDebug] existing toolbar container found', {
-                messageId,
-                hasActionBar,
-                injectorState: this.injector ? this.injector.getState(messageElement) : 'no-injector'
-            });
 
             // 🔑 FIX: Activate toolbar if it was injected but not yet visible
             // This happens when streaming completes (Copy button triggers re-detection)
@@ -361,11 +329,6 @@ class ContentScript {
                 if (currentState === ToolbarState.INJECTED) {
                     logger.debug('[toolbar] Existing toolbar in INJECTED state, activating now');
                     const activated = this.injector.activate(messageElement);
-                    dbg('[ToolbarDebug] activate existing injected', {
-                        messageId,
-                        activated,
-                        stateAfter: this.injector.getState(messageElement)
-                    });
                     if (activated) {
                         const existingToolbar = (existingToolbarContainer as any).__toolbar;
                         if (existingToolbar && typeof existingToolbar.setPending === 'function') {
@@ -418,40 +381,16 @@ class ContentScript {
         if (this.injector) {
             const injected = this.injector.inject(messageElement, toolbar.getElement());
 
-            dbg('[ToolbarDebug] inject result', {
-                messageId,
-                injected,
-                stateAfterInject: this.injector.getState(messageElement),
-                wrapperExistsAfterInject: messageElement.querySelector('.aicopy-toolbar-wrapper') !== null,
-                containerExistsAfterInject: messageElement.querySelector('.aicopy-toolbar-container') !== null,
-                hasActionBar,
-                isStreaming: typeof adapter.isStreamingMessage === 'function' ? adapter.isStreamingMessage(messageElement) : false
-            });
-
             // 🔑 FIX: Activate immediately for non-streaming messages
             // Streaming messages will be activated when Copy button appears
             if (injected) {
                 const isStreaming = adapter.isStreamingMessage && adapter.isStreamingMessage(messageElement);
                 if (!isStreaming && hasActionBar) {
                     const activated = this.injector.activate(messageElement);
-                    dbg('[ToolbarDebug] activate after inject (non-streaming + hasActionBar)', {
-                        messageId,
-                        activated,
-                        stateAfterActivate: this.injector.getState(messageElement)
-                    });
                     if (activated) {
                         logger.debug('[toolbar] Non-streaming message: activated immediately');
                         toolbar.setPending(false);
                     }
-                } else {
-                    dbg('[ToolbarDebug] skipped immediate activate', {
-                        messageId,
-                        reason: {
-                            isStreaming,
-                            hasActionBar
-                        },
-                        stateNow: this.injector.getState(messageElement)
-                    });
                 }
             }
         }
@@ -462,7 +401,6 @@ class ContentScript {
             (toolbarContainer as any).__toolbar = toolbar;
         }
 
-        // Set initial bookmark state - AITimeline pattern
         const position = this.getMessagePosition(messageElement);
 
         // Save toolbar reference for direct state updates
@@ -492,7 +430,7 @@ class ContentScript {
             const messageSelector = adapter2.getMessageSelector();
             const allMessages = document.querySelectorAll(messageSelector);
             eventBus.emit('message:new', { count: allMessages.length });
-            // ✅ Emit completion event for ReaderPanel trigger button state
+            // Notify ReaderPanel trigger button state.
             eventBus.emit('message:complete', { count: allMessages.length });
         }
     }
@@ -557,7 +495,7 @@ class ContentScript {
      * Show re-render preview panel
      */
     private showReRenderPanel(messageElement: HTMLElement): void {
-        // ✅ 传入getMarkdown方法 (复用复制功能的正确逻辑)
+        // Why: reuse the existing copy pipeline by passing `getMarkdown`.
         this.reRenderPanel.show(
             messageElement,
             (el: HTMLElement) => this.getMarkdown(el)
@@ -597,7 +535,7 @@ class ContentScript {
     }
 
     /**
-     * Handle bookmark toggle - AITimeline pattern with edit modal
+     * Handle bookmark toggle.
      */
     private async handleBookmark(messageElement: HTMLElement): Promise<void> {
         const url = window.location.href;
@@ -879,7 +817,7 @@ function waitForPageReady(adapter: any): Promise<boolean> {
  * Handle navigation/URL change
  * Waits for page to be actually ready instead of using fixed delay
  */
-function handleNavigation(contentScript: ContentScript | null): ContentScript | null {
+function handleNavigation(): void {
     const currentVersion = ++navVersion;
     // Clear any pending reinitialization
     if (reinitTimeout !== null) {
@@ -940,15 +878,12 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
         activeContentScript = new ContentScript();
         await activeContentScript.start();
     })();
-
-    return contentScript;
 }
 
 /**
  * Initialize extension and setup URL change detection
  */
 function initExtension() {
-    console.log('[AI-MarkDone] Script injected and running');
     logger.info('Initializing AI-MarkDone extension');
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
@@ -987,7 +922,7 @@ function initExtension() {
         if (currentUrl !== lastUrl) {
             lastUrl = currentUrl;
             logger.info('[Observer] URL changed:', currentUrl);
-            handleNavigation(activeContentScript);
+            handleNavigation();
         }
     };
 

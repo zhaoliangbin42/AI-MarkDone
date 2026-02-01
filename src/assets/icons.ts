@@ -7,7 +7,7 @@ import { browser } from '../utils/browser';
  * - Zero external dependencies
  * - No HTTP requests
  * - Full control over styling
- * - Chrome extension审核友好
+ * - Review-friendly for Chrome extension stores
  * 
  * Icon sources:
  * - General icons: Lucide Icons (ISC License)

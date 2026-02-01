@@ -1,6 +1,5 @@
 /**
- * Simple Bookmark Storage - Based on AITimeline Pattern
- * Direct chrome.storage operations, no complex abstractions
+ * Simple bookmark storage.
  */
 
 import { Bookmark } from './types';
@@ -9,18 +8,12 @@ import { StorageQueue } from './StorageQueue';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { browser, browserCompat } from '../../utils/browser';
 
-/**
- * Simple bookmark storage using AITimeline's proven pattern
- */
 export class SimpleBookmarkStorage {
     // Storage quota thresholds
     static readonly STORAGE_LIMIT = 10 * 1024 * 1024; // 10MB (chrome.storage.local default)
     static readonly QUOTA_WARNING_THRESHOLD = 0.95;   // 95% - show auto-dismiss warning
     static readonly QUOTA_CRITICAL_THRESHOLD = 0.98;  // 98% - block save
 
-    /**
-     * Generate storage key - AITimeline format
-     */
     private static getKey(url: string, position: number): string {
         const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
         return `bookmark:${urlWithoutProtocol}:${position}`;
@@ -147,8 +140,7 @@ export class SimpleBookmarkStorage {
     }
 
     /**
-     * Load all bookmarked positions for current URL
-     * Returns a Set of positions - AITimeline pattern
+     * Load all bookmarked positions for current URL.
      */
     static async loadAllPositions(url: string): Promise<Set<number>> {
         try {

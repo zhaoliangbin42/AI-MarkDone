@@ -85,7 +85,7 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
  * 
  * // Get settings
  * const behavior = await manager.get('behavior');
- * console.log(behavior.renderCodeInReader);
+ * // use behavior.renderCodeInReader
  * 
  * // Update settings
  * await manager.set('behavior', {
@@ -95,7 +95,7 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
  * 
  * // Subscribe to changes
  * const unsubscribe = manager.subscribe((settings) => {
- *     console.log('Settings updated:', settings);
+ *     // react to updated settings
  * });
  * ```
  */

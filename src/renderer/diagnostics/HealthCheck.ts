@@ -1,4 +1,5 @@
 import { LRUCache } from '../utils/LRUCache';
+import { logger } from '../../utils/logger';
 
 /**
  * Health check and diagnostics for production monitoring
@@ -23,9 +24,9 @@ export class HealthCheck {
      * Force cleanup all resources
      */
     static reset(): void {
-        console.warn('[HealthCheck] Forcing resource cleanup...');
+        logger.warn('[HealthCheck] Forcing resource cleanup...');
         LRUCache.clearAll();
-        console.log('[HealthCheck] Cleanup complete');
+        logger.info('[HealthCheck] Cleanup complete');
     }
 
     /**

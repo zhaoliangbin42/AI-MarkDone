@@ -7,7 +7,7 @@
  * 
  * // Subscribe
  * const unsubscribe = eventBus.on('message:new', (data) => {
- *     console.log(data.count);
+ *     // handle data.count
  * });
  * 
  * // Emit

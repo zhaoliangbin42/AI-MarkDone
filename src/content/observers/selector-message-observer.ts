@@ -5,14 +5,9 @@ import { ToolbarInjector, ToolbarState } from '../injectors/toolbar-injector';
 const DEBUG_FLAG_KEY = 'aicopy:debug:selector-observer';
 
 /**
- * SelectorMessageObserver
+ * Selector-driven MutationObserver.
  *
- * A lightweight, dependency-free, selector-driven observer.
- *
- * Design goals:
- * - Avoid relying on a single "observer container" that may change in SPAs
- * - Detect new messages by scanning added nodes for matches
- * - Keep processing idempotent via messageId Set + WeakSet fallback
+ * Why: avoid relying on a single container (SPAs change frequently), and keep processing idempotent.
  */
 export class SelectorMessageObserver {
     private observer: MutationObserver | null = null;
@@ -25,7 +20,8 @@ export class SelectorMessageObserver {
 
     private verboseDebug: boolean = false;
 
-    // Coalesce MutationObserver callbacks without timers.
+    private conversationKey: string = 'unknown';
+
     private pendingMutations: MutationRecord[] = [];
     private flushScheduled: boolean = false;
 
@@ -39,7 +35,6 @@ export class SelectorMessageObserver {
         this.onMessageDetected = onMessageDetected;
 
         // Toggle with: localStorage.setItem('aicopy:debug:selector-observer','1')
-        // Keep disabled by default to avoid noisy logs on large mutation batches.
         this.verboseDebug = this.readDebugFlag();
     }
 
@@ -58,8 +53,11 @@ export class SelectorMessageObserver {
     }
 
     private getConversationKey(): string {
-        // Best-effort: namespace by conversation id in URL to avoid ChatGPT reusing
-        // message ids like "conversation-turn-4" across different chats.
+        return this.conversationKey;
+    }
+
+    private computeConversationKey(): string {
+        // Why: namespace by URL to avoid platforms reusing message ids across different chats.
         try {
             const url = new URL(window.location.href);
             const match = url.pathname.match(/\/c\/(\w[\w-]*)/);
@@ -90,10 +88,12 @@ export class SelectorMessageObserver {
 
         // Refresh flag in case user toggled it before reload.
         this.verboseDebug = this.readDebugFlag();
+        this.conversationKey = this.computeConversationKey();
         this.dbg('[SelectorObserver][dbg] start()', {
             platform: this.adapter.getPlatformName(),
             readyState: document.readyState,
-            url: window.location.href
+            url: window.location.href,
+            conversationKey: this.conversationKey
         });
 
         // Process existing messages once
@@ -101,7 +101,6 @@ export class SelectorMessageObserver {
 
         const root = document.body || document.documentElement;
         if (!root) {
-            // Avoid timers: wait for DOMContentLoaded and retry once.
             logger.warn('[SelectorObserver] No root element yet; waiting for DOMContentLoaded');
             const retry = () => {
                 document.removeEventListener('DOMContentLoaded', retry);
@@ -118,8 +117,6 @@ export class SelectorMessageObserver {
         this.observer.observe(root, {
             childList: true,
             subtree: true,
-            // Attributes are often used to tag "turn" elements in SPAs after initial DOM exists.
-            // Filter to a few likely keys to reduce noise.
             attributes: true,
             attributeFilter: ['data-turn', 'data-message-author-role', 'data-message-author', 'data-testid']
         });
@@ -151,8 +148,6 @@ export class SelectorMessageObserver {
         let addedNodeCount = 0;
 
         for (const mutation of mutations) {
-            // Any DOM change inside an existing message (e.g. action bar/copy button appears)
-            // should re-trigger processing so injected toolbars can activate.
             if (mutation.target instanceof HTMLElement) {
                 try {
                     const closest = mutation.target.closest(messageSelector);
@@ -168,7 +163,6 @@ export class SelectorMessageObserver {
                 if (!(node instanceof HTMLElement)) continue;
                 addedNodeCount++;
 
-                // Any node added inside a message should re-trigger that message.
                 try {
                     const closest = node.closest(messageSelector);
                     if (closest instanceof HTMLElement) {
@@ -178,20 +172,18 @@ export class SelectorMessageObserver {
                     // ignore invalid selector edge cases
                 }
 
-                // Direct match
                 if (node.matches(messageSelector)) {
                     candidates.push(node);
                     continue;
                 }
 
-                // Descendant matches
                 try {
                     const found = node.querySelectorAll(messageSelector);
                     found.forEach((el) => {
                         if (el instanceof HTMLElement) candidates.push(el);
                     });
                 } catch {
-                    // Ignore invalid selector edge cases
+                    // Ignore selector edge cases (platform selectors can be brittle).
                 }
             }
         }
@@ -204,7 +196,6 @@ export class SelectorMessageObserver {
             candidateCount: candidates.length
         });
 
-        // De-duplicate within the same mutation batch
         const unique = new Set<HTMLElement>(candidates);
         unique.forEach((message) => this.processMessage(message));
     }

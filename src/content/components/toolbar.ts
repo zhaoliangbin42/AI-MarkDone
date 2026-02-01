@@ -489,7 +489,6 @@ export class Toolbar {
             stats.textContent = isPending ? 'loading ...' : stats.textContent;
         }
 
-        // ✅ Emit event when transitioning from pending to active
         if (wasPending && !isPending) {
             logger.debug('[Toolbar] Emitting toolbar:activated event');
             eventBus.emit('toolbar:activated', {});

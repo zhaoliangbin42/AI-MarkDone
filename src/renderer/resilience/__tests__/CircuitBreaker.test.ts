@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { CircuitBreaker } from '../CircuitBreaker';
 
 describe('CircuitBreaker', () => {
-    test('成功执行', async () => {
+    test('executes successfully', async () => {
         const cb = new CircuitBreaker();
         const result = await cb.execute(
             () => Promise.resolve('success'),
@@ -11,10 +11,10 @@ describe('CircuitBreaker', () => {
         expect(result).toBe('success');
     });
 
-    test('3次失败后打开电路', async () => {
+    test('opens circuit after 3 failures', async () => {
         const cb = new CircuitBreaker();
 
-        // 3次失败
+        // 3 failures
         await cb.execute(() => Promise.reject('fail'), 'fallback');
         await cb.execute(() => Promise.reject('fail'), 'fallback');
         await cb.execute(() => Promise.reject('fail'), 'fallback');
@@ -24,15 +24,15 @@ describe('CircuitBreaker', () => {
         expect(state.failures).toBe(3);
     });
 
-    test('OPEN状态直接返回fallback', async () => {
+    test('returns fallback immediately in OPEN state', async () => {
         const cb = new CircuitBreaker();
 
-        // 触发3次失败
+        // Trigger 3 failures
         for (let i = 0; i < 3; i++) {
             await cb.execute(() => Promise.reject(), 'fallback');
         }
 
-        // 第4次应该直接fallback,不执行fn
+        // 4th call should return fallback and not execute fn
         let executed = false;
         const result = await cb.execute(() => {
             executed = true;
@@ -43,7 +43,7 @@ describe('CircuitBreaker', () => {
         expect(result).toBe('fallback');
     });
 
-    test('reset重置状态', () => {
+    test('reset clears state', () => {
         const cb = new CircuitBreaker();
         cb.execute(() => Promise.reject(), 'fallback');
         cb.reset();

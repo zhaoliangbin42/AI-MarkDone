@@ -1,57 +1,57 @@
 /**
- * ReaderPanel 标准化数据类型
- * 
- * 设计原则：
- * - ReaderPanel 只关心"显示什么"，不关心"数据从哪来"
- * - 支持懒加载（性能优化）
- * - 与数据源完全解耦
+ * ReaderPanel normalized data types.
+ *
+ * Principles:
+ * - ReaderPanel only cares about "what to show", not "where data comes from".
+ * - Support lazy loading (performance).
+ * - Fully decoupled from data sources.
  */
 
 /**
- * 内容提供者类型
- * - 直接字符串：用于书签等静态数据
- * - 函数：用于实时页面的懒加载
+ * Content provider type:
+ * - String: static content (e.g., bookmarks)
+ * - Function: lazy provider for live pages
  */
 export type ContentProvider = string | (() => string) | (() => Promise<string>);
 
 /**
- * 阅读器单元数据
- * 包含渲染一页所需的所有信息
+ * Reader item.
+ * Contains everything needed to render a single page.
  */
 export interface ReaderItem {
-    /** 唯一标识（用于缓存 key） */
+    /** Unique identifier (used as cache key). */
     id: string | number;
 
-    /** 用户提问（通常较短，直接提供） */
+    /** User prompt (usually short; provided directly). */
     userPrompt: string;
 
-    /** AI 回答内容（支持懒加载） */
+    /** AI response content (may be lazy). */
     content: ContentProvider;
 
-    /** 元数据（用于 UI 展示） */
+    /** Metadata (for UI display). */
     meta?: ReaderItemMeta;
 }
 
 /**
- * 阅读器单元元数据
+ * Reader item metadata.
  */
 export interface ReaderItemMeta {
-    /** 平台名称 (ChatGPT, Gemini) */
+    /** Platform name (ChatGPT, Gemini, ...). */
     platform?: string;
 
-    /** 平台图标 (SVG 字符串) */
+    /** Platform icon (SVG string). */
     platformIcon?: string;
 
-    /** 模型名称 */
+    /** Model name. */
     modelName?: string;
 
-    /** 时间戳 */
+    /** Timestamp. */
     timestamp?: number;
 }
 
 /**
- * 解析内容提供者，获取实际的 Markdown 字符串
- * 统一处理 string | function | async function
+ * Resolve a content provider into the final Markdown string.
+ * Handles string | sync function | async function.
  */
 export async function resolveContent(provider: ContentProvider): Promise<string> {
     if (typeof provider === 'string') {

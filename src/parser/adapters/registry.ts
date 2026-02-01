@@ -10,6 +10,7 @@
  */
 
 import type { IPlatformAdapter } from './IPlatformAdapter';
+import { logger } from '../../utils/logger';
 import { ChatGPTAdapter } from './ChatGPTAdapter';
 import { GeminiAdapter } from './GeminiAdapter';
 import { ClaudeAdapter } from './ClaudeAdapter';
@@ -79,7 +80,7 @@ class ParserAdapterRegistry {
         const host = hostname ?? this.getHostname();
 
         if (!host) {
-            console.log('[ParserAdapterRegistry] No hostname - using default adapter');
+            logger.debug('[ParserAdapterRegistry] No hostname - using default adapter');
             return this.defaultAdapter();
         }
 
@@ -89,13 +90,13 @@ class ParserAdapterRegistry {
             for (const pattern of reg.patterns) {
                 if (hostLower.includes(pattern)) {
                     const adapter = reg.create();
-                    console.log(`[ParserAdapterRegistry] Platform detected: ${adapter.name}`);
+                    logger.debug(`[ParserAdapterRegistry] Platform detected: ${adapter.name}`);
                     return adapter;
                 }
             }
         }
 
-        console.log('[ParserAdapterRegistry] No matching platform - using default');
+        logger.debug('[ParserAdapterRegistry] No matching platform - using default');
         return this.defaultAdapter();
     }
 
