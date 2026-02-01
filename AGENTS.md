@@ -27,6 +27,7 @@
 | CHANGELOG | [changelog.md](.agent/rules/changelog.md) | 变更日志格式 |
 | 样式规范 | [style-guide.md](.agent/rules/style-guide.md) | CSS/Token 规则 |
 | 日志规范 | [logging.md](.agent/rules/logging.md) | 日志格式与级别 |
+| 注释规范 | [commenting.md](.agent/rules/commenting.md) | 只保留 Why/约束/契约 |
 
 ---
 

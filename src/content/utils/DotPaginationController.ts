@@ -1,3 +1,5 @@
+import { logger } from '../../utils/logger';
+
 /**
  * Dot Pagination Controller - Fully Modular
  * 
@@ -8,7 +10,7 @@
  * const controller = new DotPaginationController(container, {
  *   totalItems: 10,
  *   currentIndex: 0,
- *   onNavigate: (index) => console.log(index)
+ *   onNavigate: (index) => logger.debug(index)
  * });
  * controller.render();
  * controller.setActiveIndex(5);
@@ -68,14 +70,8 @@ export class DotPaginationController {
      * Render pagination dots
      */
     render(): void {
-        console.log('[DotPaginationController] render() called', {
-            destroyed: this.destroyed,
-            totalItems: this.config.totalItems,
-            container: this.container
-        });
-
         if (this.destroyed) {
-            console.warn('[DotPaginationController] Cannot render: controller is destroyed');
+            logger.warn('[DotPaginationController] Cannot render: controller is destroyed');
             return;
         }
 
@@ -85,7 +81,7 @@ export class DotPaginationController {
 
         // Calculate sizing
         const sizing = this.calculateDotSize();
-        console.log('[DotPaginationController] Calculated dot size:', sizing);
+        logger.debug('[DotPaginationController] Calculated dot size:', sizing);
 
         // Apply CSS variables to container
         this.container.style.setProperty('--dot-size', `${sizing.size}px`);
@@ -98,7 +94,7 @@ export class DotPaginationController {
             this.container.appendChild(dot);
         }
 
-        console.log(`[DotPaginationController] Created ${this.dots.length} dots`);
+        logger.debug(`[DotPaginationController] Created ${this.dots.length} dots`);
         this.updateActiveDot();
     }
 
@@ -110,13 +106,7 @@ export class DotPaginationController {
         dot.className = 'aicopy-dot';
         dot.dataset.index = index.toString();
 
-        // Apply bookmarked class if position is in bookmarked set
-        // Note: bookmarkedPositions stores 1-indexed positions from toolbar
-        // But createDot receives 0-indexed, so we need to check index+1
-        // However, if bookmark button works with index+1 but dots don't,
-        // the issue might be the Set reference - let's trace
         const position = index + 1;
-        console.log(`[DotPagination] createDot(${index}): checking position ${position}, isBookmarked: ${this.config.bookmarkedPositions?.has(position)}, positions:`, this.config.bookmarkedPositions);
         if (this.config.bookmarkedPositions?.has(position)) {
             dot.classList.add('bookmarked');
         }
@@ -215,9 +205,6 @@ export class DotPaginationController {
         if (newTotal === this.config.totalItems || newTotal < 1) {
             return;
         }
-
-        console.log(`[DotPaginationController] updateTotalItems: ${this.config.totalItems} -> ${newTotal}`);
-
 
         this.config.totalItems = newTotal;
 

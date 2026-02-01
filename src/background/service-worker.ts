@@ -32,8 +32,6 @@ function isSupportedUrl(url?: string): boolean {
  * Update the action state (icon and popup) based on the URL
  */
 async function updateActionState(tabId: number, url?: string) {
-    // console.log('[AI-MarkDone] Updating action state for tab:', tabId, url);
-
     if (isSupportedUrl(url)) {
         // Supported: Color icon, No popup (triggers onClicked)
         await chrome.action.setIcon({
@@ -45,7 +43,6 @@ async function updateActionState(tabId: number, url?: string) {
             }
         });
         await chrome.action.setPopup({ tabId, popup: '' });
-        // console.log('[AI-MarkDone] Set to supported state (Color Icon, No Popup)');
     } else {
         // Unsupported: Gray icon, Show popup
         await chrome.action.setIcon({
@@ -57,7 +54,6 @@ async function updateActionState(tabId: number, url?: string) {
             }
         });
         await chrome.action.setPopup({ tabId, popup: 'src/popup/popup.html' });
-        // console.log('[AI-MarkDone] Set to unsupported state (Gray Icon, Popup)');
     }
 }
 
@@ -76,14 +72,11 @@ chrome.tabs.onActivated.addListener(async (activeInfo: any) => {
 
 chrome.runtime.onInstalled.addListener((details: any) => {
     if (details.reason === 'install') {
-        // console.log('[AI-MarkDone] Extension installed');
     } else if (details.reason === 'update') {
-        // console.log('[AI-MarkDone] Extension updated to version', chrome.runtime.getManifest().version);
     }
 });
 
 chrome.runtime.onStartup.addListener(() => {
-    // console.log('[AI-MarkDone] Extension started');
 });
 
 // Handle extension icon click
@@ -97,8 +90,6 @@ chrome.action.onClicked.addListener((tab: any) => {
 
 // Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: any) => {
-    // console.log('[AI-MarkDone] Message received:', message);
-
     // Handle different message types here if needed
     switch (message.type) {
         case 'ping':

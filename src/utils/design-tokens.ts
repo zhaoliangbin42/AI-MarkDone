@@ -11,7 +11,7 @@
  * @see /docs/design_system.md - Design system specification
  * @see /docs/design_tokens_reference.md - Quick reference
  * 
- * Best Practices Reference:
+ * References:
  * - Shoelace: https://shoelace.style/getting-started/themes
  * - Lit: https://lit.dev/docs/components/styles/
  */

@@ -16,7 +16,6 @@ import { setupKeyboardIsolation } from '../../utils/dom-utils';
  */
 
 export class BookmarkSaveModal {
-    // ✅ Shadow DOM infrastructure
     private container: HTMLElement | null = null;
     private shadowRoot: ShadowRoot | null = null;
 
@@ -24,7 +23,7 @@ export class BookmarkSaveModal {
     private overlay: HTMLElement | null = null;
     private modal: HTMLElement | null = null;
 
-    // ✅ PERF: Cache frequently accessed DOM elements
+    // PERF: cache frequently accessed elements to avoid repeated Shadow DOM queries.
     private titleInputElement: HTMLInputElement | null = null;
     private saveButtonElement: HTMLButtonElement | null = null;
     private errorDivElement: HTMLElement | null = null;
@@ -118,8 +117,7 @@ export class BookmarkSaveModal {
             .save-modal-btn-save { background: var(--aimd-button-primary-bg); color: var(--aimd-button-primary-text); }
             .save-modal-btn-save:hover:not(:disabled) { background: var(--aimd-button-primary-hover); color: var(--aimd-button-primary-text-hover); transform: translateY(-1px); }
             
-            /* ✅ Best Practice: 用CSS表达disabled状态,不修改inline style */
-            /* 参考: Material Design Button States */
+            /* Disabled state should be expressed via CSS, not inline mutations. */
             .save-modal-btn-save:disabled { 
                 background: var(--aimd-button-primary-disabled); 
                 color: var(--aimd-button-primary-disabled-text); 
@@ -127,17 +125,14 @@ export class BookmarkSaveModal {
                 opacity: 0.6; 
             }
             
-            /* ✅ Best Practice: 只transition需要变化的属性 */
-            /* 参考: Material Design Motion */
             .title-input { 
                 transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             }
             
-            /* ✅ Best Practice: Optimized backdrop-filter */
-            /* 根据用户反馈,恢复轻微模糊以提供视觉层次 */
+            /* Why: a slight blur improves layering; use tokenized backdrop-filter for consistency/perf balance. */
             .modal-overlay { 
                 background: var(--aimd-bg-overlay-heavy);
-                backdrop-filter: var(--aimd-overlay-backdrop);  /* 轻微模糊,性能与视觉平衡 */
+                backdrop-filter: var(--aimd-overlay-backdrop);  /* slight blur: balance visuals vs performance */
                 -webkit-backdrop-filter: var(--aimd-overlay-backdrop);
             }
         `;
@@ -250,13 +245,12 @@ export class BookmarkSaveModal {
             header.textContent = headerText;
         }
 
-        // ✅ PERF: Cache DOM references after modal creation
+        // PERF: cache DOM references after modal creation.
         this.titleInputElement = this.modal.querySelector('.title-input') as HTMLInputElement;
         this.saveButtonElement = this.modal.querySelector('.save-modal-btn-save') as HTMLButtonElement;
         this.errorDivElement = this.modal.querySelector('.title-error');
 
-        // ✅ CRITICAL: Setup keyboard isolation AFTER titleInputElement is assigned
-        // (Previous bug: was called in setupEvents before this assignment)
+        // Why: keyboard isolation needs a stable input reference (previously called before assignment).
         this.blockPageKeyboardEvents(this.abortController?.signal);
 
         // Focus title input and trigger validation
@@ -264,7 +258,6 @@ export class BookmarkSaveModal {
             if (this.titleInputElement) {
                 this.titleInputElement.select(); // Select all text for easy editing
 
-                // ✅ Trigger validation on initial load
                 const titleValue = this.titleInputElement.value.trim();
                 const validation = this.validateTitle(titleValue);
 
@@ -301,26 +294,20 @@ export class BookmarkSaveModal {
     }
 
     /**
-     * Update save button state based on form validation
-     * ✅ Best Practice: Pure function pattern, zero inline style mutations
-     * 参考: Material Design, Gemini官网 - 状态通过disabled属性表达
+     * Update save button state based on form validation.
      */
     private updateSaveButtonState(): void {
-        // ✅ Best Practice: Early return pattern
         if (!this.saveButtonElement || !this.titleInputElement) return;
 
         const title = this.titleInputElement.value?.trim() || '';
 
-        // ✅ Best Practice: 语义化的布尔变量
         const hasNoFolders = this.folders.length === 0;
         const noFolderSelected = !this.selectedPath;
         const noTitle = !title;
-        const titleInvalid = !this.titleValid;  // ✅ FIX: 标题验证失败也应该disable
+        const titleInvalid = !this.titleValid;
 
         const shouldDisable = hasNoFolders || noFolderSelected || noTitle || titleInvalid;
 
-        // ✅ Best Practice: 让浏览器处理disabled状态的视觉
-        // 单次DOM mutation,CSS自动应用样式,零性能开销
         this.saveButtonElement.disabled = shouldDisable;
     }
 
@@ -328,16 +315,13 @@ export class BookmarkSaveModal {
  * Hide and cleanup modal
  */
     hide(): void {
-        // 1. Abort all event listeners (one line - Web standard!)
         this.abortController?.abort();
         this.abortController = null;
 
-        // 2. Remove container (which contains Shadow DOM)
         if (this.container && this.container.parentNode) {
             this.container.remove();
         }
 
-        // 3. Remove ESC key listener (not managed by AbortController)
         if (this.escKeyHandler) {
             document.removeEventListener('keydown', this.escKeyHandler);
             this.escKeyHandler = null;
@@ -423,7 +407,6 @@ export class BookmarkSaveModal {
 
     /**
      * Bind event listeners
-     * ✅ Best Practice: AbortController pattern for automatic cleanup
      */
     private bindEvents(modal: HTMLElement): void {
         const signal = this.abortController?.signal;
@@ -444,17 +427,7 @@ export class BookmarkSaveModal {
         const titleInput = modal.querySelector('.title-input') as HTMLInputElement;
         titleInput?.addEventListener('input', (e) => this.handleTitleInput(e), { signal });
 
-        // ✅ CRITICAL FIX: Comprehensive keyboard event blocking
-        // Prevents external pages (Claude.ai, ChatGPT, Gemini) from stealing focus
-        // and interrupting IME composition during input.
-        // 
-        // Best Practice References:
-        // - focus-trap library: Uses capture phase to intercept events early
-        // - ARIA Modal Pattern: Blocks all interaction outside modal
-        // - Web.dev Modal Guidelines: Prevent background keyboard navigation
-        // NOTE: Keyboard isolation is now called in show() after titleInputElement assignment
-
-        // Prevent external page from stealing focus by blocking focusin events at document level
+        // Why: prevent host pages (ChatGPT/Gemini/Claude) from stealing focus / breaking IME composition.
         document.addEventListener('focusin', (e) => {
             // If focus moved to element outside our modal, prevent it
             if (this.modal && !this.modal.contains(e.target as Node) && this.container?.contains(e.target as Node) === false) {
@@ -481,8 +454,6 @@ export class BookmarkSaveModal {
 
     /**
      * Handle title input with validation
-     * ✅ Best Practice: Single Responsibility - 只处理validation和状态更新
-     * 参考: Clean Code - 函数应该做一件事,做好一件事
      */
     private handleTitleInput(e: Event): void {
         const input = e.target as HTMLInputElement;
@@ -493,7 +464,6 @@ export class BookmarkSaveModal {
 
         if (!this.errorDivElement) return;
 
-        // ✅ Best Practice: 用classList操作class,不修改inline style
         if (!validation.valid) {
             input.classList.add('error');
             this.errorDivElement.textContent = validation.error!;
@@ -508,28 +478,22 @@ export class BookmarkSaveModal {
 
     /**
      * Validate title
-     * ✅ Best Practice: 完整的输入验证逻辑
-     * 参考: PathUtils.validateFolderName
      */
     private validateTitle(title: string): { valid: boolean; error?: string } {
-        // ✅ FIX: 空字符串和单个空格都返回valid=true,由noTitle检查处理
         if (!title || title.trim().length === 0) {
-            return { valid: true };  // 不在这里报错,让noTitle处理
+            // Empty title is handled by "noTitle" state (disable save) rather than a hard validation error.
+            return { valid: true };
         }
 
-        // 长度检查
+        // Length check
         if (title.length > 100) {
             return { valid: false, error: `Title too long (${title.length}/100)` };
         }
 
-        // ✅ 特殊字符检查 - 文件系统不允许的字符
         const invalidChars = /[\/\\:*?"<>|]/;
         if (invalidChars.test(title)) {
             return { valid: false, error: 'Title cannot contain / \\ : * ? " < > |' };
         }
-
-        // ✅ FIX: 移除前后空格检查,允许用户输入过程中有空格
-        // trim()在保存时会自动处理
 
         return { valid: true };
     }
@@ -625,16 +589,13 @@ export class BookmarkSaveModal {
 
     /**
      * Bind folder click handlers using event delegation
-     * CRITICAL FIX: Use delegation to avoid memory leaks from repeated binding
+     * Why: use delegation to avoid listener accumulation on repeated renders.
      */
     private bindFolderClickHandlers(): void {
         if (!this.modal) return;
 
         const treeContainer = this.modal.querySelector('.folder-tree-container');
         if (!treeContainer) return;
-
-        // ✅ FIX: Use event delegation - bind ONCE on container instead of on every item
-        // This prevents listener accumulation when renderFolderTree() is called repeatedly
 
         // Remove existing delegated listener if any (defensive)
         const existingHandler = (treeContainer as any).__delegatedClickHandler;
@@ -687,7 +648,7 @@ export class BookmarkSaveModal {
         // Bind delegated handler ONCE
         treeContainer.addEventListener('click', delegatedHandler);
 
-        console.log('[PERF-FIX] Event delegation setup complete - single listener for all folders');
+        logger.debug('[BookmarkSaveModal] Event delegation setup complete');
     }
 
     /**

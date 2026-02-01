@@ -286,7 +286,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     isNoiseNode(node: Node, context?: { nextSibling?: Element | null }): boolean {
         if (!(node instanceof HTMLElement)) return false;
 
-        // Filter 1: Screen-reader-only headers (e.g., "ChatGPT 说:")
+        // Filter 1: Screen-reader-only headers (e.g., "ChatGPT says:")
         // Source: ChatGPT-Thought.html:5
         // Marker: .sr-only class (100% reliable)
         if (node.classList.contains('sr-only')) {

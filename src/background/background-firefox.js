@@ -67,11 +67,11 @@ browser.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 browser.runtime.onInstalled.addListener((details) => {
-    console.log('[AI-MarkDone] Extension installed/updated:', details.reason);
+    console.info('[AI-MarkDone] Extension installed/updated:', details.reason);
 });
 
 browser.runtime.onStartup.addListener(() => {
-    console.log('[AI-MarkDone] Extension started');
+    console.info('[AI-MarkDone] Extension started');
 });
 
 // Handle extension icon click

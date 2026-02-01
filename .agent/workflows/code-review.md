@@ -48,8 +48,18 @@ grep -rn "!important" src/ --include="*.ts" --include="*.css"
 grep -rn "console\.log" src/ --include="*.ts"
 
 // turbo
-# 检查 TODO/FIXME
+# 注释规范（见 .agent/rules/commenting.md）
+# 检查 TODO/FIXME（发布前应清零；开发阶段也必须可追踪）
 grep -rn "TODO\|FIXME" src/ --include="*.ts"
+
+// turbo
+# TODO/FIXME 格式检查：必须包含 owner，如 TODO(name):
+rg -n "//\\s*(TODO|FIXME)(?!\\([^)]+\\):)" -P src --glob "*.ts"
+
+// turbo
+# 指令型注释必须带理由（推荐用 `-- reason`）
+rg -n "//\\s*@ts-expect-error(?!.*--)" -P src --glob "*.ts"
+rg -n "//\\s*eslint-disable-next-line(?!.*--)" -P src --glob "*.ts"
 ```
 
 ---
