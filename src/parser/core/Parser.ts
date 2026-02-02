@@ -93,7 +93,8 @@ export class Parser {
                 });
             }
 
-            return markdown;
+            // Normalize: compress 3+ newlines to 2, trim whitespace
+            return markdown.replace(/\n{3,}/g, '\n\n').trim();
 
         } catch (error) {
             if (error instanceof ParserError && error.recoveryAction === 'abort') {
