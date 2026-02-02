@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added toggles for View Source, Save Messages, Word Count buttons
   - Added platform-specific enable/disable toggles (ChatGPT, Gemini, Claude, Deepseek)
 - **Reader Actions**: Added Bookmark, Copy, and View Source buttons to the Reader panel header for quick access.
+- **Bookmark Sort Direction Toggle**: Click same sort button twice to toggle ascending/descending order
+  - Time sort: Newest first ↔ Oldest first
+  - Alphabetical sort: A→Z ↔ Z→A
+  - Icons change dynamically to show arrow direction
+  - Settings migrated from 2-state to 4-state model with backward compatibility
 
 ### Changed
 - **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.

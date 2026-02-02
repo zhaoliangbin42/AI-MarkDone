@@ -35,6 +35,9 @@ export interface AppSettings {
     reader: {
         renderCodeInReader: boolean;  // default: true
     };
+    bookmarks: {
+        sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';  // default: 'alpha-asc'
+    };
 }
 
 /**
@@ -58,6 +61,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     reader: {
         renderCodeInReader: true,
+    },
+    bookmarks: {
+        sortMode: 'alpha-asc',
     },
 };
 
@@ -198,7 +204,25 @@ export class SettingsManager {
                 // Migrate old behavior.renderCodeInReader
                 renderCodeInReader: v1Settings.behavior?.renderCodeInReader ?? true,
             },
+            bookmarks: {
+                ...DEFAULT_SETTINGS.bookmarks,
+            },
         };
+    }
+
+    /**
+     * Migrate old sortMode values to new 4-state format
+     * 'alphabetical' -> 'alpha-asc'
+     * 'time' -> 'time-desc'
+     */
+    private migrateSortMode(oldMode: string | undefined): AppSettings['bookmarks']['sortMode'] {
+        if (oldMode === 'alphabetical') return 'alpha-asc';
+        if (oldMode === 'time') return 'time-desc';
+        // Already new format or undefined
+        if (['time-desc', 'time-asc', 'alpha-asc', 'alpha-desc'].includes(oldMode || '')) {
+            return oldMode as AppSettings['bookmarks']['sortMode'];
+        }
+        return DEFAULT_SETTINGS.bookmarks.sortMode;
     }
 
     /**
@@ -218,6 +242,12 @@ export class SettingsManager {
             reader: {
                 ...DEFAULT_SETTINGS.reader,
                 ...stored.reader,
+            },
+            bookmarks: {
+                ...DEFAULT_SETTINGS.bookmarks,
+                ...stored.bookmarks,
+                // Migrate old sortMode values
+                sortMode: this.migrateSortMode(stored.bookmarks?.sortMode),
             },
         };
     }

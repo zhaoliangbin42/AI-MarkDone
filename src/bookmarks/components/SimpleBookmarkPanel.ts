@@ -44,6 +44,7 @@ export class SimpleBookmarkPanel {
     private filteredBookmarks: Bookmark[] = [];
     private searchQuery: string = '';
     private platformFilter: string = '';
+    private sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc';
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
 
     private abortController: AbortController | null = null;
@@ -355,6 +356,10 @@ export class SimpleBookmarkPanel {
                                 </div>
                             </div>
                         </div>
+                        <div class="sort-mode-group">
+                            <button class="sort-mode-btn" data-mode="time" title="Sort by: Time" aria-label="Sort by time">${Icons.sortTime}</button>
+                            <button class="sort-mode-btn active" data-mode="alpha" title="Sort by: A-Z" aria-label="Sort alphabetically">${Icons.sortAZ}</button>
+                        </div>
                         <button class="toolbar-icon-btn new-folder-btn" title="Create new folder" aria-label="Create new folder">${Icons.folderPlus}</button>
                         <div class="toolbar-divider"></div>
                         <button class="toolbar-icon-btn import-btn" title="Import bookmarks" aria-label="Import bookmarks">${Icons.upload}</button>
@@ -601,7 +606,8 @@ export class SimpleBookmarkPanel {
             this.folders,
             this.filteredBookmarks,
             this.folderState.getExpandedPaths(),
-            this.folderState.getSelectedPath()
+            this.folderState.getSelectedPath(),
+            this.sortMode
         );
 
         if (tree.length === 0) {
@@ -836,6 +842,30 @@ export class SimpleBookmarkPanel {
     }
 
     /**
+     * Update sort button states (active class and icons)
+     */
+    private updateSortButtonState(): void {
+        const timeBtn = this.shadowRoot?.querySelector('.sort-mode-btn[data-mode="time"]');
+        const alphaBtn = this.shadowRoot?.querySelector('.sort-mode-btn[data-mode="alpha"]');
+
+        if (!timeBtn || !alphaBtn) return;
+
+        // Update active class
+        const isTimeMode = this.sortMode.startsWith('time');
+        timeBtn.classList.toggle('active', isTimeMode);
+        alphaBtn.classList.toggle('active', !isTimeMode);
+
+        // Update icons based on direction
+        if (isTimeMode) {
+            timeBtn.innerHTML = this.sortMode === 'time-asc' ? Icons.sortTimeAsc : Icons.sortTime;
+            timeBtn.setAttribute('title', this.sortMode === 'time-asc' ? 'Sort by: Time (Oldest first)' : 'Sort by: Time (Newest first)');
+        } else {
+            alphaBtn.innerHTML = this.sortMode === 'alpha-desc' ? Icons.sortAlphaAsc : Icons.sortAZ;
+            alphaBtn.setAttribute('title', this.sortMode === 'alpha-desc' ? 'Sort by: Z-A' : 'Sort by: A-Z');
+        }
+    }
+
+    /**
      * Bind event listeners to buttons
      */
     private bindEventListeners(): void {
@@ -1024,6 +1054,44 @@ export class SimpleBookmarkPanel {
         // New Folder button
         this.shadowRoot?.querySelector('.new-folder-btn')?.addEventListener('click', () => {
             this.showCreateFolderInput(null);
+        }, { signal });
+
+        // Sort mode buttons with direction toggle
+        const sortBtns = this.shadowRoot?.querySelectorAll('.sort-mode-btn');
+        sortBtns?.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const target = e.currentTarget as HTMLElement;
+                const clickedType = target.dataset.mode as 'time' | 'alpha';
+                if (!clickedType) return;
+
+                const currentType = this.sortMode.startsWith('time') ? 'time' : 'alpha';
+
+                if (currentType === clickedType) {
+                    // Same button: toggle direction
+                    if (this.sortMode === 'time-desc') this.sortMode = 'time-asc';
+                    else if (this.sortMode === 'time-asc') this.sortMode = 'time-desc';
+                    else if (this.sortMode === 'alpha-asc') this.sortMode = 'alpha-desc';
+                    else if (this.sortMode === 'alpha-desc') this.sortMode = 'alpha-asc';
+                } else {
+                    // Different button: switch to default state
+                    this.sortMode = clickedType === 'time' ? 'time-desc' : 'alpha-asc';
+                }
+
+                // Update active state and icons
+                this.updateSortButtonState();
+
+                // Persist to settings
+                try {
+                    const manager = SettingsManager.getInstance();
+                    await manager.set('bookmarks', { sortMode: this.sortMode });
+                    logger.info(`[SimpleBookmarkPanel] Sort mode changed to: ${this.sortMode}`);
+                } catch (error) {
+                    logger.error('[SimpleBookmarkPanel] Failed to save sort mode', error);
+                }
+
+                // Refresh content with new sort order
+                this.refreshContent();
+            }, { signal });
         });
 
         // Bookmark list listeners
@@ -1204,43 +1272,6 @@ export class SimpleBookmarkPanel {
             const manager = SettingsManager.getInstance();
             const settings = await manager.getAll();
 
-            // Restore platforms settings
-            const chatgptToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="platforms.chatgpt"]'
-            ) as HTMLInputElement;
-            if (chatgptToggle) {
-                chatgptToggle.checked = settings.platforms.chatgpt;
-            }
-
-            const geminiToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="platforms.gemini"]'
-            ) as HTMLInputElement;
-            if (geminiToggle) {
-                geminiToggle.checked = settings.platforms.gemini;
-            }
-
-            const claudeToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="platforms.claude"]'
-            ) as HTMLInputElement;
-            if (claudeToggle) {
-                claudeToggle.checked = settings.platforms.claude;
-            }
-
-            const deepseekToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="platforms.deepseek"]'
-            ) as HTMLInputElement;
-            if (deepseekToggle) {
-                deepseekToggle.checked = settings.platforms.deepseek;
-            }
-
-            // Restore behavior settings (includes toolbar buttons, click-to-copy, context-only)
-            const showViewSourceToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="behavior.showViewSource"]'
-            ) as HTMLInputElement;
-            if (showViewSourceToggle) {
-                showViewSourceToggle.checked = settings.behavior.showViewSource;
-            }
-
             const showSaveMessagesToggle = this.shadowRoot?.querySelector(
                 'input[data-setting="behavior.showSaveMessages"]'
             ) as HTMLInputElement;
@@ -1276,6 +1307,10 @@ export class SimpleBookmarkPanel {
             if (renderCodeToggle) {
                 renderCodeToggle.checked = settings.reader.renderCodeInReader;
             }
+
+            // Initialize sort mode
+            this.sortMode = settings.bookmarks.sortMode;
+            this.updateSortButtonState();
 
             // Calculate and display storage usage
             await this.updateStorageUsage();
@@ -5037,6 +5072,60 @@ ${options.message}
                 flex-shrink: 0;  /* prevent icon from shrinking */
             }
 
+            /* Sort mode button group - Segmented control / Capsule style */
+            .toolbar .sort-mode-group {
+                display: inline-flex;
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
+                overflow: hidden;
+                background: var(--aimd-bg-secondary);
+                margin: 0 4px;
+                padding: 0;
+            }
+
+            .toolbar .sort-mode-group button.sort-mode-btn {
+                width: 32px;
+                height: 30px;
+                padding: 0;
+                margin: 0;
+                background: transparent;
+                border: none;
+                border-radius: 0;
+                cursor: pointer;
+                color: var(--aimd-text-secondary);
+                transition: background 0.15s ease, color 0.15s ease;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Divider between buttons */
+            .toolbar .sort-mode-group button.sort-mode-btn:first-child {
+                border-right: 1px solid var(--aimd-border-default);
+            }
+
+            /* Hover state for inactive button */
+            .toolbar .sort-mode-group button.sort-mode-btn:hover:not(.active) {
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-primary);
+            }
+
+            /* Active/selected state - Gray background */
+            .toolbar .sort-mode-group button.sort-mode-btn.active {
+                background: var(--aimd-bg-tertiary);
+                color: var(--aimd-text-primary);
+            }
+
+            .toolbar .sort-mode-group button.sort-mode-btn.active:hover {
+                background: var(--aimd-interactive-active);
+            }
+
+            .toolbar .sort-mode-group button.sort-mode-btn svg {
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+
             /* Platform selector */
             .platform-selector-wrapper {
                 position: relative;
@@ -5785,8 +5874,8 @@ ${options.message}
                 background: var(--aimd-bg-secondary);
             }
 
-            /* Generic toolbar buttons (excluding icon buttons) */
-            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter) {
+            /* Generic toolbar buttons (excluding icon buttons and sort buttons) */
+            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):not(.sort-mode-btn) {
                 padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
                 border: 1px solid var(--aimd-border-default);  /* Theme-aware */
                 background: var(--aimd-bg-secondary);  /* Theme-aware */
@@ -5800,7 +5889,7 @@ ${options.message}
                 color: var(--aimd-text-primary);  /* Theme-aware */
             }
 
-            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):hover {
+            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):not(.sort-mode-btn):hover {
                 background: var(--aimd-interactive-hover);  /* Theme-aware */
                 border-color: var(--aimd-border-strong);  /* Theme-aware */
             }
@@ -7185,9 +7274,6 @@ ${options.message}
             }
 
             .tree-item.is-editing:hover .item-actions {
-                display: none;
-            }
-
             .action-btn {
                 width: 28px;
                 height: 28px;
@@ -7201,6 +7287,33 @@ ${options.message}
                 align-items: center;
                 justify-content: center;
                 padding: 0;
+            }
+
+            .toolbar-icon-btn {
+                padding: 6px 8px;
+                background: transparent;
+                border: none;
+                border-radius: var(--border-radius-sm);
+                cursor: pointer;
+                color: var(--text-secondary);
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .toolbar-icon-btn:hover {
+                background: var(--hover-bg);
+                color: var(--text-primary);
+            }
+
+            .toolbar-icon-btn:active {
+                transform: scale(0.95);
+            }
+
+            .toolbar-icon-btn svg {
+                width: 16px;
+                height: 16px;
             }
 
             .action-btn:hover {
