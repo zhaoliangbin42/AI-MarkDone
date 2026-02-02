@@ -418,11 +418,8 @@ class ContentScript {
         if (messageId) {
             setTimeout(() => {
                 this.processingMessages.delete(messageId);
-                logger.info(`[DEBUG] ⏰ Timeout: Removed ${messageId}. Size: ${this.processingMessages.size}`);
             }, 1000); // 1 second should be enough for toolbar injection
         }
-
-        logger.info('=== handleNewMessage END ===');
 
         // Emit event for pagination update
         const adapter2 = adapterRegistry.getAdapter();

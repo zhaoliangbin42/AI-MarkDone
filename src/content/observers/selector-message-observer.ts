@@ -2,8 +2,6 @@ import { SiteAdapter } from '../adapters/base';
 import { logger } from '../../utils/logger';
 import { ToolbarInjector, ToolbarState } from '../injectors/toolbar-injector';
 
-const DEBUG_FLAG_KEY = 'aicopy:debug:selector-observer';
-
 /**
  * Selector-driven MutationObserver.
  *
@@ -18,8 +16,6 @@ export class SelectorMessageObserver {
     private processedMessageIds = new Set<string>();
     private processedElements = new WeakSet<HTMLElement>();
 
-    private verboseDebug: boolean = false;
-
     private conversationKey: string = 'unknown';
 
     private pendingMutations: MutationRecord[] = [];
@@ -33,23 +29,6 @@ export class SelectorMessageObserver {
         this.adapter = adapter;
         this.injector = injector;
         this.onMessageDetected = onMessageDetected;
-
-        // Toggle with: localStorage.setItem('aicopy:debug:selector-observer','1')
-        this.verboseDebug = this.readDebugFlag();
-    }
-
-    private readDebugFlag(): boolean {
-        try {
-            return window.localStorage.getItem(DEBUG_FLAG_KEY) === '1';
-        } catch {
-            return false;
-        }
-    }
-
-    private dbg(...args: any[]): void {
-        if (this.verboseDebug) {
-            logger.debug(...args);
-        }
     }
 
     private getConversationKey(): string {
@@ -86,15 +65,7 @@ export class SelectorMessageObserver {
             return;
         }
 
-        // Refresh flag in case user toggled it before reload.
-        this.verboseDebug = this.readDebugFlag();
         this.conversationKey = this.computeConversationKey();
-        this.dbg('[SelectorObserver][dbg] start()', {
-            platform: this.adapter.getPlatformName(),
-            readyState: document.readyState,
-            url: window.location.href,
-            conversationKey: this.conversationKey
-        });
 
         // Process existing messages once
         this.processExistingMessages();
@@ -124,7 +95,6 @@ export class SelectorMessageObserver {
     }
 
     stop(): void {
-        this.dbg('[SelectorObserver][dbg] stop()');
         if (this.observer) {
             this.observer.disconnect();
             this.observer = null;
@@ -190,12 +160,6 @@ export class SelectorMessageObserver {
 
         if (candidates.length === 0) return;
 
-        this.dbg('[SelectorObserver][dbg] mutations batch', {
-            mutationCount: mutations.length,
-            addedNodeCount,
-            candidateCount: candidates.length
-        });
-
         const unique = new Set<HTMLElement>(candidates);
         unique.forEach((message) => this.processMessage(message));
     }
@@ -211,11 +175,6 @@ export class SelectorMessageObserver {
             return;
         }
 
-        this.dbg('[SelectorObserver][dbg] processExistingMessages()', {
-            selector,
-            count: messages.length
-        });
-
         messages.forEach((el) => {
             if (el instanceof HTMLElement) this.processMessage(el);
         });
@@ -223,15 +182,6 @@ export class SelectorMessageObserver {
 
     private processMessage(message: HTMLElement): void {
         const state = this.injector.getState(message);
-
-        const messageIdForLog = this.adapter.getMessageId(message);
-        this.dbg('[SelectorObserver][dbg] processMessage()', {
-            tag: message.tagName,
-            messageId: messageIdForLog,
-            state,
-            hasWrapper: message.querySelector('.aicopy-toolbar-wrapper') !== null,
-            hasContainer: message.querySelector('.aicopy-toolbar-container') !== null
-        });
 
         // If already active, no need to re-run heavy processing.
         if (state === ToolbarState.ACTIVE) {
@@ -247,12 +197,10 @@ export class SelectorMessageObserver {
             if (messageId) {
                 const key = `${this.getConversationKey()}:${messageId}`;
                 if (this.processedMessageIds.has(key)) {
-                    this.dbg('[SelectorObserver][dbg] skip: already processed (by messageId)', messageId);
                     return;
                 }
             } else {
                 if (this.processedElements.has(message)) {
-                    this.dbg('[SelectorObserver][dbg] skip: already processed (by element)');
                     return;
                 }
             }
@@ -276,18 +224,6 @@ export class SelectorMessageObserver {
             } else {
                 this.processedElements.add(message);
             }
-
-            this.dbg('[SelectorObserver][dbg] marked processed', {
-                messageId,
-                stateAfter: this.injector.getState(message),
-                hasWrapper: !!wrapperAfter,
-                hasContainer: !!containerAfter
-            });
-        } else {
-            this.dbg('[SelectorObserver][dbg] NOT marked processed (no injection evidence)', {
-                messageId: this.adapter.getMessageId(message),
-                stateAfter: this.injector.getState(message)
-            });
         }
     }
 }
