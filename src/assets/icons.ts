@@ -272,6 +272,58 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Sort alphabetically (A-Z) icon
+     * Source: Lucide Icons (ISC License)
+     * Usage: Alphabetical sorting mode
+     */
+    sortAZ: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 16 4 4 4-4"/>
+    <path d="M7 20V4"/>
+    <path d="M20 8h-5"/>
+    <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10"/>
+    <path d="M15 14h5l-5 6h5"/>
+  </svg>`,
+
+    /**
+     * Sort by time icon
+     * Source: Lucide Icons (ISC License)
+     * Usage: Time-based sorting mode (newest first)
+     */
+    sortTime: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 16 4 4 4-4"/>
+    <path d="M7 20V4"/>
+    <path d="M17 10V4h-2"/>
+    <path d="M15 10h4"/>
+    <rect x="15" y="14" width="4" height="6" ry="2"/>
+  </svg>`,
+
+    /**
+     * Sort by time ascending icon (oldest first)
+     * Source: Lucide Icons (ISC License)
+     * Usage: Time-based sorting mode ascending (arrow-up-0-1)
+     */
+    sortTimeAsc: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 8 4-4 4 4"/>
+    <path d="M7 4v16"/>
+    <rect x="15" y="4" width="4" height="6" ry="2"/>
+    <path d="M17 20v-6h-2"/>
+    <path d="M15 20h4"/>
+  </svg>`,
+
+    /**
+     * Sort alphabetically ascending (A-Z, arrow up)
+     * Source: Lucide Icons (ISC License)
+     * Usage: Alphabetical sorting mode ascending with up arrow
+     */
+    sortAlphaAsc: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 8 4-4 4 4"/>
+    <path d="M7 4v16"/>
+    <path d="M20 8h-5"/>
+    <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10"/>
+    <path d="M15 14h5l-5 6h5"/>
+  </svg>`,
+
+    /**
      * Coffee icon
      * Usage: Buy me a coffee
      */
