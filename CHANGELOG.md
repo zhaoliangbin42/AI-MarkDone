@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.
 - **Button Styling**: Enhanced bookmark button with gradient background for clearer active state.
+- **Reader Fullscreen**: Fullscreen button icon now toggles between maximize/minimize to reflect current state
 
 ### Fixed
 - **Bookmark Highlight**: Fixed toolbar highlight not showing after page refresh due to async createUI race condition
