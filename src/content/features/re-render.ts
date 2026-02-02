@@ -347,9 +347,7 @@ export class ReaderPanel {
                 <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
                 <div class="aicopy-header-actions">
                     <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                        </svg>
+                        ${Icons.maximize}
                     </button>
                     <button class="aicopy-panel-btn" id="bookmark-btn" title="Bookmark">
                         ${Icons.bookmark}
@@ -796,7 +794,16 @@ export class ReaderPanel {
     private toggleFullscreen(): void {
         if (!this.shadowRoot) return;
         const panel = this.shadowRoot.querySelector('.aicopy-panel');
-        panel?.classList.toggle('aicopy-panel-fullscreen');
+        const btn = this.shadowRoot.querySelector('#fullscreen-btn');
+        if (!panel) return;
+
+        panel.classList.toggle('aicopy-panel-fullscreen');
+        const isFullscreen = panel.classList.contains('aicopy-panel-fullscreen');
+
+        if (btn) {
+            btn.innerHTML = isFullscreen ? Icons.minimize : Icons.maximize;
+            btn.setAttribute('title', isFullscreen ? 'Exit fullscreen' : 'Toggle fullscreen');
+        }
     }
 
     /**
