@@ -1,3 +1,5 @@
+import { browser } from '../utils/browser';
+
 /**
  * Icon System - Inline SVG Icons
  * 
@@ -5,7 +7,7 @@
  * - Zero external dependencies
  * - No HTTP requests
  * - Full control over styling
- * - Chrome extension审核友好
+ * - Review-friendly for Chrome extension stores
  * 
  * Icon sources:
  * - General icons: Lucide Icons (ISC License)
@@ -81,6 +83,27 @@ export const Icons = {
      */
     folderOpen: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+  </svg>`,
+
+    /**
+     * Maximize icon (expand to fullscreen)
+     * Source: Lucide Icons (ISC License)
+     * Usage: Enter fullscreen mode
+     */
+    maximize: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+  </svg>`,
+
+    /**
+     * Minimize icon (exit fullscreen)
+     * Source: Lucide Icons (ISC License)
+     * Usage: Exit fullscreen mode
+     */
+    minimize: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 3v3a2 2 0 0 1-2 2H3"/>
+    <path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
+    <path d="M3 16h3a2 2 0 0 1 2 2v3"/>
+    <path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
   </svg>`,
 
     /**
@@ -267,6 +290,58 @@ export const Icons = {
     settings: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
     <circle cx="12" cy="12" r="3"/>
+  </svg>`,
+
+    /**
+     * Sort alphabetically (A-Z) icon
+     * Source: Lucide Icons (ISC License)
+     * Usage: Alphabetical sorting mode
+     */
+    sortAZ: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 16 4 4 4-4"/>
+    <path d="M7 20V4"/>
+    <path d="M20 8h-5"/>
+    <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10"/>
+    <path d="M15 14h5l-5 6h5"/>
+  </svg>`,
+
+    /**
+     * Sort by time icon
+     * Source: Lucide Icons (ISC License)
+     * Usage: Time-based sorting mode (newest first)
+     */
+    sortTime: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 16 4 4 4-4"/>
+    <path d="M7 20V4"/>
+    <path d="M17 10V4h-2"/>
+    <path d="M15 10h4"/>
+    <rect x="15" y="14" width="4" height="6" ry="2"/>
+  </svg>`,
+
+    /**
+     * Sort by time ascending icon (oldest first)
+     * Source: Lucide Icons (ISC License)
+     * Usage: Time-based sorting mode ascending (arrow-up-0-1)
+     */
+    sortTimeAsc: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 8 4-4 4 4"/>
+    <path d="M7 4v16"/>
+    <rect x="15" y="4" width="4" height="6" ry="2"/>
+    <path d="M17 20v-6h-2"/>
+    <path d="M15 20h4"/>
+  </svg>`,
+
+    /**
+     * Sort alphabetically ascending (A-Z, arrow up)
+     * Source: Lucide Icons (ISC License)
+     * Usage: Alphabetical sorting mode ascending with up arrow
+     */
+    sortAlphaAsc: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 8 4-4 4 4"/>
+    <path d="M7 4v16"/>
+    <path d="M20 8h-5"/>
+    <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10"/>
+    <path d="M15 14h5l-5 6h5"/>
   </svg>`,
 
     /**
@@ -480,7 +555,7 @@ export const Icons = {
      */
     createBrandIcon(): HTMLImageElement {
         const img = document.createElement('img');
-        img.src = chrome.runtime.getURL('icons/icon128.png');
+        img.src = browser.runtime.getURL('icons/icon128.png');
         img.alt = 'AI-MarkDone';
         img.style.display = 'block';
         return img;

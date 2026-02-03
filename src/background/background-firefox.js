@@ -1,10 +1,7 @@
 /**
- * Background service worker for Chrome Extension
- * Handles extension lifecycle and background tasks
+ * Background script for Firefox Extension (Manifest V2)
+ * Uses browser.* API instead of chrome.*
  */
-
-// Chrome API type declaration
-declare const chrome: any;
 
 const SUPPORTED_HOSTS = [
     'chatgpt.com',
@@ -13,12 +10,11 @@ const SUPPORTED_HOSTS = [
     'claude.ai',
     'chat.deepseek.com'
 ];
-// IMPORTANT: When adding a new host, also update src/popup/popup.html to include a link to the platform.
 
 /**
  * Check if the URL is supported
  */
-function isSupportedUrl(url?: string): boolean {
+function isSupportedUrl(url) {
     if (!url) return false;
     try {
         const hostname = new URL(url).hostname;
@@ -29,12 +25,12 @@ function isSupportedUrl(url?: string): boolean {
 }
 
 /**
- * Update the action state (icon and popup) based on the URL
+ * Update the browser action state (icon and popup) based on the URL
  */
-async function updateActionState(tabId: number, url?: string) {
+async function updateActionState(tabId, url) {
     if (isSupportedUrl(url)) {
         // Supported: Color icon, No popup (triggers onClicked)
-        await chrome.action.setIcon({
+        await browser.browserAction.setIcon({
             tabId,
             path: {
                 "16": "icons/icon16.png",
@@ -42,10 +38,10 @@ async function updateActionState(tabId: number, url?: string) {
                 "128": "icons/icon128.png"
             }
         });
-        await chrome.action.setPopup({ tabId, popup: '' });
+        await browser.browserAction.setPopup({ tabId, popup: '' });
     } else {
         // Unsupported: Gray icon, Show popup
-        await chrome.action.setIcon({
+        await browser.browserAction.setIcon({
             tabId,
             path: {
                 "16": "icons/icon16_gray.png",
@@ -53,44 +49,41 @@ async function updateActionState(tabId: number, url?: string) {
                 "128": "icons/icon128_gray.png"
             }
         });
-        await chrome.action.setPopup({ tabId, popup: 'src/popup/popup.html' });
+        await browser.browserAction.setPopup({ tabId, popup: 'src/popup/popup.html' });
     }
 }
 
 // Listen for tab updates (navigation)
-chrome.tabs.onUpdated.addListener((tabId: any, changeInfo: any, tab: any) => {
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' || changeInfo.url) {
         updateActionState(tabId, tab.url);
     }
 });
 
 // Listen for tab activation (switching tabs)
-chrome.tabs.onActivated.addListener(async (activeInfo: any) => {
-    const tab = await chrome.tabs.get(activeInfo.tabId);
+browser.tabs.onActivated.addListener(async (activeInfo) => {
+    const tab = await browser.tabs.get(activeInfo.tabId);
     updateActionState(activeInfo.tabId, tab.url);
 });
 
-chrome.runtime.onInstalled.addListener((details: any) => {
-    if (details.reason === 'install') {
-    } else if (details.reason === 'update') {
-    }
+browser.runtime.onInstalled.addListener((details) => {
+    console.info('[AI-MarkDone] Extension installed/updated:', details.reason);
 });
 
-chrome.runtime.onStartup.addListener(() => {
+browser.runtime.onStartup.addListener(() => {
+    console.info('[AI-MarkDone] Extension started');
 });
 
 // Handle extension icon click
 // This is only triggered when popup is set to empty string (supported sites)
-chrome.action.onClicked.addListener((tab: any) => {
-    // Send message to active tab to open bookmark panel
+browser.browserAction.onClicked.addListener((tab) => {
     if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, { action: 'openBookmarkPanel' });
+        browser.tabs.sendMessage(tab.id, { action: 'openBookmarkPanel' });
     }
 });
 
 // Listen for messages from content scripts
-chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: any) => {
-    // Handle different message types here if needed
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
         case 'ping':
             sendResponse({ status: 'ok' });
@@ -98,6 +91,5 @@ chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: 
         default:
             sendResponse({ status: 'unknown message type' });
     }
-
-    return true; // Keep message channel open for async response
+    return true;
 });

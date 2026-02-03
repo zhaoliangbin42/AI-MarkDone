@@ -1,13 +1,11 @@
 {
-    "manifest_version": 3,
+    "manifest_version": 2,
     "name": "AI-MarkDone | 给大模型添加沉浸式阅读模式、书签、LaTex公式复制",
-    "version": "2.8.0",
+    "version": "2.9.0",
     "description": "为 ChatGPT 和 Gemini 提供沉浸式阅读模式、书签管理、LaTeX 公式一键复制、Markdown 导出等功能，提升大模型使用体验。",
     "permissions": [
         "clipboardWrite",
-        "storage"
-    ],
-    "host_permissions": [
+        "storage",
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://gemini.google.com/*",
@@ -30,9 +28,11 @@
         }
     ],
     "background": {
-        "service_worker": "background.js"
+        "scripts": [
+            "background.js"
+        ]
     },
-    "action": {
+    "browser_action": {
         "default_icon": {
             "16": "icons/icon16.png",
             "48": "icons/icon48.png",
@@ -45,13 +45,12 @@
         "128": "icons/icon128.png"
     },
     "web_accessible_resources": [
-        {
-            "resources": [
-                "icons/*.png"
-            ],
-            "matches": [
-                "<all_urls>"
-            ]
+        "icons/*.png"
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "ai-markdone@zhaoliangbin.com",
+            "strict_min_version": "109.0"
         }
-    ]
+    }
 }

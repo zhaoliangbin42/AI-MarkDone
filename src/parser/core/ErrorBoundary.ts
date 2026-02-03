@@ -23,9 +23,9 @@ export class ParserError extends Error {
         this.recoveryAction = recoveryAction;
         this.context = context;
 
-        // Maintains proper stack trace for where error was thrown
-        if (Error.captureStackTrace) {
-            Error.captureStackTrace(this, ParserError);
+        // Capture stack trace (V8 specific, optional)
+        if ((Error as any).captureStackTrace) {
+            (Error as any).captureStackTrace(this, ParserError);
         }
     }
 }

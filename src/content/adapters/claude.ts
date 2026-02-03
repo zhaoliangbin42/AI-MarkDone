@@ -119,7 +119,7 @@ export class ClaudeAdapter extends SiteAdapter {
 
     /**
      * Get placeholder text for Artifact elements
-     * Returns a formatted placeholder like "Artifact: 【标题】"
+     * Returns a formatted placeholder like "Artifact: [title]"
      */
     getArtifactPlaceholder(node: HTMLElement): string | undefined {
         if (node.getAttribute('role') === 'button' &&

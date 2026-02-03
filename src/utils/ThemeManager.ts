@@ -15,7 +15,7 @@
  * 
  * // Subscribe to theme changes
  * const unsubscribe = ThemeManager.getInstance().subscribe((theme) => {
- *   console.log('Theme changed:', theme);
+ *   // react to theme changes
  * });
  */
 

@@ -26,14 +26,20 @@
             "@/*": [
                 "src/*"
             ]
-        }
+        },
+        /* Types */
+        "types": [
+            "webextension-polyfill"
+        ]
     },
     "include": [
         "src/**/*"
     ],
     "exclude": [
         "node_modules",
-        "dist",
-        "**/__tests__/**"
+        "dist-chrome",
+        "dist-firefox",
+        "**/__tests__/**",
+        "src/background/background-firefox.ts"
     ]
 }

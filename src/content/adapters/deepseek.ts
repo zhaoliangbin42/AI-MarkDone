@@ -70,7 +70,7 @@ export class DeepseekAdapter extends SiteAdapter {
      * Deepseek-specific noise filtering
      * 
      * Filters out:
-     * - Think content (.ds-think-content) - "深度思考" section
+     * - Think content (.ds-think-content) - "Deep thinking" section
      * - Code block banner (.md-code-block-banner-wrap) - language label + copy/download buttons
      * - SVG decorations in code blocks
      */

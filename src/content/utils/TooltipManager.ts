@@ -14,6 +14,8 @@
  * tooltip.destroy(); // Cleanup
  */
 
+import { logger } from '../../utils/logger';
+
 export interface TooltipConfig {
     index: number;
     text: string;
@@ -117,7 +119,7 @@ export class TooltipManager {
         requestAnimationFrame(() => {
             if (this.tooltip) {
                 this.tooltip.classList.add('visible');
-                console.log('[TooltipManager] Appended to dot & visible');
+                logger.debug('[TooltipManager] Appended to dot & visible');
             }
         });
     }

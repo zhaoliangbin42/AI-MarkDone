@@ -11,19 +11,32 @@
  */
 
 import { logger } from '../utils/logger';
+import { browser } from '../utils/browser';
 
 /**
  * Application settings schema
  */
 export interface AppSettings {
-    version: 1;
-    behavior: {
-        renderCodeInReader: boolean;  // default: true
-        enableClickToCopy: boolean;   // default: true
+    version: 2;
+    platforms: {
+        chatgpt: boolean;   // default: true
+        gemini: boolean;    // default: true
+        claude: boolean;    // default: true
+        deepseek: boolean;  // default: true
     };
-    storage: {
-        saveContextOnly: boolean;     // default: false
+    behavior: {
+        showViewSource: boolean;     // default: true
+        showSaveMessages: boolean;   // default: true
+        showWordCount: boolean;      // default: true
+        enableClickToCopy: boolean;  // default: true
+        saveContextOnly: boolean;    // default: false
         _contextOnlyConfirmed: boolean; // internal flag for destructive action confirmation
+    };
+    reader: {
+        renderCodeInReader: boolean;  // default: true
+    };
+    bookmarks: {
+        sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';  // default: 'alpha-asc'
     };
 }
 
@@ -31,14 +44,26 @@ export interface AppSettings {
  * Default settings
  */
 const DEFAULT_SETTINGS: AppSettings = {
-    version: 1,
-    behavior: {
-        renderCodeInReader: true,
-        enableClickToCopy: true,
+    version: 2,
+    platforms: {
+        chatgpt: true,
+        gemini: true,
+        claude: true,
+        deepseek: true,
     },
-    storage: {
+    behavior: {
+        showViewSource: true,
+        showSaveMessages: true,
+        showWordCount: true,
+        enableClickToCopy: true,
         saveContextOnly: false,
         _contextOnlyConfirmed: false,
+    },
+    reader: {
+        renderCodeInReader: true,
+    },
+    bookmarks: {
+        sortMode: 'alpha-asc',
     },
 };
 
@@ -66,7 +91,7 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
  * 
  * // Get settings
  * const behavior = await manager.get('behavior');
- * console.log(behavior.renderCodeInReader);
+ * // use behavior.renderCodeInReader
  * 
  * // Update settings
  * await manager.set('behavior', {
@@ -76,7 +101,7 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
  * 
  * // Subscribe to changes
  * const unsubscribe = manager.subscribe((settings) => {
- *     console.log('Settings updated:', settings);
+ *     // react to updated settings
  * });
  * ```
  */
@@ -91,7 +116,7 @@ export class SettingsManager {
      */
     private constructor() {
         // Listen for storage changes from other tabs/windows
-        chrome.storage.onChanged.addListener((changes, areaName) => {
+        browser.storage.onChanged.addListener((changes, areaName) => {
             if (areaName === 'sync' && changes[STORAGE_KEY]) {
                 const newSettings = changes[STORAGE_KEY].newValue as AppSettings;
                 if (newSettings) {
@@ -128,14 +153,19 @@ export class SettingsManager {
 
         this.initPromise = (async () => {
             try {
-                const result = await chrome.storage.sync.get(STORAGE_KEY);
-                const stored = result[STORAGE_KEY] as AppSettings | undefined;
+                const result = await browser.storage.sync.get(STORAGE_KEY);
+                const stored = result[STORAGE_KEY] as any; // Use 'any' for migration compatibility
 
-                if (stored && stored.version === DEFAULT_SETTINGS.version) {
-                    // Merge with defaults to handle new settings
-                    this.cache = this.mergeWithDefaults(stored);
+                if (stored && stored.version === 2) {
+                    // Same version - merge with defaults to handle new settings
+                    this.cache = this.mergeWithDefaults(stored as AppSettings);
+                } else if (stored && stored.version === 1) {
+                    // Migrate from v1 to v2
+                    this.cache = this.migrateFromV1(stored);
+                    await this.persist();
+                    logger.info('[SettingsManager] Migrated from v1 to v2');
                 } else {
-                    // No settings or version mismatch - use defaults
+                    // No settings or unknown version - use defaults
                     this.cache = { ...DEFAULT_SETTINGS };
                     await this.persist();
                 }
@@ -152,18 +182,72 @@ export class SettingsManager {
     }
 
     /**
+     * Migrate settings from v1 to v2
+     * v1 had 'behavior', v2 renamed it to 'reader' and added 'platforms' + 'toolbar'
+     */
+    private migrateFromV1(v1Settings: any): AppSettings {
+        return {
+            version: 2,
+            platforms: {
+                ...DEFAULT_SETTINGS.platforms,
+            },
+            behavior: {
+                ...DEFAULT_SETTINGS.behavior,
+                // Migrate old behavior.enableClickToCopy
+                enableClickToCopy: v1Settings.behavior?.enableClickToCopy ?? true,
+                // Migrate old storage.saveContextOnly
+                saveContextOnly: v1Settings.storage?.saveContextOnly ?? false,
+                _contextOnlyConfirmed: v1Settings.storage?._contextOnlyConfirmed ?? false,
+            },
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                // Migrate old behavior.renderCodeInReader
+                renderCodeInReader: v1Settings.behavior?.renderCodeInReader ?? true,
+            },
+            bookmarks: {
+                ...DEFAULT_SETTINGS.bookmarks,
+            },
+        };
+    }
+
+    /**
+     * Migrate old sortMode values to new 4-state format
+     * 'alphabetical' -> 'alpha-asc'
+     * 'time' -> 'time-desc'
+     */
+    private migrateSortMode(oldMode: string | undefined): AppSettings['bookmarks']['sortMode'] {
+        if (oldMode === 'alphabetical') return 'alpha-asc';
+        if (oldMode === 'time') return 'time-desc';
+        // Already new format or undefined
+        if (['time-desc', 'time-asc', 'alpha-asc', 'alpha-desc'].includes(oldMode || '')) {
+            return oldMode as AppSettings['bookmarks']['sortMode'];
+        }
+        return DEFAULT_SETTINGS.bookmarks.sortMode;
+    }
+
+    /**
      * Merge stored settings with defaults (handles new settings)
      */
     private mergeWithDefaults(stored: AppSettings): AppSettings {
         return {
             version: DEFAULT_SETTINGS.version,
+            platforms: {
+                ...DEFAULT_SETTINGS.platforms,
+                ...stored.platforms,
+            },
             behavior: {
                 ...DEFAULT_SETTINGS.behavior,
                 ...stored.behavior,
             },
-            storage: {
-                ...DEFAULT_SETTINGS.storage,
-                ...stored.storage,
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                ...stored.reader,
+            },
+            bookmarks: {
+                ...DEFAULT_SETTINGS.bookmarks,
+                ...stored.bookmarks,
+                // Migrate old sortMode values
+                sortMode: this.migrateSortMode(stored.bookmarks?.sortMode),
             },
         };
     }
@@ -175,7 +259,7 @@ export class SettingsManager {
         if (!this.cache) return;
 
         try {
-            await chrome.storage.sync.set({ [STORAGE_KEY]: this.cache });
+            await browser.storage.sync.set({ [STORAGE_KEY]: this.cache });
             logger.debug('[SettingsManager] Persisted to storage');
         } catch (error) {
             logger.error('[SettingsManager] Failed to persist', error);

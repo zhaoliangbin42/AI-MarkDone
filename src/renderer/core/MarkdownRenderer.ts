@@ -11,7 +11,7 @@ export interface RenderOptions {
     timeout?: number;
     sanitize?: boolean;
     codeBlockMode?: 'full' | 'placeholder';
-    onProgress?: (percent: number) => void;  // ✅ 新增进度回调
+    onProgress?: (percent: number) => void;
 }
 
 export interface RenderResult {
@@ -36,7 +36,7 @@ export class MarkdownRenderer {
         timeout: 3000,
         sanitize: true,
         codeBlockMode: 'full',
-        onProgress: undefined as any,  // ✅ 可选参数默认undefined
+        onProgress: undefined as any,
     };
 
     /**
@@ -118,7 +118,7 @@ export class MarkdownRenderer {
                 validation.sanitized,
                 opts.timeout,
                 markedInstance,
-                opts.onProgress  // ✅ 传递进度回调
+                opts.onProgress
             );
 
 
@@ -175,7 +175,6 @@ export class MarkdownRenderer {
 
                     currentIndex++;
 
-                    // ✅ 进度回调(如果提供)
                     if (onProgress && currentIndex <= chunks.length) {
                         try {
                             onProgress((currentIndex / chunks.length) * 100);

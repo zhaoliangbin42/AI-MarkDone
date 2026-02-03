@@ -9,7 +9,7 @@
  * const checkbox = new Checkbox({
  *   label: 'Accept terms',
  *   checked: false,
- *   onChange: (checked) => console.log('Checked:', checked)
+ *   onChange: (checked) => {}
  * });
  * 
  * container.appendChild(checkbox.render());

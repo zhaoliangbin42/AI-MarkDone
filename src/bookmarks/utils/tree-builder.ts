@@ -31,13 +31,15 @@ export class TreeBuilder {
      * @param bookmarks All bookmarks
      * @param expandedPaths Set of expanded folder paths
      * @param selectedPath Currently selected folder path
+     * @param sortMode Sorting mode for bookmarks ('alphabetical' | 'time')
      * @returns Root-level tree nodes
      */
     static buildTree(
         folders: Folder[],
         bookmarks: Bookmark[],
         expandedPaths: Set<string> = new Set(),
-        selectedPath: string | null = null
+        selectedPath: string | null = null,
+        sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc'
     ): FolderTreeNode[] {
         // Sort folders alphabetically by path (case-insensitive)
         const sortedFolders = [...folders].sort((a, b) =>
@@ -53,7 +55,7 @@ export class TreeBuilder {
             const node: FolderTreeNode = {
                 folder,
                 children: [],
-                bookmarks: this.getBookmarksForFolder(folder.path, bookmarks),
+                bookmarks: this.getBookmarksForFolder(folder.path, bookmarks, sortMode),
                 isExpanded: expandedPaths.has(folder.path),
                 isSelected: folder.path === selectedPath
             };
@@ -72,7 +74,7 @@ export class TreeBuilder {
         }
 
         // Sort children and bookmarks recursively
-        this.sortTreeNodes(rootNodes);
+        this.sortTreeNodes(rootNodes, sortMode);
 
         return rootNodes;
     }
@@ -82,20 +84,39 @@ export class TreeBuilder {
      * 
      * @param folderPath Folder path
      * @param bookmarks All bookmarks
+     * @param sortMode Sorting mode
      * @returns Bookmarks in this folder only (not subfolders)
      */
-    private static getBookmarksForFolder(folderPath: string, bookmarks: Bookmark[]): Bookmark[] {
-        return bookmarks
-            .filter(b => b.folderPath === folderPath)
-            .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    private static getBookmarksForFolder(
+        folderPath: string,
+        bookmarks: Bookmark[],
+        sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc'
+    ): Bookmark[] {
+        const filtered = bookmarks.filter(b => b.folderPath === folderPath);
+
+        switch (sortMode) {
+            case 'time-desc':
+                return filtered.sort((a, b) => b.timestamp - a.timestamp);
+            case 'time-asc':
+                return filtered.sort((a, b) => a.timestamp - b.timestamp);
+            case 'alpha-desc':
+                return filtered.sort((a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: 'base' }));
+            case 'alpha-asc':
+            default:
+                return filtered.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+        }
     }
 
     /**
      * Sort tree nodes recursively (alphabetical by folder name)
      * 
      * @param nodes Tree nodes to sort
+     * @param sortMode Sorting mode for bookmarks
      */
-    private static sortTreeNodes(nodes: FolderTreeNode[]): void {
+    private static sortTreeNodes(
+        nodes: FolderTreeNode[],
+        sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc'
+    ): void {
         // Sort by folder name (case-insensitive)
         nodes.sort((a, b) =>
             a.folder.name.localeCompare(b.folder.name, undefined, { sensitivity: 'base' })
@@ -104,14 +125,30 @@ export class TreeBuilder {
         // Recursively sort children
         for (const node of nodes) {
             if (node.children.length > 0) {
-                this.sortTreeNodes(node.children);
+                this.sortTreeNodes(node.children, sortMode);
             }
 
             // Sort bookmarks within each folder
             if (node.bookmarks.length > 0) {
-                node.bookmarks.sort((a, b) =>
-                    a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
-                );
+                switch (sortMode) {
+                    case 'time-desc':
+                        node.bookmarks.sort((a, b) => b.timestamp - a.timestamp);
+                        break;
+                    case 'time-asc':
+                        node.bookmarks.sort((a, b) => a.timestamp - b.timestamp);
+                        break;
+                    case 'alpha-desc':
+                        node.bookmarks.sort((a, b) =>
+                            b.title.localeCompare(a.title, undefined, { sensitivity: 'base' })
+                        );
+                        break;
+                    case 'alpha-asc':
+                    default:
+                        node.bookmarks.sort((a, b) =>
+                            a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+                        );
+                        break;
+                }
             }
         }
     }

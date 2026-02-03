@@ -16,8 +16,8 @@ description: 发版准备工作流 - 从扫描到发布的完整SOP
 | 规则 | 原因 |
 |:-----|:-----|
 | **必须扫描 debug 代码** | console.log/TODO/FIXME 不应进入发布版 |
-| **必须同步版本号** | package.json 和 manifest.json 必须一致 |
-| **必须 build 成功** | 编译失败不可发版 |
+| **必须同步版本号** | package.json 和两个 manifest 必须一致 |
+| **必须 build 成功** | Chrome + Firefox 都必须构建成功 |
 | **必须更新 CHANGELOG** | 记录版本变更内容 |
 | **禁止 git checkout 回滚** | 用户明确禁止 |
 
@@ -53,8 +53,12 @@ echo "=== package.json 版本 ==="
 grep '"version"' package.json
 
 // turbo
-echo "=== manifest.json 版本 ==="
-grep '"version"' manifest.json
+echo "=== manifest.chrome.json 版本 ==="
+grep '"version"' manifest.chrome.json
+
+// turbo
+echo "=== manifest.firefox.json 版本 ==="
+grep '"version"' manifest.firefox.json
 ```
 
 ---
@@ -86,10 +90,15 @@ grep '"version"' manifest.json
 }
 ```
 
-### 3.2 更新 manifest.json
+### 3.2 更新 manifest 文件 (两个浏览器)
 
 ```typescript
-// 修改 version 字段，必须与 package.json 一致
+// manifest.chrome.json - Chrome MV3
+{
+  "version": "X.Y.Z"
+}
+
+// manifest.firefox.json - Firefox MV2
 {
   "version": "X.Y.Z"
 }
@@ -143,8 +152,13 @@ sed -n '115,125p' README.zh.md
 
 ```bash
 // turbo
+# 同时构建 Chrome 和 Firefox
 npm run build
 ```
+
+验证输出：
+- `dist-chrome/` - Chrome 扩展
+- `dist-firefox/` - Firefox 扩展
 
 > [!WARNING]
 > Build 失败时**禁止继续**。必须先修复问题。
@@ -180,10 +194,14 @@ git tag v{VERSION}
 
 ## Phase 6: 发布产物与推送 (Publishing)
 
-### 6.1 生成发布包
-将构建好的 `dist/` 目录打包，用于预览版分发或商店上传：
+### 6.1 生成发布包 (两个浏览器)
+
 ```bash
-zip -r deployment.zip dist/
+# Chrome 发布包
+cd dist-chrome && zip -r ../ai-markdone-chrome-v{VERSION}.zip . && cd ..
+
+# Firefox 发布包
+cd dist-firefox && zip -r ../ai-markdone-firefox-v{VERSION}.zip . && cd ..
 ```
 
 ### 6.2 推送至远程仓库
@@ -203,9 +221,16 @@ git push origin main --tags
 
 ---
 
-## Phase 7: Chrome Web Store (Final Scan)
-1. 使用 `deployment.zip` 上传到 Chrome Developer Dashboard。
-2. 提交审核。
+## Phase 7: 浏览器商店发布
+
+### 7.1 Chrome Web Store
+1. 使用 `ai-markdone-chrome-v{VERSION}.zip` 上传到 Chrome Developer Dashboard
+2. 提交审核
+
+### 7.2 Firefox Add-ons (AMO)
+1. 使用 `ai-markdone-firefox-v{VERSION}.zip` 上传到 [addons.mozilla.org](https://addons.mozilla.org/developers/)
+2. 填写版本说明
+3. 提交审核
 
 ---
 
@@ -214,10 +239,13 @@ git push origin main --tags
 - [ ] **Phase 1**: Debug 代码已扫描并处理
 - [ ] **Phase 2**: 用户已确认版本号和 commit message
 - [ ] **Phase 3**: package.json 版本已更新
-- [ ] **Phase 3**: manifest.json 版本已更新 (与 package.json 一致)
+- [ ] **Phase 3**: manifest.chrome.json 版本已更新
+- [ ] **Phase 3**: manifest.firefox.json 版本已更新
 - [ ] **Phase 3**: Logger 级别已调整 (如需要)
 - [ ] **Phase 3**: CHANGELOG.md 已更新
-- [ ] **Phase 3**: README.md 和 README.zh.md 已更新 (平台支持状态、最新版本日志)
-- [ ] **Phase 4**: `npm run build` 成功
+- [ ] **Phase 3**: README.md 和 README.zh.md 已更新
+- [ ] **Phase 4**: `npm run build` 成功 (Chrome + Firefox)
 - [ ] **Phase 5**: Git commit 已创建
-- [ ] **Phase 6**: 用户已通知后续步骤
+- [ ] **Phase 6**: 两个 zip 包已生成
+- [ ] **Phase 7**: Chrome Web Store 已提交
+- [ ] **Phase 7**: Firefox Add-ons 已提交 (如适用)

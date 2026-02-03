@@ -10,7 +10,7 @@
  *   type: 'text',
  *   placeholder: 'Enter your name...',
  *   icon: Icons.search,
- *   onChange: (value) => console.log(value)
+ *   onChange: (value) => {}
  * });
  * 
  * container.appendChild(input.render());

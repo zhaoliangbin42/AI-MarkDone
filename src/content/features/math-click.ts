@@ -266,16 +266,23 @@ export class MathClickHandler {
         // Create tooltip
         const tooltip = document.createElement('div');
         tooltip.textContent = 'Copied!';
+
+        // Resolve CSS variables to actual values since tooltip is outside Shadow DOM
+        const primaryColor = getVar('--aimd-interactive-primary', '#2563EB');
+        // Text on primary is always white for proper contrast
+        const textOnPrimary = '#FFFFFF';
+        const zIndex = getVar('--aimd-z-tooltip', '10000');
+
         tooltip.style.cssText = `
-      position: absolute;
-      background: var(--aimd-interactive-primary, #2563EB);
-      color: var(--aimd-text-on-primary);
+      position: fixed;
+      background: ${primaryColor};
+      color: ${textOnPrimary};
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
       font-weight: 500;
       pointer-events: none;
-      z-index: var(--aimd-z-tooltip);
+      z-index: ${zIndex};
       animation: fadeOut 1.5s forwards;
     `;
 

@@ -1,3 +1,5 @@
+import { logger } from '../../utils/logger';
+
 /**
  * Dot Pagination Controller - Fully Modular
  * 
@@ -8,7 +10,7 @@
  * const controller = new DotPaginationController(container, {
  *   totalItems: 10,
  *   currentIndex: 0,
- *   onNavigate: (index) => console.log(index)
+ *   onNavigate: (index) => logger.debug(index)
  * });
  * controller.render();
  * controller.setActiveIndex(5);
@@ -20,6 +22,7 @@ export interface DotPaginationConfig {
     currentIndex: number;
     containerWidth?: number;
     onNavigate?: (index: number) => void;
+    bookmarkedPositions?: Set<number>;
 }
 
 export interface DotSizeConfig {
@@ -67,14 +70,8 @@ export class DotPaginationController {
      * Render pagination dots
      */
     render(): void {
-        console.log('[DotPaginationController] render() called', {
-            destroyed: this.destroyed,
-            totalItems: this.config.totalItems,
-            container: this.container
-        });
-
         if (this.destroyed) {
-            console.warn('[DotPaginationController] Cannot render: controller is destroyed');
+            logger.warn('[DotPaginationController] Cannot render: controller is destroyed');
             return;
         }
 
@@ -84,7 +81,7 @@ export class DotPaginationController {
 
         // Calculate sizing
         const sizing = this.calculateDotSize();
-        console.log('[DotPaginationController] Calculated dot size:', sizing);
+        logger.debug('[DotPaginationController] Calculated dot size:', sizing);
 
         // Apply CSS variables to container
         this.container.style.setProperty('--dot-size', `${sizing.size}px`);
@@ -97,7 +94,7 @@ export class DotPaginationController {
             this.container.appendChild(dot);
         }
 
-        console.log(`[DotPaginationController] Created ${this.dots.length} dots`);
+        logger.debug(`[DotPaginationController] Created ${this.dots.length} dots`);
         this.updateActiveDot();
     }
 
@@ -108,6 +105,11 @@ export class DotPaginationController {
         const dot = document.createElement('div');
         dot.className = 'aicopy-dot';
         dot.dataset.index = index.toString();
+
+        const position = index + 1;
+        if (this.config.bookmarkedPositions?.has(position)) {
+            dot.classList.add('bookmarked');
+        }
 
         // Click handler
         dot.addEventListener('click', () => {
@@ -204,9 +206,6 @@ export class DotPaginationController {
             return;
         }
 
-        console.log(`[DotPaginationController] updateTotalItems: ${this.config.totalItems} -> ${newTotal}`);
-
-
         this.config.totalItems = newTotal;
 
         // Check if index adjustment is needed before render
@@ -216,6 +215,26 @@ export class DotPaginationController {
 
         // Dedicated container allows full re-render safely
         this.render();
+    }
+
+    /**
+     * Set bookmark state for a specific dot
+     * Used for real-time sync when user toggles bookmark
+     */
+    setBookmarked(index: number, isBookmarked: boolean): void {
+        const dot = this.dots[index];
+        if (!dot) return;
+        dot.classList.toggle('bookmarked', isBookmarked);
+    }
+
+    /**
+     * Update bookmarked positions and refresh all dots
+     */
+    updateBookmarkedPositions(positions: Set<number>): void {
+        this.config.bookmarkedPositions = positions;
+        this.dots.forEach((dot, i) => {
+            dot.classList.toggle('bookmarked', positions.has(i + 1)); // positions are 1-indexed
+        });
     }
 
     /**

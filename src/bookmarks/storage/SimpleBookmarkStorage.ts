@@ -1,25 +1,19 @@
 /**
- * Simple Bookmark Storage - Based on AITimeline Pattern
- * Direct chrome.storage operations, no complex abstractions
+ * Simple bookmark storage.
  */
 
 import { Bookmark } from './types';
 import { logger } from '../../utils/logger';
 import { StorageQueue } from './StorageQueue';
 import { SettingsManager } from '../../settings/SettingsManager';
+import { browser, browserCompat } from '../../utils/browser';
 
-/**
- * Simple bookmark storage using AITimeline's proven pattern
- */
 export class SimpleBookmarkStorage {
     // Storage quota thresholds
     static readonly STORAGE_LIMIT = 10 * 1024 * 1024; // 10MB (chrome.storage.local default)
     static readonly QUOTA_WARNING_THRESHOLD = 0.95;   // 95% - show auto-dismiss warning
     static readonly QUOTA_CRITICAL_THRESHOLD = 0.98;  // 98% - block save
 
-    /**
-     * Generate storage key - AITimeline format
-     */
     private static getKey(url: string, position: number): string {
         const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
         return `bookmark:${urlWithoutProtocol}:${position}`;
@@ -44,11 +38,7 @@ export class SimpleBookmarkStorage {
      * Uses chrome.storage.local.getBytesInUse API
      */
     static async getBytesInUse(): Promise<number> {
-        return new Promise((resolve) => {
-            chrome.storage.local.getBytesInUse(null, (bytes) => {
-                resolve(bytes);
-            });
-        });
+        return browserCompat.getBytesInUse(null);
     }
 
     /**
@@ -83,7 +73,9 @@ export class SimpleBookmarkStorage {
         const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
 
         // Check settings: should we save context only?
-        const settings = await SettingsManager.getInstance().get('storage');
+        const settings = await SettingsManager.getInstance().get('behavior');
+
+        // Determine AI response content based on settings
         let finalUserMessage = userMessage;
         let finalAiResponse = aiResponse;
 
@@ -107,7 +99,7 @@ export class SimpleBookmarkStorage {
 
         await StorageQueue.getInstance().enqueue(async () => {
             try {
-                await chrome.storage.local.set({ [key]: value });
+                await browser.storage.local.set({ [key]: value });
                 logger.info(`[SimpleBookmarkStorage] Saved bookmark at position ${position}`);
             } catch (error) {
                 logger.error('[SimpleBookmarkStorage] Failed to save bookmark:', error);
@@ -124,7 +116,7 @@ export class SimpleBookmarkStorage {
 
         await StorageQueue.getInstance().enqueue(async () => {
             try {
-                await chrome.storage.local.remove(key);
+                await browser.storage.local.remove(key);
                 logger.info(`[SimpleBookmarkStorage] Removed bookmark at position ${position}`);
             } catch (error) {
                 logger.error('[SimpleBookmarkStorage] Failed to remove bookmark:', error);
@@ -139,7 +131,7 @@ export class SimpleBookmarkStorage {
     static async isBookmarked(url: string, position: number): Promise<boolean> {
         try {
             const key = this.getKey(url, position);
-            const result = await chrome.storage.local.get(key);
+            const result = await browser.storage.local.get(key);
             return !!result[key];
         } catch (error) {
             logger.error('[SimpleBookmarkStorage] Failed to check bookmark:', error);
@@ -148,8 +140,7 @@ export class SimpleBookmarkStorage {
     }
 
     /**
-     * Load all bookmarked positions for current URL
-     * Returns a Set of positions - AITimeline pattern
+     * Load all bookmarked positions for current URL.
      */
     static async loadAllPositions(url: string): Promise<Set<number>> {
         try {
@@ -157,7 +148,7 @@ export class SimpleBookmarkStorage {
             const prefix = `bookmark:${urlWithoutProtocol}:`;
 
             // Get all storage items
-            const all = await chrome.storage.local.get(null);
+            const all = await browser.storage.local.get(null);
             const positions = new Set<number>();
 
             // Extract positions from matching keys
@@ -191,7 +182,7 @@ export class SimpleBookmarkStorage {
 
         await StorageQueue.getInstance().enqueue(async () => {
             try {
-                const result = await chrome.storage.local.get(key);
+                const result = await browser.storage.local.get(key);
                 const existing = result[key] as Bookmark;
 
                 if (!existing) {
@@ -204,7 +195,7 @@ export class SimpleBookmarkStorage {
                     ...updates
                 };
 
-                await chrome.storage.local.set({ [key]: updated });
+                await browser.storage.local.set({ [key]: updated });
                 logger.info(`[SimpleBookmarkStorage] Updated bookmark at position ${position}`);
             } catch (error) {
                 logger.error('[SimpleBookmarkStorage] Failed to update bookmark:', error);
@@ -218,12 +209,12 @@ export class SimpleBookmarkStorage {
      */
     static async getAllBookmarks(): Promise<Bookmark[]> {
         try {
-            const all = await chrome.storage.local.get(null);
+            const all = await browser.storage.local.get(null);
             const bookmarks: Bookmark[] = [];
 
             Object.keys(all).forEach(key => {
                 if (key.startsWith('bookmark:')) {
-                    bookmarks.push(all[key]);
+                    bookmarks.push(all[key] as Bookmark);
                 }
             });
 
@@ -243,7 +234,7 @@ export class SimpleBookmarkStorage {
      */
     static async checkStorageQuota(): Promise<{ used: number; limit: number; percentage: number }> {
         try {
-            const used = await chrome.storage.local.getBytesInUse();
+            const used = await browserCompat.getBytesInUse();
             const limit = this.STORAGE_LIMIT;
             const percentage = (used / limit) * 100;
 
@@ -399,7 +390,7 @@ export class SimpleBookmarkStorage {
         }
 
         try {
-            await chrome.storage.local.set(data);
+            await browser.storage.local.set(data);
             const perfEnd = performance.now();
             logger.info(`[SimpleBookmarkStorage] Bulk saved ${bookmarks.length} bookmarks in ${(perfEnd - perfStart).toFixed(0)}ms`);
             return bookmarks.length;
@@ -426,7 +417,7 @@ export class SimpleBookmarkStorage {
         const keys = bookmarks.map(b => this.getKey(b.url, b.position));
 
         try {
-            await chrome.storage.local.remove(keys);
+            await browser.storage.local.remove(keys);
             const perfEnd = performance.now();
             logger.info(`[SimpleBookmarkStorage] Bulk removed ${bookmarks.length} bookmarks in ${(perfEnd - perfStart).toFixed(0)}ms`);
             return bookmarks.length;
@@ -472,7 +463,7 @@ export class SimpleBookmarkStorage {
      */
     static async repairBookmarks(): Promise<{ repaired: number; removed: number }> {
         try {
-            const all = await chrome.storage.local.get(null);
+            const all = await browser.storage.local.get(null);
             let repaired = 0;
             let removed = 0;
 
@@ -487,29 +478,30 @@ export class SimpleBookmarkStorage {
 
                     // Try to repair
                     if (typeof bookmark === 'object' && bookmark !== null) {
+                        const bm = bookmark as any;
                         const repairedBookmark: Bookmark = {
-                            url: bookmark.url || '',
-                            urlWithoutProtocol: bookmark.urlWithoutProtocol || bookmark.url?.replace(/^https?:\/\//, '') || '',
-                            position: bookmark.position || 0,
-                            userMessage: bookmark.userMessage || '',
-                            aiResponse: bookmark.aiResponse,
-                            timestamp: bookmark.timestamp || Date.now(),
-                            title: bookmark.title || bookmark.userMessage?.substring(0, 50) || 'Untitled',
-                            platform: bookmark.platform || 'ChatGPT',
-                            folderPath: bookmark.folderPath || 'Import'
+                            url: bm.url || '',
+                            urlWithoutProtocol: bm.urlWithoutProtocol || bm.url?.replace(/^https?:\/\//, '') || '',
+                            position: bm.position || 0,
+                            userMessage: bm.userMessage || '',
+                            aiResponse: bm.aiResponse,
+                            timestamp: bm.timestamp || Date.now(),
+                            title: bm.title || bm.userMessage?.substring(0, 50) || 'Untitled',
+                            platform: bm.platform || 'ChatGPT',
+                            folderPath: bm.folderPath || 'Import'
                         };
 
                         if (this.validateBookmark(repairedBookmark)) {
-                            await chrome.storage.local.set({ [key]: repairedBookmark });
+                            await browser.storage.local.set({ [key]: repairedBookmark });
                             repaired++;
                             logger.info(`[SimpleBookmarkStorage] Repaired bookmark: ${key}`);
                         } else {
-                            await chrome.storage.local.remove(key);
+                            await browser.storage.local.remove(key);
                             removed++;
                             logger.warn(`[SimpleBookmarkStorage] Removed irreparable bookmark: ${key}`);
                         }
                     } else {
-                        await chrome.storage.local.remove(key);
+                        await browser.storage.local.remove(key);
                         removed++;
                     }
                 }
@@ -561,7 +553,7 @@ export class SimpleBookmarkStorage {
 
         await StorageQueue.getInstance().enqueue(async () => {
             try {
-                const result = await chrome.storage.local.get(key);
+                const result = await browser.storage.local.get(key);
                 const bookmark = result[key] as Bookmark;
 
                 if (!bookmark) {
@@ -569,7 +561,7 @@ export class SimpleBookmarkStorage {
                 }
 
                 bookmark.folderPath = newFolderPath;
-                await chrome.storage.local.set({ [key]: bookmark });
+                await browser.storage.local.set({ [key]: bookmark });
 
                 logger.info(`[SimpleBookmarkStorage] Moved bookmark to folder: ${newFolderPath}`);
             } catch (error) {

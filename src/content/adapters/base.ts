@@ -181,7 +181,7 @@ export abstract class SiteAdapter {
     }
 
     // ========================================
-    // Message Sending Support (Phase 3)
+    // Message Sending Support
     // ========================================
 
     /**

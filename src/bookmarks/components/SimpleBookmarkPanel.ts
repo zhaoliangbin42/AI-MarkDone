@@ -1,26 +1,22 @@
 import { SimpleBookmarkStorage } from '../storage/SimpleBookmarkStorage';
 import { Bookmark, Folder, FolderTreeNode } from '../storage/types';
 import { logger } from '../../utils/logger';
+import { browser } from '../../utils/browser';
 import { FolderStorage } from '../storage/FolderStorage';
 import { FolderState } from '../state/FolderState';
 import { FolderOperationsManager } from '../managers/FolderOperationsManager';
 import { TreeBuilder } from '../utils/tree-builder';
 import { PathUtils, type FolderNameValidationError } from '../utils/path-utils';
 import { Icons } from '../../assets/icons';
-// ✅ Phase 7: 迁移到核心renderer
 
 import { ThemeManager } from '../../utils/ThemeManager';
-import { DesignTokens } from '../../utils/design-tokens';  // T2.1.1: Import DesignTokens class
+import { DesignTokens } from '../../utils/design-tokens';
 import { ReaderPanel } from '../../content/features/re-render';
 import { fromBookmarks, findBookmarkIndex } from '../datasource/BookmarkDataSource';
 import { DialogManager } from '../../components/DialogManager';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
 
-/**
- * Get platform icon by platform name
- * Supports: ChatGPT, Gemini, Claude, Deepseek
- */
 function getPlatformIcon(platform?: string): string {
     const p = platform?.toLowerCase() || 'chatgpt';
     switch (p) {
@@ -37,16 +33,10 @@ type ImportMergeEntry = {
     bookmark: Bookmark;
     status: ImportMergeStatus;
     renameTo?: string;
-    existingTitle?: string;  // Used for duplicate status to show title comparison
-    existingFolderPath?: string;  // Used for duplicate status to show folder path
+    existingTitle?: string;
+    existingFolderPath?: string;
 };
 
-
-
-/**
- * Simple Bookmark Panel - AITimeline Pattern with Tabs
- * Displays bookmarks in a flex-based list with sidebar tabs
- */
 export class SimpleBookmarkPanel {
     private overlay: HTMLElement | null = null;
     private shadowRoot: ShadowRoot | null = null;
@@ -54,12 +44,11 @@ export class SimpleBookmarkPanel {
     private filteredBookmarks: Bookmark[] = [];
     private searchQuery: string = '';
     private platformFilter: string = '';
+    private sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc';
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
 
-    // Event listener management (AbortController pattern - Web standard)
     private abortController: AbortController | null = null;
 
-    // State preservation (industry standard pattern)
     private savedState = {
         scrollTop: 0,
         expandedPaths: new Set<string>(),
@@ -76,46 +65,30 @@ export class SimpleBookmarkPanel {
     private folderState: FolderState = new FolderState();
     private folderOpsManager: FolderOperationsManager = new FolderOperationsManager();
 
-    // Theme manager subscription for dynamic theme switching
     private themeUnsubscribe: (() => void) | null = null;
 
-    // ReaderPanel 实例（用于书签预览）
     private readerPanel: ReaderPanel = new ReaderPanel({ hideTriggerButton: true });
 
-    /**
-     * Show the bookmark panel
-     */
     async show(): Promise<void> {
-        // Create AbortController for this panel instance (Web standard pattern)
         this.abortController = new AbortController();
 
-        // The provided snippet for `show` seems to be from a different context or an incomplete replacement.
-        // To maintain syntactical correctness and fulfill the request of adding a migration method,
-        // I will assume the user wants to integrate the migration logic into the *existing* show method
-        // and then add the `migrateLegacyBookmarks` method after it.
-
-        // Original show method logic:
         if (this.overlay) {
             this.overlay.style.display = 'flex';
-            await this.refresh(); // Assuming refresh() exists and updates content
+            await this.refresh();
             return;
         }
 
-        // Run migration before loading bookmarks
         const migratedCount = await this.migrateLegacyBookmarks();
 
-        // Load all bookmarks and folders
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
         this.folders = await FolderStorage.getAll();
-        this.filteredBookmarks = [...this.bookmarks]; // Re-filter after migration and load
+        this.filteredBookmarks = [...this.bookmarks];
         logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks, ${this.folders.length} folders`);
 
-        // Create overlay
         this.overlay = document.createElement('div');
         this.overlay.className = 'simple-bookmark-panel-overlay';
 
-        // CRITICAL: Set z-index on the overlay element itself (not in Shadow DOM)
-        // This ensures it appears above all page content
+        // Why: z-index must be applied on the host element (outside Shadow DOM) to cover the page.
         this.overlay.style.position = 'fixed';
         this.overlay.style.top = '0';
         this.overlay.style.left = '0';
@@ -125,14 +98,12 @@ export class SimpleBookmarkPanel {
         this.overlay.style.display = 'flex';
         this.overlay.style.alignItems = 'center';
         this.overlay.style.justifyContent = 'center';
-        // ✅ 根据用户反馈,恢复轻微背景模糊
         this.overlay.style.background = 'var(--aimd-bg-overlay-heavy)';
         this.overlay.style.backdropFilter = 'var(--aimd-overlay-backdrop)';
         this.overlay.dataset.theme = ThemeManager.getInstance().isDarkMode() ? 'dark' : 'light';
 
         this.shadowRoot = this.overlay.attachShadow({ mode: 'open' });
 
-        // Add styles
         const styles = document.createElement('style');
         styles.textContent = this.getStyles();
         this.shadowRoot.appendChild(styles);
@@ -235,7 +206,7 @@ export class SimpleBookmarkPanel {
 
         // 3. Remove storage listener
         if (this.storageListener) {
-            chrome.storage.onChanged.removeListener(this.storageListener);
+            browser.storage.onChanged.removeListener(this.storageListener);
             this.storageListener = null;
         }
 
@@ -385,6 +356,10 @@ export class SimpleBookmarkPanel {
                                 </div>
                             </div>
                         </div>
+                        <div class="sort-mode-group">
+                            <button class="sort-mode-btn" data-mode="time" title="Sort by: Time" aria-label="Sort by time">${Icons.sortTime}</button>
+                            <button class="sort-mode-btn active" data-mode="alpha" title="Sort by: A-Z" aria-label="Sort alphabetically">${Icons.sortAZ}</button>
+                        </div>
                         <button class="toolbar-icon-btn new-folder-btn" title="Create new folder" aria-label="Create new folder">${Icons.folderPlus}</button>
                         <div class="toolbar-divider"></div>
                         <button class="toolbar-icon-btn import-btn" title="Import bookmarks" aria-label="Import bookmarks">${Icons.upload}</button>
@@ -406,21 +381,101 @@ export class SimpleBookmarkPanel {
 
                 <div class="tab-content settings-tab">
                     <div class="settings-content">
-                        <!-- Behavior Group -->
+                        <!-- Platforms Group -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">
+                                ${Icons.globe}
+                                <span>Platforms</span>
+                            </h3>
+                            
+                            <!-- ChatGPT Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.chatgpt} ChatGPT</span>
+                                    <span class="settings-item-desc">Enable extension on ChatGPT</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.chatgpt" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Gemini Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.gemini} Gemini</span>
+                                    <span class="settings-item-desc">Enable extension on Gemini</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.gemini" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Claude Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.claude} Claude</span>
+                                    <span class="settings-item-desc">Enable extension on Claude</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.claude" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Deepseek Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${Icons.deepseek} Deepseek</span>
+                                    <span class="settings-item-desc">Enable extension on Deepseek</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="platforms.deepseek" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Behavior Group (includes toolbar buttons + click-to-copy + context-only) -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">
                                 ${Icons.settings}
                                 <span>Behavior</span>
                             </h3>
                             
-                            <!-- Render Code Toggle -->
+                            <!-- View Source Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Render Code Blocks</span>
-                                    <span class="settings-item-desc">Display syntax-highlighted code in Reader Mode</span>
+                                    <span class="settings-item-label">View Source</span>
+                                    <span class="settings-item-desc">Show "View Source" button in toolbar</span>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" data-setting="behavior.renderCodeInReader" checked>
+                                    <input type="checkbox" data-setting="behavior.showViewSource" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Save Messages Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">Save Messages</span>
+                                    <span class="settings-item-desc">Show "Save as" button in toolbar</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="behavior.showSaveMessages" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Word Count Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">Word Count</span>
+                                    <span class="settings-item-desc">Show word count statistics in toolbar</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="behavior.showWordCount" checked>
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
@@ -436,14 +491,6 @@ export class SimpleBookmarkPanel {
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
-                        </div>
-                        
-                        <!-- Storage Group -->
-                        <div class="settings-group">
-                            <h3 class="settings-group-title">
-                                ${Icons.folder}
-                                <span>Storage</span>
-                            </h3>
                             
                             <!-- Context Only Save -->
                             <div class="settings-item">
@@ -452,7 +499,27 @@ export class SimpleBookmarkPanel {
                                     <span class="settings-item-desc">Save space by keeping only 500 chars. Full preview will be specific to the context.</span>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" data-setting="storage.saveContextOnly">
+                                    <input type="checkbox" data-setting="behavior.saveContextOnly">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Reader Group (only renderCodeInReader) -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">
+                                ${Icons.bookOpen}
+                                <span>Reader</span>
+                            </h3>
+                            
+                            <!-- Render Code Toggle -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">Render Code Blocks</span>
+                                    <span class="settings-item-desc">Display syntax-highlighted code in Reader Mode</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="reader.renderCodeInReader" checked>
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
@@ -510,13 +577,13 @@ export class SimpleBookmarkPanel {
                                 <div class="qr-card">
                                     <a href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer" class="qr-card-label-link">Buy Me a Coffee</a>
                                     <div class="qr-image-wrapper">
-                                        <img src="${chrome.runtime.getURL('icons/bmc_qr.png')}" alt="Buy Me A Coffee" class="qr-image">
+                                        <img src="${browser.runtime.getURL('icons/bmc_qr.png')}" alt="Buy Me A Coffee" class="qr-image">
                                     </div>
                                 </div>
                                 <div class="qr-card">
                                     <span class="qr-card-label">微信赞赏码</span>
                                     <div class="qr-image-wrapper">
-                                        <img src="${chrome.runtime.getURL('icons/wechat_qr.png')}" alt="WeChat Reward" class="qr-image">
+                                        <img src="${browser.runtime.getURL('icons/wechat_qr.png')}" alt="WeChat Reward" class="qr-image">
                                     </div>
                                 </div>
                             </div>
@@ -539,7 +606,8 @@ export class SimpleBookmarkPanel {
             this.folders,
             this.filteredBookmarks,
             this.folderState.getExpandedPaths(),
-            this.folderState.getSelectedPath()
+            this.folderState.getSelectedPath(),
+            this.sortMode
         );
 
         if (tree.length === 0) {
@@ -774,6 +842,30 @@ export class SimpleBookmarkPanel {
     }
 
     /**
+     * Update sort button states (active class and icons)
+     */
+    private updateSortButtonState(): void {
+        const timeBtn = this.shadowRoot?.querySelector('.sort-mode-btn[data-mode="time"]');
+        const alphaBtn = this.shadowRoot?.querySelector('.sort-mode-btn[data-mode="alpha"]');
+
+        if (!timeBtn || !alphaBtn) return;
+
+        // Update active class
+        const isTimeMode = this.sortMode.startsWith('time');
+        timeBtn.classList.toggle('active', isTimeMode);
+        alphaBtn.classList.toggle('active', !isTimeMode);
+
+        // Update icons based on direction
+        if (isTimeMode) {
+            timeBtn.innerHTML = this.sortMode === 'time-asc' ? Icons.sortTimeAsc : Icons.sortTime;
+            timeBtn.setAttribute('title', this.sortMode === 'time-asc' ? 'Sort by: Time (Oldest first)' : 'Sort by: Time (Newest first)');
+        } else {
+            alphaBtn.innerHTML = this.sortMode === 'alpha-desc' ? Icons.sortAlphaAsc : Icons.sortAZ;
+            alphaBtn.setAttribute('title', this.sortMode === 'alpha-desc' ? 'Sort by: Z-A' : 'Sort by: A-Z');
+        }
+    }
+
+    /**
      * Bind event listeners to buttons
      */
     private bindEventListeners(): void {
@@ -804,13 +896,13 @@ export class SimpleBookmarkPanel {
             setupKeyboardIsolation(searchInput, { componentName: 'SimpleBookmarkPanel' });
         }
 
-        // 自定义平台选择器
+        // Platform selector (dropdown)
         const platformSelectorWrapper = this.shadowRoot?.querySelector('.platform-selector-wrapper');
         const platformSelector = this.shadowRoot?.querySelector('.platform-selector') as HTMLButtonElement;
         const platformDropdown = this.shadowRoot?.querySelector('.platform-dropdown') as HTMLElement;
 
         if (platformSelector && platformDropdown && platformSelectorWrapper) {
-            // 点击按钮切换下拉菜单
+            // Toggle dropdown
             platformSelector.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const isOpen = platformSelectorWrapper.classList.contains('open');
@@ -824,7 +916,7 @@ export class SimpleBookmarkPanel {
                 }
             });
 
-            // 选择选项
+            // Select option
             const options = platformDropdown.querySelectorAll('.platform-option');
             options.forEach((option) => {
                 option.addEventListener('click', () => {
@@ -833,49 +925,45 @@ export class SimpleBookmarkPanel {
                     const label = option.querySelector('.platform-option-label')?.textContent || 'All Platforms';
                     const iconEl = option.querySelector('.platform-option-icon');
 
-                    // 更新选中状态
                     this.platformFilter = value;
 
-                    // 更新按钮显示
+                    // Update button label
                     const selectorLabel = platformSelector.querySelector('.platform-selector-label');
                     if (selectorLabel) {
                         selectorLabel.textContent = label;
                     }
 
-                    // 更新按钮图标
-                    // 先移除旧的平台图标（不包括chevron图标）
+                    // Update button icon (keep the chevron)
                     const oldIcons = platformSelector.querySelectorAll('span:not(.platform-selector-label):not(.platform-selector-icon)');
                     oldIcons.forEach(icon => icon.remove());
 
-                    // 如果不是"All Platforms"，添加新图标
+                    // Add selected platform icon
                     if (platform !== 'all' && iconEl && selectorLabel) {
                         const iconClone = iconEl.cloneNode(true) as HTMLElement;
                         platformSelector.insertBefore(iconClone, selectorLabel);
                     } else if (platform === 'all' && selectorLabel) {
-                        // 如果是All Platforms，添加grid图标
+                        // All Platforms: show grid icon
                         const gridSpan = document.createElement('span');
                         gridSpan.innerHTML = option.querySelector('span:first-child')?.innerHTML || '';
                         platformSelector.insertBefore(gridSpan, selectorLabel);
                     }
 
-                    // 更新按钮背景色
                     platformSelector.setAttribute('data-selected', platform);
 
-                    // 更新选项选中状态
+                    // Update selected state
                     options.forEach(opt => opt.setAttribute('data-selected', 'false'));
                     option.setAttribute('data-selected', 'true');
 
-                    // 关闭下拉菜单
+                    // Close dropdown
                     platformSelectorWrapper.classList.remove('open');
                     platformDropdown.style.display = 'none';
 
-                    // 触发筛选
                     this.filterBookmarks();
                     this.refreshContent();
                 });
             });
 
-            // 初始化：根据当前platformFilter设置正确的选中状态和按钮显示
+            // Initialize selected state from current `platformFilter`
             const currentPlatform = this.platformFilter || '';
 
             options.forEach(opt => {
@@ -883,12 +971,11 @@ export class SimpleBookmarkPanel {
                 opt.setAttribute('data-selected', optValue === currentPlatform ? 'true' : 'false');
             });
 
-            // 查找选中的选项
             const selectedOption = Array.from(options).find(opt =>
                 (opt.getAttribute('data-value') || '') === currentPlatform
             );
 
-            // 初始化按钮显示：设置正确的图标和文字
+            // Initialize button UI
             if (selectedOption) {
                 const platform = selectedOption.getAttribute('data-platform') || 'all';
                 const label = selectedOption.querySelector('.platform-option-label')?.textContent || 'All Platforms';
@@ -896,7 +983,6 @@ export class SimpleBookmarkPanel {
 
                 const selectorLabel = platformSelector.querySelector('.platform-selector-label');
                 if (!selectorLabel) {
-                    // 创建label元素
                     const newLabel = document.createElement('span');
                     newLabel.className = 'platform-selector-label';
                     newLabel.textContent = label;
@@ -906,7 +992,6 @@ export class SimpleBookmarkPanel {
                     selectorLabel.textContent = label;
                 }
 
-                // 添加对应的图标
                 if (platform !== 'all' && iconEl) {
                     const iconClone = iconEl.cloneNode(true) as HTMLElement;
                     const selectorLabel2 = platformSelector.querySelector('.platform-selector-label');
@@ -921,11 +1006,10 @@ export class SimpleBookmarkPanel {
                 platformSelector.setAttribute('data-selected', platform);
             }
 
-            // 点击 panel 内任意位置关闭下拉菜单
+            // Close dropdown when clicking elsewhere in the panel
             const panelContainer = this.shadowRoot?.querySelector('.bookmarks-tab');
             if (panelContainer) {
                 panelContainer.addEventListener('click', (e) => {
-                    // 如果点击的不是选择器本身，则关闭下拉菜单
                     if (!platformSelectorWrapper.contains(e.target as Node)) {
                         platformSelectorWrapper.classList.remove('open');
                         platformDropdown.style.display = 'none';
@@ -970,6 +1054,44 @@ export class SimpleBookmarkPanel {
         // New Folder button
         this.shadowRoot?.querySelector('.new-folder-btn')?.addEventListener('click', () => {
             this.showCreateFolderInput(null);
+        }, { signal });
+
+        // Sort mode buttons with direction toggle
+        const sortBtns = this.shadowRoot?.querySelectorAll('.sort-mode-btn');
+        sortBtns?.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const target = e.currentTarget as HTMLElement;
+                const clickedType = target.dataset.mode as 'time' | 'alpha';
+                if (!clickedType) return;
+
+                const currentType = this.sortMode.startsWith('time') ? 'time' : 'alpha';
+
+                if (currentType === clickedType) {
+                    // Same button: toggle direction
+                    if (this.sortMode === 'time-desc') this.sortMode = 'time-asc';
+                    else if (this.sortMode === 'time-asc') this.sortMode = 'time-desc';
+                    else if (this.sortMode === 'alpha-asc') this.sortMode = 'alpha-desc';
+                    else if (this.sortMode === 'alpha-desc') this.sortMode = 'alpha-asc';
+                } else {
+                    // Different button: switch to default state
+                    this.sortMode = clickedType === 'time' ? 'time-desc' : 'alpha-asc';
+                }
+
+                // Update active state and icons
+                this.updateSortButtonState();
+
+                // Persist to settings
+                try {
+                    const manager = SettingsManager.getInstance();
+                    await manager.set('bookmarks', { sortMode: this.sortMode });
+                    logger.info(`[SimpleBookmarkPanel] Sort mode changed to: ${this.sortMode}`);
+                } catch (error) {
+                    logger.error('[SimpleBookmarkPanel] Failed to save sort mode', error);
+                }
+
+                // Refresh content with new sort order
+                this.refreshContent();
+            }, { signal });
         });
 
         // Bookmark list listeners
@@ -1001,7 +1123,7 @@ export class SimpleBookmarkPanel {
         logger.info(`[Settings] ${setting} changed to: ${value}`);
 
         // Special handling for destructive action
-        if (setting === 'storage.saveContextOnly' && value) {
+        if (setting === 'behavior.saveContextOnly' && value) {
             const confirmed = await this.confirmContextOnlySave();
             if (!confirmed) {
                 input.checked = false;
@@ -1128,13 +1250,6 @@ export class SimpleBookmarkPanel {
 
             overlay.querySelector('.settings-confirm-ok')?.addEventListener('click', async () => {
                 cleanup();
-                // Set confirmation flag
-                const manager = SettingsManager.getInstance();
-                const storage = await manager.get('storage');
-                await manager.set('storage', {
-                    ...storage,
-                    _contextOnlyConfirmed: true,
-                });
                 resolve(true);
             });
 
@@ -1157,12 +1272,18 @@ export class SimpleBookmarkPanel {
             const manager = SettingsManager.getInstance();
             const settings = await manager.getAll();
 
-            // Restore behavior settings
-            const renderCodeToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="behavior.renderCodeInReader"]'
+            const showSaveMessagesToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="behavior.showSaveMessages"]'
             ) as HTMLInputElement;
-            if (renderCodeToggle) {
-                renderCodeToggle.checked = settings.behavior.renderCodeInReader;
+            if (showSaveMessagesToggle) {
+                showSaveMessagesToggle.checked = settings.behavior.showSaveMessages;
+            }
+
+            const showWordCountToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="behavior.showWordCount"]'
+            ) as HTMLInputElement;
+            if (showWordCountToggle) {
+                showWordCountToggle.checked = settings.behavior.showWordCount;
             }
 
             const clickToCopyToggle = this.shadowRoot?.querySelector(
@@ -1172,13 +1293,24 @@ export class SimpleBookmarkPanel {
                 clickToCopyToggle.checked = settings.behavior.enableClickToCopy;
             }
 
-            // Restore storage settings
             const contextOnlyToggle = this.shadowRoot?.querySelector(
-                'input[data-setting="storage.saveContextOnly"]'
+                'input[data-setting="behavior.saveContextOnly"]'
             ) as HTMLInputElement;
             if (contextOnlyToggle) {
-                contextOnlyToggle.checked = settings.storage.saveContextOnly;
+                contextOnlyToggle.checked = settings.behavior.saveContextOnly;
             }
+
+            // Restore reader settings
+            const renderCodeToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="reader.renderCodeInReader"]'
+            ) as HTMLInputElement;
+            if (renderCodeToggle) {
+                renderCodeToggle.checked = settings.reader.renderCodeInReader;
+            }
+
+            // Initialize sort mode
+            this.sortMode = settings.bookmarks.sortMode;
+            this.updateSortButtonState();
 
             // Calculate and display storage usage
             await this.updateStorageUsage();
@@ -1477,7 +1609,6 @@ export class SimpleBookmarkPanel {
                 } else if (target.classList.contains('edit-bookmark')) {
                     const url = (item as HTMLElement).dataset.url!;
                     const position = parseInt((item as HTMLElement).dataset.position!);
-                    // ✅ Phase 8: 使用 ReaderPanel 打开预览
                     const bookmark = this.filteredBookmarks.find(
                         b => b.url === url && b.position === position
                     );
@@ -1488,7 +1619,6 @@ export class SimpleBookmarkPanel {
                     const url = (item as HTMLElement).dataset.url!;
                     const position = parseInt((item as HTMLElement).dataset.position!);
                     if (url && position) {
-                        // ✅ Phase 8: 使用 ReaderPanel 打开预览
                         const bookmark = this.filteredBookmarks.find(
                             b => b.url === url && b.position === position
                         );
@@ -2604,45 +2734,35 @@ export class SimpleBookmarkPanel {
     }
 
     /**
-     * 使用 ReaderPanel 打开书签预览
-     * Phase 8: 复用通用阅读器组件
+     * Open bookmark preview in ReaderPanel.
      */
     private openPreview(bookmark: Bookmark): void {
-        // 设置主题
         this.readerPanel.setTheme(ThemeManager.getInstance().isDarkMode());
 
         let targetList: Bookmark[] = [];
 
-        // 构建 UI 树以获取正确的视觉顺序（排序由 TreeBuilder 统一控制）
-        // 这样可以确保 Reader 的翻页顺序与用户在列表中看到的顺序完全一致
         const tree = TreeBuilder.buildTree(
             this.folders,
-            this.filteredBookmarks // 包含搜索过滤
+            this.filteredBookmarks
         );
 
         if (this.searchQuery) {
-            // 搜索模式：使用当前视图中展示的所有书签（按视觉顺序）
-            // TreeBuilder.getAllBookmarks 会按深度优先遍历返回排序后的书签
+            // Why: keep ReaderPanel page order consistent with the UI order under search.
             targetList = TreeBuilder.getAllBookmarks(tree);
         } else {
-            // 文件夹模式：只获取当前文件夹下的书签（按视觉顺序）
             const folderNode = TreeBuilder.findNode(tree, bookmark.folderPath);
-            // 如果找到文件夹节点，直接使用其已排序的 bookmarks 列表
             if (folderNode) {
                 targetList = folderNode.bookmarks;
             } else {
-                // 回退逻辑（理论上不应触发）
+                // Fallback: should rarely happen, but keep behavior safe.
                 targetList = this.bookmarks.filter(b => b.folderPath === bookmark.folderPath);
             }
         }
 
-        // 将目标列表转换为 ReaderItem[]
         const items = fromBookmarks(targetList);
 
-        // 查找当前书签在目标列表中的索引
         const startIndex = findBookmarkIndex(bookmark, targetList);
 
-        // 显示 ReaderPanel
         this.readerPanel.showWithData(items, startIndex);
 
         logger.info(`[SimpleBookmarkPanel] Opened preview for bookmark at index ${startIndex} (Scope: ${this.searchQuery ? 'Search' : 'Folder'})`);
@@ -3526,7 +3646,7 @@ ${options.message}
                 this.shadowRoot.appendChild(overlay);
             }
 
-            // ✅ Prevent modal content clicks from closing
+            // Prevent modal content clicks from closing the overlay.
             modal.addEventListener('click', (e) => {
                 e.stopPropagation();
             });
@@ -3670,12 +3790,23 @@ ${options.message}
                 }
 
                 logger.info(`[Import] Checking ${folderPathsNeeded.size} unique folder paths`);
-                for (const folderPath of folderPathsNeeded) {
+
+                // Sort folder paths by depth (number of '/') to create parent folders first
+                // This ensures "Work" is created before "Work/AI"
+                const sortedFolderPaths = Array.from(folderPathsNeeded).sort((a, b) => {
+                    const depthA = (a.match(/\//g) || []).length;
+                    const depthB = (b.match(/\//g) || []).length;
+                    return depthA - depthB;
+                });
+
+                for (const folderPath of sortedFolderPaths) {
                     const exists = this.folders.some(f => f.path === folderPath);
                     if (!exists) {
                         logger.info(`[Import] Creating missing folder: ${folderPath}`);
                         try {
                             await FolderStorage.create(folderPath);
+                            // Refresh folders after each creation so parent checks pass
+                            this.folders = await FolderStorage.getAll();
                         } catch (error) {
                             logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
                         }
@@ -3832,7 +3963,7 @@ ${options.message}
         const errors: string[] = [];
 
         bookmarksArray.forEach((item: any, index: number) => {
-            // ✅ Auto-fill missing optional fields for imported bookmarks
+            // Apply import defaults for missing optional fields.
             const enrichedItem = {
                 ...item,
                 urlWithoutProtocol: item.urlWithoutProtocol || item.url?.replace(/^https?:\/\//, ''),
@@ -3964,7 +4095,6 @@ ${options.message}
         }
     ): Promise<'merge' | 'rename-merge' | 'cancel'> {
         return new Promise((resolve) => {
-            // ✅ Shadow DOM Pattern: Consistent with BookmarkSaveModal
             const container = document.createElement('div');
             container.className = 'merge-dialog-host';
             const shadowRoot = container.attachShadow({ mode: 'open' });
@@ -4215,7 +4345,7 @@ ${options.message}
     }
 
     /**
-     * Setup storage change listener - AITimeline pattern
+     * Setup storage change listener.
      */
     private setupStorageListener(): void {
         if (this.storageListener) return; // Already setup
@@ -4233,17 +4363,16 @@ ${options.message}
             }
         };
 
-        chrome.storage.onChanged.addListener(this.storageListener);
+        browser.storage.onChanged.addListener(this.storageListener);
         logger.info('[SimpleBookmarkPanel] Storage listener setup');
     }
 
     /**
-     * Smooth scroll to target element - EXACT AITimeline implementation
+     * Smooth scroll to target element.
      */
     private smoothScrollTo(targetElement: HTMLElement): void {
         if (!targetElement) return;
 
-        // AITimeline uses scrollIntoView with smooth behavior
         targetElement.scrollIntoView({
             behavior: 'smooth',
             block: 'start'
@@ -4265,7 +4394,7 @@ ${options.message}
 
         setTimeout(() => {
             element.classList.remove('bookmark-highlight');
-        }, 3000);  // 3 秒
+        }, 3000); // 3 seconds
     }
 
     /**
@@ -4277,16 +4406,13 @@ ${options.message}
         const currentUrl = window.location.href;
         const targetUrl = url;
 
-        // 判断是否为当前页面
         const isCurrentPage = this.isSamePage(currentUrl, targetUrl);
 
         if (isCurrentPage) {
-            // 当前页面，直接滚动
-            this.hide(); // 关闭书签面板
+            this.hide();
             await this.smoothScrollToPosition(position);
             logger.debug(`[SimpleBookmarkPanel] Scrolled to position ${position} on current page`);
         } else {
-            // 跨页面跳转
             await this.setNavigateData('targetPosition', position);
             window.location.href = targetUrl;
             logger.debug(`[SimpleBookmarkPanel] Navigating to ${targetUrl} with target position ${position}`);
@@ -4299,10 +4425,10 @@ ${options.message}
     private isSamePage(url1: string, url2: string): boolean {
         const normalize = (url: string) => {
             return url
-                .replace(/^https?:\/\//, '')  // 移除协议
-                .replace(/\/$/, '')            // 移除尾部斜杠
-                .replace(/#.*$/, '')           // 移除 hash
-                .replace(/\?.*$/, '');         // 移除 query
+                .replace(/^https?:\/\//, '')
+                .replace(/\/$/, '')
+                .replace(/#.*$/, '')
+                .replace(/\?.*$/, '');
         };
         return normalize(url1) === normalize(url2);
     }
@@ -4338,13 +4464,13 @@ ${options.message}
     }
 
     /**
-     * Storage helpers - AITimeline pattern
+     * Storage helpers.
      */
     // @ts-ignore - Used in handleGoTo
     private async setNavigateData(key: string, value: any): Promise<void> {
         try {
             const storageKey = `bookmarkNavigate:${key}`;
-            await chrome.storage.local.set({ [storageKey]: value });
+            await browser.storage.local.set({ [storageKey]: value });
         } catch (error) {
             logger.error('[SimpleBookmarkPanel] setNavigateData Error:', error);
         }
@@ -4353,12 +4479,12 @@ ${options.message}
     private async getNavigateData(key: string): Promise<any> {
         try {
             const storageKey = `bookmarkNavigate:${key}`;
-            const result = await chrome.storage.local.get(storageKey);
+            const result = await browser.storage.local.get(storageKey);
             const val = result[storageKey];
 
             if (val !== undefined) {
                 // Clear after reading
-                await chrome.storage.local.remove(storageKey);
+                await browser.storage.local.remove(storageKey);
                 logger.debug(`[SimpleBookmarkPanel] Got ${storageKey} = ${val}`);
                 return val;
             }
@@ -4371,7 +4497,7 @@ ${options.message}
     }
 
     /**
-     * Check for navigation target on page load - AITimeline pattern
+     * Check for navigation target on page load.
      */
     async checkNavigationTarget(): Promise<void> {
         try {
@@ -4380,7 +4506,6 @@ ${options.message}
             if (targetPosition !== null) {
                 logger.debug(`[SimpleBookmarkPanel] Found target position for navigation: ${targetPosition}`);
 
-                // AITimeline pattern: Use requestAnimationFrame
                 requestAnimationFrame(async () => {
                     // Platform detection - check current URL
                     const isGemini = window.location.href.includes('gemini.google.com');
@@ -4422,7 +4547,7 @@ ${options.message}
      */
     destroy(): void {
         if (this.storageListener) {
-            chrome.storage.onChanged.removeListener(this.storageListener);
+            browser.storage.onChanged.removeListener(this.storageListener);
             this.storageListener = null;
         }
 
@@ -4591,9 +4716,9 @@ ${options.message}
                 left: 50%;
                 transform: translate(-50%, -50%);
                 width: 90%;
-                max-width: 1000px;  /* 最大宽度800px */
+                max-width: 1000px;  /* max width */
                 height: 85vh;
-                max-height: 800px;  /* 最大高度600px */
+                max-height: 800px;  /* max height */
                 background: var(--aimd-panel-bg);
                 border-radius: var(--aimd-radius-2xl);  /* Material Design 16px */
                 box-shadow: var(--aimd-shadow-lg);      /* Material Design elevation */
@@ -4828,7 +4953,7 @@ ${options.message}
             /* Toolbar */
             .toolbar {
                 padding: var(--aimd-space-3) var(--aimd-space-6);  /* 12px 24px */
-                border-bottom: 1px solid var(--aimd-border-subtle);  /* ✅ Subtle unified separator */
+                border-bottom: 1px solid var(--aimd-border-subtle);
                 display: flex;
                 gap: var(--aimd-space-3);  /* 12px */
                 align-items: center;
@@ -4837,7 +4962,7 @@ ${options.message}
             .search-wrapper {
                 position: relative;
                 display: flex;
-                align-items: center;  /* 确保内容垂直居中 */
+                align-items: center;  /* keep contents vertically centered */
                 flex: 1;
             }
 
@@ -4845,13 +4970,13 @@ ${options.message}
                 position: absolute;
                 left: 12px;
                 display: flex;
-                align-items: center;  /* 图标垂直居中 */
+                align-items: center;  /* keep icon vertically centered */
                 pointer-events: none;
                 color: var(--aimd-text-tertiary);
             }
 
             .search-icon svg {
-                display: block;  /* 移除inline默认的baseline对齐 */
+                display: block;  /* avoid inline baseline alignment */
             }
 
             /* ===================================================================
@@ -4944,10 +5069,64 @@ ${options.message}
             }
 
             .toolbar-icon-btn svg {
-                flex-shrink: 0;  /* 防止图标被压缩 */
+                flex-shrink: 0;  /* prevent icon from shrinking */
             }
 
-            /* 自定义平台选择器 */
+            /* Sort mode button group - Segmented control / Capsule style */
+            .toolbar .sort-mode-group {
+                display: inline-flex;
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
+                overflow: hidden;
+                background: var(--aimd-bg-secondary);
+                margin: 0 4px;
+                padding: 0;
+            }
+
+            .toolbar .sort-mode-group button.sort-mode-btn {
+                width: 32px;
+                height: 30px;
+                padding: 0;
+                margin: 0;
+                background: transparent;
+                border: none;
+                border-radius: 0;
+                cursor: pointer;
+                color: var(--aimd-text-secondary);
+                transition: background 0.15s ease, color 0.15s ease;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Divider between buttons */
+            .toolbar .sort-mode-group button.sort-mode-btn:first-child {
+                border-right: 1px solid var(--aimd-border-default);
+            }
+
+            /* Hover state for inactive button */
+            .toolbar .sort-mode-group button.sort-mode-btn:hover:not(.active) {
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-primary);
+            }
+
+            /* Active/selected state - Gray background */
+            .toolbar .sort-mode-group button.sort-mode-btn.active {
+                background: var(--aimd-bg-tertiary);
+                color: var(--aimd-text-primary);
+            }
+
+            .toolbar .sort-mode-group button.sort-mode-btn.active:hover {
+                background: var(--aimd-interactive-active);
+            }
+
+            .toolbar .sort-mode-group button.sort-mode-btn svg {
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+
+            /* Platform selector */
             .platform-selector-wrapper {
                 position: relative;
             }
@@ -4969,7 +5148,7 @@ ${options.message}
                 justify-content: space-between;
             }
 
-            /* Mac tag风格 - 根据选中平台改变背景色 */
+            /* Tag-style: background changes based on selected platform */
             .platform-selector[data-selected="all"] {
                 background: var(--aimd-bg-secondary);
                 color: var(--aimd-text-primary);
@@ -5010,7 +5189,7 @@ ${options.message}
                 transform: rotate(180deg);
             }
 
-            /* 下拉菜单 */
+            /* Dropdown menu */
             .platform-dropdown {
                 position: absolute;
                 top: calc(100% + 4px);
@@ -5088,15 +5267,11 @@ ${options.message}
                 margin: var(--aimd-space-1) 3px;
                 border: none;
                 border-radius: var(--aimd-radius-lg);
-                background: transparent; /* ✅ Match folder style (transparent) */
+                background: transparent;
                 cursor: pointer;
                 transition: all var(--aimd-duration-base) var(--ease-out);
                 
                 min-height: 28px;
-                
-                /* ✅ Use standard tree item border (inherited from .tree-item) */
-                /* border-bottom: 1px solid var(--aimd-border-default); REMOVED */
-                /* box-shadow: var(--aimd-shadow-xs); REMOVED */
                 
                 display: flex;
                 align-items: center;
@@ -5157,11 +5332,11 @@ ${options.message}
                 margin: 0 0 12px 0;
                 font-size: 18px;
                 font-weight: 600;
-                color: var(--aimd-text-primary);  /* ✅ Dark mode */
+                color: var(--aimd-text-primary);
             }
             .modal-content p {
                 margin: 0 0 20px 0;
-                color: var(--aimd-text-secondary);  /* ✅ Dark mode */
+                color: var(--aimd-text-secondary);
                 line-height: 1.5;
             }
             .modal-actions {
@@ -5618,7 +5793,7 @@ ${options.message}
             }
 
             .conflict-dialog {
-                background: var(--aimd-bg-primary);  /* ✅ Theme-aware */
+                background: var(--aimd-bg-primary);
                 border-radius: var(--aimd-radius-2xl);
                 box-shadow: var(--aimd-shadow-xl);
                 max-width: 500px;
@@ -5699,8 +5874,8 @@ ${options.message}
                 background: var(--aimd-bg-secondary);
             }
 
-            /* Generic toolbar buttons (excluding icon buttons) */
-            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter) {
+            /* Generic toolbar buttons (excluding icon buttons and sort buttons) */
+            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):not(.sort-mode-btn) {
                 padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
                 border: 1px solid var(--aimd-border-default);  /* Theme-aware */
                 background: var(--aimd-bg-secondary);  /* Theme-aware */
@@ -5714,7 +5889,7 @@ ${options.message}
                 color: var(--aimd-text-primary);  /* Theme-aware */
             }
 
-            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):hover {
+            .toolbar button:not(.toolbar-icon-btn):not(.platform-selector):not(.platform-filter):not(.sort-mode-btn):hover {
                 background: var(--aimd-interactive-hover);  /* Theme-aware */
                 border-color: var(--aimd-border-strong);  /* Theme-aware */
             }
@@ -6649,26 +6824,24 @@ ${options.message}
             
             .batch-actions-bar {
                 position: fixed;
-                bottom: -1px;  /* ✅ Hide completely, no white line */
+                bottom: -1px;
                 left: 140px;
                 right: 0;
                 margin: 0 var(--aimd-space-3) var(--aimd-space-3) var(--aimd-space-3);
                 padding: var(--aimd-space-4) var(--aimd-space-5);
                 
-                /* ✅ Elevated card style with rounded corners */
                 background: var(--aimd-bg-glass);
                 backdrop-filter: blur(20px) saturate(180%);
                 -webkit-backdrop-filter: blur(20px) saturate(180%);
                 border-radius: var(--aimd-radius-lg);
                 
-                /* ✅ Prominent elevation shadow (no border) */
                 box-shadow: var(--aimd-shadow-lg);
                 
                 display: flex;
                 align-items: center;
                 gap: var(--aimd-space-3);
                 z-index: 100;
-                transform: translateY(calc(100% + var(--aimd-space-3) + 1px));  /* ✅ Extra 1px */
+                transform: translateY(calc(100% + var(--aimd-space-3) + 1px));
                 transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
@@ -6679,7 +6852,7 @@ ${options.message}
             .batch-actions-bar .selected-count {
                 font-size: 14px;
                 font-weight: 500;
-                color: var(--aimd-text-primary);  /* ✅ Theme-aware */
+                color: var(--aimd-text-primary);
                 margin-right: auto;
                 white-space: nowrap;
             }
@@ -6690,7 +6863,6 @@ ${options.message}
                 justify-content: center;
                 gap: var(--aimd-space-2);
                 
-                /* ✅ Match toolbar button style */
                 padding: var(--aimd-space-2) var(--aimd-space-3);
                 background: transparent;
                 border: none;
@@ -6706,8 +6878,8 @@ ${options.message}
             }
 
             .batch-actions-bar button:hover {
-                background: var(--aimd-interactive-hover);  /* ✅ More visible hover */
-                color: var(--aimd-interactive-primary);  /* ✅ Blue accent on hover */
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-interactive-primary);
                 transform: scale(1.02);
             }
 
@@ -6742,7 +6914,7 @@ ${options.message}
                 flex: 1;
                 overflow-y: auto;
                 overflow-x: hidden;
-                padding: var(--aimd-space-2);  /* 添加padding避免阴影被截断 */
+                padding: var(--aimd-space-2);  /* padding to avoid shadow clipping */
             }
 
             .tree-view {
@@ -6786,11 +6958,11 @@ ${options.message}
                 transition: all var(--aimd-duration-base);
                 font-size: var(--aimd-text-sm);
                 color: var(--aimd-text-primary);
-                line-height: 1;  /* 移除额外的行高 */
+                line-height: 1;  /* avoid extra line-height */
             }
 
             .batch-action-btn svg {
-                flex-shrink: 0;  /* 防止图标被压缩 */
+                flex-shrink: 0;  /* prevent icon from shrinking */
             }
 
             .tree-item:hover {
@@ -6867,9 +7039,9 @@ ${options.message}
                 font-weight: var(--aimd-font-medium);
                 color: var(--aimd-text-primary);
                 display: flex;
-                align-items: center;  /* 图标和文字垂直居中对齐 */
+                align-items: center;  /* vertically center icon and label */
                 gap: var(--aimd-space-2);  /* 8px */
-                line-height: 20px;  /* 匹配图标高度,确保完美对齐 */
+                line-height: 20px;  /* match icon height for alignment */
                 user-select: none;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -6877,9 +7049,9 @@ ${options.message}
             }
 
             .folder-name svg {
-                flex-shrink: 0;  /* 防止图标被压缩 */
-                display: block;  /* 移除inline默认的baseline对齐 */
-                vertical-align: middle;  /* 确保垂直居中 */
+                flex-shrink: 0;  /* prevent icon from shrinking */
+                display: block;  /* avoid inline baseline alignment */
+                vertical-align: middle;  /* keep vertical alignment stable */
             }
             
             .folder-count {
@@ -7078,7 +7250,7 @@ ${options.message}
                 width: 16px;
                 height: 16px;
                 flex-shrink: 0;
-                accent-color: var(--aimd-text-link);  /* 深蓝色 */
+                accent-color: var(--aimd-text-link);  /* deep blue */
             }
 
             .item-checkbox:focus {
@@ -7088,8 +7260,8 @@ ${options.message}
 
             /* Action Buttons */
             .item-actions {
-                display: none;  /* 默认隐藏 */
-                position: absolute;  /* 绝对定位,不影响高度 */
+                display: none;  /* hidden by default */
+                position: absolute;  /* absolute positioning; does not affect layout */
                 right: var(--aimd-space-3);
                 top: 50%;
                 transform: translateY(-50%);
@@ -7102,9 +7274,6 @@ ${options.message}
             }
 
             .tree-item.is-editing:hover .item-actions {
-                display: none;
-            }
-
             .action-btn {
                 width: 28px;
                 height: 28px;
@@ -7118,6 +7287,33 @@ ${options.message}
                 align-items: center;
                 justify-content: center;
                 padding: 0;
+            }
+
+            .toolbar-icon-btn {
+                padding: 6px 8px;
+                background: transparent;
+                border: none;
+                border-radius: var(--border-radius-sm);
+                cursor: pointer;
+                color: var(--text-secondary);
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .toolbar-icon-btn:hover {
+                background: var(--hover-bg);
+                color: var(--text-primary);
+            }
+
+            .toolbar-icon-btn:active {
+                transform: scale(0.95);
+            }
+
+            .toolbar-icon-btn svg {
+                width: 16px;
+                height: 16px;
             }
 
             .action-btn:hover {
@@ -7211,7 +7407,7 @@ ${options.message}
                 color: var(--aimd-text-primary);
                 border-radius: var(--aimd-radius-lg);
                 font-weight: var(--aimd-font-medium);
-                box-shadow: var(--aimd-shadow-sm);  /* 与Tab选中一致的阴影 */
+	                box-shadow: var(--aimd-shadow-sm);  /* match the selected-tab shadow */
             }    }
             }
 
@@ -7223,7 +7419,7 @@ ${options.message}
             }
 
             .tab-icon svg {
-                width: 20px;  /* 放大图标 */
+	                width: 20px;  /* larger icon size */
                 height: 20px;
                 flex-shrink: 0;
             }    padding: var(--aimd-space-10);  /* 40px */

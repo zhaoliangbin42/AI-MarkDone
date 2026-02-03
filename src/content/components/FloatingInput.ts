@@ -2,7 +2,6 @@
  * FloatingInput - UI Component for Message Sending
  * 
  * A floating input box that appears above the trigger button in ReaderPanel.
- * UI-only implementation - logic will be added in Phase 3.
  * 
  * Features:
  * - Expands from trigger button position
@@ -20,7 +19,7 @@ export interface FloatingInputOptions {
     onSend?: (text: string) => void;
     /** Callback when input box is collapsed */
     onCollapse?: (text: string) => void;
-    /** Callback when text changes (debounced in Phase 3) */
+    /** Callback when text changes */
     onInput?: (text: string) => void;
     /** Initial text content */
     initialText?: string;

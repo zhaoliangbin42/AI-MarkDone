@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+/**
+ * Vite Config for Chrome Build
+ * 
+ * Chrome 使用 service-worker.ts 作为 background script
+ */
 export default defineConfig({
     build: {
-        modulePreload: {
-            polyfill: false  // Disable Vite's modulepreload polyfill (uses document, incompatible with Service Worker)
-        },
         rollupOptions: {
             input: {
                 content: resolve(__dirname, 'src/content/index.ts'),
@@ -16,7 +18,7 @@ export default defineConfig({
                 format: 'es',
             }
         },
-        outDir: 'dist',
+        outDir: 'dist-chrome',
         emptyOutDir: true,
         minify: false,
         sourcemap: false,

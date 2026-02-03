@@ -1,21 +1,10 @@
 /**
- * Math Inline Rule - Convert inline math to $...$
- * 
- * Matches:
- * - ChatGPT: .katex (but not .katex-display)
- * - Gemini: .math-inline[data-math]
- * 
- * @see DEVELOPER-REFERENCE-MANUAL.md - Syntax Conversion Quick Reference
- * @see Syntax-Mapping-Spec.md - Math Elements (Inline Math)
+ * Convert inline math to `$...$`.
+ * Matches: ChatGPT `.katex` (excluding `.katex-display`), Gemini `.math-inline[data-math]`.
  */
 
 import type { Rule } from '../../core/Rule';
 
-/**
- * Creates rule for inline math formulas
- * 
- * Priority: 2
- */
 export function createMathInlineRule(): Rule {
     return {
         name: 'math-inline',
@@ -26,11 +15,9 @@ export function createMathInlineRule(): Rule {
             }
             const elem = node as Element;
 
-            // ✅ UNIVERSAL FIX: Skip inner rendering nodes wrapped by math container
-            // 使用closest()支持多层嵌套,平台无关
+            // Why: only the outer `[data-math]` container should emit markdown; skip inner rendering nodes.
             const mathContainer = elem.closest('[data-math]');
             if (mathContainer && mathContainer !== elem) {
-                // elem被包裹在有data-math的容器中,跳过
                 return false;
             }
 
@@ -53,9 +40,7 @@ export function createMathInlineRule(): Rule {
             // Extract LaTeX using adapter
             const result = context.adapter.extractLatex(mathNode);
 
-            // ✅ Handle null return (e.g., inner .katex nodes filtered by adapter)
             if (!result) {
-                // Return empty string to skip this node (already processed by outer container)
                 return '';
             }
 

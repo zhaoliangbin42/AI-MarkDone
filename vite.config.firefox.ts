@@ -1,22 +1,25 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+/**
+ * Vite Config for Firefox Build
+ * 
+ * Firefox 使用纯 JS background script (无需编译)
+ * 只编译 content script
+ */
 export default defineConfig({
     build: {
-        modulePreload: {
-            polyfill: false  // Disable Vite's modulepreload polyfill (uses document, incompatible with Service Worker)
-        },
         rollupOptions: {
             input: {
                 content: resolve(__dirname, 'src/content/index.ts'),
-                background: resolve(__dirname, 'src/background/service-worker.ts')
+                // Note: background-firefox.js 是纯 JS，通过 postbuild 复制
             },
             output: {
                 entryFileNames: '[name].js',
                 format: 'es',
             }
         },
-        outDir: 'dist',
+        outDir: 'dist-firefox',
         emptyOutDir: true,
         minify: false,
         sourcemap: false,
