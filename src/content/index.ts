@@ -1,5 +1,6 @@
 import { adapterRegistry } from './adapters/registry';
 import { MessageObserver } from './observers/mutation-observer';
+import { SelectorMessageObserver } from './observers/selector-message-observer';
 import { ToolbarInjector, ToolbarState } from './injectors/toolbar-injector';
 import { Toolbar, ToolbarCallbacks } from './components/toolbar';
 import { Modal } from './components/modal';
@@ -8,6 +9,7 @@ import { MathClickHandler } from './features/math-click';
 import { ReaderPanel } from './features/re-render';
 import { DeepResearchHandler } from './features/deep-research-handler';
 import { logger, LogLevel } from '../utils/logger';
+import { browser } from '../utils/browser';
 import { SimpleBookmarkStorage } from '../bookmarks/storage/SimpleBookmarkStorage';
 import { BookmarkSaveModal } from '../bookmarks/components/BookmarkSaveModal';
 import { simpleBookmarkPanel } from '../bookmarks/components/SimpleBookmarkPanel';
@@ -19,28 +21,30 @@ import { ThemeManager, Theme } from '../utils/ThemeManager';
 import { eventBus } from './utils/EventBus';
 import { collectAllMessages, getConversationMetadata, saveMessagesAsMarkdown, saveMessagesAsPdf } from './features/save-messages';
 import { saveMessagesDialog } from './features/SaveMessagesDialog';
+import { SettingsManager } from '../settings/SettingsManager';
 
 /**
  * Listen for messages from background script
  */
-chrome.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
+browser.runtime.onMessage.addListener((request: any, _sender, _sendResponse) => {
     if (request.action === 'openBookmarkPanel') {
         simpleBookmarkPanel.toggle();
     }
+    return true; // Keep message channel open
 });
 
 /**
  * Main content script controller
  */
 class ContentScript {
-    private observer: MessageObserver | null = null;
+    private observer: MessageObserver | SelectorMessageObserver | null = null;
     private injector: ToolbarInjector | null = null;
     private markdownParser: MarkdownParser;
     private mathClickHandler: MathClickHandler;
     private reRenderPanel: ReaderPanel;
     private deepResearchHandler?: DeepResearchHandler;
 
-    // Simple Set-based bookmark state tracking - AITimeline pattern
+    // Bookmark state tracking (1-indexed positions).
     private bookmarkedPositions: Set<number> = new Set();
 
     // Toolbar references for direct state updates
@@ -49,7 +53,6 @@ class ContentScript {
     // Storage listener for real-time bookmark sync
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
 
-    // Navigation check flag - AITimeline pattern
     private navigationChecked: boolean = false;
 
     // Track messages being processed to prevent duplicate toolbar injection
@@ -99,6 +102,16 @@ class ContentScript {
             return;
         }
 
+        // Check platform settings: is this platform enabled?
+        const platformSettings = await SettingsManager.getInstance().get('platforms');
+        const platformName = adapter.getPlatformName().toLowerCase();
+        const platformKey = platformName as keyof typeof platformSettings;
+
+        if (platformSettings[platformKey] === false) {
+            logger.info(`[ContentScript] Platform "${platformName}" is disabled in settings, skipping initialization`);
+            return;
+        }
+
         logger.info('Starting extension on supported page');
 
         // Create injector first (needed by observer)
@@ -106,21 +119,33 @@ class ContentScript {
 
         // Create observer with injector dependency
 
-        this.observer = new MessageObserver(
-            adapter,
-            this.injector,
-            (messageElement) => {
-                this.handleNewMessage(messageElement);
-            }
-        );
+        const platformNameRaw = adapter.getPlatformName();
+        if (platformNameRaw === 'ChatGPT') {
+            this.observer = new SelectorMessageObserver(
+                adapter,
+                this.injector,
+                (messageElement) => {
+                    this.handleNewMessage(messageElement);
+                }
+            );
+        } else {
+            this.observer = new MessageObserver(
+                adapter,
+                this.injector,
+                (messageElement) => {
+                    this.handleNewMessage(messageElement);
+                }
+            );
+        }
 
-        // Initialize Deep Research handler for Gemini
+        // Initialize platform-specific panel buttons
         if ('isGemini' in adapter && typeof adapter.isGemini === 'function' && adapter.isGemini()) {
-            this.deepResearchHandler = new DeepResearchHandler();
-            this.deepResearchHandler.enable();
-
             // Initialize Gemini panel button
             geminiPanelButton.init();
+
+            // Initialize Deep Research handler for panel button injection
+            this.deepResearchHandler = new DeepResearchHandler();
+            this.deepResearchHandler.enable();
         } else if (window.location.href.includes('claude.ai')) {
             // Initialize Claude panel button
             claudePanelButton.init();
@@ -132,7 +157,7 @@ class ContentScript {
             chatGPTPanelButton.init();
         }
 
-        // Load bookmarks for current page BEFORE starting observer - AITimeline pattern
+        // Why: load bookmarks before observing to avoid processing messages with stale bookmark state.
         // This prevents race condition where messages are processed before bookmarks are loaded
         await this.loadBookmarks();
 
@@ -184,7 +209,7 @@ class ContentScript {
             logger.info(`[ContentScript] 📊 Result: bookmarkKeysChanged = ${bookmarkKeysChanged}`);
 
             if (bookmarkKeysChanged) {
-                logger.info('[ContentScript] ✅ Bookmark-related keys changed, reloading...');
+                logger.info('[ContentScript] Bookmark-related keys changed, reloading...');
                 logger.info('[ContentScript] 📝 Bookmark keys:', changedKeys.filter(k => k.startsWith('bookmark:')));
 
                 // Reload bookmarked positions for current page
@@ -208,13 +233,13 @@ class ContentScript {
                     detail: { positions: Array.from(this.bookmarkedPositions) }
                 }));
 
-                logger.info(`[ContentScript] ✅ Updated ${updatedCount} toolbars via direct reference`);
+                logger.info(`[ContentScript] Updated ${updatedCount} toolbars via direct reference`);
             } else {
                 logger.info('[ContentScript] ⏭️  Skipping: no bookmark keys changed');
             }
         };
 
-        chrome.storage.onChanged.addListener(this.storageListener);
+        browser.storage.onChanged.addListener(this.storageListener);
         logger.info('[ContentScript] Storage listener setup for bookmark sync');
     }
 
@@ -225,7 +250,7 @@ class ContentScript {
 
 
     /**
-     * Check for cross-page bookmark navigation - AITimeline pattern
+     * Check for cross-page bookmark navigation.
      */
     private async checkBookmarkNavigation(): Promise<void> {
         const { simpleBookmarkPanel } = await import('../bookmarks/components/SimpleBookmarkPanel');
@@ -249,6 +274,7 @@ class ContentScript {
         const hasActionBar = (isArticle || isModelResponse)
             ? messageElement.querySelector(adapter.getActionBarSelector()) !== null
             : true;
+
 
 
         // Get message ID for tracking
@@ -282,7 +308,7 @@ class ContentScript {
             this.processingMessages.add(messageId);
         }
 
-        // ✅ AITimeline pattern: Check navigation target on first message detection
+        // Why: check navigation target once after the first message is detected.
         if (!this.navigationChecked) {
             this.navigationChecked = true;
             logger.info('[ContentScript] First message detected, checking bookmark navigation');
@@ -294,6 +320,7 @@ class ContentScript {
         const existingToolbarContainer = messageElement.querySelector('.aicopy-toolbar-container');
         if (existingToolbarContainer) {
             logger.debug('Toolbar already exists, checking state');
+
 
             // 🔑 FIX: Activate toolbar if it was injected but not yet visible
             // This happens when streaming completes (Copy button triggers re-detection)
@@ -374,7 +401,6 @@ class ContentScript {
             (toolbarContainer as any).__toolbar = toolbar;
         }
 
-        // Set initial bookmark state - AITimeline pattern
         const position = this.getMessagePosition(messageElement);
 
         // Save toolbar reference for direct state updates
@@ -392,11 +418,8 @@ class ContentScript {
         if (messageId) {
             setTimeout(() => {
                 this.processingMessages.delete(messageId);
-                logger.info(`[DEBUG] ⏰ Timeout: Removed ${messageId}. Size: ${this.processingMessages.size}`);
             }, 1000); // 1 second should be enough for toolbar injection
         }
-
-        logger.info('=== handleNewMessage END ===');
 
         // Emit event for pagination update
         const adapter2 = adapterRegistry.getAdapter();
@@ -404,7 +427,7 @@ class ContentScript {
             const messageSelector = adapter2.getMessageSelector();
             const allMessages = document.querySelectorAll(messageSelector);
             eventBus.emit('message:new', { count: allMessages.length });
-            // ✅ Emit completion event for ReaderPanel trigger button state
+            // Notify ReaderPanel trigger button state.
             eventBus.emit('message:complete', { count: allMessages.length });
         }
     }
@@ -420,6 +443,28 @@ class ContentScript {
         if (messageElement.tagName.toLowerCase() === 'article') {
             logger.debug('[getMarkdown] Article element detected, parsing entire article');
             return this.markdownParser.parse(messageElement);
+        }
+
+        // Check if this is a Deep Research message (Gemini-specific)
+        // If the Deep Research panel is open, extract content from there
+        if ('isDeepResearchMessage' in adapter &&
+            typeof adapter.isDeepResearchMessage === 'function' &&
+            adapter.isDeepResearchMessage(messageElement)) {
+
+            logger.debug('[getMarkdown] Deep Research message detected');
+
+            // Try to get content from the open panel
+            if ('getDeepResearchContent' in adapter &&
+                typeof adapter.getDeepResearchContent === 'function') {
+                const panelContent = adapter.getDeepResearchContent();
+                if (panelContent) {
+                    logger.info('[getMarkdown] Extracting from Deep Research panel');
+                    return this.markdownParser.parse(panelContent);
+                }
+            }
+
+            // Panel not open - fall through to regular extraction
+            logger.debug('[getMarkdown] Deep Research panel not open, using regular extraction');
         }
 
         // For regular messages, find the content element
@@ -447,7 +492,7 @@ class ContentScript {
      * Show re-render preview panel
      */
     private showReRenderPanel(messageElement: HTMLElement): void {
-        // ✅ 传入getMarkdown方法 (复用复制功能的正确逻辑)
+        // Why: reuse the existing copy pipeline by passing `getMarkdown`.
         this.reRenderPanel.show(
             messageElement,
             (el: HTMLElement) => this.getMarkdown(el)
@@ -487,7 +532,7 @@ class ContentScript {
     }
 
     /**
-     * Handle bookmark toggle - AITimeline pattern with edit modal
+     * Handle bookmark toggle.
      */
     private async handleBookmark(messageElement: HTMLElement): Promise<void> {
         const url = window.location.href;
@@ -724,6 +769,10 @@ let lastUrl: string = window.location.href;
 let navVersion = 0;
 let routeListenersAttached = false;
 
+// Single source of truth for the active content script instance.
+// This prevents "multiple start, missing stop" issues across SPA navigations.
+let activeContentScript: ContentScript | null = null;
+
 /**
  * Wait for page to be ready by checking for key DOM elements
  * Uses polling with exponential backoff instead of fixed delay
@@ -765,7 +814,7 @@ function waitForPageReady(adapter: any): Promise<boolean> {
  * Handle navigation/URL change
  * Waits for page to be actually ready instead of using fixed delay
  */
-function handleNavigation(contentScript: ContentScript | null): ContentScript | null {
+function handleNavigation(): void {
     const currentVersion = ++navVersion;
     // Clear any pending reinitialization
     if (reinitTimeout !== null) {
@@ -821,42 +870,56 @@ function handleNavigation(contentScript: ContentScript | null): ContentScript | 
         // Safe to reinitialize
         logger.info('[Navigation] Reinitializing extension');
 
-        // 🔑 FIX: Reset observer to clear processedMessages Set (prevent memory growth)
-        if (contentScript && (contentScript as any).observer) {
-            (contentScript as any).observer.reset();
-            logger.debug('[Navigation] Observer reset completed');
-        }
-
-        contentScript?.stop();
-        const newContentScript = new ContentScript();
-        await newContentScript.start();
-
-
-        // Update closure reference
-        contentScript = newContentScript;
+        // Always stop the *actual* active instance (single source of truth)
+        activeContentScript?.stop();
+        activeContentScript = new ContentScript();
+        await activeContentScript.start();
     })();
-
-    return contentScript;
 }
 
 /**
  * Initialize extension and setup URL change detection
  */
 function initExtension() {
-    console.log('[AI-MarkDone] Script injected and running');
     logger.info('Initializing AI-MarkDone extension');
     logger.debug('Document readyState:', document.readyState);
     logger.debug('Current URL:', window.location.href);
 
-    let contentScript: ContentScript | null = new ContentScript();
-    contentScript.start(); // Fire and forget - initial load
+    activeContentScript = new ContentScript();
+
+    const safeStart = async (): Promise<void> => {
+        if (!activeContentScript) {
+            activeContentScript = new ContentScript();
+        }
+        try {
+            await activeContentScript.start();
+        } catch (err) {
+            // If start() throws (unhandled async error), the whole extension can silently die.
+            // Retry once with a fresh instance to recover from transient SPA / extension-context issues.
+            logger.error('[Init] ContentScript.start() failed, retrying with fresh instance:', err);
+            try {
+                activeContentScript.stop();
+            } catch {
+                // ignore
+            }
+            activeContentScript = new ContentScript();
+            try {
+                await activeContentScript.start();
+            } catch (err2) {
+                logger.error('[Init] Retry ContentScript.start() failed:', err2);
+            }
+        }
+    };
+
+    // Initial load
+    void safeStart();
 
     const handleUrlChange = () => {
         const currentUrl = window.location.href;
         if (currentUrl !== lastUrl) {
             lastUrl = currentUrl;
             logger.info('[Observer] URL changed:', currentUrl);
-            contentScript = handleNavigation(contentScript);
+            handleNavigation();
         }
     };
 
@@ -925,6 +988,15 @@ function cleanupExtension() {
     if (debounceTimeout !== null) {
         clearTimeout(debounceTimeout);
         debounceTimeout = null;
+    }
+
+    if (activeContentScript) {
+        try {
+            activeContentScript.stop();
+        } catch {
+            // ignore
+        }
+        activeContentScript = null;
     }
 
     logger.info('[Cleanup] Extension cleanup complete');

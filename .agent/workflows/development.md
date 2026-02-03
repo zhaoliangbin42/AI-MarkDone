@@ -27,13 +27,21 @@ description: 新功能开发工作流 - 从需求到验证的完整SOP
 ## Phase 1: 需求分析
 
 > **使用 Artifact**: `implementation_plan.md`
-> **激活 Skill**: `brainstorming` (如需对话探索)
+> **激活 Skill**: `brainstorming` (必须)
 
-### 1.1 需求理解
+### 1.1 Brainstorming (必须)
 
-如用户需求不清晰，使用 brainstorming skill 的对话技巧：
+新功能开发**必须**先激活 `brainstorming` skill 探索需求：
+
+| 触发条件 | 说明 |
+|:---------|:-----|
+| 新增功能 | Adding functionality |
+| 行为修改 | Modifying behavior |
+| 组件创建 | Creating components |
+
+**对话技巧：**
 - 一次只问一个问题
-- 提供多选项供选择
+- 提供多选项供选择 (A/B/C)
 - 分段呈现设计 (200-300字/段)
 
 ### 1.2 生成实现计划
@@ -101,6 +109,7 @@ if (!element) {
 
 ```bash
 // turbo
+# 同时构建 Chrome 和 Firefox
 npm run build
 ```
 
@@ -137,7 +146,7 @@ Antigravity 将自动生成变更总结。
 
 | 条件 | 需更新的文档 |
 |:-----|:-------------|
-| 新增/修改公共接口 | `PLATFORM_ADAPTATION_GUIDE.md` |
+| 新增/修改 Background 功能 | `docs/BROWSER_COMPATIBILITY.md` + 两个 background 文件 |
 | 新增平台功能 | `CAPABILITY_MATRIX.md` |
 
 ### 7.2 更新 CHANGELOG
@@ -155,8 +164,9 @@ Antigravity 将自动生成变更总结。
 
 - [ ] Phase 1: 实现计划已获用户确认
 - [ ] Phase 3: 代码修改完成，用户已调试确认
-- [ ] Phase 4: `npm run build` 成功
+- [ ] Phase 4: `npm run build` 成功 (Chrome + Firefox)
 - [ ] Phase 5: walkthrough 已生成
 - [ ] Phase 7: CHANGELOG 已更新
+- [ ] Background 变更已同步到两个浏览器
 
 **结束条件**: walkthrough 已生成，用户已确认功能正常

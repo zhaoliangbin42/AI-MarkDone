@@ -2,8 +2,11 @@ import { IStorageAdapter } from './IStorageAdapter';
 import { ChromeStorageAdapter } from './ChromeStorageAdapter';
 import { MockStorageAdapter } from './MockStorageAdapter';
 
+// Declare global `chrome` for extension environments.
+declare const chrome: any;
+
 /**
- * Platform detector - auto-selects appropriate storage adapter
+ * Platform detector - determines which storage adapter to use
  */
 export class PlatformDetector {
     static getStorageAdapter(): IStorageAdapter {

@@ -149,6 +149,47 @@ export class GeminiAdapter extends SiteAdapter {
     }
 
     /**
+     * Check if this model-response contains a Deep Research entry
+     * Deep Research entries have an `immersive-entry-chip` element inside
+     */
+    isDeepResearchMessage(element: HTMLElement): boolean {
+        return element.querySelector('immersive-entry-chip') !== null;
+    }
+
+    /**
+     * Get Deep Research content from the currently open panel
+     * 
+     * Deep Research content is shown in a separate immersive panel,
+     * not inside the model-response. When the panel is open, we should
+     * extract content from there instead of the short summary message.
+     * 
+     * @returns The content element or null if panel is not open
+     */
+    getDeepResearchContent(): HTMLElement | null {
+        const panel = document.querySelector('deep-research-immersive-panel');
+        if (!panel) {
+            logger.debug('[GeminiAdapter] Deep Research panel not found');
+            return null;
+        }
+
+        const content = panel.querySelector('#extended-response-markdown-content');
+        if (!content) {
+            logger.debug('[GeminiAdapter] Deep Research content element not found');
+            return null;
+        }
+
+        return content as HTMLElement;
+    }
+
+    /**
+     * Check if Deep Research panel is currently open
+     * Used to determine if content can be extracted or user needs to open the panel first
+     */
+    isDeepResearchPanelOpen(): boolean {
+        return document.querySelector('deep-research-immersive-panel') !== null;
+    }
+
+    /**
      * Get user prompts for all messages
      * Extracts from [data-test-id="user-query"] or fallback selectors
      */

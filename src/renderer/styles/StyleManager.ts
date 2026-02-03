@@ -1,4 +1,5 @@
 import { BUNDLED_KATEX_CSS } from './bundled-katex.css';
+import { logger } from '../../utils/logger';
 
 export interface StyleResult {
     success: boolean;
@@ -22,21 +23,21 @@ export class StyleManager {
         target: Document | ShadowRoot
     ): Promise<StyleResult> {
         const styleStartTime = performance.now();
-        console.log('[StyleManager] ⏱️  START injectStyles');
+        logger.debug('[AI-MarkDone][StyleManager] START injectStyles');
 
         if (this.injectedTargets.has(target)) {
-            console.log('[StyleManager] ✅ Already injected (cached)');
+            logger.debug('[AI-MarkDone][StyleManager] Already injected (cached)');
             return { success: true, usedFallback: false };
         }
 
-        // 1. 立即inject bundled KaTeX (0ms阻塞)
+        // 1) Inject bundled KaTeX (non-blocking)
         const t0 = performance.now();
         await this.injectBundledKatex(target);
-        console.log(`[AI-MarkDone][StyleManager]   injectBundledKatex: ${(performance.now() - t0).toFixed(2)}ms`);
+        logger.debug(`[AI-MarkDone][StyleManager] injectBundledKatex: ${(performance.now() - t0).toFixed(2)}ms`);
 
-        // 2. 异步加载CDN (后台优化,不阻塞)
+        // 2) Load CDN in the background (best-effort)
         this.loadKatexCDN(target).catch(() => {
-            console.warn('[AI-MarkDone][StyleManager] CDN load failed, using bundled');
+            logger.warn('[AI-MarkDone][StyleManager] CDN load failed, using bundled');
         });
 
         // 3. Inject base markdown styles
@@ -45,13 +46,13 @@ export class StyleManager {
         mdStyle.id = 'aicopy-markdown-styles';
         mdStyle.textContent = this.getMarkdownStyles();
         target.appendChild(mdStyle);
-        console.log(`[AI-MarkDone][StyleManager]   injectBaseStyles: ${(performance.now() - t1).toFixed(2)}ms`);
+        logger.debug(`[AI-MarkDone][StyleManager] injectBaseStyles: ${(performance.now() - t1).toFixed(2)}ms`);
 
         this.injectedTargets.add(target);
         this.injectedCount++;
 
         const styleEndTime = performance.now();
-        console.log(`[AI-MarkDone][StyleManager] ✅ END injectStyles: ${(styleEndTime - styleStartTime).toFixed(2)}ms`);
+        logger.debug(`[AI-MarkDone][StyleManager] END injectStyles: ${(styleEndTime - styleStartTime).toFixed(2)}ms`);
         return { success: true, usedFallback: false };
     }
 

@@ -9,14 +9,13 @@
 
 import { FolderStorage } from './FolderStorage';
 import { SimpleBookmarkStorage } from './SimpleBookmarkStorage';
+import { browser } from '../../utils/browser';
+import { logger } from '../../utils/logger';
 
-/**
- * Logger utility
- */
-const logger = {
-    info: (message: string, ...args: any[]) => console.log(`[Migration] ${message}`, ...args),
-    error: (message: string, ...args: any[]) => console.error(`[Migration] ${message}`, ...args),
-    warn: (message: string, ...args: any[]) => console.warn(`[Migration] ${message}`, ...args),
+const migrationLogger = {
+    info: (message: string, ...args: any[]) => logger.info('[AI-MarkDone][Migration]', message, ...args),
+    error: (message: string, ...args: any[]) => logger.error('[AI-MarkDone][Migration]', message, ...args),
+    warn: (message: string, ...args: any[]) => logger.warn('[AI-MarkDone][Migration]', message, ...args),
 };
 
 /**
@@ -39,17 +38,17 @@ export class BookmarkMigration {
         try {
             const migrated = await this.isMigrated();
             if (migrated) {
-                logger.info('Already migrated, skipping');
+                migrationLogger.info('Already migrated, skipping');
                 return;
             }
 
-            logger.info('Starting bookmark migration...');
+            migrationLogger.info('Starting bookmark migration...');
             const result = await this.migrate();
             await this.setMigrated();
 
-            logger.info(`Migration complete: ${result.migratedCount} bookmarks migrated`);
+            migrationLogger.info(`Migration complete: ${result.migratedCount} bookmarks migrated`);
         } catch (error) {
-            logger.error('Migration failed:', error);
+            migrationLogger.error('Migration failed:', error);
             throw error;
         }
     }
@@ -70,12 +69,12 @@ export class BookmarkMigration {
             const importFolder = await FolderStorage.get(this.IMPORT_FOLDER_PATH);
             if (!importFolder) {
                 await FolderStorage.create(this.IMPORT_FOLDER_PATH);
-                logger.info('Created "Import" folder');
+                migrationLogger.info('Created "Import" folder');
             }
 
             // 2. Get all bookmarks
             const bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
-            logger.info(`Found ${bookmarks.length} bookmarks to check`);
+            migrationLogger.info(`Found ${bookmarks.length} bookmarks to check`);
 
             // 3. Update bookmarks without folderPath
             let migratedCount = 0;
@@ -98,16 +97,16 @@ export class BookmarkMigration {
 
             // Batch update all bookmarks
             if (Object.keys(updates).length > 0) {
-                await chrome.storage.local.set(updates);
-                logger.info(`Migrated ${migratedCount} bookmarks to "Import" folder`);
+                await browser.storage.local.set(updates);
+                migrationLogger.info(`Migrated ${migratedCount} bookmarks to "Import" folder`);
             } else {
-                logger.info('No bookmarks needed migration');
+                migrationLogger.info('No bookmarks needed migration');
             }
 
             return { migratedCount };
 
         } catch (error) {
-            logger.error('Migration process failed:', error);
+            migrationLogger.error('Migration process failed:', error);
             throw error;
         }
     }
@@ -117,10 +116,10 @@ export class BookmarkMigration {
      */
     private static async isMigrated(): Promise<boolean> {
         try {
-            const result = await chrome.storage.local.get(this.MIGRATION_FLAG_KEY);
+            const result = await browser.storage.local.get(this.MIGRATION_FLAG_KEY);
             return !!result[this.MIGRATION_FLAG_KEY];
         } catch (error) {
-            logger.error('Failed to check migration status:', error);
+            migrationLogger.error('Failed to check migration status:', error);
             return false;
         }
     }
@@ -130,13 +129,13 @@ export class BookmarkMigration {
      */
     private static async setMigrated(): Promise<void> {
         try {
-            await chrome.storage.local.set({
+            await browser.storage.local.set({
                 [this.MIGRATION_FLAG_KEY]: true,
                 migrationDate: Date.now()
             });
-            logger.info('Migration flag set');
+            migrationLogger.info('Migration flag set');
         } catch (error) {
-            logger.error('Failed to set migration flag:', error);
+            migrationLogger.error('Failed to set migration flag:', error);
             throw error;
         }
     }
@@ -148,10 +147,10 @@ export class BookmarkMigration {
      */
     static async resetMigration(): Promise<void> {
         try {
-            await chrome.storage.local.remove([this.MIGRATION_FLAG_KEY, 'migrationDate']);
-            logger.warn('Migration flag reset - migration will run on next load');
+            await browser.storage.local.remove([this.MIGRATION_FLAG_KEY, 'migrationDate']);
+            migrationLogger.warn('Migration flag reset - migration will run on next load');
         } catch (error) {
-            logger.error('Failed to reset migration flag:', error);
+            migrationLogger.error('Failed to reset migration flag:', error);
             throw error;
         }
     }
@@ -167,8 +166,8 @@ export class BookmarkMigration {
     }> {
         try {
             const migrated = await this.isMigrated();
-            const result = await chrome.storage.local.get('migrationDate');
-            const migrationDate = result.migrationDate;
+            const result = await browser.storage.local.get('migrationDate');
+            const migrationDate = result.migrationDate as number | undefined;
 
             const allBookmarks = await SimpleBookmarkStorage.getAllBookmarks();
             const bookmarksInImport = allBookmarks.filter(b => b.folderPath === this.IMPORT_FOLDER_PATH).length;
@@ -180,7 +179,7 @@ export class BookmarkMigration {
                 bookmarksInImport
             };
         } catch (error) {
-            logger.error('Failed to get migration status:', error);
+            migrationLogger.error('Failed to get migration status:', error);
             return {
                 migrated: false,
                 totalBookmarks: 0,

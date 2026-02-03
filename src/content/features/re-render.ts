@@ -19,39 +19,24 @@ import { eventBus } from '../utils/EventBus';
 import { MarkdownParser } from '../parsers/markdown-parser';
 import { StreamingDetector } from '../adapters/streaming-detector';
 import { SettingsManager } from '../../settings/SettingsManager';
+import { SimpleBookmarkStorage } from '../../bookmarks/storage/SimpleBookmarkStorage';
+import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal';
+import { Modal } from '../components/modal';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
 /**
- * Reader Panel - 通用 Markdown 阅读器
- * 
- * 设计原则（重构后）：
- * - 数据驱动：通过 ReaderItem[] 接收数据
- * - 与数据源解耦：不关心数据来自 DOM 还是存储
- * - 支持懒加载：ContentProvider 可以是函数
- * 
- * 协调模块：
- * - DotPaginationController: 分页 UI
- * - TooltipManager: 提示框
- * - MarkdownRenderer: 内容渲染
+ * Reader Panel - a generic Markdown reader.
+ *
+ * Principles:
+ * - Data-driven: accepts `ReaderItem[]`.
+ * - Decoupled: does not care whether data comes from DOM or storage.
+ * - Lazy-friendly: content may be provided as a function.
  */
 export interface ReaderPanelOptions {
     hideTriggerButton?: boolean;
 }
 
-/**
- * Reader Panel - 通用 Markdown 阅读器
- * 
- * 设计原则（重构后）：
- * - 数据驱动：通过 ReaderItem[] 接收数据
- * - 与数据源解耦：不关心数据来自 DOM 还是存储
- * - 支持懒加载：ContentProvider 可以是函数
- * 
- * 协调模块：
- * - DotPaginationController: 分页 UI
- * - TooltipManager: 提示框
- * - MarkdownRenderer: 内容渲染
- */
 export class ReaderPanel {
     private container: HTMLElement | null = null;
     private shadowRoot: ShadowRoot | null = null;
@@ -77,6 +62,9 @@ export class ReaderPanel {
     // EventBus subscription cleanup
     private unsubscribeNewMessage: (() => void) | null = null;
 
+    // Bookmark state for pagination indicators
+    private bookmarkedPositions: Set<number> = new Set();
+
     // Configuration options
     private options: ReaderPanelOptions;
 
@@ -85,10 +73,10 @@ export class ReaderPanel {
     }
 
     /**
-     * 【新方法】通用入口：接受标准化的 ReaderItem[]
-     * 
-     * @param items - 阅读器数据项数组
-     * @param startIndex - 初始显示的索引
+     * Public entry: accepts normalized `ReaderItem[]`.
+     *
+     * @param items - Reader items to display
+     * @param startIndex - Initial index to show
      */
     async showWithData(items: ReaderItem[], startIndex: number = 0): Promise<void> {
         const startTime = performance.now();
@@ -102,20 +90,24 @@ export class ReaderPanel {
             return;
         }
 
-        // 验证并设置起始索引
         this.currentIndex = Math.max(0, Math.min(startIndex, this.items.length - 1));
         logger.debug(`[ReaderPanel] currentIndex: ${this.currentIndex}/${this.items.length}`);
 
-        // 创建面板 UI
+        // Load bookmarked positions before creating panel
+        await this.loadBookmarkedPositions();
+
         await this.createPanel();
+
+        // Update bookmark button state for current message (position is 1-indexed)
+        this.updateBookmarkButtonState(this.bookmarkedPositions.has(this.currentIndex + 1));
 
         logger.debug(`[ReaderPanel] END showWithData: ${(performance.now() - startTime).toFixed(2)}ms`);
     }
 
     /**
-     * 【兼容层】保留旧签名，供现有调用方使用
-     * 
-     * @deprecated 建议使用 showWithData()
+     * Compat layer for legacy call sites.
+     *
+     * @deprecated Prefer `showWithData()`.
      */
     async show(messageElement: HTMLElement, getMarkdown: GetMarkdownFn): Promise<void> {
         const startTime = performance.now();
@@ -124,7 +116,6 @@ export class ReaderPanel {
         // Save strategy for dynamic updates
         this.getMarkdownFn = getMarkdown;
 
-        // 使用新的数据源适配器收集数据
         const items = collectFromLivePage(getMarkdown);
 
         if (items.length === 0) {
@@ -132,7 +123,6 @@ export class ReaderPanel {
             return;
         }
 
-        // 查找当前消息索引
         const messageRefs = getMessageRefs();
         let startIndex = MessageCollector.findMessageIndex(messageElement, messageRefs);
         if (startIndex === -1) {
@@ -141,12 +131,11 @@ export class ReaderPanel {
 
         logger.debug(`[ReaderPanel] Compat layer prepared ${items.length} items in ${(performance.now() - startTime).toFixed(2)}ms`);
 
-        // 委托给新方法
         return this.showWithData(items, startIndex);
     }
 
     /**
-     * 隐藏面板并清理
+     * Hide panel and cleanup.
      */
     hide(): void {
         this.container?.remove();
@@ -154,7 +143,6 @@ export class ReaderPanel {
         this.shadowRoot = null;
         this.cache.clear();
 
-        // 清理子组件
         this.tooltipManager?.destroy();
         this.tooltipManager = null;
 
@@ -164,7 +152,6 @@ export class ReaderPanel {
         this.navButtonsController?.destroy();
         this.navButtonsController = null;
 
-        // 清理消息发送组件
         this.floatingInput?.destroy();
         this.floatingInput = null;
         this.triggerBtn = null;
@@ -180,14 +167,12 @@ export class ReaderPanel {
             this.keyHandler = null;
         }
 
-        // 清理 EventBus 订阅
         this.unsubscribeNewMessage?.();
         this.unsubscribeNewMessage = null;
     }
 
     /**
-     * 统一 UI 同步方法 (The Unified Update Path)
-     * 核心逻辑：Data -> State -> UI Side Effects
+     * Unified sync path: data -> state -> UI side effects.
      */
     private syncUIWithData(newItems: ReaderItem[]): void {
         const oldLength = this.items.length;
@@ -202,7 +187,6 @@ export class ReaderPanel {
         this.paginationController?.updateTotalItems(newLength);
 
         // 3. Navigation Buttons Update (Enable/Disable based on current position)
-        // ✅ FIX: Update nav buttons when items change
         this.navButtonsController?.updateConfig({
             canGoPrevious: this.currentIndex > 0,
             canGoNext: this.currentIndex < newLength - 1
@@ -219,7 +203,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 刷新数据项（用于实时更新分页）
+     * Refresh items (used for real-time pagination updates).
      */
     /**
      * Get Markdown from message element via ContentScript linkage
@@ -265,7 +249,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 设置主题
+     * Set theme (used to select token set for Shadow DOM).
      */
     setTheme(isDark: boolean): void {
         this.currentThemeIsDark = isDark;
@@ -275,20 +259,16 @@ export class ReaderPanel {
     }
 
     /**
-     * 创建面板 (Shadow DOM)
+     * Create panel (Shadow DOM).
      */
     private async createPanel(): Promise<void> {
-        // 创建容器
         this.container = document.createElement('div');
         this.container.dataset.theme = this.currentThemeIsDark ? 'dark' : 'light';
 
-        // 挂载 Shadow DOM
         this.shadowRoot = this.container.attachShadow({ mode: 'open' });
 
-        // 注入样式
         await StyleManager.injectStyles(this.shadowRoot);
 
-        // 注入 Design Tokens
         const tokenStyle = document.createElement('style');
         tokenStyle.id = 'design-tokens';
         tokenStyle.textContent = `:host { ${DesignTokens.getCompleteTokens(this.currentThemeIsDark)} }`;
@@ -298,7 +278,6 @@ export class ReaderPanel {
         styleEl.textContent = readerPanelStyles + tooltipStyles + floatingInputStyles;
         this.shadowRoot.appendChild(styleEl);
 
-        // 创建 UI 结构
         const overlay = this.createOverlay();
         const panel = this.createPanelElement();
 
@@ -306,26 +285,18 @@ export class ReaderPanel {
         this.shadowRoot.appendChild(panel);
         document.body.appendChild(this.container);
 
-        // 渲染当前消息
         await this.renderMessage(this.currentIndex);
 
-        // 设置键盘导航
         this.setupKeyboardNavigation(panel);
 
-        // 聚焦面板
         panel.focus();
 
-        // 订阅新消息事件，用于实时更新分页
         this.unsubscribeNewMessage = eventBus.on<{ count: number }>('message:new', ({ count }) => {
             logger.debug(`[ReaderPanel] EventBus received 'message:new', count: ${count}, current items: ${this.items.length}`);
             if (count !== this.items.length) {
                 logger.info(`[ReaderPanel] New message event detected change: ${this.items.length} -> ${count}`);
                 this.refreshItems();
             } else {
-                // Double check in case event count is stale but DOM is new
-                // Sometimes mutation observer fires before querySelectorAll catches up?
-                // Or maybe we should trust the event?
-                // Let's force a check if we suspect desync, but for now just log.
                 logger.debug('[ReaderPanel] Event count matches current items, checking anyway');
                 this.refreshItems();
             }
@@ -333,7 +304,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 创建遮罩层
+     * Create overlay.
      */
     private createOverlay(): HTMLElement {
         const overlay = document.createElement('div');
@@ -343,7 +314,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 创建主面板
+     * Create main panel element.
      */
     private createPanelElement(): HTMLElement {
         const panel = document.createElement('div');
@@ -367,7 +338,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 创建头部
+     * Create header.
      */
     private createHeader(): HTMLElement {
         const header = document.createElement('div');
@@ -375,23 +346,35 @@ export class ReaderPanel {
         header.innerHTML = `
             <div class="aicopy-panel-header-left">
                 <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
-                <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                    </svg>
-                </button>
+                <div class="aicopy-header-actions">
+                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
+                        ${Icons.maximize}
+                    </button>
+                    <button class="aicopy-panel-btn" id="bookmark-btn" title="Bookmark">
+                        ${Icons.bookmark}
+                    </button>
+                    <button class="aicopy-panel-btn" id="copy-btn" title="Copy Markdown">
+                        ${Icons.copy}
+                    </button>
+                    <button class="aicopy-panel-btn" id="source-btn" title="View Source">
+                        ${Icons.code}
+                    </button>
+                </div>
             </div>
             <button class="aicopy-panel-btn" id="close-btn" title="Close">×</button>
         `;
 
         header.querySelector('#close-btn')?.addEventListener('click', () => this.hide());
         header.querySelector('#fullscreen-btn')?.addEventListener('click', () => this.toggleFullscreen());
+        header.querySelector('#bookmark-btn')?.addEventListener('click', () => this.handleReaderBookmark());
+        header.querySelector('#copy-btn')?.addEventListener('click', () => this.handleReaderCopyMarkdown());
+        header.querySelector('#source-btn')?.addEventListener('click', () => this.handleReaderViewSource());
 
         return header;
     }
 
     /**
-     * 创建分页控件 (Refactored for Structural Isolation)
+     * Create pagination controls (structurally isolated).
      */
     private createPagination(): HTMLElement {
         // STRICT AUDIT: Structural Isolation Pattern
@@ -444,7 +427,8 @@ export class ReaderPanel {
         this.paginationController = new DotPaginationController(dotsContainer, {
             totalItems: this.items.length,
             currentIndex: this.currentIndex,
-            onNavigate: (index) => this.navigateTo(index)
+            onNavigate: (index) => this.navigateTo(index),
+            bookmarkedPositions: this.bookmarkedPositions
         });
         this.paginationController.render();
 
@@ -480,19 +464,17 @@ export class ReaderPanel {
     }
 
     /**
-     * 创建消息发送触发按钮
+     * Create the message-sending trigger button (FloatingInput + send flow).
      */
     private createMessageTriggerButton(): HTMLElement {
         const wrapper = document.createElement('div');
         wrapper.className = 'aimd-trigger-btn-wrapper';
 
-        // 创建触发按钮
         this.triggerBtn = document.createElement('button');
         this.triggerBtn.className = 'aimd-trigger-btn';
         this.triggerBtn.title = 'Send message';
         this.triggerBtn.innerHTML = Icons.messageSquareText;
 
-        // 初始化 MessageSender
         const adapter = adapterRegistry.getAdapter();
         if (adapter) {
             this.messageSender = new MessageSender({ adapter });
@@ -500,20 +482,18 @@ export class ReaderPanel {
             logger.warn('[ReaderPanel] No adapter found for MessageSender');
         }
 
-        // 创建浮动输入组件
         this.floatingInput = new FloatingInput({
             onSend: async (text) => {
                 logger.debug('[ReaderPanel] Send clicked:', text.substring(0, 50));
                 this.floatingInput?.hide();
                 this.setTriggerButtonState('waiting');
 
-                // 发送消息
                 if (this.messageSender) {
                     const success = await this.messageSender.send(text);
                     logger.debug('[ReaderPanel] Send result:', success);
                 }
 
-                // 使用与工具栏完全相同的检测逻辑：Copy Button 出现
+                // Why: use the same streaming completion signal as the toolbar (copy button appears).
                 const adapter = adapterRegistry.getAdapter();
                 if (adapter) {
                     const watcher = new StreamingDetector(adapter);
@@ -522,13 +502,13 @@ export class ReaderPanel {
                         this.setTriggerButtonState('default');
                     });
 
-                    // 超时保护（30秒，仅作为最后防线）
+                    // Safety net: stop watching after 30s.
                     setTimeout(() => {
                         stopWatching();
                         this.setTriggerButtonState('default');
                     }, 30000);
                 } else {
-                    // 无 adapter 时直接超时恢复
+                    // No adapter: fallback to a short timeout.
                     setTimeout(() => {
                         this.setTriggerButtonState('default');
                     }, 5000);
@@ -536,8 +516,8 @@ export class ReaderPanel {
             },
             onCollapse: (text) => {
                 logger.debug('[ReaderPanel] FloatingInput collapsed, text length:', text.length);
-                // 强制同步到官方输入框
-                if (text.trim() && this.messageSender) {
+                // Sync to the native input to keep host UI consistent (including empty state).
+                if (this.messageSender) {
                     this.messageSender.forceSyncToNative(text);
                 }
             },
@@ -549,21 +529,18 @@ export class ReaderPanel {
             initialText: this.messageSender?.readFromNative() || ''
         });
 
-        // 点击触发按钮显示/隐藏浮动输入框
         this.triggerBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             logger.info('[ReaderPanel] Trigger button clicked', {
                 isSending: this.isSending,
                 floatingVisible: this.floatingInput?.visible
             });
-            if (this.isSending) return; // 发送中禁止操作
+            if (this.isSending) return;
 
             const wasHidden = !this.floatingInput?.visible;
 
-            // 先 toggle 显示
             this.floatingInput?.toggle(wrapper);
 
-            // 如果是从隐藏变为显示，同步官方输入框内容
             if (wasHidden && this.floatingInput?.visible && this.messageSender) {
                 const nativeText = this.messageSender.readFromNative();
                 logger.info('[ReaderPanel] Reading native input for sync', {
@@ -626,7 +603,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 设置触发按钮状态
+     * Set trigger button state.
      */
     private setTriggerButtonState(state: 'default' | 'waiting'): void {
         logger.info('[ReaderPanel] setTriggerButtonState called', { state, hasTriggerBtn: !!this.triggerBtn });
@@ -648,10 +625,9 @@ export class ReaderPanel {
     }
 
     /**
-     * 设置键盘导航
+     * Setup keyboard navigation.
      */
     private setupKeyboardNavigation(panel: HTMLElement): void {
-        // ESC 关闭
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 this.hide();
@@ -660,7 +636,6 @@ export class ReaderPanel {
         };
         document.addEventListener('keydown', handleEscape);
 
-        // 方向键导航
         this.keyHandler = (e: KeyboardEvent) => {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
@@ -675,7 +650,7 @@ export class ReaderPanel {
     }
 
     /**
-     * 导航到指定索引
+     * Navigate to a given index.
      */
     private async navigateTo(index: number): Promise<void> {
         if (index < 0 || index >= this.items.length) return;
@@ -683,13 +658,14 @@ export class ReaderPanel {
         this.currentIndex = index;
         this.paginationController?.setActiveIndex(index);
 
-        // 更新导航按钮状态
+        // Update bookmark button state for current message (position is 1-indexed)
+        this.updateBookmarkButtonState(this.bookmarkedPositions.has(index + 1));
+
         this.navButtonsController?.updateConfig({
             canGoPrevious: index > 0,
             canGoNext: index < this.items.length - 1
         });
 
-        // 重置滚动位置
         if (this.shadowRoot) {
             const body = this.shadowRoot.querySelector('#panel-body');
             body?.scrollTo(0, 0);
@@ -699,17 +675,16 @@ export class ReaderPanel {
     }
 
     /**
-     * 懒加载并渲染消息内容
+     * Render message content (supports lazy providers).
      */
     private async renderMessage(index: number): Promise<void> {
         const item = this.items[index];
         const isLastItem = index === this.items.length - 1;
 
-        // 检查缓存 - 注意：最后一条消息永远不会被缓存
+        // Note: last item is treated as volatile and should not be cached.
         let html = this.cache.get(index);
 
         if (html && isLastItem) {
-            // 最后一条消息不应有缓存，清除它
             logger.warn(`[ReaderPanel] BUG: Last item has cached content! Invalidating...`);
             this.cache.delete(index);
             html = undefined;
@@ -717,7 +692,6 @@ export class ReaderPanel {
 
         if (!html) {
             try {
-                // 解析内容（支持懒加载）
                 const t0 = performance.now();
                 let markdown: string;
 
@@ -736,23 +710,19 @@ export class ReaderPanel {
 
                 logger.debug(`[ReaderPanel] resolveContent: ${(performance.now() - t0).toFixed(2)}ms`);
 
-                // 检查设置：是否渲染代码块
-                const settings = await SettingsManager.getInstance().get('behavior');
+                const settings = await SettingsManager.getInstance().get('reader');
                 if (!settings.renderCodeInReader) {
                     markdown = markdown.replace(/```[\s\S]*?```/g, '*[Code block hidden by settings]*');
                     logger.debug('[ReaderPanel] Code blocks filtered out');
                 }
 
-                // 渲染 Markdown
                 const t1 = performance.now();
                 const result = await MarkdownRenderer.render(markdown);
                 logger.debug(`[ReaderPanel] MarkdownRenderer.render: ${(performance.now() - t1).toFixed(2)}ms`);
                 html = result.success ? result.html! : result.fallback!;
 
-                // 清理空白
                 html = html.replace(/^\s+/, '').trim();
 
-                // 缓存策略：只有非最后一条消息才缓存 (Volatile Tail: Last item is always fresh)
                 if (index < this.items.length - 1) {
                     this.cache.set(index, html);
                 }
@@ -762,21 +732,17 @@ export class ReaderPanel {
             }
         }
 
-        // 更新 DOM
         if (this.shadowRoot) {
             const body = this.shadowRoot.querySelector('#panel-body');
             if (body) {
-                // 截断用户提示
                 const rawPrompt = item.userPrompt || '';
                 const normalizedPrompt = rawPrompt.replace(/\n{2,}/g, '\n').trim();
                 const displayPrompt = normalizedPrompt.length > 200
                     ? normalizedPrompt.slice(0, 200) + '...'
                     : normalizedPrompt;
 
-                // 图标
                 const userIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 
-                // 从 meta 获取平台图标，或使用默认值
                 const modelIcon = item.meta?.platformIcon || `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>`;
 
                 body.innerHTML = `
@@ -824,11 +790,151 @@ export class ReaderPanel {
     }
 
     /**
-     * 切换全屏模式
+     * Toggle fullscreen mode.
      */
     private toggleFullscreen(): void {
         if (!this.shadowRoot) return;
         const panel = this.shadowRoot.querySelector('.aicopy-panel');
-        panel?.classList.toggle('aicopy-panel-fullscreen');
+        const btn = this.shadowRoot.querySelector('#fullscreen-btn');
+        if (!panel) return;
+
+        panel.classList.toggle('aicopy-panel-fullscreen');
+        const isFullscreen = panel.classList.contains('aicopy-panel-fullscreen');
+
+        if (btn) {
+            btn.innerHTML = isFullscreen ? Icons.minimize : Icons.maximize;
+            btn.setAttribute('title', isFullscreen ? 'Exit fullscreen' : 'Toggle fullscreen');
+        }
+    }
+
+    /**
+     * Load bookmarked positions for current page on panel open
+     */
+    private async loadBookmarkedPositions(): Promise<void> {
+        try {
+            const url = window.location.href;
+            this.bookmarkedPositions = await SimpleBookmarkStorage.loadAllPositions(url);
+            logger.debug(`[ReaderPanel] Loaded ${this.bookmarkedPositions.size} bookmarked positions`);
+        } catch (error) {
+            logger.error('[ReaderPanel] Failed to load bookmarked positions:', error);
+        }
+    }
+
+    /**
+     * Copy current message markdown to clipboard
+     */
+    private async handleReaderCopyMarkdown(): Promise<void> {
+        const currentItem = this.items[this.currentIndex];
+        if (!currentItem) return;
+
+        try {
+            const content = await resolveContent(currentItem.content);
+            await navigator.clipboard.writeText(content);
+            logger.debug('[ReaderPanel] Copied markdown to clipboard');
+
+            // Visual feedback on copy button
+            const copyBtn = this.shadowRoot?.querySelector('#copy-btn');
+            if (copyBtn) {
+                copyBtn.classList.add('success');
+                setTimeout(() => copyBtn.classList.remove('success'), 1000);
+            }
+        } catch (error) {
+            logger.error('[ReaderPanel] Failed to copy markdown:', error);
+        }
+    }
+
+    /**
+     * View source for current message
+     */
+    private handleReaderViewSource(): void {
+        const currentItem = this.items[this.currentIndex];
+        if (!currentItem) return;
+
+        // Resolve content and show in modal (reuse existing Modal component with Shadow DOM styling)
+        resolveContent(currentItem.content).then(content => {
+            const modal = new Modal();
+            modal.show(content, 'Markdown Source');
+        });
+    }
+
+    /**
+     * Toggle bookmark for current message - reuses toolbar bookmark logic
+     * Position is 1-indexed to match toolbar behavior
+     */
+    private async handleReaderBookmark(): Promise<void> {
+        const url = window.location.href;
+        const position = this.currentIndex + 1; // 1-indexed to match toolbar
+        const wasBookmarked = this.bookmarkedPositions.has(position);
+
+        try {
+            if (wasBookmarked) {
+                // Remove bookmark directly
+                await SimpleBookmarkStorage.remove(url, position);
+                this.bookmarkedPositions.delete(position);
+                this.paginationController?.setBookmarked(this.currentIndex, false);
+                this.updateBookmarkButtonState(false);
+                logger.info(`[ReaderPanel] Removed bookmark at position ${position}`);
+            } else {
+                // Add bookmark - show save modal (same as toolbar)
+                const currentItem = this.items[this.currentIndex];
+                const userMessage = currentItem?.userPrompt || '';
+
+                if (!userMessage) {
+                    logger.error('[ReaderPanel] Failed to extract user message');
+                    alert('Failed to extract user message. Please try again.');
+                    return;
+                }
+
+                const adapter = adapterRegistry.getAdapter();
+                const platform = adapter?.getPlatformName() || 'AI Platform';
+                const aiResponse = await resolveContent(currentItem?.content || '');
+                const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
+                const lastUsedFolder = localStorage.getItem('lastUsedFolder') || 'Import';
+
+                // Show save modal
+                const saveModal = new BookmarkSaveModal();
+                saveModal.show({
+                    defaultTitle,
+                    lastUsedFolder,
+                    onSave: async (title, folderPath) => {
+                        await SimpleBookmarkStorage.save(
+                            url,
+                            position,
+                            userMessage,
+                            aiResponse,
+                            title,
+                            platform,
+                            Date.now(),
+                            folderPath
+                        );
+
+                        this.bookmarkedPositions.add(position);
+                        this.paginationController?.setBookmarked(this.currentIndex, true);
+                        this.updateBookmarkButtonState(true);
+                        localStorage.setItem('lastUsedFolder', folderPath);
+                        logger.info(`[ReaderPanel] Saved "${title}" to "${folderPath}"`);
+                    }
+                });
+            }
+        } catch (error) {
+            logger.error('[ReaderPanel] Bookmark operation failed:', error);
+            alert('Failed to toggle bookmark: ' + (error instanceof Error ? error.message : String(error)));
+        }
+    }
+
+    /**
+     * Update bookmark button state (highlight/dim) based on bookmark status
+     */
+    private updateBookmarkButtonState(isBookmarked: boolean): void {
+        const bookmarkBtn = this.shadowRoot?.querySelector('#bookmark-btn');
+        if (!bookmarkBtn) return;
+
+        if (isBookmarked) {
+            bookmarkBtn.classList.add('bookmarked');
+            bookmarkBtn.setAttribute('title', 'Remove Bookmark');
+        } else {
+            bookmarkBtn.classList.remove('bookmarked');
+            bookmarkBtn.setAttribute('title', 'Bookmark');
+        }
     }
 }

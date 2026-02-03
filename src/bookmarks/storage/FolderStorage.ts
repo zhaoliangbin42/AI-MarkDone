@@ -15,14 +15,13 @@
 
 import { Folder } from './types';
 import { PathUtils, PathValidationError } from '../utils/path-utils';
+import { browser } from '../../utils/browser';
+import { logger } from '../../utils/logger';
 
-/**
- * Logger utility (matches existing pattern)
- */
-const logger = {
-    info: (message: string, ...args: any[]) => console.log(`[FolderStorage] ${message}`, ...args),
-    error: (message: string, ...args: any[]) => console.error(`[FolderStorage] ${message}`, ...args),
-    warn: (message: string, ...args: any[]) => console.warn(`[FolderStorage] ${message}`, ...args),
+const folderLogger = {
+    info: (message: string, ...args: any[]) => logger.info('[AI-MarkDone][FolderStorage]', message, ...args),
+    error: (message: string, ...args: any[]) => logger.error('[AI-MarkDone][FolderStorage]', message, ...args),
+    warn: (message: string, ...args: any[]) => logger.warn('[AI-MarkDone][FolderStorage]', message, ...args),
 };
 
 /**
@@ -119,12 +118,12 @@ export class FolderStorage {
 
             // Save to storage (atomic operation)
             const key = this.getStorageKey(path);
-            await chrome.storage.local.set({ [key]: folder });
+            await browser.storage.local.set({ [key]: folder });
 
             // Update index
             await this.addToIndex(path);
 
-            logger.info(`Created folder: ${path}`);
+            folderLogger.info(`Created folder: ${path}`);
             return folder;
 
         } catch (error) {
@@ -148,10 +147,10 @@ export class FolderStorage {
         try {
             const normalized = PathUtils.normalize(path);
             const key = this.getStorageKey(normalized);
-            const result = await chrome.storage.local.get(key);
-            return result[key] || null;
+            const result = await browser.storage.local.get(key);
+            return (result[key] as Folder) || null;
         } catch (error) {
-            logger.error(`Failed to get folder: ${path}`, error);
+            folderLogger.error(`Failed to get folder: ${path}`, error);
             return null;
         }
     }
@@ -169,7 +168,7 @@ export class FolderStorage {
             }
 
             const keys = index.map(path => this.getStorageKey(path));
-            const result = await chrome.storage.local.get(keys);
+            const result = await browser.storage.local.get(keys);
 
             const folders = Object.values(result) as Folder[];
 
@@ -178,7 +177,7 @@ export class FolderStorage {
                 a.path.localeCompare(b.path, undefined, { sensitivity: 'base' })
             );
         } catch (error) {
-            logger.error('Failed to get all folders', error);
+            folderLogger.error('Failed to get all folders', error);
             return [];
         }
     }
@@ -237,7 +236,7 @@ export class FolderStorage {
             const affectedFolders = await this.getDescendants(oldPath, true);
             const affectedBookmarks = await this.getBookmarksInFolder(oldPath, true);
 
-            logger.info(`Renaming folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`);
+            folderLogger.info(`Renaming folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`);
 
             // Prepare updates (transaction phase)
             const folderUpdates: Record<string, Folder> = {};
@@ -268,19 +267,19 @@ export class FolderStorage {
 
             // Execute updates atomically
             if (Object.keys(folderUpdates).length > 0) {
-                await chrome.storage.local.set(folderUpdates);
+                await browser.storage.local.set(folderUpdates);
             }
             if (Object.keys(bookmarkUpdates).length > 0) {
-                await chrome.storage.local.set(bookmarkUpdates);
+                await browser.storage.local.set(bookmarkUpdates);
             }
             if (folderDeletes.length > 0) {
-                await chrome.storage.local.remove(folderDeletes);
+                await browser.storage.local.remove(folderDeletes);
             }
 
             // Update index
             await this.updateIndex(oldPath, newPath);
 
-            logger.info(`Renamed folder successfully: ${oldPath} → ${newPath}`);
+            folderLogger.info(`Renamed folder successfully: ${oldPath} → ${newPath}`);
 
         } catch (error) {
             if (error instanceof PathValidationError || error instanceof FolderOperationError) {
@@ -330,12 +329,12 @@ export class FolderStorage {
 
             // Delete folder
             const key = this.getStorageKey(path);
-            await chrome.storage.local.remove(key);
+            await browser.storage.local.remove(key);
 
             // Update index
             await this.removeFromIndex(path);
 
-            logger.info(`Deleted folder: ${path}`);
+            folderLogger.info(`Deleted folder: ${path}`);
 
         } catch (error) {
             if (error instanceof FolderOperationError) {
@@ -366,18 +365,18 @@ export class FolderStorage {
 
         try {
             // Remove folder data
-            await chrome.storage.local.remove(keys);
+            await browser.storage.local.remove(keys);
 
             // Update index (remove all paths)
             const index = await this.getIndex();
             const updatedIndex = index.filter(p => !paths.includes(p));
-            await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updatedIndex });
+            await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updatedIndex });
 
             const perfEnd = performance.now();
-            logger.info(`Bulk deleted ${paths.length} folders in ${(perfEnd - perfStart).toFixed(0)}ms`);
+            folderLogger.info(`Bulk deleted ${paths.length} folders in ${(perfEnd - perfStart).toFixed(0)}ms`);
             return paths.length;
         } catch (error) {
-            logger.error('Bulk delete folders failed:', error);
+            folderLogger.error('Bulk delete folders failed:', error);
             throw new FolderOperationError(
                 `Failed to bulk delete folders: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 'bulkDelete'
@@ -434,7 +433,7 @@ export class FolderStorage {
             // Use rename logic (same implementation)
             await this.rename(sourcePath, folderName);
 
-            logger.info(`Moved folder: ${sourcePath} → ${newPath}`);
+            folderLogger.info(`Moved folder: ${sourcePath} → ${newPath}`);
 
         } catch (error) {
             if (error instanceof FolderOperationError) {
@@ -464,10 +463,10 @@ export class FolderStorage {
      */
     private static async getIndex(): Promise<string[]> {
         try {
-            const result = await chrome.storage.local.get(this.FOLDER_INDEX_KEY);
-            return result[this.FOLDER_INDEX_KEY] || [];
+            const result = await browser.storage.local.get(this.FOLDER_INDEX_KEY);
+            return (result[this.FOLDER_INDEX_KEY] as string[]) || [];
         } catch (error) {
-            logger.error('Failed to get folder index', error);
+            folderLogger.error('Failed to get folder index', error);
             return [];
         }
     }
@@ -479,7 +478,7 @@ export class FolderStorage {
         const index = await this.getIndex();
         if (!index.includes(path)) {
             index.push(path);
-            await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: index });
+            await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: index });
         }
     }
 
@@ -489,7 +488,7 @@ export class FolderStorage {
     private static async removeFromIndex(path: string): Promise<void> {
         const index = await this.getIndex();
         const updated = index.filter(p => p !== path);
-        await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
+        await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
     }
 
     /**
@@ -500,7 +499,7 @@ export class FolderStorage {
         const updated = index.map(p =>
             PathUtils.updatePathPrefix(oldPath, newPath, p)
         );
-        await chrome.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
+        await browser.storage.local.set({ [this.FOLDER_INDEX_KEY]: updated });
     }
 
     /**
@@ -565,7 +564,7 @@ export class FolderStorage {
                 return bookmarks.filter((b: any) => b.folderPath === path);
             }
         } catch (error) {
-            logger.error(`Failed to get bookmarks in folder: ${path}`, error);
+            folderLogger.error(`Failed to get bookmarks in folder: ${path}`, error);
             return [];
         }
     }

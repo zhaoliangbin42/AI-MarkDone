@@ -1,5 +1,5 @@
 /**
- * Simplified Bookmark Types - AITimeline Pattern
+ * Bookmark types.
  */
 
 /**

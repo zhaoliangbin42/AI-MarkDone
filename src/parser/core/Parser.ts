@@ -2,7 +2,6 @@
  * Markdown Parser - Core parser implementation
  * 
  * @see DEVELOPER-REFERENCE-MANUAL.md - All mandatory rules
- * @see implementation_plan.md - Phase 0-6 roadmap
  */
 
 import { ParserError, withErrorBoundary, checkMaxDepth } from './ErrorBoundary';
@@ -10,6 +9,7 @@ import { RuleEngine } from './RuleEngine';
 import type { ParserOptions, ParserContext } from './types';
 import type { IPlatformAdapter } from '../adapters/IPlatformAdapter';
 import type { RuleContext } from './Rule';
+import { logger } from '../../utils/logger';
 
 const DEFAULT_OPTIONS: Required<ParserOptions> = {
     maxProcessingTimeMs: 5000,
@@ -86,17 +86,15 @@ export class Parser {
             // Performance logging
             if (this.options.enablePerformanceLogging) {
                 const elapsed = performance.now() - startTime;
-                console.log(
-                    `[Parser] Processed ${nodeCount} nodes in ${elapsed.toFixed(2)}ms`,
-                    {
-                        platform: this.adapter.name,
-                        warnings: warnings.length,
-                        errors: errors.length,
-                    }
-                );
+                logger.debug(`[Parser] Processed ${nodeCount} nodes in ${elapsed.toFixed(2)}ms`, {
+                    platform: this.adapter.name,
+                    warnings: warnings.length,
+                    errors: errors.length,
+                });
             }
 
-            return markdown;
+            // Normalize: compress 3+ newlines to 2, trim whitespace
+            return markdown.replace(/\n{3,}/g, '\n\n').trim();
 
         } catch (error) {
             if (error instanceof ParserError && error.recoveryAction === 'abort') {

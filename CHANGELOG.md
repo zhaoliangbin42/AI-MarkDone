@@ -5,6 +5,48 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-02-03
+
+### Added
+- **Firefox Browser Support**: Full Firefox compatibility with separated architecture
+  - Chrome: MV3 with `service-worker.ts` using `chrome.*` API
+  - Firefox: MV2 with `background-firefox.js` using `browser.*` API
+  - Content Script: 100% shared code (43,384 lines)
+  - Dual-manifest system: `manifest.chrome.json` (MV3) and `manifest.firefox.json` (MV2)
+  - Dual-build system: `npm run build:chrome` and `npm run build:firefox`
+
+- **Toolbar Toggle Settings**: Allow users to show/hide individual toolbar buttons
+  - Settings schema upgraded from v1 to v2 with automatic migration
+  - Added toggles for View Source, Save Messages, Word Count buttons
+  - Added platform-specific enable/disable toggles (ChatGPT, Gemini, Claude, Deepseek)
+- **Reader Actions**: Added Bookmark, Copy, and View Source buttons to the Reader panel header for quick access.
+- **Bookmark Sort Direction Toggle**: Click same sort button twice to toggle ascending/descending order
+  - Time sort: Newest first ↔ Oldest first
+  - Alphabetical sort: A→Z ↔ Z→A
+  - Icons change dynamically to show arrow direction
+  - Settings migrated from 2-state to 4-state model with backward compatibility
+
+### Changed
+- **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.
+- **Button Styling**: Enhanced bookmark button with gradient background for clearer active state.
+- **Reader Fullscreen**: Fullscreen button icon now toggles between maximize/minimize to reflect current state
+
+### Fixed
+- **Reader View Source**: Fixed "View Source" button in Reader panel not displaying modal (missing CSS styles replaced with reusable Modal component)
+- **Modal z-index**: Fixed Modal being hidden behind Reader panel by updating z-index from `--aimd-z-modal` (1050) to `--aimd-z-dialog` (9500)
+- **Modal ESC Key**: Fixed ESC key closing both Modal and Reader panel simultaneously by using capture phase event listener
+- **FloatingInput Sync**: Fixed bidirectional sync with native input - now syncs empty state as well (closing with empty content clears native input)
+- **Bookmark Highlight**: Fixed toolbar highlight not showing after page refresh due to async createUI race condition
+- **Settings Path**: Fixed `saveContextOnly` setting path from `storage.*` to `behavior.*`
+- **Design Tokens**: Standardized CSS token usage in Reader panel styles to comply with design system.
+- **Reader Pagination**: Fixed bookmark status indicator offset in pagination dots.
+- **Markdown Paragraphs**: Fixed excessive blank lines between paragraphs when copying Markdown (3+ newlines compressed to 2)
+
+### Technical Details
+- Separated architecture: Background scripts are browser-specific, Content Script is shared
+- Added `ready` Promise and `pendingBookmarkState` pattern to handle async toolbar creation
+- Settings migration test suite with 7 test cases
+
 ## [2.8.0] - 2026-01-22
 
 ### Added
@@ -31,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PDF Export**: Fixed cross-platform typography inconsistencies (paragraph margins, heading spacing) between ChatGPT and Gemini.
 - **PDF Export**: Fixed Chinese font rendering in print context by adding explicit font stack.
 - **Export Dialog**: Fixed tooltip animation appearing from wrong direction.
+- **Popup Icon**: Fixed incorrect Deepseek icon.
 
 ### Changed
 - **Export Icon**: Updated toolbar export button icon from download to file-box for better clarity.

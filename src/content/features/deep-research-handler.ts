@@ -1,22 +1,22 @@
 import { MarkdownParser } from '../parsers/markdown-parser';
-import { ReaderPanel } from './re-render';
 import { TooltipHelper } from '../utils/tooltip-helper';
 import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
+import { ReaderPanel } from './re-render';
 
 /**
  * Deep Research Panel Handler
- * Detects and adds copy/preview buttons to Gemini Deep Research panels
+ * Detects and adds copy/reader buttons to Gemini Deep Research panels
  */
 export class DeepResearchHandler {
     private observer: MutationObserver | null = null;
     private activePanel: HTMLElement | null = null;
     private parser: MarkdownParser;
-    private reRenderPanel: ReaderPanel;
+    private readerPanel: ReaderPanel;
 
     constructor() {
         this.parser = new MarkdownParser();
-        this.reRenderPanel = new ReaderPanel();
+        this.readerPanel = new ReaderPanel();
     }
 
     /**
@@ -67,41 +67,36 @@ export class DeepResearchHandler {
     }
 
     /**
-     * Inject copy/preview buttons into panel toolbar
+     * Inject copy/reader buttons into panel toolbar
+     * Buttons are inserted before the close button
      */
     private injectToolbar(panel: HTMLElement): void {
-        const actionButtons = panel.querySelector('toolbar .action-buttons');
-        if (!actionButtons) {
-            logger.warn('[DeepResearch] Action buttons container not found');
+        // Find the close button to insert before it
+        const closeButton = panel.querySelector('[data-test-id="close-button"]');
+        if (!closeButton || !closeButton.parentElement) {
+            logger.warn('[DeepResearch] Close button not found');
             return;
         }
 
         // Check if already injected
-        if (actionButtons.querySelector('.aicopy-dr-button')) {
+        if (closeButton.parentElement.querySelector('.aicopy-dr-button')) {
             logger.debug('[DeepResearch] Buttons already injected');
             return;
         }
 
-        // Create copy button - using content_copy icon
+        // Create copy button
         const copyBtn = this.createButton('Copy Markdown', 'content_copy', () => {
             this.handleCopy(panel);
         });
 
-        // Create preview button - using travel_explore icon
-        const previewBtn = this.createButton('Preview Enhance', 'travel_explore', () => {
-            this.handlePreview(panel);
+        // Create reader button
+        const readerBtn = this.createButton('阅读模式', 'menu_book', () => {
+            this.handleReader(panel);
         });
 
-        // Insert at the beginning of action buttons (right-aligned, before first button)
-        const firstButton = actionButtons.firstElementChild;
-        if (firstButton) {
-            // Insert in order: [Copy][Preview] before existing buttons
-            actionButtons.insertBefore(previewBtn, firstButton);
-            actionButtons.insertBefore(copyBtn, firstButton);
-        } else {
-            actionButtons.appendChild(copyBtn);
-            actionButtons.appendChild(previewBtn);
-        }
+        // Insert before close button: [Reader][Copy][Close]
+        closeButton.parentElement.insertBefore(readerBtn, closeButton);
+        closeButton.parentElement.insertBefore(copyBtn, closeButton);
 
         logger.info('[DeepResearch] Toolbar buttons injected');
     }
@@ -111,7 +106,6 @@ export class DeepResearchHandler {
      */
     private createButton(tooltip: string, icon: string, onClick: () => void): HTMLElement {
         const button = document.createElement('button');
-        // Use icon-button class like Gemini's native buttons
         button.className = 'mdc-icon-button mat-mdc-icon-button mat-mdc-button-base mat-mdc-tooltip-trigger aicopy-dr-button';
         button.setAttribute('type', 'button');
         button.setAttribute('aria-label', tooltip);
@@ -119,7 +113,6 @@ export class DeepResearchHandler {
         // Attach custom tooltip
         TooltipHelper.attach(button, tooltip);
 
-        // Add hover effect with purple color
         button.style.cssText = `
             width: 40px;
             height: 40px;
@@ -127,17 +120,15 @@ export class DeepResearchHandler {
             flex-shrink: 0;
         `;
 
-        // Create mat-icon element with correct Gemini sizing
+        // Create mat-icon element
         const matIcon = document.createElement('mat-icon');
-        // Don't include 'mat-icon' in className - it's added automatically by the element tag
-        // Use gds-icon-m (medium) to match Gemini's Deep Research buttons
         matIcon.className = 'notranslate gds-icon-m google-symbols mat-ligature-font mat-icon-no-color';
         matIcon.setAttribute('role', 'img');
         matIcon.setAttribute('aria-hidden', 'true');
         matIcon.setAttribute('data-mat-icon-type', 'font');
         matIcon.setAttribute('data-mat-icon-name', icon);
         matIcon.setAttribute('fonticon', icon);
-        matIcon.textContent = icon; // Set icon name as text content
+        matIcon.textContent = icon;
 
         // Create ripple span
         const ripple = document.createElement('span');
@@ -168,6 +159,7 @@ export class DeepResearchHandler {
         const content = panel.querySelector('#extended-response-markdown-content');
         if (!content) {
             logger.warn('[DeepResearch] Content element not found');
+            this.showFeedback('内容未找到', true);
             return;
         }
 
@@ -189,24 +181,25 @@ export class DeepResearchHandler {
     }
 
     /**
-     * Handle preview button click
+     * Handle reader button click - open in ReaderPanel
      */
-    private handlePreview(panel: HTMLElement): void {
+    private handleReader(panel: HTMLElement): void {
         const content = panel.querySelector('#extended-response-markdown-content');
         if (!content) {
             logger.warn('[DeepResearch] Content element not found');
+            this.showFeedback('内容未找到', true);
             return;
         }
 
         try {
-            // ✅ 传入getMarkdown方法 (复用parser逻辑)
-            this.reRenderPanel.show(
+            this.readerPanel.show(
                 content as HTMLElement,
                 (el: HTMLElement) => this.parser.parse(el)
             );
-            logger.info('[DeepResearch] Preview panel opened');
+            logger.info('[DeepResearch] Reader panel opened');
         } catch (error) {
-            logger.error('[DeepResearch] Error during preview:', error);
+            logger.error('[DeepResearch] Error opening reader:', error);
+            this.showFeedback('打开失败', true);
         }
     }
 
@@ -220,13 +213,13 @@ export class DeepResearchHandler {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${isError ? 'var(--aimd-feedback-danger-bg)' : 'var(--aimd-feedback-info-bg)'};
-            color: ${isError ? 'var(--aimd-feedback-danger-text)' : 'var(--aimd-feedback-info-text)'};
+            background: ${isError ? '#EF4444' : '#2563EB'};
+            color: #FFFFFF;
             padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
-            z-index: var(--aimd-z-tooltip);
+            z-index: 10000;
             animation: fadeInOut 2s forwards;
         `;
 

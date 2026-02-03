@@ -10,8 +10,8 @@ export class MessageDeduplicator {
      * 
      * @example
      * // ChatGPT: Both match but inner is duplicate
-     * <article data-turn="assistant">     <!-- Keep ✅ -->
-     *   <div data-message-author-role="assistant"> <!-- Remove ❌ -->
+     * <article data-turn="assistant">     <!-- keep -->
+     *   <div data-message-author-role="assistant"> <!-- remove -->
      *     <p>Response</p>
      *   </div>
      * </article>
