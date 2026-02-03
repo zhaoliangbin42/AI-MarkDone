@@ -117,11 +117,11 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v2.8.0
-- **✨ New**: Full support for **Claude** and **DeepSeek** platforms.
-- **✨ New**: Export conversations as Markdown or PDF with beautiful styling.
-- **✨ New**: Replaced header bookmark button with brand icon.
-- **🐛 Fix**: Theme detection, formula extraction, and reader mode issues.
+### v2.9.0
+- **✨ New**: Full **Firefox** browser support with separated MV2/MV3 architecture.
+- **✨ New**: Toolbar toggle settings to show/hide individual buttons.
+- **✨ New**: Bookmark sort direction toggle (ascending/descending).
+- **🐛 Fix**: Reader View Source modal, FloatingInput sync, and design token standardization.
 
 [Full Changelog](./CHANGELOG.md)
 
