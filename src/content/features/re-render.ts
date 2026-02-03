@@ -21,6 +21,7 @@ import { StreamingDetector } from '../adapters/streaming-detector';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { SimpleBookmarkStorage } from '../../bookmarks/storage/SimpleBookmarkStorage';
 import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal';
+import { Modal } from '../components/modal';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -515,8 +516,8 @@ export class ReaderPanel {
             },
             onCollapse: (text) => {
                 logger.debug('[ReaderPanel] FloatingInput collapsed, text length:', text.length);
-                // Sync to the native input to keep host UI consistent.
-                if (text.trim() && this.messageSender) {
+                // Sync to the native input to keep host UI consistent (including empty state).
+                if (this.messageSender) {
                     this.messageSender.forceSyncToNative(text);
                 }
             },
@@ -849,27 +850,10 @@ export class ReaderPanel {
         const currentItem = this.items[this.currentIndex];
         if (!currentItem) return;
 
-        // Resolve content and show in modal
+        // Resolve content and show in modal (reuse existing Modal component with Shadow DOM styling)
         resolveContent(currentItem.content).then(content => {
-            // Create simple modal for source view
-            const modal = document.createElement('div');
-            modal.className = 'aicopy-source-modal';
-            modal.innerHTML = `
-                <div class="aicopy-source-modal-content">
-                    <div class="aicopy-source-modal-header">
-                        <h3>Markdown Source</h3>
-                        <button class="aicopy-source-modal-close">&times;</button>
-                    </div>
-                    <pre class="aicopy-source-modal-body">${this.escapeHtml(content)}</pre>
-                </div>
-            `;
-
-            modal.querySelector('.aicopy-source-modal-close')?.addEventListener('click', () => modal.remove());
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
-            });
-
-            document.body.appendChild(modal);
+            const modal = new Modal();
+            modal.show(content, 'Markdown Source');
         });
     }
 
