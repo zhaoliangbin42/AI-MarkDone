@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reader Fullscreen**: Fullscreen button icon now toggles between maximize/minimize to reflect current state
 
 ### Fixed
+- **Reader View Source**: Fixed "View Source" button in Reader panel not displaying modal (missing CSS styles replaced with reusable Modal component)
+- **Modal z-index**: Fixed Modal being hidden behind Reader panel by updating z-index from `--aimd-z-modal` (1050) to `--aimd-z-dialog` (9500)
+- **Modal ESC Key**: Fixed ESC key closing both Modal and Reader panel simultaneously by using capture phase event listener
+- **FloatingInput Sync**: Fixed bidirectional sync with native input - now syncs empty state as well (closing with empty content clears native input)
 - **Bookmark Highlight**: Fixed toolbar highlight not showing after page refresh due to async createUI race condition
 - **Settings Path**: Fixed `saveContextOnly` setting path from `storage.*` to `behavior.*`
 - **Design Tokens**: Standardized CSS token usage in Reader panel styles to comply with design system.

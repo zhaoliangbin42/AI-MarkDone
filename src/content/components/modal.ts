@@ -165,13 +165,15 @@ export class Modal {
             }
         });
 
-        // ESC key to close
+        // ESC key to close (use capture phase to execute before other bubbling handlers)
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
+                e.stopImmediatePropagation(); // Prevent ESC from closing parent panels
+                e.stopPropagation();
                 this.hide();
-                document.removeEventListener('keydown', handleEscape);
+                document.removeEventListener('keydown', handleEscape, true);
             }
         };
-        document.addEventListener('keydown', handleEscape);
+        document.addEventListener('keydown', handleEscape, true);
     }
 }

@@ -19,7 +19,7 @@ export const modalStyles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--aimd-z-modal);
+  z-index: var(--aimd-z-dialog);
   animation: overlayFadeIn 0.2s ease;
 }
 
