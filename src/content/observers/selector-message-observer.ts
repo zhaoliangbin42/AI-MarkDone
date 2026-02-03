@@ -194,14 +194,28 @@ export class SelectorMessageObserver {
         // For INJECTED state, allow reprocessing so streaming completion can activate.
         if (state === ToolbarState.NULL) {
             const messageId = this.adapter.getMessageId(message);
+            // Self-healing: check if wrapper actually exists in DOM
+            // SPA re-renders (e.g., after streaming) may remove injected wrappers
+            const wrapperExists = message.querySelector('.aicopy-toolbar-wrapper') !== null;
+
             if (messageId) {
                 const key = `${this.getConversationKey()}:${messageId}`;
                 if (this.processedMessageIds.has(key)) {
-                    return;
+                    if (!wrapperExists) {
+                        // Wrapper was removed by SPA re-render, allow re-injection
+                        this.processedMessageIds.delete(key);
+                        logger.debug('[SelectorObserver] Wrapper removed, allowing re-injection:', key);
+                    } else {
+                        return;
+                    }
                 }
             } else {
                 if (this.processedElements.has(message)) {
-                    return;
+                    if (wrapperExists) {
+                        return;
+                    }
+                    // No wrapper but in WeakSet - continue to re-inject
+                    logger.debug('[SelectorObserver] Wrapper removed (no ID), allowing re-injection');
                 }
             }
         }
