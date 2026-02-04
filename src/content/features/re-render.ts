@@ -22,6 +22,7 @@ import { SettingsManager } from '../../settings/SettingsManager';
 import { SimpleBookmarkStorage } from '../../bookmarks/storage/SimpleBookmarkStorage';
 import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal';
 import { Modal } from '../components/modal';
+import { i18n } from '../../utils/i18n';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -345,23 +346,23 @@ export class ReaderPanel {
         header.className = 'aicopy-panel-header';
         header.innerHTML = `
             <div class="aicopy-panel-header-left">
-                <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
+                <h2 class="aicopy-panel-title">${i18n.t('readerTitle')}</h2>
                 <div class="aicopy-header-actions">
-                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
+                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="${i18n.t('toggleFullscreen')}">
                         ${Icons.maximize}
                     </button>
-                    <button class="aicopy-panel-btn" id="bookmark-btn" title="Bookmark">
+                    <button class="aicopy-panel-btn" id="bookmark-btn" title="${i18n.t('bookmark')}">
                         ${Icons.bookmark}
                     </button>
-                    <button class="aicopy-panel-btn" id="copy-btn" title="Copy Markdown">
+                    <button class="aicopy-panel-btn" id="copy-btn" title="${i18n.t('copyMarkdown')}">
                         ${Icons.copy}
                     </button>
-                    <button class="aicopy-panel-btn" id="source-btn" title="View Source">
+                    <button class="aicopy-panel-btn" id="source-btn" title="${i18n.t('viewSource')}">
                         ${Icons.code}
                     </button>
                 </div>
             </div>
-            <button class="aicopy-panel-btn" id="close-btn" title="Close">×</button>
+            <button class="aicopy-panel-btn" id="close-btn" title="${i18n.t('close')}">×</button>
         `;
 
         header.querySelector('#close-btn')?.addEventListener('click', () => this.hide());
@@ -396,7 +397,7 @@ export class ReaderPanel {
         const leftBtn = document.createElement('button');
         leftBtn.className = 'aicopy-nav-button aicopy-nav-button-left';
         leftBtn.innerHTML = '◀';
-        leftBtn.setAttribute('aria-label', 'Previous message'); // Accessibility
+        leftBtn.setAttribute('aria-label', i18n.t('previousMessage')); // Accessibility
         leftBtn.disabled = true; // Initial state
 
         // 3. Dots Container (Dedicated Isolation Zone)
@@ -407,13 +408,13 @@ export class ReaderPanel {
         const rightBtn = document.createElement('button');
         rightBtn.className = 'aicopy-nav-button aicopy-nav-button-right';
         rightBtn.innerHTML = '▶';
-        rightBtn.setAttribute('aria-label', 'Next message');
+        rightBtn.setAttribute('aria-label', i18n.t('nextMessage'));
         rightBtn.disabled = true;
 
         // 5. Hint
         const hint = document.createElement('span');
         hint.className = 'aicopy-keyboard-hint';
-        hint.textContent = '"← →" to navigate';
+        hint.textContent = i18n.t('navigateHint');
 
         // Assemble Skeleton (Explicit Order)
         paginationContainer.appendChild(leftBtn);
@@ -472,7 +473,7 @@ export class ReaderPanel {
 
         this.triggerBtn = document.createElement('button');
         this.triggerBtn.className = 'aimd-trigger-btn';
-        this.triggerBtn.title = 'Send message';
+        this.triggerBtn.title = i18n.t('sendMessage');
         this.triggerBtn.innerHTML = Icons.messageSquareText;
 
         const adapter = adapterRegistry.getAdapter();
@@ -556,7 +557,7 @@ export class ReaderPanel {
         // Jump Button
         const jumpBtn = document.createElement('button');
         jumpBtn.className = 'aimd-trigger-btn';
-        jumpBtn.title = 'Jump to current message';
+        jumpBtn.title = i18n.t('jumpToMessage');
         jumpBtn.innerHTML = Icons.locate;
         jumpBtn.addEventListener('click', (e) => {
             e.stopPropagation();

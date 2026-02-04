@@ -38,6 +38,7 @@ export interface AppSettings {
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';  // default: 'alpha-asc'
     };
+    language: 'auto' | 'en' | 'zh_CN';  // default: 'auto'
 }
 
 /**
@@ -65,6 +66,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     bookmarks: {
         sortMode: 'alpha-asc',
     },
+    language: 'auto',
 };
 
 /**
@@ -207,6 +209,7 @@ export class SettingsManager {
             bookmarks: {
                 ...DEFAULT_SETTINGS.bookmarks,
             },
+            language: 'auto',
         };
     }
 
@@ -249,6 +252,7 @@ export class SettingsManager {
                 // Migrate old sortMode values
                 sortMode: this.migrateSortMode(stored.bookmarks?.sortMode),
             },
+            language: stored.language || 'auto',
         };
     }
 

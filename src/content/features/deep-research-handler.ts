@@ -3,6 +3,7 @@ import { TooltipHelper } from '../utils/tooltip-helper';
 import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
 import { ReaderPanel } from './re-render';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Deep Research Panel Handler
@@ -85,12 +86,12 @@ export class DeepResearchHandler {
         }
 
         // Create copy button
-        const copyBtn = this.createButton('Copy Markdown', 'content_copy', () => {
+        const copyBtn = this.createButton(i18n.t('btnCopy'), 'content_copy', () => {
             this.handleCopy(panel);
         });
 
         // Create reader button
-        const readerBtn = this.createButton('阅读模式', 'menu_book', () => {
+        const readerBtn = this.createButton(i18n.t('readerMode'), 'menu_book', () => {
             this.handleReader(panel);
         });
 
@@ -159,7 +160,7 @@ export class DeepResearchHandler {
         const content = panel.querySelector('#extended-response-markdown-content');
         if (!content) {
             logger.warn('[DeepResearch] Content element not found');
-            this.showFeedback('内容未找到', true);
+            this.showFeedback(i18n.t('contentNotFound'), true);
             return;
         }
 
@@ -169,14 +170,14 @@ export class DeepResearchHandler {
 
             if (success) {
                 logger.info('[DeepResearch] Content copied to clipboard');
-                this.showFeedback('已复制!');
+                this.showFeedback(i18n.t('btnCopied'));
             } else {
                 logger.error('[DeepResearch] Failed to copy to clipboard');
-                this.showFeedback('复制失败', true);
+                this.showFeedback(i18n.t('copyFailed'), true);
             }
         } catch (error) {
             logger.error('[DeepResearch] Error during copy:', error);
-            this.showFeedback('复制失败', true);
+            this.showFeedback(i18n.t('copyFailed'), true);
         }
     }
 
@@ -187,7 +188,7 @@ export class DeepResearchHandler {
         const content = panel.querySelector('#extended-response-markdown-content');
         if (!content) {
             logger.warn('[DeepResearch] Content element not found');
-            this.showFeedback('内容未找到', true);
+            this.showFeedback(i18n.t('contentNotFound'), true);
             return;
         }
 
@@ -199,7 +200,7 @@ export class DeepResearchHandler {
             logger.info('[DeepResearch] Reader panel opened');
         } catch (error) {
             logger.error('[DeepResearch] Error opening reader:', error);
-            this.showFeedback('打开失败', true);
+            this.showFeedback(i18n.t('openFailed'), true);
         }
     }
 

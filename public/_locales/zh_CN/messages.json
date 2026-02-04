@@ -1,0 +1,638 @@
+{
+    "extName": {
+        "message": "AI-MarkDone | 给大模型添加沉浸式阅读模式、书签、LaTex公式复制"
+    },
+    "extDescription": {
+        "message": "为 ChatGPT 和 Gemini 提供沉浸式阅读模式、书签管理、LaTeX 公式一键复制、Markdown 导出等功能，提升大模型使用体验。"
+    },
+    "btnCopy": {
+        "message": "复制 Markdown"
+    },
+    "btnCopied": {
+        "message": "已复制!"
+    },
+    "btnBookmark": {
+        "message": "书签"
+    },
+    "btnRemoveBookmark": {
+        "message": "移除书签"
+    },
+    "btnReader": {
+        "message": "阅读器"
+    },
+    "btnViewSource": {
+        "message": "查看源码"
+    },
+    "btnSaveAs": {
+        "message": "另存为"
+    },
+    "btnClose": {
+        "message": "关闭"
+    },
+    "btnCancel": {
+        "message": "取消"
+    },
+    "btnOk": {
+        "message": "确定"
+    },
+    "btnSave": {
+        "message": "保存"
+    },
+    "loading": {
+        "message": "加载中..."
+    },
+    "noContent": {
+        "message": "无内容"
+    },
+    "openingPreview": {
+        "message": "打开预览..."
+    },
+    "sourceOpened": {
+        "message": "源码已打开"
+    },
+    "saving": {
+        "message": "保存中..."
+    },
+    "readerTitle": {
+        "message": "AI-Markdone 阅读器"
+    },
+    "toggleFullscreen": {
+        "message": "切换全屏"
+    },
+    "previousMessage": {
+        "message": "上一条消息"
+    },
+    "nextMessage": {
+        "message": "下一条消息"
+    },
+    "navigateHint": {
+        "message": "\"← →\" 切换消息"
+    },
+    "typeYourMessage": {
+        "message": "输入你的消息..."
+    },
+    "saveMessages": {
+        "message": "保存消息"
+    },
+    "selectAll": {
+        "message": "全选"
+    },
+    "deselectAll": {
+        "message": "取消全选"
+    },
+    "readerMode": {
+        "message": "阅读模式"
+    },
+    "contentNotFound": {
+        "message": "内容未找到"
+    },
+    "copyFailed": {
+        "message": "复制失败"
+    },
+    "openFailed": {
+        "message": "打开失败"
+    },
+    "exportOptions": {
+        "message": "导出选项"
+    },
+    "selectExportMethod": {
+        "message": "选择导出方式:"
+    },
+    "keepFolderStructure": {
+        "message": "保留文件夹结构"
+    },
+    "exportAsFolders": {
+        "message": "导出为分层的文件夹和书签"
+    },
+    "flatList": {
+        "message": "扁平列表"
+    },
+    "exportBookmarksOnly": {
+        "message": "仅导出所有书签，不含文件夹"
+    },
+    "export": {
+        "message": "导出"
+    },
+    "renameTo": {
+        "message": "重命名为"
+    },
+    "autoRename": {
+        "message": "自动重命名"
+    },
+    "clickCopy": {
+        "message": "点击复制"
+    },
+    "btnCopyText": {
+        "message": "复制"
+    },
+    "modalSourceTitle": {
+        "message": "Markdown 源码"
+    },
+    "saveMessagesTitle": {
+        "message": "保存消息"
+    },
+    "formatMarkdown": {
+        "message": "Markdown"
+    },
+    "formatPdf": {
+        "message": "PDF"
+    },
+    "saveBookmarkTitle": {
+        "message": "保存书签"
+    },
+    "labelTitle": {
+        "message": "标题"
+    },
+    "labelFolder": {
+        "message": "文件夹"
+    },
+    "languageChanged": {
+        "message": "语言已更改"
+    },
+    "reloadMessage": {
+        "message": "请刷新页面以应用新的语言设置。"
+    },
+    "reloadNow": {
+        "message": "立即刷新"
+    },
+    "later": {
+        "message": "稍后"
+    },
+    "confirmRename": {
+        "message": "确认重命名"
+    },
+    "cancelRename": {
+        "message": "取消重命名"
+    },
+    "sendMessage": {
+        "message": "发送消息"
+    },
+    "jumpToMessage": {
+        "message": "跳转到当前消息"
+    },
+    "collapse": {
+        "message": "收起"
+    },
+    "send": {
+        "message": "发送"
+    },
+    "search": {
+        "message": "搜索..."
+    },
+    "sortByTime": {
+        "message": "按时间排序"
+    },
+    "sortAlpha": {
+        "message": "按字母排序"
+    },
+    "sortByTimeLabel": {
+        "message": "按时间排序"
+    },
+    "sortAlphaLabel": {
+        "message": "按字母排序"
+    },
+    "createFolder": {
+        "message": "创建新文件夹"
+    },
+    "importBookmarks": {
+        "message": "导入书签"
+    },
+    "exportBookmarks": {
+        "message": "导出书签"
+    },
+    "toggleFolder": {
+        "message": "展开/折叠文件夹"
+    },
+    "newSubfolder": {
+        "message": "新建子文件夹"
+    },
+    "createSubfolder": {
+        "message": "创建子文件夹"
+    },
+    "rename": {
+        "message": "重命名"
+    },
+    "renameFolder": {
+        "message": "重命名文件夹"
+    },
+    "delete": {
+        "message": "删除"
+    },
+    "deleteFolder": {
+        "message": "删除文件夹"
+    },
+    "openConversation": {
+        "message": "在对话中打开"
+    },
+    "openConversationLabel": {
+        "message": "打开对话"
+    },
+    "edit": {
+        "message": "编辑"
+    },
+    "editBookmark": {
+        "message": "编辑书签"
+    },
+    "deleteBookmark": {
+        "message": "删除书签"
+    },
+    "titleRequired": {
+        "message": "标题不能为空"
+    },
+    "errorCalculating": {
+        "message": "计算错误"
+    },
+    "inputMessage": {
+        "message": "输入消息"
+    },
+    "enterBookmarkTitle": {
+        "message": "输入书签标题..."
+    },
+    "saveBookmark": {
+        "message": "保存书签"
+    },
+    "moveBookmarksToFolder": {
+        "message": "移动书签到文件夹"
+    },
+    "newFolder": {
+        "message": "新建文件夹"
+    },
+    "newSubfolderTitle": {
+        "message": "新建子文件夹"
+    },
+    "enterFolderName": {
+        "message": "输入文件夹名称"
+    },
+    "loadingFolders": {
+        "message": "加载文件夹中..."
+    },
+    "general": {
+        "message": "通用"
+    },
+    "language": {
+        "message": "语言"
+    },
+    "platforms": {
+        "message": "平台"
+    },
+    "behavior": {
+        "message": "配置"
+    },
+    "reader": {
+        "message": "阅读器"
+    },
+    "supportDevelopment": {
+        "message": "支持开发"
+    },
+    "ifProjectHelps": {
+        "message": "如果这个项目对你有帮助"
+    },
+    "noFoldersYet": {
+        "message": "暂无文件夹"
+    },
+    "createFirstFolder": {
+        "message": "创建第一个文件夹来整理书签"
+    },
+    "migrationComplete": {
+        "message": "迁移完成"
+    },
+    "migratedBookmarks": {
+        "message": "已将 $1 个书签迁移到 \"Import\" 文件夹"
+    },
+    "deleteSelected": {
+        "message": "删除选中项"
+    },
+    "moveSelected": {
+        "message": "移动选中项"
+    },
+    "exportSelected": {
+        "message": "导出选中项"
+    },
+    "clearSelection": {
+        "message": "清除选择"
+    },
+    "batchDelete": {
+        "message": "删除"
+    },
+    "batchMove": {
+        "message": "移动到"
+    },
+    "batchExport": {
+        "message": "导出"
+    },
+    "batchClear": {
+        "message": "清除"
+    },
+    "maxDepthExceeded": {
+        "message": "超出最大深度"
+    },
+    "maxDepthMessage": {
+        "message": "文件夹最大深度为 3 层。"
+    },
+    "failedToCreateFolder": {
+        "message": "创建文件夹失败"
+    },
+    "folderNameExists": {
+        "message": "文件夹名称已存在。"
+    },
+    "folderNameNoSlash": {
+        "message": "文件夹名称不能包含 \"/\"。"
+    },
+    "spacesCollapsed": {
+        "message": "连续空格已被合并。"
+    },
+    "failedToRename": {
+        "message": "重命名失败"
+    },
+    "deleteBookmarkTitle": {
+        "message": "删除书签"
+    },
+    "deleteBookmarkMessage": {
+        "message": "确定要删除这个书签吗？"
+    },
+    "noItemsSelected": {
+        "message": "未选择任何项目"
+    },
+    "pleaseSelectToExport": {
+        "message": "请选择要导出的项目"
+    },
+    "noBookmarksSelected": {
+        "message": "未选择书签"
+    },
+    "noBookmarksToMove": {
+        "message": "没有可移动的书签"
+    },
+    "noBookmarksToMoveNote": {
+        "message": "注意：只能移动书签，不能移动文件夹。"
+    },
+    "storageFull": {
+        "message": "存储空间已满"
+    },
+    "storageWarning": {
+        "message": "存储空间警告"
+    },
+    "importSuccessful": {
+        "message": "导入成功"
+    },
+    "importFailed": {
+        "message": "导入失败"
+    },
+    "conversation": {
+        "message": "对话"
+    },
+    "bookmark": {
+        "message": "书签"
+    },
+    "copyMarkdown": {
+        "message": "复制 Markdown"
+    },
+    "viewSource": {
+        "message": "查看源码"
+    },
+    "close": {
+        "message": "关闭"
+    },
+    "failedToCreateFolderError": {
+        "message": "创建文件夹失败：$1"
+    },
+    "failedToRenameError": {
+        "message": "重命名失败：$1"
+    },
+    "failedToDeleteError": {
+        "message": "删除失败：$1"
+    },
+    "failedToMoveError": {
+        "message": "移动失败：$1"
+    },
+    "unknownError": {
+        "message": "未知错误"
+    },
+    "sponsor": {
+        "message": "支持一下"
+    },
+    "settings": {
+        "message": "设置"
+    },
+    "bookmarks": {
+        "message": "书签"
+    },
+    "settingsLanguageLabel": {
+        "message": "语言"
+    },
+    "settingsLanguageDesc": {
+        "message": "选择你的首选语言"
+    },
+    "languageAuto": {
+        "message": "自动（浏览器语言）"
+    },
+    "languageEnglish": {
+        "message": "English"
+    },
+    "languageZhCN": {
+        "message": "简体中文"
+    },
+    "enableOnChatGPT": {
+        "message": "在 ChatGPT 上启用扩展"
+    },
+    "enableOnGemini": {
+        "message": "在 Gemini 上启用扩展"
+    },
+    "enableOnClaude": {
+        "message": "在 Claude 上启用扩展"
+    },
+    "enableOnDeepseek": {
+        "message": "在 Deepseek 上启用扩展"
+    },
+    "viewSourceLabel": {
+        "message": "工具栏 > 查看源码"
+    },
+    "viewSourceDesc": {
+        "message": "在工具栏中显示\"查看源码\"按钮"
+    },
+    "saveMessagesLabel": {
+        "message": "工具栏 > 消息导出"
+    },
+    "saveMessagesDesc": {
+        "message": "在工具栏中显示\"另存为\"按钮"
+    },
+    "wordCountLabel": {
+        "message": "工具栏 > 字数统计"
+    },
+    "wordCountDesc": {
+        "message": "在工具栏中显示字数统计"
+    },
+    "clickToCopyLabel": {
+        "message": "消息 > 点击复制"
+    },
+    "clickToCopyDesc": {
+        "message": "启用消息中数学公式点击复制功能"
+    },
+    "contextOnlySaveLabel": {
+        "message": "书签 > 仅保存部分文本"
+    },
+    "contextOnlySaveDesc": {
+        "message": "保存书签时仅保留 500 字符以节省空间。（书签预览时内容将不完整，但不影响跳转原页面查看）"
+    },
+    "renderCodeBlocksLabel": {
+        "message": "阅读器 > 渲染代码块"
+    },
+    "renderCodeBlocksDesc": {
+        "message": "在阅读器模式下显示代码块，否则显示占位符。"
+    },
+    "supportDevDesc": {
+        "message": "AI-MarkDone 是开源项目。在 GitHub 点个星星支持下。"
+    },
+    "starOnGitHub": {
+        "message": "在 GitHub 点个星星"
+    },
+    "supportCoffeeDesc": {
+        "message": "请开发者喝杯咖啡 ☕️"
+    },
+    "buyMeCoffee": {
+        "message": "Buy Me a Coffee"
+    },
+    "wechatAppreciationCode": {
+        "message": "微信赞赏码"
+    },
+    "selectFolderLabel": {
+        "message": "选择文件夹"
+    },
+    "movingBookmarks": {
+        "message": "正在移动 <strong>$1</strong> 个书签"
+    },
+    "deleteBookmarkConfirm": {
+        "message": "删除书签\"$1\"？"
+    },
+    "deleteBookmarkTip": {
+        "message": "提示：你可以先导出书签以创建备份，避免数据丢失。"
+    },
+    "noBookmarksSelectedMessage": {
+        "message": "未选择书签"
+    },
+    "pleaseSelectToMove": {
+        "message": "请选择要移动的项目"
+    },
+    "storageQuotaExceeded": {
+        "message": "存储配额已超出"
+    },
+    "storageGettingFull": {
+        "message": "存储空间即将用完"
+    },
+    "notEnoughStorageForImport": {
+        "message": "导入所需的存储空间不足"
+    },
+    "importedBookmarks": {
+        "message": "已导入 $1 个书签$2"
+    },
+    "skippedDuplicates": {
+        "message": "跳过 $1 个重复项$2"
+    },
+    "importFailedMessage": {
+        "message": "导入失败：$1"
+    },
+    "maxDepthSubfolderMessage": {
+        "message": "无法创建子文件夹：文件夹最大深度为 $1 层。\\n\\n请创建新的根文件夹或在现有文件夹中整理。"
+    },
+    "maxDepthFolderMessage": {
+        "message": "无法创建文件夹：文件夹最大深度为 $1 层。\\n\\n当前路径为：$2\\n深度：$3\\n\\n请创建新的根文件夹或在现有文件夹中整理。"
+    },
+    "failedToCreateFolderMessage": {
+        "message": "创建文件夹失败：$1"
+    },
+    "failedToRenameFolderMessage": {
+        "message": "重命名文件夹失败：$1"
+    },
+    "folderNameEmpty": {
+        "message": "文件夹名称不能为空"
+    },
+    "creatingSubfolderIn": {
+        "message": "在以下位置创建子文件夹：$1"
+    },
+    "createFirstFolderBtn": {
+        "message": "创建第一个文件夹"
+    },
+    "tabBookmarks": {
+        "message": "书签管理"
+    },
+    "tabSettings": {
+        "message": "设置选项"
+    },
+    "tabSponsor": {
+        "message": "支持一下"
+    },
+    "selectedCount": {
+        "message": "已选择 $1 项"
+    },
+    "storageUsedLabel": {
+        "message": "已用存储"
+    },
+    "storageCalculating": {
+        "message": "计算中..."
+    },
+    "backupTitle": {
+        "message": "数据备份"
+    },
+    "backupWarning": {
+        "message": "⚠️ 卸载扩展将清空所有书签。"
+    },
+    "exportAllBtn": {
+        "message": "导出全部"
+    },
+    "selectMessagesLabel": {
+        "message": "选择要保存的消息："
+    },
+    "formatLabel": {
+        "message": "格式："
+    },
+    "selectedCountMessages": {
+        "message": "已选 $1 / $2"
+    },
+    "dataAndStorage": {
+        "message": "数据与存储"
+    },
+    "deleteSelectedTitle": {
+        "message": "删除选中项"
+    },
+    "deletePermanentlyPrefix": {
+        "message": "这将永久删除："
+    },
+    "rootFoldersCount": {
+        "message": "$1 个根文件夹"
+    },
+    "subFoldersCount": {
+        "message": "$1 个子文件夹"
+    },
+    "bookmarksCount": {
+        "message": "$1 个书签"
+    },
+    "actionCannotBeUndone": {
+        "message": "此操作无法撤销。"
+    },
+    "exportMetadata": {
+        "message": "导出自 $1，时间：$2"
+    },
+    "exportMessagePrefix": {
+        "message": "消息 $1"
+    },
+    "exportUserLabel": {
+        "message": "用户"
+    },
+    "exportAssistantLabel": {
+        "message": "助手"
+    },
+    "pdfExportedFrom": {
+        "message": "导出自 $1"
+    },
+    "pdfMessagesCount": {
+        "message": "共 $1 条消息"
+    },
+    "pdfMessagePrefix": {
+        "message": "消息 $1"
+    },
+    "pdfUserLabel": {
+        "message": "用户"
+    },
+    "pdfAssistantLabel": {
+        "message": "助手"
+    }
+}

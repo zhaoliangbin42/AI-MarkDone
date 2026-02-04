@@ -13,6 +13,7 @@
 import { Icons } from '../../assets/icons';
 import { logger } from '../../utils/logger';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
+import { i18n } from '../../utils/i18n';
 
 export interface FloatingInputOptions {
     /** Callback when user clicks send button */
@@ -194,13 +195,13 @@ export class FloatingInput {
         // Title on the left
         const title = document.createElement('span');
         title.className = 'aimd-float-title';
-        title.textContent = 'Input Message';
+        title.textContent = i18n.t('inputMessage');
         header.appendChild(title);
 
         // Collapse button on the right
         const collapseBtn = document.createElement('button');
         collapseBtn.className = 'aimd-float-collapse-btn';
-        collapseBtn.title = 'Collapse';
+        collapseBtn.title = i18n.t('collapse');
         collapseBtn.innerHTML = Icons.chevronDown;
         collapseBtn.addEventListener('click', () => this.hide());
         header.appendChild(collapseBtn);
@@ -211,7 +212,7 @@ export class FloatingInput {
 
         this.textarea = document.createElement('textarea');
         this.textarea.className = 'aimd-float-textarea';
-        this.textarea.placeholder = 'Type your message...';
+        this.textarea.placeholder = i18n.t('typeYourMessage');
 
         // Event isolation: prevent host page from intercepting keyboard events
         setupKeyboardIsolation(this.textarea, { componentName: 'FloatingInput' });
@@ -237,7 +238,7 @@ export class FloatingInput {
 
         this.sendBtn = document.createElement('button');
         this.sendBtn.className = 'aimd-float-send-btn';
-        this.sendBtn.title = 'Send';
+        this.sendBtn.title = i18n.t('send');
         this.sendBtn.innerHTML = Icons.send;
         this.sendBtn.addEventListener('click', () => {
             const text = this.textarea?.value.trim() || '';
