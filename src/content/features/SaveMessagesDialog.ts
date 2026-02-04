@@ -10,6 +10,7 @@ import { logger } from '../../utils/logger';
 import { DesignTokens } from '../../utils/design-tokens';
 import { ThemeManager } from '../../utils/ThemeManager';
 import { saveMessagesDialogStyles } from './save-messages-dialog.css';
+import { i18n } from '../../utils/i18n';
 import type { ChatTurn, ConversationMetadata, SaveFormat } from './save-messages';
 
 /**
@@ -132,7 +133,7 @@ export class SaveMessagesDialog {
         const header = document.createElement('div');
         header.className = 'save-messages-header';
         header.innerHTML = `
-            <h2 class="save-messages-title">Save Messages As</h2>
+            <h2 class="save-messages-title">${i18n.t('saveMessagesTitle')}</h2>
         `;
 
         const closeBtn = document.createElement('button');
@@ -149,7 +150,7 @@ export class SaveMessagesDialog {
         const selectorSection = document.createElement('div');
         selectorSection.className = 'save-messages-section';
         selectorSection.innerHTML = `
-            <label class="save-messages-label">Select messages to save:</label>
+            <label class="save-messages-label">${i18n.t('selectMessagesLabel')}</label>
         `;
 
         // Scroll container with padding for tooltips
@@ -165,7 +166,7 @@ export class SaveMessagesDialog {
         const formatSection = document.createElement('div');
         formatSection.className = 'save-messages-section';
         formatSection.innerHTML = `
-            <label class="save-messages-label">Format:</label>
+            <label class="save-messages-label">${i18n.t('formatLabel')}</label>
             <div class="format-buttons">
                 <button type="button" class="format-btn active" data-format="markdown">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -352,12 +353,12 @@ export class SaveMessagesDialog {
 
         const selectAllBtn = document.createElement('button');
         selectAllBtn.className = 'save-messages-btn save-messages-btn-secondary';
-        selectAllBtn.textContent = 'Select All';
+        selectAllBtn.textContent = i18n.t('selectAll');
         selectAllBtn.addEventListener('click', () => this.selectAll());
 
         const deselectAllBtn = document.createElement('button');
         deselectAllBtn.className = 'save-messages-btn save-messages-btn-secondary';
-        deselectAllBtn.textContent = 'Deselect All';
+        deselectAllBtn.textContent = i18n.t('deselectAll');
         deselectAllBtn.addEventListener('click', () => this.deselectAll());
 
         actionsLeft.appendChild(selectAllBtn);
@@ -367,12 +368,12 @@ export class SaveMessagesDialog {
         const count = document.createElement('span');
         count.className = 'selection-count';
         count.id = 'selection-count';
-        count.textContent = `${this.selectedIndices.size} / ${this.turns.length} selected`;
+        count.textContent = i18n.t('selectedCountMessages', [`${this.selectedIndices.size}`, `${this.turns.length}`]);
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'save-messages-btn save-messages-btn-primary';
         saveBtn.id = 'save-messages-btn';
-        saveBtn.textContent = 'Save';
+        saveBtn.textContent = i18n.t('btnSave');
         saveBtn.disabled = this.selectedIndices.size === 0;
         saveBtn.addEventListener('click', () => this.handleSaveMessages());
 
@@ -439,7 +440,7 @@ export class SaveMessagesDialog {
 
         const saveBtn = this.shadowRoot?.querySelector('#save-messages-btn') as HTMLButtonElement;
         if (saveBtn) {
-            saveBtn.textContent = 'Saving...';
+            saveBtn.textContent = i18n.t('saving');
             saveBtn.disabled = true;
         }
 
@@ -450,7 +451,7 @@ export class SaveMessagesDialog {
         } catch (error) {
             logger.error('[AI-MarkDone][SaveMessagesDialog] Save failed:', error);
             if (saveBtn) {
-                saveBtn.textContent = 'Save';
+                saveBtn.textContent = i18n.t('btnSave');
                 saveBtn.disabled = false;
             }
         }

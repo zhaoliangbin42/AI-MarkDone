@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Icons change dynamically to show arrow direction
   - Settings migrated from 2-state to 4-state model with backward compatibility
 
+### Improved
+- **Internationalization (i18n)**: Comprehensive localization coverage for English and Simplified Chinese
+  - Settings Panel
+  - Save Messages Dialog
+  - Save Messages Export
+  - Batch Delete Dialog
+  - Sidebar Tabs
+  - Module Prefixes
+  
 ### Changed
 - **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.
 - **Button Styling**: Enhanced bookmark button with gradient background for clearer active state.

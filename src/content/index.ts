@@ -22,6 +22,8 @@ import { eventBus } from './utils/EventBus';
 import { collectAllMessages, getConversationMetadata, saveMessagesAsMarkdown, saveMessagesAsPdf } from './features/save-messages';
 import { saveMessagesDialog } from './features/SaveMessagesDialog';
 import { SettingsManager } from '../settings/SettingsManager';
+import { i18n } from '../utils/i18n';
+
 
 /**
  * Listen for messages from background script
@@ -113,6 +115,9 @@ class ContentScript {
         }
 
         logger.info('Starting extension on supported page');
+
+        // Initialize i18n before creating any components
+        await i18n.init();
 
         // Create injector first (needed by observer)
         this.injector = new ToolbarInjector(adapter);
