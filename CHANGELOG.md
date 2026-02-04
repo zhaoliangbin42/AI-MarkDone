@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Design Tokens**: Standardized CSS token usage in Reader panel styles to comply with design system.
 - **Reader Pagination**: Fixed bookmark status indicator offset in pagination dots.
 - **Markdown Paragraphs**: Fixed excessive blank lines between paragraphs when copying Markdown (3+ newlines compressed to 2)
+- **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
 
 ### Technical Details
 - Separated architecture: Background scripts are browser-specific, Content Script is shared

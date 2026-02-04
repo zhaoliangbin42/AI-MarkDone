@@ -58,6 +58,17 @@ export class Toolbar {
             this.setTheme(theme === 'dark');
         });
 
+        // 🔑 Subscribe to toolbar:activated event to refresh word count after streaming completes
+        // This event is emitted when setPending(false) is called (wasPending && !isPending)
+        eventBus.on('toolbar:activated', () => {
+            // Only refresh if this toolbar is the one that was activated
+            // Check by verifying we have word count enabled and were previously pending
+            if (this.wordCountInitialized) {
+                logger.debug('[Toolbar] toolbar:activated received, refreshing word count');
+                this.refreshWordCount();
+            }
+        });
+
         // Create UI (async) - expose promise for callers to await
         this.ready = this.createUI().catch(err => {
             logger.error('[Toolbar] Failed to create UI:', err);

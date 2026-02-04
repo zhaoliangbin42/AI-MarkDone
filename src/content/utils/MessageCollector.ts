@@ -28,15 +28,26 @@ export class MessageCollector {
         const elements = MessageDeduplicator.deduplicate(Array.from(rawElements));
 
         const messages: MessageRef[] = [];
+        let validIndex = 0;
 
-        elements.forEach((element, index) => {
+        elements.forEach((element) => {
+            // Filter out thinking-only articles (ChatGPT o1/o3 models)
+            // These are article[data-turn="assistant"] without data-message-author-role children
+            if (element.tagName.toLowerCase() === 'article') {
+                const hasMessageContent = element.querySelector('[data-message-author-role="assistant"]');
+                if (!hasMessageContent) {
+                    // Skip thinking-only articles
+                    return;
+                }
+            }
+
             // ATOMIC DISCOVERY: Ask adapter to find the user prompt for THIS model element
             const userPrompt = adapter.extractUserPrompt(element as HTMLElement);
 
             messages.push({
-                index,
+                index: validIndex++,
                 element: element as HTMLElement,
-                userPrompt: userPrompt || `Message ${index + 1}`
+                userPrompt: userPrompt || `Message ${validIndex}`
             });
         });
 
