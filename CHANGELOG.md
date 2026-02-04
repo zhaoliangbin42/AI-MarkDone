@@ -5,6 +5,22 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Claude: Fixed the header bookmark button not appearing after a site layout update.
+- Claude: Fixed header bookmark icon hover alignment.
+- **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
+
+### Improved
+- **Internationalization (i18n)**: Comprehensive localization coverage for English and Simplified Chinese
+  - Settings Panel
+  - Save Messages Dialog
+  - Save Messages Export
+  - Batch Delete Dialog
+  - Sidebar Tabs
+  - Module Prefixes
+
 ## [2.9.0] - 2026-02-03
 
 ### Added
@@ -25,15 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Alphabetical sort: A→Z ↔ Z→A
   - Icons change dynamically to show arrow direction
   - Settings migrated from 2-state to 4-state model with backward compatibility
-
-### Improved
-- **Internationalization (i18n)**: Comprehensive localization coverage for English and Simplified Chinese
-  - Settings Panel
-  - Save Messages Dialog
-  - Save Messages Export
-  - Batch Delete Dialog
-  - Sidebar Tabs
-  - Module Prefixes
   
 ### Changed
 - **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.
@@ -50,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Design Tokens**: Standardized CSS token usage in Reader panel styles to comply with design system.
 - **Reader Pagination**: Fixed bookmark status indicator offset in pagination dots.
 - **Markdown Paragraphs**: Fixed excessive blank lines between paragraphs when copying Markdown (3+ newlines compressed to 2)
-- **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
+
 
 ### Technical Details
 - Separated architecture: Background scripts are browser-specific, Content Script is shared
