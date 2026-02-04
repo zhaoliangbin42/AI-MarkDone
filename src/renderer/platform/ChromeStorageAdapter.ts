@@ -1,5 +1,6 @@
 import { IStorageAdapter } from './IStorageAdapter';
 import { browser } from '../../utils/browser';
+import { logger } from '../../utils/logger';
 
 /**
  * Chrome Extension storage adapter
@@ -12,7 +13,7 @@ export class ChromeStorageAdapter implements IStorageAdapter {
             return result[key];
         } catch (error) {
             // Fallback to local storage
-            console.warn('[ChromeStorage] Sync get failed, using local:', error);
+            logger.warn('[AI-MarkDone][ChromeStorage] Sync get failed, using local:', error);
             const local = await browser.storage.local.get(key);
             return local[key];
         }
@@ -23,7 +24,7 @@ export class ChromeStorageAdapter implements IStorageAdapter {
             await browser.storage.sync.set({ [key]: value });
         } catch (error) {
             // Fallback to local storage
-            console.warn('[ChromeStorage] Sync set failed, using local:', error);
+            logger.warn('[AI-MarkDone][ChromeStorage] Sync set failed, using local:', error);
             await browser.storage.local.set({ [key]: value });
         }
     }

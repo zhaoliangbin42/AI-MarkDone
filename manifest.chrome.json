@@ -49,10 +49,16 @@
         {
             "resources": [
                 "icons/*.png",
-                "_locales/*/messages.json"
+                "_locales/*/messages.json",
+                "vendor/katex/*.css",
+                "vendor/katex/fonts/*"
             ],
             "matches": [
-                "<all_urls>"
+                "https://chatgpt.com/*",
+                "https://chat.openai.com/*",
+                "https://gemini.google.com/*",
+                "https://claude.ai/*",
+                "https://chat.deepseek.com/*"
             ]
         }
     ]
