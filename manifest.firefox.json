@@ -47,7 +47,9 @@
     },
     "web_accessible_resources": [
         "icons/*.png",
-        "_locales/*/messages.json"
+        "_locales/*/messages.json",
+        "vendor/katex/*.css",
+        "vendor/katex/fonts/*"
     ],
     "browser_specific_settings": {
         "gecko": {

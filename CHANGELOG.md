@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude: Fixed the header bookmark button not appearing after a site layout update.
 - Claude: Fixed header bookmark icon hover alignment.
 - **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
+- **ChatGPT Word Count**: Fixed word count getting stuck in loading state for code-only responses (now shows `0 Words / 0 Chars`).
 
 ### Improved
 - **Internationalization (i18n)**: Comprehensive localization coverage for English and Simplified Chinese
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Batch Delete Dialog
   - Sidebar Tabs
   - Module Prefixes
+- **Formula Rendering**: Improved stability by loading KaTeX styles from bundled local assets (no external CDN dependency).
 
 ## [2.9.0] - 2026-02-03
 

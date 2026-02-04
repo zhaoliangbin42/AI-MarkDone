@@ -83,6 +83,12 @@ export class WordCounter {
    * Format count result as human-readable string
    */
   format(result: WordCountResult): string {
+    // Treat code-only content as valid "0 / 0" instead of "No content".
+    // Why: the toolbar word count initialization uses this string to decide whether to stop showing loading.
+    if (result.words === 0 && result.chars === 0 && result.excluded.codeBlocks > 0) {
+      return '0 Words / 0 Chars';
+    }
+
     if (result.words === 0 && result.chars === 0) {
       return 'No content';
     }

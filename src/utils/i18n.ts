@@ -5,6 +5,8 @@
  * Always loads messages.json directly (chrome.i18n.getMessage unreliable in content scripts).
  */
 
+import { logger } from './logger';
+
 type Locale = 'auto' | 'en' | 'zh_CN';
 type Messages = Record<string, { message: string; description?: string }>;
 
@@ -29,12 +31,12 @@ class I18nService {
 
     private async _doInit(): Promise<void> {
         try {
-            console.log('[i18n] Starting initialization...');
+            logger.debug('[AI-MarkDone][i18n] Starting initialization');
 
             // Read user preference
             const result = await chrome.storage.local.get('userLocale');
             this.locale = (result.userLocale as Locale) || 'auto';
-            console.log('[i18n] User locale:', this.locale);
+            logger.debug('[AI-MarkDone][i18n] User locale:', this.locale);
 
             // Determine actual locale to load
             let localeToLoad: string;
@@ -45,16 +47,15 @@ class I18nService {
             } else {
                 localeToLoad = this.locale;
             }
-            console.log('[i18n] Will load locale:', localeToLoad);
+            logger.debug('[AI-MarkDone][i18n] Will load locale:', localeToLoad);
 
             // Always load messages directly from file
             await this.loadMessages(localeToLoad);
 
             this.initialized = true;
-            console.log(`[i18n] ✅ Initialized with locale: ${localeToLoad}, ${Object.keys(this.messages).length} keys loaded`);
-            console.log('[i18n] Sample keys:', Object.keys(this.messages).slice(0, 5));
+            logger.debug(`[AI-MarkDone][i18n] Initialized with locale: ${localeToLoad} (${Object.keys(this.messages).length} keys)`);
         } catch (error) {
-            console.error('[i18n] ❌ Failed to initialize:', error);
+            logger.error('[AI-MarkDone][i18n] Failed to initialize:', error);
             this.initialized = true; // Mark as initialized to prevent infinite loops
         }
     }
@@ -65,28 +66,28 @@ class I18nService {
     private async loadMessages(locale: string): Promise<void> {
         try {
             const url = chrome.runtime.getURL(`_locales/${locale}/messages.json`);
-            console.log('[i18n] Fetching URL:', url);
+            logger.debug('[AI-MarkDone][i18n] Loading locale messages:', locale);
 
             const response = await fetch(url);
-            console.log('[i18n] Fetch response status:', response.status, response.ok);
+            logger.debug('[AI-MarkDone][i18n] Fetch status:', response.status, response.ok);
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             this.messages = await response.json();
-            console.log('[i18n] ✅ Loaded', Object.keys(this.messages).length, 'message keys');
+            logger.debug('[AI-MarkDone][i18n] Loaded keys:', Object.keys(this.messages).length);
         } catch (error) {
-            console.error(`[i18n] ❌ Failed to load ${locale}:`, error);
+            logger.warn(`[AI-MarkDone][i18n] Failed to load locale: ${locale}`, error);
             // Fallback to English if specified locale fails
             if (locale !== 'en') {
                 try {
-                    console.log('[i18n] Trying English fallback...');
+                    logger.debug('[AI-MarkDone][i18n] Trying English fallback');
                     const fallbackUrl = chrome.runtime.getURL('_locales/en/messages.json');
                     const fallbackResponse = await fetch(fallbackUrl);
                     this.messages = await fallbackResponse.json();
-                    console.log('[i18n] ✅ Fallback loaded', Object.keys(this.messages).length, 'keys');
+                    logger.debug('[AI-MarkDone][i18n] English fallback loaded keys:', Object.keys(this.messages).length);
                 } catch {
-                    console.error('[i18n] ❌ English fallback also failed');
+                    logger.error('[AI-MarkDone][i18n] English fallback also failed');
                     this.messages = {};
                 }
             } else {
