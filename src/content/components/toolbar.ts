@@ -31,6 +31,8 @@ export class Toolbar {
     private wordCountInitialized: boolean = false;
     private wordCountInitInFlight: boolean = false;
     private pendingBookmarkState: boolean | null = null;
+    private unsubscribeTheme: (() => void) | null = null;
+    private unsubscribeActivated: (() => void) | null = null;
 
     /**
      * Promise that resolves when toolbar UI is ready
@@ -54,13 +56,13 @@ export class Toolbar {
         this.setTheme(ThemeManager.getInstance().isDarkMode());
 
         // Subscribe to theme changes for hot-switching
-        ThemeManager.getInstance().subscribe((theme) => {
+        this.unsubscribeTheme = ThemeManager.getInstance().subscribe((theme) => {
             this.setTheme(theme === 'dark');
         });
 
         // 🔑 Subscribe to toolbar:activated event to refresh word count after streaming completes
         // This event is emitted when setPending(false) is called (wasPending && !isPending)
-        eventBus.on('toolbar:activated', () => {
+        this.unsubscribeActivated = eventBus.on('toolbar:activated', () => {
             // Only refresh if this toolbar is the one that was activated
             // Check by verifying we have word count enabled and were previously pending
             if (this.wordCountInitialized) {
@@ -525,6 +527,15 @@ export class Toolbar {
      * Destroy the toolbar
      */
     destroy(): void {
+        // Why: avoid leaking callbacks across SPA navigations / message remounts.
+        if (this.unsubscribeTheme) {
+            this.unsubscribeTheme();
+            this.unsubscribeTheme = null;
+        }
+        if (this.unsubscribeActivated) {
+            this.unsubscribeActivated();
+            this.unsubscribeActivated = null;
+        }
         this.container.remove();
     }
 }

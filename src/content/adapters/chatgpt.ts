@@ -30,9 +30,15 @@ export class ChatGPTAdapter extends SiteAdapter {
      * Provides fallback selectors if ChatGPT UI changes
      */
     getActionBarSelector(): string {
-        // The action bar is a sibling of the message's parent container
-        // It contains the Copy, Good/Bad response buttons
-        return 'div.z-0.flex.min-h-\\[46px\\].justify-start';
+        // IMPORTANT:
+        // We intentionally key off the official "Copy" button as the most stable signal.
+        // ChatGPT frequently changes surrounding container classes via A/B tests, but the
+        // Copy button typically remains accessible via aria-label and/or data-testid.
+        //
+        // This selector is used both as:
+        // 1) "action bar exists" signal (streaming completion)
+        // 2) an anchor for toolbar placement (we will walk up to the real bar container)
+        return 'button[data-testid="copy-turn-action-button"], button[aria-label="Copy"]';
     }
 
     /**
@@ -48,7 +54,21 @@ export class ChatGPTAdapter extends SiteAdapter {
      */
     injectToolbar(messageElement: HTMLElement, toolbarWrapper: HTMLElement): boolean {
         try {
-            const actionBar = messageElement.querySelector(this.getActionBarSelector());
+            const actionBarAnchor = messageElement.querySelector(this.getActionBarSelector());
+            if (actionBarAnchor) {
+                // Prefer inserting before the action bar container (not inside it).
+                // When selector matches the Copy button, climb to the closest bar wrapper.
+                const barContainer = (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null) ||
+                    (actionBarAnchor.parentElement as HTMLElement | null);
+
+                if (barContainer && barContainer.parentElement) {
+                    barContainer.parentElement.insertBefore(toolbarWrapper, barContainer);
+                    return true;
+                }
+            }
+
+            // Legacy fallback: try old action bar container selector (if any UI variant still matches)
+            const actionBar = messageElement.querySelector('div.z-0.flex');
             if (actionBar && actionBar.parentElement) {
                 actionBar.parentElement.insertBefore(toolbarWrapper, actionBar);
                 return true;
@@ -97,39 +117,23 @@ export class ChatGPTAdapter extends SiteAdapter {
         return element.innerHTML;
     }
 
-    isStreamingMessage(_element: HTMLElement): boolean {
-        // Check if the LAST message is currently streaming
-        // 1. Check for Stop generating button
-        const stopButton = document.querySelector('button[aria-label*="Stop"]');
-        if (!stopButton) {
-            return false; // No streaming if no Stop button
-        }
-
-        // 2. Find the last assistant message
-        const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
-        if (messages.length === 0) {
+    isStreamingMessage(element: HTMLElement): boolean {
+        // Element-scoped detection to avoid global false positives.
+        // Primary signal: official action bar exists => message is complete.
+        if (element.querySelector(this.getActionBarSelector())) {
             return false;
         }
 
+        // Secondary signal: if ChatGPT is currently generating AND this is the latest assistant message,
+        // treat it as streaming. (Avoid marking older messages as streaming.)
+        const stopButton = document.querySelector('button[aria-label*="Stop"]');
+        if (!stopButton) return false;
+
+        const messages = document.querySelectorAll(this.getMessageSelector());
+        if (messages.length === 0) return false;
         const lastMessage = messages[messages.length - 1];
 
-        // 3. Check if last message is an article (ChatGPT's current structure)
-        const isArticle = lastMessage.tagName.toLowerCase() === 'article';
-
-        if (isArticle) {
-            // For article: check if action bar DOM exists (div.z-0)
-            const hasActionBar = lastMessage.querySelector('div.z-0') !== null;
-            return !hasActionBar; // No action bar = streaming
-        } else {
-            // For non-article: check for streaming cursor or very short content
-            const hasStreamingCursor = lastMessage.querySelector('.result-streaming') !== null ||
-                lastMessage.querySelector('[data-streaming="true"]') !== null;
-
-            const textLength = lastMessage.textContent?.trim().length || 0;
-            const isVeryShort = textLength < 10;
-
-            return hasStreamingCursor || isVeryShort;
-        }
+        return lastMessage === element;
     }
 
     getMessageId(element: HTMLElement): string | null {
