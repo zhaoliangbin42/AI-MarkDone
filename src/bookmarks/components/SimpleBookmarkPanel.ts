@@ -440,6 +440,43 @@ export class SimpleBookmarkPanel {
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Performance Group -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">
+                                ${Icons.layers}
+                                <span>${i18n.t('performance')}</span>
+                            </h3>
+
+                            <!-- ChatGPT Folding Mode -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${i18n.t('chatgptFoldingLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('chatgptFoldingDesc')}</span>
+                                </div>
+                                <select class="settings-select" id="chatgpt-folding-mode" data-setting="performance.chatgptFoldingMode">
+                                    <option value="off">${i18n.t('chatgptFoldingModeOff')}</option>
+                                    <option value="all">${i18n.t('chatgptFoldingModeAll')}</option>
+                                    <option value="keep_last_n">${i18n.t('chatgptFoldingModeKeepLastN')}</option>
+                                </select>
+                            </div>
+
+                            <!-- Default Expanded Count (only for keep_last_n) -->
+                            <div class="settings-item" id="chatgpt-folding-count-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${i18n.t('chatgptFoldingCountLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('chatgptFoldingCountDesc')}</span>
+                                </div>
+                                <input
+                                    class="settings-number"
+                                    id="chatgpt-folding-count"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    data-setting="performance.chatgptDefaultExpandedCount"
+                                />
+                            </div>
+                        </div>
                         
                         <!-- Configuration Group (MERGED: Behavior + Reader) -->
                         <div class="settings-group">
@@ -1122,6 +1159,16 @@ export class SimpleBookmarkPanel {
             toggle.addEventListener('change', (e) => this.handleSettingChange(e), { signal });
         });
 
+        // Settings selects
+        this.shadowRoot?.querySelectorAll('.settings-tab select[data-setting]').forEach(select => {
+            select.addEventListener('change', (e) => this.handleSettingValueChange(e), { signal });
+        });
+
+        // Settings number inputs
+        this.shadowRoot?.querySelectorAll('.settings-tab input[type="number"][data-setting]').forEach(input => {
+            input.addEventListener('change', (e) => this.handleSettingValueChange(e), { signal });
+        });
+
         // Setup keyboard navigation for tree
         this.setupTreeKeyboardNavigation();
     }
@@ -1166,6 +1213,62 @@ export class SimpleBookmarkPanel {
             // Revert UI on error
             input.checked = !value;
         }
+    }
+
+    /**
+     * Handle non-checkbox setting changes (select / number)
+     */
+    private async handleSettingValueChange(e: Event): Promise<void> {
+        const target = e.target as (HTMLSelectElement | HTMLInputElement);
+        const setting = (target as any).dataset?.setting as string | undefined;
+        if (!setting) return;
+
+        // Parse setting path (e.g., "performance.chatgptFoldingMode")
+        const [category, key] = setting.split('.') as [import('../../settings/SettingsManager').SettingsCategory, string];
+
+        let value: string | number;
+        if (target instanceof HTMLInputElement && target.type === 'number') {
+            const raw = Number(target.value);
+            value = Number.isFinite(raw) ? raw : 0;
+        } else {
+            value = (target as HTMLSelectElement).value;
+        }
+
+        logger.info(`[Settings] ${setting} changed to: ${value}`);
+
+        // UI dependency: folding count only relevant for keep_last_n
+        if (setting === 'performance.chatgptFoldingMode') {
+            this.updateChatGPTFoldingCountVisibility(String(value));
+        }
+
+        if (setting === 'performance.chatgptDefaultExpandedCount' && typeof value === 'number') {
+            // Clamp to a reasonable range to avoid accidentally expanding hundreds of turns
+            const clamped = Math.max(0, Math.min(200, Math.floor(value)));
+            value = clamped;
+            if (target instanceof HTMLInputElement) {
+                target.value = String(clamped);
+            }
+        }
+
+        try {
+            const manager = SettingsManager.getInstance();
+            const currentCategory = await manager.get(category);
+
+            await manager.set(category, {
+                ...(currentCategory as Record<string, any>),
+                [key]: value,
+            } as any);
+
+            logger.info(`[Settings] Successfully updated ${setting}`);
+        } catch (error) {
+            logger.error(`[Settings] Failed to update ${setting}`, error);
+        }
+    }
+
+    private updateChatGPTFoldingCountVisibility(mode: string): void {
+        const item = this.shadowRoot?.querySelector('#chatgpt-folding-count-item') as HTMLElement | null;
+        if (!item) return;
+        item.style.display = mode === 'keep_last_n' ? '' : 'none';
     }
 
     /**
@@ -1328,6 +1431,18 @@ export class SimpleBookmarkPanel {
             // Initialize sort mode
             this.sortMode = settings.bookmarks.sortMode;
             this.updateSortButtonState();
+
+            // Initialize ChatGPT folding settings
+            const foldingModeSelect = this.shadowRoot?.querySelector('#chatgpt-folding-mode') as HTMLSelectElement | null;
+            if (foldingModeSelect) {
+                foldingModeSelect.value = settings.performance.chatgptFoldingMode;
+                this.updateChatGPTFoldingCountVisibility(settings.performance.chatgptFoldingMode);
+            }
+
+            const foldingCountInput = this.shadowRoot?.querySelector('#chatgpt-folding-count') as HTMLInputElement | null;
+            if (foldingCountInput) {
+                foldingCountInput.value = String(settings.performance.chatgptDefaultExpandedCount);
+            }
 
             // Calculate and display storage usage
             await this.updateStorageUsage();
@@ -5589,6 +5704,42 @@ ${options.message}
             }
 
             .toggle-switch input:focus + .toggle-slider {
+                box-shadow: 0 0 0 2px var(--aimd-bg-primary), 0 0 0 4px var(--aimd-interactive-primary);
+            }
+
+            /* Settings Select + Number Input */
+            .settings-select,
+            .settings-number {
+                padding: var(--aimd-space-2) var(--aimd-space-3);
+                background-color: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-md);
+                font-size: var(--aimd-text-sm);
+                font-weight: var(--aimd-font-medium);
+                transition: all 0.2s ease;
+                min-width: 180px;
+                flex-shrink: 0;
+            }
+
+            .settings-select {
+                cursor: pointer;
+            }
+
+            .settings-number {
+                width: 120px;
+            }
+
+            .settings-select:hover,
+            .settings-number:hover {
+                background-color: var(--aimd-interactive-hover);
+                border-color: var(--aimd-border-strong);
+            }
+
+            .settings-select:focus,
+            .settings-number:focus {
+                outline: none;
+                border-color: var(--aimd-interactive-primary);
                 box-shadow: 0 0 0 2px var(--aimd-bg-primary), 0 0 0 4px var(--aimd-interactive-primary);
             }
 
