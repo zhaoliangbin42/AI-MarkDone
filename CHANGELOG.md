@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude: Fixed header bookmark icon hover alignment.
 - **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
 - **ChatGPT Word Count**: Fixed word count getting stuck in loading state for code-only responses (now shows `0 Words / 0 Chars`).
+- **Reader Mode Copy**: Copy button now shows feedback after copying markdown.
 
 ### Improved
 - **Internationalization (i18n)**: Comprehensive localization coverage for English and Simplified Chinese
