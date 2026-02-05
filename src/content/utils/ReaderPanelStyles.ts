@@ -118,6 +118,30 @@ export const readerPanelStyles = `
   background: linear-gradient(135deg, var(--aimd-toolbar-gradient-solid-from), var(--aimd-toolbar-gradient-solid-to));
 }
 
+.aicopy-button-feedback {
+  position: absolute;
+  bottom: calc(100% + var(--aimd-space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--aimd-space-1) var(--aimd-space-2);
+  background: var(--aimd-toolbar-theme-color);
+  color: var(--aimd-text-on-primary);
+  font-size: var(--aimd-text-sm);
+  white-space: nowrap;
+  border-radius: var(--aimd-radius-md);
+  opacity: 0;
+  pointer-events: none;
+  z-index: var(--aimd-z-tooltip);
+  animation: aicopyReaderFeedback 1.5s ease;
+}
+
+@keyframes aicopyReaderFeedback {
+  0% { opacity: 0; transform: translateX(-50%) translateY(0); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(calc(-1 * var(--aimd-space-1))); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(calc(-1 * var(--aimd-space-1))); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(calc(-1 * var(--aimd-space-2))); }
+}
+
 /* Body - White background for readability */
 .aicopy-panel-body {
   flex: 1;

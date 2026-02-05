@@ -23,6 +23,7 @@ import { SimpleBookmarkStorage } from '../../bookmarks/storage/SimpleBookmarkSto
 import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal';
 import { Modal } from '../components/modal';
 import { i18n } from '../../utils/i18n';
+import { copyToClipboard } from '../../utils/dom-utils';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -828,20 +829,42 @@ export class ReaderPanel {
         const currentItem = this.items[this.currentIndex];
         if (!currentItem) return;
 
+        const copyBtn = this.shadowRoot?.querySelector('#copy-btn') as HTMLButtonElement | null;
+        if (!copyBtn) return;
+
         try {
+            copyBtn.disabled = true;
             const content = await resolveContent(currentItem.content);
-            await navigator.clipboard.writeText(content);
+            const success = await copyToClipboard(content);
+            if (!success) throw new Error('Failed to copy');
+
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = Icons.check;
+            copyBtn.style.color = 'var(--aimd-toolbar-theme-color)';
+            this.showButtonFeedback(copyBtn, i18n.t('btnCopied'));
             logger.debug('[ReaderPanel] Copied markdown to clipboard');
 
-            // Visual feedback on copy button
-            const copyBtn = this.shadowRoot?.querySelector('#copy-btn');
-            if (copyBtn) {
-                copyBtn.classList.add('success');
-                setTimeout(() => copyBtn.classList.remove('success'), 1000);
-            }
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+                copyBtn.style.color = '';
+                copyBtn.disabled = false;
+            }, 2000);
         } catch (error) {
             logger.error('[ReaderPanel] Failed to copy markdown:', error);
+            copyBtn.disabled = false;
         }
+    }
+
+    private showButtonFeedback(button: HTMLButtonElement, message: string): void {
+        const feedback = document.createElement('div');
+        feedback.className = 'aicopy-button-feedback';
+        feedback.textContent = message;
+        button.style.position = 'relative';
+        button.appendChild(feedback);
+
+        setTimeout(() => {
+            feedback.remove();
+        }, 1500);
     }
 
     /**
