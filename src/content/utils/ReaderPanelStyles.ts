@@ -166,10 +166,11 @@ export const readerPanelStyles = `
 .aicopy-pagination {
   padding: var(--aimd-space-3) var(--aimd-space-4);
   border-top: 1px solid var(--aimd-panel-pagination-border);
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--dot-gap, 8px);
+  column-gap: var(--aimd-space-2);
+  row-gap: var(--aimd-space-2);
   
   /* Semi-transparent with blur */
   background: var(--aimd-panel-pagination-bg);
@@ -177,11 +178,21 @@ export const readerPanelStyles = `
   -webkit-backdrop-filter: blur(10px);
   
   flex-shrink: 0;
-  flex-wrap: wrap;
   max-width: 100%;
   
-  /* For absolute positioning of trigger button */
-  position: relative;
+  /* Ensure grid children can shrink/wrap correctly */
+  min-width: 0;
+}
+
+/* Navigation cluster hugs dots when narrow, expands up to available width */
+.aicopy-pagination-nav {
+  grid-column: 2;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Dedicated Container for Dots - Structural Isolation */
@@ -190,8 +201,16 @@ export const readerPanelStyles = `
   align-items: center;
   justify-content: center;
   gap: var(--dot-gap, 8px);
-  /* Ensure it takes up space naturally between nav buttons */
-  flex-shrink: 0;
+  /* Ensure dots can wrap when message count is large */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+/* Optional trigger stays far-left without stealing dot width */
+.aimd-trigger-btn-wrapper {
+  justify-self: start;
 }
 
 /* Individual Dot - GPU optimized */
@@ -405,10 +424,8 @@ export const readerPanelStyles = `
 
 /* Keyboard navigation hint */
 .aicopy-keyboard-hint {
-  position: absolute;
-  right: var(--aimd-space-4);
-  top: 50%;
-  transform: translateY(-50%);
+  grid-column: 3;
+  justify-self: end;
   font-size: 12px;
   color: var(--aimd-text-tertiary);
   pointer-events: none;
