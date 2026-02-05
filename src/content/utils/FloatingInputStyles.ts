@@ -206,12 +206,8 @@ export const floatingInputStyles = `
   height: 18px;
 }
 
-/* Trigger Button (absolutely positioned at far-left of pagination) */
+/* Trigger Button (pagination leading controls) */
 .aimd-trigger-btn-wrapper {
-  position: absolute;
-  left: var(--aimd-space-4);
-  top: 50%;
-  transform: translateY(-50%);
   z-index: 5;
   display: flex;
   gap: var(--aimd-space-2);

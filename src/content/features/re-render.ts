@@ -394,18 +394,22 @@ export class ReaderPanel {
             paginationContainer.appendChild(triggerWrapper);
         }
 
-        // 2. Navigation Left
+        // 2. Navigation Cluster (Left + Dots + Right)
+        const navCluster = document.createElement('div');
+        navCluster.className = 'aicopy-pagination-nav';
+
+        // 2.1 Navigation Left
         const leftBtn = document.createElement('button');
         leftBtn.className = 'aicopy-nav-button aicopy-nav-button-left';
         leftBtn.innerHTML = '◀';
         leftBtn.setAttribute('aria-label', i18n.t('previousMessage')); // Accessibility
         leftBtn.disabled = true; // Initial state
 
-        // 3. Dots Container (Dedicated Isolation Zone)
+        // 2.2 Dots Container (Dedicated Isolation Zone)
         const dotsContainer = document.createElement('div');
         dotsContainer.className = 'aicopy-pagination-dots-container';
 
-        // 4. Navigation Right
+        // 2.3 Navigation Right
         const rightBtn = document.createElement('button');
         rightBtn.className = 'aicopy-nav-button aicopy-nav-button-right';
         rightBtn.innerHTML = '▶';
@@ -418,9 +422,11 @@ export class ReaderPanel {
         hint.textContent = i18n.t('navigateHint');
 
         // Assemble Skeleton (Explicit Order)
-        paginationContainer.appendChild(leftBtn);
-        paginationContainer.appendChild(dotsContainer);
-        paginationContainer.appendChild(rightBtn);
+        navCluster.appendChild(leftBtn);
+        navCluster.appendChild(dotsContainer);
+        navCluster.appendChild(rightBtn);
+
+        paginationContainer.appendChild(navCluster);
         paginationContainer.appendChild(hint);
 
         // --- Controller Initialization ---

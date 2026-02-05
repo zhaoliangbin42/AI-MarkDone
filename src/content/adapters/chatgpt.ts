@@ -31,14 +31,18 @@ export class ChatGPTAdapter extends SiteAdapter {
      */
     getActionBarSelector(): string {
         // IMPORTANT:
-        // We intentionally key off the official "Copy" button as the most stable signal.
+        // We intentionally key off the official *turn action* "Copy" button as the most stable signal.
         // ChatGPT frequently changes surrounding container classes via A/B tests, but the
-        // Copy button typically remains accessible via aria-label and/or data-testid.
+        // turn action copy button typically remains accessible via data-testid.
         //
         // This selector is used both as:
         // 1) "action bar exists" signal (streaming completion)
         // 2) an anchor for toolbar placement (we will walk up to the real bar container)
-        return 'button[data-testid="copy-turn-action-button"], button[aria-label="Copy"]';
+        //
+        // Why not include `button[aria-label="Copy"]`?
+        // ChatGPT often renders additional Copy buttons inside code blocks. Those would cause the
+        // toolbar to be anchored to the wrong part of the DOM (e.g. near the page edge).
+        return 'button[data-testid="copy-turn-action-button"]';
     }
 
     /**
@@ -57,7 +61,7 @@ export class ChatGPTAdapter extends SiteAdapter {
             const actionBarAnchor = messageElement.querySelector(this.getActionBarSelector());
             if (actionBarAnchor) {
                 // Prefer inserting before the action bar container (not inside it).
-                // When selector matches the Copy button, climb to the closest bar wrapper.
+                // When selector matches the turn action Copy button, climb to the closest bar wrapper.
                 const barContainer = (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null) ||
                     (actionBarAnchor.parentElement as HTMLElement | null);
 
@@ -65,13 +69,6 @@ export class ChatGPTAdapter extends SiteAdapter {
                     barContainer.parentElement.insertBefore(toolbarWrapper, barContainer);
                     return true;
                 }
-            }
-
-            // Legacy fallback: try old action bar container selector (if any UI variant still matches)
-            const actionBar = messageElement.querySelector('div.z-0.flex');
-            if (actionBar && actionBar.parentElement) {
-                actionBar.parentElement.insertBefore(toolbarWrapper, actionBar);
-                return true;
             }
 
             const contentElement = messageElement.querySelector(this.getMessageContentSelector());
@@ -95,8 +92,8 @@ export class ChatGPTAdapter extends SiteAdapter {
 
 
     getCopyButtonSelector(): string {
-        // ChatGPT uses exact "Copy" aria-label
-        return 'button[aria-label="Copy"]';
+        // IMPORTANT: only match the official action bar Copy button, not code-block Copy buttons.
+        return 'button[data-testid="copy-turn-action-button"]';
     }
 
     extractMessageHTML(element: HTMLElement): string {
