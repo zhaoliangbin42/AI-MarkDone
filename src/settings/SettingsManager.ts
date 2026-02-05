@@ -24,6 +24,10 @@ export interface AppSettings {
         claude: boolean;    // default: true
         deepseek: boolean;  // default: true
     };
+    performance: {
+        chatgptFoldingMode: 'off' | 'all' | 'keep_last_n'; // default: 'off'
+        chatgptDefaultExpandedCount: number; // default: 8
+    };
     behavior: {
         showViewSource: boolean;     // default: true
         showSaveMessages: boolean;   // default: true
@@ -51,6 +55,10 @@ const DEFAULT_SETTINGS: AppSettings = {
         gemini: true,
         claude: true,
         deepseek: true,
+    },
+    performance: {
+        chatgptFoldingMode: 'off',
+        chatgptDefaultExpandedCount: 8,
     },
     behavior: {
         showViewSource: true,
@@ -193,6 +201,9 @@ export class SettingsManager {
             platforms: {
                 ...DEFAULT_SETTINGS.platforms,
             },
+            performance: {
+                ...DEFAULT_SETTINGS.performance,
+            },
             behavior: {
                 ...DEFAULT_SETTINGS.behavior,
                 // Migrate old behavior.enableClickToCopy
@@ -237,6 +248,10 @@ export class SettingsManager {
             platforms: {
                 ...DEFAULT_SETTINGS.platforms,
                 ...stored.platforms,
+            },
+            performance: {
+                ...DEFAULT_SETTINGS.performance,
+                ...stored.performance,
             },
             behavior: {
                 ...DEFAULT_SETTINGS.behavior,

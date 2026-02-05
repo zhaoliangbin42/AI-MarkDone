@@ -275,11 +275,41 @@
     "platforms": {
         "message": "平台"
     },
+    "performance": {
+        "message": "性能"
+    },
     "behavior": {
         "message": "配置"
     },
     "reader": {
         "message": "阅读器"
+    },
+    "chatgptFoldingLabel": {
+        "message": "ChatGPT 消息折叠"
+    },
+    "chatgptFoldingDesc": {
+        "message": "折叠较旧的助手消息以降低长对话的卡顿。"
+    },
+    "chatgptFoldingModeOff": {
+        "message": "关闭"
+    },
+    "chatgptFoldingModeAll": {
+        "message": "全部折叠"
+    },
+    "chatgptFoldingModeKeepLastN": {
+        "message": "默认展开最近 N 条"
+    },
+    "chatgptFoldingCountLabel": {
+        "message": "默认展开条数"
+    },
+    "chatgptFoldingCountDesc": {
+        "message": "默认保持展开的最近助手消息数量。"
+    },
+    "btnCollapse": {
+        "message": "折叠"
+    },
+    "btnExpand": {
+        "message": "展开"
     },
     "supportDevelopment": {
         "message": "支持开发"
