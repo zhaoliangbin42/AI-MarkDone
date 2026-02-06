@@ -7416,11 +7416,16 @@ ${options.message}
                 color: var(--aimd-text-tertiary);
             }
 
-            .empty-icon {
-                font-size: 48px;
-                margin-bottom: 16px;
-                opacity: 0.5;
-            }
+	            .empty-icon {
+	                font-size: 48px;
+	                margin-bottom: 16px;
+	                opacity: 0.5;
+	            }
+	
+	            .empty-icon svg {
+	                width: 1em;
+	                height: 1em;
+	            }
 
             .tree-empty h3 {
                 margin: 0 0 8px 0;
