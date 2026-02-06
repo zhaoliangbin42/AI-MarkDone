@@ -393,17 +393,9 @@ class ContentScript {
                 this.handleSaveMessages();
             },
         };
-        if (this.chatgptFolding) {
-            callbacks.onToggleCollapse = async () => {
-                return this.chatgptFolding!.toggle(messageElement);
-            };
-        }
 
         const toolbar = new Toolbar(callbacks);
         toolbar.setTheme(this.currentThemeIsDark);
-        if (this.chatgptFolding) {
-            toolbar.setCollapsed(this.chatgptFolding.isCollapsed(messageElement));
-        }
         if (!hasActionBar || adapter.isStreamingMessage(messageElement)) {
             logger.debug(`[WordCountDebug] Setting new toolbar to pending. NoActionBar=${!hasActionBar}, IsStreaming=${adapter.isStreamingMessage(messageElement)}`);
             toolbar.setPending(true);
