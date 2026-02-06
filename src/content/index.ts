@@ -786,6 +786,12 @@ class ContentScript {
             this.deepResearchHandler = undefined;
         }
 
+        // 4.1 Cleanup ChatGPT folding controller
+        if (this.chatgptFolding) {
+            this.chatgptFolding.dispose();
+            this.chatgptFolding = null;
+        }
+
         // 5. Reset state
         this.bookmarkedPositions.clear();
         this.navigationChecked = false;
