@@ -628,7 +628,11 @@ export class SimpleBookmarkPanel {
         );
 
         if (tree.length === 0) {
-            return this.renderEmptyState();
+            return `
+                <div class="tree-view tree-view--empty">
+                    ${this.renderEmptyState()}
+                </div>
+            `;
         }
 
         return `
@@ -7348,6 +7352,9 @@ ${options.message}
             }
 
             .tree-item.is-editing:hover .item-actions {
+                display: none;
+            }
+
             .action-btn {
                 width: 28px;
                 height: 28px;
@@ -7367,9 +7374,9 @@ ${options.message}
                 padding: 6px 8px;
                 background: transparent;
                 border: none;
-                border-radius: var(--border-radius-sm);
+                border-radius: var(--aimd-radius-sm);
                 cursor: pointer;
-                color: var(--text-secondary);
+                color: var(--aimd-text-secondary);
                 transition: all 0.2s ease;
                 display: flex;
                 align-items: center;
@@ -7377,8 +7384,8 @@ ${options.message}
             }
 
             .toolbar-icon-btn:hover {
-                background: var(--hover-bg);
-                color: var(--text-primary);
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-primary);
             }
 
             .toolbar-icon-btn:active {
@@ -7406,6 +7413,14 @@ ${options.message}
             }
 
             /* Empty State */
+            .tree-view--empty {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100%;
+                padding: var(--aimd-space-2) var(--aimd-space-3);
+            }
+
             .tree-empty {
                 display: flex;
                 flex-direction: column;
@@ -7414,6 +7429,7 @@ ${options.message}
                 padding: var(--aimd-space-16) var(--aimd-space-8);  /* 64px 32px */
                 text-align: center;
                 color: var(--aimd-text-tertiary);
+                width: min(480px, 100%);
             }
 
 	            .empty-icon {
@@ -7482,12 +7498,12 @@ ${options.message}
                 }
                 
                 .tree-item.selected {
-                background: var(--aimd-interactive-selected);
-                color: var(--aimd-text-primary);
-                border-radius: var(--aimd-radius-lg);
-                font-weight: var(--aimd-font-medium);
-	                box-shadow: var(--aimd-shadow-sm);  /* match the selected-tab shadow */
-            }    }
+                    background: var(--aimd-interactive-selected);
+                    color: var(--aimd-text-primary);
+                    border-radius: var(--aimd-radius-lg);
+                    font-weight: var(--aimd-font-medium);
+                    box-shadow: var(--aimd-shadow-sm);  /* match the selected-tab shadow */
+                }
             }
 
             /* Loading State */
@@ -7498,10 +7514,16 @@ ${options.message}
             }
 
             .tab-icon svg {
-	                width: 20px;  /* larger icon size */
+                width: 20px;  /* larger icon size */
                 height: 20px;
                 flex-shrink: 0;
-            }    padding: var(--aimd-space-10);  /* 40px */
+            }
+
+            .tree-loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: var(--aimd-space-10);  /* 40px */
                 color: var(--aimd-text-secondary);
             }
 
