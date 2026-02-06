@@ -24,12 +24,21 @@ import { saveMessagesDialog } from './features/SaveMessagesDialog';
 import { SettingsManager } from '../settings/SettingsManager';
 import { i18n } from '../utils/i18n';
 
+type BackgroundToContentMessage = { action: 'openBookmarkPanel' };
+
+function isBackgroundToContentMessage(request: unknown): request is BackgroundToContentMessage {
+    return (
+        typeof request === 'object' &&
+        request !== null &&
+        (request as Record<string, unknown>).action === 'openBookmarkPanel'
+    );
+}
 
 /**
  * Listen for messages from background script
  */
-browser.runtime.onMessage.addListener((request: any, _sender, _sendResponse) => {
-    if (request.action === 'openBookmarkPanel') {
+browser.runtime.onMessage.addListener((request: unknown, _sender, _sendResponse) => {
+    if (isBackgroundToContentMessage(request)) {
         simpleBookmarkPanel.toggle();
     }
     return true; // Keep message channel open
@@ -66,8 +75,7 @@ class ContentScript {
     private unsubscribeTheme: (() => void) | null = null;
 
     constructor() {
-        // Use INFO in production; switch to DEBUG locally when needed
-        logger.setLevel(LogLevel.DEBUG);
+        logger.setLevel(import.meta.env.DEV ? LogLevel.DEBUG : LogLevel.INFO);
 
         // Initialize components
         this.markdownParser = new MarkdownParser();

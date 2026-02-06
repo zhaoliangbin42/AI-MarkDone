@@ -10,7 +10,7 @@ import { enhanceUnrenderedMath } from './math-extractor';
  */
 export class MarkdownParser {
     private parser = createMarkdownParser({
-        enablePerformanceLogging: true,
+        enablePerformanceLogging: import.meta.env.DEV,
     });
 
     /**

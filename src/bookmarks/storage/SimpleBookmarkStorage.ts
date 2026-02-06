@@ -69,36 +69,34 @@ export class SimpleBookmarkStorage {
         timestamp?: number,
         folderPath?: string
     ): Promise<void> {
-        const key = this.getKey(url, position);
-        const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
-
-        // Check settings: should we save context only?
-        const settings = await SettingsManager.getInstance().get('behavior');
-
-        // Determine AI response content based on settings
-        let finalUserMessage = userMessage;
-        let finalAiResponse = aiResponse;
-
-        if (settings.saveContextOnly) {
-            finalUserMessage = this.truncateContext(userMessage);
-            finalAiResponse = aiResponse ? this.truncateContext(aiResponse) : undefined;
-            logger.debug('[SimpleBookmarkStorage] Context-only mode: truncated content');
-        }
-
-        const value: Bookmark = {
-            url,
-            urlWithoutProtocol,
-            position,
-            userMessage: finalUserMessage,
-            aiResponse: finalAiResponse,
-            timestamp: timestamp || Date.now(),
-            title: title || userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
-            platform: platform || 'ChatGPT',
-            folderPath: folderPath || 'Import'
-        };
-
         await StorageQueue.getInstance().enqueue(async () => {
             try {
+                const key = this.getKey(url, position);
+                const urlWithoutProtocol = url.replace(/^https?:\/\//, '');
+
+                // Keep settings read inside queue to prevent write reordering races.
+                const settings = await SettingsManager.getInstance().get('behavior');
+                let finalUserMessage = userMessage;
+                let finalAiResponse = aiResponse;
+
+                if (settings.saveContextOnly) {
+                    finalUserMessage = this.truncateContext(userMessage);
+                    finalAiResponse = aiResponse ? this.truncateContext(aiResponse) : undefined;
+                    logger.debug('[SimpleBookmarkStorage] Context-only mode: truncated content');
+                }
+
+                const value: Bookmark = {
+                    url,
+                    urlWithoutProtocol,
+                    position,
+                    userMessage: finalUserMessage,
+                    aiResponse: finalAiResponse,
+                    timestamp: timestamp || Date.now(),
+                    title: title || userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
+                    platform: platform || 'ChatGPT',
+                    folderPath: folderPath || 'Import'
+                };
+
                 await browser.storage.local.set({ [key]: value });
                 logger.info(`[SimpleBookmarkStorage] Saved bookmark at position ${position}`);
             } catch (error) {
@@ -389,15 +387,17 @@ export class SimpleBookmarkStorage {
             };
         }
 
-        try {
-            await browser.storage.local.set(data);
-            const perfEnd = performance.now();
-            logger.info(`[SimpleBookmarkStorage] Bulk saved ${bookmarks.length} bookmarks in ${(perfEnd - perfStart).toFixed(0)}ms`);
-            return bookmarks.length;
-        } catch (error) {
-            logger.error('[SimpleBookmarkStorage] Bulk save failed:', error);
-            throw error;
-        }
+        return StorageQueue.getInstance().enqueue(async () => {
+            try {
+                await browser.storage.local.set(data);
+                const perfEnd = performance.now();
+                logger.info(`[SimpleBookmarkStorage] Bulk saved ${bookmarks.length} bookmarks in ${(perfEnd - perfStart).toFixed(0)}ms`);
+                return bookmarks.length;
+            } catch (error) {
+                logger.error('[SimpleBookmarkStorage] Bulk save failed:', error);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -416,15 +416,56 @@ export class SimpleBookmarkStorage {
         const perfStart = performance.now();
         const keys = bookmarks.map(b => this.getKey(b.url, b.position));
 
-        try {
-            await browser.storage.local.remove(keys);
-            const perfEnd = performance.now();
-            logger.info(`[SimpleBookmarkStorage] Bulk removed ${bookmarks.length} bookmarks in ${(perfEnd - perfStart).toFixed(0)}ms`);
-            return bookmarks.length;
-        } catch (error) {
-            logger.error('[SimpleBookmarkStorage] Bulk remove failed:', error);
-            throw error;
+        return StorageQueue.getInstance().enqueue(async () => {
+            try {
+                await browser.storage.local.remove(keys);
+                const perfEnd = performance.now();
+                logger.info(`[SimpleBookmarkStorage] Bulk removed ${bookmarks.length} bookmarks in ${(perfEnd - perfStart).toFixed(0)}ms`);
+                return bookmarks.length;
+            } catch (error) {
+                logger.error('[SimpleBookmarkStorage] Bulk remove failed:', error);
+                throw error;
+            }
+        });
+    }
+
+    /**
+     * Bulk move bookmarks to target folder in a single write operation.
+     * Keeps compatibility with existing key schema.
+     */
+    static async bulkMoveToFolder(bookmarks: Bookmark[], targetPath?: string): Promise<number> {
+        if (!bookmarks || bookmarks.length === 0) {
+            logger.debug('[SimpleBookmarkStorage] bulkMoveToFolder called with empty array');
+            return 0;
         }
+
+        const perfStart = performance.now();
+        const nextFolderPath = targetPath || 'Import';
+        const updates: Record<string, Bookmark> = {};
+
+        for (const bookmark of bookmarks) {
+            const key = this.getKey(bookmark.url, bookmark.position);
+            updates[key] = {
+                ...bookmark,
+                urlWithoutProtocol: bookmark.url.replace(/^https?:\/\//, ''),
+                title: bookmark.title || bookmark.userMessage?.substring(0, 50) || 'Untitled',
+                platform: bookmark.platform || 'ChatGPT',
+                timestamp: bookmark.timestamp || Date.now(),
+                folderPath: nextFolderPath
+            };
+        }
+
+        return StorageQueue.getInstance().enqueue(async () => {
+            try {
+                await browser.storage.local.set(updates);
+                const perfEnd = performance.now();
+                logger.info(`[SimpleBookmarkStorage] Bulk moved ${bookmarks.length} bookmarks to ${nextFolderPath} in ${(perfEnd - perfStart).toFixed(0)}ms`);
+                return bookmarks.length;
+            } catch (error) {
+                logger.error('[SimpleBookmarkStorage] Bulk move failed:', error);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -462,57 +503,59 @@ export class SimpleBookmarkStorage {
      * Repair corrupted bookmarks
      */
     static async repairBookmarks(): Promise<{ repaired: number; removed: number }> {
-        try {
-            const all = await browser.storage.local.get(null);
-            let repaired = 0;
-            let removed = 0;
+        return StorageQueue.getInstance().enqueue(async () => {
+            try {
+                const all = await browser.storage.local.get(null);
+                let repaired = 0;
+                let removed = 0;
 
-            for (const key of Object.keys(all)) {
-                if (!key.startsWith('bookmark:')) continue;
+                for (const key of Object.keys(all)) {
+                    if (!key.startsWith('bookmark:')) continue;
 
-                const bookmark = all[key];
+                    const bookmark = all[key];
 
-                // Validate bookmark
-                if (!this.validateBookmark(bookmark)) {
-                    logger.warn(`[SimpleBookmarkStorage] Invalid bookmark found: ${key}`);
+                    // Validate bookmark
+                    if (!this.validateBookmark(bookmark)) {
+                        logger.warn(`[SimpleBookmarkStorage] Invalid bookmark found: ${key}`);
 
-                    // Try to repair
-                    if (typeof bookmark === 'object' && bookmark !== null) {
-                        const bm = bookmark as any;
-                        const repairedBookmark: Bookmark = {
-                            url: bm.url || '',
-                            urlWithoutProtocol: bm.urlWithoutProtocol || bm.url?.replace(/^https?:\/\//, '') || '',
-                            position: bm.position || 0,
-                            userMessage: bm.userMessage || '',
-                            aiResponse: bm.aiResponse,
-                            timestamp: bm.timestamp || Date.now(),
-                            title: bm.title || bm.userMessage?.substring(0, 50) || 'Untitled',
-                            platform: bm.platform || 'ChatGPT',
-                            folderPath: bm.folderPath || 'Import'
-                        };
+                        // Try to repair
+                        if (typeof bookmark === 'object' && bookmark !== null) {
+                            const bm = bookmark as any;
+                            const repairedBookmark: Bookmark = {
+                                url: bm.url || '',
+                                urlWithoutProtocol: bm.urlWithoutProtocol || bm.url?.replace(/^https?:\/\//, '') || '',
+                                position: bm.position || 0,
+                                userMessage: bm.userMessage || '',
+                                aiResponse: bm.aiResponse,
+                                timestamp: bm.timestamp || Date.now(),
+                                title: bm.title || bm.userMessage?.substring(0, 50) || 'Untitled',
+                                platform: bm.platform || 'ChatGPT',
+                                folderPath: bm.folderPath || 'Import'
+                            };
 
-                        if (this.validateBookmark(repairedBookmark)) {
-                            await browser.storage.local.set({ [key]: repairedBookmark });
-                            repaired++;
-                            logger.info(`[SimpleBookmarkStorage] Repaired bookmark: ${key}`);
+                            if (this.validateBookmark(repairedBookmark)) {
+                                await browser.storage.local.set({ [key]: repairedBookmark });
+                                repaired++;
+                                logger.info(`[SimpleBookmarkStorage] Repaired bookmark: ${key}`);
+                            } else {
+                                await browser.storage.local.remove(key);
+                                removed++;
+                                logger.warn(`[SimpleBookmarkStorage] Removed irreparable bookmark: ${key}`);
+                            }
                         } else {
                             await browser.storage.local.remove(key);
                             removed++;
-                            logger.warn(`[SimpleBookmarkStorage] Removed irreparable bookmark: ${key}`);
                         }
-                    } else {
-                        await browser.storage.local.remove(key);
-                        removed++;
                     }
                 }
-            }
 
-            logger.info(`[SimpleBookmarkStorage] Repair complete: ${repaired} repaired, ${removed} removed`);
-            return { repaired, removed };
-        } catch (error) {
-            logger.error('[SimpleBookmarkStorage] Failed to repair bookmarks:', error);
-            return { repaired: 0, removed: 0 };
-        }
+                logger.info(`[SimpleBookmarkStorage] Repair complete: ${repaired} repaired, ${removed} removed`);
+                return { repaired, removed };
+            } catch (error) {
+                logger.error('[SimpleBookmarkStorage] Failed to repair bookmarks:', error);
+                return { repaired: 0, removed: 0 };
+            }
+        });
     }
 
     /**

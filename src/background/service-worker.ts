@@ -6,6 +6,17 @@
 // Chrome API type declaration
 declare const chrome: any;
 
+type ContentToBackgroundMessage = { type: 'ping' };
+type BackgroundToContentMessage = { action: 'openBookmarkPanel' };
+
+function isContentToBackgroundMessage(message: unknown): message is ContentToBackgroundMessage {
+    return (
+        typeof message === 'object' &&
+        message !== null &&
+        (message as Record<string, unknown>).type === 'ping'
+    );
+}
+
 const SUPPORTED_HOSTS = [
     'chatgpt.com',
     'chat.openai.com',
@@ -84,19 +95,17 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.action.onClicked.addListener((tab: any) => {
     // Send message to active tab to open bookmark panel
     if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, { action: 'openBookmarkPanel' });
+        const payload: BackgroundToContentMessage = { action: 'openBookmarkPanel' };
+        chrome.tabs.sendMessage(tab.id, payload);
     }
 });
 
 // Listen for messages from content scripts
-chrome.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: any) => {
-    // Handle different message types here if needed
-    switch (message.type) {
-        case 'ping':
-            sendResponse({ status: 'ok' });
-            break;
-        default:
-            sendResponse({ status: 'unknown message type' });
+chrome.runtime.onMessage.addListener((message: unknown, _sender: any, sendResponse: any) => {
+    if (isContentToBackgroundMessage(message)) {
+        sendResponse({ status: 'ok' });
+    } else {
+        sendResponse({ status: 'invalid message payload' });
     }
 
     return true; // Keep message channel open for async response
