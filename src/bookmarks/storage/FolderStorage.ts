@@ -17,6 +17,7 @@ import { Folder } from './types';
 import { PathUtils, PathValidationError } from '../utils/path-utils';
 import { browser } from '../../utils/browser';
 import { logger } from '../../utils/logger';
+import { StorageQueue } from './StorageQueue';
 
 const folderLogger = {
     info: (message: string, ...args: any[]) => logger.info('[AI-MarkDone][FolderStorage]', message, ...args),
@@ -44,6 +45,10 @@ export class FolderStorage {
     /** Storage key for folder index (list of all folder paths) */
     private static readonly FOLDER_INDEX_KEY = 'folderPaths';
 
+    private static async runWriteOp<T>(operation: () => Promise<T>): Promise<T> {
+        return StorageQueue.getInstance().enqueue(operation);
+    }
+
     /**
      * Create a new folder
      * 
@@ -56,7 +61,8 @@ export class FolderStorage {
      * @throws {FolderOperationError} if folder already exists or parent missing
      */
     static async create(path: string): Promise<Folder> {
-        try {
+        return this.runWriteOp(async () => {
+            try {
             // Validate path structure
             PathUtils.validatePath(path);
 
@@ -126,16 +132,17 @@ export class FolderStorage {
             folderLogger.info(`Created folder: ${path}`);
             return folder;
 
-        } catch (error) {
-            if (error instanceof PathValidationError || error instanceof FolderOperationError) {
-                throw error;
+            } catch (error) {
+                if (error instanceof PathValidationError || error instanceof FolderOperationError) {
+                    throw error;
+                }
+                throw new FolderOperationError(
+                    `Failed to create folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'create',
+                    path
+                );
             }
-            throw new FolderOperationError(
-                `Failed to create folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                'create',
-                path
-            );
-        }
+        });
     }
 
     /**
@@ -196,7 +203,8 @@ export class FolderStorage {
      * @throws {FolderOperationError} if operation fails
      */
     static async rename(oldPath: string, newName: string): Promise<void> {
-        try {
+        return this.runWriteOp(async () => {
+            try {
             // Validate new name
             if (!PathUtils.isValidFolderName(newName)) {
                 throw new PathValidationError('Invalid folder name', newName);
@@ -205,92 +213,19 @@ export class FolderStorage {
             // Calculate new path
             const parentPath = PathUtils.getParentPath(oldPath);
             const newPath = parentPath ? `${parentPath}${PathUtils.SEPARATOR}${newName}` : newName;
+            await this.relocatePathTree(oldPath, newPath, 'rename');
 
-            // Validate new path
-            PathUtils.validatePath(newPath);
-
-            // Check folder exists
-            const folder = await this.get(oldPath);
-            if (!folder) {
-                throw new FolderOperationError(
-                    `Folder not found: ${oldPath}`,
-                    'rename',
-                    oldPath
-                );
-            }
-
-            // Check for duplicate name at same level
-            const siblings = await this.getSiblings(newPath);
-            const siblingNames = siblings
-                .filter(f => f.path !== oldPath)
-                .map(f => f.name);
-            if (PathUtils.hasNameConflict(newName, siblingNames)) {
-                throw new FolderOperationError(
-                    `Folder "${newName}" already exists at this level`,
-                    'rename',
-                    oldPath
-                );
-            }
-
-            // Get all affected folders and bookmarks (validation phase)
-            const affectedFolders = await this.getDescendants(oldPath, true);
-            const affectedBookmarks = await this.getBookmarksInFolder(oldPath, true);
-
-            folderLogger.info(`Renaming folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`);
-
-            // Prepare updates (transaction phase)
-            const folderUpdates: Record<string, Folder> = {};
-            const folderDeletes: string[] = [];
-
-            for (const f of affectedFolders) {
-                const updatedPath = PathUtils.updatePathPrefix(oldPath, newPath, f.path);
-                const updatedFolder: Folder = {
-                    ...f,
-                    path: updatedPath,
-                    name: PathUtils.getFolderName(updatedPath),
-                    updatedAt: Date.now()
-                };
-
-                folderUpdates[this.getStorageKey(updatedPath)] = updatedFolder;
-                if (f.path !== updatedPath) {
-                    folderDeletes.push(this.getStorageKey(f.path));
+            } catch (error) {
+                if (error instanceof PathValidationError || error instanceof FolderOperationError) {
+                    throw error;
                 }
+                throw new FolderOperationError(
+                    `Failed to rename folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'rename',
+                    oldPath
+                );
             }
-
-            // Prepare bookmark updates
-            const bookmarkUpdates: Record<string, any> = {};
-            for (const bookmark of affectedBookmarks) {
-                const updatedFolderPath = PathUtils.updatePathPrefix(oldPath, newPath, bookmark.folderPath);
-                const key = `bookmark:${bookmark.urlWithoutProtocol}:${bookmark.position}`;
-                bookmarkUpdates[key] = { ...bookmark, folderPath: updatedFolderPath };
-            }
-
-            // Execute updates atomically
-            if (Object.keys(folderUpdates).length > 0) {
-                await browser.storage.local.set(folderUpdates);
-            }
-            if (Object.keys(bookmarkUpdates).length > 0) {
-                await browser.storage.local.set(bookmarkUpdates);
-            }
-            if (folderDeletes.length > 0) {
-                await browser.storage.local.remove(folderDeletes);
-            }
-
-            // Update index
-            await this.updateIndex(oldPath, newPath);
-
-            folderLogger.info(`Renamed folder successfully: ${oldPath} → ${newPath}`);
-
-        } catch (error) {
-            if (error instanceof PathValidationError || error instanceof FolderOperationError) {
-                throw error;
-            }
-            throw new FolderOperationError(
-                `Failed to rename folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                'rename',
-                oldPath
-            );
-        }
+        });
     }
 
     /**
@@ -304,7 +239,8 @@ export class FolderStorage {
      * @throws {FolderOperationError} if folder not empty or doesn't exist
      */
     static async delete(path: string): Promise<void> {
-        try {
+        return this.runWriteOp(async () => {
+            try {
             // Check folder exists
             const folder = await this.get(path);
             if (!folder) {
@@ -336,16 +272,17 @@ export class FolderStorage {
 
             folderLogger.info(`Deleted folder: ${path}`);
 
-        } catch (error) {
-            if (error instanceof FolderOperationError) {
-                throw error;
+            } catch (error) {
+                if (error instanceof FolderOperationError) {
+                    throw error;
+                }
+                throw new FolderOperationError(
+                    `Failed to delete folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'delete',
+                    path
+                );
             }
-            throw new FolderOperationError(
-                `Failed to delete folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                'delete',
-                path
-            );
-        }
+        });
     }
 
     /**
@@ -363,7 +300,8 @@ export class FolderStorage {
         const perfStart = performance.now();
         const keys = paths.map(p => this.getStorageKey(p));
 
-        try {
+        return this.runWriteOp(async () => {
+            try {
             // Remove folder data
             await browser.storage.local.remove(keys);
 
@@ -375,13 +313,14 @@ export class FolderStorage {
             const perfEnd = performance.now();
             folderLogger.info(`Bulk deleted ${paths.length} folders in ${(perfEnd - perfStart).toFixed(0)}ms`);
             return paths.length;
-        } catch (error) {
-            folderLogger.error('Bulk delete folders failed:', error);
-            throw new FolderOperationError(
-                `Failed to bulk delete folders: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                'bulkDelete'
-            );
-        }
+            } catch (error) {
+                folderLogger.error('Bulk delete folders failed:', error);
+                throw new FolderOperationError(
+                    `Failed to bulk delete folders: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'bulkDelete'
+                );
+            }
+        });
     }
 
     /**
@@ -396,7 +335,8 @@ export class FolderStorage {
      * @param targetParentPath Path of new parent (empty string for root)
      */
     static async move(sourcePath: string, targetParentPath: string): Promise<void> {
-        try {
+        return this.runWriteOp(async () => {
+            try {
             // Validate move
             if (targetParentPath && PathUtils.isDescendantOf(targetParentPath, sourcePath)) {
                 throw new FolderOperationError(
@@ -429,22 +369,21 @@ export class FolderStorage {
                     );
                 }
             }
-
-            // Use rename logic (same implementation)
-            await this.rename(sourcePath, folderName);
+            await this.relocatePathTree(sourcePath, newPath, 'move');
 
             folderLogger.info(`Moved folder: ${sourcePath} → ${newPath}`);
 
-        } catch (error) {
-            if (error instanceof FolderOperationError) {
-                throw error;
+            } catch (error) {
+                if (error instanceof FolderOperationError) {
+                    throw error;
+                }
+                throw new FolderOperationError(
+                    `Failed to move folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'move',
+                    sourcePath
+                );
             }
-            throw new FolderOperationError(
-                `Failed to move folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                'move',
-                sourcePath
-            );
-        }
+        });
     }
 
     // ============================================================================
@@ -567,5 +506,73 @@ export class FolderStorage {
             folderLogger.error(`Failed to get bookmarks in folder: ${path}`, error);
             return [];
         }
+    }
+
+    /**
+     * Relocate folder subtree from oldPath to newPath and keep bookmarks/index in sync.
+     */
+    private static async relocatePathTree(
+        oldPath: string,
+        newPath: string,
+        operation: 'rename' | 'move'
+    ): Promise<void> {
+        // Validate target path and source existence.
+        PathUtils.validatePath(newPath);
+        const folder = await this.get(oldPath);
+        if (!folder) {
+            throw new FolderOperationError(`Folder not found: ${oldPath}`, operation, oldPath);
+        }
+
+        // Check for duplicate name under the target parent.
+        const siblingNames = (await this.getSiblings(newPath))
+            .filter(f => f.path !== oldPath)
+            .map(f => f.name);
+        const targetName = PathUtils.getFolderName(newPath);
+        if (PathUtils.hasNameConflict(targetName, siblingNames)) {
+            throw new FolderOperationError(
+                `Folder "${targetName}" already exists at this level`,
+                operation,
+                oldPath
+            );
+        }
+
+        const affectedFolders = await this.getDescendants(oldPath, true);
+        const affectedBookmarks = await this.getBookmarksInFolder(oldPath, true);
+        folderLogger.info(
+            `${operation} folder: ${oldPath} → ${newPath} (${affectedFolders.length} folders, ${affectedBookmarks.length} bookmarks)`
+        );
+
+        const folderUpdates: Record<string, Folder> = {};
+        const folderDeletes: string[] = [];
+        for (const f of affectedFolders) {
+            const updatedPath = PathUtils.updatePathPrefix(oldPath, newPath, f.path);
+            folderUpdates[this.getStorageKey(updatedPath)] = {
+                ...f,
+                path: updatedPath,
+                name: PathUtils.getFolderName(updatedPath),
+                updatedAt: Date.now()
+            };
+            if (f.path !== updatedPath) {
+                folderDeletes.push(this.getStorageKey(f.path));
+            }
+        }
+
+        const bookmarkUpdates: Record<string, any> = {};
+        for (const bookmark of affectedBookmarks) {
+            const updatedFolderPath = PathUtils.updatePathPrefix(oldPath, newPath, bookmark.folderPath);
+            const key = `bookmark:${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+            bookmarkUpdates[key] = { ...bookmark, folderPath: updatedFolderPath };
+        }
+
+        if (Object.keys(folderUpdates).length > 0) {
+            await browser.storage.local.set(folderUpdates);
+        }
+        if (Object.keys(bookmarkUpdates).length > 0) {
+            await browser.storage.local.set(bookmarkUpdates);
+        }
+        if (folderDeletes.length > 0) {
+            await browser.storage.local.remove(folderDeletes);
+        }
+        await this.updateIndex(oldPath, newPath);
     }
 }

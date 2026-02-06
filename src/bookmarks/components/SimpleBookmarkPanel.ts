@@ -7,6 +7,7 @@ import { FolderState } from '../state/FolderState';
 import { FolderOperationsManager } from '../managers/FolderOperationsManager';
 import { TreeBuilder } from '../utils/tree-builder';
 import { PathUtils, type FolderNameValidationError } from '../utils/path-utils';
+import { collectImportFolderPaths, findMissingFolderPaths } from '../utils/import-folder-paths';
 import { Icons } from '../../assets/icons';
 
 import { ThemeManager } from '../../utils/ThemeManager';
@@ -17,6 +18,7 @@ import { DialogManager } from '../../components/DialogManager';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
 import { i18n } from '../../utils/i18n';
+import { getBookmarkIdentityKey } from '../utils/bookmark-identity';
 
 function getPlatformIcon(platform?: string): string {
     const p = platform?.toLowerCase() || 'chatgpt';
@@ -47,6 +49,10 @@ export class SimpleBookmarkPanel {
     private platformFilter: string = '';
     private sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc';
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
+    private suppressStorageAutoRefresh: boolean = false;
+    private pendingStorageRefresh: boolean = false;
+    private storageRefreshTimer: number | null = null;
+    private suppressStorageUntil: number = 0;
 
     private abortController: AbortController | null = null;
 
@@ -86,6 +92,7 @@ export class SimpleBookmarkPanel {
 
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
         this.folders = await FolderStorage.getAll();
+        await this.ensureFolderRecordsForBookmarks();
         this.filteredBookmarks = [...this.bookmarks];
         logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks, ${this.folders.length} folders`);
 
@@ -219,6 +226,11 @@ export class SimpleBookmarkPanel {
             this.themeUnsubscribe();
             this.themeUnsubscribe = null;
             logger.debug('[SimpleBookmarkPanel] Theme subscription cancelled');
+        }
+
+        if (this.storageRefreshTimer !== null) {
+            window.clearTimeout(this.storageRefreshTimer);
+            this.storageRefreshTimer = null;
         }
 
         // 5. Remove DOM
@@ -833,6 +845,7 @@ export class SimpleBookmarkPanel {
         const foldersTime = performance.now();
 
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+        await this.ensureFolderRecordsForBookmarks();
         const bookmarksTime = performance.now();
 
         this.filterBookmarks();
@@ -860,6 +873,28 @@ export class SimpleBookmarkPanel {
             // Update batch actions bar state
             this.updateBatchActionsBar();
         }
+    }
+
+    /**
+     * Ensure folder records exist for all bookmark folder paths.
+     * This self-heals historical data where bookmarks were saved but folder nodes were missing.
+     */
+    private async ensureFolderRecordsForBookmarks(): Promise<void> {
+        const missingPaths = findMissingFolderPaths(this.bookmarks, this.folders);
+        if (missingPaths.length === 0) {
+            return;
+        }
+
+        logger.info(`[SimpleBookmarkPanel] Recovering ${missingPaths.length} missing folder records`);
+        for (const folderPath of missingPaths) {
+            try {
+                await FolderStorage.create(folderPath);
+            } catch (error) {
+                logger.warn(`[SimpleBookmarkPanel] Failed to recover folder "${folderPath}"`, error);
+            }
+        }
+
+        this.folders = await FolderStorage.getAll();
     }
 
     /**
@@ -3230,18 +3265,23 @@ export class SimpleBookmarkPanel {
 <div class="info-dialog-content">
     <div class="info-dialog-header">
         <span class="info-dialog-icon" style="color: ${config.iconColor};">${config.icon}</span>
-        <h3 class="info-dialog-title" style="color: ${config.titleColor};">
-            ${title}
-        </h3>
+        <h3 class="info-dialog-title" style="color: ${config.titleColor};"></h3>
     </div>
-    <div class="info-dialog-message">
-${options.message}
-    </div>
+    <div class="info-dialog-message"></div>
 </div>
 <div class="info-dialog-footer">
     <button class="ok-btn">OK</button>
 </div>
             `;
+
+            const titleEl = modal.querySelector('.info-dialog-title');
+            if (titleEl) {
+                titleEl.textContent = title;
+            }
+            const messageEl = modal.querySelector('.info-dialog-message');
+            if (messageEl) {
+                messageEl.textContent = options.message;
+            }
 
             overlay.appendChild(modal);
 
@@ -3276,12 +3316,6 @@ ${options.message}
             };
 
             okBtn.addEventListener('click', closeDialog);
-
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    closeDialog();
-                }
-            });
 
             const handleEscape = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {
@@ -3563,24 +3597,14 @@ ${options.message}
 
         logger.info(`[Batch Move] Moving ${bookmarks.length} bookmarks to ${targetPath || 'root'}...`);
 
-        for (const bookmark of bookmarks) {
-            try {
-                // Update bookmark's folder path and save
-                await SimpleBookmarkStorage.save(
-                    bookmark.url,
-                    bookmark.position,
-                    bookmark.userMessage,
-                    bookmark.aiResponse,
-                    bookmark.title,
-                    bookmark.platform,
-                    bookmark.timestamp,
-                    targetPath || undefined
-                );
-                successCount++;
-            } catch (error) {
-                errors.push(`Failed to move bookmark: ${bookmark.title}`);
-                logger.error('[Batch Move] Error:', error);
-            }
+        this.beginStorageMutation();
+        try {
+            successCount = await SimpleBookmarkStorage.bulkMoveToFolder(bookmarks, targetPath || undefined);
+        } catch (error) {
+            errors.push(`Failed to move ${bookmarks.length} bookmarks.`);
+            logger.error('[Batch Move] Error:', error);
+        } finally {
+            this.endStorageMutation();
         }
 
         // Show results
@@ -3593,7 +3617,21 @@ ${options.message}
 
         // Cleanup
         this.selectedItems.clear();
-        await this.refresh();
+        if (successCount > 0) {
+            const nextFolderPath = targetPath || 'Import';
+            const moveSet = new Set(bookmarks.map(b => `${b.urlWithoutProtocol}:${b.position}`));
+            this.bookmarks = this.bookmarks.map(existing => {
+                const key = `${existing.urlWithoutProtocol}:${existing.position}`;
+                if (!moveSet.has(key)) {
+                    return existing;
+                }
+                return { ...existing, folderPath: nextFolderPath };
+            });
+            this.filterBookmarks();
+            this.refreshContent();
+        } else {
+            await this.refresh();
+        }
     }
 
     /**
@@ -3820,50 +3858,6 @@ ${options.message}
                 // Combine all bookmarks
                 const allBookmarks = [...analysis.valid, ...analysis.noFolder, ...analysis.tooDeep];
 
-                // Create all missing folders before importing
-                const folderPathsNeeded = new Set<string>();
-
-                // Always ensure "Import" folder exists if we have bookmarks without folders
-                if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
-                    folderPathsNeeded.add('Import');
-                }
-
-                for (const bookmark of allBookmarks) {
-                    if (bookmark.folderPath && bookmark.folderPath.trim()) {
-                        folderPathsNeeded.add(bookmark.folderPath);
-                    }
-                }
-
-                logger.info(`[Import] Checking ${folderPathsNeeded.size} unique folder paths`);
-
-                // Sort folder paths by depth (number of '/') to create parent folders first
-                // This ensures "Work" is created before "Work/AI"
-                const sortedFolderPaths = Array.from(folderPathsNeeded).sort((a, b) => {
-                    const depthA = (a.match(/\//g) || []).length;
-                    const depthB = (b.match(/\//g) || []).length;
-                    return depthA - depthB;
-                });
-
-                for (const folderPath of sortedFolderPaths) {
-                    const exists = this.folders.some(f => f.path === folderPath);
-                    if (!exists) {
-                        logger.info(`[Import] Creating missing folder: ${folderPath}`);
-                        try {
-                            await FolderStorage.create(folderPath);
-                            // Refresh folders after each creation so parent checks pass
-                            this.folders = await FolderStorage.getAll();
-                        } catch (error) {
-                            logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
-                        }
-                    } else {
-                        logger.info(`[Import] Folder already exists: ${folderPath}`);
-                    }
-                }
-
-                // Refresh folders to load newly created folders
-                this.folders = await FolderStorage.getAll();
-                logger.info(`[Import] Loaded ${this.folders.length} folders after creation`);
-
                 // Build merge entries (handles duplicate detection, title conflicts, and import folder redirects)
                 const mergeEntries = await this.buildImportMergeEntries(allBookmarks, importFolderSet);
                 const hasRenameConflicts = mergeEntries.some(entry => entry.status === 'rename');
@@ -3894,6 +3888,55 @@ ${options.message}
                 const bookmarksToImport = mergeEntries
                     .filter(entry => entry.status !== 'duplicate')
                     .map(entry => entry.bookmark);
+
+                // Create missing folders only for bookmarks that will actually be imported.
+                const sortedFolderPaths = collectImportFolderPaths(bookmarksToImport);
+                logger.info(`[Import] Checking ${sortedFolderPaths.length} folder paths (with ancestors)`);
+                const failedFolderPaths: string[] = [];
+
+                for (const folderPath of sortedFolderPaths) {
+                    const exists = this.folders.some(f => f.path === folderPath);
+                    if (!exists) {
+                        logger.info(`[Import] Creating missing folder: ${folderPath}`);
+                        try {
+                            await FolderStorage.create(folderPath);
+                            this.folders = await FolderStorage.getAll();
+                        } catch (error) {
+                            logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
+                            failedFolderPaths.push(folderPath);
+                        }
+                    } else {
+                        logger.info(`[Import] Folder already exists: ${folderPath}`);
+                    }
+                }
+
+                if (failedFolderPaths.length > 0) {
+                    try {
+                        if (!this.folders.some(f => f.path === 'Import')) {
+                            await FolderStorage.create('Import');
+                            this.folders = await FolderStorage.getAll();
+                        }
+                    } catch (error) {
+                        logger.error('[Import] Failed to ensure fallback folder "Import":', error);
+                    }
+
+                    let fallbackCount = 0;
+                    bookmarksToImport.forEach((bookmark) => {
+                        if (this.isPathAffectedByFailedFolders(bookmark.folderPath, failedFolderPaths)) {
+                            bookmark.folderPath = 'Import';
+                            fallbackCount += 1;
+                        }
+                    });
+
+                    await this.showNotification({
+                        type: 'warning',
+                        title: 'Import fallback applied',
+                        message: `Failed to create ${failedFolderPaths.length} folder path(s). ${fallbackCount} bookmark(s) were moved to Import to avoid hidden entries.`
+                    });
+                }
+
+                this.folders = await FolderStorage.getAll();
+                logger.info(`[Import] Loaded ${this.folders.length} folders after creation`);
 
                 // Check if import would exceed storage quota
                 const importCheck = await SimpleBookmarkStorage.canImport(bookmarksToImport);
@@ -3983,6 +4026,15 @@ ${options.message}
         return { valid, noFolder, tooDeep };
     }
 
+    private isPathAffectedByFailedFolders(path: string, failedFolderPaths: string[]): boolean {
+        if (!path || failedFolderPaths.length === 0) {
+            return false;
+        }
+        return failedFolderPaths.some((failedPath) =>
+            path === failedPath || path.startsWith(`${failedPath}/`)
+        );
+    }
+
     /**
      * Validate import data
      */
@@ -4050,7 +4102,7 @@ ${options.message}
         // Build a map for fast URL+position lookup (for duplicate detection)
         const existingByKey = new Map<string, Bookmark>();
         existingBookmarks.forEach((b) => {
-            const key = `${b.url}:${b.position}`;
+            const key = getBookmarkIdentityKey(b);
             existingByKey.set(key, b);
         });
 
@@ -4082,7 +4134,7 @@ ${options.message}
             let existingTitle: string | undefined;
 
             // Step 1: Check for URL+position duplicate (global, highest priority)
-            const duplicateKey = `${bookmark.url}:${bookmark.position}`;
+            const duplicateKey = getBookmarkIdentityKey(bookmark);
             const existingDuplicate = existingByKey.get(duplicateKey);
             let existingFolderPath: string | undefined;
             if (existingDuplicate) {
@@ -4103,6 +4155,9 @@ ${options.message}
                 if (status !== 'rename' && importFolderSet.has(bookmark)) {
                     status = 'import';
                 }
+
+                // Track accepted import entries so duplicates inside the same import file are detected.
+                existingByKey.set(duplicateKey, bookmark);
             }
 
             entries.push({ bookmark, status, renameTo, existingTitle, existingFolderPath });
@@ -4402,14 +4457,62 @@ ${options.message}
                     key.startsWith('bookmark:')
                 );
                 if (bookmarkChanged && this.overlay?.style.display !== 'none') {
-                    this.refresh();
-                    logger.debug('[SimpleBookmarkPanel] Auto-refreshed due to storage change');
+                    if (Date.now() < this.suppressStorageUntil) {
+                        logger.debug('[SimpleBookmarkPanel] Skipped auto-refresh during cooldown');
+                        return;
+                    }
+                    if (this.suppressStorageAutoRefresh) {
+                        this.pendingStorageRefresh = true;
+                        logger.debug('[SimpleBookmarkPanel] Deferred auto-refresh during mutation');
+                        return;
+                    }
+                    this.scheduleRefreshFromStorage();
                 }
             }
         };
 
         browser.storage.onChanged.addListener(this.storageListener);
         logger.info('[SimpleBookmarkPanel] Storage listener setup');
+    }
+
+    /**
+     * Coalesce storage-triggered refreshes to avoid render flicker on bursty updates.
+     */
+    private scheduleRefreshFromStorage(): void {
+        if (this.storageRefreshTimer !== null) {
+            window.clearTimeout(this.storageRefreshTimer);
+        }
+        this.storageRefreshTimer = window.setTimeout(async () => {
+            try {
+                if (this.overlay?.style.display !== 'none') {
+                    await this.refresh();
+                    logger.debug('[SimpleBookmarkPanel] Auto-refreshed due to storage change');
+                }
+            } finally {
+                this.storageRefreshTimer = null;
+                if (this.pendingStorageRefresh) {
+                    this.pendingStorageRefresh = false;
+                    this.scheduleRefreshFromStorage();
+                }
+            }
+        }, 120);
+    }
+
+    /**
+     * Begin a local mutation batch and suppress noisy storage-change re-renders.
+     */
+    private beginStorageMutation(): void {
+        this.suppressStorageAutoRefresh = true;
+        this.pendingStorageRefresh = false;
+    }
+
+    /**
+     * End local mutation batch and keep a short cooldown window for late events.
+     */
+    private endStorageMutation(): void {
+        this.suppressStorageAutoRefresh = false;
+        this.suppressStorageUntil = Date.now() + 400;
+        this.pendingStorageRefresh = false;
     }
 
     /**
@@ -4594,6 +4697,11 @@ ${options.message}
         if (this.storageListener) {
             browser.storage.onChanged.removeListener(this.storageListener);
             this.storageListener = null;
+        }
+
+        if (this.storageRefreshTimer !== null) {
+            window.clearTimeout(this.storageRefreshTimer);
+            this.storageRefreshTimer = null;
         }
 
         if (this.overlay) {

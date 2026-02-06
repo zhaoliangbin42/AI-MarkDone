@@ -11,6 +11,14 @@ const SUPPORTED_HOSTS = [
     'chat.deepseek.com'
 ];
 
+function isContentToBackgroundMessage(message) {
+    return (
+        typeof message === 'object' &&
+        message !== null &&
+        message.type === 'ping'
+    );
+}
+
 /**
  * Check if the URL is supported
  */
@@ -84,12 +92,10 @@ browser.browserAction.onClicked.addListener((tab) => {
 
 // Listen for messages from content scripts
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch (message.type) {
-        case 'ping':
-            sendResponse({ status: 'ok' });
-            break;
-        default:
-            sendResponse({ status: 'unknown message type' });
+    if (isContentToBackgroundMessage(message)) {
+        sendResponse({ status: 'ok' });
+    } else {
+        sendResponse({ status: 'invalid message payload' });
     }
     return true;
 });
