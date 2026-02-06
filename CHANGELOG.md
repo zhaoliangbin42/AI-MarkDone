@@ -7,11 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **ChatGPT Conversation Folding**: Added fold bars for ChatGPT conversations with per-thread collapse/expand controls.
+- **ChatGPT Quick Dock**: Added a fixed right-side quick control for "Collapse all" and "Expand all".
+- **ChatGPT Settings Section**: Added a dedicated ChatGPT settings group with folding mode, default expanded count, and dock visibility toggle.
+
+### Changed
+- **ChatGPT Dock UI**: Refined the right-side dock to a slimmer vertical layout with compact `-` / `+` controls to reduce reading intrusion.
+- **ChatGPT Visual Guide**: Updated expanded-message left guide color to a neutral gray style for better consistency.
+
 ### Fixed
 - Claude: Fixed the header bookmark button not appearing after a site layout update.
 - Claude: Fixed header bookmark icon hover alignment.
 - ChatGPT: Fixed toolbar appearing outside the message bubble while responses are streaming (now shown after the official action bar is ready).
 - ChatGPT: Fixed toolbar being anchored to code-block "Copy" buttons in some messages, causing it to appear near the page edge.
+- **ChatGPT Quick Dock**: Fixed the dock disappearing after page re-renders and ensured the full half-area is clickable/highlighted on hover.
 - **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
 - **ChatGPT Word Count**: Fixed word count getting stuck in loading state for code-only responses (now shows `0 Words / 0 Chars`).
 - **Reader Mode Copy**: Copy button now shows feedback after copying markdown.

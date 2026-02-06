@@ -1,7 +1,7 @@
 # Platform Capability Matrix
 
-> **Version**: 2.7.0
-> **Last Updated**: 2026-01-17
+> **Version**: 2.9.0
+> **Last Updated**: 2026-02-06
 > **Purpose**: 各平台功能支持状态一览
 
 ---
@@ -16,6 +16,7 @@
 | 代码块复制 | ✅ | ✅ | 🔲 | ✅ | |
 | 字数统计 | ✅ | ✅ | ✅ | ✅ | CJK 感知 |
 | 工具栏注入 | ✅ | ✅ | ✅ | ✅ | |
+| ChatGPT 消息折叠 + 右侧快捷按钮 | ✅ | ❌ | ❌ | ❌ | ChatGPT 专属设置 |
 | **阅读器功能** | | | | | |
 | ReaderPanel 打开 | ✅ | ✅ | 🔲 | ✅ | |
 | 分页导航 | ✅ | ✅ | 🔲 | ✅ | |
@@ -54,7 +55,8 @@
 | URL 匹配 | `chatgpt.com`, `chat.openai.com` |
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
-| 特殊处理 | Deep Research 模式 |
+| 特殊处理 | Deep Research 模式；消息折叠；右侧固定折叠/展开按钮 |
+| 设置分组 | `chatgpt`（`foldingMode`, `defaultExpandedCount`, `showFoldDock`） |
 
 ### Gemini
 
@@ -89,6 +91,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |:---|:---|:---|
+| 2.9.0 | 2026-02-06 | ChatGPT 新增消息折叠与右侧快捷按钮，设置迁移到 ChatGPT 专属分组 |
 | 2.7.0 | 2026-01-17 | 添加 Deepseek 平台支持，更新功能矩阵 |
 | 2.6.0 | 2026-01-12 | 添加 Claude.ai 平台支持，工具栏注入和流式检测 |
 | 2.3.0 | 2026-01-07 | 初始版本，列出已实现功能 |

@@ -278,6 +278,9 @@
     "performance": {
         "message": "性能"
     },
+    "chatgptSettings": {
+        "message": "ChatGPT"
+    },
     "behavior": {
         "message": "配置"
     },
@@ -304,6 +307,18 @@
     },
     "chatgptFoldingCountDesc": {
         "message": "默认保持展开的最近助手消息数量。"
+    },
+    "chatgptFoldDockLabel": {
+        "message": "右侧折叠按钮"
+    },
+    "chatgptFoldDockDesc": {
+        "message": "在右侧显示固定的“全部折叠/全部展开”按钮。"
+    },
+    "chatgptCollapseAll": {
+        "message": "全部折叠"
+    },
+    "chatgptExpandAll": {
+        "message": "全部展开"
     },
     "btnCollapse": {
         "message": "折叠"
