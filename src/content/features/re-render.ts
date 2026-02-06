@@ -22,6 +22,8 @@ import { SettingsManager } from '../../settings/SettingsManager';
 import { SimpleBookmarkStorage } from '../../bookmarks/storage/SimpleBookmarkStorage';
 import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal';
 import { Modal } from '../components/modal';
+import { i18n } from '../../utils/i18n';
+import { copyToClipboard } from '../../utils/dom-utils';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -345,23 +347,23 @@ export class ReaderPanel {
         header.className = 'aicopy-panel-header';
         header.innerHTML = `
             <div class="aicopy-panel-header-left">
-                <h2 class="aicopy-panel-title">AI-Markdone Reader</h2>
+                <h2 class="aicopy-panel-title">${i18n.t('readerTitle')}</h2>
                 <div class="aicopy-header-actions">
-                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="Toggle fullscreen">
+                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="${i18n.t('toggleFullscreen')}">
                         ${Icons.maximize}
                     </button>
-                    <button class="aicopy-panel-btn" id="bookmark-btn" title="Bookmark">
+                    <button class="aicopy-panel-btn" id="bookmark-btn" title="${i18n.t('bookmark')}">
                         ${Icons.bookmark}
                     </button>
-                    <button class="aicopy-panel-btn" id="copy-btn" title="Copy Markdown">
+                    <button class="aicopy-panel-btn" id="copy-btn" title="${i18n.t('copyMarkdown')}">
                         ${Icons.copy}
                     </button>
-                    <button class="aicopy-panel-btn" id="source-btn" title="View Source">
+                    <button class="aicopy-panel-btn" id="source-btn" title="${i18n.t('viewSource')}">
                         ${Icons.code}
                     </button>
                 </div>
             </div>
-            <button class="aicopy-panel-btn" id="close-btn" title="Close">×</button>
+            <button class="aicopy-panel-btn" id="close-btn" title="${i18n.t('close')}">×</button>
         `;
 
         header.querySelector('#close-btn')?.addEventListener('click', () => this.hide());
@@ -392,33 +394,39 @@ export class ReaderPanel {
             paginationContainer.appendChild(triggerWrapper);
         }
 
-        // 2. Navigation Left
+        // 2. Navigation Cluster (Left + Dots + Right)
+        const navCluster = document.createElement('div');
+        navCluster.className = 'aicopy-pagination-nav';
+
+        // 2.1 Navigation Left
         const leftBtn = document.createElement('button');
         leftBtn.className = 'aicopy-nav-button aicopy-nav-button-left';
         leftBtn.innerHTML = '◀';
-        leftBtn.setAttribute('aria-label', 'Previous message'); // Accessibility
+        leftBtn.setAttribute('aria-label', i18n.t('previousMessage')); // Accessibility
         leftBtn.disabled = true; // Initial state
 
-        // 3. Dots Container (Dedicated Isolation Zone)
+        // 2.2 Dots Container (Dedicated Isolation Zone)
         const dotsContainer = document.createElement('div');
         dotsContainer.className = 'aicopy-pagination-dots-container';
 
-        // 4. Navigation Right
+        // 2.3 Navigation Right
         const rightBtn = document.createElement('button');
         rightBtn.className = 'aicopy-nav-button aicopy-nav-button-right';
         rightBtn.innerHTML = '▶';
-        rightBtn.setAttribute('aria-label', 'Next message');
+        rightBtn.setAttribute('aria-label', i18n.t('nextMessage'));
         rightBtn.disabled = true;
 
         // 5. Hint
         const hint = document.createElement('span');
         hint.className = 'aicopy-keyboard-hint';
-        hint.textContent = '"← →" to navigate';
+        hint.textContent = i18n.t('navigateHint');
 
         // Assemble Skeleton (Explicit Order)
-        paginationContainer.appendChild(leftBtn);
-        paginationContainer.appendChild(dotsContainer);
-        paginationContainer.appendChild(rightBtn);
+        navCluster.appendChild(leftBtn);
+        navCluster.appendChild(dotsContainer);
+        navCluster.appendChild(rightBtn);
+
+        paginationContainer.appendChild(navCluster);
         paginationContainer.appendChild(hint);
 
         // --- Controller Initialization ---
@@ -472,7 +480,7 @@ export class ReaderPanel {
 
         this.triggerBtn = document.createElement('button');
         this.triggerBtn.className = 'aimd-trigger-btn';
-        this.triggerBtn.title = 'Send message';
+        this.triggerBtn.title = i18n.t('sendMessage');
         this.triggerBtn.innerHTML = Icons.messageSquareText;
 
         const adapter = adapterRegistry.getAdapter();
@@ -556,7 +564,7 @@ export class ReaderPanel {
         // Jump Button
         const jumpBtn = document.createElement('button');
         jumpBtn.className = 'aimd-trigger-btn';
-        jumpBtn.title = 'Jump to current message';
+        jumpBtn.title = i18n.t('jumpToMessage');
         jumpBtn.innerHTML = Icons.locate;
         jumpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -827,20 +835,42 @@ export class ReaderPanel {
         const currentItem = this.items[this.currentIndex];
         if (!currentItem) return;
 
+        const copyBtn = this.shadowRoot?.querySelector('#copy-btn') as HTMLButtonElement | null;
+        if (!copyBtn) return;
+
         try {
+            copyBtn.disabled = true;
             const content = await resolveContent(currentItem.content);
-            await navigator.clipboard.writeText(content);
+            const success = await copyToClipboard(content);
+            if (!success) throw new Error('Failed to copy');
+
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = Icons.check;
+            copyBtn.style.color = 'var(--aimd-toolbar-theme-color)';
+            this.showButtonFeedback(copyBtn, i18n.t('btnCopied'));
             logger.debug('[ReaderPanel] Copied markdown to clipboard');
 
-            // Visual feedback on copy button
-            const copyBtn = this.shadowRoot?.querySelector('#copy-btn');
-            if (copyBtn) {
-                copyBtn.classList.add('success');
-                setTimeout(() => copyBtn.classList.remove('success'), 1000);
-            }
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+                copyBtn.style.color = '';
+                copyBtn.disabled = false;
+            }, 2000);
         } catch (error) {
             logger.error('[ReaderPanel] Failed to copy markdown:', error);
+            copyBtn.disabled = false;
         }
+    }
+
+    private showButtonFeedback(button: HTMLButtonElement, message: string): void {
+        const feedback = document.createElement('div');
+        feedback.className = 'aicopy-button-feedback';
+        feedback.textContent = message;
+        button.style.position = 'relative';
+        button.appendChild(feedback);
+
+        setTimeout(() => {
+            feedback.remove();
+        }, 1500);
     }
 
     /**

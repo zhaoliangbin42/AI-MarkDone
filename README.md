@@ -1,9 +1,21 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone -- An extension for ChatGPT, Gemini, Claude, and DeepSeek.</h1>
-  <p><strong>The ultimate immersive reading extension for students, researchers, and AI power users. ✨</strong></p>
-  <p><em>Reading Mode, One-Click Markdown Copy, Deep Research Parser, Word Count, and Bookmarks—all in one place.</em></p>
-  <p><em>Built by researchers, for researchers. 😉</em></p>
+  <h1>AI-MarkDone — Supercharge Your ChatGPT</h1>
+  <p>
+    <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
+      <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
+    </a>
+    <a href="./LICENSE">
+      <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
+    </a>
+    </br>
+    <img src="https://img.shields.io/badge/Platforms-ChatGPT%20%7C%20Gemini%20%7C%20Claude%20%7C%20DeepSeek-10A37F" alt="Platforms">
+    <a href="https://github.com/zhaoliangbin42/AI-MarkDone">
+      <img src="https://img.shields.io/github/stars/zhaoliangbin42/AI-MarkDone?style=social" alt="GitHub stars">
+    </a>
+  </p>
+  <p><strong>Read, save, export. Stay in flow.</strong></p>
+  <p><em>Reading Mode, one-click Markdown copy, bookmarks, and beautiful PDF export.</em></p>
 
   [中文文档](./README.zh.md) | English
 </div>
@@ -18,13 +30,12 @@
 
 ## 🤔 Is This For You?
 
-- **Hate losing your place?** Tired of dragging scrollbars back and forth while switching between messages, never quite finding where you left off?
-- **Want focus?** Do you wish for a stable reading environment instead of being forced to scroll to the bottom every time you type?
-- **Broken math?** Are you frustrated by AI-generated LaTeX formulas that break when copied?
-- **Single formula?** Do you often need to copy just *one* specific formula from a long paragraph?
-- **Deep Research nightmare?** Does the "disastrous" source code from Deep Research outputs make you want to smash your keyboard?
-- **Lost chats?** Do you wish you could bookmark important conversations so they never get lost?
-- **Word count?** Need precise word counts to control your article length?
+- **ChatGPT feels slow?** Long answers make the page heavy and annoying to navigate.
+- **Scroll fatigue?** You keep losing the exact paragraph you need.
+- **Need a stable view?** You want to read and keep chatting without losing context.
+- **Need real deliverables?** Clean Markdown for Obsidian/Typora, or a beautiful PDF you can share.
+- **Knowledge keeps disappearing?** You want a bookmark system that actually helps you organize.
+- **Deep Research looks like a dump?** You want AI output cleaned up so it is readable and reusable.
 
 If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
@@ -43,28 +54,27 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 ## ✨ Core Features
 
-### 📚 Immersive Reading Mode
-- **Focus Mode**: A dedicated reader that renders full Markdown syntax. Use `Left` / `Right` arrow keys to navigate messages instantly—no more scrolling lag.
-- **Quick Send**: Send messages directly from Reading Mode without losing context or focus.
-- **Deep Research Parser**: Special optimization for "Deep Research" outputs. We parse the chaotic source code and restore it into clean, readable Markdown, **fixing broken math formulas instantly**.
+### 📚 Reading Mode (Focus View)
+- **Stable context**: A dedicated reader that renders full Markdown syntax.
+- **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages.
+- **Keep chatting**: Send messages from Reading Mode without losing your place.
 
-### 📋 True Markdown Copy
-- **Standard Syntax**: Unlike the official "copy" button, we extract **standard Markdown**.
-- **Editor Ready**: Paste directly into Typora, Obsidian, or VS Code with perfect rendering.
-- **Auto-Cleaning**: Automatically removes citation tags, hyperlinks, and other AI generation noise.
+### 📦 Export & Copy (Markdown + PDF)
+- **Clean Markdown**: Copy standard Markdown, ready for Obsidian, Typora, or VS Code.
+- **Beautiful PDF**: Export a print-ready PDF when you need something shareable.
+- **Deep Research cleanup**: Restore messy Deep Research outputs into readable Markdown.
 
-### 📝 One-Click LaTeX Copy
-- **Click-to-Copy**: Just click on any math formula to copy its LaTeX code. No manual selection needed.
-- **Research Savior**: Supports both inline (`$...$`) and block (`$$...$$`) formulas. A massive time-saver for paper writing.
+### 🔖 Bookmarks That Actually Help
+- **One-click save**: Bookmark any important message instantly.
+- **Organize**: Use folders to keep projects and topics separate.
+- **Preview + jump**: Preview a bookmark and jump back to its exact spot in chat.
 
-### 📚 Bookmarks & Live Preview
-- **One-Click Save**: Bookmark any important message instantly.
-- **Live Preview**: Preview saved bookmarks directly in the panel without jumping back to the original chat.
-- **Smart Jump**: Click a bookmark to instantly scroll the chat window to the exact location of the message.
-- **Folder Management**: Organize your insights with custom folders.
+### 🧮 One-Click LaTeX Copy
+- **Click-to-copy**: Copy LaTeX from inline (`$...$`) and block (`$$...$$`) formulas.
+- **No selection hassle**: Grab exactly one formula without breaking the text.
 
 ### 📊 Word Count
-- **Real-time Stats**: Accurately counts words and characters for the current message, excluding code blocks and noise.
+- **Real-time stats**: Words and characters for the current message, minus code noise.
 
 ---
 
@@ -117,11 +127,11 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v2.9.0
-- **✨ New**: Full **Firefox** browser support with separated MV2/MV3 architecture.
-- **✨ New**: Toolbar toggle settings to show/hide individual buttons.
-- **✨ New**: Bookmark sort direction toggle (ascending/descending).
-- **🐛 Fix**: Reader View Source modal, FloatingInput sync, and design token standardization.
+### v2.9.5
+- **🌍 Improved**: Comprehensive bilingual (English + Simplified Chinese) localization coverage across key bookmark and settings flows.
+- **✨ Improved**: More robust ChatGPT toolbar injection timing and lifecycle cleanup for dynamic page updates.
+- **🐛 Fix**: Reader pagination edge cases and code-only word count loading behavior.
+- **🐛 Fix**: Bookmark panel empty-state styling when no folders exist.
 
 [Full Changelog](./CHANGELOG.md)
 
@@ -142,6 +152,13 @@ If this extension saves you time, consider buying me a coffee to support future 
   </div>
 </div>
 
+
+## ✅ TODO
+
+- ChatGPT history folding
+- Full-text bookmarks
+- Message comments
+- More...
 
 ## 📜 License & Contact
 

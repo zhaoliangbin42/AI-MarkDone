@@ -5,6 +5,31 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.5] - 2026-02-06
+
+### Fixed
+- Claude: Fixed the header bookmark button not appearing after a site layout update.
+- Claude: Fixed header bookmark icon hover alignment.
+- ChatGPT: Fixed toolbar appearing outside the message bubble while responses are streaming (now shown after the official action bar is ready).
+- ChatGPT: Fixed toolbar being anchored to code-block "Copy" buttons in some messages, causing it to appear near the page edge.
+- Bookmarks: Fixed broken empty-state styling in the bookmark panel when no folders exist.
+- **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
+- **ChatGPT Word Count**: Fixed word count getting stuck in loading state for code-only responses (now shows `0 Words / 0 Chars`).
+- **Reader Mode Copy**: Copy button now shows feedback after copying markdown.
+
+### Improved
+- **Toolbar Injection Stability**: More robust streaming completion detection and safer activation timing to reduce misplacement during SPA re-renders.
+- **Resource Cleanup**: Improved cleanup on navigation to avoid accumulating toolbar listeners and injected DOM nodes across long sessions.
+- **Reader Pagination**: Pagination controls now wrap gracefully for long conversations, keeping navigation arrows aligned with the page indicators.
+- **Internationalization (i18n)**: Comprehensive localization coverage for English and Simplified Chinese
+  - Settings Panel
+  - Save Messages Dialog
+  - Save Messages Export
+  - Batch Delete Dialog
+  - Sidebar Tabs
+  - Module Prefixes
+- **Formula Rendering**: Improved stability by loading KaTeX styles from bundled local assets (no external CDN dependency).
+
 ## [2.9.0] - 2026-02-03
 
 ### Added
@@ -25,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Alphabetical sort: A→Z ↔ Z→A
   - Icons change dynamically to show arrow direction
   - Settings migrated from 2-state to 4-state model with backward compatibility
-
+  
 ### Changed
 - **Reader Visuals**: Updated pagination dots to show bookmarked status with a square indicator.
 - **Button Styling**: Enhanced bookmark button with gradient background for clearer active state.
@@ -41,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Design Tokens**: Standardized CSS token usage in Reader panel styles to comply with design system.
 - **Reader Pagination**: Fixed bookmark status indicator offset in pagination dots.
 - **Markdown Paragraphs**: Fixed excessive blank lines between paragraphs when copying Markdown (3+ newlines compressed to 2)
+
 
 ### Technical Details
 - Separated architecture: Background scripts are browser-specific, Content Script is shared

@@ -4,6 +4,7 @@ import { InputValidator } from '../utils/InputValidator';
 import { CircuitBreaker } from '../resilience/CircuitBreaker';
 import { DOMPurifySanitizer } from '../sanitizer/DOMPurifySanitizer';
 import { ISanitizer } from '../sanitizer/ISanitizer';
+import { logger } from '../../utils/logger';
 
 export interface RenderOptions {
     maxInputSize?: number;
@@ -104,7 +105,7 @@ export class MarkdownRenderer {
         const validation = InputValidator.validate(markdown, opts.maxInputSize);
 
         if (!validation.valid) {
-            console.warn(`[Renderer] ❌ Validation failed: ${validation.error}`);
+            logger.warn(`[AI-MarkDone][Renderer] Validation failed: ${validation.error}`);
             return {
                 success: false,
                 error: validation.error,
@@ -124,7 +125,7 @@ export class MarkdownRenderer {
 
             // 3. Output size check
             if (html.length > opts.maxOutputSize) {
-                console.error(`[Renderer] ❌ OUTPUT_TOO_LARGE: ${html.length} > ${opts.maxOutputSize}`);
+                logger.error(`[AI-MarkDone][Renderer] OUTPUT_TOO_LARGE: ${html.length} > ${opts.maxOutputSize}`);
                 throw new Error('OUTPUT_TOO_LARGE');
             }
 
@@ -166,7 +167,7 @@ export class MarkdownRenderer {
                     }
 
                     if (Date.now() - overallStart > timeout) {
-                        console.error(`[Renderer] ❌ RENDER_TIMEOUT after ${Date.now() - overallStart}ms`);
+                        logger.error(`[AI-MarkDone][Renderer] RENDER_TIMEOUT after ${Date.now() - overallStart}ms`);
                         reject(new Error('RENDER_TIMEOUT'));
                         return;
                     }
@@ -175,13 +176,13 @@ export class MarkdownRenderer {
 
                     currentIndex++;
 
-                    if (onProgress && currentIndex <= chunks.length) {
-                        try {
-                            onProgress((currentIndex / chunks.length) * 100);
-                        } catch (e) {
-                            console.warn('[Render] Progress callback error:', e);
+                        if (onProgress && currentIndex <= chunks.length) {
+                            try {
+                                onProgress((currentIndex / chunks.length) * 100);
+                            } catch (e) {
+                                logger.warn('[AI-MarkDone][Renderer] Progress callback error:', e);
+                            }
                         }
-                    }
 
                     if (currentIndex < chunks.length) {
                         await new Promise<void>(r => { queueMicrotask(() => r()); });
@@ -190,7 +191,7 @@ export class MarkdownRenderer {
                         resolve(result);
                     }
                 } catch (error) {
-                    console.error('[AI-MarkDone][Renderer] ❌ Chunk processing error:', error);
+                    logger.error('[AI-MarkDone][Renderer] Chunk processing error:', error);
                     reject(error);
                 }
             };

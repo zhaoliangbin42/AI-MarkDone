@@ -130,11 +130,24 @@ export class ToolbarInjector {
 
     public reconcileToolbarPosition(message: HTMLElement): void {
         const selector = this.adapter.getActionBarSelector();
-        const actionBar = message.querySelector(selector);
+        let actionBar = message.querySelector(selector) as HTMLElement | null;
         const wrapper = message.querySelector('.aicopy-toolbar-wrapper');
 
         if (!wrapper || !actionBar || !actionBar.parentElement) {
             return;
+        }
+
+        // Some adapters (e.g. ChatGPT) use a selector that targets a stable anchor button
+        // inside the action bar rather than the bar container itself.
+        //
+        // IMPORTANT: Only promote to a container when we can identify the ChatGPT bar wrapper.
+        // For other platforms whose action bar selector already targets a button, promoting to
+        // parent containers would change placement semantics.
+        if (actionBar.tagName.toLowerCase() === 'button') {
+            const chatgptBar = actionBar.closest('div.z-0.flex') as HTMLElement | null;
+            if (chatgptBar) {
+                actionBar = chatgptBar;
+            }
         }
 
         if (wrapper.nextElementSibling !== actionBar) {

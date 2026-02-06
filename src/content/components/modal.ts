@@ -3,6 +3,7 @@ import { copyToClipboard } from '../../utils/dom-utils';
 import { DesignTokens } from '../../utils/design-tokens';
 import { ThemeManager, Theme } from '../../utils/ThemeManager';
 
+import { i18n } from '../../utils/i18n';
 /**
  * Modal component using Shadow DOM
  * Displays Markdown source code in a read-only editor
@@ -95,7 +96,7 @@ export class Modal {
         header.className = 'modal-header';
         header.innerHTML = `
       <h2 class="modal-title">${title}</h2>
-      <button class="modal-close" aria-label="Close">×</button>
+      <button class="modal-close" aria-label="${i18n.t('btnClose')}">×</button>
     `;
 
         // Body
@@ -112,8 +113,8 @@ export class Modal {
         const footer = document.createElement('div');
         footer.className = 'modal-footer';
         footer.innerHTML = `
-      <button class="modal-button" id="close-btn">Close</button>
-      <button class="modal-button primary" id="copy-btn">Copy</button>
+      <button class="modal-button" id="close-btn">${i18n.t('btnClose')}</button>
+      <button class="modal-button primary" id="copy-btn">${i18n.t('btnCopyText')}</button>
     `;
 
         // Assemble
@@ -150,9 +151,9 @@ export class Modal {
         copyBtn?.addEventListener('click', async () => {
             const success = await copyToClipboard(this.content);
             if (success) {
-                copyBtn.textContent = 'Copied!';
+                copyBtn.textContent = i18n.t('btnCopied');
                 setTimeout(() => {
-                    copyBtn.textContent = 'Copy';
+                    copyBtn.textContent = i18n.t('btnCopyText');
                 }, 2000);
             }
         });

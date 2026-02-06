@@ -1,0 +1,638 @@
+{
+    "extName": {
+        "message": "AI-MarkDone | Reader Mode, Bookmarks & LaTeX Copy for AI"
+    },
+    "extDescription": {
+        "message": "Immersive reader mode, bookmark management, one-click LaTeX formula copy, Markdown export for ChatGPT and Gemini."
+    },
+    "btnCopy": {
+        "message": "Copy Markdown"
+    },
+    "btnCopied": {
+        "message": "Copied!"
+    },
+    "btnBookmark": {
+        "message": "Bookmark"
+    },
+    "btnRemoveBookmark": {
+        "message": "Remove Bookmark"
+    },
+    "btnReader": {
+        "message": "Reader"
+    },
+    "btnViewSource": {
+        "message": "View Source"
+    },
+    "btnSaveAs": {
+        "message": "Save as"
+    },
+    "btnClose": {
+        "message": "Close"
+    },
+    "btnCancel": {
+        "message": "Cancel"
+    },
+    "btnOk": {
+        "message": "OK"
+    },
+    "btnSave": {
+        "message": "Save"
+    },
+    "loading": {
+        "message": "Loading..."
+    },
+    "noContent": {
+        "message": "No content"
+    },
+    "openingPreview": {
+        "message": "Opening Preview..."
+    },
+    "sourceOpened": {
+        "message": "Source Opened"
+    },
+    "saving": {
+        "message": "Saving..."
+    },
+    "readerTitle": {
+        "message": "AI-Markdone Reader"
+    },
+    "toggleFullscreen": {
+        "message": "Toggle fullscreen"
+    },
+    "previousMessage": {
+        "message": "Previous message"
+    },
+    "nextMessage": {
+        "message": "Next message"
+    },
+    "navigateHint": {
+        "message": "\"← →\" to navigate"
+    },
+    "typeYourMessage": {
+        "message": "Type your message..."
+    },
+    "saveMessages": {
+        "message": "Save Messages"
+    },
+    "selectAll": {
+        "message": "Select All"
+    },
+    "deselectAll": {
+        "message": "Deselect All"
+    },
+    "readerMode": {
+        "message": "Reader Mode"
+    },
+    "contentNotFound": {
+        "message": "Content not found"
+    },
+    "copyFailed": {
+        "message": "Copy failed"
+    },
+    "openFailed": {
+        "message": "Open failed"
+    },
+    "exportOptions": {
+        "message": "Export Options"
+    },
+    "selectExportMethod": {
+        "message": "Choose export method:"
+    },
+    "keepFolderStructure": {
+        "message": "Keep Folder Structure"
+    },
+    "exportAsFolders": {
+        "message": "Export as hierarchical folders and bookmarks"
+    },
+    "flatList": {
+        "message": "Flat List"
+    },
+    "exportBookmarksOnly": {
+        "message": "Export bookmarks only, without folders"
+    },
+    "export": {
+        "message": "Export"
+    },
+    "renameTo": {
+        "message": "Rename to"
+    },
+    "autoRename": {
+        "message": "Auto Rename"
+    },
+    "clickCopy": {
+        "message": "Click copy"
+    },
+    "btnCopyText": {
+        "message": "Copy"
+    },
+    "modalSourceTitle": {
+        "message": "Markdown Source Code"
+    },
+    "saveMessagesTitle": {
+        "message": "Save Messages As"
+    },
+    "formatMarkdown": {
+        "message": "Markdown"
+    },
+    "formatPdf": {
+        "message": "PDF"
+    },
+    "saveBookmarkTitle": {
+        "message": "Save Bookmark"
+    },
+    "labelTitle": {
+        "message": "Title"
+    },
+    "labelFolder": {
+        "message": "Folder"
+    },
+    "languageChanged": {
+        "message": "Language Changed"
+    },
+    "reloadMessage": {
+        "message": "Please reload the page to apply the new language setting."
+    },
+    "reloadNow": {
+        "message": "Reload Now"
+    },
+    "later": {
+        "message": "Later"
+    },
+    "confirmRename": {
+        "message": "Confirm rename"
+    },
+    "cancelRename": {
+        "message": "Cancel rename"
+    },
+    "sendMessage": {
+        "message": "Send message"
+    },
+    "jumpToMessage": {
+        "message": "Jump to current message"
+    },
+    "collapse": {
+        "message": "Collapse"
+    },
+    "send": {
+        "message": "Send"
+    },
+    "search": {
+        "message": "Search..."
+    },
+    "sortByTime": {
+        "message": "Sort by: Time"
+    },
+    "sortAlpha": {
+        "message": "Sort by: A-Z"
+    },
+    "sortByTimeLabel": {
+        "message": "Sort by time"
+    },
+    "sortAlphaLabel": {
+        "message": "Sort alphabetically"
+    },
+    "createFolder": {
+        "message": "Create new folder"
+    },
+    "importBookmarks": {
+        "message": "Import bookmarks"
+    },
+    "exportBookmarks": {
+        "message": "Export bookmarks"
+    },
+    "toggleFolder": {
+        "message": "Toggle folder"
+    },
+    "newSubfolder": {
+        "message": "New Subfolder"
+    },
+    "createSubfolder": {
+        "message": "Create subfolder"
+    },
+    "rename": {
+        "message": "Rename"
+    },
+    "renameFolder": {
+        "message": "Rename folder"
+    },
+    "delete": {
+        "message": "Delete"
+    },
+    "deleteFolder": {
+        "message": "Delete folder"
+    },
+    "openConversation": {
+        "message": "Open in Conversation"
+    },
+    "openConversationLabel": {
+        "message": "Open conversation"
+    },
+    "edit": {
+        "message": "Edit"
+    },
+    "editBookmark": {
+        "message": "Edit bookmark"
+    },
+    "deleteBookmark": {
+        "message": "Delete bookmark"
+    },
+    "titleRequired": {
+        "message": "Title is required"
+    },
+    "errorCalculating": {
+        "message": "Error calculating"
+    },
+    "inputMessage": {
+        "message": "Input Message"
+    },
+    "enterBookmarkTitle": {
+        "message": "Enter bookmark title..."
+    },
+    "saveBookmark": {
+        "message": "Save Bookmark"
+    },
+    "moveBookmarksToFolder": {
+        "message": "Move Bookmarks to Folder"
+    },
+    "newFolder": {
+        "message": "New Folder"
+    },
+    "newSubfolderTitle": {
+        "message": "New Subfolder"
+    },
+    "enterFolderName": {
+        "message": "Enter folder name"
+    },
+    "loadingFolders": {
+        "message": "Loading folders..."
+    },
+    "general": {
+        "message": "General"
+    },
+    "language": {
+        "message": "Language"
+    },
+    "platforms": {
+        "message": "Platforms"
+    },
+    "behavior": {
+        "message": "Behavior"
+    },
+    "reader": {
+        "message": "Reader"
+    },
+    "supportDevelopment": {
+        "message": "Support Development"
+    },
+    "ifProjectHelps": {
+        "message": "If this project helps you"
+    },
+    "noFoldersYet": {
+        "message": "No folders yet"
+    },
+    "createFirstFolder": {
+        "message": "Create your first folder to organize bookmarks"
+    },
+    "migrationComplete": {
+        "message": "Migration Complete"
+    },
+    "migratedBookmarks": {
+        "message": "Migrated $1 bookmark(s) to \"Import\" folder"
+    },
+    "deleteSelected": {
+        "message": "Delete selected items"
+    },
+    "moveSelected": {
+        "message": "Move selected items"
+    },
+    "exportSelected": {
+        "message": "Export selected items"
+    },
+    "clearSelection": {
+        "message": "Clear selection"
+    },
+    "batchDelete": {
+        "message": "Delete"
+    },
+    "batchMove": {
+        "message": "Move To"
+    },
+    "batchExport": {
+        "message": "Export"
+    },
+    "batchClear": {
+        "message": "Clear"
+    },
+    "maxDepthExceeded": {
+        "message": "Maximum Depth Exceeded"
+    },
+    "maxDepthMessage": {
+        "message": "Maximum folder depth of 3 levels reached."
+    },
+    "failedToCreateFolder": {
+        "message": "Failed to Create Folder"
+    },
+    "folderNameExists": {
+        "message": "Folder name already exists."
+    },
+    "folderNameNoSlash": {
+        "message": "Folder name cannot contain \"/\"."
+    },
+    "spacesCollapsed": {
+        "message": "Consecutive spaces were collapsed."
+    },
+    "failedToRename": {
+        "message": "Failed to Rename"
+    },
+    "deleteBookmarkTitle": {
+        "message": "Delete Bookmark"
+    },
+    "deleteBookmarkMessage": {
+        "message": "Are you sure you want to delete this bookmark?"
+    },
+    "noItemsSelected": {
+        "message": "No Items Selected"
+    },
+    "pleaseSelectToExport": {
+        "message": "Please select items to export"
+    },
+    "noBookmarksSelected": {
+        "message": "No Bookmarks Selected"
+    },
+    "noBookmarksToMove": {
+        "message": "No Bookmarks to Move"
+    },
+    "noBookmarksToMoveNote": {
+        "message": "Note: Folders cannot be moved, only bookmarks."
+    },
+    "storageFull": {
+        "message": "Storage Full"
+    },
+    "storageWarning": {
+        "message": "Storage Warning"
+    },
+    "importSuccessful": {
+        "message": "Import Successful"
+    },
+    "importFailed": {
+        "message": "Import Failed"
+    },
+    "conversation": {
+        "message": "Conversation"
+    },
+    "bookmark": {
+        "message": "Bookmark"
+    },
+    "copyMarkdown": {
+        "message": "Copy Markdown"
+    },
+    "viewSource": {
+        "message": "View Source"
+    },
+    "close": {
+        "message": "Close"
+    },
+    "failedToCreateFolderError": {
+        "message": "Failed to create folder: $1"
+    },
+    "failedToRenameError": {
+        "message": "Failed to rename: $1"
+    },
+    "failedToDeleteError": {
+        "message": "Failed to delete: $1"
+    },
+    "failedToMoveError": {
+        "message": "Failed to move: $1"
+    },
+    "unknownError": {
+        "message": "Unknown error"
+    },
+    "sponsor": {
+        "message": "Sponsor"
+    },
+    "settings": {
+        "message": "Settings"
+    },
+    "bookmarks": {
+        "message": "Bookmarks"
+    },
+    "settingsLanguageLabel": {
+        "message": "Language"
+    },
+    "settingsLanguageDesc": {
+        "message": "Choose your preferred language"
+    },
+    "languageAuto": {
+        "message": "Auto (Browser Language)"
+    },
+    "languageEnglish": {
+        "message": "English"
+    },
+    "languageZhCN": {
+        "message": "简体中文"
+    },
+    "enableOnChatGPT": {
+        "message": "Enable extension on ChatGPT"
+    },
+    "enableOnGemini": {
+        "message": "Enable extension on Gemini"
+    },
+    "enableOnClaude": {
+        "message": "Enable extension on Claude"
+    },
+    "enableOnDeepseek": {
+        "message": "Enable extension on Deepseek"
+    },
+    "viewSourceLabel": {
+        "message": "View Source"
+    },
+    "viewSourceDesc": {
+        "message": "Show \"View Source\" button in toolbar"
+    },
+    "saveMessagesLabel": {
+        "message": "Save Messages"
+    },
+    "saveMessagesDesc": {
+        "message": "Show \"Save as\" button in toolbar"
+    },
+    "wordCountLabel": {
+        "message": "Toolbar > Word Count"
+    },
+    "wordCountDesc": {
+        "message": "Show word count statistics in toolbar"
+    },
+    "clickToCopyLabel": {
+        "message": "Message > Click to Copy"
+    },
+    "clickToCopyDesc": {
+        "message": "Enable click-to-copy for math formulas"
+    },
+    "contextOnlySaveLabel": {
+        "message": "Bookmark > Context-Only Save"
+    },
+    "contextOnlySaveDesc": {
+        "message": "Save space by keeping only 500 chars. Full preview will be specific to the context."
+    },
+    "renderCodeBlocksLabel": {
+        "message": "Reader > Render Code Blocks"
+    },
+    "renderCodeBlocksDesc": {
+        "message": "Display syntax-highlighted code in Reader Mode"
+    },
+    "supportDevDesc": {
+        "message": "AI-MarkDone is open source. Star us on GitHub."
+    },
+    "starOnGitHub": {
+        "message": "Star on GitHub"
+    },
+    "supportCoffeeDesc": {
+        "message": "Support the developer with a coffee ☕️"
+    },
+    "buyMeCoffee": {
+        "message": "Buy Me a Coffee"
+    },
+    "wechatAppreciationCode": {
+        "message": "微信赞赏码"
+    },
+    "selectFolderLabel": {
+        "message": "Select folder"
+    },
+    "movingBookmarks": {
+        "message": "Moving <strong>$1</strong> bookmark(s)"
+    },
+    "deleteBookmarkConfirm": {
+        "message": "Delete bookmark \"$1\"?"
+    },
+    "deleteBookmarkTip": {
+        "message": "Tip: You can export your bookmarks first to create a backup."
+    },
+    "noBookmarksSelectedMessage": {
+        "message": "No bookmarks selected"
+    },
+    "pleaseSelectToMove": {
+        "message": "Please select items to move"
+    },
+    "storageQuotaExceeded": {
+        "message": "Storage quota exceeded"
+    },
+    "storageGettingFull": {
+        "message": "Storage is getting full"
+    },
+    "notEnoughStorageForImport": {
+        "message": "Not enough storage space for import"
+    },
+    "importedBookmarks": {
+        "message": "Imported $1 bookmark$2"
+    },
+    "skippedDuplicates": {
+        "message": "skipped $1 duplicate$2"
+    },
+    "importFailedMessage": {
+        "message": "Import failed: $1"
+    },
+    "maxDepthSubfolderMessage": {
+        "message": "Cannot create subfolder: Maximum folder depth is $1 levels.\\n\\nPlease create a new root folder or organize within existing folders."
+    },
+    "maxDepthFolderMessage": {
+        "message": "Cannot create folder: Maximum folder depth is $1 levels.\\n\\nCurrent path would be: $2\\nDepth: $3\\n\\nPlease create a new root folder or organize within existing folders."
+    },
+    "failedToCreateFolderMessage": {
+        "message": "Failed to create folder: $1"
+    },
+    "failedToRenameFolderMessage": {
+        "message": "Failed to rename folder: $1"
+    },
+    "folderNameEmpty": {
+        "message": "Folder name cannot be empty"
+    },
+    "creatingSubfolderIn": {
+        "message": "Creating subfolder in: $1"
+    },
+    "createFirstFolderBtn": {
+        "message": "Create First Folder"
+    },
+    "tabBookmarks": {
+        "message": "Bookmarks"
+    },
+    "tabSettings": {
+        "message": "Settings"
+    },
+    "tabSponsor": {
+        "message": "Sponsor"
+    },
+    "selectedCount": {
+        "message": "$1 selected"
+    },
+    "storageUsedLabel": {
+        "message": "Storage Used"
+    },
+    "storageCalculating": {
+        "message": "Calculating..."
+    },
+    "backupTitle": {
+        "message": "Back up your data"
+    },
+    "backupWarning": {
+        "message": "⚠️ Uninstalling the extension will delete all bookmarks."
+    },
+    "exportAllBtn": {
+        "message": "Export All"
+    },
+    "selectMessagesLabel": {
+        "message": "Select messages to save:"
+    },
+    "formatLabel": {
+        "message": "Format:"
+    },
+    "selectedCountMessages": {
+        "message": "$1 / $2 selected"
+    },
+    "dataAndStorage": {
+        "message": "Data & Storage"
+    },
+    "deleteSelectedTitle": {
+        "message": "Delete Selected Items"
+    },
+    "deletePermanentlyPrefix": {
+        "message": "This will permanently delete:"
+    },
+    "rootFoldersCount": {
+        "message": "$1 root folder(s)"
+    },
+    "subFoldersCount": {
+        "message": "$1 subfolder(s)"
+    },
+    "bookmarksCount": {
+        "message": "$1 bookmark(s)"
+    },
+    "actionCannotBeUndone": {
+        "message": "This action cannot be undone."
+    },
+    "exportMetadata": {
+        "message": "Exported from $1 on $2"
+    },
+    "exportMessagePrefix": {
+        "message": "Message $1"
+    },
+    "exportUserLabel": {
+        "message": "User"
+    },
+    "exportAssistantLabel": {
+        "message": "Assistant"
+    },
+    "pdfExportedFrom": {
+        "message": "Exported from $1"
+    },
+    "pdfMessagesCount": {
+        "message": "$1 message(s)"
+    },
+    "pdfMessagePrefix": {
+        "message": "Message $1"
+    },
+    "pdfUserLabel": {
+        "message": "User"
+    },
+    "pdfAssistantLabel": {
+        "message": "Assistant"
+    }
+}

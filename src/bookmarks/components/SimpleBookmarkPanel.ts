@@ -16,6 +16,7 @@ import { fromBookmarks, findBookmarkIndex } from '../datasource/BookmarkDataSour
 import { DialogManager } from '../../components/DialogManager';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
+import { i18n } from '../../utils/i18n';
 
 function getPlatformIcon(platform?: string): string {
     const p = platform?.toLowerCase() || 'chatgpt';
@@ -70,6 +71,9 @@ export class SimpleBookmarkPanel {
     private readerPanel: ReaderPanel = new ReaderPanel({ hideTriggerButton: true });
 
     async show(): Promise<void> {
+        // Ensure i18n is initialized before rendering templates
+        await i18n.waitForInit();
+
         this.abortController = new AbortController();
 
         if (this.overlay) {
@@ -137,8 +141,8 @@ export class SimpleBookmarkPanel {
             setTimeout(() => {
                 this.showNotification({
                     type: 'success',
-                    title: 'Migration Complete',
-                    message: `Migrated ${migratedCount} bookmark${migratedCount > 1 ? 's' : ''} to "Import" folder`
+                    title: i18n.t('migrationComplete'),
+                    message: i18n.t('migratedBookmarks', String(migratedCount))
                 });
             }, 100);
         }
@@ -313,29 +317,29 @@ export class SimpleBookmarkPanel {
             <div class="sidebar">
                 <button class="tab-btn active" data-tab="bookmarks">
                     <span class="tab-icon">${Icons.bookmark}</span>
-                    <span class="tab-label">Bookmarks</span>
+                    <span class="tab-label">${i18n.t('tabBookmarks')}</span>
                 </button>
                 <button class="tab-btn" data-tab="settings">
                     <span class="tab-icon">${Icons.settings}</span>
-                    <span class="tab-label">Settings</span>
+                    <span class="tab-label">${i18n.t('tabSettings')}</span>
                 </button>
                 <button class="tab-btn" data-tab="support">
                     <span class="tab-icon">${Icons.coffee}</span>
-                    <span class="tab-label">Sponsor</span>
+                    <span class="tab-label">${i18n.t('tabSponsor')}</span>
                 </button>
             </div>
 
             <div class="main">
                 <div class="header">
                     <h2>${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})</h2>
-                    <button class="close-btn" aria-label="Close">×</button>
+                    <button class="close-btn" aria-label="${i18n.t('btnClose')}">×</button>
                 </div>
 
                 <div class="tab-content bookmarks-tab active">
                     <div class="toolbar">
                         <div class="search-wrapper">
                             <span class="search-icon">${Icons.search}</span>
-                            <input type="text" class="search-input" placeholder="Search...">
+                            <input type="text" class="search-input" placeholder="${i18n.t('search')}">
                         </div>
                         <div class="platform-selector-wrapper">
                             <button class="platform-selector" data-selected="all">
@@ -357,13 +361,13 @@ export class SimpleBookmarkPanel {
                             </div>
                         </div>
                         <div class="sort-mode-group">
-                            <button class="sort-mode-btn" data-mode="time" title="Sort by: Time" aria-label="Sort by time">${Icons.sortTime}</button>
-                            <button class="sort-mode-btn active" data-mode="alpha" title="Sort by: A-Z" aria-label="Sort alphabetically">${Icons.sortAZ}</button>
+                            <button class="sort-mode-btn" data-mode="time" title="${i18n.t('sortByTime')}" aria-label="${i18n.t('sortByTimeLabel')}">${Icons.sortTime}</button>
+                            <button class="sort-mode-btn active" data-mode="alpha" title="${i18n.t('sortAlpha')}" aria-label="${i18n.t('sortAlphaLabel')}">${Icons.sortAZ}</button>
                         </div>
-                        <button class="toolbar-icon-btn new-folder-btn" title="Create new folder" aria-label="Create new folder">${Icons.folderPlus}</button>
+                        <button class="toolbar-icon-btn new-folder-btn" title="${i18n.t('createFolder')}" aria-label="${i18n.t('createFolder')}">${Icons.folderPlus}</button>
                         <div class="toolbar-divider"></div>
-                        <button class="toolbar-icon-btn import-btn" title="Import bookmarks" aria-label="Import bookmarks">${Icons.upload}</button>
-                        <button class="toolbar-icon-btn export-btn" title="Export bookmarks" aria-label="Export bookmarks">${Icons.download}</button>
+                        <button class="toolbar-icon-btn import-btn" title="${i18n.t('importBookmarks')}" aria-label="${i18n.t('importBookmarks')}">${Icons.upload}</button>
+                        <button class="toolbar-icon-btn export-btn" title="${i18n.t('exportBookmarks')}" aria-label="${i18n.t('exportBookmarks')}">${Icons.download}</button>
                     </div>
                     <div class="content">
                         ${this.renderTreeView()}
@@ -372,27 +376,27 @@ export class SimpleBookmarkPanel {
                     <!-- Batch Actions Bar (Gmail-style floating) -->
                     <div class="batch-actions-bar">
                         <span class="selected-count">0 selected</span>
-                        <button class="batch-delete-btn" title="Delete selected items">${Icons.trash} <span>Delete</span></button>
-                        <button class="batch-move-btn" title="Move selected items">${Icons.folder} <span>Move To</span></button>
-                        <button class="batch-export-btn" title="Export selected items">${Icons.download} <span>Export</span></button>
-                        <button class="batch-clear-btn" title="Clear selection">${Icons.x} <span>Clear</span></button>
+                        <button class="batch-delete-btn" title="${i18n.t('deleteSelected')}">${Icons.trash} <span>${i18n.t('batchDelete')}</span></button>
+                        <button class="batch-move-btn" title="${i18n.t('moveSelected')}">${Icons.folder} <span>${i18n.t('batchMove')}</span></button>
+                        <button class="batch-export-btn" title="${i18n.t('exportSelected')}">${Icons.download} <span>${i18n.t('batchExport')}</span></button>
+                        <button class="batch-clear-btn" title="${i18n.t('clearSelection')}">${Icons.x} <span>${i18n.t('batchClear')}</span></button>
                     </div>
                 </div>
 
                 <div class="tab-content settings-tab">
                     <div class="settings-content">
-                        <!-- Platforms Group -->
+                        <!-- Platforms Group (FIRST) -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">
                                 ${Icons.globe}
-                                <span>Platforms</span>
+                                <span>${i18n.t('platforms')}</span>
                             </h3>
                             
                             <!-- ChatGPT Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
                                     <span class="settings-item-label">${Icons.chatgpt} ChatGPT</span>
-                                    <span class="settings-item-desc">Enable extension on ChatGPT</span>
+                                    <span class="settings-item-desc">${i18n.t('enableOnChatGPT')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="platforms.chatgpt" checked>
@@ -404,7 +408,7 @@ export class SimpleBookmarkPanel {
                             <div class="settings-item">
                                 <div class="settings-item-info">
                                     <span class="settings-item-label">${Icons.gemini} Gemini</span>
-                                    <span class="settings-item-desc">Enable extension on Gemini</span>
+                                    <span class="settings-item-desc">${i18n.t('enableOnGemini')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="platforms.gemini" checked>
@@ -416,7 +420,7 @@ export class SimpleBookmarkPanel {
                             <div class="settings-item">
                                 <div class="settings-item-info">
                                     <span class="settings-item-label">${Icons.claude} Claude</span>
-                                    <span class="settings-item-desc">Enable extension on Claude</span>
+                                    <span class="settings-item-desc">${i18n.t('enableOnClaude')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="platforms.claude" checked>
@@ -428,7 +432,7 @@ export class SimpleBookmarkPanel {
                             <div class="settings-item">
                                 <div class="settings-item-info">
                                     <span class="settings-item-label">${Icons.deepseek} Deepseek</span>
-                                    <span class="settings-item-desc">Enable extension on Deepseek</span>
+                                    <span class="settings-item-desc">${i18n.t('enableOnDeepseek')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="platforms.deepseek" checked>
@@ -437,18 +441,18 @@ export class SimpleBookmarkPanel {
                             </div>
                         </div>
                         
-                        <!-- Behavior Group (includes toolbar buttons + click-to-copy + context-only) -->
+                        <!-- Configuration Group (MERGED: Behavior + Reader) -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">
                                 ${Icons.settings}
-                                <span>Behavior</span>
+                                <span>${i18n.t('behavior')}</span>
                             </h3>
                             
                             <!-- View Source Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">View Source</span>
-                                    <span class="settings-item-desc">Show "View Source" button in toolbar</span>
+                                    <span class="settings-item-label">${i18n.t('viewSourceLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('viewSourceDesc')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="behavior.showViewSource" checked>
@@ -459,8 +463,8 @@ export class SimpleBookmarkPanel {
                             <!-- Save Messages Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Save Messages</span>
-                                    <span class="settings-item-desc">Show "Save as" button in toolbar</span>
+                                    <span class="settings-item-label">${i18n.t('saveMessagesLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('saveMessagesDesc')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="behavior.showSaveMessages" checked>
@@ -471,8 +475,8 @@ export class SimpleBookmarkPanel {
                             <!-- Word Count Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Word Count</span>
-                                    <span class="settings-item-desc">Show word count statistics in toolbar</span>
+                                    <span class="settings-item-label">${i18n.t('wordCountLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('wordCountDesc')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="behavior.showWordCount" checked>
@@ -483,8 +487,8 @@ export class SimpleBookmarkPanel {
                             <!-- Click to Copy Toggle -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Click to Copy</span>
-                                    <span class="settings-item-desc">Enable click-to-copy for math formulas</span>
+                                    <span class="settings-item-label">${i18n.t('clickToCopyLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('clickToCopyDesc')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="behavior.enableClickToCopy" checked>
@@ -495,28 +499,20 @@ export class SimpleBookmarkPanel {
                             <!-- Context Only Save -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Context-Only Save</span>
-                                    <span class="settings-item-desc">Save space by keeping only 500 chars. Full preview will be specific to the context.</span>
+                                    <span class="settings-item-label">${i18n.t('contextOnlySaveLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('contextOnlySaveDesc')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="behavior.saveContextOnly">
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
-                        </div>
-                        
-                        <!-- Reader Group (only renderCodeInReader) -->
-                        <div class="settings-group">
-                            <h3 class="settings-group-title">
-                                ${Icons.bookOpen}
-                                <span>Reader</span>
-                            </h3>
                             
-                            <!-- Render Code Toggle -->
+                            <!-- Render Code Toggle (from Reader group) -->
                             <div class="settings-item">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Render Code Blocks</span>
-                                    <span class="settings-item-desc">Display syntax-highlighted code in Reader Mode</span>
+                                    <span class="settings-item-label">${i18n.t('renderCodeBlocksLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('renderCodeBlocksDesc')}</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" data-setting="reader.renderCodeInReader" checked>
@@ -525,18 +521,39 @@ export class SimpleBookmarkPanel {
                             </div>
                         </div>
                         
+                        <!-- Language Group (MOVED before Storage) -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">
+                                ${Icons.languages}
+                                <span>${i18n.t('settingsLanguageLabel')}</span>
+                            </h3>
+                            
+                            <!-- Language Selector -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${i18n.t('settingsLanguageLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('settingsLanguageDesc')}</span>
+                                </div>
+                                <select class="language-select" id="language-selector">
+                                    <option value="auto">${i18n.t('languageAuto')}</option>
+                                    <option value="en">${i18n.t('languageEnglish')}</option>
+                                    <option value="zh_CN">${i18n.t('languageZhCN')}</option>
+                                </select>
+                            </div>
+                        </div>
+                        
                         <!-- Data & Storage Group -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">
                                 ${Icons.database}
-                                <span>Data & Storage</span>
+                                <span>${i18n.t('dataAndStorage')}</span>
                             </h3>
                             
                             <!-- Storage Usage Display -->
                             <div class="settings-storage-info">
                                 <div class="storage-header">
-                                    <span class="storage-label">Storage Used</span>
-                                    <span class="storage-value" id="storage-usage-text">Calculating...</span>
+                                    <span class="storage-label">${i18n.t('storageUsedLabel')}</span>
+                                    <span class="storage-value" id="storage-usage-text">${i18n.t('storageCalculating')}</span>
                                 </div>
                                 <div class="storage-progress-track">
                                     <div class="storage-progress-bar" id="storage-usage-bar" style="width: 0%"></div>
@@ -546,11 +563,11 @@ export class SimpleBookmarkPanel {
                             <!-- Backup Warning & Export Button -->
                             <div class="settings-backup-warning">
                                 <div class="settings-item-info">
-                                    <span class="settings-item-label">Back up your data</span>
-                                    <span class="settings-item-warning-text">⚠️ Uninstalling the extension will delete all bookmarks.</span>
+                                    <span class="settings-item-label">${i18n.t('backupTitle')}</span>
+                                    <span class="settings-item-warning-text">${i18n.t('backupWarning')}</span>
                                 </div>
                                 <button class="secondary-btn export-backup-btn">
-                                    ${Icons.download} Export All
+                                    ${Icons.download} ${i18n.t('exportAllBtn')}
                                 </button>
                             </div>
                         </div>
@@ -561,27 +578,27 @@ export class SimpleBookmarkPanel {
                     <div class="support-content">
                         <!-- Open Source Section -->
                         <div class="support-section">
-                            <h3>Support Development</h3>
-                            <p>AI-MarkDone is open source. Star us on GitHub.</p>
+                            <h3>${i18n.t('supportDevelopment')}</h3>
+                            <p>${i18n.t('supportDevDesc')}</p>
                             <a href="https://github.com/zhaoliangbin42/AI-MarkDone" target="_blank" rel="noopener noreferrer" class="primary-btn">
                                 ${Icons.github}
-                                Star on GitHub
+                                ${i18n.t('starOnGitHub')}
                             </a>
                         </div>
 
                         <!-- Donation Section -->
                         <div class="support-section">
-                            <h3>If this project helps you</h3>
-                            <p>Support the developer with a coffee ☕️</p>
+                            <h3>${i18n.t('ifProjectHelps')}</h3>
+                            <p>${i18n.t('supportCoffeeDesc')}</p>
                             <div class="qr-cards-row">
                                 <div class="qr-card">
-                                    <a href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer" class="qr-card-label-link">Buy Me a Coffee</a>
+                                    <a href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer" class="qr-card-label-link">${i18n.t('buyMeCoffee')}</a>
                                     <div class="qr-image-wrapper">
                                         <img src="${browser.runtime.getURL('icons/bmc_qr.png')}" alt="Buy Me A Coffee" class="qr-image">
                                     </div>
                                 </div>
                                 <div class="qr-card">
-                                    <span class="qr-card-label">微信赞赏码</span>
+                                    <span class="qr-card-label">${i18n.t('wechatAppreciationCode')}</span>
                                     <div class="qr-image-wrapper">
                                         <img src="${browser.runtime.getURL('icons/wechat_qr.png')}" alt="WeChat Reward" class="qr-image">
                                     </div>
@@ -611,7 +628,11 @@ export class SimpleBookmarkPanel {
         );
 
         if (tree.length === 0) {
-            return this.renderEmptyState();
+            return `
+                <div class="tree-view tree-view--empty">
+                    ${this.renderEmptyState()}
+                </div>
+            `;
         }
 
         return `
@@ -654,7 +675,7 @@ export class SimpleBookmarkPanel {
                  aria-expanded="${node.isExpanded}"
                  aria-level="${depth + 1}"
                  tabindex="0">
-                <span class="folder-toggle ${node.isExpanded ? 'expanded' : ''}" aria-label="Toggle folder">▶</span>
+                <span class="folder-toggle ${node.isExpanded ? 'expanded' : ''}" aria-label="${i18n.t('toggleFolder')}">▶</span>
                 <input type="checkbox" 
                        class="item-checkbox folder-checkbox" 
                        data-path="${this.escapeAttr(folder.path)}"
@@ -662,9 +683,9 @@ export class SimpleBookmarkPanel {
                 <span class="folder-icon">${icon}</span>
                 <span class="folder-name">${this.escapeHtml(folder.name)} <span class="folder-count">(${TreeBuilder.getTotalBookmarkCount(node)})</span></span>
                 <div class="item-actions">
-                    ${showAddSubfolder ? `<button class="action-btn add-subfolder" data-path="${this.escapeAttr(folder.path)}" data-depth="${depth}" title="New Subfolder" aria-label="Create subfolder">${Icons.plus}</button>` : ''}
-                    <button class="action-btn rename-folder" title="Rename" aria-label="Rename folder">${Icons.edit}</button>
-                    <button class="action-btn delete-folder" title="Delete" aria-label="Delete folder">${Icons.trash}</button>
+                    ${showAddSubfolder ? `<button class="action-btn add-subfolder" data-path="${this.escapeAttr(folder.path)}" data-depth="${depth}" title="${i18n.t('newSubfolder')}" aria-label="${i18n.t('createSubfolder')}">${Icons.plus}</button>` : ''}
+                    <button class="action-btn rename-folder" title="${i18n.t('rename')}" aria-label="${i18n.t('renameFolder')}">${Icons.edit}</button>
+                    <button class="action-btn delete-folder" title="${i18n.t('delete')}" aria-label="${i18n.t('deleteFolder')}">${Icons.trash}</button>
                 </div>
             </div>
         `;
@@ -718,9 +739,9 @@ export class SimpleBookmarkPanel {
                 <span class="bookmark-title">${this.escapeHtml(bookmark.title)}</span>
                 <span class="bookmark-timestamp">${timestamp}</span>
                 <div class="item-actions">
-                    <button class="action-btn open-conversation" title="Open in Conversation" aria-label="Open conversation">${Icons.link}</button>
-                    <button class="action-btn edit-bookmark" title="Edit" aria-label="Edit bookmark">${Icons.edit}</button>
-                    <button class="action-btn delete-bookmark" title="Delete" aria-label="Delete bookmark">${Icons.trash}</button>
+                    <button class="action-btn open-conversation" title="${i18n.t('openConversation')}" aria-label="${i18n.t('openConversationLabel')}">${Icons.link}</button>
+                    <button class="action-btn edit-bookmark" title="${i18n.t('edit')}" aria-label="${i18n.t('editBookmark')}">${Icons.edit}</button>
+                    <button class="action-btn delete-bookmark" title="${i18n.t('delete')}" aria-label="${i18n.t('deleteBookmark')}">${Icons.trash}</button>
                 </div>
             </div>
         `;
@@ -734,10 +755,10 @@ export class SimpleBookmarkPanel {
         return `
             <div class="tree-empty">
                 <div class="empty-icon">${Icons.folder}</div>
-                <h3>No folders yet</h3>
-                <p>Create your first folder to organize bookmarks</p>
+                <h3>${i18n.t('noFoldersYet')}</h3>
+                <p>${i18n.t('createFirstFolder')}</p>
                 <button class="btn-primary create-first-folder">
-                    ${Icons.plus} Create First Folder
+                    ${Icons.plus} ${i18n.t('createFirstFolderBtn')}
                 </button>
             </div>
         `;
@@ -1139,7 +1160,7 @@ export class SimpleBookmarkPanel {
             const currentCategory = await manager.get(category);
 
             await manager.set(category, {
-                ...currentCategory,
+                ...(currentCategory as Record<string, any>),
                 [key]: value,
             } as any);
 
@@ -1315,6 +1336,30 @@ export class SimpleBookmarkPanel {
             // Calculate and display storage usage
             await this.updateStorageUsage();
 
+            // Initialize language selector
+            const languageSelect = this.shadowRoot?.querySelector('#language-selector') as HTMLSelectElement;
+            if (languageSelect) {
+                // Set initial value from storage
+                const result = await chrome.storage.local.get('userLocale');
+                const currentLocale = result.userLocale || 'auto';
+                languageSelect.value = currentLocale;
+
+                // Handle language change
+                languageSelect.addEventListener('change', async () => {
+                    const newLocale = languageSelect.value as 'auto' | 'en' | 'zh_CN';
+
+                    // Save to storage
+                    await chrome.storage.local.set({ userLocale: newLocale });
+
+                    // Show notification only (user refreshes manually)
+                    const { DialogManager } = await import('@/components/DialogManager');
+                    await DialogManager.alert({
+                        title: i18n.t('languageChanged'),
+                        message: i18n.t('reloadMessage'),
+                    });
+                });
+            }
+
             // Bind export backup button
             const exportBtn = this.shadowRoot?.querySelector('.export-backup-btn');
             if (exportBtn) {
@@ -1363,7 +1408,7 @@ export class SimpleBookmarkPanel {
             logger.error('[Storage] Failed to calculate usage', error);
             const textEl = this.shadowRoot?.querySelector('#storage-usage-text');
             if (textEl) {
-                textEl.textContent = 'Error calculating';
+                textEl.textContent = i18n.t('errorCalculating');
             }
         }
     }
@@ -1528,7 +1573,7 @@ export class SimpleBookmarkPanel {
                 if (depth >= PathUtils.MAX_DEPTH) {
                     this.showNotification({
                         type: 'error',
-                        title: 'Maximum Depth Exceeded',
+                        title: i18n.t('maxDepthExceeded'),
                         message: `Cannot create subfolder: Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.\n\nPlease create a new root folder or organize within existing folders.`
                     });
                     return;
@@ -2066,9 +2111,9 @@ export class SimpleBookmarkPanel {
      */
     private async showCreateFolderInput(parentPath: string | null): Promise<void> {
         const name = await DialogManager.prompt({
-            title: parentPath ? 'New Subfolder' : 'New Folder',
+            title: parentPath ? i18n.t('newSubfolderTitle') : i18n.t('newFolder'),
             message: parentPath ? `Creating subfolder in: ${parentPath}` : undefined,
-            placeholder: 'Enter folder name',
+            placeholder: i18n.t('enterFolderName'),
             validation: (value) => {
                 const validation = PathUtils.getFolderNameValidation(value);
                 if (!validation.isValid) {
@@ -2115,7 +2160,7 @@ export class SimpleBookmarkPanel {
         if (newDepth > PathUtils.MAX_DEPTH) {
             await this.showNotification({
                 type: 'error',
-                title: 'Maximum Depth Exceeded',
+                title: i18n.t('maxDepthExceeded'),
                 message: `Cannot create folder: Maximum folder depth is ${PathUtils.MAX_DEPTH} levels.\n\nCurrent path would be: ${newPath}\nDepth: ${newDepth}\n\nPlease create a new root folder or organize within existing folders.`
             });
             logger.warn(`[Folder] Create blocked: depth ${newDepth} exceeds limit (${PathUtils.MAX_DEPTH}) for path: ${newPath}`);
@@ -2137,7 +2182,7 @@ export class SimpleBookmarkPanel {
         } else {
             await this.showNotification({
                 type: 'error',
-                title: 'Failed to Create Folder',
+                title: i18n.t('failedToCreateFolder'),
                 message: `Failed to create folder: ${result.error}`
             });
             logger.error(`[Folder] Create failed:`, result.error);
@@ -2249,14 +2294,14 @@ export class SimpleBookmarkPanel {
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
         confirmBtn.className = 'inline-edit-btn inline-edit-confirm';
-        confirmBtn.title = 'Confirm rename';
+        confirmBtn.title = i18n.t('confirmRename');
         confirmBtn.setAttribute('aria-label', 'Confirm rename');
         confirmBtn.innerHTML = Icons.check;
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'inline-edit-btn inline-edit-cancel';
-        cancelBtn.title = 'Cancel rename';
+        cancelBtn.title = i18n.t('cancelRename');
         cancelBtn.setAttribute('aria-label', 'Cancel rename');
         cancelBtn.innerHTML = Icons.x;
 
@@ -2270,7 +2315,7 @@ export class SimpleBookmarkPanel {
 
         const suggestionText = document.createElement('span');
         suggestionText.className = 'inline-edit-suggestion-text';
-        suggestionText.textContent = '重命名为：';
+        suggestionText.textContent = i18n.t('renameTo') + ':';
 
         const suggestionValue = document.createElement('span');
         suggestionValue.className = 'inline-edit-suggestion-value';
@@ -2278,7 +2323,7 @@ export class SimpleBookmarkPanel {
         const autoRenameBtn = document.createElement('button');
         autoRenameBtn.type = 'button';
         autoRenameBtn.className = 'inline-edit-auto-rename';
-        autoRenameBtn.textContent = '自动重命名';
+        autoRenameBtn.textContent = i18n.t('autoRename');
 
         suggestion.appendChild(suggestionText);
         suggestion.appendChild(suggestionValue);
@@ -2663,7 +2708,7 @@ export class SimpleBookmarkPanel {
         } else {
             await this.showNotification({
                 type: 'error',
-                title: 'Failed to Rename',
+                title: i18n.t('failedToRename'),
                 message: `Failed to rename folder: ${result.error}`
             });
             logger.error(`[Folder] Rename failed:`, result.error);
@@ -2815,10 +2860,10 @@ export class SimpleBookmarkPanel {
 
         // Show confirmation dialog
         const confirmed = await DialogManager.confirm({
-            title: 'Delete Bookmark',
-            message: `Delete bookmark "${bookmark.title || bookmark.userMessage.substring(0, 50)}"?\n\nTip: You can export your bookmarks first to create a backup.`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
+            title: i18n.t('deleteBookmarkTitle'),
+            message: `${i18n.t('deleteBookmarkConfirm', bookmark.title || bookmark.userMessage.substring(0, 50))}\n\n${i18n.t('deleteBookmarkTip')}`,
+            confirmText: i18n.t('btnDelete'),
+            cancelText: i18n.t('btnCancel'),
             danger: true
         });
 
@@ -3034,8 +3079,8 @@ export class SimpleBookmarkPanel {
         if (this.selectedItems.size === 0) {
             await this.showNotification({
                 type: 'warning',
-                title: 'No Items Selected',
-                message: 'Please select items to export'
+                title: i18n.t('noItemsSelected'),
+                message: i18n.t('pleaseSelectToExport')
             });
             return;
         }
@@ -3045,8 +3090,8 @@ export class SimpleBookmarkPanel {
         if (selectedBookmarks.length === 0) {
             await this.showNotification({
                 type: 'warning',
-                title: 'No Bookmarks Selected',
-                message: 'No bookmarks selected'
+                title: i18n.t('noBookmarksSelected'),
+                message: i18n.t('noBookmarksSelectedMessage')
             });
             return;
         }
@@ -3276,23 +3321,23 @@ ${options.message}
             <div class="delete-dialog-content">
                 <div class="delete-dialog-header">
                     <span class="delete-dialog-icon">${Icons.alertTriangle}</span>
-                    <h3 class="delete-dialog-title">Delete Selected Items</h3>
+                    <h3 class="delete-dialog-title">${i18n.t('deleteSelectedTitle')}</h3>
                 </div>
                 <div class="delete-dialog-body">
-                    <p class="delete-dialog-text">This will permanently delete:</p>
+                    <p class="delete-dialog-text">${i18n.t('deletePermanentlyPrefix')}</p>
                     <ul class="delete-dialog-list">
-                        ${analysis.folders.length > 0 ? `<li class="delete-dialog-list-item"><span class="delete-dialog-list-icon">${Icons.folder}</span><span>${analysis.folders.length} root folder${analysis.folders.length > 1 ? 's' : ''}</span></li>` : ''}
-                        ${analysis.subfolders.length > 0 ? `<li class="delete-dialog-list-item"><span class="delete-dialog-list-icon">${Icons.folder}</span><span>${analysis.subfolders.length} subfolder${analysis.subfolders.length > 1 ? 's' : ''}</span></li>` : ''}
-                        ${analysis.bookmarks.length > 0 ? `<li class="delete-dialog-list-item"><span class="delete-dialog-list-icon">${Icons.bookmark}</span><span>${analysis.bookmarks.length} bookmark${analysis.bookmarks.length > 1 ? 's' : ''}</span></li>` : ''}
+                        ${analysis.folders.length > 0 ? `<li class="delete-dialog-list-item"><span class="delete-dialog-list-icon">${Icons.folder}</span><span>${i18n.t('rootFoldersCount', `${analysis.folders.length}`)}</span></li>` : ''}
+                        ${analysis.subfolders.length > 0 ? `<li class="delete-dialog-list-item"><span class="delete-dialog-list-icon">${Icons.folder}</span><span>${i18n.t('subFoldersCount', `${analysis.subfolders.length}`)}</span></li>` : ''}
+                        ${analysis.bookmarks.length > 0 ? `<li class="delete-dialog-list-item"><span class="delete-dialog-list-icon">${Icons.bookmark}</span><span>${i18n.t('bookmarksCount', `${analysis.bookmarks.length}`)}</span></li>` : ''}
                     </ul>
                     <p class="delete-dialog-warning">
-                        This action cannot be undone.
+                        ${i18n.t('actionCannotBeUndone')}
                     </p>
                 </div>
             </div>
             <div class="delete-dialog-footer">
-                <button class="cancel-btn">Cancel</button>
-                <button class="delete-btn">Delete</button>
+                <button class="cancel-btn">${i18n.t('btnCancel')}</button>
+                <button class="delete-btn">${i18n.t('btnDelete')}</button>
             </div>
         `;
 
@@ -3497,7 +3542,7 @@ ${options.message}
         if (!quotaCheck.canSave) {
             await this.showNotification({
                 type: 'error',
-                title: 'Storage Full',
+                title: i18n.t('storageFull'),
                 message: quotaCheck.message || 'Storage quota exceeded'
             });
             return;
@@ -3507,7 +3552,7 @@ ${options.message}
         if (quotaCheck.warningLevel === 'warning') {
             this.showNotification({
                 type: 'warning',
-                title: 'Storage Warning',
+                title: i18n.t('storageWarning'),
                 message: quotaCheck.message || 'Storage is getting full',
                 duration: 3000
             });
@@ -3558,8 +3603,8 @@ ${options.message}
         if (this.selectedItems.size === 0) {
             await this.showNotification({
                 type: 'warning',
-                title: 'No Items Selected',
-                message: 'Please select items to move'
+                title: i18n.t('noItemsSelected'),
+                message: i18n.t('pleaseSelectToMove')
             });
             return;
         }
@@ -3569,8 +3614,8 @@ ${options.message}
         if (bookmarks.length === 0) {
             await this.showNotification({
                 type: 'warning',
-                title: 'No Bookmarks to Move',
-                message: 'No bookmarks selected to move.\n\nNote: Folders cannot be moved, only bookmarks.'
+                title: i18n.t('noBookmarksToMove'),
+                message: `${i18n.t('noBookmarksSelectedMessage')}\n\n${i18n.t('noBookmarksToMoveNote')}`
             });
             return;
         }
@@ -3613,30 +3658,30 @@ ${options.message}
             modal.innerHTML = `
                 <div class="export-dialog-content">
                     <h3 class="export-dialog-title">
-                        导出选项
+                        ${i18n.t('exportOptions')}
                     </h3>
                     <div class="export-dialog-body">
-                        <p class="export-dialog-text">选择导出方式:</p>
+                        <p class="export-dialog-text">${i18n.t('selectExportMethod')}</p>
                         <div class="export-options-container">
                             <label class="export-option">
                                 <input type="radio" name="exportType" value="preserve" checked class="export-option-radio">
                                 <div>
-                                    <div class="export-option-label">保留文件夹结构</div>
-                                    <div class="export-option-desc">导出为分层的文件夹和书签</div>
+                                    <div class="export-option-label">${i18n.t('keepFolderStructure')}</div>
+                                    <div class="export-option-desc">${i18n.t('exportAsFolders')}</div>
                                 </div>
                             </label>
                             <label class="export-option">
                                 <input type="radio" name="exportType" value="flat" class="export-option-radio">
                                 <div>
-                                    <div class="export-option-label">扁平列表</div>
-                                    <div class="export-option-desc">仅导出所有书签，不含文件夹</div>
+                                    <div class="export-option-label">${i18n.t('flatList')}</div>
+                                    <div class="export-option-desc">${i18n.t('exportBookmarksOnly')}</div>
                                 </div>
                             </label>
                         </div>
                     </div>
                     <div class="export-dialog-footer">
-                        <button class="cancel-btn">取消</button>
-                        <button class="confirm-btn">导出</button>
+                        <button class="cancel-btn">${i18n.t('btnCancel')}</button>
+                        <button class="confirm-btn">${i18n.t('export')}</button>
                     </div>
                 </div>
             `; overlay.appendChild(modal);
@@ -3855,7 +3900,7 @@ ${options.message}
                 if (!importCheck.canImport) {
                     await this.showNotification({
                         type: 'error',
-                        title: 'Storage Full',
+                        title: i18n.t('storageFull'),
                         message: importCheck.message || 'Not enough storage space for import'
                     });
                     return;
@@ -3880,7 +3925,7 @@ ${options.message}
 
                 await this.showNotification({
                     type: 'success',
-                    title: 'Import Successful',
+                    title: i18n.t('importSuccessful'),
                     message
                 });
                 logger.info(`[Import] Imported ${importedCount} bookmarks, skipped ${skippedCount} duplicates`);
@@ -3889,7 +3934,7 @@ ${options.message}
                 const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                 await this.showNotification({
                     type: 'error',
-                    title: 'Import Failed',
+                    title: i18n.t('importFailed'),
                     message: `Import failed: ${errorMessage}`
                 });
             }
@@ -4331,7 +4376,7 @@ ${options.message}
         if (quotaCheck.warningLevel === 'warning') {
             this.showNotification({
                 type: 'warning',
-                title: 'Storage Warning',
+                title: i18n.t('storageWarning'),
                 message: quotaCheck.message || 'Storage is getting full',
                 duration: 3000
             });
@@ -5550,6 +5595,39 @@ ${options.message}
             .toggle-switch input:focus + .toggle-slider {
                 box-shadow: 0 0 0 2px var(--aimd-bg-primary), 0 0 0 4px var(--aimd-interactive-primary);
             }
+
+            /* Language Selector */
+            .language-select {
+                padding: var(--aimd-space-2) var(--aimd-space-3);
+                background-color: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-md);
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                min-width: 180px;
+                flex-shrink: 0;
+            }
+
+            .language-select:hover {
+                background-color: var(--aimd-interactive-hover);
+                border-color: var(--aimd-border-strong);
+            }
+
+            .language-select:focus {
+                outline: none;
+                border-color: var(--aimd-button-primary-bg);
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+            }
+
+            .language-select option {
+                background-color: var(--aimd-bg-primary);
+                color: var(--aimd-text-primary);
+                padding: var(--aimd-space-2);
+            }
+
 
             /* Storage Info Styles */
             .settings-storage-info {
@@ -7274,6 +7352,9 @@ ${options.message}
             }
 
             .tree-item.is-editing:hover .item-actions {
+                display: none;
+            }
+
             .action-btn {
                 width: 28px;
                 height: 28px;
@@ -7293,9 +7374,9 @@ ${options.message}
                 padding: 6px 8px;
                 background: transparent;
                 border: none;
-                border-radius: var(--border-radius-sm);
+                border-radius: var(--aimd-radius-sm);
                 cursor: pointer;
-                color: var(--text-secondary);
+                color: var(--aimd-text-secondary);
                 transition: all 0.2s ease;
                 display: flex;
                 align-items: center;
@@ -7303,8 +7384,8 @@ ${options.message}
             }
 
             .toolbar-icon-btn:hover {
-                background: var(--hover-bg);
-                color: var(--text-primary);
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-primary);
             }
 
             .toolbar-icon-btn:active {
@@ -7332,6 +7413,14 @@ ${options.message}
             }
 
             /* Empty State */
+            .tree-view--empty {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100%;
+                padding: var(--aimd-space-2) var(--aimd-space-3);
+            }
+
             .tree-empty {
                 display: flex;
                 flex-direction: column;
@@ -7340,13 +7429,19 @@ ${options.message}
                 padding: var(--aimd-space-16) var(--aimd-space-8);  /* 64px 32px */
                 text-align: center;
                 color: var(--aimd-text-tertiary);
+                width: min(480px, 100%);
             }
 
-            .empty-icon {
-                font-size: 48px;
-                margin-bottom: 16px;
-                opacity: 0.5;
-            }
+	            .empty-icon {
+	                font-size: 48px;
+	                margin-bottom: 16px;
+	                opacity: 0.5;
+	            }
+	
+	            .empty-icon svg {
+	                width: 1em;
+	                height: 1em;
+	            }
 
             .tree-empty h3 {
                 margin: 0 0 8px 0;
@@ -7403,12 +7498,12 @@ ${options.message}
                 }
                 
                 .tree-item.selected {
-                background: var(--aimd-interactive-selected);
-                color: var(--aimd-text-primary);
-                border-radius: var(--aimd-radius-lg);
-                font-weight: var(--aimd-font-medium);
-	                box-shadow: var(--aimd-shadow-sm);  /* match the selected-tab shadow */
-            }    }
+                    background: var(--aimd-interactive-selected);
+                    color: var(--aimd-text-primary);
+                    border-radius: var(--aimd-radius-lg);
+                    font-weight: var(--aimd-font-medium);
+                    box-shadow: var(--aimd-shadow-sm);  /* match the selected-tab shadow */
+                }
             }
 
             /* Loading State */
@@ -7419,10 +7514,16 @@ ${options.message}
             }
 
             .tab-icon svg {
-	                width: 20px;  /* larger icon size */
+                width: 20px;  /* larger icon size */
                 height: 20px;
                 flex-shrink: 0;
-            }    padding: var(--aimd-space-10);  /* 40px */
+            }
+
+            .tree-loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: var(--aimd-space-10);  /* 40px */
                 color: var(--aimd-text-secondary);
             }
 

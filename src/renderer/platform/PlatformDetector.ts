@@ -1,6 +1,7 @@
 import { IStorageAdapter } from './IStorageAdapter';
 import { ChromeStorageAdapter } from './ChromeStorageAdapter';
 import { MockStorageAdapter } from './MockStorageAdapter';
+import { logger } from '../../utils/logger';
 
 // Declare global `chrome` for extension environments.
 declare const chrome: any;
@@ -16,7 +17,7 @@ export class PlatformDetector {
         }
 
         // Fallback to mock (for tests or other environments)
-        console.warn('[PlatformDetector] Chrome API not available, using MockStorageAdapter');
+        logger.warn('[AI-MarkDone][PlatformDetector] Chrome API not available, using MockStorageAdapter');
         return new MockStorageAdapter();
     }
 }

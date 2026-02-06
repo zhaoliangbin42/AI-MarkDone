@@ -13,8 +13,8 @@ export interface StyleResult {
 export class StyleManager {
     private static injectedTargets = new WeakSet<Document | ShadowRoot>();
     private static injectedCount = 0;
-    private static readonly CDN_TIMEOUT = 3000;
-    private static readonly KATEX_CDN_URL = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+    private static readonly KATEX_LOCAL_CSS_PATH = 'vendor/katex/katex.min.css';
+    private static readonly LOCAL_CSS_FALLBACK_DELAY_MS = 800;
 
     /**
      * Inject styles (with CDN fallback)
@@ -30,17 +30,14 @@ export class StyleManager {
             return { success: true, usedFallback: false };
         }
 
-        // 1) Inject bundled KaTeX (non-blocking)
+        // 1) Inject bundled KaTeX immediately to avoid blocking UI on stylesheet load events.
+        // Why: <link rel="stylesheet"> load/onerror can be unreliable in some ShadowRoot contexts; awaiting it can hang rendering.
         const t0 = performance.now();
         await this.injectBundledKatex(target);
-        logger.debug(`[AI-MarkDone][StyleManager] injectBundledKatex: ${(performance.now() - t0).toFixed(2)}ms`);
+        this.injectLocalKatexBestEffort(target);
+        logger.debug(`[AI-MarkDone][StyleManager] injectKatexStyles: ${(performance.now() - t0).toFixed(2)}ms`);
 
-        // 2) Load CDN in the background (best-effort)
-        this.loadKatexCDN(target).catch(() => {
-            logger.warn('[AI-MarkDone][StyleManager] CDN load failed, using bundled');
-        });
-
-        // 3. Inject base markdown styles
+        // 2. Inject base markdown styles
         const t1 = performance.now();
         const mdStyle = document.createElement('style');
         mdStyle.id = 'aicopy-markdown-styles';
@@ -56,35 +53,46 @@ export class StyleManager {
         return { success: true, usedFallback: false };
     }
 
-    /**
-     * Load KaTeX CDN (with timeout)
-     */
-    private static loadKatexCDN(target: Document | ShadowRoot): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const link = document.createElement('link');
-            link.id = 'katex-styles';
-            link.rel = 'stylesheet';
-            link.href = this.KATEX_CDN_URL;
-            link.crossOrigin = 'anonymous';
+    private static injectLocalKatexBestEffort(target: Document | ShadowRoot): void {
+        try {
+            const runtime = (globalThis as any).chrome?.runtime || (globalThis as any).browser?.runtime;
+            const getURL: ((path: string) => string) | undefined = runtime?.getURL?.bind(runtime);
 
-            const timeout = setTimeout(() => {
-                link.remove();
-                reject(new Error('CDN_TIMEOUT'));
-            }, this.CDN_TIMEOUT);
+            if (!getURL) {
+                logger.warn('[AI-MarkDone][StyleManager] runtime.getURL not available; falling back to bundled KaTeX CSS');
+                return;
+            }
+
+            const href = getURL(this.KATEX_LOCAL_CSS_PATH);
+
+            const existing = (target as any).querySelector?.('link#aicopy-katex-styles') as HTMLLinkElement | null;
+            if (existing) {
+                return;
+            }
+
+            const link = document.createElement('link');
+            link.id = 'aicopy-katex-styles';
+            link.rel = 'stylesheet';
+            link.href = href;
+
+            const fallbackTimer = setTimeout(() => {
+                logger.warn('[AI-MarkDone][StyleManager] Local KaTeX CSS load timed out; keeping bundled CSS');
+            }, this.LOCAL_CSS_FALLBACK_DELAY_MS);
 
             link.onload = () => {
-                clearTimeout(timeout);
-                resolve();
+                clearTimeout(fallbackTimer);
+                logger.debug('[AI-MarkDone][StyleManager] Local KaTeX CSS loaded');
             };
-
             link.onerror = () => {
-                clearTimeout(timeout);
+                clearTimeout(fallbackTimer);
                 link.remove();
-                reject(new Error('CDN_LOAD_FAILED'));
+                logger.warn('[AI-MarkDone][StyleManager] Failed to load local KaTeX CSS; falling back to bundled CSS');
             };
 
             target.appendChild(link);
-        });
+        } catch (error) {
+            logger.warn('[AI-MarkDone][StyleManager] Local KaTeX CSS injection error; keeping bundled CSS', error);
+        }
     }
 
     /**
