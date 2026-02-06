@@ -6,8 +6,9 @@ import { Icons } from '../../assets/icons';
  * Claude Header Panel Button
  * Adds bookmark panel toggle button to Claude.ai header
  * 
- * Injection point: Header action container with chat-actions testid
- * Structure: header > div.right-3 > div[data-testid="chat-actions"]
+ * Injection point: Header action container in the top-right controls area.
+ * New structure (current): [data-testid="wiggle-controls-actions"] with Share button
+ * Legacy structure (older): [data-testid="chat-actions"]
  * 
  * Button will be inserted BEFORE the Share button inside the chat-actions container
  */
@@ -61,20 +62,26 @@ export class ClaudePanelButton {
             return true;
         }
 
-        // Primary selector: Container with chat-actions testid
-        // This contains the Share button and other action buttons
-        const actionContainer = document.querySelector<HTMLElement>('[data-testid="chat-actions"]');
+        // Prefer anchoring to the Share button (stable intent) instead of relying on container structure.
+        const shareButton = document.querySelector<HTMLElement>('button[data-testid="wiggle-controls-actions-share"]');
+        const shareContainer = shareButton?.parentElement;
+
+        // Fallbacks for the top-right controls area container.
+        const actionContainer =
+            shareContainer ||
+            document.querySelector<HTMLElement>('[data-testid="wiggle-controls-actions"]') ||
+            document.querySelector<HTMLElement>('[data-testid="chat-actions"]');
 
         if (!actionContainer) {
-            logger.debug('[ClaudePanelButton] Chat actions container not found');
+            logger.debug('[ClaudePanelButton] Header actions container not found (tried: wiggle-controls-actions-share, wiggle-controls-actions, chat-actions)');
             return false;
         }
 
         // Create button matching Claude's style
         this.button = this.createButton();
 
-        // Insert at the beginning of the container (left of Share button)
-        actionContainer.insertBefore(this.button, actionContainer.firstChild);
+        // Insert left of Share when available; otherwise insert at the beginning.
+        actionContainer.insertBefore(this.button, shareButton || actionContainer.firstChild);
 
         logger.info('[ClaudePanelButton] Button injected successfully');
         return true;
@@ -95,10 +102,11 @@ export class ClaudePanelButton {
         // Create icon wrapper
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'flex items-center justify-center text-text-500 group-hover/btn:text-text-100';
-        iconWrapper.appendChild(Icons.createBrandIcon());
-
-        // Add padding right for visual balance
-        button.style.paddingRight = '8px';
+        const icon = Icons.createBrandIcon();
+        icon.style.width = '22px';
+        icon.style.height = '22px';
+        icon.style.objectFit = 'contain';
+        iconWrapper.appendChild(icon);
 
         button.appendChild(iconWrapper);
 

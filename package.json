@@ -1,7 +1,7 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "2.9.0",
+    "version": "2.9.5",
     "description": "为 ChatGPT 和 Gemini 提供沉浸式阅读模式、书签管理、LaTeX 公式一键复制、Markdown 导出等功能，提升大模型使用体验。",
     "type": "module",
     "scripts": {
@@ -9,8 +9,8 @@
         "build": "npm run build:chrome && npm run build:firefox",
         "build:chrome": "tsc && vite build --config vite.config.chrome.ts && npm run postbuild:chrome",
         "build:firefox": "tsc && vite build --config vite.config.firefox.ts && npm run postbuild:firefox",
-        "postbuild:chrome": "cp manifest.chrome.json dist-chrome/manifest.json && mkdir -p dist-chrome/icons && cp public/icons/*.png dist-chrome/icons/ && mkdir -p dist-chrome/src/popup && cp src/popup/popup.html dist-chrome/src/popup/",
-        "postbuild:firefox": "cp manifest.firefox.json dist-firefox/manifest.json && mkdir -p dist-firefox/icons && cp public/icons/*.png dist-firefox/icons/ && mkdir -p dist-firefox/src/popup && cp src/popup/popup.html dist-firefox/src/popup/ && cp src/background/background-firefox.js dist-firefox/background.js",
+        "postbuild:chrome": "cp manifest.chrome.json dist-chrome/manifest.json && mkdir -p dist-chrome/icons && cp public/icons/*.png dist-chrome/icons/ && mkdir -p dist-chrome/src/popup && cp src/popup/popup.html dist-chrome/src/popup/ && cp -r public/_locales dist-chrome/ && mkdir -p dist-chrome/vendor/katex && cp node_modules/katex/dist/katex.min.css dist-chrome/vendor/katex/ && cp -r node_modules/katex/dist/fonts dist-chrome/vendor/katex/",
+        "postbuild:firefox": "cp manifest.firefox.json dist-firefox/manifest.json && mkdir -p dist-firefox/icons && cp public/icons/*.png dist-firefox/icons/ && mkdir -p dist-firefox/src/popup && cp src/popup/popup.html dist-firefox/src/popup/ && cp src/background/background-firefox.js dist-firefox/background.js && cp -r public/_locales dist-firefox/ && mkdir -p dist-firefox/vendor/katex && cp node_modules/katex/dist/katex.min.css dist-firefox/vendor/katex/ && cp -r node_modules/katex/dist/fonts dist-firefox/vendor/katex/",
         "preview": "vite preview",
         "type-check": "tsc --noEmit",
         "test": "vitest",

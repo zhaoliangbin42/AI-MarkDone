@@ -22,6 +22,8 @@ import { eventBus } from './utils/EventBus';
 import { collectAllMessages, getConversationMetadata, saveMessagesAsMarkdown, saveMessagesAsPdf } from './features/save-messages';
 import { saveMessagesDialog } from './features/SaveMessagesDialog';
 import { SettingsManager } from '../settings/SettingsManager';
+import { i18n } from '../utils/i18n';
+
 
 /**
  * Listen for messages from background script
@@ -61,6 +63,7 @@ class ContentScript {
 
     // Track current theme to keep shadow-root tokens in sync
     private currentThemeIsDark: boolean = false;
+    private unsubscribeTheme: (() => void) | null = null;
 
     constructor() {
         // Use INFO in production; switch to DEBUG locally when needed
@@ -75,7 +78,7 @@ class ContentScript {
         const themeManager = ThemeManager.getInstance();
         themeManager.init();
         this.currentThemeIsDark = themeManager.isDarkMode();
-        themeManager.subscribe((theme: Theme) => {
+        this.unsubscribeTheme = themeManager.subscribe((theme: Theme) => {
             logger.info(`[ThemeManager] Theme changed: ${theme}`);
             this.currentThemeIsDark = theme === 'dark';
             this.applyTheme(this.currentThemeIsDark);
@@ -113,6 +116,9 @@ class ContentScript {
         }
 
         logger.info('Starting extension on supported page');
+
+        // Initialize i18n before creating any components
+        await i18n.init();
 
         // Create injector first (needed by observer)
         this.injector = new ToolbarInjector(adapter);
@@ -321,19 +327,27 @@ class ContentScript {
         if (existingToolbarContainer) {
             logger.debug('Toolbar already exists, checking state');
 
-
             // 🔑 FIX: Activate toolbar if it was injected but not yet visible
             // This happens when streaming completes (Copy button triggers re-detection)
             if (this.injector) {
                 const currentState = this.injector.getState(messageElement);
                 if (currentState === ToolbarState.INJECTED) {
-                    logger.debug('[toolbar] Existing toolbar in INJECTED state, activating now');
-                    const activated = this.injector.activate(messageElement);
-                    if (activated) {
-                        const existingToolbar = (existingToolbarContainer as any).__toolbar;
-                        if (existingToolbar && typeof existingToolbar.setPending === 'function') {
-                            existingToolbar.setPending(false);
+                    // During streaming ChatGPT can lay out the message container differently, causing
+                    // the toolbar to appear at the far-right of the page. Keep the wrapper hidden
+                    // until the official action bar (Copy button area) exists for this message.
+                    const isStreaming = adapter.isStreamingMessage && adapter.isStreamingMessage(messageElement);
+                    if (!isStreaming && hasActionBar) {
+                        logger.debug('[toolbar] Existing toolbar in INJECTED state, reconciling + activating now');
+                        this.injector.reconcileToolbarPosition(messageElement);
+                        const activated = this.injector.activate(messageElement);
+                        if (activated) {
+                            const existingToolbar = (existingToolbarContainer as any).__toolbar;
+                            if (existingToolbar && typeof existingToolbar.setPending === 'function') {
+                                existingToolbar.setPending(false);
+                            }
                         }
+                    } else {
+                        logger.debug(`[toolbar] Existing toolbar still pending. Streaming=${isStreaming}, HasActionBar=${hasActionBar}`);
                     }
                 }
             }
@@ -725,6 +739,20 @@ class ContentScript {
     stop(): void {
         logger.info('Stopping extension...');
 
+        // 0. Unsubscribe listeners first to prevent callbacks during teardown.
+        if (this.unsubscribeTheme) {
+            this.unsubscribeTheme();
+            this.unsubscribeTheme = null;
+        }
+        if (this.storageListener) {
+            try {
+                browser.storage.onChanged.removeListener(this.storageListener);
+            } catch {
+                // ignore
+            }
+            this.storageListener = null;
+        }
+
         // 1. Stop MessageObserver
         if (this.observer) {
             this.observer.stop();
@@ -752,6 +780,18 @@ class ContentScript {
         this.bookmarkedPositions.clear();
         this.navigationChecked = false;
         this.processingMessages.clear();
+        this.processingElements = new WeakSet<HTMLElement>();
+
+        // 6. Destroy toolbars and remove injected DOM
+        this.toolbars.forEach((toolbar) => {
+            try {
+                toolbar.destroy();
+            } catch {
+                // ignore
+            }
+        });
+        this.toolbars.clear();
+        document.querySelectorAll('.aicopy-toolbar-wrapper').forEach((el) => el.remove());
 
         logger.info('Extension stopped and all resources cleaned up');
     }

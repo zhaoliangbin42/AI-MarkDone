@@ -994,8 +994,10 @@ export class DesignTokens {
                 --aimd-modal-tree-item-text: var(--aimd-text-primary);
                 --aimd-modal-tree-item-icon: var(--aimd-text-secondary);
                 
-                /* --- Extended Spacing --- */
-                --aimd-space-10: 40px;
+	                /* --- Extended Spacing --- */
+	                --aimd-space-10: 40px;
+	                --aimd-space-15: 60px;
+	                --aimd-space-16: 64px;
                 
                 /* --- Extended Animation --- */
                 --aimd-duration-slower: 400ms;
@@ -1242,12 +1244,14 @@ export class DesignTokens {
                 --aimd-modal-tree-item-text: var(--aimd-text-primary);
                 --aimd-modal-tree-item-icon: var(--aimd-text-secondary);
                 
-                /* --- Extended Spacing --- */
-                --aimd-space-10: 40px;
-                
-                /* --- Extended Animation --- */
-                --aimd-duration-slower: 400ms;
-                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+	                /* --- Extended Spacing --- */
+	                --aimd-space-10: 40px;
+	                --aimd-space-15: 60px;
+	                --aimd-space-16: 64px;
+	                
+	                /* --- Extended Animation --- */
+	                --aimd-duration-slower: 400ms;
+	                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
                 
                 /* --- Button Tokens (Light Mode) --- */
                 --aimd-button-primary-bg: #3B82F6;

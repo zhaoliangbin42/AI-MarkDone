@@ -1,5 +1,6 @@
 import { IStorageAdapter } from '../platform/IStorageAdapter';
 import { PlatformDetector } from '../platform/PlatformDetector';
+import { logger } from '../../utils/logger';
 
 export interface RenderConfig {
     enablePagination: boolean;
@@ -31,7 +32,7 @@ export class ConfigManager {
                 return this.mergeWithDefault(data.data);
             }
         } catch (error) {
-            console.error('[Config] Load failed:', error);
+            logger.error('[AI-MarkDone][Config] Load failed:', error);
         }
 
         return DEFAULT_CONFIG;
@@ -53,7 +54,7 @@ export class ConfigManager {
 
             const serialized = JSON.stringify(versioned);
             if (serialized.length > this.MAX_SIZE) {
-                console.error('[Config] Config too large');
+                logger.error('[AI-MarkDone][Config] Config too large');
                 return false;
             }
 
@@ -61,7 +62,7 @@ export class ConfigManager {
             return true;
 
         } catch (error) {
-            console.error('[Config] Save failed:', error);
+            logger.error('[AI-MarkDone][Config] Save failed:', error);
             return false;
         }
     }

@@ -2,6 +2,7 @@ import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
 import { extractLatexSource } from '../parsers/latex-extractor';
 import { SettingsManager } from '../../settings/SettingsManager';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Click-to-copy math handler
@@ -265,7 +266,7 @@ export class MathClickHandler {
 
         // Create tooltip
         const tooltip = document.createElement('div');
-        tooltip.textContent = 'Copied!';
+        tooltip.textContent = i18n.t('btnCopied');
 
         // Resolve CSS variables to actual values since tooltip is outside Shadow DOM
         const primaryColor = getVar('--aimd-interactive-primary', '#2563EB');

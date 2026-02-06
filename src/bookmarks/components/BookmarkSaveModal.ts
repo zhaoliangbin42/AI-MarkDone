@@ -8,6 +8,7 @@ import { DesignTokens } from '../../utils/design-tokens';
 import { ThemeManager } from '../../utils/ThemeManager';
 import { DialogManager } from '../../components/DialogManager';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Unified Bookmark Save Modal - Shadow DOM Version
@@ -152,6 +153,9 @@ export class BookmarkSaveModal {
         onSave?: (title: string, folderPath: string) => void;
         onFolderSelect?: (folderPath: string | null) => void;
     }): Promise<string | null | undefined | void> {
+        // Ensure i18n is initialized before rendering templates
+        await i18n.waitForInit();
+
         const mode = options.mode || 'create';
         this.currentMode = mode;
 
@@ -271,7 +275,7 @@ export class BookmarkSaveModal {
                     if (isEmpty) {
                         // Empty title: show hint (not error red), keep button disabled
                         this.titleInputElement.classList.remove('error');
-                        this.errorDivElement.textContent = 'Title is required';
+                        this.errorDivElement.textContent = i18n.t('titleRequired');
                         this.errorDivElement.classList.add('visible');
                     } else if (hasInvalidChars) {
                         // Invalid chars: show error red
@@ -361,33 +365,33 @@ export class BookmarkSaveModal {
 
         modal.innerHTML = `
             <div class="save-modal-header">
-                <h2>Save Bookmark</h2>
-                <button class="save-modal-close-btn" aria-label="Close">×</button>
+                <h2>${i18n.t('saveBookmark')}</h2>
+                <button class="save-modal-close-btn" aria-label="${i18n.t('btnClose')}">×</button>
             </div>
 
             <div class="save-modal-body">
                 <!-- Title Section -->
                 <div class="title-section">
-                    <label class="title-label">Title</label>
+                    <label class="title-label">${i18n.t('labelTitle')}</label>
                     <input type="text" 
                            class="title-input" 
                            value="${this.escapeAttr(this.title)}"
                            maxlength="100"
-                           placeholder="Enter bookmark title...">
+                           placeholder="${i18n.t('enterBookmarkTitle')}">
                     <div class="title-error" style="display: none;"></div>
                 </div>
 
                 <!-- Folder Section -->
                 <div class="folder-section">
                     <div class="folder-header">
-                        <span class="folder-label">Folder</span>
-                        <button class="new-folder-btn" title="New Folder">${Icons.folderPlus}</button>
+                        <span class="folder-label">${i18n.t('labelFolder')}</span>
+                        <button class="new-folder-btn" title="${i18n.t('newFolder')}">${Icons.folderPlus}</button>
                     </div>
                     <div class="folder-tree-container">
                         <div class="folder-tree-body">
                             <div class="folder-empty">
                                 <div class="folder-empty-icon">${Icons.folder}</div>
-                                <div class="folder-empty-text">Loading folders...</div>
+                                <div class="folder-empty-text">${i18n.t('loadingFolders')}</div>
                             </div>
                         </div>
                     </div>
@@ -395,8 +399,8 @@ export class BookmarkSaveModal {
             </div>
 
             <div class="save-modal-footer">
-                <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
-                <button class="save-modal-btn save-modal-btn-save" disabled>Save</button>
+                <button class="save-modal-btn save-modal-btn-cancel">${i18n.t('btnCancel')}</button>
+                <button class="save-modal-btn save-modal-btn-save" disabled>${i18n.t('btnSave')}</button>
             </div>
         `;
 
@@ -564,7 +568,7 @@ export class BookmarkSaveModal {
                      style="padding-left: ${indent + 12}px;">
                     <span class="folder-toggle ${isExpanded ? 'expanded' : ''}"
                           data-path="${this.escapeAttr(node.folder.path)}"
-                          aria-label="Toggle folder">▶</span>
+                          aria-label="${i18n.t('toggleFolder')}">▶</span>
                     <span class="folder-icon">${icon}</span>
                     <span class="folder-name">${this.escapeHtml(node.folder.name)}</span>
                     ${isSelected ? '<span class="folder-check">✓</span>' : ''}
@@ -572,7 +576,7 @@ export class BookmarkSaveModal {
                         <div class="item-actions">
                             <button class="action-btn folder-add-btn"
                                     data-parent="${this.escapeAttr(node.folder.path)}"
-                                    title="Add subfolder">${Icons.plus}</button>
+                                    title="${i18n.t('createSubfolder')}">${Icons.plus}</button>
                         </div>
                     ` : ''}
                 </div>
@@ -700,8 +704,8 @@ export class BookmarkSaveModal {
      */
     private async showCreateRootFolderInput(): Promise<void> {
         const name = await DialogManager.prompt({
-            title: 'New Folder',
-            placeholder: 'Enter folder name',
+            title: i18n.t('newFolder'),
+            placeholder: i18n.t('enterFolderName'),
             validation: (value) => {
                 if (!value.trim()) {
                     return { valid: false, error: 'Folder name cannot be empty' };
@@ -719,9 +723,9 @@ export class BookmarkSaveModal {
      */
     private async showCreateSubfolderInput(parentPath: string): Promise<void> {
         const name = await DialogManager.prompt({
-            title: 'New Subfolder',
+            title: i18n.t('newSubfolderTitle'),
             message: `Creating subfolder in: ${parentPath}`,
-            placeholder: 'Enter folder name',
+            placeholder: i18n.t('enterFolderName'),
             validation: (value) => {
                 if (!value.trim()) {
                     return { valid: false, error: 'Folder name cannot be empty' };
@@ -882,24 +886,24 @@ export class BookmarkSaveModal {
 
             modal.innerHTML = `
                 <div class="save-modal-header">
-                    <h2>Move Bookmarks to Folder</h2>
-                    <button class="save-modal-close-btn" aria-label="Close">×</button>
+                    <h2>${i18n.t('moveBookmarksToFolder')}</h2>
+                    <button class="save-modal-close-btn" aria-label="${i18n.t('btnClose')}">×</button>
                 </div>
 
                 <div class="save-modal-body">
                     <div class="bookmark-count-info">
-                        Moving <strong>${bookmarkCount}</strong> bookmark${bookmarkCount !== 1 ? 's' : ''}
+                        ${i18n.t('movingBookmarks', `${bookmarkCount}`)}
                     </div>
 
                     <div class="folder-section">
                         <div class="folder-header">
-                            <span class="folder-label">Select Folder</span>
+                            <span class="folder-label">${i18n.t('selectFolderLabel')}</span>
                         </div>
                         <div class="folder-tree-container">
                             <div class="folder-tree-body">
                                 <div class="folder-empty">
                                     <div class="folder-empty-icon">${Icons.folder}</div>
-                                    <div class="folder-empty-text">Loading folders...</div>
+                                    <div class="folder-empty-text">${i18n.t('loadingFolders')}</div>
                                 </div>
                             </div>
                         </div>

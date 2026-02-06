@@ -7,6 +7,7 @@ import { WordCounter } from '../parsers/word-counter';
 import { Icons } from '../../assets/icons';
 import { eventBus } from '../utils/EventBus';
 import { SettingsManager } from '../../settings/SettingsManager';
+import { i18n } from '../../utils/i18n';
 
 export interface ToolbarCallbacks {
     onCopyMarkdown: () => Promise<string>;
@@ -30,6 +31,8 @@ export class Toolbar {
     private wordCountInitialized: boolean = false;
     private wordCountInitInFlight: boolean = false;
     private pendingBookmarkState: boolean | null = null;
+    private unsubscribeTheme: (() => void) | null = null;
+    private unsubscribeActivated: (() => void) | null = null;
 
     /**
      * Promise that resolves when toolbar UI is ready
@@ -53,8 +56,19 @@ export class Toolbar {
         this.setTheme(ThemeManager.getInstance().isDarkMode());
 
         // Subscribe to theme changes for hot-switching
-        ThemeManager.getInstance().subscribe((theme) => {
+        this.unsubscribeTheme = ThemeManager.getInstance().subscribe((theme) => {
             this.setTheme(theme === 'dark');
+        });
+
+        // 🔑 Subscribe to toolbar:activated event to refresh word count after streaming completes
+        // This event is emitted when setPending(false) is called (wasPending && !isPending)
+        this.unsubscribeActivated = eventBus.on('toolbar:activated', () => {
+            // Only refresh if this toolbar is the one that was activated
+            // Check by verifying we have word count enabled and were previously pending
+            if (this.wordCountInitialized) {
+                logger.debug('[Toolbar] toolbar:activated received, refreshing word count');
+                this.refreshWordCount();
+            }
         });
 
         // Create UI (async) - expose promise for callers to await
@@ -89,6 +103,9 @@ export class Toolbar {
      * Create toolbar UI
      */
     private async createUI(): Promise<void> {
+        // Ensure i18n is initialized before creating buttons with translated text
+        await i18n.waitForInit();
+
         // Load behavior settings (includes toolbar button visibility)
         const behaviorSettings = await SettingsManager.getInstance().get('behavior');
 
@@ -99,7 +116,7 @@ export class Toolbar {
         const bookmarkBtn = this.createIconButton(
             'bookmark-btn',
             Icons.bookmark,
-            'Bookmark',
+            i18n.t('btnBookmark'),
             () => this.handleBookmark()
         );
 
@@ -107,7 +124,7 @@ export class Toolbar {
         const copyBtn = this.createIconButton(
             'copy-md-btn',
             Icons.copy,
-            'Copy Markdown',
+            i18n.t('btnCopy'),
             () => this.handleCopyMarkdown()
         );
 
@@ -117,7 +134,7 @@ export class Toolbar {
             sourceBtn = this.createIconButton(
                 'source-btn',
                 Icons.code,
-                'View Source',
+                i18n.t('btnViewSource'),
                 () => this.handleViewSource()
             );
         }
@@ -126,7 +143,7 @@ export class Toolbar {
         const reRenderBtn = this.createIconButton(
             're-render-btn',
             Icons.bookOpen,
-            'Reader',
+            i18n.t('btnReader'),
             () => this.handleReRender()
         );
 
@@ -136,7 +153,7 @@ export class Toolbar {
             saveMessagesBtn = this.createIconButton(
                 'save-messages-btn',
                 Icons.fileBox,
-                'Save as',
+                i18n.t('btnSaveAs'),
                 () => this.handleSaveMessages()
             );
         }
@@ -148,7 +165,7 @@ export class Toolbar {
             stats = document.createElement('span');
             stats.className = 'aicopy-stats';
             stats.id = 'word-stats';
-            stats.textContent = 'Loading...';
+            stats.textContent = i18n.t('loading');
 
             // Visual divider between buttons and stats
             divider = document.createElement('div');
@@ -230,7 +247,7 @@ export class Toolbar {
         // Failed after all retries
         logger.warn('[WordCount] Failed after all retries');
         const stats = this.shadowRoot.querySelector('#word-stats');
-        if (stats) stats.textContent = 'Click copy';
+        if (stats) stats.textContent = i18n.t('clickCopy');
         this.wordCountInitInFlight = false;
     }
 
@@ -351,7 +368,7 @@ export class Toolbar {
                 btn.style.color = 'var(--theme-color)';
 
                 // Show "Copied!" feedback
-                this.showFeedback(btn, 'Copied!');
+                this.showFeedback(btn, i18n.t('btnCopied'));
 
                 logger.info('Markdown copied to clipboard');
 
@@ -454,12 +471,12 @@ export class Toolbar {
             // Add bookmarked class to both toolbar and button
             toolbar.classList.add('bookmarked');
             bookmarkBtn.classList.add('bookmarked');
-            bookmarkBtn.title = 'Remove Bookmark';
+            bookmarkBtn.title = i18n.t('btnRemoveBookmark');
             bookmarkBtn.setAttribute('aria-label', 'Remove Bookmark');
         } else {
             toolbar.classList.remove('bookmarked');
             bookmarkBtn.classList.remove('bookmarked');
-            bookmarkBtn.title = 'Bookmark';
+            bookmarkBtn.title = i18n.t('btnBookmark');
             bookmarkBtn.setAttribute('aria-label', 'Bookmark');
         }
     }
@@ -510,6 +527,15 @@ export class Toolbar {
      * Destroy the toolbar
      */
     destroy(): void {
+        // Why: avoid leaking callbacks across SPA navigations / message remounts.
+        if (this.unsubscribeTheme) {
+            this.unsubscribeTheme();
+            this.unsubscribeTheme = null;
+        }
+        if (this.unsubscribeActivated) {
+            this.unsubscribeActivated();
+            this.unsubscribeActivated = null;
+        }
         this.container.remove();
     }
 }

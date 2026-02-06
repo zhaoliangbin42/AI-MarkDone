@@ -12,6 +12,7 @@ import { MessageCollector } from '../utils/MessageCollector';
 import { StyleManager } from '../../renderer/styles/StyleManager';
 import { BUNDLED_KATEX_CSS } from '../../renderer/styles/bundled-katex.css';
 import { DesignTokens } from '../../utils/design-tokens';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Represents a single chat turn (user prompt + assistant response)
@@ -153,7 +154,7 @@ export async function saveMessagesAsMarkdown(
 
     // Build Markdown content
     let markdown = `# ${metadata.title}\n\n`;
-    markdown += `> Exported from ${metadata.platform} on ${new Date(metadata.exportedAt).toLocaleString()}\n\n`;
+    markdown += `> ${i18n.t('exportMetadata', [metadata.platform, new Date(metadata.exportedAt).toLocaleString()])}\n\n`;
 
     // Use sequential numbering (1, 2, 3...) regardless of original indices
     selectedMessages.forEach((msg, i) => {
@@ -164,9 +165,9 @@ export async function saveMessagesAsMarkdown(
             markdown += `\n<div align="center">◆ ◆ ◆</div>\n\n`;
         }
 
-        markdown += `# Message ${messageNum}\n\n`;
-        markdown += `## User\n\n${msg.user}\n\n`;
-        markdown += `## Assistant\n\n${msg.assistant}\n\n`;
+        markdown += `# ${i18n.t('exportMessagePrefix', `${messageNum}`)}\n\n`;
+        markdown += `## ${i18n.t('exportUserLabel')}\n\n${msg.user}\n\n`;
+        markdown += `## ${i18n.t('exportAssistantLabel')}\n\n${msg.assistant}\n\n`;
     });
 
     // Trigger download
@@ -364,9 +365,9 @@ export async function saveMessagesAsPdf(
         <div class="pdf-title-page">
             <h1>${escapeHtml(metadata.title)}</h1>
             <div class="metadata">
-                Exported from ${escapeHtml(metadata.platform)}<br>
+                ${i18n.t('pdfExportedFrom', escapeHtml(metadata.platform))}<br>
                 ${new Date(metadata.exportedAt).toLocaleString()}<br>
-                ${selectedMessages.length} message(s)
+                ${i18n.t('pdfMessagesCount', `${selectedMessages.length}`)}
             </div>
         </div>
     `;
@@ -389,13 +390,13 @@ export async function saveMessagesAsPdf(
 
         html += `
             <div class="message-section">
-                <div class="message-header">Message ${messageNum}</div>
+                <div class="message-header">${i18n.t('pdfMessagePrefix', `${messageNum}`)}</div>
                 <div class="user-prompt">
-                    <div class="user-prompt-label">User</div>
+                    <div class="user-prompt-label">${i18n.t('pdfUserLabel')}</div>
                     <div>${escapeHtml(msg.user)}</div>
                 </div>
                 <div class="assistant-response">
-                    <div class="assistant-response-label">Assistant</div>
+                    <div class="assistant-response-label">${i18n.t('pdfAssistantLabel')}</div>
                     <div>${renderedAssistant}</div>
                 </div>
             </div>
