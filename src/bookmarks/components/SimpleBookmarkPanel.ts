@@ -441,11 +441,11 @@ export class SimpleBookmarkPanel {
                             </div>
                         </div>
 
-                        <!-- Performance Group -->
+                        <!-- ChatGPT Group -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">
-                                ${Icons.layers}
-                                <span>${i18n.t('performance')}</span>
+                                ${Icons.chatgpt}
+                                <span>${i18n.t('chatgptSettings')}</span>
                             </h3>
 
                             <!-- ChatGPT Folding Mode -->
@@ -454,7 +454,7 @@ export class SimpleBookmarkPanel {
                                     <span class="settings-item-label">${i18n.t('chatgptFoldingLabel')}</span>
                                     <span class="settings-item-desc">${i18n.t('chatgptFoldingDesc')}</span>
                                 </div>
-                                <select class="settings-select" id="chatgpt-folding-mode" data-setting="performance.chatgptFoldingMode">
+                                <select class="settings-select" id="chatgpt-folding-mode" data-setting="chatgpt.foldingMode">
                                     <option value="off">${i18n.t('chatgptFoldingModeOff')}</option>
                                     <option value="all">${i18n.t('chatgptFoldingModeAll')}</option>
                                     <option value="keep_last_n">${i18n.t('chatgptFoldingModeKeepLastN')}</option>
@@ -473,8 +473,20 @@ export class SimpleBookmarkPanel {
                                     type="number"
                                     min="0"
                                     step="1"
-                                    data-setting="performance.chatgptDefaultExpandedCount"
+                                    data-setting="chatgpt.defaultExpandedCount"
                                 />
+                            </div>
+
+                            <!-- Show right-side fold dock -->
+                            <div class="settings-item">
+                                <div class="settings-item-info">
+                                    <span class="settings-item-label">${i18n.t('chatgptFoldDockLabel')}</span>
+                                    <span class="settings-item-desc">${i18n.t('chatgptFoldDockDesc')}</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" data-setting="chatgpt.showFoldDock" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
                             </div>
                         </div>
                         
@@ -1223,7 +1235,7 @@ export class SimpleBookmarkPanel {
         const setting = (target as any).dataset?.setting as string | undefined;
         if (!setting) return;
 
-        // Parse setting path (e.g., "performance.chatgptFoldingMode")
+        // Parse setting path (e.g., "chatgpt.foldingMode")
         const [category, key] = setting.split('.') as [import('../../settings/SettingsManager').SettingsCategory, string];
 
         let value: string | number;
@@ -1237,11 +1249,11 @@ export class SimpleBookmarkPanel {
         logger.info(`[Settings] ${setting} changed to: ${value}`);
 
         // UI dependency: folding count only relevant for keep_last_n
-        if (setting === 'performance.chatgptFoldingMode') {
+        if (setting === 'chatgpt.foldingMode') {
             this.updateChatGPTFoldingCountVisibility(String(value));
         }
 
-        if (setting === 'performance.chatgptDefaultExpandedCount' && typeof value === 'number') {
+        if (setting === 'chatgpt.defaultExpandedCount' && typeof value === 'number') {
             // Clamp to a reasonable range to avoid accidentally expanding hundreds of turns
             const clamped = Math.max(0, Math.min(200, Math.floor(value)));
             value = clamped;
@@ -1435,13 +1447,20 @@ export class SimpleBookmarkPanel {
             // Initialize ChatGPT folding settings
             const foldingModeSelect = this.shadowRoot?.querySelector('#chatgpt-folding-mode') as HTMLSelectElement | null;
             if (foldingModeSelect) {
-                foldingModeSelect.value = settings.performance.chatgptFoldingMode;
-                this.updateChatGPTFoldingCountVisibility(settings.performance.chatgptFoldingMode);
+                foldingModeSelect.value = settings.chatgpt.foldingMode;
+                this.updateChatGPTFoldingCountVisibility(settings.chatgpt.foldingMode);
             }
 
             const foldingCountInput = this.shadowRoot?.querySelector('#chatgpt-folding-count') as HTMLInputElement | null;
             if (foldingCountInput) {
-                foldingCountInput.value = String(settings.performance.chatgptDefaultExpandedCount);
+                foldingCountInput.value = String(settings.chatgpt.defaultExpandedCount);
+            }
+
+            const foldDockToggle = this.shadowRoot?.querySelector(
+                'input[data-setting="chatgpt.showFoldDock"]'
+            ) as HTMLInputElement | null;
+            if (foldDockToggle) {
+                foldDockToggle.checked = settings.chatgpt.showFoldDock;
             }
 
             // Calculate and display storage usage
@@ -5728,6 +5747,16 @@ ${options.message}
 
             .settings-number {
                 width: 120px;
+                height: calc(var(--aimd-space-4) + var(--aimd-space-4));
+                text-align: right;
+                font-variant-numeric: tabular-nums;
+                background-color: var(--aimd-bg-surface);
+                -moz-appearance: textfield;
+            }
+
+            .settings-number::-webkit-outer-spin-button,
+            .settings-number::-webkit-inner-spin-button {
+                margin: 0;
             }
 
             .settings-select:hover,

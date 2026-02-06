@@ -278,6 +278,9 @@
     "performance": {
         "message": "Performance"
     },
+    "chatgptSettings": {
+        "message": "ChatGPT"
+    },
     "behavior": {
         "message": "Behavior"
     },
@@ -304,6 +307,18 @@
     },
     "chatgptFoldingCountDesc": {
         "message": "How many recent assistant messages stay expanded by default."
+    },
+    "chatgptFoldDockLabel": {
+        "message": "Right-side fold buttons"
+    },
+    "chatgptFoldDockDesc": {
+        "message": "Show fixed collapse/expand all buttons on the right side."
+    },
+    "chatgptCollapseAll": {
+        "message": "Collapse all"
+    },
+    "chatgptExpandAll": {
+        "message": "Expand all"
     },
     "btnCollapse": {
         "message": "Collapse"

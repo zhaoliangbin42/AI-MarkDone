@@ -1,6 +1,7 @@
 import { SettingsManager } from '../../settings/SettingsManager';
 import { SiteAdapter } from '../adapters/base';
 import { ChatGPTFoldBar } from '../components/ChatGPTFoldBar';
+import { ChatGPTFoldDock } from '../components/ChatGPTFoldDock';
 
 type FoldingMode = 'off' | 'all' | 'keep_last_n';
 
@@ -27,8 +28,11 @@ export class ChatGPTFoldingController {
     private adapter: SiteAdapter | null = null;
     private mode: FoldingMode = 'off';
     private keepLastN: number = 8;
+    private showDock: boolean = true;
     private unsubscribeSettings: (() => void) | null = null;
     private onWindowResize: (() => void) | null = null;
+    private dock: ChatGPTFoldDock | null = null;
+    private dockObserver: MutationObserver | null = null;
 
     private groupsByAssistant = new WeakMap<HTMLElement, FoldGroup>();
     private groups: FoldGroup[] = [];
@@ -41,17 +45,22 @@ export class ChatGPTFoldingController {
         this.adapter = adapter;
         this.ensureHostStyles();
         await this.loadSettings();
+        this.ensureDockVisibility();
+        this.observeDockHost();
 
         this.applyToExisting();
 
         this.unsubscribeSettings = SettingsManager.getInstance().subscribe((settings) => {
-            const nextMode = this.normalizeMode(settings.performance?.chatgptFoldingMode);
-            const nextKeepLastN = this.normalizeKeepLastN(settings.performance?.chatgptDefaultExpandedCount);
+            const nextMode = this.normalizeMode(settings.chatgpt?.foldingMode);
+            const nextKeepLastN = this.normalizeKeepLastN(settings.chatgpt?.defaultExpandedCount);
+            const nextShowDock = this.normalizeShowDock(settings.chatgpt?.showFoldDock);
 
-            if (nextMode === this.mode && nextKeepLastN === this.keepLastN) return;
+            if (nextMode === this.mode && nextKeepLastN === this.keepLastN && nextShowDock === this.showDock) return;
 
             this.mode = nextMode;
             this.keepLastN = nextKeepLastN;
+            this.showDock = nextShowDock;
+            this.ensureDockVisibility();
             this.applyToExisting();
         });
 
@@ -70,6 +79,10 @@ export class ChatGPTFoldingController {
         }
         this.onWindowResize = null;
         this.adapter = null;
+        this.dockObserver?.disconnect();
+        this.dockObserver = null;
+        this.dock?.dispose();
+        this.dock = null;
         this.unfoldAll();
     }
 
@@ -78,10 +91,21 @@ export class ChatGPTFoldingController {
         this.scheduleApplyAll();
     }
 
+    collapseAll(): void {
+        const groups = this.syncGroupsFromDom();
+        groups.forEach((g) => this.setGroupCollapsed(g, true));
+    }
+
+    expandAll(): void {
+        const groups = this.syncGroupsFromDom();
+        groups.forEach((g) => this.setGroupCollapsed(g, false));
+    }
+
     private async loadSettings(): Promise<void> {
-        const performance = await SettingsManager.getInstance().get('performance');
-        this.mode = this.normalizeMode(performance.chatgptFoldingMode);
-        this.keepLastN = this.normalizeKeepLastN(performance.chatgptDefaultExpandedCount);
+        const chatgpt = await SettingsManager.getInstance().get('chatgpt');
+        this.mode = this.normalizeMode(chatgpt.foldingMode);
+        this.keepLastN = this.normalizeKeepLastN(chatgpt.defaultExpandedCount);
+        this.showDock = this.normalizeShowDock(chatgpt.showFoldDock);
     }
 
     private normalizeMode(mode: unknown): FoldingMode {
@@ -94,24 +118,53 @@ export class ChatGPTFoldingController {
         return Math.max(0, Math.min(200, Math.floor(num)));
     }
 
+    private normalizeShowDock(value: unknown): boolean {
+        if (typeof value === 'boolean') return value;
+        return true;
+    }
+
     private applyToExisting(): void {
         if (!this.adapter) return;
+        this.ensureDockVisibility();
 
         if (this.mode === 'off') {
             this.unfoldAll();
             return;
         }
 
+        const groups = this.syncGroupsFromDom();
+        if (groups.length === 0) return;
+
+        if (this.mode === 'all') {
+            groups.forEach((g) => this.setGroupCollapsed(g, true));
+            return;
+        }
+
+        const start = Math.max(0, groups.length - this.keepLastN);
+        groups.forEach((g, idx) => this.setGroupCollapsed(g, idx < start));
+    }
+
+    private syncGroupsFromDom(): FoldGroup[] {
         this.cleanupLegacyWrappers();
         this.pruneDisconnectedGroups();
         this.rebuildAssistantMapFromGroups();
         this.cleanupOrphanBars();
 
         const turns = this.queryOrderedTurns();
-        if (turns.length === 0) return;
+        if (turns.length === 0) {
+            this.groups = [];
+            this.rebuildAssistantMapFromGroups();
+            this.cleanupOrphanBars();
+            return [];
+        }
 
         const groups = this.buildGroupsFromOrderedTurns(turns);
-        if (groups.length === 0) return;
+        if (groups.length === 0) {
+            this.groups = [];
+            this.rebuildAssistantMapFromGroups();
+            this.cleanupOrphanBars();
+            return [];
+        }
 
         this.groups = groups;
         this.rebuildAssistantMapFromGroups();
@@ -123,13 +176,7 @@ export class ChatGPTFoldingController {
             g.bar.setTitle(title);
         });
 
-        if (this.mode === 'all') {
-            groups.forEach((g) => this.setGroupCollapsed(g, true));
-            return;
-        }
-
-        const start = Math.max(0, groups.length - this.keepLastN);
-        groups.forEach((g, idx) => this.setGroupCollapsed(g, idx < start));
+        return groups;
     }
 
     private queryOrderedTurns(): Array<{ role: 'user' | 'assistant'; rootEl: HTMLElement; sourceEl: HTMLElement }> {
@@ -326,21 +373,53 @@ export class ChatGPTFoldingController {
             /* Expanded assistant: show a subtle left guide line + padding (no tokens on host page). */
             [${GUIDE_ATTR}="1"] {
                 padding-left: 12px;
-                box-shadow: inset 4px 0 0 color-mix(in srgb, currentColor 10%, transparent);
+                box-shadow: inset 4px 0 0 color-mix(in srgb, var(--aimd-border-default, #9ca3af) 65%, transparent);
             }
 
             @supports not (color-mix(in srgb, currentColor 10%, transparent)) {
                 [${GUIDE_ATTR}="1"] {
-                    box-shadow: inset 4px 0 0 rgba(0, 0, 0, 0.10);
+                    box-shadow: inset 4px 0 0 rgba(156, 163, 175, 0.40);
                 }
                 @media (prefers-color-scheme: dark) {
                     [${GUIDE_ATTR}="1"] {
-                        box-shadow: inset 4px 0 0 rgba(255, 255, 255, 0.14);
+                        box-shadow: inset 4px 0 0 rgba(161, 161, 170, 0.45);
                     }
                 }
             }
         `;
         (document.head || document.documentElement).appendChild(style);
+    }
+
+    private ensureDockVisibility(): void {
+        if (!this.showDock) {
+            this.dock?.dispose();
+            this.dock = null;
+            return;
+        }
+
+        if (!this.dock) {
+            this.dock = new ChatGPTFoldDock({
+                onCollapseAll: () => this.collapseAll(),
+                onExpandAll: () => this.expandAll(),
+            });
+        }
+
+        const dockEl = this.dock.getElement();
+        if (!dockEl.isConnected && document.body) {
+            document.body.appendChild(dockEl);
+        }
+    }
+
+    private observeDockHost(): void {
+        if (this.dockObserver) return;
+        if (!document.body) return;
+
+        this.dockObserver = new MutationObserver(() => {
+            this.ensureDockVisibility();
+        });
+        this.dockObserver.observe(document.body, {
+            childList: true,
+        });
     }
 
     private scheduleApplyAll(): void {
