@@ -41,7 +41,7 @@ export class TooltipManager {
      */
     attach(element: HTMLElement, config: TooltipConfig): void {
         if (this.destroyed) {
-            console.warn('[TooltipManager] Cannot attach: manager is destroyed');
+            logger.warn('[TooltipManager] Cannot attach: manager is destroyed');
             return;
         }
 
