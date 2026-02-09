@@ -89,7 +89,7 @@ export class MathExtractor {
             span.textContent = placeholder;
             display.replaceWith(span);
 
-            logger.debug('[MathExtractor] Extracted block math:', latex.substring(0, 50));
+            logger.debug('[MathExtractor] Extracted block math', { length: latex.length });
         });
     }
 
@@ -119,7 +119,7 @@ export class MathExtractor {
             span.textContent = placeholder;
             katex.replaceWith(span);
 
-            logger.debug('[MathExtractor] Extracted inline math:', latex.substring(0, 30));
+            logger.debug('[MathExtractor] Extracted inline math', { length: latex.length });
         });
     }
 
@@ -156,7 +156,7 @@ export class MathExtractor {
             span.textContent = placeholder;
             error.replaceWith(span);
 
-            logger.debug('[MathExtractor] Extracted error math:', latex.substring(0, 30));
+            logger.debug('[MathExtractor] Extracted error math', { length: latex.length });
         });
     }
 
@@ -370,4 +370,3 @@ function processFormulaRegions(html: string, emStart: string, emEnd: string): st
 
     return result.join('');
 }
-

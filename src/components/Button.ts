@@ -18,6 +18,8 @@
  * ```
  */
 
+import { i18n } from '../utils/i18n';
+
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
@@ -103,7 +105,7 @@ export class Button {
         if (this.props.loading) {
             return `
         <span class="btn-spinner"></span>
-        <span class="btn-text">Loading...</span>
+        <span class="btn-text">${this.escapeHtml(i18n.t('loadingText'))}</span>
       `;
         }
 
@@ -185,7 +187,7 @@ export class Button {
         text-decoration: none;
       }
 
-      .btn:focus {
+      .btn:focus-visible {
         outline: 2px solid var(--aimd-border-focus);
         outline-offset: 2px;
       }

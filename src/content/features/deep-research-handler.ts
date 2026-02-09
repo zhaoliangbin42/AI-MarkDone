@@ -214,8 +214,8 @@ export class DeepResearchHandler {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${isError ? '#EF4444' : '#2563EB'};
-            color: #FFFFFF;
+            background: ${isError ? 'var(--aimd-error)' : 'var(--aimd-interactive-primary)'};
+            color: var(--aimd-text-on-primary);
             padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;

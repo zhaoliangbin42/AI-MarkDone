@@ -29,6 +29,9 @@
     "btnClose": {
         "message": "Close"
     },
+    "btnDelete": {
+        "message": "Delete"
+    },
     "btnCancel": {
         "message": "Cancel"
     },
@@ -191,6 +194,18 @@
     "sortAlphaLabel": {
         "message": "Sort alphabetically"
     },
+    "sortByTimeAscTitle": {
+        "message": "Sort by: Time (Oldest first)"
+    },
+    "sortByTimeDescTitle": {
+        "message": "Sort by: Time (Newest first)"
+    },
+    "sortAlphaAscTitle": {
+        "message": "Sort by: A-Z"
+    },
+    "sortAlphaDescTitle": {
+        "message": "Sort by: Z-A"
+    },
     "createFolder": {
         "message": "Create new folder"
     },
@@ -202,6 +217,12 @@
     },
     "toggleFolder": {
         "message": "Toggle folder"
+    },
+    "selectFolderAndChildren": {
+        "message": "Select $1 and all children"
+    },
+    "selectBookmarkItem": {
+        "message": "Select $1"
     },
     "newSubfolder": {
         "message": "New Subfolder"
@@ -605,6 +626,69 @@
     "bookmarksCount": {
         "message": "$1 bookmark(s)"
     },
+    "failedToExtractUserMessage": {
+        "message": "Failed to extract user message. Please try again."
+    },
+    "failedToPrepareBookmark": {
+        "message": "Failed to prepare bookmark. Please try again."
+    },
+    "failedToToggleBookmark": {
+        "message": "Failed to toggle bookmark"
+    },
+    "failedToRenderContent": {
+        "message": "Failed to render content"
+    },
+    "exitFullscreen": {
+        "message": "Exit fullscreen"
+    },
+    "importStatusNormal": {
+        "message": "Normal import"
+    },
+    "importStatusRename": {
+        "message": "Rename & merge"
+    },
+    "importStatusMoveToImport": {
+        "message": "Move to Import"
+    },
+    "importStatusDuplicate": {
+        "message": "Skip (duplicate)"
+    },
+    "importActionRenameMerge": {
+        "message": "Rename & Merge"
+    },
+    "importActionMerge": {
+        "message": "Merge"
+    },
+    "importConfirmationTitle": {
+        "message": "Import Confirmation"
+    },
+    "importingCount": {
+        "message": "Importing <strong>$1</strong> bookmark(s)."
+    },
+    "importSummaryNormal": {
+        "message": "Normal"
+    },
+    "importSummaryRenamed": {
+        "message": "Renamed"
+    },
+    "importSummaryToImport": {
+        "message": "To Import"
+    },
+    "importSummarySkipped": {
+        "message": "Skipped"
+    },
+    "folderLabel": {
+        "message": "Folder:"
+    },
+    "renamedToLabel": {
+        "message": "Renamed to:"
+    },
+    "existingEntryLabel": {
+        "message": "Existing entry:"
+    },
+    "pendingImportLabel": {
+        "message": "Pending import:"
+    },
     "actionCannotBeUndone": {
         "message": "This action cannot be undone."
     },
@@ -634,5 +718,35 @@
     },
     "pdfAssistantLabel": {
         "message": "Assistant"
+    },
+    "allPlatforms": {
+        "message": "All Platforms"
+    },
+    "contextOnlyConfirmTitle": {
+        "message": "Enable Context-Only Save?"
+    },
+    "contextOnlyConfirmSummary": {
+        "message": "This will save only 500 characters (250 from start + 250 from end) for new bookmarks."
+    },
+    "contextOnlyBenefitTitle": {
+        "message": "Benefit:"
+    },
+    "contextOnlyBenefitDesc": {
+        "message": "Significantly reduces storage usage."
+    },
+    "contextOnlyTradeoffTitle": {
+        "message": "Trade-off:"
+    },
+    "contextOnlyTradeoffDesc": {
+        "message": "Full text preview will not be available in the bookmark panel."
+    },
+    "contextOnlyEnable": {
+        "message": "Enable"
+    },
+    "noFoldersCreateHint": {
+        "message": "No folders yet. Create one to get started!"
+    },
+    "loadingText": {
+        "message": "Loading..."
     }
 }

@@ -121,6 +121,12 @@ npm install
 # Dev mode
 npm run dev
 
+# Fast regression smoke suite (critical paths)
+npm run test:smoke
+
+# Core reliability gate (import/storage/render/message guards)
+npm run test:core
+
 # Build
 npm run build
 ```

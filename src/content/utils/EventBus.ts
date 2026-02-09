@@ -62,7 +62,7 @@ class EventBus {
             try {
                 callback(data);
             } catch (e) {
-                console.error(`[EventBus] Error in listener for "${event}":`, e);
+                logger.error(`[EventBus] Error in listener for "${event}":`, e);
             }
         });
     }
@@ -83,3 +83,4 @@ export interface EventTypes {
     'message:new': { count: number };
     'message:updated': { index: number };
 }
+import { logger } from '../../utils/logger';

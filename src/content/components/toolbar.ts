@@ -472,12 +472,12 @@ export class Toolbar {
             toolbar.classList.add('bookmarked');
             bookmarkBtn.classList.add('bookmarked');
             bookmarkBtn.title = i18n.t('btnRemoveBookmark');
-            bookmarkBtn.setAttribute('aria-label', 'Remove Bookmark');
+            bookmarkBtn.setAttribute('aria-label', i18n.t('btnRemoveBookmark'));
         } else {
             toolbar.classList.remove('bookmarked');
             bookmarkBtn.classList.remove('bookmarked');
             bookmarkBtn.title = i18n.t('btnBookmark');
-            bookmarkBtn.setAttribute('aria-label', 'Bookmark');
+            bookmarkBtn.setAttribute('aria-label', i18n.t('btnBookmark'));
         }
     }
 

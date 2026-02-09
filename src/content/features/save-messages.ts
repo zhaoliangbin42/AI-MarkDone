@@ -11,6 +11,7 @@ import type { MarkdownParser } from '../parsers/markdown-parser';
 import { MessageCollector } from '../utils/MessageCollector';
 import { StyleManager } from '../../renderer/styles/StyleManager';
 import { BUNDLED_KATEX_CSS } from '../../renderer/styles/bundled-katex.css';
+import { MarkdownRenderer } from '../../renderer/core/MarkdownRenderer';
 import { DesignTokens } from '../../utils/design-tokens';
 import { i18n } from '../../utils/i18n';
 
@@ -206,9 +207,6 @@ export async function saveMessagesAsPdf(
     }
 
     logger.info('[AI-MarkDone][SaveMessages] Creating PDF print container with rendered content');
-
-    // Import MarkdownRenderer for proper content rendering
-    const { MarkdownRenderer } = await import('../../renderer/core/MarkdownRenderer');
 
     // Create print container
     const printContainer = document.createElement('div');

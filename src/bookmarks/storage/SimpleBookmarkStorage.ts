@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 import { StorageQueue } from './StorageQueue';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { browser, browserCompat } from '../../utils/browser';
+import { PathUtils } from '../utils/path-utils';
 
 export class SimpleBookmarkStorage {
     // Storage quota thresholds
@@ -569,8 +570,6 @@ export class SimpleBookmarkStorage {
             const allBookmarks = await this.getAllBookmarks();
 
             if (recursive) {
-                // Import PathUtils dynamically to avoid circular dependency
-                const { PathUtils } = await import('../utils/path-utils');
                 return allBookmarks.filter(b =>
                     b.folderPath === folderPath ||
                     PathUtils.isDescendantOf(b.folderPath, folderPath)

@@ -21,6 +21,7 @@
  */
 
 import type { IPlatformAdapter, LatexResult } from './IPlatformAdapter';
+import { logger } from '../../utils/logger';
 
 export class GeminiAdapter implements IPlatformAdapter {
     readonly name = 'Gemini';
@@ -123,7 +124,7 @@ export class GeminiAdapter implements IPlatformAdapter {
                 isBlock: this.isBlockMath(mathNode),
             };
         } catch (error) {
-            console.error('[GeminiAdapter] extractLatex failed:', error);
+            logger.error('[GeminiAdapter] extractLatex failed:', error);
 
             // Graceful degradation: never lose content.
             return {
@@ -210,7 +211,7 @@ export class GeminiAdapter implements IPlatformAdapter {
             latex.includes('javascript:') ||
             latex.includes('onerror=') ||
             latex.includes('onload=')) {
-            console.error('[GeminiAdapter] XSS attempt detected in LaTeX');
+            logger.error('[GeminiAdapter] XSS attempt detected in LaTeX');
             return false;
         }
 
@@ -278,7 +279,7 @@ export class GeminiAdapter implements IPlatformAdapter {
             // No language detected
             return '';
         } catch (error) {
-            console.error('[GeminiAdapter] getCodeLanguage failed:', error);
+            logger.error('[GeminiAdapter] getCodeLanguage failed:', error);
             return '';
         }
     }

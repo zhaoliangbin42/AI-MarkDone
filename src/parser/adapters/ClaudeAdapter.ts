@@ -9,6 +9,7 @@
 
 import type { IPlatformAdapter, LatexResult } from './IPlatformAdapter';
 import { decodeEntities } from '../utils/entities';
+import { logger } from '../../utils/logger';
 
 export class ClaudeAdapter implements IPlatformAdapter {
     readonly name = 'Claude';
@@ -68,7 +69,7 @@ export class ClaudeAdapter implements IPlatformAdapter {
         }
 
         // Ultimate fallback: preserve HTML
-        console.error('[ClaudeAdapter] All LaTeX strategies failed for node', mathNode);
+        logger.error('[ClaudeAdapter] All LaTeX strategies failed for node', mathNode);
         return {
             latex: mathNode.outerHTML,
             isBlock: this.isBlockMath(mathNode),
@@ -270,7 +271,7 @@ export class ClaudeAdapter implements IPlatformAdapter {
 
         // XSS attempt
         if (latex.includes('<script>')) {
-            console.error('[ClaudeAdapter] XSS attempt detected in LaTeX');
+            logger.error('[ClaudeAdapter] XSS attempt detected in LaTeX');
             return false;
         }
 

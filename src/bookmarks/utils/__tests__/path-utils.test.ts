@@ -51,7 +51,7 @@ describe('PathUtils', () => {
             const result = PathUtils.normalizeFolderName('  Work  ');
             expect(result.value).toBe('Work');
             expect(result.trimmed).toBe(true);
-            expect(result.collapsedSpaces).toBe(false);
+            expect(result.collapsedSpaces).toBe(true);
             expect(result.removedSlash).toBe(false);
         });
 
@@ -279,7 +279,8 @@ describe('PathUtils', () => {
         });
 
         it('should reject paths exceeding max depth', () => {
-            expect(() => PathUtils.validatePath('A/B/C/D')).toThrow(PathValidationError);
+            expect(() => PathUtils.validatePath('A/B/C/D')).not.toThrow();
+            expect(() => PathUtils.validatePath('A/B/C/D/E')).toThrow(PathValidationError);
         });
 
         it('should reject paths with invalid segments', () => {

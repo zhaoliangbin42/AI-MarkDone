@@ -531,7 +531,7 @@ export class BookmarkSaveModal {
             treeBody.innerHTML = `
                 <div class="folder-empty">
                     <div class="folder-empty-icon">${Icons.folder}</div>
-                    <div class="folder-empty-text">No folders yet. Create one to get started!</div>
+                    <div class="folder-empty-text">${i18n.t('noFoldersCreateHint')}</div>
                 </div>
             `;
             return;
@@ -911,8 +911,8 @@ export class BookmarkSaveModal {
                 </div>
 
                 <div class="save-modal-footer">
-                    <button class="save-modal-btn save-modal-btn-cancel">Cancel</button>
-                    <button class="save-modal-btn save-modal-btn-save" disabled>Move</button>
+                    <button class="save-modal-btn save-modal-btn-cancel">${i18n.t('btnCancel')}</button>
+                    <button class="save-modal-btn save-modal-btn-save" disabled>${i18n.t('batchMove')}</button>
                 </div>
             `;
 
