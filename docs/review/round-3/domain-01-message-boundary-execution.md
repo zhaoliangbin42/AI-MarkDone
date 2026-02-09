@@ -52,3 +52,26 @@
 - `npm run build:chrome` ✅，产物不再包含顶层 `import`
 - `npm run build:firefox` ✅
 - `npm run test -- tests/unit/background-message-guards.test.ts tests/unit/content-message-guards.test.ts` ✅
+
+## Step 3（已完成）：sender/source 细粒度收紧（仅接受 content-script tab sender）
+
+### 背景
+- 旧守卫仅校验 `sender.id === runtimeId`，会放行同扩展内非 tab 场景（如 popup/options 等）发来的 runtime 消息。
+- 对 background 的 ping 消息，预期来源应是内容脚本（content script）上下文。
+
+### 修改
+- `src/background/message-guards.ts`
+  - `isTrustedExtensionSender` 新增 `sender.tab.id` 必须为 number 的限制。
+- `src/background/service-worker.ts`
+  - `MessageSenderLike` 类型补充 `tab?: { id?: number }`，与 guard 契约一致。
+- `src/background/background-firefox.js`
+  - 同步收紧 sender 守卫（Firefox MV2）。
+- 测试升级（红绿）：
+  - `tests/unit/background-message-guards.test.ts`
+  - 新增断言：无 tab sender 必须被拒绝。
+
+### 验证
+- `npm run test -- tests/unit/background-message-guards.test.ts tests/unit/content-message-guards.test.ts` ✅
+- `npm run test -- tests/unit/background/firefox-message-contract.test.ts` ✅
+- `npm run build:chrome` ✅
+- `npm run build:firefox` ✅

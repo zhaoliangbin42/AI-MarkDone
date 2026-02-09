@@ -54,3 +54,25 @@
 
 ### 当前结论
 - 自动化回归已恢复稳定绿灯，测试门禁从“噪声失败态”回到“可用于发现真实回归”的可用状态。
+
+## Step 3（已完成）：本轮增量修复后的核心门禁复验
+
+### 背景
+- 本轮新增了日志治理、Claude parser 缺陷修复、发布一致性测试，需要确认核心门禁持续稳定。
+
+### 验证
+- `npm run test:core` ✅（14 files / 62 tests）
+
+### 当前结论
+- 关键链路（message-guards、bookmarks lifecycle、parser rendering、input validation）均保持绿灯，无新增失败簇。
+
+## Step 4（已完成）：消息边界强化后的核心回归复验
+
+### 背景
+- Domain 01 新增 sender tab 上下文限制，需确认不会影响核心链路测试稳定性。
+
+### 验证
+- `npm run test:core` ✅（14 files / 62 tests）
+
+### 当前结论
+- 本轮安全收敛与发布门禁补齐后，核心门禁仍稳定通过。

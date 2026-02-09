@@ -118,7 +118,7 @@ export class GeminiAdapter implements IPlatformAdapter {
             if (katexResult) return katexResult;
 
             // Strategy 3: ultimate fallback - preserve original HTML
-            console.warn('[GeminiAdapter] extractLatex: All strategies failed, preserving HTML');
+            logger.warn('[GeminiAdapter] extractLatex: All strategies failed, preserving HTML');
             return {
                 latex: mathNode.outerHTML,
                 isBlock: this.isBlockMath(mathNode),
@@ -171,7 +171,7 @@ export class GeminiAdapter implements IPlatformAdapter {
 
             if (textContent && this.validateLatex(textContent)) {
                 // Why: data-math should exist on rendered nodes; log when missing to catch regressions.
-                console.warn(
+                logger.warn(
                     '[GeminiAdapter] Fallback triggered (bug fixed - this should not appear)',
                     'className:', mathNode.className
                 );
@@ -202,7 +202,7 @@ export class GeminiAdapter implements IPlatformAdapter {
 
         // Size limit check (prevent DOS)
         if (latex.length > 50000) {
-            console.warn(`[GeminiAdapter] LaTeX too long (${latex.length} chars) - possible DOS`);
+            logger.warn(`[GeminiAdapter] LaTeX too long (${latex.length} chars) - possible DOS`);
             return false;
         }
 

@@ -12,7 +12,7 @@ type RuntimeStatus = 'ok' | 'unknown action' | 'untrusted sender';
 type BackgroundToContentMessage = { action: typeof RUNTIME_ACTION_OPEN_BOOKMARK_PANEL };
 type TabUpdateInfo = { status?: string; url?: string };
 type ActiveInfo = { tabId: number };
-type MessageSenderLike = { id?: string };
+type MessageSenderLike = { id?: string; tab?: { id?: number } };
 type SendResponse = (payload: { status: RuntimeStatus }) => void;
 
 const SUPPORTED_HOSTS = [
