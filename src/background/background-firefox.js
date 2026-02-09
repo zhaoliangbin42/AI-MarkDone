@@ -10,13 +10,20 @@ const SUPPORTED_HOSTS = [
     'claude.ai',
     'chat.deepseek.com'
 ];
+const RUNTIME_ACTION_OPEN_BOOKMARK_PANEL = 'openBookmarkPanel';
+const RUNTIME_TYPE_PING = 'ping';
 
 function isContentToBackgroundMessage(message) {
     return (
         typeof message === 'object' &&
         message !== null &&
-        message.type === 'ping'
+        message.type === RUNTIME_TYPE_PING
     );
+}
+
+function isTrustedExtensionSender(sender, runtimeId) {
+    if (!runtimeId || !sender || !sender.id) return false;
+    return sender.id === runtimeId;
 }
 
 /**
@@ -86,16 +93,21 @@ browser.runtime.onStartup.addListener(() => {
 // This is only triggered when popup is set to empty string (supported sites)
 browser.browserAction.onClicked.addListener((tab) => {
     if (tab.id) {
-        browser.tabs.sendMessage(tab.id, { action: 'openBookmarkPanel' });
+        browser.tabs.sendMessage(tab.id, { action: RUNTIME_ACTION_OPEN_BOOKMARK_PANEL });
     }
 });
 
 // Listen for messages from content scripts
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!isTrustedExtensionSender(sender, browser.runtime?.id)) {
+        sendResponse({ status: 'untrusted sender' });
+        return false;
+    }
+
     if (isContentToBackgroundMessage(message)) {
         sendResponse({ status: 'ok' });
     } else {
-        sendResponse({ status: 'invalid message payload' });
+        sendResponse({ status: 'unknown action' });
     }
-    return true;
+    return false;
 });

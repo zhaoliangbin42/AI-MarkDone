@@ -1,6 +1,7 @@
 import { simpleBookmarkPanel } from '../../bookmarks/components/SimpleBookmarkPanel';
 import { logger } from '../../utils/logger';
 import { Icons } from '../../assets/icons';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Gemini Header Panel Button
@@ -89,7 +90,7 @@ export class GeminiPanelButton {
         const button = document.createElement('button');
         button.id = 'gemini-bookmark-panel-btn';
         button.className = 'mdc-icon-button mat-mdc-icon-button mat-mdc-button-base';
-        button.setAttribute('aria-label', 'View Bookmarks');
+        button.setAttribute('aria-label', i18n.t('bookmarks'));
         button.setAttribute('type', 'button');
         button.style.cssText = 'margin-left: 12px; color: var(--gem-sys-color--on-surface);';
 

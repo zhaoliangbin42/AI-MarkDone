@@ -7,6 +7,31 @@
 
 import type { Rule } from '../../core/Rule';
 
+function normalizeCodeBlockText(raw: string): string {
+    let code = raw.replace(/\r\n?/g, '\n');
+
+    // Drop one leading/trailing blank line caused by DOM pretty-print wrappers.
+    code = code.replace(/^\n/, '').replace(/\n$/, '');
+
+    const lines = code.split('\n');
+    const nonEmpty = lines.filter((line) => line.trim().length > 0);
+    if (nonEmpty.length === 0) {
+        return code;
+    }
+
+    const indents = nonEmpty.map((line) => {
+        const match = line.match(/^[ \t]*/);
+        return match ? match[0].length : 0;
+    });
+    const commonIndent = Math.min(...indents);
+
+    if (commonIndent > 0) {
+        return lines.map((line) => line.slice(commonIndent)).join('\n');
+    }
+
+    return code;
+}
+
 /**
  * Creates rule for code blocks (pre > code)
  * 
@@ -36,7 +61,7 @@ export function createCodeBlockRule(): Rule {
 
             // Get programming language from adapter
             const language = context.adapter.getCodeLanguage(codeElem);
-            const code = codeElem.textContent || '';
+            const code = normalizeCodeBlockText(codeElem.textContent || '');
 
             if (language) {
                 return `\`\`\`${language}\n${code}\n\`\`\`\n\n`;
@@ -46,5 +71,4 @@ export function createCodeBlockRule(): Rule {
         },
     };
 }
-
 

@@ -993,6 +993,7 @@ export class DesignTokens {
                 --aimd-modal-tree-item-hover: var(--aimd-interactive-hover);
                 --aimd-modal-tree-item-text: var(--aimd-text-primary);
                 --aimd-modal-tree-item-icon: var(--aimd-text-secondary);
+                --aimd-code-block-bg: #323238;
                 
 	                /* --- Extended Spacing --- */
 	                --aimd-space-10: 40px;
@@ -1023,7 +1024,6 @@ export class DesignTokens {
                 /* --- Feedback Colors (Dark Mode) --- */
                 --aimd-feedback-success-bg: rgba(16, 185, 129, 0.15);
                 --aimd-feedback-success-text: #6EE7B7;
-                --aimd-feedback-info-bg: rgba(59, 130, 246, 0.15);
                 --aimd-feedback-info-bg: rgba(59, 130, 246, 0.15);
                 --aimd-feedback-info-text: #93C5FD;
                 --aimd-feedback-warning-bg: rgba(245, 158, 11, 0.15);
@@ -1243,6 +1243,7 @@ export class DesignTokens {
                 --aimd-modal-tree-item-hover: var(--aimd-interactive-hover);
                 --aimd-modal-tree-item-text: var(--aimd-text-primary);
                 --aimd-modal-tree-item-icon: var(--aimd-text-secondary);
+                --aimd-code-block-bg: #F5F7FB;
                 
 	                /* --- Extended Spacing --- */
 	                --aimd-space-10: 40px;
@@ -1254,9 +1255,9 @@ export class DesignTokens {
 	                --aimd-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
                 
                 /* --- Button Tokens (Light Mode) --- */
-                --aimd-button-primary-bg: #3B82F6;
+                --aimd-button-primary-bg: #2563EB;
                 --aimd-button-primary-text: #FFFFFF;
-                --aimd-button-primary-hover: #2563EB;
+                --aimd-button-primary-hover: #1D4ED8;
                 --aimd-button-primary-text-hover: #FFFFFF;
                 --aimd-button-primary-disabled: #9CA3AF;
                 --aimd-button-primary-disabled-text: #F3F4F6;

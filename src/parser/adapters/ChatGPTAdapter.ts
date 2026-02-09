@@ -9,6 +9,7 @@
 
 import type { IPlatformAdapter, LatexResult } from './IPlatformAdapter';
 import { decodeEntities } from '../utils/entities';
+import { logger } from '../../utils/logger';
 
 export class ChatGPTAdapter implements IPlatformAdapter {
     readonly name = 'ChatGPT';
@@ -66,7 +67,7 @@ export class ChatGPTAdapter implements IPlatformAdapter {
         }
 
         // Ultimate fallback: preserve HTML
-        console.error('[ChatGPTAdapter] All LaTeX strategies failed for node', mathNode);
+        logger.error('[ChatGPTAdapter] All LaTeX strategies failed for node', mathNode);
         return {
             latex: mathNode.outerHTML,
             isBlock: this.isBlockMath(mathNode),
@@ -267,7 +268,7 @@ export class ChatGPTAdapter implements IPlatformAdapter {
 
         // XSS attempt
         if (latex.includes('<script>')) {
-            console.error('[ChatGPTAdapter] XSS attempt detected in LaTeX');
+            logger.error('[ChatGPTAdapter] XSS attempt detected in LaTeX');
             return false;
         }
 

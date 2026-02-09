@@ -16,7 +16,7 @@ const DEFAULT_OPTIONS: Required<ParserOptions> = {
     maxNodeCount: 50000,
     enablePerformanceLogging: false,
     onError: (error, context) => {
-        console.error('[Parser] Error:', error.message, context);
+        logger.error('[Parser] Error:', error.message, context);
     },
 };
 
@@ -99,7 +99,7 @@ export class Parser {
         } catch (error) {
             if (error instanceof ParserError && error.recoveryAction === 'abort') {
                 // Graceful degradation: return raw text
-                console.error('[Parser] Parsing aborted:', error.message);
+                logger.error('[Parser] Parsing aborted:', error.message);
                 return `<!-- Parser ${error.message} -->\n\n${element.textContent || ''}`;
             }
             throw error;

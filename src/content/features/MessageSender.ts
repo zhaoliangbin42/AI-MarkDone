@@ -101,7 +101,7 @@ export class MessageSender {
      */
     readFromNative(): string {
         const input = this.adapter.getInputElement();
-        logger.info('[MessageSender] readFromNative called', {
+        logger.debug('[MessageSender] readFromNative called', {
             hasInput: !!input,
             inputTag: input?.tagName,
             inputClass: input?.className
@@ -114,16 +114,15 @@ export class MessageSender {
         // Handle different input types
         if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
             const value = input.value;
-            logger.info('[MessageSender] Read from textarea/input', { length: value.length, preview: value.substring(0, 50) });
+            logger.debug('[MessageSender] Read from textarea/input', { length: value.length });
             return value;
         }
 
         // Contenteditable element - use DOM-based serialization for accuracy
         if (input.getAttribute('contenteditable') === 'true') {
             const text = parseToPlainText(input);
-            logger.info('[MessageSender] 🔍 Read from contenteditable', {
+            logger.debug('[MessageSender] Read from contenteditable', {
                 length: text.length,
-                preview: text.substring(0, 80).replace(/\n/g, '\\n'),
                 newlineCount: (text.match(/\n/g) || []).length
             });
             return text;
@@ -161,7 +160,7 @@ export class MessageSender {
             this.tryDirectDOM(input, text);
 
         if (success) {
-            logger.debug('[MessageSender] Synced to native input:', text.substring(0, 30));
+            logger.debug('[MessageSender] Synced to native input');
         } else {
             logger.error('[MessageSender] All sync strategies failed');
         }
@@ -176,9 +175,8 @@ export class MessageSender {
      * Triggers beforeinput + input events to notify framework of changes
      */
     silentSync(text: string): boolean {
-        logger.info('[MessageSender] 🔍 silentSync called', {
+        logger.debug('[MessageSender] silentSync called', {
             textLength: text.length,
-            preview: text.substring(0, 50).replace(/\n/g, '\\n'),
             newlineCount: (text.match(/\n/g) || []).length
         });
         const input = this.adapter.getInputElement();
@@ -191,14 +189,13 @@ export class MessageSender {
             // 1. Set content
             if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
                 input.value = text;
-                logger.info('[MessageSender] Set textarea/input value');
+                logger.debug('[MessageSender] Set textarea/input value');
             } else {
                 // For contenteditable, use DOM-based serialization with proper escaping
                 const html = toHTML(text);
                 input.innerHTML = html;
-                logger.info('[MessageSender] 🔍 Set contenteditable innerHTML', {
+                logger.debug('[MessageSender] Set contenteditable innerHTML', {
                     lineCount: text.split('\n').length,
-                    htmlPreview: html.substring(0, 100)
                 });
             }
 
@@ -209,7 +206,7 @@ export class MessageSender {
                 inputType: 'insertText',
                 data: text
             }));
-            logger.info('[MessageSender] Dispatched beforeinput event');
+            logger.debug('[MessageSender] Dispatched beforeinput event');
 
             input.dispatchEvent(new InputEvent('input', {
                 bubbles: true,
@@ -217,9 +214,9 @@ export class MessageSender {
                 inputType: 'insertText',
                 data: text
             }));
-            logger.info('[MessageSender] Dispatched input event');
+            logger.debug('[MessageSender] Dispatched input event');
 
-            logger.info('[MessageSender] 🔍 silentSync completed successfully');
+            logger.debug('[MessageSender] silentSync completed successfully');
             return true;
         } catch (e) {
             logger.error('[MessageSender] silentSync failed:', e);

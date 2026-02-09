@@ -29,6 +29,9 @@
     "btnClose": {
         "message": "关闭"
     },
+    "btnDelete": {
+        "message": "删除"
+    },
     "btnCancel": {
         "message": "取消"
     },
@@ -191,6 +194,18 @@
     "sortAlphaLabel": {
         "message": "按字母排序"
     },
+    "sortByTimeAscTitle": {
+        "message": "按时间排序（最旧优先）"
+    },
+    "sortByTimeDescTitle": {
+        "message": "按时间排序（最新优先）"
+    },
+    "sortAlphaAscTitle": {
+        "message": "按字母排序（A-Z）"
+    },
+    "sortAlphaDescTitle": {
+        "message": "按字母排序（Z-A）"
+    },
     "createFolder": {
         "message": "创建新文件夹"
     },
@@ -202,6 +217,12 @@
     },
     "toggleFolder": {
         "message": "展开/折叠文件夹"
+    },
+    "selectFolderAndChildren": {
+        "message": "选择 $1 及其所有子项"
+    },
+    "selectBookmarkItem": {
+        "message": "选择 $1"
     },
     "newSubfolder": {
         "message": "新建子文件夹"
@@ -605,6 +626,69 @@
     "bookmarksCount": {
         "message": "$1 个书签"
     },
+    "failedToExtractUserMessage": {
+        "message": "提取用户消息失败，请重试。"
+    },
+    "failedToPrepareBookmark": {
+        "message": "准备书签失败，请重试。"
+    },
+    "failedToToggleBookmark": {
+        "message": "切换书签状态失败"
+    },
+    "failedToRenderContent": {
+        "message": "渲染内容失败"
+    },
+    "exitFullscreen": {
+        "message": "退出全屏"
+    },
+    "importStatusNormal": {
+        "message": "正常导入"
+    },
+    "importStatusRename": {
+        "message": "重命名并合并"
+    },
+    "importStatusMoveToImport": {
+        "message": "移动到 Import"
+    },
+    "importStatusDuplicate": {
+        "message": "跳过（重复）"
+    },
+    "importActionRenameMerge": {
+        "message": "重命名并合并"
+    },
+    "importActionMerge": {
+        "message": "合并"
+    },
+    "importConfirmationTitle": {
+        "message": "导入确认"
+    },
+    "importingCount": {
+        "message": "正在导入 <strong>$1</strong> 个书签。"
+    },
+    "importSummaryNormal": {
+        "message": "正常"
+    },
+    "importSummaryRenamed": {
+        "message": "重命名"
+    },
+    "importSummaryToImport": {
+        "message": "转入 Import"
+    },
+    "importSummarySkipped": {
+        "message": "跳过"
+    },
+    "folderLabel": {
+        "message": "文件夹："
+    },
+    "renamedToLabel": {
+        "message": "重命名为："
+    },
+    "existingEntryLabel": {
+        "message": "已有条目："
+    },
+    "pendingImportLabel": {
+        "message": "待导入："
+    },
     "actionCannotBeUndone": {
         "message": "此操作无法撤销。"
     },
@@ -634,5 +718,35 @@
     },
     "pdfAssistantLabel": {
         "message": "助手"
+    },
+    "allPlatforms": {
+        "message": "全部平台"
+    },
+    "contextOnlyConfirmTitle": {
+        "message": "启用仅保存上下文吗？"
+    },
+    "contextOnlyConfirmSummary": {
+        "message": "该功能会对新书签仅保存 500 个字符（开头 250 + 结尾 250）。"
+    },
+    "contextOnlyBenefitTitle": {
+        "message": "收益："
+    },
+    "contextOnlyBenefitDesc": {
+        "message": "显著降低存储占用。"
+    },
+    "contextOnlyTradeoffTitle": {
+        "message": "代价："
+    },
+    "contextOnlyTradeoffDesc": {
+        "message": "书签面板中将无法查看完整文本预览。"
+    },
+    "contextOnlyEnable": {
+        "message": "启用"
+    },
+    "noFoldersCreateHint": {
+        "message": "暂无文件夹，请先创建一个开始使用。"
+    },
+    "loadingText": {
+        "message": "加载中..."
     }
 }

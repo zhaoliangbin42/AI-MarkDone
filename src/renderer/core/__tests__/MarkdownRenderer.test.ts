@@ -38,8 +38,10 @@ describe('MarkdownRenderer', () => {
         const result = await MarkdownRenderer.render('[Click](javascript:alert(1))', {
             sanitize: true,
         });
-        expect(result.success).toBe(true);
-        expect(result.html).not.toContain('javascript:');
+        // Current policy: dangerous patterns are blocked by InputValidator before render.
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('DANGEROUS_CONTENT');
+        expect(result.fallback).not.toContain('javascript:');
     });
 
     test('timeout fallback (simulated)', async () => {
@@ -51,15 +53,14 @@ describe('MarkdownRenderer', () => {
         expect(result.success !== undefined).toBe(true);
     });
 
-    test('circuit breaker: opens after 3 failures', async () => {
-        // Trigger 3 validation failures
+    test('circuit breaker: validation failures do not count as runtime failures', async () => {
+        // Validation failures return fallback and do not throw into circuit breaker.
         await MarkdownRenderer.render('<script>1</script>');
         await MarkdownRenderer.render('<script>2</script>');
         await MarkdownRenderer.render('<script>3</script>');
 
         const state = MarkdownRenderer.getCircuitState();
-        expect(state.failures).toBe(3);
-        // Circuit may be OPEN or still in-flight depending on timing.
+        expect(state.failures).toBe(0);
     });
 
     test('formula preprocessing: adjacent formulas', async () => {
@@ -76,11 +77,57 @@ describe('MarkdownRenderer', () => {
         expect(result.html).toContain('code-placeholder');
     });
 
+    test('code placeholder escapes language label', async () => {
+        const result = await MarkdownRenderer.render('```<img src=x>\nprint("hello")\n```', {
+            codeBlockMode: 'placeholder',
+            sanitize: false,
+        });
+        expect(result.success).toBe(true);
+        expect(result.html).toContain('code-placeholder');
+        expect(result.html).not.toContain('<img');
+    });
+
     test('code blocks: full mode', async () => {
         const result = await MarkdownRenderer.render('```python\nprint("hello")\n```', {
             codeBlockMode: 'full',
         });
         expect(result.success).toBe(true);
         expect(result.html).toContain('<code');
+    });
+
+    test('render lock key does not collide on shared prefix', async () => {
+        const prefix = 'A'.repeat(120);
+        const md1 = `${prefix}\n\n**first**`;
+        const md2 = `${prefix}\n\n**second**`;
+
+        const [r1, r2] = await Promise.all([
+            MarkdownRenderer.render(md1),
+            MarkdownRenderer.render(md2),
+        ]);
+
+        expect(r1.success).toBe(true);
+        expect(r2.success).toBe(true);
+        expect(r1.html).toContain('<strong>first</strong>');
+        expect(r2.html).toContain('<strong>second</strong>');
+    });
+
+    test('chunking should keep fenced code block boundaries intact', () => {
+        const markdown = [
+            'Intro paragraph with enough text to trigger chunking.',
+            '```ts',
+            'const x = 1;',
+            'const y = x + 1;',
+            'console.log(y);',
+            '```',
+            'Tail paragraph.',
+        ].join('\n');
+
+        const chunks = (MarkdownRenderer as any).chunkMarkdown(markdown, 40) as string[];
+        expect(chunks.length).toBeGreaterThan(1);
+
+        for (const chunk of chunks) {
+            const fenceCount = (chunk.match(/^(```|~~~)/gm) || []).length;
+            expect(fenceCount % 2).toBe(0);
+        }
     });
 });

@@ -18,6 +18,7 @@ import { PathUtils, PathValidationError } from '../utils/path-utils';
 import { browser } from '../../utils/browser';
 import { logger } from '../../utils/logger';
 import { StorageQueue } from './StorageQueue';
+import { SimpleBookmarkStorage } from './SimpleBookmarkStorage';
 
 const folderLogger = {
     info: (message: string, ...args: any[]) => logger.info('[AI-MarkDone][FolderStorage]', message, ...args),
@@ -491,8 +492,6 @@ export class FolderStorage {
      */
     private static async getBookmarksInFolder(path: string, recursive: boolean): Promise<any[]> {
         try {
-            // Import SimpleBookmarkStorage dynamically to avoid circular dependency
-            const { SimpleBookmarkStorage } = await import('./SimpleBookmarkStorage');
             const bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
 
             if (recursive) {

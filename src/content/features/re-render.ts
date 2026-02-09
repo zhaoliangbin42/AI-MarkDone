@@ -24,6 +24,7 @@ import { BookmarkSaveModal } from '../../bookmarks/components/BookmarkSaveModal'
 import { Modal } from '../components/modal';
 import { i18n } from '../../utils/i18n';
 import { copyToClipboard } from '../../utils/dom-utils';
+import { DialogManager } from '../../components/DialogManager';
 
 type GetMarkdownFn = (element: HTMLElement) => string;
 
@@ -63,6 +64,8 @@ export class ReaderPanel {
 
     // EventBus subscription cleanup
     private unsubscribeNewMessage: (() => void) | null = null;
+    private refreshInFlight: boolean = false;
+    private pendingRefresh: boolean = false;
 
     // Bookmark state for pagination indicators
     private bookmarkedPositions: Set<number> = new Set();
@@ -72,6 +75,22 @@ export class ReaderPanel {
 
     constructor(options: ReaderPanelOptions = {}) {
         this.options = options;
+    }
+
+    private getSafePlatformIcon(platform?: string): string {
+        const normalized = platform?.toLowerCase() || 'chatgpt';
+        switch (normalized) {
+            case 'gemini':
+                return Icons.gemini;
+            case 'claude':
+                return Icons.claude;
+            case 'deepseek':
+                return Icons.deepseek;
+            case 'chatgpt':
+                return Icons.chatgpt;
+            default:
+                return Icons.chatgpt;
+        }
     }
 
     /**
@@ -250,6 +269,26 @@ export class ReaderPanel {
         this.syncUIWithData(newItems);
     }
 
+    private requestRefreshItems(force: boolean = false): void {
+        if (this.refreshInFlight) {
+            this.pendingRefresh = true;
+            return;
+        }
+
+        this.refreshInFlight = true;
+        void this.refreshItems(force)
+            .catch((error) => {
+                logger.error('[ReaderPanel] requestRefreshItems failed:', error);
+            })
+            .finally(() => {
+                this.refreshInFlight = false;
+                if (this.pendingRefresh) {
+                    this.pendingRefresh = false;
+                    this.requestRefreshItems(force);
+                }
+            });
+    }
+
     /**
      * Set theme (used to select token set for Shadow DOM).
      */
@@ -297,10 +336,10 @@ export class ReaderPanel {
             logger.debug(`[ReaderPanel] EventBus received 'message:new', count: ${count}, current items: ${this.items.length}`);
             if (count !== this.items.length) {
                 logger.info(`[ReaderPanel] New message event detected change: ${this.items.length} -> ${count}`);
-                this.refreshItems();
+                this.requestRefreshItems();
             } else {
                 logger.debug('[ReaderPanel] Event count matches current items, checking anyway');
-                this.refreshItems();
+                this.requestRefreshItems();
             }
         });
     }
@@ -492,7 +531,7 @@ export class ReaderPanel {
 
         this.floatingInput = new FloatingInput({
             onSend: async (text) => {
-                logger.debug('[ReaderPanel] Send clicked:', text.substring(0, 50));
+                logger.debug('[ReaderPanel] Send clicked', { length: text.length });
                 this.floatingInput?.hide();
                 this.setTriggerButtonState('waiting');
 
@@ -553,7 +592,6 @@ export class ReaderPanel {
                 const nativeText = this.messageSender.readFromNative();
                 logger.info('[ReaderPanel] Reading native input for sync', {
                     nativeTextLength: nativeText.length,
-                    nativeTextPreview: nativeText.substring(0, 50)
                 });
                 this.floatingInput.setText(nativeText);
             }
@@ -595,8 +633,8 @@ export class ReaderPanel {
             const originalBoxShadow = element.style.boxShadow;
 
             element.style.transition = 'box-shadow 0.5s ease';
-            // Use interactive primary token or fallback
-            element.style.boxShadow = '0 0 0 4px var(--aimd-interactive-primary, #3b82f6)';
+            // Use interactive primary token for consistent theme rendering.
+            element.style.boxShadow = '0 0 0 4px var(--aimd-interactive-primary)';
 
             // Remove highlight after 2 seconds
             setTimeout(() => {
@@ -736,7 +774,7 @@ export class ReaderPanel {
                 }
             } catch (error) {
                 logger.error('[ReaderPanel] Render failed:', error);
-                html = '<div class="markdown-fallback">Failed to render content</div>';
+                html = `<div class="markdown-fallback">${this.escapeHtml(i18n.t('failedToRenderContent'))}</div>`;
             }
         }
 
@@ -751,7 +789,7 @@ export class ReaderPanel {
 
                 const userIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 
-                const modelIcon = item.meta?.platformIcon || `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>`;
+                const modelIcon = this.getSafePlatformIcon(item.meta?.platform);
 
                 body.innerHTML = `
                     <div class="message-user-header">
@@ -811,7 +849,7 @@ export class ReaderPanel {
 
         if (btn) {
             btn.innerHTML = isFullscreen ? Icons.minimize : Icons.maximize;
-            btn.setAttribute('title', isFullscreen ? 'Exit fullscreen' : 'Toggle fullscreen');
+            btn.setAttribute('title', isFullscreen ? i18n.t('exitFullscreen') : i18n.t('toggleFullscreen'));
         }
     }
 
@@ -911,7 +949,10 @@ export class ReaderPanel {
 
                 if (!userMessage) {
                     logger.error('[ReaderPanel] Failed to extract user message');
-                    alert('Failed to extract user message. Please try again.');
+                    await DialogManager.alert({
+                        title: i18n.t('bookmark'),
+                        message: i18n.t('failedToExtractUserMessage')
+                    });
                     return;
                 }
 
@@ -948,7 +989,10 @@ export class ReaderPanel {
             }
         } catch (error) {
             logger.error('[ReaderPanel] Bookmark operation failed:', error);
-            alert('Failed to toggle bookmark: ' + (error instanceof Error ? error.message : String(error)));
+            await DialogManager.alert({
+                title: i18n.t('bookmark'),
+                message: i18n.t('failedToToggleBookmark') + ': ' + (error instanceof Error ? error.message : String(error))
+            });
         }
     }
 
@@ -961,10 +1005,10 @@ export class ReaderPanel {
 
         if (isBookmarked) {
             bookmarkBtn.classList.add('bookmarked');
-            bookmarkBtn.setAttribute('title', 'Remove Bookmark');
+            bookmarkBtn.setAttribute('title', i18n.t('btnDelete'));
         } else {
             bookmarkBtn.classList.remove('bookmarked');
-            bookmarkBtn.setAttribute('title', 'Bookmark');
+            bookmarkBtn.setAttribute('title', i18n.t('btnBookmark'));
         }
     }
 }

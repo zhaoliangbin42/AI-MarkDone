@@ -117,6 +117,11 @@ export class StyleManager {
         --bgColor-default: var(--aimd-bg-primary);
         --bgColor-muted: var(--aimd-bg-secondary);
         --borderColor-default: var(--aimd-border-default);
+        --codeInline-bg: color-mix(in srgb, var(--bgColor-muted) 84%, var(--fgColor-default) 16%);
+        --codeInline-border: color-mix(in srgb, var(--borderColor-default) 70%, transparent);
+        --codeBlock-bg: var(--aimd-code-block-bg);
+        --codeBlock-border: color-mix(in srgb, var(--borderColor-default) 82%, transparent);
+        --codeBlock-shadow: inset 0 0 0 1px color-mix(in srgb, var(--borderColor-default) 56%, transparent);
         
         margin: 0;
         padding: 12px 16px;
@@ -157,18 +162,33 @@ export class StyleManager {
       }
 
       .markdown-body code {
-        background: var(--bgColor-muted);
-        padding: 0.2em 0.4em;
+        background: var(--codeInline-bg);
+        border: 1px solid var(--codeInline-border);
+        padding: 0.16em 0.4em;
         border-radius: 3px;
         font-family: ui-monospace, monospace;
         font-size: 85%;
+        color: var(--fgColor-default);
       }
 
       .markdown-body pre {
-        background: var(--bgColor-muted);
+        background: var(--codeBlock-bg);
+        border: 1px solid var(--codeBlock-border);
         padding: 16px;
         border-radius: 6px;
         overflow: auto;
+        margin: 1em 0;
+        box-shadow: var(--codeBlock-shadow);
+      }
+
+      .markdown-body pre code {
+        display: block;
+        background: transparent;
+        border: none;
+        padding: 0;
+        white-space: pre;
+        font-size: 13px;
+        line-height: 1.55;
       }
 
       .markdown-body table {

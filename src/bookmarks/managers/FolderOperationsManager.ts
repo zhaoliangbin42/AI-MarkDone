@@ -11,6 +11,7 @@
 import { FolderStorage } from '../storage/FolderStorage';
 import { Folder } from '../storage/types';
 import { PathUtils } from '../utils/path-utils';
+import { logger } from '../../utils/logger';
 
 /**
  * Operation result
@@ -321,7 +322,7 @@ export class FolderOperationsManager {
             try {
                 listener(event);
             } catch (error) {
-                console.error('[FolderOperationsManager] Event listener error:', error);
+                logger.error('[FolderOperationsManager] Event listener error:', error);
             }
         }
     }

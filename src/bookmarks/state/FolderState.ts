@@ -8,6 +8,7 @@
  */
 
 import { browser } from '../../utils/browser';
+import { logger } from '../../utils/logger';
 import { PathUtils } from '../utils/path-utils';
 
 /**
@@ -38,7 +39,7 @@ export class FolderState {
                 this.expandPathTo(this.selectedPath);
             }
         } catch (error) {
-            console.error('[FolderState] Failed to load state:', error);
+            logger.error('[FolderState] Failed to load state:', error);
         }
     }
 
@@ -52,7 +53,7 @@ export class FolderState {
             this.selectedPath = path;
             await browser.storage.local.set({ [FolderState.LAST_SELECTED_KEY]: path });
         } catch (error) {
-            console.error('[FolderState] Failed to save last selected:', error);
+            logger.error('[FolderState] Failed to save last selected:', error);
         }
     }
 
