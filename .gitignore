@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+node_modules
 
 # LLM
 openspec/
@@ -16,6 +17,7 @@ deployment.zip
 
 # Local & Environment
 local/
+.worktrees/
 .env
 .env.*
 

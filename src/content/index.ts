@@ -25,7 +25,9 @@ import { SettingsManager } from '../settings/SettingsManager';
 import { i18n } from '../utils/i18n';
 import { isBackgroundToContentMessage, isTrustedBackgroundSender } from './message-guards';
 import { DialogManager } from '../components/DialogManager';
+import { ChatGPTFoldingController } from './features/chatgpt-folding';
 type RuntimeStatus = 'ok' | 'unknown action' | 'untrusted sender';
+
 
 /**
  * Listen for messages from background script
@@ -57,6 +59,7 @@ class ContentScript {
     private mathClickHandler: MathClickHandler;
     private reRenderPanel: ReaderPanel;
     private deepResearchHandler?: DeepResearchHandler;
+    private chatgptFolding: ChatGPTFoldingController | null = null;
 
     // Bookmark state tracking (1-indexed positions).
     private bookmarkedPositions: Set<number> = new Set();
@@ -131,12 +134,18 @@ class ContentScript {
         // Initialize i18n before creating any components
         await i18n.init();
 
+        // ChatGPT long-chat folding / performance helpers (low intrusion)
+        const platformNameRaw = adapter.getPlatformName();
+        if (platformNameRaw === 'ChatGPT') {
+            this.chatgptFolding = new ChatGPTFoldingController();
+            await this.chatgptFolding.init(adapter);
+        }
+
         // Create injector first (needed by observer)
         this.injector = new ToolbarInjector(adapter);
 
         // Create observer with injector dependency
 
-        const platformNameRaw = adapter.getPlatformName();
         if (platformNameRaw === 'ChatGPT') {
             this.observer = new SelectorMessageObserver(
                 adapter,
@@ -267,6 +276,8 @@ class ContentScript {
         const adapter = adapterRegistry.getAdapter();
         if (!adapter) return;
 
+        this.chatgptFolding?.registerMessage(messageElement);
+
         const isArticle = messageElement.tagName.toLowerCase() === 'article';
         const isModelResponse = messageElement.tagName.toLowerCase() === 'model-response';
 
@@ -375,7 +386,7 @@ class ContentScript {
             },
             onSaveMessages: () => {
                 this.handleSaveMessages();
-            }
+            },
         };
 
         const toolbar = new Toolbar(callbacks);
@@ -777,6 +788,12 @@ class ContentScript {
         if (this.deepResearchHandler) {
             this.deepResearchHandler.disable();
             this.deepResearchHandler = undefined;
+        }
+
+        // 4.1 Cleanup ChatGPT folding controller
+        if (this.chatgptFolding) {
+            this.chatgptFolding.dispose();
+            this.chatgptFolding = null;
         }
 
         // 5. Reset state

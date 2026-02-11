@@ -15,6 +15,7 @@ export interface ToolbarCallbacks {
     onReRender: () => void;
     onBookmark?: () => void;
     onSaveMessages?: () => void;
+    onToggleCollapse?: () => Promise<boolean> | boolean;
 }
 
 /**
@@ -31,6 +32,8 @@ export class Toolbar {
     private wordCountInitialized: boolean = false;
     private wordCountInitInFlight: boolean = false;
     private pendingBookmarkState: boolean | null = null;
+    private pendingCollapsedState: boolean | null = null;
+    private collapsed: boolean = false;
     private unsubscribeTheme: (() => void) | null = null;
     private unsubscribeActivated: (() => void) | null = null;
 
@@ -158,6 +161,17 @@ export class Toolbar {
             );
         }
 
+        // Collapse button - only on platforms that provide folding callback
+        let collapseBtn: HTMLElement | null = null;
+        if (this.callbacks.onToggleCollapse) {
+            collapseBtn = this.createIconButton(
+                'collapse-btn',
+                this.getCollapseIcon(),
+                this.getCollapseActionLabel(),
+                () => { void this.handleToggleCollapse(); }
+            );
+        }
+
         // Word count stats (right side) - conditional
         let stats: HTMLElement | null = null;
         let divider: HTMLElement | null = null;
@@ -180,6 +194,7 @@ export class Toolbar {
         if (sourceBtn) buttonGroup.appendChild(sourceBtn);
         buttonGroup.appendChild(reRenderBtn);
         if (saveMessagesBtn) buttonGroup.appendChild(saveMessagesBtn);
+        if (collapseBtn) buttonGroup.appendChild(collapseBtn);
 
         wrapper.appendChild(buttonGroup);
         if (divider) wrapper.appendChild(divider);
@@ -196,6 +211,12 @@ export class Toolbar {
         if (this.pendingBookmarkState !== null) {
             this.setBookmarkState(this.pendingBookmarkState);
             this.pendingBookmarkState = null;
+        }
+
+        // Apply any pending collapsed state that was set before UI was ready
+        if (this.pendingCollapsedState !== null) {
+            this.setCollapsed(this.pendingCollapsedState);
+            this.pendingCollapsedState = null;
         }
     }
 
@@ -320,7 +341,7 @@ export class Toolbar {
             hoverTimeout = window.setTimeout(() => {
                 feedbackElement = document.createElement('div');
                 feedbackElement.className = 'aicopy-button-feedback';
-                feedbackElement.textContent = label;
+                feedbackElement.textContent = button.getAttribute('aria-label') || label;
                 button.style.position = 'relative';
                 button.appendChild(feedbackElement);
             }, 100);
@@ -424,6 +445,31 @@ export class Toolbar {
         }
     }
 
+    private getCollapseIcon(): string {
+        return this.collapsed ? Icons.chevronRight : Icons.chevronDown;
+    }
+
+    private getCollapseActionLabel(): string {
+        return this.collapsed ? i18n.t('btnExpand') : i18n.t('btnCollapse');
+    }
+
+    private async handleToggleCollapse(): Promise<void> {
+        if (!this.callbacks.onToggleCollapse) return;
+
+        const btn = this.shadowRoot.querySelector('#collapse-btn') as HTMLButtonElement | null;
+        if (!btn) return;
+
+        try {
+            btn.disabled = true;
+            const result = await this.callbacks.onToggleCollapse();
+            this.setCollapsed(Boolean(result));
+        } catch (error) {
+            logger.warn('[Toolbar] Toggle collapse failed:', error);
+        } finally {
+            btn.disabled = this.pending;
+        }
+    }
+
     /**
      * Handle Save as button click
      */
@@ -496,6 +542,21 @@ export class Toolbar {
             bookmarkBtn.title = i18n.t('btnBookmark');
             bookmarkBtn.setAttribute('aria-label', i18n.t('btnBookmark'));
         }
+    }
+
+    setCollapsed(collapsed: boolean): void {
+        const btn = this.shadowRoot.querySelector('#collapse-btn') as HTMLButtonElement | null;
+        if (!btn) {
+            this.pendingCollapsedState = collapsed;
+            this.collapsed = collapsed;
+            return;
+        }
+
+        this.collapsed = collapsed;
+        btn.innerHTML = this.getCollapseIcon();
+        const label = this.getCollapseActionLabel();
+        btn.title = label;
+        btn.setAttribute('aria-label', label);
     }
 
     /**
