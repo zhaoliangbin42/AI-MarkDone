@@ -54,3 +54,24 @@
 ### 验证
 - `npm run test -- tests/unit/settings-migration.test.ts tests/unit/i18n/no-hardcoded-accessibility-labels.test.ts` ✅
 - `npm run build` ✅（Chrome + Firefox）
+
+## Step 4（已完成）：language 迁移行为单测补齐（迁移窗口收口）
+
+### 背景
+- 虽已完成 `userLocale -> app_settings.language` 迁移逻辑，但缺少直接单测覆盖。
+- 风险：未来重构时迁移路径被静默破坏，导致旧用户语言配置丢失。
+
+### 修改
+- 新增测试：
+  - `/Users/benko/Documents/4-工作/7-OpenSource/AI-MarkDone/tests/unit/i18n/i18n-language-migration.test.ts`
+- 覆盖场景：
+  - canonical `language` 优先于 legacy `userLocale`
+  - canonical 为 `auto` 时触发一次性迁移（`set('language', ...)` + 删除 `userLocale`）
+  - 迁移写入失败时保持初始化可用（不中断 locale 加载）
+- 纳入核心门禁：
+  - `package.json` 的 `test:core` 增加该测试文件
+
+### 验证
+- `npm run test -- tests/unit/i18n/i18n-language-migration.test.ts` ✅
+- `npm run test:core` ✅
+- `npm run build:chrome` ✅

@@ -267,7 +267,11 @@ export class Toolbar {
         if (formatted !== 'No content') {
             const parts = formatted.split(' / ');
             if (parts.length >= 2) {
-                stats.innerHTML = `<div>${parts[0]}</div><div>${parts.slice(1).join(' ')}</div>`;
+                const line1 = document.createElement('div');
+                line1.textContent = parts[0];
+                const line2 = document.createElement('div');
+                line2.textContent = parts.slice(1).join(' ');
+                stats.replaceChildren(line1, line2);
             } else {
                 stats.textContent = formatted;
             }
@@ -304,7 +308,7 @@ export class Toolbar {
         button.id = id;
         button.className = 'aicopy-button';
         button.setAttribute('aria-label', label);
-        button.innerHTML = icon;
+        this.setButtonIcon(button, icon);
         button.addEventListener('click', onClick);
 
         // Hover tooltip using feedback mechanism
@@ -363,8 +367,7 @@ export class Toolbar {
                 await this.refreshWordCount();
 
                 // Change icon to checkmark
-                const originalIcon = btn.innerHTML;
-                btn.innerHTML = Icons.check;
+                this.setButtonIcon(btn, Icons.check);
                 btn.style.color = 'var(--theme-color)';
 
                 // Show "Copied!" feedback
@@ -374,7 +377,7 @@ export class Toolbar {
 
                 // Reset after 2 seconds
                 setTimeout(() => {
-                    btn.innerHTML = originalIcon;
+                    this.setButtonIcon(btn, Icons.copy);
                     btn.style.color = '';
                     btn.disabled = false;
                 }, 2000);
@@ -452,6 +455,20 @@ export class Toolbar {
         setTimeout(() => {
             feedback.remove();
         }, 1500);
+    }
+
+    /**
+     * Safely set static icon SVG into a button.
+     */
+    private setButtonIcon(button: HTMLButtonElement, iconSvg: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = iconSvg.trim();
+        const svg = template.content.firstElementChild;
+        if (svg) {
+            button.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        button.textContent = '';
     }
 
     /**

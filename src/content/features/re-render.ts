@@ -384,34 +384,51 @@ export class ReaderPanel {
     private createHeader(): HTMLElement {
         const header = document.createElement('div');
         header.className = 'aicopy-panel-header';
-        header.innerHTML = `
-            <div class="aicopy-panel-header-left">
-                <h2 class="aicopy-panel-title">${i18n.t('readerTitle')}</h2>
-                <div class="aicopy-header-actions">
-                    <button class="aicopy-panel-btn" id="fullscreen-btn" title="${i18n.t('toggleFullscreen')}">
-                        ${Icons.maximize}
-                    </button>
-                    <button class="aicopy-panel-btn" id="bookmark-btn" title="${i18n.t('bookmark')}">
-                        ${Icons.bookmark}
-                    </button>
-                    <button class="aicopy-panel-btn" id="copy-btn" title="${i18n.t('copyMarkdown')}">
-                        ${Icons.copy}
-                    </button>
-                    <button class="aicopy-panel-btn" id="source-btn" title="${i18n.t('viewSource')}">
-                        ${Icons.code}
-                    </button>
-                </div>
-            </div>
-            <button class="aicopy-panel-btn" id="close-btn" title="${i18n.t('close')}">×</button>
-        `;
+        const headerLeft = document.createElement('div');
+        headerLeft.className = 'aicopy-panel-header-left';
 
-        header.querySelector('#close-btn')?.addEventListener('click', () => this.hide());
-        header.querySelector('#fullscreen-btn')?.addEventListener('click', () => this.toggleFullscreen());
-        header.querySelector('#bookmark-btn')?.addEventListener('click', () => this.handleReaderBookmark());
-        header.querySelector('#copy-btn')?.addEventListener('click', () => this.handleReaderCopyMarkdown());
-        header.querySelector('#source-btn')?.addEventListener('click', () => this.handleReaderViewSource());
+        const title = document.createElement('h2');
+        title.className = 'aicopy-panel-title';
+        title.textContent = i18n.t('readerTitle');
+
+        const actions = document.createElement('div');
+        actions.className = 'aicopy-header-actions';
+
+        const fullscreenBtn = this.createHeaderButton('fullscreen-btn', i18n.t('toggleFullscreen'), Icons.maximize);
+        const bookmarkBtn = this.createHeaderButton('bookmark-btn', i18n.t('bookmark'), Icons.bookmark);
+        const copyBtn = this.createHeaderButton('copy-btn', i18n.t('copyMarkdown'), Icons.copy);
+        const sourceBtn = this.createHeaderButton('source-btn', i18n.t('viewSource'), Icons.code);
+        const closeBtn = this.createHeaderButton('close-btn', i18n.t('close'), undefined, '×');
+
+        fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+        bookmarkBtn.addEventListener('click', () => this.handleReaderBookmark());
+        copyBtn.addEventListener('click', () => this.handleReaderCopyMarkdown());
+        sourceBtn.addEventListener('click', () => this.handleReaderViewSource());
+        closeBtn.addEventListener('click', () => this.hide());
+
+        actions.append(fullscreenBtn, bookmarkBtn, copyBtn, sourceBtn);
+        headerLeft.append(title, actions);
+        header.append(headerLeft, closeBtn);
 
         return header;
+    }
+
+    private createHeaderButton(
+        id: string,
+        title: string,
+        iconSvg?: string,
+        text?: string
+    ): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.className = 'aicopy-panel-btn';
+        button.id = id;
+        button.title = title;
+        if (iconSvg) {
+            this.setButtonIcon(button, iconSvg);
+        } else {
+            button.textContent = text || '';
+        }
+        return button;
     }
 
     /**
@@ -440,7 +457,7 @@ export class ReaderPanel {
         // 2.1 Navigation Left
         const leftBtn = document.createElement('button');
         leftBtn.className = 'aicopy-nav-button aicopy-nav-button-left';
-        leftBtn.innerHTML = '◀';
+        leftBtn.textContent = '◀';
         leftBtn.setAttribute('aria-label', i18n.t('previousMessage')); // Accessibility
         leftBtn.disabled = true; // Initial state
 
@@ -451,7 +468,7 @@ export class ReaderPanel {
         // 2.3 Navigation Right
         const rightBtn = document.createElement('button');
         rightBtn.className = 'aicopy-nav-button aicopy-nav-button-right';
-        rightBtn.innerHTML = '▶';
+        rightBtn.textContent = '▶';
         rightBtn.setAttribute('aria-label', i18n.t('nextMessage'));
         rightBtn.disabled = true;
 
@@ -520,7 +537,7 @@ export class ReaderPanel {
         this.triggerBtn = document.createElement('button');
         this.triggerBtn.className = 'aimd-trigger-btn';
         this.triggerBtn.title = i18n.t('sendMessage');
-        this.triggerBtn.innerHTML = Icons.messageSquareText;
+        this.setButtonIcon(this.triggerBtn, Icons.messageSquareText);
 
         const adapter = adapterRegistry.getAdapter();
         if (adapter) {
@@ -603,7 +620,7 @@ export class ReaderPanel {
         const jumpBtn = document.createElement('button');
         jumpBtn.className = 'aimd-trigger-btn';
         jumpBtn.title = i18n.t('jumpToMessage');
-        jumpBtn.innerHTML = Icons.locate;
+        this.setButtonIcon(jumpBtn, Icons.locate);
         jumpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.handleJumpToCurrent();
@@ -656,13 +673,13 @@ export class ReaderPanel {
         if (!this.triggerBtn) return;
 
         if (state === 'waiting') {
-            this.triggerBtn.innerHTML = Icons.hourglass;
+            this.setButtonIcon(this.triggerBtn, Icons.hourglass);
             this.triggerBtn.classList.add('waiting');
             this.triggerBtn.disabled = true;
             this.isSending = true;
             logger.info('[ReaderPanel] Button set to WAITING state');
         } else {
-            this.triggerBtn.innerHTML = Icons.messageSquareText;
+            this.setButtonIcon(this.triggerBtn, Icons.messageSquareText);
             this.triggerBtn.classList.remove('waiting');
             this.triggerBtn.disabled = false;
             this.isSending = false;
@@ -787,21 +804,38 @@ export class ReaderPanel {
                     ? normalizedPrompt.slice(0, 200) + '...'
                     : normalizedPrompt;
 
-                const userIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                const userHeader = document.createElement('div');
+                userHeader.className = 'message-user-header';
 
-                const modelIcon = this.getSafePlatformIcon(item.meta?.platform);
+                const userIcon = document.createElement('div');
+                userIcon.className = 'user-icon';
+                const userIconNode = this.parseSvgIcon('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>');
+                if (userIconNode) {
+                    userIcon.appendChild(userIconNode);
+                }
 
-                body.innerHTML = `
-                    <div class="message-user-header">
-                        <div class="user-icon">${userIcon}</div>
-                        <div class="user-content">${this.escapeHtml(displayPrompt)}</div>
-                    </div>
-                    
-                    <div class="message-model-container">
-                        <div class="model-icon">${modelIcon}</div>
-                        <div class="markdown-body">${html}</div>
-                    </div>
-                `;
+                const userContent = document.createElement('div');
+                userContent.className = 'user-content';
+                userContent.textContent = displayPrompt;
+
+                userHeader.append(userIcon, userContent);
+
+                const modelContainer = document.createElement('div');
+                modelContainer.className = 'message-model-container';
+
+                const modelIcon = document.createElement('div');
+                modelIcon.className = 'model-icon';
+                const modelIconNode = this.parseSvgIcon(this.getSafePlatformIcon(item.meta?.platform));
+                if (modelIconNode) {
+                    modelIcon.appendChild(modelIconNode);
+                }
+
+                const markdownBody = document.createElement('div');
+                markdownBody.className = 'markdown-body';
+                this.applyHtmlFragment(markdownBody, html);
+
+                modelContainer.append(modelIcon, markdownBody);
+                body.replaceChildren(userHeader, modelContainer);
             }
         }
     }
@@ -848,7 +882,7 @@ export class ReaderPanel {
         const isFullscreen = panel.classList.contains('aicopy-panel-fullscreen');
 
         if (btn) {
-            btn.innerHTML = isFullscreen ? Icons.minimize : Icons.maximize;
+            this.setButtonIcon(btn as HTMLButtonElement, isFullscreen ? Icons.minimize : Icons.maximize);
             btn.setAttribute('title', isFullscreen ? i18n.t('exitFullscreen') : i18n.t('toggleFullscreen'));
         }
     }
@@ -882,14 +916,13 @@ export class ReaderPanel {
             const success = await copyToClipboard(content);
             if (!success) throw new Error('Failed to copy');
 
-            const originalIcon = copyBtn.innerHTML;
-            copyBtn.innerHTML = Icons.check;
+            this.setButtonIcon(copyBtn, Icons.check);
             copyBtn.style.color = 'var(--aimd-toolbar-theme-color)';
             this.showButtonFeedback(copyBtn, i18n.t('btnCopied'));
             logger.debug('[ReaderPanel] Copied markdown to clipboard');
 
             setTimeout(() => {
-                copyBtn.innerHTML = originalIcon;
+                this.setButtonIcon(copyBtn, Icons.copy);
                 copyBtn.style.color = '';
                 copyBtn.disabled = false;
             }, 2000);
@@ -909,6 +942,51 @@ export class ReaderPanel {
         setTimeout(() => {
             feedback.remove();
         }, 1500);
+    }
+
+    /**
+     * Safely set static icon SVG into a button.
+     */
+    private setButtonIcon(button: HTMLButtonElement, iconSvg: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = iconSvg.trim();
+        const svg = template.content.firstElementChild;
+        if (svg) {
+            button.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        button.textContent = '';
+    }
+
+    /**
+     * Parse trusted SVG markup and return an imported SVG element.
+     */
+    private parseSvgIcon(iconSvg: string): Element | null {
+        const template = document.createElement('template');
+        template.innerHTML = iconSvg.trim();
+        const svg = template.content.firstElementChild;
+        if (!svg) {
+            return null;
+        }
+        return svg.cloneNode(true) as Element;
+    }
+
+    /**
+     * Apply a trusted HTML fragment to a container without direct template assignment.
+     */
+    private applyHtmlFragment(container: HTMLElement, html: string): void {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+        const wrapper = doc.body.firstElementChild as HTMLElement | null;
+        if (!wrapper) {
+            container.replaceChildren();
+            return;
+        }
+        const fragment = document.createDocumentFragment();
+        Array.from(wrapper.childNodes).forEach((node) => {
+            fragment.appendChild(document.importNode(node, true));
+        });
+        container.replaceChildren(fragment);
     }
 
     /**

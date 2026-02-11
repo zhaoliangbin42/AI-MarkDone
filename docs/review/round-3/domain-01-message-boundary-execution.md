@@ -75,3 +75,26 @@
 - `npm run test -- tests/unit/background/firefox-message-contract.test.ts` ✅
 - `npm run build:chrome` ✅
 - `npm run build:firefox` ✅
+
+## Step 4（已完成）：sender tabId 合法性矩阵补齐
+
+### 背景
+- Step 3 仅限制了 `sender.tab.id` 为 number，但未排除负数/非整数/NaN 这类异常值。
+- 为避免边界值绕过，需收紧为“非负整数 tabId”并补齐单测矩阵。
+
+### 修改
+- `src/background/message-guards.ts`
+  - `isTrustedExtensionSender` 增加：
+    - `Number.isInteger(tabId)`
+    - `tabId >= 0`
+- `src/background/background-firefox.js`
+  - 同步以上 tabId 合法性规则。
+- `tests/unit/background-message-guards.test.ts`
+  - 新增断言：
+    - `tab.id = 0` 允许
+    - `tab.id = -1 / 1.5 / NaN` 拒绝
+
+### 验证
+- `npm run test -- tests/unit/background-message-guards.test.ts` ✅
+- `npm run build:chrome` ✅
+- `npm run build:firefox` ✅

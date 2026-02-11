@@ -880,7 +880,11 @@ export class SimpleBookmarkPanel {
 
             const header = this.shadowRoot.querySelector('h2');
             if (header) {
-                header.innerHTML = `${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})`;
+                const icon = document.createElement('span');
+                icon.className = 'header-icon';
+                this.setIconOnlyContent(icon, Icons.bookmark);
+                const text = document.createTextNode(` AI-MarkDone (${this.bookmarks.length})`);
+                header.replaceChildren(icon, text);
             }
 
             // Update batch actions bar state
@@ -926,12 +930,12 @@ export class SimpleBookmarkPanel {
 
         // Update icons based on direction
         if (isTimeMode) {
-            timeBtn.innerHTML = this.sortMode === 'time-asc' ? Icons.sortTimeAsc : Icons.sortTime;
+            this.setIconOnlyContent(timeBtn as HTMLElement, this.sortMode === 'time-asc' ? Icons.sortTimeAsc : Icons.sortTime);
             timeBtn.setAttribute('title', this.sortMode === 'time-asc'
                 ? i18n.t('sortByTimeAscTitle')
                 : i18n.t('sortByTimeDescTitle'));
         } else {
-            alphaBtn.innerHTML = this.sortMode === 'alpha-desc' ? Icons.sortAlphaAsc : Icons.sortAZ;
+            this.setIconOnlyContent(alphaBtn as HTMLElement, this.sortMode === 'alpha-desc' ? Icons.sortAlphaAsc : Icons.sortAZ);
             alphaBtn.setAttribute('title', this.sortMode === 'alpha-desc'
                 ? i18n.t('sortAlphaDescTitle')
                 : i18n.t('sortAlphaAscTitle'));
@@ -1753,7 +1757,7 @@ export class SimpleBookmarkPanel {
             // Update folder icon
             const icon = folderElement.querySelector('.folder-icon');
             if (icon) {
-                icon.innerHTML = isExpanded ? Icons.folderOpen : Icons.folder;
+                this.setIconOnlyContent(icon as HTMLElement, isExpanded ? Icons.folderOpen : Icons.folder);
             }
 
             // Update toggle button
@@ -2087,7 +2091,7 @@ export class SimpleBookmarkPanel {
                 // Update folder icon (📂 → 📁)
                 const icon = folderElement.querySelector('.folder-icon');
                 if (icon) {
-                    icon.innerHTML = Icons.folder;
+                    this.setIconOnlyContent(icon as HTMLElement, Icons.folder);
                 }
 
                 // Remove expanded class
@@ -2336,14 +2340,14 @@ export class SimpleBookmarkPanel {
         confirmBtn.className = 'inline-edit-btn inline-edit-confirm';
         confirmBtn.title = i18n.t('confirmRename');
         confirmBtn.setAttribute('aria-label', i18n.t('confirmRename'));
-        confirmBtn.innerHTML = Icons.check;
+        this.setIconOnlyContent(confirmBtn, Icons.check);
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'inline-edit-btn inline-edit-cancel';
         cancelBtn.title = i18n.t('cancelRename');
         cancelBtn.setAttribute('aria-label', i18n.t('cancelRename'));
-        cancelBtn.innerHTML = Icons.x;
+        this.setIconOnlyContent(cancelBtn, Icons.x);
 
         const error = document.createElement('div');
         error.className = 'inline-edit-error';
@@ -4724,6 +4728,21 @@ export class SimpleBookmarkPanel {
             this.overlay = null;
             this.shadowRoot = null;
         }
+    }
+
+    /**
+     * Set icon-only button content from trusted SVG string constants.
+     * Why: avoid ad-hoc innerHTML assignments while preserving existing icon assets.
+     */
+    private setIconOnlyContent(target: HTMLElement, svgIcon: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = svgIcon.trim();
+        const svg = template.content.firstElementChild;
+        if (svg && svg.tagName.toLowerCase() === 'svg') {
+            target.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        target.textContent = '';
     }
 
     /**

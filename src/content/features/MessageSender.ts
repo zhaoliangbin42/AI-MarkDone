@@ -58,30 +58,22 @@ function parseToPlainText(element: HTMLElement): string {
 }
 
 /**
- * Convert plain text to HTML for contenteditable (ProseMirror format).
- * Each line becomes a <p> element; empty lines become <p><br></p>.
- * 
- * @param text - Plain text with newlines
- * @returns HTML string
+ * Apply plain text to contenteditable as ProseMirror-like block structure.
+ * Avoids direct innerHTML assignment on high-risk paths.
  */
-function toHTML(text: string): string {
-    return text.split('\n').map(line => {
+function applyPlainTextToContenteditable(input: HTMLElement, text: string): void {
+    const lines = text.split('\n');
+    const nodes: HTMLElement[] = lines.map((line) => {
+        const p = document.createElement('p');
         if (line === '') {
-            return '<p><br></p>';  // Empty line
+            p.appendChild(document.createElement('br'));
+        } else {
+            p.textContent = line;
         }
-        return `<p>${escapeHTML(line)}</p>`;
-    }).join('');
-}
+        return p;
+    });
 
-/**
- * Escape HTML special characters.
- */
-function escapeHTML(str: string): string {
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    input.replaceChildren(...nodes);
 }
 
 export interface MessageSenderOptions {
@@ -191,10 +183,9 @@ export class MessageSender {
                 input.value = text;
                 logger.debug('[MessageSender] Set textarea/input value');
             } else {
-                // For contenteditable, use DOM-based serialization with proper escaping
-                const html = toHTML(text);
-                input.innerHTML = html;
-                logger.debug('[MessageSender] Set contenteditable innerHTML', {
+                // For contenteditable, use safe DOM node composition.
+                applyPlainTextToContenteditable(input, text);
+                logger.debug('[MessageSender] Set contenteditable content', {
                     lineCount: text.split('\n').length,
                 });
             }
@@ -379,11 +370,11 @@ export class MessageSender {
 
                 // Try execCommand first
                 if (!document.execCommand('delete')) {
-                    input.innerHTML = '';
+                    input.replaceChildren();
                 }
             } else {
                 // Direct clear without focus
-                input.innerHTML = '';
+                input.replaceChildren();
             }
         }
     }

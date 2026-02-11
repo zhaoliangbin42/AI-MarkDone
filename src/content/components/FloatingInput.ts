@@ -202,7 +202,7 @@ export class FloatingInput {
         const collapseBtn = document.createElement('button');
         collapseBtn.className = 'aimd-float-collapse-btn';
         collapseBtn.title = i18n.t('collapse');
-        collapseBtn.innerHTML = Icons.chevronDown;
+        this.setButtonIcon(collapseBtn, Icons.chevronDown);
         collapseBtn.addEventListener('click', () => this.hide());
         header.appendChild(collapseBtn);
 
@@ -239,7 +239,7 @@ export class FloatingInput {
         this.sendBtn = document.createElement('button');
         this.sendBtn.className = 'aimd-float-send-btn';
         this.sendBtn.title = i18n.t('send');
-        this.sendBtn.innerHTML = Icons.send;
+        this.setButtonIcon(this.sendBtn, Icons.send);
         this.sendBtn.addEventListener('click', () => {
             const text = this.textarea?.value.trim() || '';
             if (text) {
@@ -262,6 +262,20 @@ export class FloatingInput {
         }
 
         return container;
+    }
+
+    /**
+     * Safely set static icon SVG into a button.
+     */
+    private setButtonIcon(button: HTMLButtonElement, iconSvg: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = iconSvg.trim();
+        const svg = template.content.firstElementChild;
+        if (svg) {
+            button.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        button.textContent = '';
     }
 
     /**

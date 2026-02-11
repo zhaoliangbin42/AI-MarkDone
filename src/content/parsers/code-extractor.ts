@@ -15,8 +15,7 @@ export class CodeExtractor {
     this.placeholderMap.clear();
     this.placeholderCounter = 0;
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+    const tempDiv = parseHtmlToContainer(html);
 
     // Process <pre><code> blocks (fenced code blocks)
     this.extractPreCodeBlocks(tempDiv);
@@ -144,4 +143,15 @@ export class CodeExtractor {
   getPlaceholderMap(): Map<string, string> {
     return this.placeholderMap;
   }
+}
+
+function parseHtmlToContainer(html: string): HTMLDivElement {
+  const parsed = new DOMParser().parseFromString(`<div id="aimd-code-root">${html}</div>`, 'text/html');
+  const wrapper = parsed.getElementById('aimd-code-root');
+  if (wrapper && wrapper instanceof HTMLDivElement) {
+    return wrapper;
+  }
+  const fallback = document.createElement('div');
+  fallback.textContent = html;
+  return fallback;
 }

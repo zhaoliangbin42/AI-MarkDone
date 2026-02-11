@@ -21,6 +21,10 @@
 - `block.innerHTML = result`
 - `result` 来源于解析链路，需核验只含受控片段。
 
+### 当前状态（Round-3 Step6）
+- 上述 3 处高风险 `innerHTML` 赋值已替换为 `DOMParser + replaceChildren` 或节点拼装方式（已完成）。
+- 同时收敛了 parser 入口的 `tempDiv.innerHTML = html`（math/code/table）到 DOMParser 容器解析。
+
 ## 中风险（模板字符串注入点，需确认变量来源）
 
 1. `/Users/benko/Documents/4-工作/7-OpenSource/AI-MarkDone/src/bookmarks/components/SimpleBookmarkPanel.ts`（多处 `modal.innerHTML = \`...\``）

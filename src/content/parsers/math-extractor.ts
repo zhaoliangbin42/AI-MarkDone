@@ -19,8 +19,7 @@ export class MathExtractor {
         this.placeholderCounter = 0;
 
         // Clone to avoid modifying original
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
+        const tempDiv = parseHtmlToContainer(html);
 
         // Process in order of priority
         // 1. Successfully rendered KaTeX (block display)
@@ -299,9 +298,27 @@ function processBlockWithTextApproach(block: HTMLElement): number {
     }
 
     // Step 3: Apply the modified HTML back to the block
-    block.innerHTML = result;
+    const wrapper = parseHtmlToContainer(result);
+    if (wrapper) {
+        const fragment = document.createDocumentFragment();
+        Array.from(wrapper.childNodes).forEach((node) => {
+            fragment.appendChild(document.importNode(node, true));
+        });
+        block.replaceChildren(fragment);
+    }
 
     return 1;
+}
+
+function parseHtmlToContainer(html: string): HTMLDivElement {
+    const parsed = new DOMParser().parseFromString(`<div id="aimd-math-root">${html}</div>`, 'text/html');
+    const wrapper = parsed.getElementById('aimd-math-root');
+    if (wrapper && wrapper instanceof HTMLDivElement) {
+        return wrapper;
+    }
+    const fallback = document.createElement('div');
+    fallback.textContent = html;
+    return fallback;
 }
 
 /**
