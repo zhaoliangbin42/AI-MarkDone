@@ -9,6 +9,7 @@
 
 import type { IPlatformAdapter, LatexResult } from './IPlatformAdapter';
 import { decodeEntities } from '../utils/entities';
+import { logger } from '../../utils/logger';
 
 export class ClaudeAdapter implements IPlatformAdapter {
     readonly name = 'Claude';
@@ -58,7 +59,7 @@ export class ClaudeAdapter implements IPlatformAdapter {
                     return result;
                 }
             } catch (error) {
-                console.warn(
+                logger.warn(
                     `[ClaudeAdapter] LaTeX extraction strategy failed:`,
                     strategy.name,
                     error
@@ -68,7 +69,7 @@ export class ClaudeAdapter implements IPlatformAdapter {
         }
 
         // Ultimate fallback: preserve HTML
-        console.error('[ClaudeAdapter] All LaTeX strategies failed for node', mathNode);
+        logger.error('[ClaudeAdapter] All LaTeX strategies failed for node', mathNode);
         return {
             latex: mathNode.outerHTML,
             isBlock: this.isBlockMath(mathNode),
@@ -172,7 +173,7 @@ export class ClaudeAdapter implements IPlatformAdapter {
                 isBlock: this.isBlockMath(mathNode),
             };
         } catch (error) {
-            console.warn('[ClaudeAdapter] MathML parsing failed:', error);
+            logger.warn('[ClaudeAdapter] MathML parsing failed:', error);
             return null;
         }
     }
@@ -226,7 +227,7 @@ export class ClaudeAdapter implements IPlatformAdapter {
             case 'mfrac': {
                 const [numerator, denominator] = element.children;
                 if (!numerator || !denominator) return '';
-                return `\\frac{${this.mathMLToLatex(numerator)}}${this.mathMLToLatex(denominator)}}`;
+                return `\\frac{${this.mathMLToLatex(numerator)}}{${this.mathMLToLatex(denominator)}}`;
             }
 
             case 'msqrt': {
@@ -264,13 +265,13 @@ export class ClaudeAdapter implements IPlatformAdapter {
 
         // Too long = likely malformed
         if (latex.length > 10000) {
-            console.warn('[ClaudeAdapter] LaTeX too long:', latex.length);
+            logger.warn('[ClaudeAdapter] LaTeX too long:', latex.length);
             return false;
         }
 
         // XSS attempt
         if (latex.includes('<script>')) {
-            console.error('[ClaudeAdapter] XSS attempt detected in LaTeX');
+            logger.error('[ClaudeAdapter] XSS attempt detected in LaTeX');
             return false;
         }
 

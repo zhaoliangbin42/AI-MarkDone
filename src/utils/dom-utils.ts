@@ -98,7 +98,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
         await navigator.clipboard.writeText(text);
         return true;
     } catch (error) {
-        console.error('Failed to copy to clipboard:', error);
+        logger.error('[dom-utils] Failed to copy to clipboard:', error);
         // Fallback method
         try {
             const textarea = document.createElement('textarea');
@@ -111,7 +111,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
             document.body.removeChild(textarea);
             return success;
         } catch (fallbackError) {
-            console.error('Fallback copy failed:', fallbackError);
+            logger.error('[dom-utils] Fallback copy failed:', fallbackError);
             return false;
         }
     }
@@ -138,7 +138,7 @@ export function safeQuerySelector(
     try {
         return parent.querySelector(selector);
     } catch (error) {
-        console.error('Invalid selector:', selector, error);
+        logger.error('[dom-utils] Invalid selector:', selector, error);
         return null;
     }
 }
@@ -184,3 +184,4 @@ export function setupKeyboardIsolation(
     element.addEventListener('click', (e) => e.stopPropagation());
     element.addEventListener('focus', (e) => e.stopPropagation());
 }
+import { logger } from './logger';

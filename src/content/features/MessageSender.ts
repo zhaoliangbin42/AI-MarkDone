@@ -58,30 +58,22 @@ function parseToPlainText(element: HTMLElement): string {
 }
 
 /**
- * Convert plain text to HTML for contenteditable (ProseMirror format).
- * Each line becomes a <p> element; empty lines become <p><br></p>.
- * 
- * @param text - Plain text with newlines
- * @returns HTML string
+ * Apply plain text to contenteditable as ProseMirror-like block structure.
+ * Avoids direct innerHTML assignment on high-risk paths.
  */
-function toHTML(text: string): string {
-    return text.split('\n').map(line => {
+function applyPlainTextToContenteditable(input: HTMLElement, text: string): void {
+    const lines = text.split('\n');
+    const nodes: HTMLElement[] = lines.map((line) => {
+        const p = document.createElement('p');
         if (line === '') {
-            return '<p><br></p>';  // Empty line
+            p.appendChild(document.createElement('br'));
+        } else {
+            p.textContent = line;
         }
-        return `<p>${escapeHTML(line)}</p>`;
-    }).join('');
-}
+        return p;
+    });
 
-/**
- * Escape HTML special characters.
- */
-function escapeHTML(str: string): string {
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    input.replaceChildren(...nodes);
 }
 
 export interface MessageSenderOptions {
@@ -101,7 +93,7 @@ export class MessageSender {
      */
     readFromNative(): string {
         const input = this.adapter.getInputElement();
-        logger.info('[MessageSender] readFromNative called', {
+        logger.debug('[MessageSender] readFromNative called', {
             hasInput: !!input,
             inputTag: input?.tagName,
             inputClass: input?.className
@@ -114,16 +106,15 @@ export class MessageSender {
         // Handle different input types
         if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
             const value = input.value;
-            logger.info('[MessageSender] Read from textarea/input', { length: value.length, preview: value.substring(0, 50) });
+            logger.debug('[MessageSender] Read from textarea/input', { length: value.length });
             return value;
         }
 
         // Contenteditable element - use DOM-based serialization for accuracy
         if (input.getAttribute('contenteditable') === 'true') {
             const text = parseToPlainText(input);
-            logger.info('[MessageSender] 🔍 Read from contenteditable', {
+            logger.debug('[MessageSender] Read from contenteditable', {
                 length: text.length,
-                preview: text.substring(0, 80).replace(/\n/g, '\\n'),
                 newlineCount: (text.match(/\n/g) || []).length
             });
             return text;
@@ -161,7 +152,7 @@ export class MessageSender {
             this.tryDirectDOM(input, text);
 
         if (success) {
-            logger.debug('[MessageSender] Synced to native input:', text.substring(0, 30));
+            logger.debug('[MessageSender] Synced to native input');
         } else {
             logger.error('[MessageSender] All sync strategies failed');
         }
@@ -176,9 +167,8 @@ export class MessageSender {
      * Triggers beforeinput + input events to notify framework of changes
      */
     silentSync(text: string): boolean {
-        logger.info('[MessageSender] 🔍 silentSync called', {
+        logger.debug('[MessageSender] silentSync called', {
             textLength: text.length,
-            preview: text.substring(0, 50).replace(/\n/g, '\\n'),
             newlineCount: (text.match(/\n/g) || []).length
         });
         const input = this.adapter.getInputElement();
@@ -191,14 +181,12 @@ export class MessageSender {
             // 1. Set content
             if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
                 input.value = text;
-                logger.info('[MessageSender] Set textarea/input value');
+                logger.debug('[MessageSender] Set textarea/input value');
             } else {
-                // For contenteditable, use DOM-based serialization with proper escaping
-                const html = toHTML(text);
-                input.innerHTML = html;
-                logger.info('[MessageSender] 🔍 Set contenteditable innerHTML', {
+                // For contenteditable, use safe DOM node composition.
+                applyPlainTextToContenteditable(input, text);
+                logger.debug('[MessageSender] Set contenteditable content', {
                     lineCount: text.split('\n').length,
-                    htmlPreview: html.substring(0, 100)
                 });
             }
 
@@ -209,7 +197,7 @@ export class MessageSender {
                 inputType: 'insertText',
                 data: text
             }));
-            logger.info('[MessageSender] Dispatched beforeinput event');
+            logger.debug('[MessageSender] Dispatched beforeinput event');
 
             input.dispatchEvent(new InputEvent('input', {
                 bubbles: true,
@@ -217,9 +205,9 @@ export class MessageSender {
                 inputType: 'insertText',
                 data: text
             }));
-            logger.info('[MessageSender] Dispatched input event');
+            logger.debug('[MessageSender] Dispatched input event');
 
-            logger.info('[MessageSender] 🔍 silentSync completed successfully');
+            logger.debug('[MessageSender] silentSync completed successfully');
             return true;
         } catch (e) {
             logger.error('[MessageSender] silentSync failed:', e);
@@ -382,11 +370,11 @@ export class MessageSender {
 
                 // Try execCommand first
                 if (!document.execCommand('delete')) {
-                    input.innerHTML = '';
+                    input.replaceChildren();
                 }
             } else {
                 // Direct clear without focus
-                input.innerHTML = '';
+                input.replaceChildren();
             }
         }
     }

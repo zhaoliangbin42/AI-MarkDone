@@ -6,6 +6,8 @@
  */
 
 import { logger } from './logger';
+import { browser } from './browser';
+import { SettingsManager } from '../settings/SettingsManager';
 
 type Locale = 'auto' | 'en' | 'zh_CN';
 type Messages = Record<string, { message: string; description?: string }>;
@@ -33,9 +35,28 @@ class I18nService {
         try {
             logger.debug('[AI-MarkDone][i18n] Starting initialization');
 
-            // Read user preference
-            const result = await chrome.storage.local.get('userLocale');
-            this.locale = (result.userLocale as Locale) || 'auto';
+            // Read canonical setting first. If still `auto`, perform one-time legacy migration
+            // from local `userLocale` to `app_settings.language`.
+            const settingsLanguage = await SettingsManager.getInstance().get('language');
+            if (settingsLanguage && settingsLanguage !== 'auto') {
+                this.locale = settingsLanguage;
+            } else {
+                const result = await browser.storage.local.get('userLocale');
+                const userLocale = (result as { userLocale?: Locale } | undefined)?.userLocale;
+
+                if (userLocale && userLocale !== 'auto') {
+                    this.locale = userLocale;
+                    try {
+                        await SettingsManager.getInstance().set('language', userLocale);
+                        await browser.storage.local.remove('userLocale');
+                        logger.info('[AI-MarkDone][i18n] Migrated legacy userLocale to app_settings.language');
+                    } catch (migrationError) {
+                        logger.warn('[AI-MarkDone][i18n] Failed to migrate legacy userLocale:', migrationError);
+                    }
+                } else {
+                    this.locale = 'auto';
+                }
+            }
             logger.debug('[AI-MarkDone][i18n] User locale:', this.locale);
 
             // Determine actual locale to load
@@ -65,7 +86,7 @@ class I18nService {
      */
     private async loadMessages(locale: string): Promise<void> {
         try {
-            const url = chrome.runtime.getURL(`_locales/${locale}/messages.json`);
+            const url = browser.runtime.getURL(`_locales/${locale}/messages.json`);
             logger.debug('[AI-MarkDone][i18n] Loading locale messages:', locale);
 
             const response = await fetch(url);
@@ -77,12 +98,22 @@ class I18nService {
             this.messages = await response.json();
             logger.debug('[AI-MarkDone][i18n] Loaded keys:', Object.keys(this.messages).length);
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const cause = (error as { cause?: unknown } | null)?.cause;
+            const causeMessage = cause
+                ? String(cause)
+                : '';
+            if (errorMessage.includes('unknown scheme') || causeMessage.includes('unknown scheme')) {
+                logger.debug('[AI-MarkDone][i18n] Skipping locale fetch in unsupported scheme environment');
+                this.messages = {};
+                return;
+            }
             logger.warn(`[AI-MarkDone][i18n] Failed to load locale: ${locale}`, error);
             // Fallback to English if specified locale fails
             if (locale !== 'en') {
                 try {
                     logger.debug('[AI-MarkDone][i18n] Trying English fallback');
-                    const fallbackUrl = chrome.runtime.getURL('_locales/en/messages.json');
+                    const fallbackUrl = browser.runtime.getURL('_locales/en/messages.json');
                     const fallbackResponse = await fetch(fallbackUrl);
                     this.messages = await fallbackResponse.json();
                     logger.debug('[AI-MarkDone][i18n] English fallback loaded keys:', Object.keys(this.messages).length);
@@ -115,7 +146,22 @@ class I18nService {
 
         // Return from loaded messages
         const message = this.messages[key]?.message;
-        if (!message) return key; // Fallback to key if not found
+        if (!message) {
+            // Secondary fallback to extension i18n runtime dictionary.
+            // This avoids leaking raw keys (e.g. "btnDelete") during init races.
+            try {
+                const runtimeMessage = browser.i18n?.getMessage(
+                    key,
+                    substitutions as string | string[] | undefined
+                );
+                if (runtimeMessage) {
+                    return runtimeMessage;
+                }
+            } catch {
+                // Ignore runtime i18n failures and keep key fallback.
+            }
+            return key; // Last fallback
+        }
 
         // Simple substitution (for $1, $2, etc.)
         if (!substitutions) return message;

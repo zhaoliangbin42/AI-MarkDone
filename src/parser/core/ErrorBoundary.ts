@@ -54,7 +54,7 @@ export function withErrorBoundary<T>(
     try {
         return fn();
     } catch (error) {
-        console.error(
+        logger.error(
             `[${context.handlerName}] Failed for node`,
             {
                 nodeType: context.node.nodeType,
@@ -83,3 +83,4 @@ export function checkMaxDepth(depth: number, maxDepth: number = 100): void {
         );
     }
 }
+import { logger } from '../../utils/logger';

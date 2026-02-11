@@ -24,8 +24,7 @@ export function collectFromLivePage(getMarkdown: GetMarkdownFn): ReaderItem[] {
 
     const adapter = adapterRegistry.getAdapter();
     const platformIcon = adapter?.getIcon() || getDefaultIcon();
-    const platform = window.location.hostname.includes('gemini') ? 'Gemini' :
-        window.location.hostname.includes('chatgpt') ? 'ChatGPT' : 'AI';
+    const platform = adapter?.getPlatformName() || 'AI';
 
     return messageRefs.map((ref: MessageRef, index: number) => ({
         id: index,

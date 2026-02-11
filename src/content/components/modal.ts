@@ -94,10 +94,16 @@ export class Modal {
         // Header
         const header = document.createElement('div');
         header.className = 'modal-header';
-        header.innerHTML = `
-      <h2 class="modal-title">${title}</h2>
-      <button class="modal-close" aria-label="${i18n.t('btnClose')}">×</button>
-    `;
+        const titleEl = document.createElement('h2');
+        titleEl.className = 'modal-title';
+        titleEl.textContent = title;
+
+        const closeXBtn = document.createElement('button');
+        closeXBtn.className = 'modal-close';
+        closeXBtn.setAttribute('aria-label', i18n.t('btnClose'));
+        closeXBtn.textContent = '×';
+
+        header.append(titleEl, closeXBtn);
 
         // Body
         const body = document.createElement('div');
@@ -112,10 +118,17 @@ export class Modal {
         // Footer
         const footer = document.createElement('div');
         footer.className = 'modal-footer';
-        footer.innerHTML = `
-      <button class="modal-button" id="close-btn">${i18n.t('btnClose')}</button>
-      <button class="modal-button primary" id="copy-btn">${i18n.t('btnCopyText')}</button>
-    `;
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'modal-button';
+        closeBtn.id = 'close-btn';
+        closeBtn.textContent = i18n.t('btnClose');
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'modal-button primary';
+        copyBtn.id = 'copy-btn';
+        copyBtn.textContent = i18n.t('btnCopyText');
+
+        footer.append(closeBtn, copyBtn);
 
         // Assemble
         modal.appendChild(header);

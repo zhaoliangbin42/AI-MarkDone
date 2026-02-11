@@ -38,6 +38,15 @@ export interface AppSettings {
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';  // default: 'alpha-asc'
     };
+    /**
+     * Legacy compatibility bucket.
+     * Why: some historical modules (e.g. chatgpt folding prototype) may still read
+     * old performance keys. Keep optional to avoid forcing new writes.
+     */
+    performance?: {
+        chatgptFoldingMode?: 'off' | 'all' | 'keep_last_n';
+        chatgptDefaultExpandedCount?: number;
+    };
     language: 'auto' | 'en' | 'zh_CN';  // default: 'auto'
 }
 
@@ -66,6 +75,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     bookmarks: {
         sortMode: 'alpha-asc',
     },
+    performance: undefined,
     language: 'auto',
 };
 
@@ -156,7 +166,9 @@ export class SettingsManager {
         this.initPromise = (async () => {
             try {
                 const result = await browser.storage.sync.get(STORAGE_KEY);
-                const stored = result[STORAGE_KEY] as any; // Use 'any' for migration compatibility
+                const stored = (result && typeof result === 'object'
+                    ? (result as Record<string, unknown>)[STORAGE_KEY]
+                    : undefined) as any; // Use 'any' for migration compatibility
 
                 if (stored && stored.version === 2) {
                     // Same version - merge with defaults to handle new settings
@@ -252,6 +264,7 @@ export class SettingsManager {
                 // Migrate old sortMode values
                 sortMode: this.migrateSortMode(stored.bookmarks?.sortMode),
             },
+            performance: stored.performance,
             language: stored.language || 'auto',
         };
     }

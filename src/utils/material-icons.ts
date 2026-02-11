@@ -44,10 +44,10 @@ export function createMaterialIcon(
     size: number = 24,
     color: string = 'currentColor'
 ): SVGElement {
-    const parser = new DOMParser();
     const svgString = MaterialIcons[iconName];
-    const doc = parser.parseFromString(svgString, 'image/svg+xml');
-    const svg = doc.querySelector('svg') as SVGElement;
+    const template = document.createElement('template');
+    template.innerHTML = svgString.trim();
+    const svg = template.content.firstElementChild as SVGElement | null;
 
     if (svg) {
         svg.setAttribute('width', size.toString());
@@ -55,7 +55,14 @@ export function createMaterialIcon(
         svg.setAttribute('fill', color);
         svg.style.display = 'block';
         svg.style.flexShrink = '0';
+        return svg;
     }
 
-    return svg;
+    const fallback = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    fallback.setAttribute('width', size.toString());
+    fallback.setAttribute('height', size.toString());
+    fallback.setAttribute('viewBox', '0 0 24 24');
+    fallback.style.display = 'block';
+    fallback.style.flexShrink = '0';
+    return fallback;
 }

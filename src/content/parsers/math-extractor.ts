@@ -19,8 +19,7 @@ export class MathExtractor {
         this.placeholderCounter = 0;
 
         // Clone to avoid modifying original
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
+        const tempDiv = parseHtmlToContainer(html);
 
         // Process in order of priority
         // 1. Successfully rendered KaTeX (block display)
@@ -89,7 +88,7 @@ export class MathExtractor {
             span.textContent = placeholder;
             display.replaceWith(span);
 
-            logger.debug('[MathExtractor] Extracted block math:', latex.substring(0, 50));
+            logger.debug('[MathExtractor] Extracted block math', { length: latex.length });
         });
     }
 
@@ -119,7 +118,7 @@ export class MathExtractor {
             span.textContent = placeholder;
             katex.replaceWith(span);
 
-            logger.debug('[MathExtractor] Extracted inline math:', latex.substring(0, 30));
+            logger.debug('[MathExtractor] Extracted inline math', { length: latex.length });
         });
     }
 
@@ -156,7 +155,7 @@ export class MathExtractor {
             span.textContent = placeholder;
             error.replaceWith(span);
 
-            logger.debug('[MathExtractor] Extracted error math:', latex.substring(0, 30));
+            logger.debug('[MathExtractor] Extracted error math', { length: latex.length });
         });
     }
 
@@ -299,9 +298,27 @@ function processBlockWithTextApproach(block: HTMLElement): number {
     }
 
     // Step 3: Apply the modified HTML back to the block
-    block.innerHTML = result;
+    const wrapper = parseHtmlToContainer(result);
+    if (wrapper) {
+        const fragment = document.createDocumentFragment();
+        Array.from(wrapper.childNodes).forEach((node) => {
+            fragment.appendChild(document.importNode(node, true));
+        });
+        block.replaceChildren(fragment);
+    }
 
     return 1;
+}
+
+function parseHtmlToContainer(html: string): HTMLDivElement {
+    const parsed = new DOMParser().parseFromString(`<div id="aimd-math-root">${html}</div>`, 'text/html');
+    const wrapper = parsed.getElementById('aimd-math-root');
+    if (wrapper && wrapper instanceof HTMLDivElement) {
+        return wrapper;
+    }
+    const fallback = document.createElement('div');
+    fallback.textContent = html;
+    return fallback;
 }
 
 /**
@@ -370,4 +387,3 @@ function processFormulaRegions(html: string, emStart: string, emEnd: string): st
 
     return result.join('');
 }
-

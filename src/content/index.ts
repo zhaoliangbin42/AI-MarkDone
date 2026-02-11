@@ -23,16 +23,28 @@ import { collectAllMessages, getConversationMetadata, saveMessagesAsMarkdown, sa
 import { saveMessagesDialog } from './features/SaveMessagesDialog';
 import { SettingsManager } from '../settings/SettingsManager';
 import { i18n } from '../utils/i18n';
-
+import { isBackgroundToContentMessage, isTrustedBackgroundSender } from './message-guards';
+import { DialogManager } from '../components/DialogManager';
+type RuntimeStatus = 'ok' | 'unknown action' | 'untrusted sender';
 
 /**
  * Listen for messages from background script
  */
-browser.runtime.onMessage.addListener((request: any, _sender, _sendResponse) => {
-    if (request.action === 'openBookmarkPanel') {
-        simpleBookmarkPanel.toggle();
+browser.runtime.onMessage.addListener((request: unknown, sender, sendResponse) => {
+    const respond = (status: RuntimeStatus) => sendResponse({ status });
+    const runtimeId = browser.runtime?.id;
+    if (!isTrustedBackgroundSender(sender, runtimeId)) {
+        respond('untrusted sender');
+        return true;
     }
-    return true; // Keep message channel open
+
+    if (isBackgroundToContentMessage(request)) {
+        simpleBookmarkPanel.toggle();
+        respond('ok');
+    } else {
+        respond('unknown action');
+    }
+    return true;
 });
 
 /**
@@ -66,8 +78,7 @@ class ContentScript {
     private unsubscribeTheme: (() => void) | null = null;
 
     constructor() {
-        // Use INFO in production; switch to DEBUG locally when needed
-        logger.setLevel(LogLevel.DEBUG);
+        logger.setLevel(import.meta.env.DEV ? LogLevel.DEBUG : LogLevel.INFO);
 
         // Initialize components
         this.markdownParser = new MarkdownParser();
@@ -152,10 +163,10 @@ class ContentScript {
             // Initialize Deep Research handler for panel button injection
             this.deepResearchHandler = new DeepResearchHandler();
             this.deepResearchHandler.enable();
-        } else if (window.location.href.includes('claude.ai')) {
+        } else if (platformNameRaw === 'Claude') {
             // Initialize Claude panel button
             claudePanelButton.init();
-        } else if (window.location.href.includes('chat.deepseek.com')) {
+        } else if (platformNameRaw === 'Deepseek') {
             // Initialize Deepseek panel button
             deepseekPanelButton.init();
         } else {
@@ -195,16 +206,8 @@ class ContentScript {
         this.storageListener = async (changes, areaName) => {
             if (areaName !== 'local') return;
 
-            // Debug: Log all storage changes with detailed key inspection
             const changedKeys = Object.keys(changes);
-            logger.info('[ContentScript] 📦 Storage changed, keys:', changedKeys);
-
-            // Check each key individually for debugging
-            logger.info('[ContentScript] 🔍 Checking each key:');
-            changedKeys.forEach(key => {
-                const startsWithBookmark = key.startsWith('bookmark:');
-                logger.info(`[ContentScript]   "${key}" → startsWith('bookmark:'): ${startsWithBookmark}`);
-            });
+            logger.debug('[ContentScript] Storage changed', { changedKeyCount: changedKeys.length });
 
             // Check if any bookmark-related keys changed
             // Storage uses keys like: "bookmark:gemini.google.com/app/abc:3"
@@ -212,18 +215,13 @@ class ContentScript {
                 key.startsWith('bookmark:')
             );
 
-            logger.info(`[ContentScript] 📊 Result: bookmarkKeysChanged = ${bookmarkKeysChanged}`);
-
             if (bookmarkKeysChanged) {
-                logger.info('[ContentScript] Bookmark-related keys changed, reloading...');
-                logger.info('[ContentScript] 📝 Bookmark keys:', changedKeys.filter(k => k.startsWith('bookmark:')));
-
                 // Reload bookmarked positions for current page
                 const oldSize = this.bookmarkedPositions.size;
                 await this.loadBookmarks();
                 const newSize = this.bookmarkedPositions.size;
 
-                logger.info(`[ContentScript] 🔄 Bookmarks reloaded: ${oldSize} -> ${newSize}`);
+                logger.debug('[ContentScript] Bookmarks reloaded', { oldSize, newSize });
 
                 // Update toolbars directly using saved references
                 let updatedCount = 0;
@@ -231,7 +229,6 @@ class ContentScript {
                     const isBookmarked = this.bookmarkedPositions.has(position);
                     toolbar.setBookmarkState(isBookmarked);
                     updatedCount++;
-                    logger.info(`[ContentScript] 🔄 Updated toolbar at position ${position}: ${isBookmarked}`);
                 });
 
                 // Dispatch custom event for any future toolbars
@@ -239,9 +236,7 @@ class ContentScript {
                     detail: { positions: Array.from(this.bookmarkedPositions) }
                 }));
 
-                logger.info(`[ContentScript] Updated ${updatedCount} toolbars via direct reference`);
-            } else {
-                logger.info('[ContentScript] ⏭️  Skipping: no bookmark keys changed');
+                logger.debug('[ContentScript] Updated toolbars from storage change', { updatedCount });
             }
         };
 
@@ -259,7 +254,6 @@ class ContentScript {
      * Check for cross-page bookmark navigation.
      */
     private async checkBookmarkNavigation(): Promise<void> {
-        const { simpleBookmarkPanel } = await import('../bookmarks/components/SimpleBookmarkPanel');
         await simpleBookmarkPanel.checkNavigationTarget();
     }
 
@@ -568,11 +562,14 @@ class ContentScript {
                 // Add bookmark - show unified save modal
                 try {
                     const userMessage = this.getUserMessage(messageElement);
-                    logger.info('[handleBookmark] User message extracted:', userMessage ? userMessage.substring(0, 50) : 'EMPTY');
+                    logger.info('[handleBookmark] User message extracted');
 
                     if (!userMessage) {
                         logger.error('[handleBookmark] Failed to extract user message');
-                        alert('Failed to extract user message. Please try again.');
+                        await DialogManager.alert({
+                            title: i18n.t('bookmark'),
+                            message: i18n.t('failedToExtractUserMessage')
+                        });
                         return;
                     }
 
@@ -582,7 +579,7 @@ class ContentScript {
 
                     // Get AI response markdown (use parsed markdown, not plain text)
                     const aiResponse = this.getMarkdown(messageElement);
-                    logger.info('[handleBookmark] AI response extracted (first 200 chars):', aiResponse.substring(0, 200));
+                    logger.info('[handleBookmark] AI response extracted');
 
                     // Prepare default title (first 50 chars)
                     const defaultTitle = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
@@ -620,12 +617,18 @@ class ContentScript {
                     });
                 } catch (error) {
                     logger.error('[handleBookmark] Failed to prepare bookmark:', error);
-                    alert('Failed to prepare bookmark. Please try again.');
+                    await DialogManager.alert({
+                        title: i18n.t('bookmark'),
+                        message: i18n.t('failedToPrepareBookmark')
+                    });
                 }
             }
         } catch (error) {
             logger.error('[handleBookmark] Failed to toggle bookmark:', error);
-            alert('Failed to toggle bookmark: ' + (error instanceof Error ? error.message : String(error)));
+            await DialogManager.alert({
+                title: i18n.t('bookmark'),
+                message: i18n.t('failedToToggleBookmark') + ': ' + (error instanceof Error ? error.message : String(error))
+            });
         }
     }
 
@@ -661,7 +664,7 @@ class ContentScript {
             // Primary: Use adapter's extractUserPrompt method (works for all platforms)
             const userPrompt = adapter.extractUserPrompt(messageElement);
             if (userPrompt) {
-                logger.debug(`[getUserMessage] Extracted via adapter: ${userPrompt.substring(0, 50)}`);
+                logger.debug('[getUserMessage] Extracted via adapter');
                 return userPrompt;
             }
 

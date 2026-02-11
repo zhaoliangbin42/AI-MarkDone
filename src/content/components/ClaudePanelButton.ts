@@ -1,6 +1,7 @@
 import { simpleBookmarkPanel } from '../../bookmarks/components/SimpleBookmarkPanel';
 import { logger } from '../../utils/logger';
 import { Icons } from '../../assets/icons';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Claude Header Panel Button
@@ -93,7 +94,7 @@ export class ClaudePanelButton {
     private createButton(): HTMLElement {
         const button = document.createElement('button');
         button.id = 'claude-bookmark-panel-btn';
-        button.setAttribute('aria-label', 'View Bookmarks');
+        button.setAttribute('aria-label', i18n.t('bookmarks'));
         button.setAttribute('type', 'button');
 
         // Match Claude's ghost button style

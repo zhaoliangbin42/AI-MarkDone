@@ -4,6 +4,7 @@
  */
 
 import type { Rule } from '../../core/Rule';
+import { logger } from '../../../utils/logger';
 
 export function createMathInlineRule(): Rule {
     return {
@@ -46,7 +47,7 @@ export function createMathInlineRule(): Rule {
 
             if (!result.latex) {
                 // Fallback: return content if LaTeX extraction failed
-                console.warn('[MathInlineRule] Failed to extract LaTeX, returning content');
+                logger.warn('[MathInlineRule] Failed to extract LaTeX, returning content');
                 return content;
             }
 

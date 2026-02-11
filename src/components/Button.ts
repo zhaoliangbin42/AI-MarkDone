@@ -18,6 +18,8 @@
  * ```
  */
 
+import { i18n } from '../utils/i18n';
+
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
@@ -62,7 +64,7 @@ export class Button {
         button.disabled = this.props.disabled || this.props.loading || false;
 
         // Add content
-        button.innerHTML = this.getContent();
+        this.applyContent(button);
 
         // Bind click handler
         if (this.props.onClick && !this.props.disabled && !this.props.loading) {
@@ -97,35 +99,52 @@ export class Button {
     }
 
     /**
-     * Get button content
+     * Apply button content using DOM nodes.
      */
-    private getContent(): string {
+    private applyContent(button: HTMLButtonElement): void {
         if (this.props.loading) {
-            return `
-        <span class="btn-spinner"></span>
-        <span class="btn-text">Loading...</span>
-      `;
+            const spinner = document.createElement('span');
+            spinner.className = 'btn-spinner';
+            const text = document.createElement('span');
+            text.className = 'btn-text';
+            text.textContent = i18n.t('loadingText');
+            button.replaceChildren(spinner, text);
+            return;
         }
 
         const hasIcon = !!this.props.icon;
         const hasText = !!this.props.text;
         const iconLeft = this.props.iconPosition === 'left';
-
-        let content = '';
+        const nodes: Node[] = [];
 
         if (hasIcon && iconLeft) {
-            content += `<span class="btn-icon">${this.props.icon}</span>`;
+            nodes.push(this.createIconNode(this.props.icon!));
         }
 
         if (hasText) {
-            content += `<span class="btn-text">${this.escapeHtml(this.props.text)}</span>`;
+            const text = document.createElement('span');
+            text.className = 'btn-text';
+            text.textContent = this.props.text;
+            nodes.push(text);
         }
 
         if (hasIcon && !iconLeft) {
-            content += `<span class="btn-icon">${this.props.icon}</span>`;
+            nodes.push(this.createIconNode(this.props.icon!));
         }
 
-        return content;
+        button.replaceChildren(...nodes);
+    }
+
+    private createIconNode(iconSvg: string): HTMLElement {
+        const icon = document.createElement('span');
+        icon.className = 'btn-icon';
+        const template = document.createElement('template');
+        template.innerHTML = iconSvg.trim();
+        const svg = template.content.firstElementChild;
+        if (svg) {
+            icon.replaceChildren(svg.cloneNode(true));
+        }
+        return icon;
     }
 
     /**
@@ -135,7 +154,7 @@ export class Button {
         this.props = { ...this.props, ...props };
         if (this.element) {
             this.element.className = this.getClassName();
-            this.element.innerHTML = this.getContent();
+            this.applyContent(this.element);
             this.element.disabled = this.props.disabled || this.props.loading || false;
         }
     }
@@ -152,15 +171,6 @@ export class Button {
      */
     setDisabled(disabled: boolean): void {
         this.updateProps({ disabled });
-    }
-
-    /**
-     * Escape HTML
-     */
-    private escapeHtml(text: string): string {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     /**
@@ -185,7 +195,7 @@ export class Button {
         text-decoration: none;
       }
 
-      .btn:focus {
+      .btn:focus-visible {
         outline: 2px solid var(--aimd-border-focus);
         outline-offset: 2px;
       }

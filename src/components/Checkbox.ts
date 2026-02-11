@@ -85,7 +85,7 @@ export class Checkbox {
         // Custom checkbox visual
         const checkmark = document.createElement('span');
         checkmark.className = this.getCheckmarkClassName();
-        checkmark.innerHTML = this.getCheckmarkContent();
+        this.setCheckmarkContent(checkmark);
         label.appendChild(checkmark);
         this.checkmark = checkmark;
 
@@ -143,6 +143,25 @@ export class Checkbox {
     }
 
     /**
+     * Apply checkmark icon without direct innerHTML assignment.
+     */
+    private setCheckmarkContent(target: HTMLElement): void {
+        const content = this.getCheckmarkContent();
+        if (!content) {
+            target.replaceChildren();
+            return;
+        }
+        const template = document.createElement('template');
+        template.innerHTML = content.trim();
+        const icon = template.content.firstElementChild;
+        if (icon) {
+            target.replaceChildren(icon.cloneNode(true));
+            return;
+        }
+        target.textContent = '';
+    }
+
+    /**
      * Get checked state
      */
     isChecked(): boolean {
@@ -159,7 +178,7 @@ export class Checkbox {
         }
         if (this.checkmark) {
             this.checkmark.className = this.getCheckmarkClassName();
-            this.checkmark.innerHTML = this.getCheckmarkContent();
+            this.setCheckmarkContent(this.checkmark);
         }
         // Clear indeterminate when setting checked
         if (checked && this.props.indeterminate) {
@@ -184,7 +203,7 @@ export class Checkbox {
         }
         if (this.checkmark) {
             this.checkmark.className = this.getCheckmarkClassName();
-            this.checkmark.innerHTML = this.getCheckmarkContent();
+            this.setCheckmarkContent(this.checkmark);
         }
     }
 

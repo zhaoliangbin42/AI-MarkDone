@@ -157,6 +157,11 @@ export const floatingInputStyles = `
   overflow-y: auto;
 }
 
+.aimd-float-textarea:focus-visible {
+  outline: 2px solid var(--aimd-border-focus);
+  outline-offset: 2px;
+}
+
 .aimd-float-textarea::placeholder {
   color: var(--aimd-text-tertiary);
 }
@@ -194,6 +199,13 @@ export const floatingInputStyles = `
 
 .aimd-float-send-btn:active:not(:disabled) {
   transform: scale(0.95);
+}
+
+.aimd-float-send-btn:focus-visible,
+.aimd-float-collapse-btn:focus-visible,
+.aimd-trigger-btn:focus-visible {
+  outline: 2px solid var(--aimd-border-focus);
+  outline-offset: 2px;
 }
 
 .aimd-float-send-btn:disabled {

@@ -7,6 +7,8 @@
  * Zero coupling with other modules.
  */
 
+import { logger } from '../../utils/logger';
+
 export interface NavigationButtonsConfig {
     onPrevious: () => void;
     onNext: () => void;
@@ -41,7 +43,7 @@ export class NavigationButtonsController {
      */
     render(): void {
         if (this.destroyed) {
-            console.warn('[NavigationButtons] Cannot render: controller is destroyed');
+            logger.warn('[NavigationButtons] Cannot render: controller is destroyed');
             return;
         }
 

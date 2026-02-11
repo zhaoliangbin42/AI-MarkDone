@@ -21,6 +21,8 @@ export class InputValidator {
         /onload\s*=/gi,
     ];
 
+    private static readonly FENCED_CODE_BLOCK_PATTERN = /(```[\s\S]*?```|~~~[\s\S]*?~~~)/g;
+
     /**
      * Validate markdown input
      */
@@ -79,20 +81,25 @@ export class InputValidator {
      * Check for dangerous patterns
      */
     private static hasDangerousPatterns(markdown: string): boolean {
-        return this.DANGEROUS_PATTERNS.some(pattern => pattern.test(markdown));
+        const nonCodeMarkdown = this.stripFencedCodeBlocks(markdown);
+        return this.DANGEROUS_PATTERNS.some(pattern => {
+            // Global regexes are stateful with `.test()`. Reset to avoid false negatives across calls.
+            pattern.lastIndex = 0;
+            return pattern.test(nonCodeMarkdown);
+        });
     }
 
     /**
      * Remove dangerous patterns
      */
     private static removeDangerousPatterns(markdown: string): string {
-        let sanitized = markdown;
-
-        this.DANGEROUS_PATTERNS.forEach(pattern => {
-            sanitized = sanitized.replace(pattern, '');
+        return this.transformOutsideFencedCodeBlocks(markdown, (segment) => {
+            let sanitized = segment;
+            this.DANGEROUS_PATTERNS.forEach(pattern => {
+                sanitized = sanitized.replace(pattern, '');
+            });
+            return sanitized;
         });
-
-        return sanitized;
     }
 
     /**
@@ -101,5 +108,36 @@ export class InputValidator {
     private static flattenMarkdown(markdown: string): string {
         // Remove deeply nested links
         return markdown.replace(/\[([^\[\]]+)\]\([^\)]+\)/g, '$1');
+    }
+
+    /**
+     * Remove fenced code blocks for security pattern scanning.
+     * Why: code examples may legitimately contain strings such as `javascript:`.
+     */
+    private static stripFencedCodeBlocks(markdown: string): string {
+        return markdown.replace(this.FENCED_CODE_BLOCK_PATTERN, '\n');
+    }
+
+    /**
+     * Apply transform function only to non-code segments while preserving fenced blocks.
+     */
+    private static transformOutsideFencedCodeBlocks(
+        markdown: string,
+        transform: (segment: string) => string
+    ): string {
+        let result = '';
+        let lastIndex = 0;
+        const regex = new RegExp(this.FENCED_CODE_BLOCK_PATTERN.source, 'g');
+        let match: RegExpExecArray | null;
+
+        while ((match = regex.exec(markdown)) !== null) {
+            const before = markdown.slice(lastIndex, match.index);
+            result += transform(before);
+            result += match[0];
+            lastIndex = match.index + match[0].length;
+        }
+
+        result += transform(markdown.slice(lastIndex));
+        return result;
     }
 }

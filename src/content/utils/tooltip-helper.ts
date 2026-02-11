@@ -72,8 +72,8 @@ export class TooltipHelper {
             ? getVar('--aimd-tooltip-bg', 'rgba(50, 50, 55, 0.95)')
             : getVar('--aimd-tooltip-bg', 'rgba(250, 250, 252, 0.98)');
         const textColor = isDark
-            ? getVar('--aimd-tooltip-text', '#FFFFFF')
-            : getVar('--aimd-tooltip-text', '#374151');
+            ? getVar('--aimd-tooltip-text', 'var(--aimd-text-on-primary)')
+            : getVar('--aimd-tooltip-text', 'var(--aimd-text-primary)');
         const shadowColor = isDark
             ? getVar('--aimd-tooltip-shadow-color', 'rgba(0, 0, 0, 0.5)')
             : getVar('--aimd-tooltip-shadow-color', 'rgba(0, 0, 0, 0.12)');
