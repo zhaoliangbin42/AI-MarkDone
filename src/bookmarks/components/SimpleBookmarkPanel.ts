@@ -7,6 +7,7 @@ import { FolderState } from '../state/FolderState';
 import { FolderOperationsManager } from '../managers/FolderOperationsManager';
 import { TreeBuilder } from '../utils/tree-builder';
 import { PathUtils, type FolderNameValidationError } from '../utils/path-utils';
+import { collectImportFolderPaths, findMissingFolderPaths } from '../utils/import-folder-paths';
 import { Icons } from '../../assets/icons';
 
 import { ThemeManager } from '../../utils/ThemeManager';
@@ -14,9 +15,11 @@ import { DesignTokens } from '../../utils/design-tokens';
 import { ReaderPanel } from '../../content/features/re-render';
 import { fromBookmarks, findBookmarkIndex } from '../datasource/BookmarkDataSource';
 import { DialogManager } from '../../components/DialogManager';
+import { BookmarkSaveModal } from './BookmarkSaveModal';
 import { SettingsManager } from '../../settings/SettingsManager';
 import { setupKeyboardIsolation } from '../../utils/dom-utils';
 import { i18n } from '../../utils/i18n';
+import { getBookmarkIdentityKey } from '../utils/bookmark-identity';
 
 function getPlatformIcon(platform?: string): string {
     const p = platform?.toLowerCase() || 'chatgpt';
@@ -39,6 +42,9 @@ type ImportMergeEntry = {
 };
 
 export class SimpleBookmarkPanel {
+    private static readonly MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024; // 20MB
+    private static readonly MAX_IMPORT_BOOKMARKS = 10_000;
+
     private overlay: HTMLElement | null = null;
     private shadowRoot: ShadowRoot | null = null;
     private bookmarks: Bookmark[] = [];
@@ -47,6 +53,10 @@ export class SimpleBookmarkPanel {
     private platformFilter: string = '';
     private sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc' = 'alpha-asc';
     private storageListener: ((changes: any, areaName: string) => void) | null = null;
+    private suppressStorageAutoRefresh: boolean = false;
+    private pendingStorageRefresh: boolean = false;
+    private storageRefreshTimer: number | null = null;
+    private suppressStorageUntil: number = 0;
 
     private abortController: AbortController | null = null;
 
@@ -86,6 +96,7 @@ export class SimpleBookmarkPanel {
 
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
         this.folders = await FolderStorage.getAll();
+        await this.ensureFolderRecordsForBookmarks();
         this.filteredBookmarks = [...this.bookmarks];
         logger.info(`[SimpleBookmarkPanel] Loaded ${this.bookmarks.length} bookmarks, ${this.folders.length} folders`);
 
@@ -221,6 +232,11 @@ export class SimpleBookmarkPanel {
             logger.debug('[SimpleBookmarkPanel] Theme subscription cancelled');
         }
 
+        if (this.storageRefreshTimer !== null) {
+            window.clearTimeout(this.storageRefreshTimer);
+            this.storageRefreshTimer = null;
+        }
+
         // 5. Remove DOM
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.remove();
@@ -347,8 +363,8 @@ export class SimpleBookmarkPanel {
                             </button>
                             <div class="platform-dropdown" style="display: none;">
                                 <div class="platform-option" data-value="" data-platform="all">
-                                    ${Icons.grid}
-                                    <span class="platform-option-label">All Platforms</span>
+                                    <span class="platform-option-icon">${Icons.filter}</span>
+                                    <span class="platform-option-label">${i18n.t('allPlatforms')}</span>
                                 </div>
                                 <div class="platform-option" data-value="ChatGPT" data-platform="chatgpt">
                                     <span class="platform-option-icon">${Icons.chatgpt}</span>
@@ -358,16 +374,25 @@ export class SimpleBookmarkPanel {
                                     <span class="platform-option-icon">${Icons.gemini}</span>
                                     <span class="platform-option-label">Gemini</span>
                                 </div>
+                                <div class="platform-option" data-value="Claude" data-platform="claude">
+                                    <span class="platform-option-icon">${Icons.claude}</span>
+                                    <span class="platform-option-label">Claude</span>
+                                </div>
+                                <div class="platform-option" data-value="Deepseek" data-platform="deepseek">
+                                    <span class="platform-option-icon">${Icons.deepseek}</span>
+                                    <span class="platform-option-label">Deepseek</span>
+                                </div>
                             </div>
                         </div>
                         <div class="sort-mode-group">
                             <button class="sort-mode-btn" data-mode="time" title="${i18n.t('sortByTime')}" aria-label="${i18n.t('sortByTimeLabel')}">${Icons.sortTime}</button>
                             <button class="sort-mode-btn active" data-mode="alpha" title="${i18n.t('sortAlpha')}" aria-label="${i18n.t('sortAlphaLabel')}">${Icons.sortAZ}</button>
                         </div>
-                        <button class="toolbar-icon-btn new-folder-btn" title="${i18n.t('createFolder')}" aria-label="${i18n.t('createFolder')}">${Icons.folderPlus}</button>
-                        <div class="toolbar-divider"></div>
-                        <button class="toolbar-icon-btn import-btn" title="${i18n.t('importBookmarks')}" aria-label="${i18n.t('importBookmarks')}">${Icons.upload}</button>
-                        <button class="toolbar-icon-btn export-btn" title="${i18n.t('exportBookmarks')}" aria-label="${i18n.t('exportBookmarks')}">${Icons.download}</button>
+                        <div class="icon-action-group">
+                            <button class="toolbar-icon-btn new-folder-btn" title="${i18n.t('createFolder')}" aria-label="${i18n.t('createFolder')}">${Icons.folderPlus}</button>
+                            <button class="toolbar-icon-btn import-btn" title="${i18n.t('importBookmarks')}" aria-label="${i18n.t('importBookmarks')}">${Icons.upload}</button>
+                            <button class="toolbar-icon-btn export-btn" title="${i18n.t('exportBookmarks')}" aria-label="${i18n.t('exportBookmarks')}">${Icons.download}</button>
+                        </div>
                     </div>
                     <div class="content">
                         ${this.renderTreeView()}
@@ -375,7 +400,7 @@ export class SimpleBookmarkPanel {
                     
                     <!-- Batch Actions Bar (Gmail-style floating) -->
                     <div class="batch-actions-bar">
-                        <span class="selected-count">0 selected</span>
+                        <span class="selected-count">${i18n.t('selectedCount', '0')}</span>
                         <button class="batch-delete-btn" title="${i18n.t('deleteSelected')}">${Icons.trash} <span>${i18n.t('batchDelete')}</span></button>
                         <button class="batch-move-btn" title="${i18n.t('moveSelected')}">${Icons.folder} <span>${i18n.t('batchMove')}</span></button>
                         <button class="batch-export-btn" title="${i18n.t('exportSelected')}">${Icons.download} <span>${i18n.t('batchExport')}</span></button>
@@ -679,7 +704,7 @@ export class SimpleBookmarkPanel {
                 <input type="checkbox" 
                        class="item-checkbox folder-checkbox" 
                        data-path="${this.escapeAttr(folder.path)}"
-                       aria-label="Select ${folder.name} and all children">
+                       aria-label="${i18n.t('selectFolderAndChildren', folder.name)}">
                 <span class="folder-icon">${icon}</span>
                 <span class="folder-name">${this.escapeHtml(folder.name)} <span class="folder-count">(${TreeBuilder.getTotalBookmarkCount(node)})</span></span>
                 <div class="item-actions">
@@ -734,7 +759,7 @@ export class SimpleBookmarkPanel {
                        class="item-checkbox bookmark-checkbox" 
                        data-key="${this.escapeAttr(key)}"
                        ${checked}
-                       aria-label="Select ${bookmark.title}">
+                       aria-label="${i18n.t('selectBookmarkItem', bookmark.title)}">
                 <span class="platform-icon">${icon}</span>
                 <span class="bookmark-title">${this.escapeHtml(bookmark.title)}</span>
                 <span class="bookmark-timestamp">${timestamp}</span>
@@ -833,6 +858,7 @@ export class SimpleBookmarkPanel {
         const foldersTime = performance.now();
 
         this.bookmarks = await SimpleBookmarkStorage.getAllBookmarks();
+        await this.ensureFolderRecordsForBookmarks();
         const bookmarksTime = performance.now();
 
         this.filterBookmarks();
@@ -854,12 +880,38 @@ export class SimpleBookmarkPanel {
 
             const header = this.shadowRoot.querySelector('h2');
             if (header) {
-                header.innerHTML = `${Icons.bookmark} AI-MarkDone (${this.bookmarks.length})`;
+                const icon = document.createElement('span');
+                icon.className = 'header-icon';
+                this.setIconOnlyContent(icon, Icons.bookmark);
+                const text = document.createTextNode(` AI-MarkDone (${this.bookmarks.length})`);
+                header.replaceChildren(icon, text);
             }
 
             // Update batch actions bar state
             this.updateBatchActionsBar();
         }
+    }
+
+    /**
+     * Ensure folder records exist for all bookmark folder paths.
+     * This self-heals historical data where bookmarks were saved but folder nodes were missing.
+     */
+    private async ensureFolderRecordsForBookmarks(): Promise<void> {
+        const missingPaths = findMissingFolderPaths(this.bookmarks, this.folders);
+        if (missingPaths.length === 0) {
+            return;
+        }
+
+        logger.info(`[SimpleBookmarkPanel] Recovering ${missingPaths.length} missing folder records`);
+        for (const folderPath of missingPaths) {
+            try {
+                await FolderStorage.create(folderPath);
+            } catch (error) {
+                logger.warn(`[SimpleBookmarkPanel] Failed to recover folder "${folderPath}"`, error);
+            }
+        }
+
+        this.folders = await FolderStorage.getAll();
     }
 
     /**
@@ -878,11 +930,15 @@ export class SimpleBookmarkPanel {
 
         // Update icons based on direction
         if (isTimeMode) {
-            timeBtn.innerHTML = this.sortMode === 'time-asc' ? Icons.sortTimeAsc : Icons.sortTime;
-            timeBtn.setAttribute('title', this.sortMode === 'time-asc' ? 'Sort by: Time (Oldest first)' : 'Sort by: Time (Newest first)');
+            this.setIconOnlyContent(timeBtn as HTMLElement, this.sortMode === 'time-asc' ? Icons.sortTimeAsc : Icons.sortTime);
+            timeBtn.setAttribute('title', this.sortMode === 'time-asc'
+                ? i18n.t('sortByTimeAscTitle')
+                : i18n.t('sortByTimeDescTitle'));
         } else {
-            alphaBtn.innerHTML = this.sortMode === 'alpha-desc' ? Icons.sortAlphaAsc : Icons.sortAZ;
-            alphaBtn.setAttribute('title', this.sortMode === 'alpha-desc' ? 'Sort by: Z-A' : 'Sort by: A-Z');
+            this.setIconOnlyContent(alphaBtn as HTMLElement, this.sortMode === 'alpha-desc' ? Icons.sortAlphaAsc : Icons.sortAZ);
+            alphaBtn.setAttribute('title', this.sortMode === 'alpha-desc'
+                ? i18n.t('sortAlphaDescTitle')
+                : i18n.t('sortAlphaAscTitle'));
         }
     }
 
@@ -959,14 +1015,9 @@ export class SimpleBookmarkPanel {
                     oldIcons.forEach(icon => icon.remove());
 
                     // Add selected platform icon
-                    if (platform !== 'all' && iconEl && selectorLabel) {
+                    if (iconEl && selectorLabel) {
                         const iconClone = iconEl.cloneNode(true) as HTMLElement;
                         platformSelector.insertBefore(iconClone, selectorLabel);
-                    } else if (platform === 'all' && selectorLabel) {
-                        // All Platforms: show grid icon
-                        const gridSpan = document.createElement('span');
-                        gridSpan.innerHTML = option.querySelector('span:first-child')?.innerHTML || '';
-                        platformSelector.insertBefore(gridSpan, selectorLabel);
                     }
 
                     platformSelector.setAttribute('data-selected', platform);
@@ -1013,15 +1064,10 @@ export class SimpleBookmarkPanel {
                     selectorLabel.textContent = label;
                 }
 
-                if (platform !== 'all' && iconEl) {
+                if (iconEl) {
                     const iconClone = iconEl.cloneNode(true) as HTMLElement;
                     const selectorLabel2 = platformSelector.querySelector('.platform-selector-label');
                     platformSelector.insertBefore(iconClone, selectorLabel2);
-                } else if (platform === 'all') {
-                    const gridSpan = document.createElement('span');
-                    gridSpan.innerHTML = Icons.grid;
-                    const selectorLabel2 = platformSelector.querySelector('.platform-selector-label');
-                    platformSelector.insertBefore(gridSpan, selectorLabel2);
                 }
 
                 platformSelector.setAttribute('data-selected', platform);
@@ -1182,13 +1228,13 @@ export class SimpleBookmarkPanel {
             overlay.className = 'settings-confirm-overlay';
             overlay.innerHTML = `
                 <div class="settings-confirm-dialog">
-                    <h3>Enable Context-Only Save?</h3>
-                    <p>This will save only 500 characters (250 from start + 250 from end) for <strong>new bookmarks</strong>.</p>
-                    <p><strong>Benefits:</strong> Significantly reduces storage usage</p>
-                    <p><strong>Trade-off:</strong> Full text preview will not be available in the bookmark panel</p>
+                    <h3>${i18n.t('contextOnlyConfirmTitle')}</h3>
+                    <p>${i18n.t('contextOnlyConfirmSummary')}</p>
+                    <p><strong>${i18n.t('contextOnlyBenefitTitle')}</strong> ${i18n.t('contextOnlyBenefitDesc')}</p>
+                    <p><strong>${i18n.t('contextOnlyTradeoffTitle')}</strong> ${i18n.t('contextOnlyTradeoffDesc')}</p>
                     <div class="settings-confirm-actions">
-                        <button class="settings-confirm-cancel">Cancel</button>
-                        <button class="settings-confirm-ok">Enable</button>
+                        <button class="settings-confirm-cancel">${i18n.t('btnCancel')}</button>
+                        <button class="settings-confirm-ok">${i18n.t('contextOnlyEnable')}</button>
                     </div>
                 </div>
             `;
@@ -1340,19 +1386,17 @@ export class SimpleBookmarkPanel {
             const languageSelect = this.shadowRoot?.querySelector('#language-selector') as HTMLSelectElement;
             if (languageSelect) {
                 // Set initial value from storage
-                const result = await chrome.storage.local.get('userLocale');
-                const currentLocale = result.userLocale || 'auto';
+                const currentLocale = await SettingsManager.getInstance().get('language');
                 languageSelect.value = currentLocale;
 
                 // Handle language change
                 languageSelect.addEventListener('change', async () => {
                     const newLocale = languageSelect.value as 'auto' | 'en' | 'zh_CN';
 
-                    // Save to storage
-                    await chrome.storage.local.set({ userLocale: newLocale });
+                    // Save to canonical settings.
+                    await SettingsManager.getInstance().set('language', newLocale);
 
                     // Show notification only (user refreshes manually)
-                    const { DialogManager } = await import('@/components/DialogManager');
                     await DialogManager.alert({
                         title: i18n.t('languageChanged'),
                         message: i18n.t('reloadMessage'),
@@ -1713,7 +1757,7 @@ export class SimpleBookmarkPanel {
             // Update folder icon
             const icon = folderElement.querySelector('.folder-icon');
             if (icon) {
-                icon.innerHTML = isExpanded ? Icons.folderOpen : Icons.folder;
+                this.setIconOnlyContent(icon as HTMLElement, isExpanded ? Icons.folderOpen : Icons.folder);
             }
 
             // Update toggle button
@@ -2047,7 +2091,7 @@ export class SimpleBookmarkPanel {
                 // Update folder icon (📂 → 📁)
                 const icon = folderElement.querySelector('.folder-icon');
                 if (icon) {
-                    icon.innerHTML = Icons.folder;
+                    this.setIconOnlyContent(icon as HTMLElement, Icons.folder);
                 }
 
                 // Remove expanded class
@@ -2286,7 +2330,7 @@ export class SimpleBookmarkPanel {
         input.type = 'text';
         input.value = originalName;
         input.className = 'inline-edit-input';
-        input.setAttribute('aria-label', 'Rename folder');
+        input.setAttribute('aria-label', i18n.t('renameFolder'));
 
         const actions = document.createElement('div');
         actions.className = 'inline-edit-actions';
@@ -2295,15 +2339,15 @@ export class SimpleBookmarkPanel {
         confirmBtn.type = 'button';
         confirmBtn.className = 'inline-edit-btn inline-edit-confirm';
         confirmBtn.title = i18n.t('confirmRename');
-        confirmBtn.setAttribute('aria-label', 'Confirm rename');
-        confirmBtn.innerHTML = Icons.check;
+        confirmBtn.setAttribute('aria-label', i18n.t('confirmRename'));
+        this.setIconOnlyContent(confirmBtn, Icons.check);
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'inline-edit-btn inline-edit-cancel';
         cancelBtn.title = i18n.t('cancelRename');
-        cancelBtn.setAttribute('aria-label', 'Cancel rename');
-        cancelBtn.innerHTML = Icons.x;
+        cancelBtn.setAttribute('aria-label', i18n.t('cancelRename'));
+        this.setIconOnlyContent(cancelBtn, Icons.x);
 
         const error = document.createElement('div');
         error.className = 'inline-edit-error';
@@ -2825,26 +2869,23 @@ export class SimpleBookmarkPanel {
 
         if (!bookmark) return;
 
-        // Import BookmarkSaveModal dynamically
-        import('./BookmarkSaveModal').then(({ BookmarkSaveModal }) => {
-            const saveModal = new BookmarkSaveModal();
-            saveModal.show({
-                mode: 'edit',
-                defaultTitle: bookmark.title,
-                currentFolder: bookmark.folderPath,
-                onSave: async (newTitle, newFolderPath) => {
-                    // Update bookmark
-                    await SimpleBookmarkStorage.updateBookmark(url, position, {
-                        title: newTitle,
-                        folderPath: newFolderPath
-                    });
+        const saveModal = new BookmarkSaveModal();
+        saveModal.show({
+            mode: 'edit',
+            defaultTitle: bookmark.title,
+            currentFolder: bookmark.folderPath,
+            onSave: async (newTitle, newFolderPath) => {
+                // Update bookmark
+                await SimpleBookmarkStorage.updateBookmark(url, position, {
+                    title: newTitle,
+                    folderPath: newFolderPath
+                });
 
-                    logger.info(`[SimpleBookmarkPanel] Updated bookmark: title="${newTitle}", folder="${newFolderPath}"`);
+                logger.info(`[SimpleBookmarkPanel] Updated bookmark: title="${newTitle}", folder="${newFolderPath}"`);
 
-                    // Refresh panel
-                    await this.refresh();
-                }
-            });
+                // Refresh panel
+                await this.refresh();
+            }
         });
     }
 
@@ -3230,18 +3271,23 @@ export class SimpleBookmarkPanel {
 <div class="info-dialog-content">
     <div class="info-dialog-header">
         <span class="info-dialog-icon" style="color: ${config.iconColor};">${config.icon}</span>
-        <h3 class="info-dialog-title" style="color: ${config.titleColor};">
-            ${title}
-        </h3>
+        <h3 class="info-dialog-title" style="color: ${config.titleColor};"></h3>
     </div>
-    <div class="info-dialog-message">
-${options.message}
-    </div>
+    <div class="info-dialog-message"></div>
 </div>
 <div class="info-dialog-footer">
     <button class="ok-btn">OK</button>
 </div>
             `;
+
+            const titleEl = modal.querySelector('.info-dialog-title');
+            if (titleEl) {
+                titleEl.textContent = title;
+            }
+            const messageEl = modal.querySelector('.info-dialog-message');
+            if (messageEl) {
+                messageEl.textContent = options.message;
+            }
 
             overlay.appendChild(modal);
 
@@ -3276,12 +3322,6 @@ ${options.message}
             };
 
             okBtn.addEventListener('click', closeDialog);
-
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    closeDialog();
-                }
-            });
 
             const handleEscape = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {
@@ -3563,24 +3603,14 @@ ${options.message}
 
         logger.info(`[Batch Move] Moving ${bookmarks.length} bookmarks to ${targetPath || 'root'}...`);
 
-        for (const bookmark of bookmarks) {
-            try {
-                // Update bookmark's folder path and save
-                await SimpleBookmarkStorage.save(
-                    bookmark.url,
-                    bookmark.position,
-                    bookmark.userMessage,
-                    bookmark.aiResponse,
-                    bookmark.title,
-                    bookmark.platform,
-                    bookmark.timestamp,
-                    targetPath || undefined
-                );
-                successCount++;
-            } catch (error) {
-                errors.push(`Failed to move bookmark: ${bookmark.title}`);
-                logger.error('[Batch Move] Error:', error);
-            }
+        this.beginStorageMutation();
+        try {
+            successCount = await SimpleBookmarkStorage.bulkMoveToFolder(bookmarks, targetPath || undefined);
+        } catch (error) {
+            errors.push(`Failed to move ${bookmarks.length} bookmarks.`);
+            logger.error('[Batch Move] Error:', error);
+        } finally {
+            this.endStorageMutation();
         }
 
         // Show results
@@ -3593,7 +3623,21 @@ ${options.message}
 
         // Cleanup
         this.selectedItems.clear();
-        await this.refresh();
+        if (successCount > 0) {
+            const nextFolderPath = targetPath || 'Import';
+            const moveSet = new Set(bookmarks.map(b => `${b.urlWithoutProtocol}:${b.position}`));
+            this.bookmarks = this.bookmarks.map(existing => {
+                const key = `${existing.urlWithoutProtocol}:${existing.position}`;
+                if (!moveSet.has(key)) {
+                    return existing;
+                }
+                return { ...existing, folderPath: nextFolderPath };
+            });
+            this.filterBookmarks();
+            this.refreshContent();
+        } else {
+            await this.refresh();
+        }
     }
 
     /**
@@ -3621,7 +3665,6 @@ ${options.message}
         }
 
         // Show folder picker using BookmarkSaveModal
-        const { BookmarkSaveModal } = await import('./BookmarkSaveModal');
         const modal = new BookmarkSaveModal();
 
         const selectedPath = await modal.show({
@@ -3798,6 +3841,10 @@ ${options.message}
             try {
                 const handleImportStart = performance.now();
 
+                if (file.size > SimpleBookmarkPanel.MAX_IMPORT_FILE_BYTES) {
+                    throw new Error(`Import file too large. Max supported size is ${Math.floor(SimpleBookmarkPanel.MAX_IMPORT_FILE_BYTES / (1024 * 1024))}MB.`);
+                }
+
                 // Read file
                 const text = await file.text();
                 const data = JSON.parse(text);
@@ -3819,50 +3866,6 @@ ${options.message}
 
                 // Combine all bookmarks
                 const allBookmarks = [...analysis.valid, ...analysis.noFolder, ...analysis.tooDeep];
-
-                // Create all missing folders before importing
-                const folderPathsNeeded = new Set<string>();
-
-                // Always ensure "Import" folder exists if we have bookmarks without folders
-                if (analysis.noFolder.length > 0 || analysis.tooDeep.length > 0) {
-                    folderPathsNeeded.add('Import');
-                }
-
-                for (const bookmark of allBookmarks) {
-                    if (bookmark.folderPath && bookmark.folderPath.trim()) {
-                        folderPathsNeeded.add(bookmark.folderPath);
-                    }
-                }
-
-                logger.info(`[Import] Checking ${folderPathsNeeded.size} unique folder paths`);
-
-                // Sort folder paths by depth (number of '/') to create parent folders first
-                // This ensures "Work" is created before "Work/AI"
-                const sortedFolderPaths = Array.from(folderPathsNeeded).sort((a, b) => {
-                    const depthA = (a.match(/\//g) || []).length;
-                    const depthB = (b.match(/\//g) || []).length;
-                    return depthA - depthB;
-                });
-
-                for (const folderPath of sortedFolderPaths) {
-                    const exists = this.folders.some(f => f.path === folderPath);
-                    if (!exists) {
-                        logger.info(`[Import] Creating missing folder: ${folderPath}`);
-                        try {
-                            await FolderStorage.create(folderPath);
-                            // Refresh folders after each creation so parent checks pass
-                            this.folders = await FolderStorage.getAll();
-                        } catch (error) {
-                            logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
-                        }
-                    } else {
-                        logger.info(`[Import] Folder already exists: ${folderPath}`);
-                    }
-                }
-
-                // Refresh folders to load newly created folders
-                this.folders = await FolderStorage.getAll();
-                logger.info(`[Import] Loaded ${this.folders.length} folders after creation`);
 
                 // Build merge entries (handles duplicate detection, title conflicts, and import folder redirects)
                 const mergeEntries = await this.buildImportMergeEntries(allBookmarks, importFolderSet);
@@ -3894,6 +3897,61 @@ ${options.message}
                 const bookmarksToImport = mergeEntries
                     .filter(entry => entry.status !== 'duplicate')
                     .map(entry => entry.bookmark);
+
+                // Create missing folders only for bookmarks that will actually be imported.
+                const sortedFolderPaths = collectImportFolderPaths(bookmarksToImport);
+                logger.info(`[Import] Checking ${sortedFolderPaths.length} folder paths (with ancestors)`);
+                const failedFolderPaths: string[] = [];
+                const existingFolderPaths = new Set(this.folders.map(f => f.path));
+                let createdFolderCount = 0;
+
+                for (const folderPath of sortedFolderPaths) {
+                    const exists = existingFolderPaths.has(folderPath);
+                    if (!exists) {
+                        logger.info(`[Import] Creating missing folder: ${folderPath}`);
+                        try {
+                            await FolderStorage.create(folderPath);
+                            existingFolderPaths.add(folderPath);
+                            createdFolderCount += 1;
+                        } catch (error) {
+                            logger.error(`[Import] Failed to create folder ${folderPath}:`, error);
+                            failedFolderPaths.push(folderPath);
+                        }
+                    } else {
+                        logger.info(`[Import] Folder already exists: ${folderPath}`);
+                    }
+                }
+
+                if (failedFolderPaths.length > 0) {
+                    try {
+                        if (!existingFolderPaths.has('Import')) {
+                            await FolderStorage.create('Import');
+                            existingFolderPaths.add('Import');
+                            createdFolderCount += 1;
+                        }
+                    } catch (error) {
+                        logger.error('[Import] Failed to ensure fallback folder "Import":', error);
+                    }
+
+                    let fallbackCount = 0;
+                    bookmarksToImport.forEach((bookmark) => {
+                        if (this.isPathAffectedByFailedFolders(bookmark.folderPath, failedFolderPaths)) {
+                            bookmark.folderPath = 'Import';
+                            fallbackCount += 1;
+                        }
+                    });
+
+                    await this.showNotification({
+                        type: 'warning',
+                        title: 'Import fallback applied',
+                        message: `Failed to create ${failedFolderPaths.length} folder path(s). ${fallbackCount} bookmark(s) were moved to Import to avoid hidden entries.`
+                    });
+                }
+
+                if (createdFolderCount > 0) {
+                    this.folders = await FolderStorage.getAll();
+                    logger.info(`[Import] Created ${createdFolderCount} folder(s), loaded ${this.folders.length} folders after creation`);
+                }
 
                 // Check if import would exceed storage quota
                 const importCheck = await SimpleBookmarkStorage.canImport(bookmarksToImport);
@@ -3964,11 +4022,11 @@ ${options.message}
             const folderPath = bookmark.folderPath;
 
             if (!folderPath || folderPath.trim() === '') {
-                logger.info(`[Import Analysis] No folder: ${bookmark.title?.substring(0, 50)}`);
+                logger.info('[Import Analysis] No folder path found on bookmark');
                 noFolder.push(bookmark);
             } else {
                 const depth = PathUtils.getDepth(folderPath);
-                logger.info(`[Import Analysis] Folder "${folderPath}" depth=${depth}, title="${bookmark.title?.substring(0, 50)}"`);
+                logger.info(`[Import Analysis] Folder "${folderPath}" depth=${depth}`);
 
                 if (depth > PathUtils.MAX_DEPTH) {
                     logger.info(`[Import Analysis] Too deep (${depth} > ${PathUtils.MAX_DEPTH}): ${folderPath}`);
@@ -3981,6 +4039,15 @@ ${options.message}
 
         logger.info(`[Import Analysis] Results: valid=${valid.length}, noFolder=${noFolder.length}, tooDeep=${tooDeep.length}`);
         return { valid, noFolder, tooDeep };
+    }
+
+    private isPathAffectedByFailedFolders(path: string, failedFolderPaths: string[]): boolean {
+        if (!path || failedFolderPaths.length === 0) {
+            return false;
+        }
+        return failedFolderPaths.some((failedPath) =>
+            path === failedPath || path.startsWith(`${failedPath}/`)
+        );
     }
 
     /**
@@ -4002,6 +4069,10 @@ ${options.message}
             logger.info(`[Import] Detected new format (version: ${data.version || 'unknown'})`);
         } else {
             throw new Error('Invalid format: expected an array of bookmarks or an object with bookmarks field');
+        }
+
+        if (bookmarksArray.length > SimpleBookmarkPanel.MAX_IMPORT_BOOKMARKS) {
+            throw new Error(`Too many bookmarks in import file (${bookmarksArray.length}). Max supported: ${SimpleBookmarkPanel.MAX_IMPORT_BOOKMARKS}.`);
         }
 
         const validBookmarks: Bookmark[] = [];
@@ -4050,7 +4121,7 @@ ${options.message}
         // Build a map for fast URL+position lookup (for duplicate detection)
         const existingByKey = new Map<string, Bookmark>();
         existingBookmarks.forEach((b) => {
-            const key = `${b.url}:${b.position}`;
+            const key = getBookmarkIdentityKey(b);
             existingByKey.set(key, b);
         });
 
@@ -4082,7 +4153,7 @@ ${options.message}
             let existingTitle: string | undefined;
 
             // Step 1: Check for URL+position duplicate (global, highest priority)
-            const duplicateKey = `${bookmark.url}:${bookmark.position}`;
+            const duplicateKey = getBookmarkIdentityKey(bookmark);
             const existingDuplicate = existingByKey.get(duplicateKey);
             let existingFolderPath: string | undefined;
             if (existingDuplicate) {
@@ -4103,6 +4174,9 @@ ${options.message}
                 if (status !== 'rename' && importFolderSet.has(bookmark)) {
                     status = 'import';
                 }
+
+                // Track accepted import entries so duplicates inside the same import file are detected.
+                existingByKey.set(duplicateKey, bookmark);
             }
 
             entries.push({ bookmark, status, renameTo, existingTitle, existingFolderPath });
@@ -4230,10 +4304,10 @@ ${options.message}
             modal.className = 'duplicate-dialog-modal';
 
             const statusLabels: Record<ImportMergeStatus, string> = {
-                normal: 'Normal Import',
-                rename: 'Rename & Merge',
-                import: 'Move to Import',
-                duplicate: 'Skip (Duplicate)'
+                normal: i18n.t('importStatusNormal'),
+                rename: i18n.t('importStatusRename'),
+                import: i18n.t('importStatusMoveToImport'),
+                duplicate: i18n.t('importStatusDuplicate')
             };
 
             const counts = entries.reduce(
@@ -4244,31 +4318,31 @@ ${options.message}
                 { normal: 0, rename: 0, import: 0, duplicate: 0 } as Record<ImportMergeStatus, number>
             );
 
-            const primaryLabel = options.hasRenameConflicts ? 'Rename & Merge' : 'Merge';
+            const primaryLabel = options.hasRenameConflicts ? i18n.t('importActionRenameMerge') : i18n.t('importActionMerge');
 
             modal.innerHTML = `
             <div class="duplicate-dialog-content">
                 <div class="duplicate-dialog-header">
                     <span class="duplicate-dialog-icon">${Icons.alertTriangle}</span>
-                    <h3 class="duplicate-dialog-title">Import Confirmation</h3>
+                    <h3 class="duplicate-dialog-title">${i18n.t('importConfirmationTitle')}</h3>
                 </div>
                 <div class="duplicate-dialog-body">
-                    <p class="duplicate-dialog-text">Importing <strong>${entries.length}</strong> bookmark(s).</p>
+                    <p class="duplicate-dialog-text">${i18n.t('importingCount', String(entries.length))}</p>
                     <div class="merge-summary" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
                         <div class="merge-summary-item">
-                            <span class="merge-summary-label">Normal</span>
+                            <span class="merge-summary-label">${i18n.t('importSummaryNormal')}</span>
                             <span class="merge-summary-value">${counts.normal}</span>
                         </div>
                         <div class="merge-summary-item">
-                            <span class="merge-summary-label">Renamed</span>
+                            <span class="merge-summary-label">${i18n.t('importSummaryRenamed')}</span>
                             <span class="merge-summary-value">${counts.rename}</span>
                         </div>
                         <div class="merge-summary-item">
-                            <span class="merge-summary-label">To Import</span>
+                            <span class="merge-summary-label">${i18n.t('importSummaryToImport')}</span>
                             <span class="merge-summary-value">${counts.import}</span>
                         </div>
                         <div class="merge-summary-item">
-                            <span class="merge-summary-label">Skipped</span>
+                            <span class="merge-summary-label">${i18n.t('importSummarySkipped')}</span>
                             <span class="merge-summary-value">${counts.duplicate}</span>
                         </div>
                     </div>
@@ -4282,20 +4356,20 @@ ${options.message}
                                     </span>
                                 </div>
                                 <div class="merge-item-path">
-                                    <span class="merge-item-path-label">Folder:</span>
+                                    <span class="merge-item-path-label">${i18n.t('folderLabel')}</span>
                                     ${this.escapeHtml(entry.bookmark.folderPath || 'Import')}
                                 </div>
                                 ${entry.renameTo ? `
-                                    <div class="merge-item-rename">Renamed to: ${this.escapeHtml(entry.renameTo)}</div>
+                                    <div class="merge-item-rename">${i18n.t('renamedToLabel')} ${this.escapeHtml(entry.renameTo)}</div>
                                 ` : ''}
                                 ${entry.status === 'duplicate' && entry.existingTitle ? `
                                     <div class="merge-item-compare">
                                         <div class="merge-item-compare-row">
-                                            <span class="merge-item-compare-label">Existing entry:</span>
+                                            <span class="merge-item-compare-label">${i18n.t('existingEntryLabel')}</span>
                                             <span class="merge-item-compare-value">${this.escapeHtml((entry.existingFolderPath || 'Import') + '/' + entry.existingTitle)}</span>
                                         </div>
                                         <div class="merge-item-compare-row">
-                                            <span class="merge-item-compare-label">Pending import:</span>
+                                            <span class="merge-item-compare-label">${i18n.t('pendingImportLabel')}</span>
                                             <span class="merge-item-compare-value">${this.escapeHtml((entry.bookmark.folderPath || 'Import') + '/' + entry.bookmark.title)}</span>
                                         </div>
                                     </div>
@@ -4306,7 +4380,7 @@ ${options.message}
                 </div>
             </div>
             <div class="import-summary-footer">
-                <button class="cancel-btn">Cancel</button>
+                <button class="cancel-btn">${i18n.t('btnCancel')}</button>
                 <button class="merge-btn">${primaryLabel}</button>
             </div>
         `;
@@ -4402,14 +4476,62 @@ ${options.message}
                     key.startsWith('bookmark:')
                 );
                 if (bookmarkChanged && this.overlay?.style.display !== 'none') {
-                    this.refresh();
-                    logger.debug('[SimpleBookmarkPanel] Auto-refreshed due to storage change');
+                    if (Date.now() < this.suppressStorageUntil) {
+                        logger.debug('[SimpleBookmarkPanel] Skipped auto-refresh during cooldown');
+                        return;
+                    }
+                    if (this.suppressStorageAutoRefresh) {
+                        this.pendingStorageRefresh = true;
+                        logger.debug('[SimpleBookmarkPanel] Deferred auto-refresh during mutation');
+                        return;
+                    }
+                    this.scheduleRefreshFromStorage();
                 }
             }
         };
 
         browser.storage.onChanged.addListener(this.storageListener);
         logger.info('[SimpleBookmarkPanel] Storage listener setup');
+    }
+
+    /**
+     * Coalesce storage-triggered refreshes to avoid render flicker on bursty updates.
+     */
+    private scheduleRefreshFromStorage(): void {
+        if (this.storageRefreshTimer !== null) {
+            window.clearTimeout(this.storageRefreshTimer);
+        }
+        this.storageRefreshTimer = window.setTimeout(async () => {
+            try {
+                if (this.overlay?.style.display !== 'none') {
+                    await this.refresh();
+                    logger.debug('[SimpleBookmarkPanel] Auto-refreshed due to storage change');
+                }
+            } finally {
+                this.storageRefreshTimer = null;
+                if (this.pendingStorageRefresh) {
+                    this.pendingStorageRefresh = false;
+                    this.scheduleRefreshFromStorage();
+                }
+            }
+        }, 120);
+    }
+
+    /**
+     * Begin a local mutation batch and suppress noisy storage-change re-renders.
+     */
+    private beginStorageMutation(): void {
+        this.suppressStorageAutoRefresh = true;
+        this.pendingStorageRefresh = false;
+    }
+
+    /**
+     * End local mutation batch and keep a short cooldown window for late events.
+     */
+    private endStorageMutation(): void {
+        this.suppressStorageAutoRefresh = false;
+        this.suppressStorageUntil = Date.now() + 400;
+        this.pendingStorageRefresh = false;
     }
 
     /**
@@ -4596,11 +4718,31 @@ ${options.message}
             this.storageListener = null;
         }
 
+        if (this.storageRefreshTimer !== null) {
+            window.clearTimeout(this.storageRefreshTimer);
+            this.storageRefreshTimer = null;
+        }
+
         if (this.overlay) {
             this.overlay.remove();
             this.overlay = null;
             this.shadowRoot = null;
         }
+    }
+
+    /**
+     * Set icon-only button content from trusted SVG string constants.
+     * Why: avoid ad-hoc innerHTML assignments while preserving existing icon assets.
+     */
+    private setIconOnlyContent(target: HTMLElement, svgIcon: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = svgIcon.trim();
+        const svg = template.content.firstElementChild;
+        if (svg && svg.tagName.toLowerCase() === 'svg') {
+            target.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        target.textContent = '';
     }
 
     /**
@@ -5004,6 +5146,10 @@ ${options.message}
                 align-items: center;
             }
 
+            .toolbar {
+                --aimd-toolbar-control-height: 40px;
+            }
+
             .search-wrapper {
                 position: relative;
                 display: flex;
@@ -5037,6 +5183,8 @@ ${options.message}
                 background: var(--aimd-bg-primary);  /* Theme-aware */
                 color: var(--aimd-text-primary);  /* Theme-aware text */
                 font-size: var(--aimd-text-base);  /* 14px */
+                height: var(--aimd-toolbar-control-height);
+                box-sizing: border-box;
                transition: all var(--aimd-duration-fast);  /* 150ms */
             }
 
@@ -5079,33 +5227,23 @@ ${options.message}
                 box-shadow: var(--aimd-shadow-focus);
             }
 
-            .toolbar-divider {
-                width: 1px;
-                height: 24px;
-                background: var(--aimd-border-default);
-                margin: 0 var(--aimd-space-1);  /* 4px */
-            }
-
-
-
             .toolbar-icon-btn {
-                width: 32px;
-                height: 32px;
+                width: var(--aimd-toolbar-control-height);
+                height: var(--aimd-toolbar-control-height);
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                border: 1px solid var(--aimd-border-subtle);  /* Subtle border for visibility */
-                border-radius: var(--aimd-radius-lg);  /* 8px */
-                background: var(--aimd-button-icon-bg);
-                color: var(--aimd-button-icon-text);
+                border: none;
+                border-radius: 0;
+                background: transparent;
+                color: var(--aimd-text-secondary);
                 cursor: pointer;
                 transition: all var(--aimd-duration-base) var(--ease-out);
             }
 
             .toolbar-icon-btn:hover {
-                background: var(--aimd-button-icon-hover);
-                color: var(--aimd-button-icon-text-hover);
-                border-color: var(--aimd-border-default);  /* Slightly more visible border on hover */
+                background: var(--aimd-interactive-hover);
+                color: var(--aimd-text-primary);
             }
 
             .toolbar-icon-btn:active {
@@ -5126,11 +5264,13 @@ ${options.message}
                 background: var(--aimd-bg-secondary);
                 margin: 0 4px;
                 padding: 0;
+                height: var(--aimd-toolbar-control-height);
+                box-sizing: border-box;
             }
 
             .toolbar .sort-mode-group button.sort-mode-btn {
-                width: 32px;
-                height: 30px;
+                width: var(--aimd-toolbar-control-height);
+                height: 100%;
                 padding: 0;
                 margin: 0;
                 background: transparent;
@@ -5180,17 +5320,38 @@ ${options.message}
                 display: inline-flex;
                 align-items: center;
                 gap: var(--aimd-space-2);  /* 8px */
-                padding: var(--aimd-space-2) var(--aimd-space-3);  /* 8px 12px */
+                padding: 0 var(--aimd-space-3);
                 border: 1px solid var(--aimd-border-default);
                 border-radius: var(--aimd-radius-lg);  /* 8px */
                 background: var(--aimd-bg-primary);
                 color: var(--aimd-text-primary);
                 font-size: var(--aimd-text-sm);
                 font-weight: 500;
+                line-height: 1;
                 cursor: pointer;
                 transition: all var(--aimd-duration-base) var(--ease-out);
                 min-width: 140px;
+                height: var(--aimd-toolbar-control-height);
+                box-sizing: border-box;
                 justify-content: space-between;
+            }
+
+            .icon-action-group {
+                display: inline-flex;
+                border: 1px solid var(--aimd-border-default);
+                border-radius: var(--aimd-radius-lg);
+                overflow: hidden;
+                background: var(--aimd-bg-secondary);
+                height: var(--aimd-toolbar-control-height);
+                box-sizing: border-box;
+            }
+
+            .icon-action-group .toolbar-icon-btn {
+                border-right: 1px solid var(--aimd-border-default);
+            }
+
+            .icon-action-group .toolbar-icon-btn:last-child {
+                border-right: none;
             }
 
             /* Tag-style: background changes based on selected platform */
@@ -5210,6 +5371,18 @@ ${options.message}
                 background: var(--aimd-platform-gemini-bg);
                 color: var(--aimd-platform-gemini-text);
                 border-color: var(--aimd-platform-gemini-bg);
+            }
+
+            .platform-selector[data-selected="claude"] {
+                background: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
+                border-color: var(--aimd-border-default);
+            }
+
+            .platform-selector[data-selected="deepseek"] {
+                background: var(--aimd-bg-secondary);
+                color: var(--aimd-text-primary);
+                border-color: var(--aimd-border-default);
             }
 
             .platform-selector:hover {
@@ -5277,6 +5450,19 @@ ${options.message}
             }
 
             .platform-option-icon svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .platform-selector > .platform-option-icon {
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                width: 16px;
+                height: 16px;
+            }
+
+            .platform-selector > .platform-option-icon svg {
                 width: 16px;
                 height: 16px;
             }
@@ -7368,33 +7554,6 @@ ${options.message}
                 align-items: center;
                 justify-content: center;
                 padding: 0;
-            }
-
-            .toolbar-icon-btn {
-                padding: 6px 8px;
-                background: transparent;
-                border: none;
-                border-radius: var(--aimd-radius-sm);
-                cursor: pointer;
-                color: var(--aimd-text-secondary);
-                transition: all 0.2s ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .toolbar-icon-btn:hover {
-                background: var(--aimd-interactive-hover);
-                color: var(--aimd-text-primary);
-            }
-
-            .toolbar-icon-btn:active {
-                transform: scale(0.95);
-            }
-
-            .toolbar-icon-btn svg {
-                width: 16px;
-                height: 16px;
             }
 
             .action-btn:hover {

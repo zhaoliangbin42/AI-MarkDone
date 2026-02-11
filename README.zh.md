@@ -120,6 +120,12 @@ npm install
 # 开发模式
 npm run dev
 
+# 快速回归冒烟测试（关键路径）
+npm run test:smoke
+
+# 核心可靠性门禁（导入/存储/渲染/消息边界）
+npm run test:core
+
 # 构建
 npm run build
 ```

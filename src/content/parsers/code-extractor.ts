@@ -15,8 +15,7 @@ export class CodeExtractor {
     this.placeholderMap.clear();
     this.placeholderCounter = 0;
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+    const tempDiv = parseHtmlToContainer(html);
 
     // Process <pre><code> blocks (fenced code blocks)
     this.extractPreCodeBlocks(tempDiv);
@@ -65,7 +64,10 @@ export class CodeExtractor {
       span.textContent = placeholder;
       pre.replaceWith(span);
 
-      logger.debug('[CodeExtractor] Extracted code block:', language || 'plain', content.substring(0, 30));
+      logger.debug('[CodeExtractor] Extracted code block', {
+        language: language || 'plain',
+        length: content.length
+      });
     });
   }
 
@@ -97,11 +99,33 @@ export class CodeExtractor {
    * Format code block with proper fencing
    */
   private formatCodeBlock(content: string, language: string): string {
-    // Ensure content doesn't start/end with extra newlines
-    const trimmed = content.trimEnd();
+    // Normalize pretty-printed HTML indentation while preserving relative indent in code.
+    const normalized = this.normalizeCodeIndent(content).trimEnd();
     
     // Format: \n\n```lang\ncode\n```\n\n
-    return `\n\n\`\`\`${language}\n${trimmed}\n\`\`\`\n\n`;
+    return `\n\n\`\`\`${language}\n${normalized}\n\`\`\`\n\n`;
+  }
+
+  private normalizeCodeIndent(raw: string): string {
+    const text = String(raw || '').replace(/\r\n?/g, '\n').replace(/^\n/, '');
+    const lines = text.split('\n');
+    const nonEmpty = lines.filter((line) => line.trim().length > 0);
+
+    if (nonEmpty.length === 0) {
+      return text;
+    }
+
+    const indents = nonEmpty.map((line) => {
+      const match = line.match(/^[ \t]*/);
+      return match ? match[0].length : 0;
+    });
+    const commonIndent = Math.min(...indents);
+
+    if (commonIndent <= 0) {
+      return text;
+    }
+
+    return lines.map((line) => line.slice(commonIndent)).join('\n');
   }
 
   /**
@@ -119,4 +143,15 @@ export class CodeExtractor {
   getPlaceholderMap(): Map<string, string> {
     return this.placeholderMap;
   }
+}
+
+function parseHtmlToContainer(html: string): HTMLDivElement {
+  const parsed = new DOMParser().parseFromString(`<div id="aimd-code-root">${html}</div>`, 'text/html');
+  const wrapper = parsed.getElementById('aimd-code-root');
+  if (wrapper && wrapper instanceof HTMLDivElement) {
+    return wrapper;
+  }
+  const fallback = document.createElement('div');
+  fallback.textContent = html;
+  return fallback;
 }

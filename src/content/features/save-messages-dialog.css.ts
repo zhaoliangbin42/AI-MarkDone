@@ -6,12 +6,29 @@
  */
 
 export const saveMessagesDialogStyles = `
+    :host {
+        --aimd-dialog-bg: var(--bg-surface);
+        --aimd-dialog-border: var(--border-default);
+        --aimd-dialog-border-strong: var(--border-strong);
+        --aimd-dialog-focus: var(--border-focus);
+        --aimd-dialog-button-height: 36px;
+        --aimd-dialog-title: var(--text-primary);
+        --aimd-dialog-text: var(--text-primary);
+        --aimd-dialog-muted-text: var(--text-secondary);
+        --aimd-dialog-hover-bg: var(--interactive-hover);
+        --aimd-dialog-selected-bg: var(--interactive-selected);
+        --aimd-dialog-primary-bg: var(--interactive-primary);
+        --aimd-dialog-primary-hover-bg: var(--interactive-primary-hover);
+        --aimd-dialog-primary-text: var(--text-on-primary);
+        --aimd-dialog-disabled-bg: var(--interactive-disabled);
+    }
+
     /* Dialog Overlay */
     .save-messages-overlay {
         position: fixed;
         inset: 0;
-        background: var(--bg-overlay, rgba(0, 0, 0, 0.5));
-        z-index: var(--z-dialog, 9999);
+        background: var(--bg-overlay, var(--aimd-modal-overlay));
+        z-index: var(--z-dialog, var(--aimd-z-dialog));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -26,9 +43,9 @@ export const saveMessagesDialogStyles = `
     /* Dialog Container */
     .save-messages-dialog {
         position: relative;  /* Required for tooltip absolute positioning */
-        background: var(--bg-surface, #fff);
-        border-radius: var(--radius-lg, 12px);
-        box-shadow: var(--shadow-xl, 0 20px 40px rgba(0, 0, 0, 0.15));
+        background: var(--aimd-dialog-bg);
+        border-radius: var(--radius-lg, var(--aimd-radius-lg));
+        box-shadow: var(--shadow-xl, var(--aimd-modal-shadow));
         max-width: 500px;
         width: 90%;
         max-height: 80vh;
@@ -54,43 +71,43 @@ export const saveMessagesDialogStyles = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: var(--space-md, 16px);
-        border-bottom: 1px solid var(--border-default, #e5e7eb);
+        padding: var(--space-md, var(--aimd-space-4));
+        border-bottom: 1px solid var(--aimd-dialog-border);
     }
 
     .save-messages-title {
-        font-size: var(--font-size-lg, 18px);
+        font-size: var(--font-size-lg, var(--aimd-text-lg));
         font-weight: 600;
-        color: var(--text-primary, #111827);
+        color: var(--aimd-dialog-title);
         margin: 0;
     }
 
     .save-messages-close-btn {
         background: transparent;
         border: none;
-        padding: var(--space-xs, 4px);
+        padding: var(--space-xs, var(--aimd-space-1));
         cursor: pointer;
-        color: var(--text-secondary, #6b7280);
-        border-radius: var(--radius-sm, 4px);
+        color: var(--aimd-dialog-muted-text);
+        border-radius: var(--radius-sm, var(--aimd-radius-sm));
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
     .save-messages-close-btn:hover {
-        background: var(--interactive-hover, #f3f4f6);
-        color: var(--text-primary, #111827);
+        background: var(--aimd-dialog-hover-bg);
+        color: var(--aimd-dialog-title);
     }
 
     /* Body */
     .save-messages-body {
-        padding: var(--space-md, 16px);
+        padding: var(--space-md, var(--aimd-space-4));
         overflow-y: auto;
         flex: 1;
     }
 
     .save-messages-section {
-        margin-bottom: var(--space-md, 16px);
+        margin-bottom: var(--space-md, var(--aimd-space-4));
     }
 
     .save-messages-section:last-child {
@@ -99,10 +116,10 @@ export const saveMessagesDialogStyles = `
 
     .save-messages-label {
         display: block;
-        font-size: var(--font-size-sm, 14px);
+        font-size: var(--font-size-sm, var(--aimd-text-sm));
         font-weight: 500;
-        color: var(--text-secondary, #6b7280);
-        margin-bottom: var(--space-sm, 8px);
+        color: var(--aimd-dialog-muted-text);
+        margin-bottom: var(--space-sm, var(--aimd-space-2));
     }
 
     /* Message Selector Section */
@@ -114,37 +131,37 @@ export const saveMessagesDialogStyles = `
     .message-grid {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--space-xs, 4px);
+        gap: var(--space-xs, var(--aimd-space-1));
     }
 
     .message-btn {
         min-width: 36px;
-        height: 36px;
-        padding: var(--space-xs, 4px) var(--space-sm, 8px);
-        border: 1px solid var(--border-default, #e5e7eb);
-        border-radius: var(--radius-sm, 4px);
-        background: var(--bg-surface, #fff);
-        color: var(--text-primary, #111827);
-        font-size: var(--font-size-sm, 14px);
+        min-height: var(--aimd-dialog-button-height);
+        padding: var(--space-xs, var(--aimd-space-1)) var(--space-sm, var(--aimd-space-2));
+        border: 1px solid var(--aimd-dialog-border);
+        border-radius: var(--radius-sm, var(--aimd-radius-sm));
+        background: var(--aimd-dialog-bg);
+        color: var(--aimd-dialog-text);
+        font-size: var(--font-size-sm, var(--aimd-text-sm));
         cursor: pointer;
         transition: all 0.15s ease;
         position: relative;
     }
 
     .message-btn:hover {
-        border-color: var(--interactive-primary, #2563eb);
-        background: var(--interactive-selected, rgba(37, 99, 235, 0.08));
+        border-color: var(--aimd-dialog-primary-bg);
+        background: var(--aimd-dialog-selected-bg);
     }
 
     .message-btn.selected {
-        background: var(--interactive-primary, #2563eb);
-        border-color: var(--interactive-primary, #2563eb);
-        color: var(--text-on-primary, #fff);
+        background: var(--aimd-dialog-primary-bg);
+        border-color: var(--aimd-dialog-primary-bg);
+        color: var(--aimd-dialog-primary-text);
     }
 
     .message-btn.selected:hover {
-        background: var(--interactive-primary-hover, #1d4ed8);
-        border-color: var(--interactive-primary-hover, #1d4ed8);
+        background: var(--aimd-dialog-primary-hover-bg);
+        border-color: var(--aimd-dialog-primary-hover-bg);
     }
 
     /* Hover Tooltip - Portal pattern (rendered at dialog root) */
@@ -218,22 +235,23 @@ export const saveMessagesDialogStyles = `
     .format-buttons {
         display: flex;
         gap: 0;
-        border: 1px solid var(--border-default, #e5e7eb);
+        border: 1px solid var(--aimd-dialog-border);
         border-radius: var(--aimd-radius-md);
         overflow: hidden;
     }
 
     .format-btn {
         flex: 1;
+        min-height: var(--aimd-dialog-button-height);
         display: flex;
         align-items: center;
         justify-content: center;
         gap: var(--aimd-space-2);
         padding: var(--aimd-space-2) var(--aimd-space-4);
-        background: var(--bg-surface, #fff);
+        background: var(--aimd-dialog-bg);
         border: none;
-        border-right: 1px solid var(--border-default, #e5e7eb);
-        color: var(--text-secondary, #6b7280);
+        border-right: 1px solid var(--aimd-dialog-border);
+        color: var(--aimd-dialog-muted-text);
         font-size: var(--aimd-text-sm);
         font-weight: 500;
         cursor: pointer;
@@ -245,17 +263,17 @@ export const saveMessagesDialogStyles = `
     }
 
     .format-btn:hover {
-        background: var(--interactive-hover, #f3f4f6);
-        color: var(--text-primary, #111827);
+        background: var(--aimd-dialog-hover-bg);
+        color: var(--aimd-dialog-title);
     }
 
     .format-btn.active {
-        background: var(--interactive-primary, #2563eb);
-        color: var(--text-on-primary, #fff);
+        background: var(--aimd-dialog-primary-bg);
+        color: var(--aimd-dialog-primary-text);
     }
 
     .format-btn.active:hover {
-        background: var(--interactive-primary-hover, #1d4ed8);
+        background: var(--aimd-dialog-primary-hover-bg);
     }
 
     .format-btn svg {
@@ -267,55 +285,64 @@ export const saveMessagesDialogStyles = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: var(--space-md, 16px);
-        border-top: 1px solid var(--border-default, #e5e7eb);
-        gap: var(--space-sm, 8px);
+        padding: var(--space-md, var(--aimd-space-4));
+        border-top: 1px solid var(--aimd-dialog-border);
+        gap: var(--space-sm, var(--aimd-space-2));
     }
 
     .save-messages-actions-left {
         display: flex;
-        gap: var(--space-sm, 8px);
+        gap: var(--space-sm, var(--aimd-space-2));
     }
 
     .save-messages-btn {
-        padding: var(--space-sm, 8px) var(--space-md, 16px);
-        border-radius: var(--radius-sm, 4px);
-        font-size: var(--font-size-sm, 14px);
+        min-height: var(--aimd-dialog-button-height);
+        padding: var(--space-sm, var(--aimd-space-2)) var(--space-md, var(--aimd-space-4));
+        border-radius: var(--radius-sm, var(--aimd-radius-sm));
+        font-size: var(--font-size-sm, var(--aimd-text-sm));
         cursor: pointer;
         transition: all 0.15s ease;
     }
 
+    .save-messages-close-btn:focus-visible,
+    .message-btn:focus-visible,
+    .format-btn:focus-visible,
+    .save-messages-btn:focus-visible {
+        outline: 2px solid var(--aimd-dialog-focus);
+        outline-offset: 2px;
+    }
+
     .save-messages-btn-secondary {
         background: transparent;
-        border: 1px solid var(--border-default, #e5e7eb);
-        color: var(--text-primary, #111827);
+        border: 1px solid var(--aimd-dialog-border);
+        color: var(--aimd-dialog-text);
     }
 
     .save-messages-btn-secondary:hover {
-        background: var(--interactive-hover, #f3f4f6);
-        border-color: var(--border-strong, #d1d5db);
+        background: var(--aimd-dialog-hover-bg);
+        border-color: var(--aimd-dialog-border-strong);
     }
 
     .save-messages-btn-primary {
-        background: var(--interactive-primary, #2563eb);
-        border: 1px solid var(--interactive-primary, #2563eb);
-        color: var(--text-on-primary, #fff);
+        background: var(--aimd-dialog-primary-bg);
+        border: 1px solid var(--aimd-dialog-primary-bg);
+        color: var(--aimd-dialog-primary-text);
     }
 
     .save-messages-btn-primary:hover {
-        background: var(--interactive-primary-hover, #1d4ed8);
-        border-color: var(--interactive-primary-hover, #1d4ed8);
+        background: var(--aimd-dialog-primary-hover-bg);
+        border-color: var(--aimd-dialog-primary-hover-bg);
     }
 
     .save-messages-btn-primary:disabled {
-        background: var(--interactive-disabled, #d1d5db);
-        border-color: var(--interactive-disabled, #d1d5db);
+        background: var(--aimd-dialog-disabled-bg);
+        border-color: var(--aimd-dialog-disabled-bg);
         cursor: not-allowed;
     }
 
     /* Selection Count */
     .selection-count {
-        font-size: var(--font-size-sm, 14px);
-        color: var(--text-secondary, #6b7280);
+        font-size: var(--font-size-sm, var(--aimd-text-sm));
+        color: var(--aimd-dialog-muted-text);
     }
 `;

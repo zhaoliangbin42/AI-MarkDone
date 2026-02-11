@@ -269,9 +269,8 @@ export class MathClickHandler {
         tooltip.textContent = i18n.t('btnCopied');
 
         // Resolve CSS variables to actual values since tooltip is outside Shadow DOM
-        const primaryColor = getVar('--aimd-interactive-primary', '#2563EB');
-        // Text on primary is always white for proper contrast
-        const textOnPrimary = '#FFFFFF';
+        const primaryColor = getVar('--aimd-interactive-primary', 'var(--aimd-button-primary-bg)');
+        const textOnPrimary = getVar('--aimd-text-on-primary', 'var(--aimd-button-primary-text)');
         const zIndex = getVar('--aimd-z-tooltip', '10000');
 
         tooltip.style.cssText = `

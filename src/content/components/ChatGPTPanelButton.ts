@@ -1,6 +1,7 @@
 import { logger } from '../../utils/logger';
 import { simpleBookmarkPanel } from '../../bookmarks/components/SimpleBookmarkPanel';
 import { Icons } from '../../assets/icons';
+import { i18n } from '../../utils/i18n';
 
 /**
  * ChatGPT Header Panel Button
@@ -62,7 +63,7 @@ export class ChatGPTPanelButton {
         const button = document.createElement('button');
         button.id = 'ai-markdone-bookmark-btn';
         button.className = 'text-token-text-primary no-draggable hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover touch:h-10 touch:w-10 flex h-9 w-9 items-center justify-center rounded-lg focus:outline-none disabled:opacity-50';
-        button.setAttribute('aria-label', 'View Bookmarks');
+        button.setAttribute('aria-label', i18n.t('bookmarks'));
         button.setAttribute('type', 'button');
 
         // Use brand icon with explicit 18px size for ChatGPT

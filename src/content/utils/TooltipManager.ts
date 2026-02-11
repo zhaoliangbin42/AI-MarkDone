@@ -41,7 +41,7 @@ export class TooltipManager {
      */
     attach(element: HTMLElement, config: TooltipConfig): void {
         if (this.destroyed) {
-            console.warn('[TooltipManager] Cannot attach: manager is destroyed');
+            logger.warn('[TooltipManager] Cannot attach: manager is destroyed');
             return;
         }
 
@@ -100,10 +100,15 @@ export class TooltipManager {
             : config.text;
 
         // Update content
-        this.tooltip.innerHTML = `
-            <span class="tooltip-index">${config.index + 1}</span>
-            <span class="tooltip-prompt">${this.escapeHtml(text)}</span>
-        `;
+        const indexEl = document.createElement('span');
+        indexEl.className = 'tooltip-index';
+        indexEl.textContent = String(config.index + 1);
+
+        const promptEl = document.createElement('span');
+        promptEl.className = 'tooltip-prompt';
+        promptEl.textContent = text;
+
+        this.tooltip.replaceChildren(indexEl, promptEl);
 
         // 1. Append to TARGET (Dot) - This automatically handles positioning context
         target.appendChild(this.tooltip);
@@ -138,15 +143,6 @@ export class TooltipManager {
         const el = document.createElement('div');
         el.className = 'aicopy-tooltip';
         return el;
-    }
-
-    /**
-     * Escape HTML to prevent XSS
-     */
-    private escapeHtml(text: string): string {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     /**

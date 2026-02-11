@@ -9,6 +9,7 @@
 
 import type { IPlatformAdapter, LatexResult } from './IPlatformAdapter';
 import { decodeEntities } from '../utils/entities';
+import { logger } from '../../utils/logger';
 
 export class ChatGPTAdapter implements IPlatformAdapter {
     readonly name = 'ChatGPT';
@@ -56,7 +57,7 @@ export class ChatGPTAdapter implements IPlatformAdapter {
                     return result;
                 }
             } catch (error) {
-                console.warn(
+                logger.warn(
                     `[ChatGPTAdapter] LaTeX extraction strategy failed:`,
                     strategy.name,
                     error
@@ -66,7 +67,7 @@ export class ChatGPTAdapter implements IPlatformAdapter {
         }
 
         // Ultimate fallback: preserve HTML
-        console.error('[ChatGPTAdapter] All LaTeX strategies failed for node', mathNode);
+        logger.error('[ChatGPTAdapter] All LaTeX strategies failed for node', mathNode);
         return {
             latex: mathNode.outerHTML,
             isBlock: this.isBlockMath(mathNode),
@@ -169,7 +170,7 @@ export class ChatGPTAdapter implements IPlatformAdapter {
                 isBlock: this.isBlockMath(mathNode),
             };
         } catch (error) {
-            console.warn('[ChatGPTAdapter] MathML parsing failed:', error);
+            logger.warn('[ChatGPTAdapter] MathML parsing failed:', error);
             return null;
         }
     }
@@ -261,13 +262,13 @@ export class ChatGPTAdapter implements IPlatformAdapter {
 
         // Too long = likely malformed
         if (latex.length > 10000) {
-            console.warn('[ChatGPTAdapter] LaTeX too long:', latex.length);
+            logger.warn('[ChatGPTAdapter] LaTeX too long:', latex.length);
             return false;
         }
 
         // XSS attempt
         if (latex.includes('<script>')) {
-            console.error('[ChatGPTAdapter] XSS attempt detected in LaTeX');
+            logger.error('[ChatGPTAdapter] XSS attempt detected in LaTeX');
             return false;
         }
 

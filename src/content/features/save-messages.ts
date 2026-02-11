@@ -11,6 +11,7 @@ import type { MarkdownParser } from '../parsers/markdown-parser';
 import { MessageCollector } from '../utils/MessageCollector';
 import { StyleManager } from '../../renderer/styles/StyleManager';
 import { BUNDLED_KATEX_CSS } from '../../renderer/styles/bundled-katex.css';
+import { MarkdownRenderer } from '../../renderer/core/MarkdownRenderer';
 import { DesignTokens } from '../../utils/design-tokens';
 import { i18n } from '../../utils/i18n';
 
@@ -153,7 +154,8 @@ export async function saveMessagesAsMarkdown(
     }
 
     // Build Markdown content
-    let markdown = `# ${metadata.title}\n\n`;
+    const markdownTitle = sanitizeMarkdownHeading(metadata.title);
+    let markdown = `# ${markdownTitle}\n\n`;
     markdown += `> ${i18n.t('exportMetadata', [metadata.platform, new Date(metadata.exportedAt).toLocaleString()])}\n\n`;
 
     // Use sequential numbering (1, 2, 3...) regardless of original indices
@@ -206,9 +208,6 @@ export async function saveMessagesAsPdf(
     }
 
     logger.info('[AI-MarkDone][SaveMessages] Creating PDF print container with rendered content');
-
-    // Import MarkdownRenderer for proper content rendering
-    const { MarkdownRenderer } = await import('../../renderer/core/MarkdownRenderer');
 
     // Create print container
     const printContainer = document.createElement('div');
@@ -403,22 +402,49 @@ export async function saveMessagesAsPdf(
         `;
     }
 
-    printContainer.innerHTML = html;
+    // Parse as inert HTML document, then import nodes to avoid direct innerHTML assignment.
+    const parsed = new DOMParser().parseFromString(`<div id="aimd-pdf-root">${html}</div>`, 'text/html');
+    const wrapper = parsed.getElementById('aimd-pdf-root');
+    if (wrapper) {
+        const fragment = document.createDocumentFragment();
+        Array.from(wrapper.childNodes).forEach((node) => {
+            fragment.appendChild(document.importNode(node, true));
+        });
+        printContainer.replaceChildren(fragment);
+    }
     document.body.appendChild(printContainer);
 
     // Listen for afterprint to cleanup
+    let cleaned = false;
+    let cleanupTimer: number | null = null;
     const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
         window.removeEventListener('afterprint', cleanup);
+        if (cleanupTimer !== null) {
+            window.clearTimeout(cleanupTimer);
+            cleanupTimer = null;
+        }
         printContainer.remove();
         logger.debug('[AI-MarkDone][SaveMessages] PDF print container cleaned up');
     };
     window.addEventListener('afterprint', cleanup);
+    // Defensive fallback: some environments may not emit afterprint.
+    cleanupTimer = window.setTimeout(() => {
+        logger.warn('[AI-MarkDone][SaveMessages] afterprint not fired, cleanup by timeout');
+        cleanup();
+    }, 30000);
 
     // Trigger print after next frame (ensures DOM and styles are fully processed)
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             logger.info('[AI-MarkDone][SaveMessages] Opening print dialog for PDF');
-            window.print();
+            try {
+                window.print();
+            } catch (error) {
+                logger.error('[AI-MarkDone][SaveMessages] Failed to open print dialog', error);
+                cleanup();
+            }
         });
     });
 }
@@ -440,4 +466,16 @@ function sanitizeFilename(name: string): string {
         .replace(/[<>:"/\\|?*]/g, '_')
         .replace(/\s+/g, '_')
         .substring(0, 100);
+}
+
+/**
+ * Normalize heading text for Markdown exports.
+ * Keep title to one logical line and avoid accidental heading escapes.
+ */
+function sanitizeMarkdownHeading(text: string): string {
+    return (text || 'Conversation')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/^#+\s*/, '')
+        .trim()
+        .substring(0, 200) || 'Conversation';
 }

@@ -40,6 +40,48 @@ export class MarkdownRenderer {
         onProgress: undefined as any,
     };
 
+    private static escapeHtml(text: string): string {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    private static buildRenderKey(markdown: string, options: RenderOptions): string {
+        const optionsKey = JSON.stringify({
+            timeout: options.timeout,
+            sanitize: options.sanitize,
+            codeBlockMode: options.codeBlockMode,
+            maxInputSize: options.maxInputSize,
+            maxOutputSize: options.maxOutputSize,
+        });
+
+        // FNV-1a 32-bit hash for stable lightweight keying.
+        let hash = 0x811c9dc5;
+        const text = `${optionsKey}|${markdown}`;
+        for (let i = 0; i < text.length; i++) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193);
+        }
+
+        return `${text.length}:${(hash >>> 0).toString(16)}`;
+    }
+
+    private static applyCodeBlockMode(markdown: string, mode: RenderOptions['codeBlockMode']): string {
+        if (mode !== 'placeholder') {
+            return markdown;
+        }
+
+        // Replace fenced code blocks with a stable placeholder to reduce render cost/noise.
+        return markdown.replace(/```([^\n`]*)\n([\s\S]*?)```/g, (_match, langRaw: string, codeRaw: string) => {
+            const lang = this.escapeHtml(String(langRaw || '').trim() || 'text');
+            const lines = String(codeRaw || '').split('\n').filter(Boolean).length;
+            return `<div class="code-placeholder">[Code block hidden: ${lang}, ${lines} lines]</div>`;
+        });
+    }
+
     /**
      * Create marked instance (per-render isolation)
      */
@@ -65,7 +107,7 @@ export class MarkdownRenderer {
         markdown: string,
         options: RenderOptions = {}
     ): Promise<RenderResult> {
-        const key = markdown.slice(0, 100);
+        const key = this.buildRenderKey(markdown, options);
 
         if (this.renderLock.has(key)) {
             return this.renderLock.get(key)!;
@@ -115,8 +157,9 @@ export class MarkdownRenderer {
 
         // 2. Render with timeout (chunked, interruptible)
         try {
+            const contentForRender = this.applyCodeBlockMode(validation.sanitized, opts.codeBlockMode);
             const html = await this.renderWithTimeout(
-                validation.sanitized,
+                contentForRender,
                 opts.timeout,
                 markedInstance,
                 opts.onProgress
@@ -211,13 +254,28 @@ export class MarkdownRenderer {
         const lines = markdown.split('\n');
         const chunks: string[] = [];
         let currentChunk = '';
+        let inFencedCodeBlock = false;
 
         for (const line of lines) {
-            if (currentChunk.length + line.length > chunkSize) {
+            const wasInFencedCodeBlock = inFencedCodeBlock;
+            const trimmed = line.trimStart();
+            const isFenceLine = trimmed.startsWith('```') || trimmed.startsWith('~~~');
+
+            const lineWithNewline = line + '\n';
+            const wouldExceed = currentChunk.length + lineWithNewline.length > chunkSize;
+            const isFenceSensitiveLine = wasInFencedCodeBlock || isFenceLine;
+
+            // Keep fenced code blocks intact within a single chunk.
+            // Why: per-chunk markdown parsing loses fence context when blocks are split.
+            if (wouldExceed && !isFenceSensitiveLine && currentChunk.length > 0) {
                 chunks.push(currentChunk);
-                currentChunk = line + '\n';
+                currentChunk = lineWithNewline;
             } else {
-                currentChunk += line + '\n';
+                currentChunk += lineWithNewline;
+            }
+
+            if (isFenceLine) {
+                inFencedCodeBlock = !inFencedCodeBlock;
             }
         }
 

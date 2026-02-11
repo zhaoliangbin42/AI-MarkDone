@@ -7,14 +7,19 @@
     "scripts": {
         "dev": "vite",
         "build": "npm run build:chrome && npm run build:firefox",
-        "build:chrome": "tsc && vite build --config vite.config.chrome.ts && npm run postbuild:chrome",
-        "build:firefox": "tsc && vite build --config vite.config.firefox.ts && npm run postbuild:firefox",
-        "postbuild:chrome": "cp manifest.chrome.json dist-chrome/manifest.json && mkdir -p dist-chrome/icons && cp public/icons/*.png dist-chrome/icons/ && mkdir -p dist-chrome/src/popup && cp src/popup/popup.html dist-chrome/src/popup/ && cp -r public/_locales dist-chrome/ && mkdir -p dist-chrome/vendor/katex && cp node_modules/katex/dist/katex.min.css dist-chrome/vendor/katex/ && cp -r node_modules/katex/dist/fonts dist-chrome/vendor/katex/",
-        "postbuild:firefox": "cp manifest.firefox.json dist-firefox/manifest.json && mkdir -p dist-firefox/icons && cp public/icons/*.png dist-firefox/icons/ && mkdir -p dist-firefox/src/popup && cp src/popup/popup.html dist-firefox/src/popup/ && cp src/background/background-firefox.js dist-firefox/background.js && cp -r public/_locales dist-firefox/ && mkdir -p dist-firefox/vendor/katex && cp node_modules/katex/dist/katex.min.css dist-firefox/vendor/katex/ && cp -r node_modules/katex/dist/fonts dist-firefox/vendor/katex/",
+        "build:chrome": "tsc && vite build --config vite.config.chrome.ts",
+        "build:firefox": "tsc && vite build --config vite.config.firefox.ts",
+        "postbuild:chrome": "cp manifest.chrome.json dist-chrome/manifest.json && mkdir -p dist-chrome/icons && cp public/icons/*.png dist-chrome/icons/ && mkdir -p dist-chrome/src/popup && cp src/popup/popup.html dist-chrome/src/popup/ && cp -r public/_locales dist-chrome/ && mkdir -p dist-chrome/vendor/katex && cp node_modules/katex/dist/katex.min.css dist-chrome/vendor/katex/ && cp -r node_modules/katex/dist/fonts dist-chrome/vendor/katex/ && npm run verify:entry-format:chrome",
+        "postbuild:firefox": "cp manifest.firefox.json dist-firefox/manifest.json && mkdir -p dist-firefox/icons && cp public/icons/*.png dist-firefox/icons/ && mkdir -p dist-firefox/src/popup && cp src/popup/popup.html dist-firefox/src/popup/ && cp src/background/background-firefox.js dist-firefox/background.js && cp -r public/_locales dist-firefox/ && mkdir -p dist-firefox/vendor/katex && cp node_modules/katex/dist/katex.min.css dist-firefox/vendor/katex/ && cp -r node_modules/katex/dist/fonts dist-firefox/vendor/katex/ && npm run verify:entry-format:firefox",
         "preview": "vite preview",
         "type-check": "tsc --noEmit",
         "test": "vitest",
-        "test:ui": "vitest --ui"
+        "test:ui": "vitest --ui",
+        "test:smoke": "vitest tests/unit/content-message-guards.test.ts tests/unit/background-message-guards.test.ts tests/unit/chatgpt-adapter-id.test.ts tests/unit/claude-panel-button-injection.test.ts tests/bookmarks/ImportFixtureParsing.test.ts",
+        "test:release": "vitest tests/unit/release/manifest-compatibility.test.ts tests/unit/release/supported-hosts-consistency.test.ts src/background/__tests__/manifest-resource-consistency.test.ts",
+        "test:core": "vitest tests/unit/content-message-guards.test.ts tests/unit/background-message-guards.test.ts tests/unit/chatgpt-adapter-id.test.ts tests/unit/claude-panel-button-injection.test.ts tests/unit/message-observer-rebind.test.js tests/unit/settings-migration.test.ts tests/unit/i18n/i18n-language-migration.test.ts tests/unit/architecture/file-size-guard.test.ts tests/unit/governance/review-round3-artifacts.test.ts tests/bookmarks/ImportFixtureParsing.test.ts tests/bookmarks/ImportWorkflowClosedLoop.test.ts tests/bookmarks/ImportValidationGuards.test.ts tests/bookmarks/ImportFileSizeGuard.test.ts tests/bookmarks/ExportImportRoundtrip.test.ts tests/bookmarks/BatchExportSelection.test.ts tests/bookmarks/SimpleBookmarkPanelStateFlow.test.ts tests/bookmarks/StorageLifecycleReliability.test.ts tests/bookmarks/TemplateEscapeGuards.test.ts tests/integration/parser/chatgpt-codeblock-rendering.test.ts src/renderer/core/__tests__/MarkdownRenderer.test.ts src/renderer/core/__tests__/MarkdownRenderer.mixed-content.test.ts src/renderer/utils/__tests__/InputValidator.test.ts src/content/features/__tests__/save-messages-sanitization.guard.test.ts src/content/features/__tests__/save-messages-export.test.ts src/content/features/__tests__/save-messages-pdf.test.ts src/content/features/__tests__/innerhtml-high-risk-guard.test.ts src/content/parsers/__tests__/ExtractorResilience.test.ts src/utils/__tests__/no-raw-console-usage.test.ts",
+        "verify:entry-format:chrome": "bash scripts/verify-extension-entry-format.sh chrome",
+        "verify:entry-format:firefox": "bash scripts/verify-extension-entry-format.sh firefox"
     },
     "dependencies": {
         "marked": "^17.0.1",

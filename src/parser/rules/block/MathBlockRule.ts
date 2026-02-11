@@ -4,6 +4,7 @@
  */
 
 import type { Rule } from '../../core/Rule';
+import { logger } from '../../../utils/logger';
 
 export function createMathBlockRule(): Rule {
     return {
@@ -44,7 +45,7 @@ export function createMathBlockRule(): Rule {
 
             if (!result.latex) {
                 // Fallback: return content if LaTeX extraction failed
-                console.warn('[MathBlockRule] Failed to extract LaTeX, returning content');
+                logger.warn('[MathBlockRule] Failed to extract LaTeX, returning content');
                 return content;
             }
 

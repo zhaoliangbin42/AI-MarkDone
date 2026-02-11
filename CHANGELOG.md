@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ChatGPT Reader Pagination**: Fixed thinking-only articles being counted as separate pages in Reader mode
 - **ChatGPT Word Count**: Fixed word count getting stuck in loading state for code-only responses (now shows `0 Words / 0 Chars`).
 - **Reader Mode Copy**: Copy button now shows feedback after copying markdown.
+- **Bookmark Panel**: Fixed remaining hardcoded dialog/button labels so localization is consistently applied.
+- **Bookmark Panel**: Fixed several hardcoded dialog/button labels to fully respect localization settings.
 
 ### Improved
 - **Toolbar Injection Stability**: More robust streaming completion detection and safer activation timing to reduce misplacement during SPA re-renders.
@@ -29,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sidebar Tabs
   - Module Prefixes
 - **Formula Rendering**: Improved stability by loading KaTeX styles from bundled local assets (no external CDN dependency).
+- **Bookmark Reliability**: Improved i18n fallback behavior to avoid raw placeholder keys in initialization race conditions.
+- **Build Repeatability**: Removed mixed dynamic/static import patterns to keep packaging deterministic across browser targets.
+- **Logging Hygiene**: Reduced high-frequency content-path logging and replaced snippet logs with metadata-only diagnostics.
+- **Bookmark Reliability**: Improved i18n fallback behavior to avoid raw placeholder keys in edge initialization races.
+- **Build Repeatability**: Eliminated mixed dynamic/static import warnings for a more deterministic packaging pipeline.
+- **Logging Hygiene**: Reduced high-frequency content-path logs and removed snippet-style parser logging to better protect conversation privacy.
 
 ## [2.9.0] - 2026-02-03
 

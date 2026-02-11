@@ -1,6 +1,7 @@
 import { simpleBookmarkPanel } from '../../bookmarks/components/SimpleBookmarkPanel';
 import { logger } from '../../utils/logger';
 import { Icons } from '../../assets/icons';
+import { i18n } from '../../utils/i18n';
 
 /**
  * Deepseek Header Panel Button
@@ -109,7 +110,7 @@ export class DeepseekPanelButton {
         button.setAttribute('tabindex', '0');
         button.setAttribute('role', 'button');
         button.setAttribute('aria-disabled', 'false');
-        button.setAttribute('aria-label', 'View Bookmarks');
+        button.setAttribute('aria-label', i18n.t('bookmarks'));
 
         // Spacing and height to match Deepseek's design
         button.style.marginLeft = '12px';

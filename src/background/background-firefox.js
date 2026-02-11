@@ -10,6 +10,23 @@ const SUPPORTED_HOSTS = [
     'claude.ai',
     'chat.deepseek.com'
 ];
+const RUNTIME_ACTION_OPEN_BOOKMARK_PANEL = 'openBookmarkPanel';
+const RUNTIME_TYPE_PING = 'ping';
+
+function isContentToBackgroundMessage(message) {
+    return (
+        typeof message === 'object' &&
+        message !== null &&
+        message.type === RUNTIME_TYPE_PING
+    );
+}
+
+function isTrustedExtensionSender(sender, runtimeId) {
+    if (!runtimeId || !sender || !sender.id) return false;
+    const tabId = sender.tab?.id;
+    if (typeof tabId !== 'number' || !Number.isInteger(tabId) || tabId < 0) return false;
+    return sender.id === runtimeId;
+}
 
 /**
  * Check if the URL is supported
@@ -78,18 +95,21 @@ browser.runtime.onStartup.addListener(() => {
 // This is only triggered when popup is set to empty string (supported sites)
 browser.browserAction.onClicked.addListener((tab) => {
     if (tab.id) {
-        browser.tabs.sendMessage(tab.id, { action: 'openBookmarkPanel' });
+        browser.tabs.sendMessage(tab.id, { action: RUNTIME_ACTION_OPEN_BOOKMARK_PANEL });
     }
 });
 
 // Listen for messages from content scripts
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch (message.type) {
-        case 'ping':
-            sendResponse({ status: 'ok' });
-            break;
-        default:
-            sendResponse({ status: 'unknown message type' });
+    if (!isTrustedExtensionSender(sender, browser.runtime?.id)) {
+        sendResponse({ status: 'untrusted sender' });
+        return false;
     }
-    return true;
+
+    if (isContentToBackgroundMessage(message)) {
+        sendResponse({ status: 'ok' });
+    } else {
+        sendResponse({ status: 'unknown action' });
+    }
+    return false;
 });

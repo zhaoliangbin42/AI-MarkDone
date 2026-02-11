@@ -14,8 +14,7 @@ export class TableParser {
     this.placeholderMap.clear();
     this.placeholderCounter = 0;
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+    const tempDiv = parseHtmlToContainer(html);
 
     this.extractTables(tempDiv);
 
@@ -168,4 +167,15 @@ export class TableParser {
   getPlaceholderMap(): Map<string, string> {
     return this.placeholderMap;
   }
+}
+
+function parseHtmlToContainer(html: string): HTMLDivElement {
+  const parsed = new DOMParser().parseFromString(`<div id="aimd-table-root">${html}</div>`, 'text/html');
+  const wrapper = parsed.getElementById('aimd-table-root');
+  if (wrapper && wrapper instanceof HTMLDivElement) {
+    return wrapper;
+  }
+  const fallback = document.createElement('div');
+  fallback.textContent = html;
+  return fallback;
 }

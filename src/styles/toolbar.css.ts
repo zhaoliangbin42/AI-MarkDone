@@ -117,6 +117,11 @@ export const toolbarStyles = `
   color: var(--aimd-toolbar-button-hover-text);
 }
 
+.aicopy-button:focus-visible {
+  outline: 2px solid var(--aimd-border-focus);
+  outline-offset: 2px;
+}
+
 .aicopy-button:active {
   transform: scale(0.96);
   background: var(--aimd-toolbar-button-active-bg);
