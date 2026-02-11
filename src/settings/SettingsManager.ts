@@ -17,12 +17,17 @@ import { browser } from '../utils/browser';
  * Application settings schema
  */
 export interface AppSettings {
-    version: 2;
+    version: 3;
     platforms: {
         chatgpt: boolean;   // default: true
         gemini: boolean;    // default: true
         claude: boolean;    // default: true
         deepseek: boolean;  // default: true
+    };
+    chatgpt: {
+        foldingMode: 'off' | 'all' | 'keep_last_n'; // default: 'off'
+        defaultExpandedCount: number; // default: 8
+        showFoldDock: boolean; // default: true
     };
     behavior: {
         showViewSource: boolean;     // default: true
@@ -54,12 +59,17 @@ export interface AppSettings {
  * Default settings
  */
 const DEFAULT_SETTINGS: AppSettings = {
-    version: 2,
+    version: 3,
     platforms: {
         chatgpt: true,
         gemini: true,
         claude: true,
         deepseek: true,
+    },
+    chatgpt: {
+        foldingMode: 'off',
+        defaultExpandedCount: 8,
+        showFoldDock: true,
     },
     behavior: {
         showViewSource: true,
@@ -170,14 +180,19 @@ export class SettingsManager {
                     ? (result as Record<string, unknown>)[STORAGE_KEY]
                     : undefined) as any; // Use 'any' for migration compatibility
 
-                if (stored && stored.version === 2) {
+                if (stored && stored.version === 3) {
                     // Same version - merge with defaults to handle new settings
                     this.cache = this.mergeWithDefaults(stored as AppSettings);
+                } else if (stored && stored.version === 2) {
+                    // Migrate from v2 to v3
+                    this.cache = this.migrateFromV2(stored);
+                    await this.persist();
+                    logger.info('[SettingsManager] Migrated from v2 to v3');
                 } else if (stored && stored.version === 1) {
-                    // Migrate from v1 to v2
+                    // Migrate from v1 to v3
                     this.cache = this.migrateFromV1(stored);
                     await this.persist();
-                    logger.info('[SettingsManager] Migrated from v1 to v2');
+                    logger.info('[SettingsManager] Migrated from v1 to v3');
                 } else {
                     // No settings or unknown version - use defaults
                     this.cache = { ...DEFAULT_SETTINGS };
@@ -196,14 +211,16 @@ export class SettingsManager {
     }
 
     /**
-     * Migrate settings from v1 to v2
-     * v1 had 'behavior', v2 renamed it to 'reader' and added 'platforms' + 'toolbar'
+     * Migrate settings from v1 to v3
      */
     private migrateFromV1(v1Settings: any): AppSettings {
         return {
-            version: 2,
+            version: 3,
             platforms: {
                 ...DEFAULT_SETTINGS.platforms,
+            },
+            chatgpt: {
+                ...DEFAULT_SETTINGS.chatgpt,
             },
             behavior: {
                 ...DEFAULT_SETTINGS.behavior,
@@ -222,6 +239,39 @@ export class SettingsManager {
                 ...DEFAULT_SETTINGS.bookmarks,
             },
             language: 'auto',
+        };
+    }
+
+    /**
+     * Migrate settings from v2 to v3
+     * v2 had chatgpt folding settings under `performance`.
+     */
+    private migrateFromV2(v2Settings: any): AppSettings {
+        return {
+            version: 3,
+            platforms: {
+                ...DEFAULT_SETTINGS.platforms,
+                ...v2Settings.platforms,
+            },
+            chatgpt: {
+                ...DEFAULT_SETTINGS.chatgpt,
+                foldingMode: v2Settings.performance?.chatgptFoldingMode ?? DEFAULT_SETTINGS.chatgpt.foldingMode,
+                defaultExpandedCount: v2Settings.performance?.chatgptDefaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount,
+            },
+            behavior: {
+                ...DEFAULT_SETTINGS.behavior,
+                ...v2Settings.behavior,
+            },
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                ...v2Settings.reader,
+            },
+            bookmarks: {
+                ...DEFAULT_SETTINGS.bookmarks,
+                ...v2Settings.bookmarks,
+                sortMode: this.migrateSortMode(v2Settings.bookmarks?.sortMode),
+            },
+            language: v2Settings.language || 'auto',
         };
     }
 
@@ -249,6 +299,10 @@ export class SettingsManager {
             platforms: {
                 ...DEFAULT_SETTINGS.platforms,
                 ...stored.platforms,
+            },
+            chatgpt: {
+                ...DEFAULT_SETTINGS.chatgpt,
+                ...stored.chatgpt,
             },
             behavior: {
                 ...DEFAULT_SETTINGS.behavior,

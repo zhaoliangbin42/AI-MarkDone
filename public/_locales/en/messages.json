@@ -296,11 +296,56 @@
     "platforms": {
         "message": "Platforms"
     },
+    "performance": {
+        "message": "Performance"
+    },
+    "chatgptSettings": {
+        "message": "ChatGPT"
+    },
     "behavior": {
         "message": "Behavior"
     },
     "reader": {
         "message": "Reader"
+    },
+    "chatgptFoldingLabel": {
+        "message": "ChatGPT folding"
+    },
+    "chatgptFoldingDesc": {
+        "message": "Collapse older assistant messages to reduce lag in long conversations."
+    },
+    "chatgptFoldingModeOff": {
+        "message": "Off"
+    },
+    "chatgptFoldingModeAll": {
+        "message": "Collapse all"
+    },
+    "chatgptFoldingModeKeepLastN": {
+        "message": "Keep last N expanded"
+    },
+    "chatgptFoldingCountLabel": {
+        "message": "Default expanded count"
+    },
+    "chatgptFoldingCountDesc": {
+        "message": "How many recent assistant messages stay expanded by default."
+    },
+    "chatgptFoldDockLabel": {
+        "message": "Right-side fold buttons"
+    },
+    "chatgptFoldDockDesc": {
+        "message": "Show fixed collapse/expand all buttons on the right side."
+    },
+    "chatgptCollapseAll": {
+        "message": "Collapse all"
+    },
+    "chatgptExpandAll": {
+        "message": "Expand all"
+    },
+    "btnCollapse": {
+        "message": "Collapse"
+    },
+    "btnExpand": {
+        "message": "Expand"
     },
     "supportDevelopment": {
         "message": "Support Development"
