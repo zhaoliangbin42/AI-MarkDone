@@ -76,7 +76,7 @@ export class Input {
         if (this.props.icon && this.props.iconPosition === 'left') {
             const iconSpan = document.createElement('span');
             iconSpan.className = 'input-icon input-icon-left';
-            iconSpan.innerHTML = this.props.icon;
+            this.setIconContent(iconSpan, this.props.icon);
             wrapper.appendChild(iconSpan);
         }
 
@@ -120,7 +120,7 @@ export class Input {
         if (this.props.icon && this.props.iconPosition === 'right') {
             const iconSpan = document.createElement('span');
             iconSpan.className = 'input-icon input-icon-right';
-            iconSpan.innerHTML = this.props.icon;
+            this.setIconContent(iconSpan, this.props.icon);
             wrapper.appendChild(iconSpan);
         }
 
@@ -233,6 +233,20 @@ export class Input {
      */
     select(): void {
         this.input?.select();
+    }
+
+    /**
+     * Set icon SVG content from trusted constants.
+     */
+    private setIconContent(target: HTMLElement, iconSvg: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = iconSvg.trim();
+        const svg = template.content.firstElementChild;
+        if (svg) {
+            target.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        target.textContent = '';
     }
 
     /**

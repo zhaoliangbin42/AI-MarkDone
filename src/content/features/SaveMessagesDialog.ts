@@ -132,13 +132,14 @@ export class SaveMessagesDialog {
         // Header
         const header = document.createElement('div');
         header.className = 'save-messages-header';
-        header.innerHTML = `
-            <h2 class="save-messages-title">${i18n.t('saveMessagesTitle')}</h2>
-        `;
+        const title = document.createElement('h2');
+        title.className = 'save-messages-title';
+        title.textContent = i18n.t('saveMessagesTitle');
+        header.appendChild(title);
 
         const closeBtn = document.createElement('button');
         closeBtn.className = 'save-messages-close-btn';
-        closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        closeBtn.appendChild(this.createCloseIcon());
         closeBtn.addEventListener('click', () => this.close());
         header.appendChild(closeBtn);
 
@@ -149,9 +150,10 @@ export class SaveMessagesDialog {
         // Message selector section
         const selectorSection = document.createElement('div');
         selectorSection.className = 'save-messages-section';
-        selectorSection.innerHTML = `
-            <label class="save-messages-label">${i18n.t('selectMessagesLabel')}</label>
-        `;
+        const selectorLabel = document.createElement('label');
+        selectorLabel.className = 'save-messages-label';
+        selectorLabel.textContent = i18n.t('selectMessagesLabel');
+        selectorSection.appendChild(selectorLabel);
 
         // Scroll container with padding for tooltips
         const scrollContainer = document.createElement('div');
@@ -165,34 +167,22 @@ export class SaveMessagesDialog {
         // Format section
         const formatSection = document.createElement('div');
         formatSection.className = 'save-messages-section';
-        formatSection.innerHTML = `
-            <label class="save-messages-label">${i18n.t('formatLabel')}</label>
-            <div class="format-buttons">
-                <button type="button" class="format-btn active" data-format="markdown">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                        <polyline points="14,2 14,8 20,8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                    </svg>
-                    Markdown
-                </button>
-                <button type="button" class="format-btn" data-format="pdf">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                        <polyline points="14,2 14,8 20,8"/>
-                        <path d="M9 15h2v2H9zM13 13h2v4h-2z"/>
-                    </svg>
-                    PDF
-                </button>
-            </div>
-        `;
+        const formatLabel = document.createElement('label');
+        formatLabel.className = 'save-messages-label';
+        formatLabel.textContent = i18n.t('formatLabel');
+
+        const formatButtons = document.createElement('div');
+        formatButtons.className = 'format-buttons';
+        const markdownBtn = this.createFormatButton('markdown', true);
+        const pdfBtn = this.createFormatButton('pdf', false);
+        formatButtons.append(markdownBtn, pdfBtn);
+        formatSection.append(formatLabel, formatButtons);
 
         // Listen for format button clicks
-        formatSection.querySelectorAll('.format-btn').forEach((btn) => {
+        [markdownBtn, pdfBtn].forEach((btn) => {
             btn.addEventListener('click', () => {
                 // Update active state
-                formatSection.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                [markdownBtn, pdfBtn].forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 // Update format
                 this.format = (btn as HTMLElement).dataset.format as SaveFormat;
@@ -210,6 +200,92 @@ export class SaveMessagesDialog {
         container.appendChild(dialog);
 
         this.shadowRoot.appendChild(container);
+    }
+
+    private createFormatButton(format: SaveFormat, active: boolean): HTMLButtonElement {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `format-btn${active ? ' active' : ''}`;
+        btn.dataset.format = format;
+        btn.appendChild(format === 'markdown' ? this.createMarkdownFormatIcon() : this.createPdfFormatIcon());
+        btn.appendChild(document.createTextNode(format === 'markdown' ? 'Markdown' : 'PDF'));
+        return btn;
+    }
+
+    private createMarkdownFormatIcon(): SVGSVGElement {
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('width', '16');
+        svg.setAttribute('height', '16');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', 'M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z');
+        const polyline = document.createElementNS(ns, 'polyline');
+        polyline.setAttribute('points', '14,2 14,8 20,8');
+        const line1 = document.createElementNS(ns, 'line');
+        line1.setAttribute('x1', '16');
+        line1.setAttribute('y1', '13');
+        line1.setAttribute('x2', '8');
+        line1.setAttribute('y2', '13');
+        const line2 = document.createElementNS(ns, 'line');
+        line2.setAttribute('x1', '16');
+        line2.setAttribute('y1', '17');
+        line2.setAttribute('x2', '8');
+        line2.setAttribute('y2', '17');
+        svg.append(path, polyline, line1, line2);
+        return svg;
+    }
+
+    private createPdfFormatIcon(): SVGSVGElement {
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('width', '16');
+        svg.setAttribute('height', '16');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+
+        const path1 = document.createElementNS(ns, 'path');
+        path1.setAttribute('d', 'M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z');
+        const polyline = document.createElementNS(ns, 'polyline');
+        polyline.setAttribute('points', '14,2 14,8 20,8');
+        const path2 = document.createElementNS(ns, 'path');
+        path2.setAttribute('d', 'M9 15h2v2H9zM13 13h2v4h-2z');
+        svg.append(path1, polyline, path2);
+        return svg;
+    }
+
+    private createCloseIcon(): SVGSVGElement {
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('width', '16');
+        svg.setAttribute('height', '16');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+
+        const line1 = document.createElementNS(ns, 'line');
+        line1.setAttribute('x1', '18');
+        line1.setAttribute('y1', '6');
+        line1.setAttribute('x2', '6');
+        line1.setAttribute('y2', '18');
+
+        const line2 = document.createElementNS(ns, 'line');
+        line2.setAttribute('x1', '6');
+        line2.setAttribute('y1', '6');
+        line2.setAttribute('x2', '18');
+        line2.setAttribute('y2', '18');
+
+        svg.append(line1, line2);
+        return svg;
     }
 
     /**

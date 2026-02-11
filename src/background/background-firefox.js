@@ -23,7 +23,8 @@ function isContentToBackgroundMessage(message) {
 
 function isTrustedExtensionSender(sender, runtimeId) {
     if (!runtimeId || !sender || !sender.id) return false;
-    if (!sender.tab || typeof sender.tab.id !== 'number') return false;
+    const tabId = sender.tab?.id;
+    if (typeof tabId !== 'number' || !Number.isInteger(tabId) || tabId < 0) return false;
     return sender.id === runtimeId;
 }
 

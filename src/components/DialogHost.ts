@@ -167,18 +167,13 @@ export class DialogHost {
 
         const title = options.title || 'Notice';
         const buttonText = options.buttonText || 'OK';
-
-        dialog.innerHTML = `
-            <div class="dialog-header">
-                <h2 class="dialog-title" id="dialog-title">${this.escapeHtml(title)}</h2>
-            </div>
-            <div class="dialog-body">
-                <p class="dialog-message">${this.escapeHtml(options.message)}</p>
-            </div>
-            <div class="dialog-footer">
-                <button class="dialog-btn dialog-btn-primary" id="dialog-ok">${this.escapeHtml(buttonText)}</button>
-            </div>
-        `;
+        const header = this.createDialogHeader(title);
+        const body = this.createDialogBody(options.message);
+        const footer = document.createElement('div');
+        footer.className = 'dialog-footer';
+        const okButton = this.createDialogButton('dialog-ok', 'dialog-btn dialog-btn-primary', buttonText);
+        footer.appendChild(okButton);
+        dialog.append(header, body, footer);
 
         overlay.appendChild(dialog);
         this.shadowRoot.appendChild(overlay);
@@ -231,19 +226,14 @@ export class DialogHost {
         const confirmText = options.confirmText || 'Confirm';
         const cancelText = options.cancelText || 'Cancel';
         const confirmBtnClass = options.danger ? 'dialog-btn-danger' : 'dialog-btn-primary';
-
-        dialog.innerHTML = `
-            <div class="dialog-header">
-                <h2 class="dialog-title" id="dialog-title">${this.escapeHtml(title)}</h2>
-            </div>
-            <div class="dialog-body">
-                <p class="dialog-message">${this.escapeHtml(options.message)}</p>
-            </div>
-            <div class="dialog-footer">
-                <button class="dialog-btn dialog-btn-secondary" id="dialog-cancel">${this.escapeHtml(cancelText)}</button>
-                <button class="dialog-btn ${confirmBtnClass}" id="dialog-confirm">${this.escapeHtml(confirmText)}</button>
-            </div>
-        `;
+        const header = this.createDialogHeader(title);
+        const body = this.createDialogBody(options.message);
+        const footer = document.createElement('div');
+        footer.className = 'dialog-footer';
+        const cancelButton = this.createDialogButton('dialog-cancel', 'dialog-btn dialog-btn-secondary', cancelText);
+        const confirmButton = this.createDialogButton('dialog-confirm', `dialog-btn ${confirmBtnClass}`, confirmText);
+        footer.append(cancelButton, confirmButton);
+        dialog.append(header, body, footer);
 
         overlay.appendChild(dialog);
         this.shadowRoot.appendChild(overlay);
@@ -304,28 +294,35 @@ export class DialogHost {
         const cancelText = options.cancelText || 'Cancel';
         const placeholder = options.placeholder || '';
         const defaultValue = options.defaultValue || '';
-
-        dialog.innerHTML = `
-            <div class="dialog-header">
-                <h2 class="dialog-title" id="dialog-title">${this.escapeHtml(title)}</h2>
-            </div>
-            <div class="dialog-body">
-                ${options.message ? `<p class="dialog-message">${this.escapeHtml(options.message)}</p>` : ''}
-                <div class="dialog-input-wrapper">
-                    <input type="text" 
-                           class="dialog-input" 
-                           id="dialog-input"
-                           placeholder="${this.escapeAttr(placeholder)}"
-                           value="${this.escapeAttr(defaultValue)}"
-                           autocomplete="off">
-                    <div class="dialog-input-error" id="dialog-error"></div>
-                </div>
-            </div>
-            <div class="dialog-footer">
-                <button class="dialog-btn dialog-btn-secondary" id="dialog-cancel">${this.escapeHtml(cancelText)}</button>
-                <button class="dialog-btn dialog-btn-primary" id="dialog-confirm">${this.escapeHtml(confirmText)}</button>
-            </div>
-        `;
+        const header = this.createDialogHeader(title);
+        const body = document.createElement('div');
+        body.className = 'dialog-body';
+        if (options.message) {
+            const messageEl = document.createElement('p');
+            messageEl.className = 'dialog-message';
+            messageEl.textContent = options.message;
+            body.appendChild(messageEl);
+        }
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'dialog-input-wrapper';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'dialog-input';
+        input.id = 'dialog-input';
+        input.placeholder = placeholder;
+        input.value = defaultValue;
+        input.autocomplete = 'off';
+        const inputError = document.createElement('div');
+        inputError.className = 'dialog-input-error';
+        inputError.id = 'dialog-error';
+        inputWrapper.append(input, inputError);
+        body.appendChild(inputWrapper);
+        const footer = document.createElement('div');
+        footer.className = 'dialog-footer';
+        const cancelButton = this.createDialogButton('dialog-cancel', 'dialog-btn dialog-btn-secondary', cancelText);
+        const confirmButton = this.createDialogButton('dialog-confirm', 'dialog-btn dialog-btn-primary', confirmText);
+        footer.append(cancelButton, confirmButton);
+        dialog.append(header, body, footer);
 
         overlay.appendChild(dialog);
         this.shadowRoot.appendChild(overlay);
@@ -428,6 +425,35 @@ export class DialogHost {
         return overlay;
     }
 
+    private createDialogHeader(title: string): HTMLDivElement {
+        const header = document.createElement('div');
+        header.className = 'dialog-header';
+        const titleEl = document.createElement('h2');
+        titleEl.className = 'dialog-title';
+        titleEl.id = 'dialog-title';
+        titleEl.textContent = title;
+        header.appendChild(titleEl);
+        return header;
+    }
+
+    private createDialogBody(message: string): HTMLDivElement {
+        const body = document.createElement('div');
+        body.className = 'dialog-body';
+        const messageEl = document.createElement('p');
+        messageEl.className = 'dialog-message';
+        messageEl.textContent = message;
+        body.appendChild(messageEl);
+        return body;
+    }
+
+    private createDialogButton(id: string, className: string, text: string): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.id = id;
+        button.className = className;
+        button.textContent = text;
+        return button;
+    }
+
     /**
      * Close the current dialog
      */
@@ -441,19 +467,4 @@ export class DialogHost {
         }
     }
 
-    /**
-     * Escape HTML for safe rendering
-     */
-    private escapeHtml(text: string): string {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    /**
-     * Escape attribute value
-     */
-    private escapeAttr(text: string): string {
-        return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
 }

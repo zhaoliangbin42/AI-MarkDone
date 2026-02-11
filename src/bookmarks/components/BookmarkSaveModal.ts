@@ -528,12 +528,16 @@ export class BookmarkSaveModal {
         const tree = TreeBuilder.buildTree(this.folders, [], new Set<string>(), null);
 
         if (tree.length === 0) {
-            treeBody.innerHTML = `
-                <div class="folder-empty">
-                    <div class="folder-empty-icon">${Icons.folder}</div>
-                    <div class="folder-empty-text">${i18n.t('noFoldersCreateHint')}</div>
-                </div>
-            `;
+            const empty = document.createElement('div');
+            empty.className = 'folder-empty';
+            const icon = document.createElement('div');
+            icon.className = 'folder-empty-icon';
+            this.setIconOnlyContent(icon, Icons.folder);
+            const text = document.createElement('div');
+            text.className = 'folder-empty-text';
+            text.textContent = i18n.t('noFoldersCreateHint');
+            empty.append(icon, text);
+            treeBody.replaceChildren(empty);
             return;
         }
 
@@ -849,6 +853,20 @@ export class BookmarkSaveModal {
      */
     private escapeAttr(text: string): string {
         return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Set icon-only content from trusted SVG constants.
+     */
+    private setIconOnlyContent(target: HTMLElement, svgIcon: string): void {
+        const template = document.createElement('template');
+        template.innerHTML = svgIcon.trim();
+        const svg = template.content.firstElementChild;
+        if (svg && svg.tagName.toLowerCase() === 'svg') {
+            target.replaceChildren(svg.cloneNode(true));
+            return;
+        }
+        target.textContent = '';
     }
 
     /**

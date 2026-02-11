@@ -17,6 +17,6 @@ export function isContentToBackgroundMessage(message: unknown): message is Conte
 export function isTrustedExtensionSender(sender: RuntimeSenderWithTabLike, runtimeId: string | undefined): boolean {
     if (!runtimeId || !sender?.id) return false;
     const tabId = sender.tab?.id;
-    if (typeof tabId !== 'number') return false;
+    if (typeof tabId !== 'number' || !Number.isInteger(tabId) || tabId < 0) return false;
     return sender.id === runtimeId;
 }
