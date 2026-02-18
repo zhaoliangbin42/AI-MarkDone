@@ -2,7 +2,6 @@ import { MarkdownParser } from '../parsers/markdown-parser';
 import { TooltipHelper } from '../utils/tooltip-helper';
 import { copyToClipboard } from '../../utils/dom-utils';
 import { logger } from '../../utils/logger';
-import { ReaderPanel } from './re-render';
 import { i18n } from '../../utils/i18n';
 
 /**
@@ -13,11 +12,11 @@ export class DeepResearchHandler {
     private observer: MutationObserver | null = null;
     private activePanel: HTMLElement | null = null;
     private parser: MarkdownParser;
-    private readerPanel: ReaderPanel;
+    private onOpenReader?: (messageElement: HTMLElement) => void;
 
-    constructor() {
+    constructor(onOpenReader?: (messageElement: HTMLElement) => void) {
         this.parser = new MarkdownParser();
-        this.readerPanel = new ReaderPanel();
+        this.onOpenReader = onOpenReader;
     }
 
     /**
@@ -91,7 +90,7 @@ export class DeepResearchHandler {
         });
 
         // Create reader button
-        const readerBtn = this.createButton(i18n.t('readerMode'), 'menu_book', () => {
+        const readerBtn = this.createButton(i18n.t('readerMode'), 'auto_stories', () => {
             this.handleReader(panel);
         });
 
@@ -183,24 +182,26 @@ export class DeepResearchHandler {
 
     /**
      * Handle reader button click - open in ReaderPanel
+     * Why: The deep-research-immersive-panel is a top-level DOM element, NOT nested
+     * inside model-response. So we cannot use closest(). Instead, we find the
+     * model-response that contains immersive-entry-chip (same identifier the adapter
+     * uses in isDeepResearchMessage), then pass it to the shared reader callback
+     * which triggers the same getMarkdown() pipeline as the toolbar reader button.
      */
-    private handleReader(panel: HTMLElement): void {
-        const content = panel.querySelector('#extended-response-markdown-content');
-        if (!content) {
-            logger.warn('[DeepResearch] Content element not found');
+    private handleReader(_panel: HTMLElement): void {
+        // The panel is a top-level element — find the Deep Research model-response from the page.
+        const modelResponse = document.querySelector('model-response:has(immersive-entry-chip)');
+        if (!modelResponse || !(modelResponse instanceof HTMLElement)) {
+            logger.warn('[DeepResearch] Deep Research model-response not found on page');
             this.showFeedback(i18n.t('contentNotFound'), true);
             return;
         }
 
-        try {
-            this.readerPanel.show(
-                content as HTMLElement,
-                (el: HTMLElement) => this.parser.parse(el)
-            );
-            logger.info('[DeepResearch] Reader panel opened');
-        } catch (error) {
-            logger.error('[DeepResearch] Error opening reader:', error);
-            this.showFeedback(i18n.t('openFailed'), true);
+        if (this.onOpenReader) {
+            this.onOpenReader(modelResponse);
+            logger.info('[DeepResearch] Reader opened via shared callback');
+        } else {
+            logger.warn('[DeepResearch] No onOpenReader callback registered');
         }
     }
 
