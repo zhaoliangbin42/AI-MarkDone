@@ -40,7 +40,8 @@ export class ChatGPTFoldingController {
     private groups: FoldGroup[] = [];
     private groupCounter: number = 0;
 
-    private applyScheduled: boolean = false;
+    private registerScheduled: boolean = false;
+    private initialPolicyApplied: boolean = false;
     private readonly barMaxWidthPx: number = 800;
     private selectorMissStreak: number = 0;
     private degradedMode: boolean = false;
@@ -53,6 +54,8 @@ export class ChatGPTFoldingController {
         this.ensureDockVisibility();
         this.observeDockHost();
 
+        // Try to apply initial fold policy. If messages aren't in the DOM yet (common case),
+        // this will find 0 groups and the policy will be deferred to registerMessage().
         this.applyToExisting();
 
         this.unsubscribeSettings = SettingsManager.getInstance().subscribe((settings) => {
@@ -65,14 +68,21 @@ export class ChatGPTFoldingController {
             this.mode = nextMode;
             this.keepLastN = nextKeepLastN;
             this.showDock = nextShowDock;
-            this.resetSelectorHealth();
             this.ensureDockVisibility();
-            this.applyToExisting();
+
+            // Special case: when mode changes to 'off', immediately unfold all to restore page state.
+            // Other mode changes are deferred to next page load / conversation switch.
+            if (this.mode === 'off') {
+                this.resetSelectorHealth();
+                this.unfoldAll();
+            } else {
+                logger.info('[ChatGPTFolding] Settings updated (mode=%s, keepLastN=%d). Will apply on next page load.', this.mode, this.keepLastN);
+            }
         });
 
         this.onWindowResize = () => {
             if (this.mode === 'off') return;
-            this.scheduleApplyAll();
+            this.scheduleRegisterOnly();
         };
         window.addEventListener('resize', this.onWindowResize, { passive: true });
     }
@@ -94,7 +104,15 @@ export class ChatGPTFoldingController {
 
     registerMessage(_messageEl: HTMLElement): void {
         if (this.mode === 'off') return;
-        this.scheduleApplyAll();
+
+        // On page load, init() runs before messages exist in the DOM.
+        // The first time messages arrive, apply the full settings policy once.
+        // After that, only sync DOM to preserve user's manual fold/expand state.
+        if (!this.initialPolicyApplied) {
+            this.scheduleInitialApply();
+        } else {
+            this.scheduleRegisterOnly();
+        }
     }
 
     collapseAll(): void {
@@ -143,6 +161,9 @@ export class ChatGPTFoldingController {
         this.updateSelectorHealth(groups.length);
         if (this.degradedMode) return;
         if (groups.length === 0) return;
+
+        // Mark policy as applied once we have groups to work with.
+        this.initialPolicyApplied = true;
 
         if (this.mode === 'all') {
             groups.forEach((g) => this.setGroupCollapsed(g, true));
@@ -441,13 +462,36 @@ export class ChatGPTFoldingController {
         });
     }
 
-    private scheduleApplyAll(): void {
-        if (this.applyScheduled) return;
-        this.applyScheduled = true;
+    /**
+     * Deferred initial policy application.
+     * Used once after page load when the first messages arrive in the DOM.
+     */
+    private scheduleInitialApply(): void {
+        if (this.registerScheduled) return;
+        this.registerScheduled = true;
         setTimeout(() => {
-            this.applyScheduled = false;
+            this.registerScheduled = false;
             try {
                 this.applyToExisting();
+            } catch {
+                // ignore
+            }
+        }, 200);
+    }
+
+    /**
+     * Sync DOM groups without re-applying fold policy.
+     * Used by registerMessage() and resize to avoid resetting user's manual fold state.
+     * New groups are created expanded by default (see createGroup).
+     */
+    private scheduleRegisterOnly(): void {
+        if (this.registerScheduled) return;
+        this.registerScheduled = true;
+        setTimeout(() => {
+            this.registerScheduled = false;
+            try {
+                const groups = this.syncGroupsFromDom();
+                this.updateSelectorHealth(groups.length);
             } catch {
                 // ignore
             }
