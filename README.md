@@ -32,6 +32,7 @@
 
 - **ChatGPT feels slow?** Long answers make the page heavy and annoying to navigate.
 - **Scroll fatigue?** You keep losing the exact paragraph you need.
+- **Page getting sluggish?** Dozens of messages piling up slow down ChatGPT noticeably — you just want to focus on the latest few.
 - **Need a stable view?** You want to read and keep chatting without losing context.
 - **Need real deliverables?** Clean Markdown for Obsidian/Typora, or a beautiful PDF you can share.
 - **Knowledge keeps disappearing?** You want a bookmark system that actually helps you organize.
@@ -53,6 +54,12 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 ---
 
 ## ✨ Core Features
+
+### ⚡ Conversation Folding (ChatGPT Speed Boost)
+- **Collapse old messages**: Fold earlier exchanges into a slim bar — the page renders faster and feels lighter instantly.
+- **Quick dock**: A fixed right-side control lets you collapse or expand all messages in one click.
+- **Smart defaults**: Set how many recent messages stay expanded automatically, so you always see what matters.
+- **Manual control**: Fold or unfold any individual message at any time.
 
 ### 📚 Reading Mode (Focus View)
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
@@ -133,11 +140,9 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v2.9.5
-- **🌍 Improved**: Comprehensive bilingual (English + Simplified Chinese) localization coverage across key bookmark and settings flows.
-- **✨ Improved**: More robust ChatGPT toolbar injection timing and lifecycle cleanup for dynamic page updates.
-- **🐛 Fix**: Reader pagination edge cases and code-only word count loading behavior.
-- **🐛 Fix**: Bookmark panel empty-state styling when no folders exist.
+### v3.0.0
+- **✨ New**: ChatGPT Conversation Folding — collapse old messages to speed up the page, with a quick dock for one-click control.
+- **🐛 Fix**: Gemini Deep Research embedded reader button not extracting content correctly.
 
 [Full Changelog](./CHANGELOG.md)
 
@@ -161,7 +166,6 @@ If this extension saves you time, consider buying me a coffee to support future 
 
 ## ✅ TODO
 
-- ChatGPT history folding
 - Full-text bookmarks
 - Message comments
 - More...

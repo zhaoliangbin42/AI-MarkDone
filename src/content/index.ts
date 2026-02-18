@@ -170,7 +170,9 @@ class ContentScript {
             geminiPanelButton.init();
 
             // Initialize Deep Research handler for panel button injection
-            this.deepResearchHandler = new DeepResearchHandler();
+            this.deepResearchHandler = new DeepResearchHandler(
+                (messageElement) => this.showReRenderPanel(messageElement)
+            );
             this.deepResearchHandler.enable();
         } else if (platformNameRaw === 'Claude') {
             // Initialize Claude panel button
