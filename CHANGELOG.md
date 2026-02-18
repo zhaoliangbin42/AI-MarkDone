@@ -5,6 +5,16 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-02-18
+
+### Added
+- **ChatGPT Conversation Folding**: Added fold bars for ChatGPT conversations with per-thread collapse/expand controls.
+- **ChatGPT Quick Dock**: Added a fixed right-side quick control for "Collapse all" and "Expand all".
+- **ChatGPT Settings Section**: Added a dedicated ChatGPT settings group with folding mode, default expanded count, and dock visibility toggle.
+
+### Fixed
+- Gemini: Fixed Deep Research embedded reader button not extracting content correctly (now uses the same pipeline as the toolbar reader button).
+
 ## [2.9.5] - 2026-02-06
 
 ### Added
