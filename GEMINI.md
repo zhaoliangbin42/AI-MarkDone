@@ -112,10 +112,10 @@ src/
 ## 参考文档
 
 | 文档 | 用途 |
-|:----|:----|\n| [BROWSER_COMPATIBILITY.md](docs/BROWSER_COMPATIBILITY.md) | Chrome/Firefox 兼容性指南 |
+|:----|:----|\n| [BROWSER_COMPATIBILITY.md](docs/architecture/BROWSER_COMPATIBILITY.md) | Chrome/Firefox 兼容性指南 |
 | [CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md) | 平台功能支持矩阵 |
 | [platform-adaptation.md](.agent/workflows/platform-adaptation.md) | Platform Integration Manual |
-| [ALGORITHM_NOTES.md](docs/ALGORITHM_NOTES.md) | 算法复盘笔记（仅用户明确要求时编写） |
+| [ALGORITHM_NOTES.md](docs/_legacy/ALGORITHM_NOTES.md) | 算法复盘笔记（仅用户明确要求时编写） |
 
 ---
 

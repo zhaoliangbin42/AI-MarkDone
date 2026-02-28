@@ -9,10 +9,12 @@ import { resolve } from 'path';
  */
 export default defineConfig({
     build: {
+        modulePreload: {
+            polyfill: false
+        },
         rollupOptions: {
             input: {
-                content: resolve(__dirname, 'src/content/index.ts'),
-                // Note: background-firefox.js 是纯 JS，通过 postbuild 复制
+                content: resolve(__dirname, 'src/runtimes/content/entry.ts'),
             },
             output: {
                 entryFileNames: '[name].js',

@@ -8,10 +8,12 @@ import { resolve } from 'path';
  */
 export default defineConfig({
     build: {
+        modulePreload: {
+            polyfill: false  // Service Worker compatibility (keep disabled across targets)
+        },
         rollupOptions: {
             input: {
-                content: resolve(__dirname, 'src/content/index.ts'),
-                background: resolve(__dirname, 'src/background/service-worker.ts')
+                content: resolve(__dirname, 'src/runtimes/content/entry.ts'),
             },
             output: {
                 entryFileNames: '[name].js',

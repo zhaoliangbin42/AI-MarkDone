@@ -146,7 +146,7 @@ Antigravity 将自动生成变更总结。
 
 | 条件 | 需更新的文档 |
 |:-----|:-------------|
-| 新增/修改 Background 功能 | `docs/BROWSER_COMPATIBILITY.md` + 两个 background 文件 |
+| 新增/修改 Background 功能 | `docs/architecture/BROWSER_COMPATIBILITY.md` + 两个 background 文件 |
 | 新增平台功能 | `CAPABILITY_MATRIX.md` |
 
 ### 7.2 更新 CHANGELOG

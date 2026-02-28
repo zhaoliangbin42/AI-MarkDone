@@ -1,9 +1,9 @@
 {
     "extName": {
-        "message": "AI-MarkDone | Reader Mode, Bookmarks & LaTeX Copy for AI"
+        "message": "AI-MarkDone"
     },
     "extDescription": {
-        "message": "Immersive reader mode, bookmark management, one-click LaTeX formula copy, Markdown export for ChatGPT and Gemini."
+        "message": "All you need for ChatGPT, Gemini, Claude & DeepSeek: reader mode, message folding, bookmarks, LaTeX copy & Markdown export."
     },
     "btnCopy": {
         "message": "Copy Markdown"

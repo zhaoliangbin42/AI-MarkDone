@@ -1,7 +1,7 @@
 # AI-MarkDone 开发规范
 
 > 适用对象: AI Agent (Claude/Gemini/GPT) 及人类开发者  
-> 版本: 4.1.0
+> 版本: 4.2.0
 
 ---
 
@@ -89,12 +89,18 @@ src/
 ├── background/       # Background Script (Chrome: service-worker.ts, Firefox: background-firefox.js)
 ├── content/          # Content Script 主入口
 │   ├── adapters/     # 平台适配器 (ChatGPT/Gemini/Claude/Deepseek)
+│   ├── components/   # 页面内 UI 组件（Shadow DOM）
+│   ├── observers/    # 页面变化监听（MutationObserver 等）
+│   ├── injectors/    # 注入与挂载逻辑
 │   ├── features/     # 功能模块
 │   └── parsers/      # Markdown 解析器
 ├── bookmarks/        # 书签功能模块
+├── settings/         # 设置管理（schema/迁移/缓存）
+├── parser/           # Parser v3（规则引擎）
 ├── renderer/         # Markdown 渲染器
 ├── styles/           # 样式与 Token
-└── utils/            # 全局工具函数 + ThemeManager
+├── shared/           # 共享契约（协议/类型）
+└── utils/            # 全局工具函数（browser/i18n/logger/tokens 等）
 ```
 
 ---
@@ -110,13 +116,26 @@ src/
 
 ---
 
-## 参考文档
+## 权威文档库（Docs）
+
+`docs/` 目录正在重建为面向未来的权威文档库。任何架构/协议/存储/适配器契约/重构拆分相关的变更，必须以权威文档为准并同步更新。
 
 | 文档 | 用途 |
-|:----|:----|\n| [BROWSER_COMPATIBILITY.md](docs/BROWSER_COMPATIBILITY.md) | Chrome/Firefox 兼容性指南 |
+|:----|:----|
+| [docs/README.md](docs/README.md) | 权威文档入口（source of truth） |
+| [AS_IS.md](docs/architecture/AS_IS.md) | 当前系统分析（能力/边界/依赖/问题清单） |
+| [BLUEPRINT.md](docs/architecture/BLUEPRINT.md) | 目标架构蓝图（MV3 哲学、契约、演进策略） |
+| [DEPENDENCY_RULES.md](docs/architecture/DEPENDENCY_RULES.md) | 依赖方向规则（可转为 CI 门禁） |
+| [BROWSER_COMPATIBILITY.md](docs/architecture/BROWSER_COMPATIBILITY.md) | Chrome MV3 / Firefox MV2 兼容性边界 |
+| [ADAPTER_CONTRACT.md](docs/antigravity/platform/ADAPTER_CONTRACT.md) | 站点适配器契约（跨站差异收敛点） |
 | [CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md) | 平台功能支持矩阵 |
-| [platform-adaptation.md](.agent/workflows/platform-adaptation.md) | Platform Integration Manual |
-| [ALGORITHM_NOTES.md](docs/ALGORITHM_NOTES.md) | 算法复盘笔记（仅用户明确要求时编写） |
+| [REFACTOR_CHECKLIST.md](docs/refactor/REFACTOR_CHECKLIST.md) | 分阶段重构 checklist（checkbox 实时更新） |
+| [DOCS_GOVERNANCE.md](docs/governance/DOCS_GOVERNANCE.md) | 文档库治理（权威层级/迁移/废弃规则） |
+| [STYLE_SYSTEM.md](docs/style/STYLE_SYSTEM.md) | 样式系统（Tokens + Shadow DOM + Theme） |
+| [TESTING_BLUEPRINT.md](docs/testing/TESTING_BLUEPRINT.md) | 测试体系蓝图（分层结构与契约门禁） |
+
+历史文档已统一归档到 `docs/_legacy/**`（例如 `docs/_legacy/review/**`、`docs/_legacy/debug/**`）；重构期间不要把它们当作未来规范依据。
+
 
 ---
 
