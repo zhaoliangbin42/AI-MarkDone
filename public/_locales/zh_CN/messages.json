@@ -1,9 +1,9 @@
 {
     "extName": {
-        "message": "AI-MarkDone | 给大模型添加沉浸式阅读模式、书签、LaTex公式复制"
+        "message": "AI-MarkDone"
     },
     "extDescription": {
-        "message": "为 ChatGPT 和 Gemini 提供沉浸式阅读模式、书签管理、LaTeX 公式一键复制、Markdown 导出等功能，提升大模型使用体验。"
+        "message": "AI 专业提效神器：阅读模式、消息折叠、书签管理、LaTeX 公式复制与 Markdown 导出。支持 ChatGPT、Gemini、Claude 和 DeepSeek。"
     },
     "btnCopy": {
         "message": "复制 Markdown"

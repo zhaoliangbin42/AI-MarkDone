@@ -9,6 +9,8 @@ export default defineConfig({
         exclude: [
             '**/node_modules/**',
             '**/dist/**',
+            'archive/**',
+            'local/**',
             'tests/unit/markdown-ast-pipeline.test.js',
             'tests/unit/markdown-math-core.test.js',
             'tests/unit/markdown-parser.test.js',

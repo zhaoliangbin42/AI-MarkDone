@@ -23,9 +23,9 @@ local/
 
 # Debug files
 Debug/
-mocks/
 .tmp*
-tests/
+archive/
+mocks/
 
 # Logs
 *.log
@@ -42,7 +42,6 @@ dist-firefox/
 # Editor directories and files
 .DS_Store
 .vscode/
-.github/
 .idea/
 *.swp
 *.swo

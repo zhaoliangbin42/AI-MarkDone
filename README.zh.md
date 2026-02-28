@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — ChatGPT 从未如此顺手。</h1>
+  <h1>AI-MarkDone — ChatGPT提效神器，支持Gemini, Claude和DeepSeek</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -46,6 +46,9 @@
 
 <p align="center">
   <img src="imgs/ScreenShot-Toolbar-zh.png" style="max-width:800px;width:100%;" />
+</p>
+<p align="center">
+  <img src="imgs/ScreenShot-Folding.png" style="max-width:800px;width:100%;" />
 </p>
 <p align="center">
   <img src="imgs/ScreenShot-Reader-zh.png" style="max-width:800px;width:100%;" />

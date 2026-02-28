@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — Supercharge Your ChatGPT</h1>
+  <h1>AI-MarkDone — Supercharge ChatGPT, Gemini & More</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -46,6 +46,9 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 <p align="center">
   <img src="imgs/ScreenShot-Toolbar-en.png" style="max-width:800px;width:100%;" />
+</p>
+<p align="center">
+  <img src="imgs/ScreenShot-Folding.png" style="max-width:800px;width:100%;" />
 </p>
 <p align="center">
   <img src="imgs/ScreenShot-Reader-en.png" style="max-width:800px;width:100%;" />
