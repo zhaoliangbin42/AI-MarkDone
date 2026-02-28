@@ -31,6 +31,48 @@ export class DeepseekAdapter extends SiteAdapter {
         return detector;
     }
 
+    extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
+        const normalize = (text: string): string =>
+            text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+
+        const message = assistantMessageElement.closest('div.ds-message') || assistantMessageElement;
+        const parent = message.parentElement;
+
+        if (parent) {
+            const messages = Array.from(parent.querySelectorAll('div.ds-message')).filter(
+                (n): n is HTMLElement => n instanceof HTMLElement
+            );
+            const idx = messages.indexOf(message as HTMLElement);
+            if (idx >= 0) {
+                for (let i = idx - 1; i >= 0; i -= 1) {
+                    const prev = messages[i];
+                    // User prompts typically do NOT contain .ds-markdown.
+                    if (prev.querySelector('.ds-markdown')) continue;
+                    const text = (prev.textContent || '').trim();
+                    const normalized = normalize(text);
+                    return normalized || null;
+                }
+            }
+        }
+
+        // Fallback: previous sibling walk for a non-markdown ds-message.
+        let cursor: Element | null = message;
+        while (cursor) {
+            let prev: Element | null = cursor.previousElementSibling;
+            while (prev) {
+                if (prev instanceof HTMLElement && prev.classList.contains('ds-message') && !prev.querySelector('.ds-markdown')) {
+                    const text = (prev.textContent || '').trim();
+                    const normalized = normalize(text);
+                    return normalized || null;
+                }
+                prev = prev.previousElementSibling;
+            }
+            cursor = cursor.parentElement;
+        }
+
+        return null;
+    }
+
     getMessageSelector(): string {
         return 'div.ds-message:has(.ds-markdown)';
     }

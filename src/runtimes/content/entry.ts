@@ -9,6 +9,7 @@ import { MessageToolbarController } from '../../drivers/content/toolbars/message
 import { copyMarkdownFromPage } from '../../services/copy/copy-markdown';
 import { ensurePageTokens } from '../../style/pageTokens';
 import { RewriteToolbar } from '../../ui/content/RewriteToolbar';
+import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 
 ensurePageTokens();
 
@@ -18,12 +19,14 @@ const adapter = getAdapter();
 const themeManager = new ThemeManager();
 const mathClick = new MathClickHandler();
 let latexClickEnabled = true;
+const readerPanel = new ReaderPanel();
 const messageToolbars = adapter
     ? new MessageToolbarController(adapter, {
           onMessageInjected: (messageElement) => {
               if (!latexClickEnabled) return;
               mathClick.enable(messageElement);
           },
+          readerPanel,
       })
     : null;
 
@@ -54,6 +57,7 @@ themeManager.init(adapter);
 themeManager.subscribe((theme) => {
     toolbar.setTheme(theme);
     messageToolbars?.setTheme(theme);
+    readerPanel.setTheme(theme);
 });
 
 toolbar.mount();

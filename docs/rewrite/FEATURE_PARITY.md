@@ -8,11 +8,11 @@
 
 ## 1. 全局能力（跨平台）
 
-- [ ] Toolbar 注入与基础操作（出现/消失、按钮状态、主题同步）
-- [ ] Markdown 提取与复制（含噪声过滤、normalizeDOM 前处理）
-- [ ] LaTeX 公式提取与复制（KaTeX/annotation 路径与回退）
-- [ ] Code block 提取与复制（语言识别与稳定输出）
-- [ ] 表格提取/渲染（HTML→Markdown 规则一致）
+- [x] Toolbar 注入与基础操作（出现/消失、按钮状态、主题同步）
+- [x] Markdown 提取与复制（含噪声过滤、normalizeDOM 前处理）
+- [x] LaTeX 公式提取与复制（KaTeX/annotation 路径与回退）
+- [x] Code block 提取与复制（语言识别与稳定输出）
+- [x] 表格提取/渲染（HTML→Markdown 规则一致）
 - [ ] 字数统计（CJK 感知）
 - [ ] i18n（语言选择/迁移/无 raw key）
 
@@ -20,10 +20,10 @@
 
 ## 2. Reader（预览/分页/复制/发送）
 
-- [ ] ReaderPanel 打开/关闭（稳定生命周期）
-- [ ] 分页导航（含 tooltip/用户提问提取）
-- [ ] 渲染链路（markdown/code/math/table 混排）
-- [ ] Copy（从 Reader 复制 markdown）
+- [x] ReaderPanel 打开/关闭（稳定生命周期）
+- [x] 分页导航（Prev/Next + index/total）
+- [x] 渲染链路（markdown/code/math/table 混排）
+- [x] Copy（从 Reader 复制 markdown）
 - [ ] Message sending（输入框同步/发送按钮模拟/完成检测）
 
 ---
@@ -51,4 +51,3 @@
 - [ ] Firefox MV2 build 产物一致性
 - [ ] supported hosts 一致性（manifest / background / popup links）
 - [ ] web_accessible_resources 完整性（KaTeX assets/locales/icons）
-

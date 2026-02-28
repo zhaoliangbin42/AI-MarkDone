@@ -32,3 +32,17 @@
 - 复制按钮在 **每条 assistant 消息** 下方，点击只复制该消息的内容。
 - 站点差异仅存在于 adapters（normalize/noise/deep-research/streaming），Copy pipeline 逻辑统一。
 - 所有核心规则具备 unit tests，所有平台具备 integration/parity tests（mocks）。
+
+---
+
+## Golden Strategy（减少文档漂移的回归门禁）
+
+为避免“新旧实现并行对照”的长期维护成本，Copy 的跨平台回归采用 goldens：
+
+- Goldens 位置：`tests/fixtures/expected/copy/<platform>/<fixture>.md`
+- Parity tests：从 `tests/fixtures/mocks/**` 读取 DOM fixture，运行 rewrite Copy pipeline，然后与 golden 对比。
+- Golden 更新：仅在明确变更 Copy 规则或 adapter 噪声策略时更新；通过脚本生成（见下）。
+
+脚本：
+
+- `scripts/update-copy-goldens.ts`：基于当前实现重建 goldens（用于“有意识更新 baseline”，不进入默认 test 流）。

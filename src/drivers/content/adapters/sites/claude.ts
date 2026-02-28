@@ -29,6 +29,32 @@ export class ClaudeAdapter extends SiteAdapter {
         return detector;
     }
 
+    extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
+        const normalize = (text: string): string =>
+            text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+
+        const group = assistantMessageElement.closest('div.group') || assistantMessageElement;
+
+        // Claude renders user messages with [data-testid="user-message"].
+        let cursor: Element | null = group;
+        while (cursor) {
+            let prev: Element | null = cursor.previousElementSibling;
+            while (prev) {
+                const user = prev.querySelector('[data-testid="user-message"]') as HTMLElement | null;
+                if (user) {
+                    const textEl = (user.querySelector('.whitespace-pre-wrap') as HTMLElement | null) || user;
+                    const text = (textEl.textContent || '').trim();
+                    const normalized = normalize(text);
+                    return normalized || null;
+                }
+                prev = prev.previousElementSibling;
+            }
+            cursor = cursor.parentElement;
+        }
+
+        return null;
+    }
+
     getMessageSelector(): string {
         return 'div.group[data-is-streaming="false"], div.group[style*="height: auto"]';
     }
@@ -105,4 +131,3 @@ export class ClaudeAdapter extends SiteAdapter {
         return null;
     }
 }
-

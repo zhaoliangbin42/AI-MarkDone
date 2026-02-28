@@ -18,6 +18,17 @@ export abstract class SiteAdapter {
     // =========================
 
     /**
+     * Extract the user prompt that corresponds to this assistant message.
+     *
+     * Used by Reader pagination titles/tooltips.
+     *
+     * Constraints:
+     * - Structural extraction only (avoid language/text-based heuristics).
+     * - Must return a stable, user-readable string or `null` if unavailable.
+     */
+    abstract extractUserPrompt(assistantMessageElement: HTMLElement): string | null;
+
+    /**
      * Select assistant message container elements (NOT user prompts).
      * Must be stable enough to drive per-message toolbar injection.
      */

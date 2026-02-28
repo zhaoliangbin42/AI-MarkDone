@@ -36,6 +36,55 @@ export class ChatGPTAdapter extends SiteAdapter {
         return true;
     }
 
+    extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
+        const normalize = (text: string): string =>
+            text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+
+        const assistantArticle = assistantMessageElement.closest('article') || assistantMessageElement;
+        const scope = assistantArticle.parentElement;
+        if (scope) {
+            const turns = Array.from(scope.querySelectorAll('article[data-turn]')).filter(
+                (n): n is HTMLElement => n instanceof HTMLElement
+            );
+            const idx = turns.indexOf(assistantArticle as HTMLElement);
+            if (idx >= 0) {
+                for (let i = idx - 1; i >= 0; i -= 1) {
+                    const turn = turns[i];
+                    if (turn.getAttribute('data-turn') !== 'user') continue;
+
+                    const bubble =
+                        (turn.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap') as HTMLElement | null) ||
+                        (turn.querySelector('[data-message-author-role="user"]') as HTMLElement | null) ||
+                        (turn.querySelector('.whitespace-pre-wrap') as HTMLElement | null);
+
+                    const text = (bubble?.textContent || turn.textContent || '').trim();
+                    const normalized = normalize(text);
+                    return normalized || null;
+                }
+            }
+        }
+
+        // Fallback: walk backwards to find the nearest user-role node.
+        let cursor: HTMLElement | null = assistantArticle as HTMLElement;
+        while (cursor) {
+            let prev: Element | null = cursor.previousElementSibling;
+            while (prev) {
+                const user =
+                    (prev.matches?.('article[data-turn="user"]') ? (prev as HTMLElement) : null) ||
+                    (prev.querySelector?.('[data-message-author-role="user"]') as HTMLElement | null);
+                if (user) {
+                    const text = (user.textContent || '').trim();
+                    const normalized = normalize(text);
+                    return normalized || null;
+                }
+                prev = prev.previousElementSibling;
+            }
+            cursor = cursor.parentElement;
+        }
+
+        return null;
+    }
+
     getMessageSelector(): string {
         return 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
     }
@@ -138,4 +187,3 @@ export class ChatGPTAdapter extends SiteAdapter {
         return false;
     }
 }
-
