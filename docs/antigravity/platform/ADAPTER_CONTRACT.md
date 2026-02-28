@@ -4,7 +4,7 @@
 
 适用范围：
 
-- Content adapters：`src/content/adapters/*`（实现 `SiteAdapter`）
+- Content adapters：`src/drivers/content/adapters/*`（实现 `SiteAdapter`）
 - 依赖 adapters 的模块：content observers / datasource / parsers（仅通过契约交互）
 
 ---
@@ -30,61 +30,62 @@ Adapter 不负责：
 
 ## 2. 关键方法语义（`SiteAdapter`）
 
-契约源定义：`src/content/adapters/base.ts`
+契约源定义：`src/drivers/content/adapters/base.ts`
 
 ### 2.1 `matches(url: string): boolean`
 
 - 必须只基于 URL 判断，不依赖 DOM 是否已加载
 - 对同一 URL 必须是纯函数（无副作用）
 
-### 2.2 DOM 选择器方法
+### 2.2 消息发现与注入（Message discovery & injection）
 
+- `extractUserPrompt(assistantMessageElement: HTMLElement): string | null`
 - `getMessageSelector()`
 - `getMessageContentSelector()`
 - `getActionBarSelector()`
-- `getCopyButtonSelector()`
-- `getInputSelector()`
-- `getSendButtonSelector()`
+- `injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean`
+- `isStreamingMessage(messageElement: HTMLElement): boolean`
+- `getMessageId(messageElement: HTMLElement): string | null`
+- `getObserverContainer(): HTMLElement | null`
 
 要求：
 
-- 返回选择器必须“尽量稳定”（避免依赖易变 class hash）
-- 必须有合理 fallback 策略（在 adapter 内部处理）
+- `getMessageSelector()` 必须只命中 **assistant 消息**（不包含 user prompt），且尽量稳定（避免易变 class hash）。
+- `getMessageContentSelector()` 必须命中“正文根节点”（Copy/Reader 会优先解析该节点；找不到时会回退到 messageElement）。
+- `getActionBarSelector()` 作为“完成态锚点”的辅助（streaming guard / pending 状态）；若平台没有明确 action bar，应返回一个尽量可靠的完成态锚点选择器。
+- `injectToolbar()` 必须是幂等安全的：允许重复调用但不会导致错误位置注入；必须具备 fallback（action bar → content after → append）。
+- `isStreamingMessage()` 必须是 best-effort：误判为 streaming 只会禁用按钮，不得影响注入与扫描。
+- `getMessageId()` 用于去重注入：必须尽量稳定；拿不到可返回 `null`（调用方会走 dataset 标记兜底）。
+- `getObserverContainer()` 用于缩小扫描范围：应尽量返回一个稳定容器；拿不到可返回 `null`（调用方会回退到 `document`）。
 
-### 2.3 内容提取方法
+### 2.3 DOM 规范化与噪声过滤（Copy/Reader 解析前处理）
 
-- `extractMessageHTML(element: HTMLElement): string`
-- `extractUserPrompt(responseElement: HTMLElement): string | null`
-- `getUserPrompts(): string[]`
-
-要求：
-
-- 输出必须是可被 parser/render 处理的稳定 HTML（避免把平台 UI 控件当正文）
-- 对失败场景必须返回可控 fallback（例如 `null` 或 placeholder），避免抛出破坏主流程
-
-### 2.4 噪声过滤（Noise Filtering）
-
-- `isNoiseNode(node: Node, context?): boolean`
-- `getArtifactPlaceholder(node: HTMLElement): string | undefined`
+- `normalizeDOM(root: HTMLElement): void`
+- `isNoiseNode(node: Node, context: NoiseContext): boolean`
+- `getArtifactPlaceholder(node: HTMLElement): string | null`
 
 要求：
 
-- 噪声判断必须只基于结构/位置/属性，不基于文本内容（避免语言/i18n 漂移）
-- placeholder 文本必须可被用户理解且可回归（尽量稳定）
+- `normalizeDOM()` 仅允许对传入节点做原地变换；调用方只会在 clone 上调用（不得污染页面真实 DOM）。
+- 噪声判断必须只基于结构/位置/属性，不基于文本内容（避免语言/i18n 漂移）。
+- placeholder 文本必须可被用户理解且可回归（尽量稳定）；返回 `null` 表示直接删除噪声节点。
 
-### 2.5 `normalizeDOM(element: HTMLElement): void`
+### 2.4 可选扩展（Optional platform extras）
+
+- `shouldEnhanceUnrenderedMath(): boolean`
+- `isDeepResearchMessage?(messageElement: HTMLElement): boolean`
+- `getDeepResearchContent?(): HTMLElement | null`
 
 要求：
 
-- 允许对传入节点做原地变换
-- 调用方应在 clone 上调用（避免污染页面真实 DOM）
-- normalize 的目标是把平台特化 HTML 规范化为 parser 可处理的结构，不应引入新副作用
+- `shouldEnhanceUnrenderedMath()` 用于控制 Copy pipeline 的“未渲染 inline math 修复”步骤（默认 false）。
+- Deep Research 方法必须是纯读取：只负责探测与返回面板正文根节点，不得触发点击/滚动等副作用。
 
 ---
 
 ## 3. ThemeDetector 契约
 
-ThemeDetector 源定义：`src/content/adapters/base.ts`
+ThemeDetector 源定义：`src/drivers/content/adapters/base.ts`
 
 - `detect()` 返回 `dark|light|null`：返回 `null` 表示使用系统偏好作为最终 fallback
 - `getObserveTargets()` 必须尽量小范围（html/body + 少量 attributes），避免观察成本过高
@@ -98,4 +99,3 @@ ThemeDetector 源定义：`src/content/adapters/base.ts`
 
 - `docs/architecture/BLUEPRINT.md`
 - `docs/refactor/REFACTOR_CHECKLIST.md`（对应阶段的验收与回归项）
-

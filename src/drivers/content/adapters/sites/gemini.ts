@@ -29,6 +29,59 @@ export class GeminiAdapter extends SiteAdapter {
         return detector;
     }
 
+    extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
+        const normalize = (text: string): string =>
+            text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+
+        // Gemini alternates conversation containers; user prompts live under <user-query>.
+        const container =
+            (assistantMessageElement.closest('.conversation-container') as HTMLElement | null) ||
+            (assistantMessageElement.parentElement as HTMLElement | null);
+
+        if (container) {
+            let cursor: Element | null = container;
+            while (cursor) {
+                let prev: Element | null = cursor.previousElementSibling;
+                while (prev) {
+                    const userQuery = prev.querySelector('user-query');
+                    if (userQuery) {
+                        const textEl =
+                            (userQuery.querySelector('.query-text') as HTMLElement | null) ||
+                            (userQuery.querySelector('.user-query-bubble-with-background') as HTMLElement | null) ||
+                            (userQuery as HTMLElement);
+                        const text = (textEl.textContent || '').trim();
+                        const normalized = normalize(text);
+                        return normalized || null;
+                    }
+                    prev = prev.previousElementSibling;
+                }
+                cursor = cursor.parentElement;
+            }
+        }
+
+        // Fallback: query the previous user-query in document order.
+        const allUserQueries = Array.from(document.querySelectorAll('user-query')).filter(
+            (n): n is HTMLElement => n instanceof HTMLElement
+        );
+        if (allUserQueries.length === 0) return null;
+
+        const nodePos = (a: Node, b: Node) => a.compareDocumentPosition(b);
+        for (let i = allUserQueries.length - 1; i >= 0; i -= 1) {
+            const uq = allUserQueries[i];
+            const isBefore = (nodePos(uq, assistantMessageElement) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+            if (!isBefore) continue;
+            const textEl =
+                (uq.querySelector('.query-text') as HTMLElement | null) ||
+                (uq.querySelector('.user-query-bubble-with-background') as HTMLElement | null) ||
+                uq;
+            const text = (textEl.textContent || '').trim();
+            const normalized = normalize(text);
+            return normalized || null;
+        }
+
+        return null;
+    }
+
     getMessageSelector(): string {
         return 'model-response';
     }

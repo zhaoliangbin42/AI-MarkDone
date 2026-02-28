@@ -99,7 +99,18 @@ Checklist（每个域通用）：
 - [x] Driver：LaTeX click mode（`src/drivers/content/math/math-click.ts`）
 - [x] UI：Copy Markdown / LaTeX Click Mode 按钮（`src/ui/content/RewriteToolbar.ts`）
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
-- [ ] 人工验收：各站点最后一条回答可复制；开启 LaTeX mode 后点公式可复制
+- [x] 人工验收：各站点消息级复制可用；开启 LaTeX click 后点公式可复制
+
+### Module C — Reader MVP（打开/分页/渲染/复制/View Source）
+
+- [x] Service：Reader items 收集（`src/services/reader/collectReaderItems.ts`）
+- [x] Service：markdown 渲染+净化（`src/services/renderer/renderMarkdown.ts`）
+- [x] UI：ReaderPanel（`src/ui/content/reader/ReaderPanel.ts`）
+- [x] UI：消息工具栏增加 Reader 入口（`src/ui/content/MessageToolbar.ts`）
+- [x] Driver：注入框架稳定性升级（debounce scan + route watcher）（`src/drivers/content/injection/*`）
+- [x] 固化 Reader 能力矩阵：`docs/feature-matrix/READER.md`
+- [x] 自动化门禁：`npm run test:core` / `npm run build`
+- [ ] 人工验收：任意平台点击 Reader → 打开/翻页/复制/查看源，关闭无残留
 
 ---
 

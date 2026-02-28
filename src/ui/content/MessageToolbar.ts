@@ -4,6 +4,7 @@ import { ensureStyle } from '../../style/shadow';
 
 export type MessageToolbarActions = {
     onCopyMarkdown: () => Promise<{ ok: true } | { ok: false; message: string }>;
+    onOpenReader?: () => Promise<void>;
 };
 
 export class MessageToolbar {
@@ -32,14 +33,18 @@ export class MessageToolbar {
 
     setPending(pending: boolean): void {
         const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
+        const readerBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="reader"]');
         const note = this.shadow.querySelector<HTMLElement>('[data-field="note"]');
         if (btn) btn.disabled = pending;
+        if (readerBtn) readerBtn.disabled = pending;
         if (note) note.textContent = pending ? 'Streaming…' : '';
     }
 
     private bind(): void {
         const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
         btn?.addEventListener('click', () => void this.handleCopy());
+        const readerBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="reader"]');
+        readerBtn?.addEventListener('click', () => void this.actions.onOpenReader?.());
     }
 
     private setStatus(kind: 'idle' | 'info' | 'success' | 'error', text: string): void {
@@ -71,6 +76,7 @@ export class MessageToolbar {
     private getHtml(): string {
         return `
 <div class="bar">
+  <button class="btn" data-action="reader">Reader</button>
   <button class="btn" data-action="copy">Copy Markdown</button>
   <span class="note" data-field="note"></span>
   <span class="status" data-role="status_box" data-kind="idle"><span data-field="status"></span></span>
