@@ -12,7 +12,7 @@ describe('collectReaderItems', () => {
               </div>
             </article>
             <article data-turn="assistant">
-              <div data-message-author-role="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
                 <div class="markdown prose">Hi</div>
               </div>
               <button data-testid="copy-turn-action-button">copy</button>
@@ -21,7 +21,7 @@ describe('collectReaderItems', () => {
         `;
 
         const adapter = new ChatGPTAdapter();
-        const assistant = document.querySelector('article[data-turn="assistant"]') as HTMLElement;
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         expect(assistant).toBeTruthy();
 
         const res = collectReaderItems(adapter, assistant, () => 'md');
@@ -30,4 +30,3 @@ describe('collectReaderItems', () => {
         expect(res.items[0].userPrompt).toBe('Hello from user');
     });
 });
-

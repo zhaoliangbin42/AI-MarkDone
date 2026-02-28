@@ -86,7 +86,9 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getMessageSelector(): string {
-        return 'article[data-turn="assistant"], [data-message-author-role="assistant"]:not(article [data-message-author-role="assistant"])';
+        // Prefer the stable assistant message node; `article[data-turn]` has proven to be unstable across ChatGPT UI iterations.
+        // Using the role+id container keeps Copy/Reader/toolbars resilient even if the surrounding turn wrapper changes.
+        return '[data-message-author-role="assistant"][data-message-id]';
     }
 
     getMessageContentSelector(): string {
@@ -99,21 +101,25 @@ export class ChatGPTAdapter extends SiteAdapter {
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         try {
-            const actionBarAnchor = messageElement.querySelector(this.getActionBarSelector());
-            if (actionBarAnchor) {
-                const barContainer =
-                    (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null) ||
-                    (actionBarAnchor.parentElement as HTMLElement | null);
-                if (barContainer && barContainer.parentElement) {
-                    barContainer.parentElement.insertBefore(toolbarHost, barContainer);
-                    return true;
-                }
-            }
-
             const contentElement = messageElement.querySelector(this.getMessageContentSelector());
             if (contentElement && contentElement.parentElement) {
                 contentElement.parentElement.insertBefore(toolbarHost, contentElement.nextSibling);
                 return true;
+            }
+
+            // Fallback: insert before the action bar, if present in the nearest turn wrapper.
+            const turnWrapper = messageElement.closest('article') as HTMLElement | null;
+            if (turnWrapper) {
+                const actionBarAnchor = turnWrapper.querySelector(this.getActionBarSelector());
+                if (actionBarAnchor) {
+                    const barContainer =
+                        (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null) ||
+                        (actionBarAnchor.parentElement as HTMLElement | null);
+                    if (barContainer && barContainer.parentElement) {
+                        barContainer.parentElement.insertBefore(toolbarHost, barContainer);
+                        return true;
+                    }
+                }
             }
 
             messageElement.appendChild(toolbarHost);

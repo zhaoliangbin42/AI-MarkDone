@@ -8,6 +8,7 @@ import { RouteWatcher } from '../injection/routeWatcher';
 import { ScanScheduler } from '../injection/scanScheduler';
 import { MessageToolbar } from '../../../ui/content/MessageToolbar';
 import type { ReaderPanel } from '../../../ui/content/reader/ReaderPanel';
+import { logger } from '../../../core/logger';
 
 type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar };
 
@@ -84,6 +85,12 @@ export class MessageToolbarController {
         const container = this.adapter.getObserverContainer() || document.body;
         const nodes = discoverMessageElements(container, selector);
 
+        logger.debug('[AI-MarkDone][MessageToolbarController] scan', {
+            selector,
+            found: nodes.length,
+            containerTag: container.tagName,
+        });
+
         nodes.forEach((messageElement) => {
             const id = this.adapter.getMessageId(messageElement);
             const injectedFlag = messageElement.dataset.aimdMsgInjected === '1';
@@ -110,6 +117,7 @@ export class MessageToolbarController {
             const host = toolbar.getElement();
             const injected = this.adapter.injectToolbar(messageElement, host);
             if (!injected) {
+                logger.debug('[AI-MarkDone][MessageToolbarController] injectToolbar failed', { id });
                 host.remove();
                 return;
             }
