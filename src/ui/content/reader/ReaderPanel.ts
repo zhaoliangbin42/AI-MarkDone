@@ -54,8 +54,9 @@ export class ReaderPanel {
         host.style.zIndex = 'var(--aimd-z-panel)';
 
         const shadow = host.attachShadow({ mode: 'open' });
-        ensureStyle(shadow, this.getCss());
         shadow.innerHTML = this.getHtml();
+        // Why: `innerHTML` replaces the whole shadow tree. Inject styles after template mount.
+        ensureStyle(shadow, this.getCss());
 
         const overlay = shadow.querySelector<HTMLElement>('[data-role="overlay"]');
         overlay?.addEventListener('click', () => this.hide());

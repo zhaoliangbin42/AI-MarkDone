@@ -1,73 +1,36 @@
-import { detectPlatformId } from '../../contracts/platform';
-import { isExtRequest, PROTOCOL_VERSION } from '../../contracts/protocol';
-import { browser } from '../../drivers/shared/browser';
 import { getAdapter } from '../../drivers/content/adapters/registry';
 import { ThemeManager } from '../../drivers/content/theme/theme-manager';
-import { copyTextToClipboard } from '../../drivers/content/clipboard/clipboard';
 import { MathClickHandler } from '../../drivers/content/math/math-click';
-import { MessageToolbarController } from '../../drivers/content/toolbars/message-toolbar-controller';
-import { copyMarkdownFromPage } from '../../services/copy/copy-markdown';
 import { ensurePageTokens } from '../../style/pageTokens';
-import { RewriteToolbar } from '../../ui/content/RewriteToolbar';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
+import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
 
 ensurePageTokens();
 
-const platform = detectPlatformId(window.location.hostname);
 const adapter = getAdapter();
-
-const themeManager = new ThemeManager();
-const mathClick = new MathClickHandler();
-let latexClickEnabled = true;
-const readerPanel = new ReaderPanel();
-const messageToolbars = adapter
-    ? new MessageToolbarController(adapter, {
-          onMessageInjected: (messageElement) => {
-              if (!latexClickEnabled) return;
-              mathClick.enable(messageElement);
-          },
-          readerPanel,
-      })
-    : null;
-
-const toolbar = new RewriteToolbar(
-    { platform, theme: 'light' },
-    {
-        onCopyMarkdown: async () => {
-            if (!adapter) return { ok: false, message: 'Unsupported site.' };
-            const res = copyMarkdownFromPage(adapter);
-            if (!res.ok) return { ok: false, message: res.error.message };
-            const ok = await copyTextToClipboard(res.markdown);
-            return ok ? { ok: true } : { ok: false, message: 'Clipboard write failed.' };
+if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
+    // ChatGPT-only validation stage.
+    // Other platforms remain out of scope until this loop is fully stable and audited.
+    // Why: reduce variables and enforce a single acceptance target.
+    // Note: no global UI is injected in this stage.
+    // (Adapters may still exist for future parity work.)
+} else {
+    const themeManager = new ThemeManager();
+    const mathClick = new MathClickHandler();
+    const readerPanel = new ReaderPanel();
+    const messageToolbars = new MessageToolbarOrchestrator(adapter, {
+        readerPanel,
+        onMessageInjected: (messageElement) => {
+            // Frozen decision: LaTeX click-to-copy is enabled by default (no UI toggle).
+            mathClick.enable(messageElement);
         },
-        onToggleLatexClickMode: async (nextEnabled) => {
-            latexClickEnabled = nextEnabled;
-            toolbar.setLatexClickMode(nextEnabled);
-            if (nextEnabled) {
-                messageToolbars?.getMessageElements().forEach((el) => mathClick.enable(el));
-            } else {
-                mathClick.disable();
-            }
-            return { ok: true, enabled: latexClickEnabled };
-        },
-    }
-);
+    });
 
-themeManager.init(adapter);
-themeManager.subscribe((theme) => {
-    toolbar.setTheme(theme);
-    messageToolbars?.setTheme(theme);
-    readerPanel.setTheme(theme);
-});
+    themeManager.init(adapter);
+    themeManager.subscribe((theme) => {
+        messageToolbars.setTheme(theme);
+        readerPanel.setTheme(theme);
+    });
 
-toolbar.mount();
-toolbar.setLatexClickMode(latexClickEnabled);
-messageToolbars?.init();
-
-browser.runtime.onMessage.addListener((msg: unknown) => {
-    if (!isExtRequest(msg)) return;
-    if (msg.v !== PROTOCOL_VERSION) return;
-    if (msg.type === 'ui:toggle_toolbar') {
-        toolbar.toggle();
-    }
-});
+    messageToolbars.init();
+}

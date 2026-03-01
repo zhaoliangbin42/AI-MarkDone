@@ -102,24 +102,30 @@ export class ChatGPTAdapter extends SiteAdapter {
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         try {
             const contentElement = messageElement.querySelector(this.getMessageContentSelector());
-            if (contentElement && contentElement.parentElement) {
-                contentElement.parentElement.insertBefore(toolbarHost, contentElement.nextSibling);
-                return true;
-            }
-
-            // Fallback: insert before the action bar, if present in the nearest turn wrapper.
             const turnWrapper = messageElement.closest('article') as HTMLElement | null;
             if (turnWrapper) {
                 const actionBarAnchor = turnWrapper.querySelector(this.getActionBarSelector());
                 if (actionBarAnchor) {
-                    const barContainer =
-                        (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null) ||
-                        (actionBarAnchor.parentElement as HTMLElement | null);
-                    if (barContainer && barContainer.parentElement) {
-                        barContainer.parentElement.insertBefore(toolbarHost, barContainer);
+                    // Prefer injecting into the action bar row so we don't push the official toolbar down.
+                    // We must avoid containers that toggle `pointer-events: none` on idle.
+                    const inner = actionBarAnchor.parentElement as HTMLElement | null;
+                    const outer = (inner?.parentElement as HTMLElement | null) || null;
+                    const target = outer || inner;
+                    if (target) {
+                        toolbarHost.dataset.aimdPlacement = 'actionbar';
+                        toolbarHost.style.marginLeft = 'auto';
+                        toolbarHost.style.pointerEvents = 'auto';
+                        target.appendChild(toolbarHost);
                         return true;
                     }
                 }
+            }
+
+            // Fallback: place after message content root (stable, always visible).
+            if (contentElement && contentElement.parentElement) {
+                toolbarHost.dataset.aimdPlacement = 'content';
+                contentElement.parentElement.insertBefore(toolbarHost, contentElement.nextSibling);
+                return true;
             }
 
             messageElement.appendChild(toolbarHost);

@@ -244,6 +244,14 @@ export class MathClickHandler {
         };
 
         const clickHandler = async (e: Event) => {
+            if (!(e instanceof MouseEvent)) return;
+            if (e.button !== 0) return;
+
+            // Why: when click-to-copy is enabled by default, we must avoid breaking user text selection/copy flows.
+            // If the user has an active selection, do not intercept the click and let the page handle it normally.
+            const sel = typeof window !== 'undefined' ? window.getSelection?.() : null;
+            if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
+
             e.preventDefault();
             e.stopPropagation();
             await this.handleClick(element);

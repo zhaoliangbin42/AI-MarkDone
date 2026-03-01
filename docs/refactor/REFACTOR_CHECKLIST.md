@@ -87,9 +87,9 @@ Checklist（每个域通用）：
 
 - [x] Contracts：`src/contracts/protocol.ts` / `src/contracts/platform.ts` / `src/contracts/storage.ts`
 - [x] Driver：Theme detection + observer（`src/drivers/content/theme/theme-manager.ts`）
-- [x] UI：Rewrite toolbar 基础骨架（`src/ui/content/RewriteToolbar.ts`）
+- [x] UI：消息级工具栏骨架（`src/ui/content/MessageToolbar.ts`）
 - [x] 自动化门禁：`npm run test:smoke` / `npm run build`
-- [ ] 人工验收：支持站点打开后 toolbar 出现、Action 点击可 toggle
+- [ ] 人工验收：ChatGPT 打开后每条消息工具栏出现（稳定注入）
 
 ### Module B — Copy（Markdown + LaTeX click mode + Code + Tables）
 
@@ -97,9 +97,10 @@ Checklist（每个域通用）：
 - [x] Driver：站点 copy root + noise filtering hooks（`src/drivers/content/adapters/sites/*`）
 - [x] Driver：clipboard 写入（`src/drivers/content/clipboard/clipboard.ts`）
 - [x] Driver：LaTeX click mode（`src/drivers/content/math/math-click.ts`）
-- [x] UI：Copy Markdown / LaTeX Click Mode 按钮（`src/ui/content/RewriteToolbar.ts`）
+- [x] UI：每条消息 Copy Markdown 按钮（`src/ui/content/MessageToolbar.ts`）
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
-- [x] 人工验收：各站点消息级复制可用；开启 LaTeX click 后点公式可复制
+- [x] 人工验收：各站点消息级复制可用；LaTeX click 默认开启，点公式可复制
+- [x] 冻结功能与验收口径：`docs/FEATURES.md`
 
 ### Module C — Reader MVP（打开/分页/渲染/复制/View Source）
 
@@ -108,9 +109,20 @@ Checklist（每个域通用）：
 - [x] UI：ReaderPanel（`src/ui/content/reader/ReaderPanel.ts`）
 - [x] UI：消息工具栏增加 Reader 入口（`src/ui/content/MessageToolbar.ts`）
 - [x] Driver：注入框架稳定性升级（debounce scan + route watcher）（`src/drivers/content/injection/*`）
-- [x] 固化 Reader 能力矩阵：`docs/feature-matrix/READER.md`
+- [x] 冻结功能与验收口径：`docs/FEATURES.md`
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
 - [ ] 人工验收：任意平台点击 Reader → 打开/翻页/复制/查看源，关闭无残留
+
+### Module D — Bookmarks Core（存储/文件夹/导入导出/修复；无 UI）
+
+- [x] Contracts：书签 metadata keys（index/journal/quarantine）登记（`src/contracts/storage.ts`）
+- [x] Protocol：Bookmarks intents（`src/contracts/protocol.ts` + background handler）
+- [x] Core：keys/path/import-export/merge/quota/repair/tree/journal（`src/core/bookmarks/*`）
+- [x] Service：纯逻辑 plans（`src/services/bookmarks/bookmarksService.ts`）
+- [x] Driver：background storage ports + queue（`src/drivers/background/storage/*`）
+- [x] Runtime：Background write authority + journal recovery（`src/runtimes/background/handlers/bookmarks.ts`）
+- [x] 自动化门禁：`npm run test:core` / `npm run build`
+- [ ] 人工验收：Bookmarks UI 上线前，先通过脚本/console 调用完成 save/import/export/repair/rename/move 的闭环验证
 
 ---
 

@@ -1,4 +1,14 @@
-# Reader (Feature Matrix) — Authoritative
+# Legacy Reader Matrix (Archived)
+
+已迁移到：`docs/FEATURES.md`
+
+原文件路径：`docs/feature-matrix/READER.md`
+
+归档原因：减少多份功能文档漂移；以 `docs/FEATURES.md` 作为功能性权威单点。本文件保留当时的矩阵内容用于追溯，但不作为未来改动依据。
+
+---
+
+# Reader (Feature Matrix) — Authoritative (Historical Snapshot)
 
 目的：用一份“功能矩阵”固化 Reader 模块的能力边界、接口与验收口径，避免多篇重复文档漂移。
 
@@ -44,4 +54,3 @@
 - 任意支持平台：点击某条消息的 Reader 按钮 → ReaderPanel 稳定打开；可翻页；可复制；可查看源；关闭无残留。
 - Reader 内容与 Copy 内容严格一致（同一条消息：Copy Markdown == Reader 当前页 markdown）。
 - 渲染链路具备 XSS 清洗门禁（单测覆盖）。
-
