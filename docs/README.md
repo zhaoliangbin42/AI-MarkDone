@@ -29,10 +29,9 @@
 - `docs/antigravity/platform/ADAPTER_CONTRACT.md`：站点适配器契约（Site Adapter Contract）
 - `docs/antigravity/platform/CAPABILITY_MATRIX.md`：平台能力矩阵（平台/功能支持状态）
 
-### 1.3.1 功能矩阵（Feature Matrices）
+### 1.3.1 功能（Frozen Features）
 
-- `docs/feature-matrix/COPY.md`：Copy 能力矩阵（含 goldens 回归策略）
-- `docs/feature-matrix/READER.md`：Reader MVP 能力矩阵（边界/接口/验收）
+- `docs/FEATURES.md`：冻结能力/冻结决策/验收口径（Copy + Reader）
 
 ### 1.4 治理（Governance）
 

@@ -1,4 +1,5 @@
 import { PROTOCOL_VERSION, isExtRequest, type ExtResponse } from '../../contracts/protocol';
+import { handleBookmarksRequest, recoverJournalIfAny } from './handlers/bookmarks';
 
 declare const chrome: any;
 declare const browser: any;
@@ -75,6 +76,12 @@ const tabs = getTabs();
 const action = getActionApi();
 const runtime = getRuntime();
 
+// Best-effort recovery: if a previous folder relocate was interrupted, replay it.
+// Why: MV3 service worker can be terminated between async storage ops.
+recoverJournalIfAny(Date.now()).catch(() => {
+    // recovery is best-effort; keep silent unless debugging is enabled in console.
+});
+
 if (tabs?.onUpdated) {
     tabs.onUpdated.addListener((tabId: number, changeInfo: { status?: string; url?: string }, tab: { url?: string }) => {
         if (changeInfo.status === 'complete' || changeInfo.url) updateActionState(tabId, tab.url);
@@ -96,6 +103,15 @@ runtime?.onMessage?.addListener((msg: unknown, _sender: any, sendResponse: (r: E
         sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { pong: true } });
         return true;
     }
-    sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: false, type: msg.type, error: { code: 'UNKNOWN_TYPE', message: 'Unknown request type' } });
+
+    void handleBookmarksRequest(msg).then((result) => {
+        if (result) {
+            sendResponse(result.response);
+        } else {
+            sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: false, type: msg.type, error: { code: 'UNKNOWN_TYPE', message: 'Unknown request type' } });
+        }
+    }).catch((error) => {
+        sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: false, type: msg.type, error: { code: 'INTERNAL_ERROR', message: error instanceof Error ? error.message : 'Internal error' } });
+    });
     return true;
 });

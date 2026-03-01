@@ -20,7 +20,7 @@ Tier A 文档位置应集中在：
 - `docs/refactor/*`
 - `docs/governance/*`
 - `docs/antigravity/platform/*`（契约与矩阵）
-- `docs/feature-matrix/*`（功能矩阵与验收口径）
+- `docs/FEATURES.md`（冻结能力与验收口径）
 
 ### Tier B：操作手册（Runbook / SOP）
 
@@ -38,7 +38,7 @@ Tier A 文档位置应集中在：
 
 - 新增/修改站点适配器方法语义或返回语义（更新 `ADAPTER_CONTRACT.md`）
 - 新增平台或平台能力支持状态变化（更新 `CAPABILITY_MATRIX.md`）
-- 关键功能能力边界/验收口径变化（更新对应 feature matrix，例如 `docs/feature-matrix/COPY.md` / `docs/feature-matrix/READER.md`）
+- 关键功能能力边界/验收口径变化（更新 `docs/FEATURES.md`）
 - 跨模块依赖方向发生变化（更新 `DEPENDENCY_RULES.md` + `BLUEPRINT.md`）
 - 引入新的消息协议类型、存储 schema、迁移逻辑（更新 `BLUEPRINT.md` + checklist）
 - 重构拆分/移动文件（更新 checklist 的“完成状态”和“新路径”）

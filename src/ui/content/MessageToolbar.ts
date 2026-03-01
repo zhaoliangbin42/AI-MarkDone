@@ -2,24 +2,29 @@ import type { Theme } from '../../core/types/theme';
 import { getTokenCss } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 
-export type MessageToolbarActions = {
-    onCopyMarkdown: () => Promise<{ ok: true } | { ok: false; message: string }>;
-    onOpenReader?: () => Promise<void>;
+export type ToolbarActionResult = { ok: true; message?: string } | { ok: false; message: string };
+
+export type MessageToolbarAction = {
+    id: string;
+    label: string;
+    kind?: 'primary' | 'secondary';
+    disabledWhenPending?: boolean;
+    onClick: () => Promise<void | ToolbarActionResult>;
 };
 
 export class MessageToolbar {
     private host: HTMLElement;
     private shadow: ShadowRoot;
-    private actions: MessageToolbarActions;
+    private actions: MessageToolbarAction[];
+    private actionButtons = new Map<string, HTMLButtonElement>();
 
-    constructor(theme: Theme, actions: MessageToolbarActions) {
+    constructor(theme: Theme, actions: MessageToolbarAction[]) {
         this.actions = actions;
         this.host = document.createElement('div');
         this.host.className = 'aimd-message-toolbar-host';
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme) + this.getCss());
-        this.shadow.innerHTML = this.getHtml();
-        this.bind();
+        this.mount();
     }
 
     getElement(): HTMLElement {
@@ -32,19 +37,50 @@ export class MessageToolbar {
     }
 
     setPending(pending: boolean): void {
-        const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        const readerBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="reader"]');
         const note = this.shadow.querySelector<HTMLElement>('[data-field="note"]');
-        if (btn) btn.disabled = pending;
-        if (readerBtn) readerBtn.disabled = pending;
+        for (const action of this.actions) {
+            if (!action.disabledWhenPending) continue;
+            const btn = this.actionButtons.get(action.id);
+            if (btn) btn.disabled = pending;
+        }
         if (note) note.textContent = pending ? 'Streaming…' : '';
     }
 
-    private bind(): void {
-        const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        btn?.addEventListener('click', () => void this.handleCopy());
-        const readerBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="reader"]');
-        readerBtn?.addEventListener('click', () => void this.actions.onOpenReader?.());
+    private mount(): void {
+        const wrap = document.createElement('div');
+        wrap.className = 'wrap';
+
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+
+        for (const action of this.actions) {
+            const btn = document.createElement('button');
+            btn.className = `btn ${action.kind === 'primary' ? 'primary' : ''}`.trim();
+            btn.type = 'button';
+            btn.dataset.action = action.id;
+            btn.textContent = action.label;
+            btn.addEventListener('click', () => void this.handleActionClick(action));
+            bar.appendChild(btn);
+            this.actionButtons.set(action.id, btn);
+        }
+
+        const note = document.createElement('span');
+        note.className = 'note';
+        note.dataset.field = 'note';
+        bar.appendChild(note);
+
+        const statusBox = document.createElement('span');
+        statusBox.className = 'status';
+        statusBox.dataset.role = 'status_box';
+        statusBox.dataset.kind = 'idle';
+        statusBox.style.display = 'none';
+        const statusText = document.createElement('span');
+        statusText.dataset.field = 'status';
+        statusBox.appendChild(statusText);
+        bar.appendChild(statusBox);
+
+        wrap.appendChild(bar);
+        this.shadow.appendChild(wrap);
     }
 
     private setStatus(kind: 'idle' | 'info' | 'success' | 'error', text: string): void {
@@ -56,44 +92,51 @@ export class MessageToolbar {
         box.style.display = kind === 'idle' ? 'none' : 'block';
     }
 
-    private async handleCopy(): Promise<void> {
-        const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
+    private async handleActionClick(action: MessageToolbarAction): Promise<void> {
+        const btn = this.actionButtons.get(action.id);
         if (!btn) return;
         try {
             btn.disabled = true;
-            this.setStatus('info', 'Copying…');
-            const res = await this.actions.onCopyMarkdown();
-            if (res.ok) this.setStatus('success', 'Copied');
-            else this.setStatus('error', res.message || 'Copy failed');
+            this.setStatus('info', 'Working…');
+            const res = await action.onClick();
+            if (!res) {
+                this.setStatus('idle', '');
+                return;
+            }
+            if (res.ok) this.setStatus('success', res.message || 'Done');
+            else this.setStatus('error', res.message || 'Failed');
         } catch {
-            this.setStatus('error', 'Copy failed');
+            this.setStatus('error', 'Failed');
         } finally {
             window.setTimeout(() => this.setStatus('idle', ''), 1200);
             btn.disabled = false;
         }
     }
 
-    private getHtml(): string {
-        return `
-<div class="bar">
-  <button class="btn" data-action="reader">Reader</button>
-  <button class="btn" data-action="copy">Copy Markdown</button>
-  <span class="note" data-field="note"></span>
-  <span class="status" data-role="status_box" data-kind="idle"><span data-field="status"></span></span>
-</div>
-`;
-    }
-
     private getCss(): string {
         return `
+:host {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+:host([data-aimd-placement="actionbar"]) .wrap {
+  margin-top: 0;
+  justify-content: flex-start;
+}
+:host([data-aimd-placement="content"]) .wrap {
+  margin-top: var(--aimd-space-2);
+}
+.wrap {
+  display: flex;
+  justify-content: flex-end;
+}
 .bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0 0 0;
-  padding: 6px 8px;
+  gap: var(--aimd-space-2);
+  padding: var(--aimd-space-2);
   border: 1px solid var(--aimd-border-default);
-  border-radius: 8px;
+  border-radius: var(--aimd-radius-lg);
   background: var(--aimd-bg-secondary);
   color: var(--aimd-text-primary);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -102,20 +145,27 @@ export class MessageToolbar {
   all: unset;
   cursor: pointer;
   user-select: none;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  font-size: 12px;
+  padding: var(--aimd-space-1) var(--aimd-space-2);
+  border-radius: var(--aimd-radius-md);
+  background: var(--aimd-bg-primary);
+  color: var(--aimd-text-primary);
+  border: 1px solid var(--aimd-border-default);
+  font-size: var(--aimd-font-size-xs);
   font-weight: 600;
 }
-.btn:hover { background: var(--aimd-interactive-primary-hover); }
+.btn.primary {
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  border-color: rgba(255,255,255,0.12);
+}
+.btn:hover { filter: brightness(0.98); }
+.btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.note { font-size: 12px; color: var(--aimd-text-secondary); }
+.note { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
 .status {
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 999px;
+  font-size: var(--aimd-font-size-xs);
+  padding: calc(var(--aimd-space-1) / 2) var(--aimd-space-1);
+  border-radius: var(--aimd-radius-lg);
   border: 1px solid var(--aimd-border-default);
 }
 .status[data-kind="success"] { border-color: var(--aimd-state-success-border); }

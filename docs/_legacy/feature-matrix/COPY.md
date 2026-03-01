@@ -1,4 +1,14 @@
-# Copy (Feature Parity Matrix + Gaps) — Authoritative
+# Legacy Copy Matrix (Archived)
+
+已迁移到：`docs/FEATURES.md`
+
+原文件路径：`docs/feature-matrix/COPY.md`
+
+归档原因：减少多份功能文档漂移；以 `docs/FEATURES.md` 作为功能性权威单点。本文件保留当时的矩阵内容用于追溯，但不作为未来改动依据。
+
+---
+
+# Copy (Feature Parity Matrix + Gaps) — Authoritative (Historical Snapshot)
 
 目的：用一份“功能矩阵”固化 Copy 模块的能力边界与验收口径，避免多篇重复文档漂移。
 
