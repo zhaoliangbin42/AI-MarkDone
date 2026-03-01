@@ -359,6 +359,15 @@
     "createFirstFolder": {
         "message": "Create your first folder to organize bookmarks"
     },
+    "noResultsTitle": {
+        "message": "No results"
+    },
+    "noResultsHint": {
+        "message": "Try clearing search, platform, or folder filters."
+    },
+    "clearFiltersBtn": {
+        "message": "Clear filters"
+    },
     "migrationComplete": {
         "message": "Migration Complete"
     },
@@ -625,6 +634,75 @@
     },
     "tabSponsor": {
         "message": "Sponsor"
+    },
+    "allLabel": {
+        "message": "All"
+    },
+    "foldersLabel": {
+        "message": "Folders"
+    },
+    "refreshBtn": {
+        "message": "Refresh"
+    },
+    "repairBtn": {
+        "message": "Repair"
+    },
+    "settingsTabPlaceholder": {
+        "message": "Settings are UI-only in this rewrite stage. Bookmark data actions remain available here."
+    },
+    "sponsorTabPlaceholder": {
+        "message": "If you find AI-MarkDone useful, consider supporting the project."
+    },
+    "openGithubRepo": {
+        "message": "Open GitHub repository"
+    },
+    "saveContextOnlyConfirm": {
+        "message": "Save context only? (OK=yes, Cancel=no)"
+    },
+    "repairConfirm": {
+        "message": "Run repair? This may remove corrupted entries (quarantine is preserved)."
+    },
+    "promptNewFolderPath": {
+        "message": "New folder path (e.g. Work/Project)"
+    },
+    "promptNewFolderName": {
+        "message": "New folder name (single segment)"
+    },
+    "promptTargetParentFolder": {
+        "message": "Target parent folder path (empty for root)"
+    },
+    "promptTargetFolderPath": {
+        "message": "Target folder path"
+    },
+    "noSelectionLabel": {
+        "message": "No selection"
+    },
+    "selectToPreview": {
+        "message": "Select a bookmark to preview."
+    },
+    "previewNotAvailable": {
+        "message": "Preview not available."
+    },
+    "exportedStatus": {
+        "message": "Exported"
+    },
+    "importedStatus": {
+        "message": "Imported"
+    },
+    "repairedStatus": {
+        "message": "Repaired"
+    },
+    "movedStatus": {
+        "message": "Moved"
+    },
+    "deletedStatus": {
+        "message": "Deleted"
+    },
+    "folderCreatedStatus": {
+        "message": "Folder created"
+    },
+    "renamedStatus": {
+        "message": "Renamed"
     },
     "selectedCount": {
         "message": "$1 selected"

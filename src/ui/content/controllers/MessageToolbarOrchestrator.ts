@@ -1,6 +1,7 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
+import { getConversationUrl } from '../../../drivers/content/bookmarks/position';
 import { discoverMessageElements } from '../../../drivers/content/injection/messageDiscovery';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler';
@@ -8,9 +9,10 @@ import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { collectReaderItems } from '../../../services/reader/collectReaderItems';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
+import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel } from '../reader/ReaderPanel';
 
-type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean };
+type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean; position: number };
 
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
@@ -22,10 +24,12 @@ export class MessageToolbarOrchestrator {
     private routeWatcher: RouteWatcher | null = null;
     private observedContainer: HTMLElement | null = null;
     private readerPanel: ReaderPanel;
+    private bookmarksController: BookmarksPanelController | null = null;
 
-    constructor(adapter: SiteAdapter, opts: { readerPanel: ReaderPanel; onMessageInjected?: (messageElement: HTMLElement) => void }) {
+    constructor(adapter: SiteAdapter, opts: { readerPanel: ReaderPanel; bookmarksController?: BookmarksPanelController; onMessageInjected?: (messageElement: HTMLElement) => void }) {
         this.adapter = adapter;
         this.readerPanel = opts.readerPanel;
+        this.bookmarksController = opts.bookmarksController || null;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
@@ -43,6 +47,10 @@ export class MessageToolbarOrchestrator {
         window.setTimeout(() => this.scanScheduler?.schedule('init'), 600);
         this.scanScheduler.schedule('init');
 
+        if (this.bookmarksController) {
+            void this.bookmarksController.refreshPositionsForUrl(getConversationUrl()).then(() => this.refreshBookmarkActionStates());
+        }
+
         this.rebindObserverIfNeeded(true);
 
         this.routeWatcher = new RouteWatcher(() => {
@@ -51,6 +59,9 @@ export class MessageToolbarOrchestrator {
             this.records.clear();
             this.scanScheduler?.schedule('route_change');
             this.rebindObserverIfNeeded(true);
+            if (this.bookmarksController) {
+                void this.bookmarksController.refreshPositionsForUrl(getConversationUrl()).then(() => this.refreshBookmarkActionStates());
+            }
         }, { intervalMs: 500 });
         this.routeWatcher.start();
     }
@@ -73,8 +84,8 @@ export class MessageToolbarOrchestrator {
         this.readerPanel.setTheme(theme);
     }
 
-    private getActionsForMessage(messageElement: HTMLElement): MessageToolbarAction[] {
-        return [
+    private getActionsForMessage(messageElement: HTMLElement, getToolbar: () => MessageToolbar | null): MessageToolbarAction[] {
+        const actions: MessageToolbarAction[] = [
             {
                 id: 'reader',
                 label: 'Reader',
@@ -98,6 +109,49 @@ export class MessageToolbarOrchestrator {
                 },
             },
         ];
+
+        if (this.bookmarksController) {
+            actions.unshift({
+                id: 'bookmark_toggle',
+                label: 'Bookmark',
+                kind: 'secondary',
+                disabledWhenPending: true,
+                onClick: async () => {
+                    const toolbar = getToolbar();
+                    const url = getConversationUrl();
+                    const msgId = this.adapter.getMessageId(messageElement);
+                    const position = msgId ? (this.records.get(msgId)?.position ?? 0) : 0;
+
+                    if (!position) return { ok: false, message: 'Position not available' };
+
+                    const userMessage = this.adapter.extractUserPrompt(messageElement) ?? '';
+                    if (!userMessage.trim()) return { ok: false, message: 'No user prompt found' };
+
+                    const md = copyMarkdownFromMessage(this.adapter, messageElement);
+                    if (!md.ok) return { ok: false, message: md.error.message };
+
+                    const title = userMessage.length > 50 ? `${userMessage.slice(0, 50)}...` : userMessage;
+                    const folderPath = this.bookmarksController!.getDefaultFolderPath();
+
+                    const res = await this.bookmarksController!.toggleBookmarkFromToolbar({
+                        url,
+                        position,
+                        folderPath,
+                        userMessage,
+                        aiResponse: md.markdown,
+                        platform: 'ChatGPT',
+                        title,
+                    });
+                    if (!res.ok) return { ok: false, message: res.message };
+
+                    toolbar?.setActionActive('bookmark_toggle', res.data.saved);
+                    toolbar?.setActionLabel('bookmark_toggle', res.data.saved ? 'Bookmarked' : 'Bookmark');
+                    return { ok: true, message: res.data.saved ? 'Saved' : 'Removed' };
+                },
+            });
+        }
+
+        return actions;
     }
 
     private scanAndInject(): void {
@@ -111,7 +165,7 @@ export class MessageToolbarOrchestrator {
             containerTag: container.tagName,
         });
 
-        nodes.forEach((messageElement) => {
+        nodes.forEach((messageElement, index) => {
             const id = this.adapter.getMessageId(messageElement);
             const injectedFlag = messageElement.dataset.aimdMsgInjected === '1';
             if (!id) {
@@ -120,7 +174,8 @@ export class MessageToolbarOrchestrator {
                 if (this.records.has(id)) return;
             }
 
-            const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(messageElement));
+            const getToolbar = () => (id ? this.records.get(id)?.toolbar ?? null : null);
+            const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(messageElement, getToolbar));
 
             const host = toolbar.getElement();
             const injected = this.adapter.injectToolbar(messageElement, host);
@@ -134,13 +189,32 @@ export class MessageToolbarOrchestrator {
             toolbar.setPending(pending);
 
             if (id) {
-                this.records.set(id, { message: messageElement, toolbar, pending });
+                this.records.set(id, { message: messageElement, toolbar, pending, position: index + 1 });
             } else {
                 // Best-effort: avoid duplicating if adapter cannot produce a stable id.
                 messageElement.dataset.aimdMsgInjected = '1';
             }
 
+            this.refreshBookmarkStateForToolbar(toolbar, index + 1);
             this.onMessageInjected?.(messageElement);
+        });
+    }
+
+    private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, position: number): void {
+        if (!this.bookmarksController) return;
+        const url = getConversationUrl();
+        const active = this.bookmarksController.isPositionBookmarked(url, position);
+        toolbar.setActionActive('bookmark_toggle', active);
+        toolbar.setActionLabel('bookmark_toggle', active ? 'Bookmarked' : 'Bookmark');
+    }
+
+    private refreshBookmarkActionStates(): void {
+        if (!this.bookmarksController) return;
+        const url = getConversationUrl();
+        this.records.forEach(({ toolbar, position }) => {
+            const active = this.bookmarksController!.isPositionBookmarked(url, position);
+            toolbar.setActionActive('bookmark_toggle', active);
+            toolbar.setActionLabel('bookmark_toggle', active ? 'Bookmarked' : 'Bookmark');
         });
     }
 

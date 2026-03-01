@@ -48,6 +48,13 @@ export type BookmarksImportPayload = {
     };
 };
 
+export type BookmarksPositionsPayload = { url: string };
+
+export type BookmarksBulkItem = { url: string; position: number };
+export type BookmarksBulkRemovePayload = { items: BookmarksBulkItem[] };
+export type BookmarksBulkMovePayload = { items: BookmarksBulkItem[]; targetFolderPath: string };
+export type BookmarksExportSelectedPayload = { items: BookmarksBulkItem[]; preserveStructure?: boolean };
+
 export type FolderCreatePayload = { path: string };
 export type FolderDeletePayload = { path: string };
 export type FolderRenamePayload = { oldPath: string; newName: string };
@@ -57,9 +64,13 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'ping' }
     | { v: ProtocolVersion; id: RequestId; type: 'ui:toggle_toolbar' }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:list'; payload?: BookmarksListPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:positions'; payload: BookmarksPositionsPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:save'; payload: BookmarksSavePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:remove'; payload: BookmarksRemovePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:bulkRemove'; payload: BookmarksBulkRemovePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:bulkMove'; payload: BookmarksBulkMovePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:export'; payload?: BookmarksExportPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:exportSelected'; payload: BookmarksExportSelectedPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:import'; payload: BookmarksImportPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:repair' }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:list' }
@@ -89,9 +100,13 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'ping',
         'ui:toggle_toolbar',
         'bookmarks:list',
+        'bookmarks:positions',
         'bookmarks:save',
         'bookmarks:remove',
+        'bookmarks:bulkRemove',
+        'bookmarks:bulkMove',
         'bookmarks:export',
+        'bookmarks:exportSelected',
         'bookmarks:import',
         'bookmarks:repair',
         'bookmarks:folders:list',

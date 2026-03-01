@@ -359,6 +359,15 @@
     "createFirstFolder": {
         "message": "创建第一个文件夹来整理书签"
     },
+    "noResultsTitle": {
+        "message": "无结果"
+    },
+    "noResultsHint": {
+        "message": "尝试清空搜索、平台或文件夹过滤条件。"
+    },
+    "clearFiltersBtn": {
+        "message": "清空过滤"
+    },
     "migrationComplete": {
         "message": "迁移完成"
     },
@@ -625,6 +634,75 @@
     },
     "tabSponsor": {
         "message": "支持一下"
+    },
+    "allLabel": {
+        "message": "全部"
+    },
+    "foldersLabel": {
+        "message": "文件夹"
+    },
+    "refreshBtn": {
+        "message": "刷新"
+    },
+    "repairBtn": {
+        "message": "修复"
+    },
+    "settingsTabPlaceholder": {
+        "message": "本阶段「设置」仅做界面占位；书签数据相关操作仍可在此使用。"
+    },
+    "sponsorTabPlaceholder": {
+        "message": "如果你觉得 AI-MarkDone 有帮助，可以考虑支持项目持续迭代。"
+    },
+    "openGithubRepo": {
+        "message": "打开 GitHub 仓库"
+    },
+    "saveContextOnlyConfirm": {
+        "message": "仅保存上下文？（确定=是，取消=否）"
+    },
+    "repairConfirm": {
+        "message": "执行修复？这可能会移除损坏条目（隔离区会保留）。"
+    },
+    "promptNewFolderPath": {
+        "message": "新建文件夹路径（例如 Work/Project）"
+    },
+    "promptNewFolderName": {
+        "message": "新文件夹名称（单段）"
+    },
+    "promptTargetParentFolder": {
+        "message": "目标父文件夹路径（根目录留空）"
+    },
+    "promptTargetFolderPath": {
+        "message": "目标文件夹路径"
+    },
+    "noSelectionLabel": {
+        "message": "未选择"
+    },
+    "selectToPreview": {
+        "message": "选择一条书签以预览。"
+    },
+    "previewNotAvailable": {
+        "message": "预览不可用。"
+    },
+    "exportedStatus": {
+        "message": "已导出"
+    },
+    "importedStatus": {
+        "message": "已导入"
+    },
+    "repairedStatus": {
+        "message": "已修复"
+    },
+    "movedStatus": {
+        "message": "已移动"
+    },
+    "deletedStatus": {
+        "message": "已删除"
+    },
+    "folderCreatedStatus": {
+        "message": "文件夹已创建"
+    },
+    "renamedStatus": {
+        "message": "已重命名"
     },
     "selectedCount": {
         "message": "已选择 $1 项"

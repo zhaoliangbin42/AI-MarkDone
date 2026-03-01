@@ -57,6 +57,14 @@ function toProtocolErrorCode(error: unknown): { code: ProtocolErrorCode; message
 
 const DEFAULT_FOLDER_PATH = 'Import';
 
+function parsePositionFromKey(key: string, urlWithoutProtocol: string): number | null {
+    const prefix = `${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}${urlWithoutProtocol}:`;
+    if (!key.startsWith(prefix)) return null;
+    const posStr = key.slice(prefix.length);
+    const pos = Number.parseInt(posStr, 10);
+    return Number.isFinite(pos) && pos > 0 ? pos : null;
+}
+
 function getQuotaBytesFallback(): number {
     const chromeAny = (globalThis as any).chrome;
     const quota = chromeAny?.storage?.local?.QUOTA_BYTES;
@@ -151,6 +159,27 @@ async function loadAllFolders(): Promise<{ folderPaths: string[]; folders: Folde
         }
     }
     return { folderPaths, folders };
+}
+
+function collectRequiredFolderPaths(bookmarks: Bookmark[]): string[] {
+    const set = new Set<string>();
+    for (const b of bookmarks) {
+        const raw = (b.folderPath ?? '').trim();
+        if (!raw || raw === '/') continue;
+        const normalized = (() => {
+            try {
+                PathUtils.validatePath(raw);
+                return PathUtils.normalize(raw);
+            } catch {
+                return null;
+            }
+        })();
+        if (!normalized) continue;
+
+        for (const a of PathUtils.getAncestors(normalized)) set.add(a);
+        set.add(normalized);
+    }
+    return Array.from(set).sort((a, b) => PathUtils.getDepth(a) - PathUtils.getDepth(b));
 }
 
 async function ensureFolderRecordsExist(params: {
@@ -292,9 +321,45 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
             });
             return { response: ok(request.id, request.type, result) };
         }
+        case 'bookmarks:positions': {
+            const urlWithoutProtocol = normalizeUrlWithoutProtocol(request.payload.url);
+            const index = await bookmarksIndexStore.buildIndexIfMissing(now);
+            const positions: number[] = [];
+            for (const key of index) {
+                const pos = parsePositionFromKey(key, urlWithoutProtocol);
+                if (pos !== null) positions.push(pos);
+            }
+            positions.sort((a, b) => a - b);
+            return { response: ok(request.id, request.type, { positions }) };
+        }
         case 'bookmarks:export': {
             const bookmarks = await loadAllBookmarks(now);
             const preserve = request.payload?.preserveStructure !== false;
+            const result = exportBookmarks({ bookmarks, preserveStructure: preserve });
+            return { response: ok(request.id, request.type, result) };
+        }
+        case 'bookmarks:exportSelected': {
+            const items = Array.isArray(request.payload.items) ? request.payload.items : [];
+            const unique = new Map<string, { url: string; position: number }>();
+            for (const it of items) {
+                if (!it || typeof it.url !== 'string' || typeof it.position !== 'number') continue;
+                unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
+            }
+            const selected = Array.from(unique.values());
+            if (selected.length === 0) {
+                const preserve = request.payload.preserveStructure !== false;
+                const result = exportBookmarks({ bookmarks: [], preserveStructure: preserve });
+                return { response: ok(request.id, request.type, result) };
+            }
+
+            const keys = selected.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`);
+            const raw = await localStoragePort.get(keys);
+            const bookmarks: Bookmark[] = [];
+            for (const key of keys) {
+                const normalized = normalizeStoredBookmark(key, raw[key], now);
+                if (normalized) bookmarks.push(normalized);
+            }
+            const preserve = request.payload.preserveStructure !== false;
             const result = exportBookmarks({ bookmarks, preserveStructure: preserve });
             return { response: ok(request.id, request.type, result) };
         }
@@ -330,6 +395,85 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 await localStoragePort.remove(plan.removeKeys);
                 await bookmarksIndexStore.setIndex(plan.updatedIndex);
                 return { response: ok(request.id, request.type, { removed: plan.removeKeys.length }) };
+            });
+        }
+        case 'bookmarks:bulkRemove': {
+            return backgroundStorageQueue.enqueue(async () => {
+                const items = Array.isArray(request.payload.items) ? request.payload.items : [];
+                const unique = new Map<string, { url: string; position: number }>();
+                for (const it of items) {
+                    if (!it || typeof it.url !== 'string' || typeof it.position !== 'number') continue;
+                    unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
+                }
+                const toRemove = Array.from(unique.values());
+                if (toRemove.length === 0) return { response: ok(request.id, request.type, { removed: 0 }) };
+
+                const index = await bookmarksIndexStore.buildIndexIfMissing(now);
+                const removeKeys = toRemove.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`);
+                const removeSet = new Set(removeKeys);
+                const updatedIndex = index.filter((k) => !removeSet.has(k));
+
+                await localStoragePort.remove(removeKeys);
+                await bookmarksIndexStore.setIndex(updatedIndex);
+
+                return { response: ok(request.id, request.type, { removed: removeKeys.length }) };
+            });
+        }
+        case 'bookmarks:bulkMove': {
+            return backgroundStorageQueue.enqueue(async () => {
+                const items = Array.isArray(request.payload.items) ? request.payload.items : [];
+                const unique = new Map<string, { url: string; position: number }>();
+                for (const it of items) {
+                    if (!it || typeof it.url !== 'string' || typeof it.position !== 'number') continue;
+                    unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
+                }
+                const toMove = Array.from(unique.values());
+                if (toMove.length === 0) return { response: ok(request.id, request.type, { moved: 0, missing: 0 }) };
+
+                const targetFolderPath = String(request.payload.targetFolderPath ?? '').trim();
+                const normalizedTarget = targetFolderPath && targetFolderPath !== '/'
+                    ? PathUtils.normalize(targetFolderPath)
+                    : DEFAULT_FOLDER_PATH;
+                if (normalizedTarget !== DEFAULT_FOLDER_PATH) PathUtils.validatePath(normalizedTarget);
+
+                const { folderPaths, folders } = await loadAllFolders();
+                const ensure = await ensureFolderRecordsExist({
+                    requiredPaths: [normalizedTarget],
+                    folderPaths,
+                    folders,
+                    now,
+                });
+                if (ensure.failedPaths.length > 0) {
+                    return { response: err(request.id, request.type, 'INVALID_PATH', 'Target folder path is invalid or cannot be created') };
+                }
+                if (Object.keys(ensure.folderSetPatch).length > 0 || ensure.updatedFolderPaths !== folderPaths) {
+                    await localStoragePort.set({
+                        ...ensure.folderSetPatch,
+                        [LEGACY_STORAGE_KEYS.folderPathsIndex]: ensure.updatedFolderPaths,
+                    });
+                }
+
+                const keys = toMove.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`);
+                const existing = await localStoragePort.get(keys);
+                const patch: Record<string, unknown> = {};
+                let moved = 0;
+                let missing = 0;
+
+                for (const key of keys) {
+                    const normalized = normalizeStoredBookmark(key, existing[key], now);
+                    if (!normalized) {
+                        missing += 1;
+                        continue;
+                    }
+                    patch[key] = { ...normalized, folderPath: normalizedTarget };
+                    moved += 1;
+                }
+
+                if (Object.keys(patch).length > 0) {
+                    await localStoragePort.set(patch);
+                }
+
+                return { response: ok(request.id, request.type, { moved, missing }) };
             });
         }
         case 'bookmarks:repair': {
@@ -417,8 +561,44 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
             });
         }
         case 'bookmarks:folders:list': {
-            const { folderPaths, folders } = await loadAllFolders();
-            return { response: ok(request.id, request.type, { folderPaths, folders }) };
+            const [{ folderPaths, folders }, bookmarks] = await Promise.all([
+                loadAllFolders(),
+                loadAllBookmarks(now),
+            ]);
+
+            const requiredPaths = Array.from(new Set([
+                ...folderPaths,
+                ...collectRequiredFolderPaths(bookmarks),
+            ])).sort((a, b) => PathUtils.getDepth(a) - PathUtils.getDepth(b));
+
+            if (requiredPaths.length === 0) {
+                return { response: ok(request.id, request.type, { folderPaths, folders }) };
+            }
+
+            const ensure = await ensureFolderRecordsExist({
+                requiredPaths,
+                folderPaths,
+                folders,
+                now,
+            });
+
+            if (Object.keys(ensure.folderSetPatch).length > 0 || ensure.updatedFolderPaths.length !== folderPaths.length) {
+                await localStoragePort.set({
+                    ...ensure.folderSetPatch,
+                    [LEGACY_STORAGE_KEYS.folderPathsIndex]: ensure.updatedFolderPaths,
+                });
+                await folderIndexStore.setFolderPaths(ensure.updatedFolderPaths);
+            }
+
+            const folderByPath = new Map<string, Folder>();
+            for (const f of folders) folderByPath.set(f.path, f);
+            for (const v of Object.values(ensure.folderSetPatch)) folderByPath.set(v.path, v);
+
+            const nextFolders = ensure.updatedFolderPaths
+                .map((p) => folderByPath.get(p))
+                .filter(Boolean) as Folder[];
+
+            return { response: ok(request.id, request.type, { folderPaths: ensure.updatedFolderPaths, folders: nextFolders }) };
         }
         case 'bookmarks:folders:create': {
             return backgroundStorageQueue.enqueue(async () => {

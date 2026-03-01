@@ -108,9 +108,7 @@ export class ChatGPTAdapter extends SiteAdapter {
                 if (actionBarAnchor) {
                     // Prefer injecting into the action bar row so we don't push the official toolbar down.
                     // We must avoid containers that toggle `pointer-events: none` on idle.
-                    const inner = actionBarAnchor.parentElement as HTMLElement | null;
-                    const outer = (inner?.parentElement as HTMLElement | null) || null;
-                    const target = outer || inner;
+                    const target = actionBarAnchor.parentElement as HTMLElement | null;
                     if (target) {
                         toolbarHost.dataset.aimdPlacement = 'actionbar';
                         toolbarHost.style.marginLeft = 'auto';
