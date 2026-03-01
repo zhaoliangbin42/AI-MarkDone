@@ -53,9 +53,7 @@ describe('ChatGPTAdapter injection contract', () => {
             expect(anchor).toBeTruthy();
             if (!anchor) return;
 
-            const inner = anchor.parentElement as HTMLElement | null;
-            const outer = (inner?.parentElement as HTMLElement | null) || null;
-            const target = outer || inner;
+            const target = anchor.parentElement as HTMLElement | null;
             expect(target).toBeTruthy();
             if (!target) return;
 

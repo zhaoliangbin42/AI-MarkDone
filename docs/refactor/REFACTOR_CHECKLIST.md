@@ -107,6 +107,7 @@ Checklist（每个域通用）：
 - [x] Service：Reader items 收集（`src/services/reader/collectReaderItems.ts`）
 - [x] Service：markdown 渲染+净化（`src/services/renderer/renderMarkdown.ts`）
 - [x] UI：ReaderPanel（`src/ui/content/reader/ReaderPanel.ts`）
+- [x] UI：ReaderPanel 可配置（按钮开关 + 注入 actions，用于跨模块复用）
 - [x] UI：消息工具栏增加 Reader 入口（`src/ui/content/MessageToolbar.ts`）
 - [x] Driver：注入框架稳定性升级（debounce scan + route watcher）（`src/drivers/content/injection/*`）
 - [x] 冻结功能与验收口径：`docs/FEATURES.md`
@@ -123,6 +124,17 @@ Checklist（每个域通用）：
 - [x] Runtime：Background write authority + journal recovery（`src/runtimes/background/handlers/bookmarks.ts`）
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
 - [ ] 人工验收：Bookmarks UI 上线前，先通过脚本/console 调用完成 save/import/export/repair/rename/move 的闭环验证
+
+### Module E — Bookmarks Panel（UI：面板 + Toolbar 快捷入口；ChatGPT-only）
+
+- [x] UI：BookmarksPanel overlay（打开/关闭/ESC/Shadow DOM + tokens）（`src/ui/content/bookmarks/BookmarksPanel.ts`）
+- [x] UI：BookmarksPanelController（状态管理 + intents 编排）（`src/ui/content/bookmarks/BookmarksPanelController.ts`）
+- [x] Service：panel view model（过滤/排序/文件夹树）（`src/services/bookmarks/panelModel.ts`）
+- [x] Driver/Protocol：positions snapshot + bulk ops（`src/contracts/protocol.ts`, `src/runtimes/background/handlers/bookmarks.ts`）
+- [x] UI：书签条目点击预览复用 ReaderPanel（搜索=全局顺序翻页；非搜索=folder 范围翻页）
+- [x] UI：MessageToolbar 增加 Bookmark 快捷按钮（保存/取消 + 状态同步）（`src/ui/content/controllers/MessageToolbarOrchestrator.ts`）
+- [x] 自动化门禁：`npm run test:core` / `npm run build`
+- [ ] 人工验收：扩展图标打开面板；面板内导入/导出/repair；Go To 定位与高亮；批量移动/删除
 
 ---
 

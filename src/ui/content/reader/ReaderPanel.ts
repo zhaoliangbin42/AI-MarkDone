@@ -7,17 +7,44 @@ import { resolveContent } from '../../../services/reader/types';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 
+export type ReaderPanelActionContext = {
+    item: ReaderItem;
+    index: number;
+    items: ReaderItem[];
+};
+
+export type ReaderPanelAction = {
+    id: string;
+    label: string;
+    kind?: 'default' | 'primary' | 'danger';
+    onClick: (ctx: ReaderPanelActionContext) => void | Promise<void>;
+};
+
+export type ReaderPanelShowOptions = {
+    showNav?: boolean;
+    showCopy?: boolean;
+    showSource?: boolean;
+    actions?: ReaderPanelAction[];
+};
+
 type ReaderPanelState = {
     theme: Theme;
     items: ReaderItem[];
     index: number;
     visible: boolean;
+    options: Required<Pick<ReaderPanelShowOptions, 'showNav' | 'showCopy' | 'showSource'>> & { actions: ReaderPanelAction[] };
 };
 
 export class ReaderPanel {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
-    private state: ReaderPanelState = { theme: 'light', items: [], index: 0, visible: false };
+    private state: ReaderPanelState = {
+        theme: 'light',
+        items: [],
+        index: 0,
+        visible: false,
+        options: { showNav: true, showCopy: true, showSource: true, actions: [] },
+    };
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
@@ -28,11 +55,17 @@ export class ReaderPanel {
         this.render();
     }
 
-    async show(items: ReaderItem[], startIndex: number, theme: Theme): Promise<void> {
+    async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
         this.state.items = items;
         this.state.index = Math.max(0, Math.min(startIndex, Math.max(0, items.length - 1)));
         this.state.theme = theme;
         this.state.visible = true;
+        this.state.options = {
+            showNav: options?.showNav ?? true,
+            showCopy: options?.showCopy ?? true,
+            showSource: options?.showSource ?? true,
+            actions: options?.actions ?? [],
+        };
 
         this.mount();
         await this.renderBody();
@@ -146,10 +179,59 @@ export class ReaderPanel {
         if (titleEl) titleEl.textContent = item ? item.userPrompt : 'Reader';
         if (counterEl) counterEl.textContent = total > 0 ? `${idx + 1}/${total}` : '';
 
+        this.renderActions();
+
         const prevBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="prev"]');
         const nextBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="next"]');
         if (prevBtn) prevBtn.disabled = idx <= 0;
         if (nextBtn) nextBtn.disabled = idx >= total - 1;
+    }
+
+    private renderActions(): void {
+        if (!this.shadow) return;
+
+        const total = this.state.items.length;
+        const opts = this.state.options;
+
+        const nav = this.shadow.querySelector<HTMLElement>('[data-role="nav"]');
+        if (nav) nav.style.display = opts.showNav && total > 1 ? 'flex' : 'none';
+
+        const copyBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
+        if (copyBtn) copyBtn.style.display = opts.showCopy ? 'inline-flex' : 'none';
+
+        const sourceBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="source"]');
+        if (sourceBtn) sourceBtn.style.display = opts.showSource ? 'inline-flex' : 'none';
+
+        const sourceWrap = this.shadow.querySelector<HTMLElement>('[data-role="source_wrap"]');
+        if (sourceWrap && !opts.showSource) sourceWrap.dataset.open = '0';
+
+        const custom = this.shadow.querySelector<HTMLElement>('[data-role="custom_actions"]');
+        if (!custom) return;
+        custom.replaceChildren();
+        for (const action of opts.actions) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `btn ${action.kind === 'primary' ? 'primary' : action.kind === 'danger' ? 'danger' : ''}`.trim();
+            btn.textContent = action.label;
+            btn.setAttribute('aria-label', action.label);
+            btn.addEventListener('click', async () => {
+                const ctx = this.getActionContext();
+                if (!ctx) return;
+                try {
+                    btn.disabled = true;
+                    await action.onClick(ctx);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+            custom.appendChild(btn);
+        }
+    }
+
+    private getActionContext(): ReaderPanelActionContext | null {
+        const item = this.state.items[this.state.index] ?? null;
+        if (!item) return null;
+        return { item, index: this.state.index, items: this.state.items };
     }
 
     private getHtml(): string {
@@ -165,11 +247,12 @@ export class ReaderPanel {
   </div>
   <div class="body" data-role="content"></div>
   <div class="footer">
-    <div class="nav">
+    <div class="nav" data-role="nav">
       <button class="btn" data-action="prev">Prev</button>
       <button class="btn" data-action="next">Next</button>
     </div>
     <div class="actions">
+      <div class="custom-actions" data-role="custom_actions"></div>
       <button class="btn primary" data-action="copy">Copy</button>
       <button class="btn" data-action="source">View Source</button>
     </div>
@@ -270,7 +353,8 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   border-top: 1px solid var(--aimd-border-default);
 }
 
-.nav, .actions { display: flex; gap: var(--aimd-space-2); }
+.nav, .actions { display: flex; gap: var(--aimd-space-2); align-items: center; }
+.custom-actions { display: flex; gap: var(--aimd-space-2); align-items: center; }
 
 .btn {
   all: unset;
@@ -290,6 +374,11 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   border-color: transparent;
 }
 .btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
+.btn.danger {
+  border-color: var(--aimd-state-error-border);
+  color: var(--aimd-text-primary);
+}
+.btn.danger:hover { background: var(--aimd-state-error-bg); }
 
 .status { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
 

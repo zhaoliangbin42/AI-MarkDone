@@ -20,6 +20,7 @@
 |---|---|---|
 | Validation platform | ChatGPT only | 降低变量，优先把架构与注入稳定性做实。 |
 | UI entrypoints | **No global toolbar** (remove `RewriteToolbar`) | 减少注入点与 UI 干扰；聚焦“每条消息工具栏 + ReaderPanel”。 |
+| Action icon click | Background sends `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 先用扩展图标作为稳定入口（无需额外注入点）；后续再评估页面内入口模块化实现。 |
 | Per-message toolbar placement | Prefer the official action bar row (same line); fallback after message content, aligned right | 避免把官方工具栏挤到下方；同时保留无 action bar 场景的稳定可见兜底。 |
 | Injection algorithm | MO as signal + debounced scan + idempotent retry + route rebind | SPA/React 更稳定；允许短暂失败但最终一致。 |
 | LaTeX click-to-copy | Enabled by default (no UI toggle) | 功能性优先；后续再引入可审计的开关。 |
@@ -58,11 +59,12 @@
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
-| Open ReaderPanel from a message toolbar | MessageToolbar `Reader` → collect items → `ReaderPanel.show(items, startIndex, theme)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/reader/collectReaderItems.ts` | `tests/integration/reader/reader-panel.test.ts` | 点击任意消息 Reader 能稳定打开。 |
+| Open ReaderPanel from a message toolbar | MessageToolbar `Reader` → collect items → `ReaderPanel.show(items, startIndex, theme, options?)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/reader/collectReaderItems.ts` | `tests/integration/reader/reader-panel.test.ts` | 点击任意消息 Reader 能稳定打开。 |
 | Pagination (Prev/Next + index/total) | ReaderPanel internal state | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可翻页且 index/total 正确。 |
 | Render Markdown + sanitize | `renderMarkdown(markdown)` | `src/services/renderer/renderMarkdown.ts` | `tests/unit/services/renderer/renderMarkdown.test.ts` | XSS 清洗门禁必须存在。 |
 | Copy current page markdown | ReaderPanel `Copy` | `src/ui/content/reader/ReaderPanel.ts`, `src/drivers/content/clipboard/clipboard.ts` | integration test | Reader 页内容与 Copy pipeline 对齐（同一条消息输出一致）。 |
 | View Source | ReaderPanel toggle | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可查看源文本、可复制。 |
+| Configurable actions (per module reuse) | `ReaderPanel.show(..., { showNav/showCopy/showSource, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration (covered by TypeScript + existing reader test) | 同一 ReaderPanel 可被不同模块复用（如 Bookmarks 预览注入 GoTo），避免重复维护“预览框”。 |
 
 ---
 
@@ -90,11 +92,27 @@
 
 ---
 
+### B.4 Bookmarks Panel（Content UI; ChatGPT-only validation）
+
+说明：BookmarksPanel 的职责是 **展示 + 交互 + intent 触发**，所有写入仍由 background handler 执行（MV3 可审计/可恢复边界不变）。
+
+| Capability | Entry / API | Key files | Tests | Acceptance |
+|---|---|---|---|---|
+| Toggle panel via extension icon | Background action click → `ui:toggle_toolbar` → Content toggles panel | `src/runtimes/background/entry.ts`, `src/runtimes/content/entry.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | manual | 在 ChatGPT 页面点击扩展图标可打开/关闭面板。 |
+| List/search/sort/filter bookmarks | Panel controls → view model | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts`, `src/services/bookmarks/panelModel.ts` | `tests/unit/services/bookmarks/panelModel.test.ts` | 面板内可搜索、排序，列表可读且不污染宿主样式。 |
+| Folder tree + CRUD | Panel buttons → `bookmarks:folders:*` | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts` | manual | 文件夹可创建/重命名/移动/删除（删除需要空文件夹约束）。 |
+| Preview (reuse ReaderPanel) | Click bookmark row → `ReaderPanel.show(items, startIndex, theme, options)` | `src/ui/content/bookmarks/ui/tabs/BookmarksTabView.ts`, `src/ui/content/reader/ReaderPanel.ts` | manual | 分页范围沿用 legacy：有搜索词→按树顺序翻“全部可见书签”；无搜索词→仅在该 folder 内翻页。 |
+| Row actions: Go / Copy / Delete | Panel row buttons → background intents | `src/ui/content/bookmarks/BookmarksPanelController.ts`, `src/drivers/content/bookmarks/navigation.ts` | manual | Go 能定位当前页 position（最佳努力重试）；Copy/删除可用。 |
+| Batch ops (delete/move/export) | Selection → bulk handlers | `src/contracts/protocol.ts`, `src/runtimes/background/handlers/bookmarks.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | `tests/unit/runtimes/background/bookmarks-handler.test.ts` | 批量删除/移动/导出一次落盘（非循环 sendMessage）。 |
+| Import/Export/Repair | Panel buttons → handler | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/runtimes/background/handlers/bookmarks.ts` | `tests/unit/core/bookmarks/stress.test.ts` | 导入 3000 级别 fixture 仍可用；repair 会 quarantine 再移除。 |
+| Toolbar quick toggle (per message) | MessageToolbar `Bookmark` → `bookmarks:positions/save/remove` | `src/ui/content/controllers/MessageToolbarOrchestrator.ts`, `src/ui/content/MessageToolbar.ts` | manual | 每条消息可一键保存/取消，并反映已保存状态（Bookmarked）。 |
+
+---
+
 ## C) Non-goals（明确不做）
 
 以下内容不作为本阶段验收目标：
 
-- Bookmarks Panel UI（搜索/筛选/排序/批量操作）
 - Message sending（输入框同步/发送按钮模拟/完成检测）
 - i18n
 - 字数统计（CJK 感知）

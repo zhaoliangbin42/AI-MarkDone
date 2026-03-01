@@ -171,4 +171,123 @@ describe('background bookmarks handler', () => {
         expect(store['bookmark:chatgpt.com/c/1:1'].folderPath).toBe('B');
         expect(store['aimd:bookmarks:journal:v1']).toBeUndefined();
     });
+
+    it('returns positions snapshot for a conversation url', async () => {
+        const store: StorageMap = {};
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/1',
+            position: 2,
+            userMessage: 'u2',
+            aiResponse: 'a2',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/1',
+            position: 1,
+            userMessage: 'u1',
+            aiResponse: 'a1',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/2',
+            position: 1,
+            userMessage: 'u',
+            aiResponse: 'a',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+
+        const res = await handleBookmarksRequest(req('bookmarks:positions', { url: 'https://chatgpt.com/c/1' }));
+        expect(res?.response.ok).toBe(true);
+        expect((res as any).response.data.positions).toEqual([1, 2]);
+    });
+
+    it('supports bulk remove and keeps index consistent', async () => {
+        const store: StorageMap = {};
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/1',
+            position: 1,
+            userMessage: 'u',
+            aiResponse: 'a',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/1',
+            position: 2,
+            userMessage: 'u',
+            aiResponse: 'a',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+
+        const bulk = await handleBookmarksRequest(req('bookmarks:bulkRemove', {
+            items: [{ url: 'https://chatgpt.com/c/1', position: 2 }],
+        }));
+        expect(bulk?.response.ok).toBe(true);
+        expect(store['bookmark:chatgpt.com/c/1:2']).toBeUndefined();
+        expect(store['aimd:bookmarks:index:v1']).toEqual(['bookmark:chatgpt.com/c/1:1']);
+    });
+
+    it('supports bulk move and exportSelected', async () => {
+        const store: StorageMap = {
+            folderPaths: ['Import', 'Work'],
+            'folder:Import': { path: 'Import', name: 'Import', depth: 1, createdAt: 1, updatedAt: 1 },
+            'folder:Work': { path: 'Work', name: 'Work', depth: 1, createdAt: 1, updatedAt: 1 },
+        };
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/1',
+            position: 1,
+            userMessage: 'u1',
+            aiResponse: 'a1',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+        await handleBookmarksRequest(req('bookmarks:save', {
+            url: 'https://chatgpt.com/c/1',
+            position: 2,
+            userMessage: 'u2',
+            aiResponse: 'a2',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            options: { saveContextOnly: false },
+        }));
+
+        const move = await handleBookmarksRequest(req('bookmarks:bulkMove', {
+            items: [{ url: 'https://chatgpt.com/c/1', position: 2 }],
+            targetFolderPath: 'Work',
+        }));
+        expect(move?.response.ok).toBe(true);
+        expect(store['bookmark:chatgpt.com/c/1:2'].folderPath).toBe('Work');
+
+        const exported = await handleBookmarksRequest(req('bookmarks:exportSelected', {
+            items: [{ url: 'https://chatgpt.com/c/1', position: 2 }],
+            preserveStructure: true,
+        }));
+        expect(exported?.response.ok).toBe(true);
+        const payload = (exported as any).response.data.payload;
+        expect(payload.version).toBe('2.0');
+        expect(payload.bookmarks).toHaveLength(1);
+        expect(payload.bookmarks[0].position).toBe(2);
+    });
 });

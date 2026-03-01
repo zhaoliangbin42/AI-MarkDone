@@ -17,6 +17,7 @@ export class MessageToolbar {
     private shadow: ShadowRoot;
     private actions: MessageToolbarAction[];
     private actionButtons = new Map<string, HTMLButtonElement>();
+    private pending: boolean = false;
 
     constructor(theme: Theme, actions: MessageToolbarAction[]) {
         this.actions = actions;
@@ -37,6 +38,7 @@ export class MessageToolbar {
     }
 
     setPending(pending: boolean): void {
+        this.pending = pending;
         const note = this.shadow.querySelector<HTMLElement>('[data-field="note"]');
         for (const action of this.actions) {
             if (!action.disabledWhenPending) continue;
@@ -44,6 +46,18 @@ export class MessageToolbar {
             if (btn) btn.disabled = pending;
         }
         if (note) note.textContent = pending ? 'Streaming…' : '';
+    }
+
+    setActionLabel(actionId: string, label: string): void {
+        const btn = this.actionButtons.get(actionId);
+        if (!btn) return;
+        btn.textContent = label;
+    }
+
+    setActionActive(actionId: string, active: boolean): void {
+        const btn = this.actionButtons.get(actionId);
+        if (!btn) return;
+        btn.dataset.active = active ? '1' : '0';
     }
 
     private mount(): void {
@@ -109,7 +123,11 @@ export class MessageToolbar {
             this.setStatus('error', 'Failed');
         } finally {
             window.setTimeout(() => this.setStatus('idle', ''), 1200);
-            btn.disabled = false;
+            if (this.pending && action.disabledWhenPending) {
+                btn.disabled = true;
+            } else {
+                btn.disabled = false;
+            }
         }
     }
 
@@ -122,6 +140,29 @@ export class MessageToolbar {
 :host([data-aimd-placement="actionbar"]) .wrap {
   margin-top: 0;
   justify-content: flex-start;
+}
+:host([data-aimd-placement="actionbar"]) .bar {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+:host([data-aimd-placement="actionbar"]) .btn {
+  padding: 0 var(--aimd-space-1);
+  background: transparent;
+  border-color: transparent;
+  color: var(--aimd-text-secondary);
+  font-weight: 650;
+}
+:host([data-aimd-placement="actionbar"]) .btn.primary {
+  background: transparent;
+  color: var(--aimd-interactive-primary);
+  border-color: transparent;
+}
+:host([data-aimd-placement="actionbar"]) .btn:hover {
+  background: var(--aimd-bg-secondary);
+}
+:host([data-aimd-placement="actionbar"]) .note {
+  display: none;
 }
 :host([data-aimd-placement="content"]) .wrap {
   margin-top: var(--aimd-space-2);
@@ -152,6 +193,9 @@ export class MessageToolbar {
   border: 1px solid var(--aimd-border-default);
   font-size: var(--aimd-font-size-xs);
   font-weight: 600;
+}
+.btn[data-active="1"] {
+  border-color: var(--aimd-interactive-primary);
 }
 .btn.primary {
   background: var(--aimd-interactive-primary);

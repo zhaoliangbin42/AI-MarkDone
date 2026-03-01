@@ -24,6 +24,7 @@
 - [x] 分页导航（Prev/Next + index/total）
 - [x] 渲染链路（markdown/code/math/table 混排）
 - [x] Copy（从 Reader 复制 markdown）
+- [x] 可配置按钮/动作（用于复用到 Bookmarks 等模块）
 - [ ] Message sending（输入框同步/发送按钮模拟/完成检测）
 
 ---
@@ -31,7 +32,8 @@
 ## 3. Bookmarks（保存/管理/导入导出/恢复）
 
 - [x] 保存书签（Core，含 context-only 选项）
-- [ ] 书签面板（UI：搜索/筛选/排序/批量操作）
+- [x] 书签面板（UI：搜索/筛选/排序/批量操作）
+- [x] 书签预览复用 ReaderPanel（避免重复维护预览框）
 - [x] 文件夹树（Core：创建/重命名/移动/删除/判重）
 - [x] 导入导出（Core：两种格式兼容；大文件/异常文件 guard；去重/冲突处理）
 - [x] Storage 生命周期可靠性（Core：Index + Journal + Repair + Quarantine）
