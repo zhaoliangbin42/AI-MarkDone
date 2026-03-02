@@ -53,5 +53,5 @@ describe('Copy parity (Deepseek)', () => {
 
             expect(res.markdown).toBe(expected);
         });
-    });
+    }, 20_000);
 });

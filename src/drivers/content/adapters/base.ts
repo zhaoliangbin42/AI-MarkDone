@@ -47,6 +47,18 @@ export abstract class SiteAdapter {
     abstract getActionBarSelector(): string;
 
     /**
+     * Optional stable anchor element for per-message toolbar identity and placement.
+     *
+     * Motivation:
+     * - Some SPAs (e.g. ChatGPT) may replace message DOM nodes during hydration/route changes.
+     * - The official action bar container tends to be more stable than message wrapper elements.
+     *
+     * If provided, this element is used to deduplicate injections ("never two toolbars for one official bar")
+     * and to re-attach toolbars after the action bar re-renders.
+     */
+    getToolbarAnchorElement?(_assistantMessageElement: HTMLElement): HTMLElement | null;
+
+    /**
      * Platform-specific injection strategy for a per-message toolbar host element.
      */
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {

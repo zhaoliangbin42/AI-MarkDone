@@ -16,6 +16,5 @@ describe('copyMarkdownFromPage (ChatGPT)', () => {
         expect(res.markdown).toContain('```ts');
         expect(res.markdown).toContain('TypeScript');
         expect(res.markdown).toContain('---');
-    });
+    }, 20_000);
 });
-

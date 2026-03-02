@@ -9,19 +9,11 @@ import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
 import { SettingsTabView } from './ui/tabs/SettingsTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
 import { ReaderPanel } from '../reader/ReaderPanel';
-import { settingsRemoteApi } from '../../../services/settings/remoteApi';
-import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import {
     bookmarkIcon,
     coffeeIcon,
-    copyIcon,
-    downloadIcon,
-    refreshCwIcon,
     settingsIcon,
-    uploadIcon,
-    wrenchIcon,
     xIcon,
-    externalLinkIcon,
 } from '../../../assets/icons';
 
 function downloadJson(filename: string, data: unknown): void {
@@ -53,6 +45,10 @@ export class BookmarksPanel {
     private snapshot: BookmarksPanelSnapshot | null = null;
     private refs: PanelRefs | null = null;
     private bookmarksTab: BookmarksTabView | null = null;
+    private settingsTab: SettingsTabView | null = null;
+    private activeTabId: 'bookmarks' | 'settings' | 'sponsor' = 'bookmarks';
+    private prevHtmlOverflow: string | null = null;
+    private prevBodyOverflow: string | null = null;
 
     constructor(controller: BookmarksPanelController, readerPanel: ReaderPanel) {
         this.controller = controller;
@@ -81,14 +77,19 @@ export class BookmarksPanel {
             this.render();
         });
 
-        const url = window.location.href;
+        // Keep bookmarks scoped to the conversation URL, not hash routes like `#settings`.
+        const url = window.location.href.split('#')[0] || window.location.href;
         await Promise.all([
             this.controller.refreshAll(),
             this.controller.refreshPositionsForUrl(url),
         ]);
+        await this.settingsTab?.refresh();
 
-        this.refs?.tabs.setActive('bookmarks');
-        this.bookmarksTab?.focusPrimaryInput();
+        // Do not force-reset the tab after async refresh; keep user's selection stable.
+        this.refs?.tabs.setActive(this.activeTabId);
+        if (this.activeTabId === 'bookmarks') {
+            this.bookmarksTab?.focusPrimaryInput();
+        }
     }
 
     hide(): void {
@@ -101,6 +102,17 @@ export class BookmarksPanel {
 
     private mount(): void {
         if (this.host) return;
+
+        // Prevent scroll chaining into the host page while the overlay is open.
+        // Why: users expect wheel scrolling to stay within the panel (legacy behavior).
+        if (this.prevHtmlOverflow === null) {
+            this.prevHtmlOverflow = document.documentElement.style.overflow || '';
+            document.documentElement.style.overflow = 'hidden';
+        }
+        if (this.prevBodyOverflow === null) {
+            this.prevBodyOverflow = document.body.style.overflow || '';
+            document.body.style.overflow = 'hidden';
+        }
 
         const host = document.createElement('div');
         host.id = 'aimd-bookmarks-panel-host';
@@ -121,80 +133,11 @@ export class BookmarksPanel {
         });
 
         const settingsTab = new SettingsTabView({
-            title: t('tabSettings'),
-            description: t('settingsTabPlaceholder'),
-            actions: [
-                { id: 'export_all', icon: downloadIcon, label: t('exportAllBtn'), onClick: () => void this.exportAll(modal) },
-                { id: 'import', icon: uploadIcon, label: t('importBookmarks') },
-                { id: 'repair', icon: wrenchIcon, label: t('repairBtn'), onClick: () => void this.repair(modal) },
-                {
-                    id: 'copy_app_settings',
-                    icon: copyIcon,
-                    label: t('copyAppSettings'),
-                    onClick: async () => {
-                        const res = await settingsRemoteApi.getAll();
-                        if (!res.ok) {
-                            modal.alert({
-                                kind: 'error',
-                                title: t('tabSettings'),
-                                message: res.message,
-                                confirmText: t('btnClose'),
-                            });
-                            return;
-                        }
-                        const json = JSON.stringify(res.data.settings ?? null, null, 2);
-                        const ok = await copyTextToClipboard(json);
-                        modal.alert({
-                            kind: ok ? 'info' : 'warning',
-                            title: t('tabSettings'),
-                            message: ok ? t('btnCopied') : t('copyFailed'),
-                            confirmText: t('btnClose'),
-                        });
-                    },
-                },
-                {
-                    id: 'reset_app_settings',
-                    icon: refreshCwIcon,
-                    label: t('resetAppSettings'),
-                    onClick: async () => {
-                        const ok = await modal.confirm({
-                            kind: 'warning',
-                            title: t('resetAppSettings'),
-                            message: t('actionCannotBeUndone'),
-                            confirmText: t('btnReset'),
-                            cancelText: t('btnCancel'),
-                            danger: true,
-                        });
-                        if (!ok) return;
-                        const res = await settingsRemoteApi.reset();
-                        if (!res.ok) {
-                            modal.alert({
-                                kind: 'error',
-                                title: t('resetAppSettings'),
-                                message: res.message,
-                                confirmText: t('btnClose'),
-                            });
-                            return;
-                        }
-                        modal.alert({
-                            kind: 'info',
-                            title: t('resetAppSettings'),
-                            message: t('done'),
-                            confirmText: t('btnClose'),
-                        });
-                    },
-                },
-            ],
-            onImportJsonText: async (jsonText) => void this.importJsonText(modal, jsonText),
+            modal,
+            onExportAllBookmarks: async () => void this.exportAll(modal),
         });
 
-        const sponsorTab = new SponsorTabView({
-            title: t('tabSponsor'),
-            description: t('sponsorTabPlaceholder'),
-            links: [
-                { label: t('openGithubRepo'), href: 'https://github.com/zhaoliangbin42/AI-MarkDone', icon: externalLinkIcon },
-            ],
-        });
+        const sponsorTab = new SponsorTabView({ githubUrl: 'https://github.com/zhaoliangbin42/AI-MarkDone' });
 
         const shell = createBookmarksPanelShell({
             titleText: t('tabBookmarks'),
@@ -205,7 +148,7 @@ export class BookmarksPanel {
                 { id: 'settings', label: t('tabSettings'), icon: settingsIcon, content: settingsTab.getElement() },
                 { id: 'sponsor', label: t('tabSponsor'), icon: coffeeIcon, content: sponsorTab.getElement() },
             ],
-            defaultTabId: 'bookmarks',
+            defaultTabId: this.activeTabId,
         });
         const titleByTabId = new Map<string, string>([
             ['bookmarks', t('tabBookmarks')],
@@ -214,7 +157,11 @@ export class BookmarksPanel {
         ]);
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (e) => {
             const ev = e as CustomEvent<{ id: string }>;
-            const next = titleByTabId.get(ev.detail?.id) ?? t('tabBookmarks');
+            const nextId = (ev.detail?.id as any) || 'bookmarks';
+            if (nextId === 'bookmarks' || nextId === 'settings' || nextId === 'sponsor') {
+                this.activeTabId = nextId;
+            }
+            const next = titleByTabId.get(this.activeTabId) ?? t('tabBookmarks');
             shell.title.textContent = next;
             shell.panel.setAttribute('aria-label', next);
         });
@@ -249,6 +196,7 @@ export class BookmarksPanel {
         this.host = host;
         this.shadow = shadow;
         this.bookmarksTab = bookmarksTab;
+        this.settingsTab = settingsTab;
         this.refs = { ...shell, footerStatus: status, footerMeta: meta };
     }
 
@@ -256,9 +204,20 @@ export class BookmarksPanel {
         this.refs = null;
         this.snapshot = null;
         this.bookmarksTab = null;
+        this.settingsTab = null;
         this.shadow = null;
         this.host?.remove();
         this.host = null;
+
+        // Restore host page scrolling.
+        if (this.prevHtmlOverflow !== null) {
+            document.documentElement.style.overflow = this.prevHtmlOverflow;
+            this.prevHtmlOverflow = null;
+        }
+        if (this.prevBodyOverflow !== null) {
+            document.body.style.overflow = this.prevBodyOverflow;
+            this.prevBodyOverflow = null;
+        }
     }
 
     private render(): void {
@@ -285,39 +244,5 @@ export class BookmarksPanel {
         }
         downloadJson('ai-markdone-bookmarks.json', res.data.payload);
         this.controller.setPanelStatus(t('exportedStatus'));
-    }
-
-    private async importJsonText(modal: ModalHost, jsonText: string): Promise<void> {
-        const saveContextOnly = await modal.confirm({
-            kind: 'info',
-            title: t('importBookmarks'),
-            message: t('saveContextOnlyConfirm'),
-            confirmText: t('btnOk'),
-            cancelText: t('btnCancel'),
-        });
-        const res = await this.controller.importJsonText(jsonText, saveContextOnly);
-        if (!res.ok) {
-            await modal.alert({ kind: 'error', title: t('importBookmarks'), message: res.message, confirmText: t('btnOk') });
-            return;
-        }
-        this.controller.setPanelStatus(t('importedStatus'));
-    }
-
-    private async repair(modal: ModalHost): Promise<void> {
-        const ok = await modal.confirm({
-            kind: 'warning',
-            title: t('repairBtn'),
-            message: t('repairConfirm'),
-            confirmText: t('btnOk'),
-            cancelText: t('btnCancel'),
-            danger: true,
-        });
-        if (!ok) return;
-        const res = await this.controller.repair();
-        if (!res.ok) {
-            await modal.alert({ kind: 'error', title: t('repairBtn'), message: res.message, confirmText: t('btnOk') });
-            return;
-        }
-        this.controller.setPanelStatus(t('repairedStatus'));
     }
 }
