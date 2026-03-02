@@ -1,54 +1,57 @@
-import { createIcon } from '../../../components/Icon';
+import { browser } from '../../../../../drivers/shared/browser';
+import { Icons } from '../../../../../assets/icons';
+import { t } from '../../../components/i18n';
 
 export class SponsorTabView {
     private root: HTMLElement;
 
-    constructor(params: {
-        title: string;
-        description: string;
-        links: Array<{ label: string; href: string; icon?: string }>;
-    }) {
+    constructor(params: { githubUrl: string }) {
         this.root = document.createElement('div');
         this.root.className = 'aimd-sponsor';
 
-        const wrap = document.createElement('div');
-        wrap.className = 'aimd-scroll aimd-sponsor-wrap';
+        const scroll = document.createElement('div');
+        scroll.className = 'aimd-scroll';
 
-        const h = document.createElement('strong');
-        h.textContent = params.title;
+        const content = document.createElement('div');
+        content.className = 'support-content';
 
-        const p = document.createElement('div');
-        p.style.marginTop = 'var(--aimd-space-2)';
-        p.style.fontSize = 'var(--aimd-font-size-xs)';
-        p.style.color = 'var(--aimd-text-secondary)';
-        p.textContent = params.description;
+        const openSource = document.createElement('div');
+        openSource.className = 'support-section';
+        openSource.innerHTML = `
+          <h3>${t('supportDevelopment')}</h3>
+          <p>${t('supportDevDesc')}</p>
+          <a class="primary-btn" href="${params.githubUrl}" target="_blank" rel="noopener noreferrer">
+            ${Icons.github}
+            ${t('starOnGitHub')}
+          </a>
+        `;
 
-        const list = document.createElement('div');
-        list.style.marginTop = 'calc(var(--aimd-space-4) * 1.5)';
-        list.style.display = 'flex';
-        list.style.flexDirection = 'column';
-        list.style.gap = 'var(--aimd-space-2)';
+        const donate = document.createElement('div');
+        donate.className = 'support-section';
+        const bmc = browser.runtime.getURL('icons/bmc_qr.png');
+        const wechat = browser.runtime.getURL('icons/wechat_qr.png');
+        donate.innerHTML = `
+          <h3>${t('ifProjectHelps')}</h3>
+          <p>${t('supportCoffeeDesc')}</p>
+          <div class="qr-cards-row">
+            <div class="qr-card">
+              <a class="qr-card-label-link" href="https://www.buymeacoffee.com/zhaoliangbin" target="_blank" rel="noopener noreferrer">${t('buyMeCoffee')}</a>
+              <div class="qr-image-wrapper">
+                <img src="${bmc}" alt="Buy Me A Coffee" class="qr-image">
+              </div>
+            </div>
+            <div class="qr-card">
+              <span class="qr-card-label">${t('wechatAppreciationCode')}</span>
+              <div class="qr-image-wrapper">
+                <img src="${wechat}" alt="WeChat Reward" class="qr-image">
+              </div>
+            </div>
+          </div>
+        `;
 
-        for (const l of params.links) {
-            const a = document.createElement('a');
-            a.href = l.href;
-            a.target = '_blank';
-            a.rel = 'noreferrer';
-            a.style.display = 'inline-flex';
-            a.style.alignItems = 'center';
-            a.style.gap = 'var(--aimd-space-2)';
-            a.style.color = 'var(--aimd-interactive-primary)';
-            a.style.textDecoration = 'none';
-            a.style.fontSize = 'var(--aimd-font-size-xs)';
-            if (l.icon) a.appendChild(createIcon(l.icon));
-            const span = document.createElement('span');
-            span.textContent = l.label;
-            a.appendChild(span);
-            list.appendChild(a);
-        }
-
-        wrap.append(h, p, list);
-        this.root.appendChild(wrap);
+        content.append(openSource, donate);
+        scroll.appendChild(content);
+        this.root.appendChild(scroll);
     }
 
     getElement(): HTMLElement {

@@ -37,6 +37,7 @@ export class MessageToolbar {
         this.showStats = opts?.showStats ?? false;
         this.host = document.createElement('div');
         this.host.className = 'aimd-message-toolbar-host';
+        this.host.setAttribute('data-aimd-theme', theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme) + this.getCss());
         this.mount();
@@ -51,6 +52,7 @@ export class MessageToolbar {
     }
 
     setTheme(theme: Theme): void {
+        this.host.setAttribute('data-aimd-theme', theme);
         const style = this.shadow.querySelector('style');
         if (style) style.textContent = getTokenCss(theme) + this.getCss();
     }
@@ -81,6 +83,10 @@ export class MessageToolbar {
         const btn = this.actionButtons.get(actionId);
         if (!btn) return;
         btn.dataset.active = active ? '1' : '0';
+        // Only bookmark uses "primary when active" (legacy behavior).
+        if (actionId === 'bookmark_toggle') {
+            btn.classList.toggle('primary', active);
+        }
     }
 
     private mount(): void {
@@ -290,6 +296,10 @@ export class MessageToolbar {
     color-mix(in srgb, var(--aimd-bg-primary) 14%, transparent);
   border-color: color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
 }
+:host([data-aimd-theme="dark"][data-aimd-placement="actionbar"]) .bar {
+  /* Dark mode: avoid "sheen" lighting; keep a simple, embedded solid surface. */
+  background: color-mix(in srgb, var(--aimd-bg-primary) 18%, transparent);
+}
 :host([data-aimd-placement="actionbar"]) .icon-btn { width: 28px; height: 28px; border-radius: 8px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
 :host([data-aimd-placement="actionbar"]) .note { display: none !important; }
@@ -327,7 +337,7 @@ export class MessageToolbar {
 }
 .bar:hover {
   transform: none;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--aimd-interactive-highlight) 16%, transparent);
 }
 :host([data-aimd-placement="actionbar"]) .bar:hover { transform: none; }
 .bar::before {
@@ -345,6 +355,8 @@ export class MessageToolbar {
 }
 .bar:hover::before { opacity: 0.24; }
 :host([data-aimd-placement="actionbar"]) .bar:hover::before { opacity: 0.38; }
+:host([data-aimd-theme="dark"]) .bar::before { opacity: 0; }
+:host([data-aimd-theme="dark"]) .bar:hover::before { opacity: 0; }
 
 .group { display: inline-flex; align-items: center; gap: 2px; }
 .sep {
@@ -383,12 +395,16 @@ export class MessageToolbar {
   transition: background 150ms ease, transform 120ms ease, box-shadow 150ms ease;
 }
 .icon-btn:hover {
-  background: color-mix(in srgb, var(--aimd-bg-primary) 22%, transparent);
+  /* Higher-contrast hover state (more visible on ChatGPT surfaces) */
+  background: color-mix(in srgb, var(--aimd-interactive-highlight) 34%, transparent);
   box-shadow: none;
 }
 .icon-btn:active { transform: scale(0.96); }
 .icon-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
-.icon-btn[data-flash="1"] { background: color-mix(in srgb, var(--aimd-interactive-flash) 70%, transparent); }
+.icon-btn[data-flash="1"] {
+  /* Momentary feedback without looking like "active" state */
+  background: color-mix(in srgb, var(--aimd-interactive-highlight) 40%, transparent);
+}
 
 .icon-btn svg { width: 16px; height: 16px; display: block; }
 
@@ -402,6 +418,11 @@ export class MessageToolbar {
   box-shadow: none;
 }
 .icon-btn.primary:hover { background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 95%, transparent); }
+:host([data-aimd-theme="dark"]) .icon-btn.primary {
+  /* Dark mode: keep primary button flat (no gradient sheen). */
+  background: var(--aimd-interactive-primary);
+}
+:host([data-aimd-theme="dark"]) .icon-btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
 .icon-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .note { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
 .status {

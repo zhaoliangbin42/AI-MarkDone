@@ -53,15 +53,22 @@ describe('ChatGPTAdapter injection contract', () => {
             expect(anchor).toBeTruthy();
             if (!anchor) return;
 
-            const target = anchor.parentElement as HTMLElement | null;
-            expect(target).toBeTruthy();
-            if (!target) return;
+            const row = anchor.closest('div.z-0.flex') as HTMLElement | null;
+            expect(row).toBeTruthy();
+            if (!row) return;
+
+            const officialGroup = anchor.parentElement as HTMLElement | null;
+            expect(officialGroup).toBeTruthy();
+            if (!officialGroup) return;
 
             const host = document.createElement('div');
             host.id = 'aimd-test-toolbar';
             const ok = adapter.injectToolbar(message, host);
             expect(ok).toBe(true);
-            expect(target.lastElementChild).toBe(host);
+            expect(host.dataset.aimdPlacement).toBe('actionbar');
+            // Host should be in the action bar row and placed to the right of the official button group.
+            expect(row.contains(host)).toBe(true);
+            expect(host.previousElementSibling).toBe(officialGroup);
             expect(host.dataset.aimdPlacement).toBe('actionbar');
             expect(document.getElementById('aimd-test-toolbar')).toBe(host);
         });

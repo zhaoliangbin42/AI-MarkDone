@@ -99,21 +99,41 @@ export class ChatGPTAdapter extends SiteAdapter {
         return 'button[data-testid="copy-turn-action-button"]';
     }
 
+    getToolbarAnchorElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const assistantArticle = assistantMessageElement.closest('article') || assistantMessageElement;
+        const turnWrapper = assistantArticle.closest('article') || assistantArticle;
+        const copyBtn = turnWrapper.querySelector(this.getActionBarSelector());
+        if (!(copyBtn instanceof HTMLElement)) return null;
+        return (copyBtn.closest('div.z-0.flex') as HTMLElement | null) || (copyBtn.parentElement as HTMLElement | null);
+    }
+
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         try {
             const contentElement = messageElement.querySelector(this.getMessageContentSelector());
             const turnWrapper = messageElement.closest('article') as HTMLElement | null;
             if (turnWrapper) {
                 const actionBarAnchor = turnWrapper.querySelector(this.getActionBarSelector());
-                if (actionBarAnchor) {
-                    // Prefer injecting into the action bar row so we don't push the official toolbar down.
-                    // We must avoid containers that toggle `pointer-events: none` on idle.
-                    const target = actionBarAnchor.parentElement as HTMLElement | null;
-                    if (target) {
+                if (actionBarAnchor instanceof HTMLElement) {
+                    // Prefer injecting into the stable official action bar row so we don't push the official toolbar down.
+                    // Why: inner action group often toggles `pointer-events: none` until hover.
+                    const row = (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null);
+                    const group = (actionBarAnchor.parentElement as HTMLElement | null);
+                    const targetRow = row || group;
+                    if (targetRow) {
                         toolbarHost.dataset.aimdPlacement = 'actionbar';
-                        toolbarHost.style.marginLeft = 'auto';
+                        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
                         toolbarHost.style.pointerEvents = 'auto';
-                        target.appendChild(toolbarHost);
+                        // Keep our toolbar on the same row but pushed to the far right (legacy positioning).
+                        // `margin-left: auto` works with flex layouts and avoids reflowing the official group.
+                        toolbarHost.style.marginLeft = 'auto';
+                        toolbarHost.style.marginRight = '0';
+
+                        // Place to the right of the official button group (legacy position expectation).
+                        if (row && group && group.parentElement === row) {
+                            row.insertBefore(toolbarHost, group.nextSibling);
+                        } else {
+                            targetRow.insertBefore(toolbarHost, actionBarAnchor);
+                        }
                         return true;
                     }
                 }
@@ -122,15 +142,18 @@ export class ChatGPTAdapter extends SiteAdapter {
             // Fallback: place after message content root (stable, always visible).
             if (contentElement && contentElement.parentElement) {
                 toolbarHost.dataset.aimdPlacement = 'content';
+                toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
                 contentElement.parentElement.insertBefore(toolbarHost, contentElement.nextSibling);
                 return true;
             }
 
+            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
             messageElement.appendChild(toolbarHost);
             return true;
         } catch (err) {
             logger.warn('[AI-MarkDone][ChatGPTAdapter] injectToolbar failed, falling back to append', err);
             try {
+                toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
                 messageElement.appendChild(toolbarHost);
                 return true;
             } catch {

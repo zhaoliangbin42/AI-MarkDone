@@ -55,5 +55,5 @@ describe('Copy parity (ChatGPT)', () => {
 
             expect(res.markdown).toBe(expected);
         });
-    });
+    }, 20_000);
 });

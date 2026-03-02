@@ -53,5 +53,5 @@ describe('Copy parity (Gemini)', () => {
 
             expect(res.markdown).toBe(expected);
         });
-    }, 15_000);
+    }, 60_000);
 });

@@ -19,10 +19,23 @@ import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon } from
 
 type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean; position: number };
 
+function stripHash(url: string): string {
+    try {
+        const u = new URL(url);
+        u.hash = '';
+        return `${u.origin}${u.pathname}${u.search}`;
+    } catch {
+        return url.split('#')[0] || url;
+    }
+}
+
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
-    private records = new Map<string, ToolbarRecord>();
+    private recordsByAnchor = new WeakMap<HTMLElement, ToolbarRecord>();
+    private anchorKeys = new Set<HTMLElement>();
+    private recordsByMessage = new WeakMap<HTMLElement, ToolbarRecord>();
+    private pendingMessageKeys = new Set<HTMLElement>();
     private theme: Theme = 'light';
     private onMessageInjected: ((messageElement: HTMLElement) => void) | null = null;
     private scanScheduler: ScanScheduler | null = null;
@@ -45,6 +58,33 @@ export class MessageToolbarOrchestrator {
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
+    private getBookmarkPageUrl(): string {
+        // Why: ChatGPT uses hash routes like `#settings`; bookmarks should remain scoped to the conversation URL.
+        return stripHash(getConversationUrl());
+    }
+
+    private clearAllToolbars(): void {
+        // Anchor-keyed records
+        for (const anchor of Array.from(this.anchorKeys)) {
+            const record = this.recordsByAnchor.get(anchor);
+            if (record) {
+                record.toolbar.getElement().remove();
+            }
+        }
+        this.anchorKeys.clear();
+        this.recordsByAnchor = new WeakMap<HTMLElement, ToolbarRecord>();
+
+        // Message-keyed fallback records
+        for (const messageEl of Array.from(this.pendingMessageKeys)) {
+            const record = this.recordsByMessage.get(messageEl);
+            if (record) {
+                record.toolbar.getElement().remove();
+            }
+        }
+        this.pendingMessageKeys.clear();
+        this.recordsByMessage = new WeakMap<HTMLElement, ToolbarRecord>();
+    }
+
     init(): void {
         this.scanScheduler = new ScanScheduler(
             () => {
@@ -60,19 +100,22 @@ export class MessageToolbarOrchestrator {
         this.scanScheduler.schedule('init');
 
         if (this.bookmarksController) {
-            void this.bookmarksController.refreshPositionsForUrl(getConversationUrl()).then(() => this.refreshBookmarkActionStates());
+            void this.bookmarksController.refreshPositionsForUrl(this.getBookmarkPageUrl()).then(() => this.refreshBookmarkActionStates());
         }
 
         this.rebindObserverIfNeeded(true);
 
-        this.routeWatcher = new RouteWatcher(() => {
-            this.disposeObserversOnly();
-            this.records.forEach(({ toolbar }) => toolbar.getElement().remove());
-            this.records.clear();
+        this.routeWatcher = new RouteWatcher((nextUrl, prevUrl) => {
+            const hardChange = stripHash(nextUrl) !== stripHash(prevUrl);
+            // Why: hash-only changes (e.g. `#settings`) should not cause a visible "blink" by tearing down toolbars.
+            if (hardChange) {
+                this.disposeObserversOnly();
+                this.clearAllToolbars();
+            }
             this.scanScheduler?.schedule('route_change');
             this.rebindObserverIfNeeded(true);
             if (this.bookmarksController) {
-                void this.bookmarksController.refreshPositionsForUrl(getConversationUrl()).then(() => this.refreshBookmarkActionStates());
+                void this.bookmarksController.refreshPositionsForUrl(this.getBookmarkPageUrl()).then(() => this.refreshBookmarkActionStates());
             }
         }, { intervalMs: 500 });
         this.routeWatcher.start();
@@ -86,13 +129,19 @@ export class MessageToolbarOrchestrator {
         this.observer?.disconnect();
         this.observer = null;
         this.observedContainer = null;
-        this.records.forEach(({ toolbar }) => toolbar.getElement().remove());
-        this.records.clear();
+        this.clearAllToolbars();
     }
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.records.forEach(({ toolbar }) => toolbar.setTheme(theme));
+        for (const anchor of Array.from(this.anchorKeys)) {
+            const record = this.recordsByAnchor.get(anchor);
+            record?.toolbar.setTheme(theme);
+        }
+        for (const messageEl of Array.from(this.pendingMessageKeys)) {
+            const record = this.recordsByMessage.get(messageEl);
+            record?.toolbar.setTheme(theme);
+        }
         this.readerPanel.setTheme(theme);
     }
 
@@ -101,8 +150,6 @@ export class MessageToolbarOrchestrator {
     }
 
     private getPositionForMessage(messageElement: HTMLElement): number {
-        const msgId = this.adapter.getMessageId(messageElement);
-        if (msgId) return this.records.get(msgId)?.position ?? 0;
         const fallback = Number(messageElement.dataset.aimdMsgPosition || 0);
         return Number.isFinite(fallback) ? fallback : 0;
     }
@@ -120,7 +167,7 @@ export class MessageToolbarOrchestrator {
                 disabledWhenPending: true,
                 onClick: async () => {
                     const toolbar = getToolbar();
-                    const url = getConversationUrl();
+                    const url = this.getBookmarkPageUrl();
                     const position = this.getPositionForMessage(messageElement);
 
                     if (!position) return { ok: false, message: 'Position not available' };
@@ -145,8 +192,6 @@ export class MessageToolbarOrchestrator {
                     });
                     if (!res.ok) return { ok: false, message: res.message };
 
-                    toolbar?.setActionActive('bookmark_toggle', res.data.saved);
-                    // Icon-only button; keep label for aria + tooltip.
                     toolbar?.setActionActive('bookmark_toggle', res.data.saved);
                     return { ok: true, message: res.data.saved ? 'Saved' : 'Removed' };
                 },
@@ -233,6 +278,22 @@ export class MessageToolbarOrchestrator {
         return actions;
     }
 
+    private getAnchorForMessage(messageElement: HTMLElement): HTMLElement | null {
+        try {
+            return this.adapter.getToolbarAnchorElement?.(messageElement) ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    private removeExistingToolbarsInAnchor(anchor: HTMLElement, keepHost?: HTMLElement): void {
+        const existing = Array.from(anchor.querySelectorAll<HTMLElement>('[data-aimd-role="message-toolbar"], .aimd-message-toolbar-host'));
+        for (const el of existing) {
+            if (keepHost && el === keepHost) continue;
+            el.remove();
+        }
+    }
+
     private scanAndInject(): void {
         const selector = this.adapter.getMessageSelector();
         const container = this.adapter.getObserverContainer() || document.body;
@@ -245,42 +306,76 @@ export class MessageToolbarOrchestrator {
         });
 
         nodes.forEach((messageElement, index) => {
-            const id = this.adapter.getMessageId(messageElement);
-            const injectedFlag = messageElement.dataset.aimdMsgInjected === '1';
-            if (!id) {
-                if (injectedFlag) return;
+            const position = index + 1;
+            messageElement.dataset.aimdMsgPosition = `${position}`;
+
+            const anchor = this.getAnchorForMessage(messageElement);
+
+            // If we previously injected a fallback toolbar into the message content, migrate it to the official bar when ready.
+            if (anchor) {
+                const existingPending = this.recordsByMessage.get(messageElement) || null;
+                if (existingPending) {
+                    if (!this.recordsByAnchor.get(anchor)) {
+                        const host = existingPending.toolbar.getElement();
+                        host.setAttribute('data-aimd-role', 'message-toolbar');
+                        this.removeExistingToolbarsInAnchor(anchor, host);
+                        this.adapter.injectToolbar(messageElement, host);
+                        this.updatePlacementHint(existingPending.toolbar, messageElement);
+                        this.recordsByAnchor.set(anchor, existingPending);
+                        this.anchorKeys.add(anchor);
+                    }
+                    this.pendingMessageKeys.delete(messageElement);
+                    return;
+                }
+
+                if (this.recordsByAnchor.get(anchor)) {
+                    // Already injected for this official action bar container.
+                    return;
+                }
+
+                // If an orphaned toolbar exists (from prior hydration/container replacement), remove it before reinjecting.
+                this.removeExistingToolbarsInAnchor(anchor);
             } else {
-                if (this.records.has(id)) return;
+                // Fallback (streaming/anchor not rendered yet): avoid duplicating within the message subtree.
+                if (this.recordsByMessage.get(messageElement)) return;
+                if (messageElement.dataset.aimdMsgInjected === '1') return;
+                const turn = messageElement.closest('article') || messageElement;
+                if ((turn as HTMLElement).querySelector?.('[data-aimd-role="message-toolbar"], .aimd-message-toolbar-host')) {
+                    return;
+                }
             }
 
-            const getToolbar = () => (id ? this.records.get(id)?.toolbar ?? null : null);
+            let recordRef: ToolbarRecord | null = null;
+            const getToolbar = () => recordRef?.toolbar ?? null;
             const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(messageElement, getToolbar), { showStats: this.behavior.showWordCount });
-
             const host = toolbar.getElement();
+            host.setAttribute('data-aimd-role', 'message-toolbar');
+
             const injected = this.adapter.injectToolbar(messageElement, host);
             if (!injected) {
-                logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed', { id });
+                logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
                 host.remove();
                 return;
             }
 
-            // Placement hint for styling:
-            // - actionbar: same row as platform official actions
-            // - content: fallback below content root
             this.updatePlacementHint(toolbar, messageElement);
 
             const pending = this.adapter.isStreamingMessage(messageElement);
             toolbar.setPending(pending);
 
-            if (id) {
-                this.records.set(id, { message: messageElement, toolbar, pending, position: index + 1 });
+            const record: ToolbarRecord = { message: messageElement, toolbar, pending, position };
+            recordRef = record;
+
+            if (anchor) {
+                this.recordsByAnchor.set(anchor, record);
+                this.anchorKeys.add(anchor);
             } else {
-                // Best-effort: avoid duplicating if adapter cannot produce a stable id.
+                this.recordsByMessage.set(messageElement, record);
+                this.pendingMessageKeys.add(messageElement);
                 messageElement.dataset.aimdMsgInjected = '1';
             }
-            messageElement.dataset.aimdMsgPosition = `${index + 1}`;
 
-            this.refreshBookmarkStateForToolbar(toolbar, index + 1);
+            this.refreshBookmarkStateForToolbar(toolbar, position);
             this.refreshWordCountForToolbar(toolbar, messageElement, pending);
             this.onMessageInjected?.(messageElement);
         });
@@ -288,42 +383,105 @@ export class MessageToolbarOrchestrator {
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, position: number): void {
         if (!this.bookmarksController) return;
-        const url = getConversationUrl();
+        const url = this.getBookmarkPageUrl();
         const active = this.bookmarksController.isPositionBookmarked(url, position);
         toolbar.setActionActive('bookmark_toggle', active);
     }
 
     private refreshBookmarkActionStates(): void {
         if (!this.bookmarksController) return;
-        const url = getConversationUrl();
-        this.records.forEach(({ toolbar, position }) => {
-            const active = this.bookmarksController!.isPositionBookmarked(url, position);
-            toolbar.setActionActive('bookmark_toggle', active);
-        });
+        const url = this.getBookmarkPageUrl();
+        for (const anchor of Array.from(this.anchorKeys)) {
+            const record = this.recordsByAnchor.get(anchor);
+            if (!record) continue;
+            const active = this.bookmarksController!.isPositionBookmarked(url, record.position);
+            record.toolbar.setActionActive('bookmark_toggle', active);
+        }
+        for (const messageEl of Array.from(this.pendingMessageKeys)) {
+            const record = this.recordsByMessage.get(messageEl);
+            if (!record) continue;
+            const active = this.bookmarksController!.isPositionBookmarked(url, record.position);
+            record.toolbar.setActionActive('bookmark_toggle', active);
+        }
     }
 
     private refreshPendingStates(): void {
-        this.records.forEach((record, id) => {
+        // Anchor-keyed records
+        for (const anchor of Array.from(this.anchorKeys)) {
+            const record = this.recordsByAnchor.get(anchor);
+            if (!record) {
+                this.anchorKeys.delete(anchor);
+                continue;
+            }
+
             const { message, toolbar } = record;
             if (!document.contains(message)) {
                 toolbar.getElement().remove();
-                this.records.delete(id);
-                return;
+                this.anchorKeys.delete(anchor);
+                continue;
+            }
+
+            // If anchor was replaced, re-key and reattach.
+            const nextAnchor = this.getAnchorForMessage(message);
+            if (nextAnchor && nextAnchor !== anchor) {
+                this.removeExistingToolbarsInAnchor(nextAnchor, toolbar.getElement());
+                this.recordsByAnchor.set(nextAnchor, record);
+                this.anchorKeys.add(nextAnchor);
+                this.anchorKeys.delete(anchor);
             }
 
             const pending = this.adapter.isStreamingMessage(message);
             toolbar.setPending(pending);
-            if (record.pending && !pending) {
-                // Why: ChatGPT may only render the official action bar after streaming completes.
-                // Re-run injection to move our toolbar into the action bar row once the anchor exists.
+
+            // Why: ChatGPT may only render the official action bar after streaming completes or after route subviews.
+            if (!toolbar.getElement().isConnected || (record.pending && !pending)) {
+                const a = this.getAnchorForMessage(message);
+                if (a) this.removeExistingToolbarsInAnchor(a, toolbar.getElement());
                 this.adapter.injectToolbar(message, toolbar.getElement());
                 this.updatePlacementHint(toolbar, message);
             }
+
             if (record.pending !== pending) {
                 this.refreshWordCountForToolbar(toolbar, message, pending);
             }
             record.pending = pending;
-        });
+        }
+
+        // Message-keyed fallback records (anchor not yet present). Try to migrate when possible.
+        for (const messageEl of Array.from(this.pendingMessageKeys)) {
+            const record = this.recordsByMessage.get(messageEl);
+            if (!record) {
+                this.pendingMessageKeys.delete(messageEl);
+                continue;
+            }
+
+            const { message, toolbar } = record;
+            if (!document.contains(message)) {
+                toolbar.getElement().remove();
+                this.pendingMessageKeys.delete(messageEl);
+                continue;
+            }
+
+            const anchor = this.getAnchorForMessage(message);
+            if (anchor) {
+                if (!this.recordsByAnchor.get(anchor)) {
+                    this.removeExistingToolbarsInAnchor(anchor, toolbar.getElement());
+                    this.adapter.injectToolbar(message, toolbar.getElement());
+                    this.updatePlacementHint(toolbar, message);
+                    this.recordsByAnchor.set(anchor, record);
+                    this.anchorKeys.add(anchor);
+                }
+                this.pendingMessageKeys.delete(messageEl);
+                continue;
+            }
+
+            const pending = this.adapter.isStreamingMessage(message);
+            toolbar.setPending(pending);
+            if (record.pending !== pending) {
+                this.refreshWordCountForToolbar(toolbar, message, pending);
+            }
+            record.pending = pending;
+        }
     }
 
     private refreshWordCountForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, pending: boolean): void {
@@ -360,10 +518,12 @@ export class MessageToolbarOrchestrator {
     private updatePlacementHint(toolbar: MessageToolbar, messageElement: HTMLElement): void {
         const host = toolbar.getElement();
         try {
-            const actionBarSel = this.adapter.getActionBarSelector();
-            const actionBar = actionBarSel ? messageElement.querySelector(actionBarSel) : null;
-            const placement = actionBar && host.parentElement === actionBar.parentElement ? 'actionbar' : 'content';
-            toolbar.setPlacement(placement);
+            const anchor = this.getAnchorForMessage(messageElement);
+            if (anchor && (host.parentElement === anchor || anchor.contains(host))) {
+                toolbar.setPlacement('actionbar');
+                return;
+            }
+            toolbar.setPlacement('content');
         } catch {
             toolbar.setPlacement('content');
         }

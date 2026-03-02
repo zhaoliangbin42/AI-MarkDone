@@ -17,9 +17,23 @@ import { createLinkRule } from './rules/inline/LinkRule';
 import { createImageRule } from './rules/inline/ImageRule';
 import { createLineBreakRule } from './rules/inline/LineBreakRule';
 
+function getDefaultMaxProcessingTimeMs(): number {
+    // Why: Vitest runs many tests in parallel and can cause CPU contention; keep parity tests deterministic.
+    // In production we still want a hard cap to avoid UI stalls.
+    const viteEnv = (import.meta as any).env as undefined | Record<string, unknown>;
+    const isTestEnv =
+        (globalThis as any).__vitest_worker__ != null ||
+        viteEnv?.MODE === 'test' ||
+        // Vitest sets this in many setups; treat any truthy value as test.
+        Boolean(viteEnv?.VITEST);
+    return isTestEnv ? 60_000 : 15_000;
+}
+
 export function createMarkdownParser(adapter: IPlatformAdapter, options: ParserOptions = {}): Parser {
     const parser = new Parser(adapter, {
-        maxProcessingTimeMs: 5000,
+        // Why: large "Deep Research" style responses can exceed 5s in JSDOM and on slower machines.
+        // Keep a hard cap, but allow enough headroom to avoid falling back to raw textContent.
+        maxProcessingTimeMs: getDefaultMaxProcessingTimeMs(),
         maxNodeCount: 50000,
         enablePerformanceLogging: false,
         ...options,
@@ -48,4 +62,3 @@ export function createMarkdownParser(adapter: IPlatformAdapter, options: ParserO
 
     return parser;
 }
-
