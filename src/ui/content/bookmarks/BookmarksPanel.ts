@@ -3,7 +3,7 @@ import type { BookmarksPanelController, BookmarksPanelSnapshot } from './Bookmar
 import { ensureStyle } from '../../../style/shadow';
 import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import { ModalHost } from '../components/ModalHost';
-import { t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import { createBookmarksPanelShell, type BookmarksPanelShellRefs } from './ui/BookmarksPanelShell';
 import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
 import { SettingsTabView } from './ui/tabs/SettingsTabView';
@@ -49,6 +49,8 @@ export class BookmarksPanel {
     private activeTabId: 'bookmarks' | 'settings' | 'sponsor' = 'bookmarks';
     private prevHtmlOverflow: string | null = null;
     private prevBodyOverflow: string | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
+    private localeRemountPending = false;
 
     constructor(controller: BookmarksPanelController, readerPanel: ReaderPanel) {
         this.controller = controller;
@@ -102,6 +104,19 @@ export class BookmarksPanel {
 
     private mount(): void {
         if (this.host) return;
+
+        if (!this.unsubscribeLocale) {
+            this.unsubscribeLocale = subscribeLocaleChange(() => {
+                if (!this.visible) return;
+                if (this.localeRemountPending) return;
+                this.localeRemountPending = true;
+                // Remount to refresh all strings created via `t()` without threading locale through controllers/services.
+                window.setTimeout(() => {
+                    this.localeRemountPending = false;
+                    this.remountForLocale();
+                }, 0);
+            });
+        }
 
         // Prevent scroll chaining into the host page while the overlay is open.
         // Why: users expect wheel scrolling to stay within the panel (legacy behavior).
@@ -198,6 +213,22 @@ export class BookmarksPanel {
         this.bookmarksTab = bookmarksTab;
         this.settingsTab = settingsTab;
         this.refs = { ...shell, footerStatus: status, footerMeta: meta };
+    }
+
+    private remountForLocale(): void {
+        if (!this.visible) return;
+        const snap = this.snapshot;
+        const activeTab = this.activeTabId;
+        // Keep subscription; just rebuild DOM.
+        this.unmount();
+        this.snapshot = snap;
+        this.mount();
+        this.refs?.tabs.setActive(activeTab);
+        if (activeTab === 'bookmarks') {
+            this.bookmarksTab?.focusPrimaryInput();
+        }
+        void this.settingsTab?.refresh();
+        this.render();
     }
 
     private unmount(): void {
