@@ -9,10 +9,14 @@ import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
 import { SettingsTabView } from './ui/tabs/SettingsTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
 import { ReaderPanel } from '../reader/ReaderPanel';
+import { settingsRemoteApi } from '../../../services/settings/remoteApi';
+import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import {
     bookmarkIcon,
     coffeeIcon,
+    copyIcon,
     downloadIcon,
+    refreshCwIcon,
     settingsIcon,
     uploadIcon,
     wrenchIcon,
@@ -123,6 +127,63 @@ export class BookmarksPanel {
                 { id: 'export_all', icon: downloadIcon, label: t('exportAllBtn'), onClick: () => void this.exportAll(modal) },
                 { id: 'import', icon: uploadIcon, label: t('importBookmarks') },
                 { id: 'repair', icon: wrenchIcon, label: t('repairBtn'), onClick: () => void this.repair(modal) },
+                {
+                    id: 'copy_app_settings',
+                    icon: copyIcon,
+                    label: t('copyAppSettings'),
+                    onClick: async () => {
+                        const res = await settingsRemoteApi.getAll();
+                        if (!res.ok) {
+                            modal.alert({
+                                kind: 'error',
+                                title: t('tabSettings'),
+                                message: res.message,
+                                confirmText: t('btnClose'),
+                            });
+                            return;
+                        }
+                        const json = JSON.stringify(res.data.settings ?? null, null, 2);
+                        const ok = await copyTextToClipboard(json);
+                        modal.alert({
+                            kind: ok ? 'info' : 'warning',
+                            title: t('tabSettings'),
+                            message: ok ? t('btnCopied') : t('copyFailed'),
+                            confirmText: t('btnClose'),
+                        });
+                    },
+                },
+                {
+                    id: 'reset_app_settings',
+                    icon: refreshCwIcon,
+                    label: t('resetAppSettings'),
+                    onClick: async () => {
+                        const ok = await modal.confirm({
+                            kind: 'warning',
+                            title: t('resetAppSettings'),
+                            message: t('actionCannotBeUndone'),
+                            confirmText: t('btnReset'),
+                            cancelText: t('btnCancel'),
+                            danger: true,
+                        });
+                        if (!ok) return;
+                        const res = await settingsRemoteApi.reset();
+                        if (!res.ok) {
+                            modal.alert({
+                                kind: 'error',
+                                title: t('resetAppSettings'),
+                                message: res.message,
+                                confirmText: t('btnClose'),
+                            });
+                            return;
+                        }
+                        modal.alert({
+                            kind: 'info',
+                            title: t('resetAppSettings'),
+                            message: t('done'),
+                            confirmText: t('btnClose'),
+                        });
+                    },
+                },
             ],
             onImportJsonText: async (jsonText) => void this.importJsonText(modal, jsonText),
         });

@@ -109,13 +109,54 @@
 
 ---
 
+### B.5 Settings Core（storage.sync; legacy key `app_settings`; no UI）
+
+说明：本阶段只交付 **Settings Core**（通用逻辑 + background write authority + sync 存储），用于后续功能开关与行为配置。暂不交付 Settings UI。
+
+| Capability | Entry / API | Key files | Tests | Acceptance |
+|---|---|---|---|---|
+| Read all settings (normalized) | `settings:getAll` | `src/core/settings/*`, `src/services/settings/settingsService.ts`, `src/runtimes/background/handlers/settings.ts` | `tests/unit/core/settings/migrations.test.ts`, `tests/unit/runtimes/background/settings-handler.test.ts` | 老用户升级后 `app_settings` 不丢；新字段 merge defaults。 |
+| Set settings category | `settings:setCategory` | `src/services/settings/settingsService.ts`, `src/drivers/background/storage/syncStoragePort.ts` | unit tests | Service 只做 plan；background 统一落盘。 |
+| Reset to defaults | `settings:reset` | 同上 | unit tests | reset 后可再次读取并得到 defaults。 |
+| Content-side cache + subscribe | `SettingsClient.subscribe()` | `src/drivers/content/settings/settingsClient.ts` | (covered by unit tests + TypeScript) | storage.onChanged 触发后可 best-effort 刷新缓存。 |
+
+---
+
+### B.6 Save Messages Export Core（Markdown + PDF; no UI entry yet）
+
+说明：本阶段交付 **导出核心能力**（采集/构建/副作用 drivers + 门禁测试）。为便于端到端回归，目前已提供一个“低耦合的 UI 入口”：
+
+- MessageToolbar 打开 ReaderPanel 后，在 ReaderPanel footer 的 custom actions 中提供 `Export MD / Export PDF`（导出当前页对应消息）。
+
+| Capability | Entry / API | Key files | Tests | Acceptance |
+|---|---|---|---|---|
+| Export Markdown (download) | `exportConversationMarkdown(adapter, selectedIndices, {t})` | `src/services/export/saveMessagesFacade.ts`, `src/services/export/saveMessagesMarkdown.ts`, `src/drivers/content/export/downloadFile.ts` | `tests/unit/services/export/saveMessagesMarkdown.test.ts`, `tests/unit/services/export/saveMessagesFacade.test.ts`, `tests/unit/drivers/content/export/downloadFile.test.ts` | selection 为空不触发下载；文件名 sanitize；标题 heading 归一化；内容编号按 1..n 连续。 |
+| Export PDF (print) | `exportConversationPdf(adapter, selectedIndices, {t})` | `src/services/export/saveMessagesPdf.ts`, `src/drivers/content/export/printPdf.ts` | `tests/unit/drivers/content/export/printPdf.test.ts`, `tests/unit/services/export/saveMessagesPdf.sanitization.test.ts` | print container 创建后能 afterprint/timeout cleanup；metadata/userPrompt escape；assistant HTML 走 sanitize 路径。 |
+| DOM collection (assistant turns) | `collectConversationMessageRefs(adapter)` | `src/drivers/content/conversation/collectConversationMessageRefs.ts` | `tests/unit/drivers/content/conversation/collectConversationMessageRefs.test.ts` | 仅采集 assistant message roots；去除嵌套重复；能提取 userPrompt。 |
+
+---
+
+### B.7 Word Count Core（CJK aware; exclude code/math; no UI）
+
+说明：本阶段只交付 **字数统计 Core**（纯逻辑）。为便于端到端回归，目前已提供一个“低耦合的 UI 入口”：
+
+- MessageToolbar 打开 ReaderPanel 后，在 ReaderPanel footer 的 custom actions 中提供 `Word Count`（统计当前页对应 markdown 的 words/chars）。
+
+| Capability | Entry / API | Key files | Tests | Acceptance |
+|---|---|---|---|---|
+| Count words/chars (CJK + Latin) | `new WordCounter().count(markdown)` | `src/core/text/wordCounter.ts` | `tests/unit/core/text/wordCounter.test.ts` | CJK=1 char→1 word + 2 chars；排除 fenced code 与 `$...$`/`$$...$$` math。 |
+| Format result | `WordCounter.format(result)` | 同上 | unit tests | code-only 内容返回 `0 Words / 0 Chars`（避免 UI loading 卡住）。 |
+
+---
+
 ## C) Non-goals（明确不做）
 
 以下内容不作为本阶段验收目标：
 
 - Message sending（输入框同步/发送按钮模拟/完成检测）
-- i18n
-- 字数统计（CJK 感知）
+- i18n（语言选择/迁移/无 raw key）
+- Settings UI（当前仅 Core）
+- Save Messages UI entry（当前仅 Core）
 - 多平台适配与一致性（仅 ChatGPT）
 
 ---

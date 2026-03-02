@@ -17,6 +17,15 @@ export type ProtocolErrorCode =
 
 export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
 
+export type SettingsCategory =
+    | 'platforms'
+    | 'chatgpt'
+    | 'behavior'
+    | 'reader'
+    | 'bookmarks'
+    | 'performance'
+    | 'language';
+
 export type BookmarksListPayload = {
     query?: string;
     platform?: string;
@@ -60,9 +69,16 @@ export type FolderDeletePayload = { path: string };
 export type FolderRenamePayload = { oldPath: string; newName: string };
 export type FolderMovePayload = { sourcePath: string; targetParentPath: string };
 
+export type SettingsGetCategoryPayload = { category: SettingsCategory };
+export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
+
 export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'ping' }
     | { v: ProtocolVersion; id: RequestId; type: 'ui:toggle_toolbar' }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:getAll' }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:setCategory'; payload: SettingsSetCategoryPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:reset' }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:list'; payload?: BookmarksListPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:positions'; payload: BookmarksPositionsPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:save'; payload: BookmarksSavePayload }
@@ -99,6 +115,10 @@ export function isExtRequest(value: unknown): value is ExtRequest {
     const allowedTypes = new Set<string>([
         'ping',
         'ui:toggle_toolbar',
+        'settings:getAll',
+        'settings:getCategory',
+        'settings:setCategory',
+        'settings:reset',
         'bookmarks:list',
         'bookmarks:positions',
         'bookmarks:save',

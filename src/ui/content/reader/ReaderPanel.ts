@@ -6,6 +6,7 @@ import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
+import { copyIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -25,6 +26,7 @@ export type ReaderPanelShowOptions = {
     showCopy?: boolean;
     showSource?: boolean;
     actions?: ReaderPanelAction[];
+    initialView?: 'render' | 'source';
 };
 
 type ReaderPanelState = {
@@ -32,7 +34,7 @@ type ReaderPanelState = {
     items: ReaderItem[];
     index: number;
     visible: boolean;
-    options: Required<Pick<ReaderPanelShowOptions, 'showNav' | 'showCopy' | 'showSource'>> & { actions: ReaderPanelAction[] };
+    options: Required<Pick<ReaderPanelShowOptions, 'showNav' | 'showCopy' | 'showSource' | 'initialView'>> & { actions: ReaderPanelAction[] };
 };
 
 export class ReaderPanel {
@@ -43,7 +45,7 @@ export class ReaderPanel {
         items: [],
         index: 0,
         visible: false,
-        options: { showNav: true, showCopy: true, showSource: true, actions: [] },
+        options: { showNav: true, showCopy: true, showSource: true, initialView: 'render', actions: [] },
     };
 
     setTheme(theme: Theme): void {
@@ -64,10 +66,12 @@ export class ReaderPanel {
             showNav: options?.showNav ?? true,
             showCopy: options?.showCopy ?? true,
             showSource: options?.showSource ?? true,
+            initialView: options?.initialView ?? 'render',
             actions: options?.actions ?? [],
         };
 
         this.mount();
+        this.applyInitialView();
         await this.renderBody();
         this.render();
     }
@@ -75,6 +79,11 @@ export class ReaderPanel {
     hide(): void {
         this.state.visible = false;
         this.unmount();
+    }
+
+    notify(text: string, timeoutMs: number = 1400): void {
+        this.setStatus(text);
+        window.setTimeout(() => this.setStatus(''), timeoutMs);
     }
 
     private mount(): void {
@@ -115,8 +124,15 @@ export class ReaderPanel {
         const next = this.state.index + delta;
         if (next < 0 || next >= this.state.items.length) return;
         this.state.index = next;
+        this.applyInitialView();
         await this.renderBody();
         this.render();
+    }
+
+    private jumpTo(index: number): void {
+        const next = Math.max(0, Math.min(index, this.state.items.length - 1));
+        if (next === this.state.index) return;
+        void this.go(next - this.state.index);
     }
 
     private async renderBody(): Promise<void> {
@@ -161,6 +177,13 @@ export class ReaderPanel {
         el.dataset.open = isOpen ? '0' : '1';
     }
 
+    private applyInitialView(): void {
+        if (!this.shadow) return;
+        const wrap = this.shadow.querySelector<HTMLElement>('[data-role="source_wrap"]');
+        if (!wrap) return;
+        wrap.dataset.open = this.state.options.initialView === 'source' ? '1' : '0';
+    }
+
     private setStatus(text: string): void {
         if (!this.shadow) return;
         const el = this.shadow.querySelector<HTMLElement>('[data-field="status"]');
@@ -180,6 +203,7 @@ export class ReaderPanel {
         if (counterEl) counterEl.textContent = total > 0 ? `${idx + 1}/${total}` : '';
 
         this.renderActions();
+        this.renderDots();
 
         const prevBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="prev"]');
         const nextBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="next"]');
@@ -194,13 +218,13 @@ export class ReaderPanel {
         const opts = this.state.options;
 
         const nav = this.shadow.querySelector<HTMLElement>('[data-role="nav"]');
-        if (nav) nav.style.display = opts.showNav && total > 1 ? 'flex' : 'none';
+        if (nav) nav.style.display = opts.showNav && total > 1 ? 'grid' : 'none';
 
         const copyBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        if (copyBtn) copyBtn.style.display = opts.showCopy ? 'inline-flex' : 'none';
+        if (copyBtn) copyBtn.style.display = opts.showCopy ? 'grid' : 'none';
 
         const sourceBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="source"]');
-        if (sourceBtn) sourceBtn.style.display = opts.showSource ? 'inline-flex' : 'none';
+        if (sourceBtn) sourceBtn.style.display = opts.showSource ? 'grid' : 'none';
 
         const sourceWrap = this.shadow.querySelector<HTMLElement>('[data-role="source_wrap"]');
         if (sourceWrap && !opts.showSource) sourceWrap.dataset.open = '0';
@@ -211,7 +235,7 @@ export class ReaderPanel {
         for (const action of opts.actions) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = `btn ${action.kind === 'primary' ? 'primary' : action.kind === 'danger' ? 'danger' : ''}`.trim();
+            btn.className = `chip ${action.kind === 'primary' ? 'chip--primary' : action.kind === 'danger' ? 'chip--danger' : ''}`.trim();
             btn.textContent = action.label;
             btn.setAttribute('aria-label', action.label);
             btn.addEventListener('click', async () => {
@@ -228,6 +252,79 @@ export class ReaderPanel {
         }
     }
 
+    private renderDots(): void {
+        if (!this.shadow) return;
+        const dots = this.shadow.querySelector<HTMLElement>('[data-role="dots"]');
+        if (!dots) return;
+        const total = this.state.items.length;
+        const idx = this.state.index;
+        dots.replaceChildren();
+        if (total <= 1) return;
+
+        const sizing = this.calculateDotSizing(total);
+        dots.style.setProperty('--aimd-dot-size', `${sizing.size}px`);
+        dots.style.setProperty('--aimd-dot-gap', `${sizing.gap}px`);
+
+        // When the total is reasonable, render all dots (legacy-inspired, very scan-friendly).
+        // For very large conversations, fall back to a windowed control to avoid hundreds of nodes.
+        const renderAllThreshold = 60;
+        if (total <= renderAllThreshold) {
+            for (let i = 0; i < total; i += 1) {
+                dots.appendChild(this.createDot(i, i === idx));
+            }
+            return;
+        }
+
+        const maxDots = 11;
+        const windowSize = Math.min(maxDots, total);
+        const half = Math.floor(windowSize / 2);
+        let start = Math.max(0, idx - half);
+        let end = Math.min(total - 1, start + windowSize - 1);
+        start = Math.max(0, end - windowSize + 1);
+
+        const pushEllipsis = () => {
+            const el = document.createElement('span');
+            el.className = 'ellipsis';
+            el.textContent = '…';
+            el.setAttribute('aria-hidden', 'true');
+            dots.appendChild(el);
+        };
+
+        if (start > 0) {
+            dots.appendChild(this.createDot(0, idx === 0));
+            if (start > 1) pushEllipsis();
+        }
+
+        for (let i = start; i <= end; i++) {
+            if (i === 0 || i === total - 1) continue;
+            dots.appendChild(this.createDot(i, i === idx));
+        }
+
+        if (end < total - 1) {
+            if (end < total - 2) pushEllipsis();
+            dots.appendChild(this.createDot(total - 1, idx === total - 1));
+        }
+    }
+
+    private createDot(index: number, active: boolean): HTMLButtonElement {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `dot ${active ? 'dot--active' : ''}`.trim();
+        btn.setAttribute('aria-label', `Go to ${index + 1}`);
+        btn.title = `${index + 1}`;
+        btn.addEventListener('click', () => this.jumpTo(index));
+        return btn;
+    }
+
+    private calculateDotSizing(total: number): { size: number; gap: number } {
+        // Legacy-inspired tiers (also keeps "Apple page control" density reasonable).
+        if (total <= 10) return { size: 10, gap: 10 };
+        if (total <= 20) return { size: 9, gap: 8 };
+        if (total <= 35) return { size: 8, gap: 6 };
+        if (total <= 50) return { size: 7, gap: 5 };
+        return { size: 6, gap: 4 };
+    }
+
     private getActionContext(): ReaderPanelActionContext | null {
         const item = this.state.items[this.state.index] ?? null;
         if (!item) return null;
@@ -242,24 +339,25 @@ export class ReaderPanel {
     <div class="title" data-field="title"></div>
     <div class="header-right">
       <div class="counter" data-field="counter"></div>
-      <button class="icon" data-action="close" aria-label="Close">×</button>
+      <div class="custom-actions" data-role="custom_actions"></div>
+      <button class="icon" data-action="copy" aria-label="Copy" title="Copy">${copyIcon}</button>
+      <button class="icon" data-action="source" aria-label="Source" title="Source">${fileCodeIcon}</button>
+      <button class="icon" data-action="close" aria-label="Close" title="Close">${xIcon}</button>
     </div>
   </div>
-  <div class="body" data-role="content"></div>
-  <div class="footer">
-    <div class="nav" data-role="nav">
-      <button class="btn" data-action="prev">Prev</button>
-      <button class="btn" data-action="next">Next</button>
+  <div class="body">
+    <div class="markdown-body" data-role="content"></div>
+    <div class="source" data-role="source_wrap" data-open="0">
+      <pre class="source-pre" data-role="source"></pre>
     </div>
-    <div class="actions">
-      <div class="custom-actions" data-role="custom_actions"></div>
-      <button class="btn primary" data-action="copy">Copy</button>
-      <button class="btn" data-action="source">View Source</button>
+  </div>
+  <div class="footer">
+    <div class="dots" data-role="dots" aria-label="Pagination"></div>
+    <div class="nav" data-role="nav">
+      <button class="nav-btn" data-action="prev" aria-label="Previous">‹</button>
+      <button class="nav-btn" data-action="next" aria-label="Next">›</button>
     </div>
     <div class="status" data-field="status"></div>
-  </div>
-  <div class="source" data-role="source_wrap" data-open="0">
-    <pre class="source-pre" data-role="source"></pre>
   </div>
 </div>
 `;
@@ -281,7 +379,9 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
 .overlay {
   position: fixed;
   inset: 0;
-  background: var(--aimd-overlay-bg);
+  background: color-mix(in srgb, var(--aimd-overlay-bg) 70%, rgba(0,0,0,0.12));
+  backdrop-filter: blur(8px) saturate(160%);
+  -webkit-backdrop-filter: blur(8px) saturate(160%);
 }
 
 .panel {
@@ -292,14 +392,29 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   width: var(--aimd-panel-width);
   max-width: var(--aimd-panel-max-width);
   height: var(--aimd-panel-height);
-  background: var(--aimd-bg-primary);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
   color: var(--aimd-text-primary);
-  border: 1px solid var(--aimd-border-default);
-  border-radius: var(--aimd-radius-lg);
-  box-shadow: var(--aimd-shadow-panel);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
+  border-radius: 20px;
+  box-shadow:
+    0 28px 90px color-mix(in srgb, #000 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(140% 90% at 20% 0%, color-mix(in srgb, #fff 20%, transparent) 0%, transparent 60%),
+    radial-gradient(90% 80% at 90% 120%, color-mix(in srgb, #fff 10%, transparent) 0%, transparent 55%);
+  mix-blend-mode: overlay;
+  opacity: 0.6;
 }
 
 .header {
@@ -307,9 +422,9 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   align-items: center;
   justify-content: space-between;
   gap: var(--aimd-space-2);
-  padding: var(--aimd-space-3);
-  background: var(--aimd-bg-secondary);
-  border-bottom: 1px solid var(--aimd-border-default);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
 }
 
 .title {
@@ -322,80 +437,164 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   min-width: 0;
 }
 
-.header-right { display: flex; align-items: center; gap: var(--aimd-space-2); }
+.header-right { display: flex; align-items: center; gap: 8px; }
 .counter { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
 
 .icon {
   all: unset;
   cursor: pointer;
-  width: var(--aimd-size-icon-md);
-  height: var(--aimd-size-icon-md);
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: var(--aimd-radius-md);
-  color: var(--aimd-text-secondary);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--aimd-text-primary) 80%, transparent);
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 26%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
+  transition: background 150ms ease, transform 150ms ease, border-color 150ms ease;
 }
-.icon:hover { background: var(--aimd-bg-primary); }
+.icon svg { width: 18px; height: 18px; display: block; }
+.icon:hover {
+  background: color-mix(in srgb, var(--aimd-bg-primary) 42%, transparent);
+  border-color: color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+}
+.icon:active { transform: scale(0.96); }
+.icon:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
 
 .body {
   flex: 1;
   overflow: auto;
-  padding: var(--aimd-space-4);
+  padding: 14px 16px 10px;
 }
 
 .footer {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--aimd-space-2);
-  padding: var(--aimd-space-3);
-  background: var(--aimd-bg-secondary);
-  border-top: 1px solid var(--aimd-border-default);
+  gap: 12px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 56%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
 }
 
-.nav, .actions { display: flex; gap: var(--aimd-space-2); align-items: center; }
-.custom-actions { display: flex; gap: var(--aimd-space-2); align-items: center; }
+.custom-actions { display: flex; gap: 8px; align-items: center; }
+.dots {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aimd-dot-gap, 8px);
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.ellipsis { color: var(--aimd-text-secondary); font-size: 12px; padding: 0 2px; }
+.dot {
+  all: unset;
+  cursor: pointer;
+  width: var(--aimd-dot-size, 8px);
+  height: var(--aimd-dot-size, 8px);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aimd-text-secondary) 38%, transparent);
+  transition: transform 160ms ease, background 160ms ease, width 160ms ease;
+}
+.dot:hover { background: color-mix(in srgb, var(--aimd-text-secondary) 68%, transparent); transform: scale(1.18); }
+.dot--active {
+  width: calc(var(--aimd-dot-size, 8px) * 1.7);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
+}
+.nav { justify-self: end; display: grid; grid-auto-flow: column; gap: 8px; align-items: center; }
+.nav-btn {
+  all: unset;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
+  color: var(--aimd-text-primary);
+  font-size: 18px;
+  line-height: 1;
+}
+.nav-btn:hover { background: color-mix(in srgb, var(--aimd-bg-primary) 34%, transparent); }
+.nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.nav-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
 
-.btn {
+.chip {
   all: unset;
   cursor: pointer;
   user-select: none;
-  padding: var(--aimd-space-1) var(--aimd-space-2);
-  border-radius: var(--aimd-radius-md);
-  border: 1px solid var(--aimd-border-default);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
   font-size: var(--aimd-font-size-xs);
   color: var(--aimd-text-primary);
 }
-.btn:hover { background: var(--aimd-bg-primary); }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn.primary {
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  border-color: transparent;
-}
-.btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
-.btn.danger {
-  border-color: var(--aimd-state-error-border);
-  color: var(--aimd-text-primary);
-}
-.btn.danger:hover { background: var(--aimd-state-error-bg); }
+.chip:hover { background: color-mix(in srgb, var(--aimd-bg-primary) 42%, transparent); }
+.chip:disabled { opacity: 0.55; cursor: not-allowed; }
+.chip--primary { background: color-mix(in srgb, var(--aimd-interactive-primary) 92%, transparent); color: var(--aimd-text-on-primary); border-color: transparent; }
+.chip--primary:hover { background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 92%, transparent); }
+.chip--danger { border-color: var(--aimd-state-error-border); }
 
 .status { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
 
 .source {
   display: none;
-  border-top: 1px solid var(--aimd-border-default);
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
 }
 .source[data-open="1"] { display: block; }
 .source-pre {
   margin: 0;
   max-height: var(--aimd-panel-source-max-height);
   overflow: auto;
-  padding: var(--aimd-space-3);
-  background: var(--aimd-bg-primary);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 18%, transparent);
   color: var(--aimd-text-primary);
   font-size: var(--aimd-font-size-xs);
   white-space: pre-wrap;
+}
+
+/* Markdown styling (shadow-isolated, legacy-inspired) */
+.markdown-body {
+  margin: 0;
+  padding: 0;
+  color: var(--aimd-text-primary);
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  word-wrap: break-word;
+}
+.markdown-body h1, .markdown-body h2 {
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
+  padding-bottom: 0.3em;
+}
+.markdown-body code {
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 84%, var(--aimd-text-primary) 16%);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
+  padding: 0.16em 0.4em;
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+.markdown-body pre {
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 75%, transparent);
+  padding: 14px;
+  border-radius: 12px;
+  overflow: auto;
+  margin: 1em 0;
+}
+.markdown-body pre code { background: transparent; border: none; padding: 0; }
+.markdown-body table { border-collapse: collapse; width: 100%; }
+.markdown-body th, .markdown-body td { border: 1px solid color-mix(in srgb, var(--aimd-border-default) 75%, transparent); padding: 6px 10px; }
+.markdown-body blockquote {
+  border-left: 4px solid color-mix(in srgb, var(--aimd-border-default) 85%, transparent);
+  padding-left: 14px;
+  color: var(--aimd-text-secondary);
 }
 `;
     }

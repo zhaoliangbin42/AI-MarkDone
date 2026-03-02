@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
 } as const;
 
 export const LEGACY_STORAGE_KEYS = {
+    appSettingsKey: 'app_settings',
     bookmarkKeyPrefix: 'bookmark:',
     folderKeyPrefix: 'folder:',
     folderPathsIndex: 'folderPaths',
