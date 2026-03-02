@@ -27,15 +27,21 @@ export class Tabs {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'aimd-tab-btn';
-            btn.dataset.tabId = tab.id;
+            // Use explicit attribute to avoid dataset/casing edge cases.
+            btn.setAttribute('data-tab-id', tab.id);
             btn.title = tab.label;
             btn.setAttribute('aria-label', tab.label);
             btn.innerHTML = `<span class="aimd-tab-icon">${tab.icon}</span><span class="aimd-tab-label">${tab.label}</span>`;
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.setActive(tab.id);
+            });
             sidebar.appendChild(btn);
             this.buttons.set(tab.id, btn);
 
             tab.content.classList.add('aimd-tab-content');
-            tab.content.dataset.tabId = tab.id;
+            tab.content.setAttribute('data-tab-id', tab.id);
             body.appendChild(tab.content);
             this.contentMap.set(tab.id, tab.content);
         }
@@ -44,7 +50,7 @@ export class Tabs {
         sidebar.addEventListener('click', (e) => {
             const target = e.target as HTMLElement | null;
             const btn = target?.closest?.('[data-tab-id]') as HTMLButtonElement | null;
-            const id = btn?.dataset?.tabId ?? null;
+            const id = btn?.getAttribute('data-tab-id') ?? null;
             if (!id) return;
             this.setActive(id);
         });

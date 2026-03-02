@@ -13,7 +13,9 @@
 - [x] LaTeX 公式提取与复制（KaTeX/annotation 路径与回退）
 - [x] Code block 提取与复制（语言识别与稳定输出）
 - [x] 表格提取/渲染（HTML→Markdown 规则一致）
-- [ ] 字数统计（CJK 感知）
+- [x] 字数统计 Core（CJK 感知；排除 code/math；纯逻辑）
+- [x] Settings Core（legacy `app_settings`；storage.sync；迁移 v1/v2→v3）
+- [x] Save Messages Export Core（Markdown+PDF；下载/打印；无 UI 入口）
 - [ ] i18n（语言选择/迁移/无 raw key）
 
 ---
@@ -52,4 +54,4 @@
 - [ ] Chrome MV3 build 产物一致性
 - [ ] Firefox MV2 build 产物一致性
 - [ ] supported hosts 一致性（manifest / background / popup links）
-- [ ] web_accessible_resources 完整性（KaTeX assets/locales/icons）
+- [x] web_accessible_resources 完整性（KaTeX assets/locales/icons）

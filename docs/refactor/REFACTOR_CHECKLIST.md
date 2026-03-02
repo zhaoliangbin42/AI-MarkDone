@@ -136,6 +136,38 @@ Checklist（每个域通用）：
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
 - [ ] 人工验收：扩展图标打开面板；面板内导入/导出/repair；Go To 定位与高亮；批量移动/删除
 
+### Module F — Settings Core（storage.sync; legacy app_settings; no UI）
+
+- [x] Contracts：legacy key `app_settings` 登记（`src/contracts/storage.ts`）
+- [x] Core：schema v3 + migrations v1/v2→v3（`src/core/settings/*`）
+- [x] Service：normalize + set/reset plans（`src/services/settings/settingsService.ts`）
+- [x] Driver：sync storage port（`src/drivers/background/storage/syncStoragePort.ts`）
+- [x] Runtime：Background handler write authority（`src/runtimes/background/handlers/settings.ts`）
+- [x] Content：settings client cache + subscribe（`src/drivers/content/settings/settingsClient.ts`）
+- [x] 自动化门禁：`npm run test:core` / `npm run build`
+- [ ] 人工验收：老用户升级后 settings 不丢；reset/set 后 background 落盘并可读回
+
+### Module G — Save Messages Export Core（Markdown + PDF; no UI entry）
+
+- [x] Driver：DOM collector（`src/drivers/content/conversation/collectConversationMessageRefs.ts`）
+- [x] Service：Markdown export builder（`src/services/export/saveMessagesMarkdown.ts`）
+- [x] Service：PDF print plan builder（`src/services/export/saveMessagesPdf.ts`）
+- [x] Driver：download/print side-effects（`src/drivers/content/export/*`）
+- [x] Service：facade（`src/services/export/saveMessagesFacade.ts`）
+- [x] 自动化门禁：`npm run test:core` / `npm run build`
+- [ ] 人工验收：在 ChatGPT 页面触发导出，能下载 `.md` 并弹出打印对话框（PDF）
+
+### Module H — Word Count Core（pure; no UI）
+
+- [x] Core：WordCounter（`src/core/text/wordCounter.ts`）
+- [x] Unit tests（`tests/unit/core/text/wordCounter.test.ts`）
+- [ ] 人工验收：工具栏/Reader 接入展示（后置）
+
+### Module I — Release Governance（manifest resources consistency）
+
+- [x] Unit gate：`tests/unit/governance/manifest-resource-consistency.test.ts`
+- [x] 自动化门禁：`npm run test:core`（与依赖门禁一起）
+
 ---
 
 ## Phase 4 — Docs & Tests Evolution（持续演进）

@@ -9,6 +9,8 @@ import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
 import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
+import { SettingsClient } from '../../drivers/content/settings/settingsClient';
+import { DEFAULT_SETTINGS } from '../../core/settings/types';
 
 ensurePageTokens();
 
@@ -23,15 +25,27 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     const themeManager = new ThemeManager();
     const mathClick = new MathClickHandler();
     const readerPanel = new ReaderPanel();
+    const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
         bookmarksController,
         onMessageInjected: (messageElement) => {
-            // Frozen decision: LaTeX click-to-copy is enabled by default (no UI toggle).
-            mathClick.enable(messageElement);
+            const behavior = settingsClient.getCached()?.behavior ?? DEFAULT_SETTINGS.behavior;
+            if (behavior.enableClickToCopy) {
+                mathClick.enable(messageElement);
+            }
         },
+    });
+
+    settingsClient.init();
+    settingsClient.subscribe((snap) => {
+        messageToolbars.setBehaviorFlags({
+            showViewSource: snap.settings.behavior.showViewSource,
+            showSaveMessages: snap.settings.behavior.showSaveMessages,
+            showWordCount: snap.settings.behavior.showWordCount,
+        });
     });
 
     themeManager.init(adapter);

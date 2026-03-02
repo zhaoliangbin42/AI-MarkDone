@@ -26,6 +26,12 @@
     "btnSaveAs": {
         "message": "另存为"
     },
+    "btnExport": {
+        "message": "导出"
+    },
+    "btnWordCount": {
+        "message": "字数统计"
+    },
     "btnClose": {
         "message": "关闭"
     },
@@ -37,6 +43,9 @@
     },
     "btnOk": {
         "message": "确定"
+    },
+    "btnReset": {
+        "message": "重置"
     },
     "btnSave": {
         "message": "保存"
@@ -55,6 +64,15 @@
     },
     "saving": {
         "message": "保存中..."
+    },
+    "done": {
+        "message": "完成"
+    },
+    "copyAppSettings": {
+        "message": "复制应用设置"
+    },
+    "resetAppSettings": {
+        "message": "重置应用设置"
     },
     "readerTitle": {
         "message": "AI-Markdone 阅读器"

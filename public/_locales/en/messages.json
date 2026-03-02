@@ -26,6 +26,12 @@
     "btnSaveAs": {
         "message": "Save as"
     },
+    "btnExport": {
+        "message": "Export"
+    },
+    "btnWordCount": {
+        "message": "Word Count"
+    },
     "btnClose": {
         "message": "Close"
     },
@@ -37,6 +43,9 @@
     },
     "btnOk": {
         "message": "OK"
+    },
+    "btnReset": {
+        "message": "Reset"
     },
     "btnSave": {
         "message": "Save"
@@ -55,6 +64,15 @@
     },
     "saving": {
         "message": "Saving..."
+    },
+    "done": {
+        "message": "Done"
+    },
+    "copyAppSettings": {
+        "message": "Copy App Settings"
+    },
+    "resetAppSettings": {
+        "message": "Reset App Settings"
     },
     "readerTitle": {
         "message": "AI-Markdone Reader"
