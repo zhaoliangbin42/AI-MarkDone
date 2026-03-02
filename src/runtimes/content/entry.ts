@@ -11,6 +11,8 @@ import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
+import { setLocale } from '../../ui/content/components/i18n';
+import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
 
 ensurePageTokens();
 
@@ -28,6 +30,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
+    const folding = new ChatGPTFoldingController();
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
         bookmarksController,
@@ -36,11 +39,18 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
             if (behavior.enableClickToCopy) {
                 mathClick.enable(messageElement);
             }
+            folding.registerMessage(messageElement);
         },
     });
 
     settingsClient.init();
+    let lastLocale = settingsClient.getCached()?.language ?? DEFAULT_SETTINGS.language;
     settingsClient.subscribe((snap) => {
+        if (snap.settings.language !== lastLocale) {
+            lastLocale = snap.settings.language;
+            void setLocale(lastLocale);
+        }
+        folding.setPolicy(snap.settings.chatgpt);
         messageToolbars.setBehaviorFlags({
             showViewSource: snap.settings.behavior.showViewSource,
             showSaveMessages: snap.settings.behavior.showSaveMessages,
@@ -53,6 +63,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
         messageToolbars.setTheme(theme);
         readerPanel.setTheme(theme);
         bookmarksController.setTheme(theme);
+        folding.setTheme(theme);
     });
 
     browser.runtime.onMessage.addListener((msg: unknown) => {
@@ -63,6 +74,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     });
 
     messageToolbars.init();
+    folding.init(adapter, 'light');
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
     const pending = consumePendingNavigation();

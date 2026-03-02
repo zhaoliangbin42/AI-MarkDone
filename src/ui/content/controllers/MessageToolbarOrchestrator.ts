@@ -12,7 +12,7 @@ import { exportConversationMarkdown, exportConversationPdf } from '../../../serv
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel } from '../reader/ReaderPanel';
-import { t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
 import type { TranslateFn } from '../../../services/export/saveMessagesTypes';
 import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon } from '../../../assets/icons';
@@ -40,6 +40,7 @@ export class MessageToolbarOrchestrator {
     private onMessageInjected: ((messageElement: HTMLElement) => void) | null = null;
     private scanScheduler: ScanScheduler | null = null;
     private routeWatcher: RouteWatcher | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private observedContainer: HTMLElement | null = null;
     private readerPanel: ReaderPanel;
     private bookmarksController: BookmarksPanelController | null = null;
@@ -119,6 +120,13 @@ export class MessageToolbarOrchestrator {
             }
         }, { intervalMs: 500 });
         this.routeWatcher.start();
+
+        // If locale changes, rebuild UI strings (labels/tooltips) by re-injecting toolbars.
+        // This is UI-only and avoids threading locale concerns into services/drivers.
+        this.unsubscribeLocale = subscribeLocaleChange(() => {
+            this.clearAllToolbars();
+            this.scanScheduler?.schedule('manual');
+        });
     }
 
     dispose(): void {
@@ -126,6 +134,8 @@ export class MessageToolbarOrchestrator {
         this.scanScheduler = null;
         this.routeWatcher?.stop();
         this.routeWatcher = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
         this.observer?.disconnect();
         this.observer = null;
         this.observedContainer = null;
