@@ -63,6 +63,46 @@ function buildTurns(adapter: SiteAdapter): ChatTurn[] {
     });
 }
 
+export function collectConversationTurns(adapter: SiteAdapter): { turns: ChatTurn[]; metadata: ConversationMetadata } {
+    const turns = buildTurns(adapter);
+    const metadata = getConversationMetadata(adapter, turns.length);
+    return { turns, metadata };
+}
+
+export async function exportTurnsMarkdown(
+    turns: ChatTurn[],
+    selectedIndices: number[],
+    metadata: ConversationMetadata,
+    options: ExportOptions
+): Promise<ExportResult> {
+    if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
+    try {
+        const out = buildMarkdownExport(turns, selectedIndices, metadata, options.t);
+        if (!out) return { ok: true, noop: true };
+        downloadText({ filename: out.filename, content: out.markdown, mime: 'text/markdown;charset=utf-8' });
+        return { ok: true, noop: false };
+    } catch (err: any) {
+        return { ok: false, error: { code: 'INTERNAL_ERROR', message: err?.message || 'Export failed' } };
+    }
+}
+
+export async function exportTurnsPdf(
+    turns: ChatTurn[],
+    selectedIndices: number[],
+    metadata: ConversationMetadata,
+    options: ExportOptions
+): Promise<ExportResult> {
+    if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
+    try {
+        const plan = buildPdfPrintPlan(turns, selectedIndices, metadata, options.t);
+        if (!plan) return { ok: true, noop: true };
+        await printPdf({ html: plan.html, containerId: plan.containerId });
+        return { ok: true, noop: false };
+    } catch (err: any) {
+        return { ok: false, error: { code: 'INTERNAL_ERROR', message: err?.message || 'Export failed' } };
+    }
+}
+
 export async function exportConversationMarkdown(
     adapter: SiteAdapter,
     selectedIndices: number[],
@@ -71,12 +111,8 @@ export async function exportConversationMarkdown(
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
 
     try {
-        const turns = buildTurns(adapter);
-        const meta = getConversationMetadata(adapter, turns.length);
-        const out = buildMarkdownExport(turns, selectedIndices, meta, options.t);
-        if (!out) return { ok: true, noop: true };
-        downloadText({ filename: out.filename, content: out.markdown, mime: 'text/markdown;charset=utf-8' });
-        return { ok: true, noop: false };
+        const { turns, metadata } = collectConversationTurns(adapter);
+        return await exportTurnsMarkdown(turns, selectedIndices, metadata, options);
     } catch (err: any) {
         return { ok: false, error: { code: 'INTERNAL_ERROR', message: err?.message || 'Export failed' } };
     }
@@ -90,12 +126,8 @@ export async function exportConversationPdf(
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
 
     try {
-        const turns = buildTurns(adapter);
-        const meta = getConversationMetadata(adapter, turns.length);
-        const plan = buildPdfPrintPlan(turns, selectedIndices, meta, options.t);
-        if (!plan) return { ok: true, noop: true };
-        await printPdf({ html: plan.html, containerId: plan.containerId });
-        return { ok: true, noop: false };
+        const { turns, metadata } = collectConversationTurns(adapter);
+        return await exportTurnsPdf(turns, selectedIndices, metadata, options);
     } catch (err: any) {
         return { ok: false, error: { code: 'INTERNAL_ERROR', message: err?.message || 'Export failed' } };
     }

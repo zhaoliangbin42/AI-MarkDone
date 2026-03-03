@@ -8,6 +8,8 @@ import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/render
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { copyIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
+import { sourcePanel } from '../source/sourcePanelSingleton';
+import { t } from '../components/i18n';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -78,7 +80,9 @@ export class ReaderPanel {
         };
 
         this.mount();
-        this.applyInitialView();
+        if (this.state.options.initialView === 'source') {
+            void this.openSourcePanel();
+        }
         await this.renderBody();
         this.render();
     }
@@ -114,7 +118,7 @@ export class ReaderPanel {
         shadow.querySelector<HTMLButtonElement>('[data-action="prev"]')?.addEventListener('click', () => void this.go(-1));
         shadow.querySelector<HTMLButtonElement>('[data-action="next"]')?.addEventListener('click', () => void this.go(1));
         shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')?.addEventListener('click', () => void this.copyCurrent());
-        shadow.querySelector<HTMLButtonElement>('[data-action="source"]')?.addEventListener('click', () => void this.toggleSource());
+        shadow.querySelector<HTMLButtonElement>('[data-action="source"]')?.addEventListener('click', () => void this.openSourcePanel());
 
         document.documentElement.appendChild(host);
         this.host = host;
@@ -131,7 +135,6 @@ export class ReaderPanel {
         const next = this.state.index + delta;
         if (next < 0 || next >= this.state.items.length) return;
         this.state.index = next;
-        this.applyInitialView();
         await this.renderBody();
         this.render();
     }
@@ -146,11 +149,9 @@ export class ReaderPanel {
         if (!this.shadow) return;
         const item = this.state.items[this.state.index];
         const container = this.shadow.querySelector<HTMLElement>('[data-role="content"]');
-        const sourceBox = this.shadow.querySelector<HTMLElement>('[data-role="source"]');
         if (!container || !item) return;
 
         const markdown = await resolveContent(item.content);
-        if (sourceBox) sourceBox.textContent = markdown;
 
         const html = renderMarkdownToSanitizedHtml(markdown);
         this.applyHtml(container, html);
@@ -176,19 +177,11 @@ export class ReaderPanel {
         }
     }
 
-    private toggleSource(): void {
-        if (!this.shadow) return;
-        const el = this.shadow.querySelector<HTMLElement>('[data-role="source_wrap"]');
-        if (!el) return;
-        const isOpen = el.dataset.open === '1';
-        el.dataset.open = isOpen ? '0' : '1';
-    }
-
-    private applyInitialView(): void {
-        if (!this.shadow) return;
-        const wrap = this.shadow.querySelector<HTMLElement>('[data-role="source_wrap"]');
-        if (!wrap) return;
-        wrap.dataset.open = this.state.options.initialView === 'source' ? '1' : '0';
+    private async openSourcePanel(): Promise<void> {
+        const item = this.state.items[this.state.index];
+        if (!item) return;
+        const markdown = await resolveContent(item.content);
+        sourcePanel.show({ theme: this.state.theme, title: t('modalSourceTitle'), content: markdown });
     }
 
     private setStatus(text: string): void {
@@ -232,9 +225,6 @@ export class ReaderPanel {
 
         const sourceBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="source"]');
         if (sourceBtn) sourceBtn.style.display = opts.showSource ? 'grid' : 'none';
-
-        const sourceWrap = this.shadow.querySelector<HTMLElement>('[data-role="source_wrap"]');
-        if (sourceWrap && !opts.showSource) sourceWrap.dataset.open = '0';
 
         const custom = this.shadow.querySelector<HTMLElement>('[data-role="custom_actions"]');
         if (!custom) return;
@@ -365,9 +355,6 @@ export class ReaderPanel {
   </div>
   <div class="body">
     <div class="markdown-body" data-role="content"></div>
-    <div class="source" data-role="source_wrap" data-open="0">
-      <pre class="source-pre" data-role="source"></pre>
-    </div>
   </div>
   <div class="footer">
     <div class="footer-left" data-role="footer_left_actions"></div>
@@ -394,6 +381,10 @@ export class ReaderPanel {
         return `
 ${getTokenCss(this.state.theme)}
 ${katexUrl ? `@import url("${katexUrl}");` : ''}
+
+/* Reset (shadow-scoped) */
+*, *::before, *::after { box-sizing: border-box; }
+button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 
 .overlay {
   position: fixed;
@@ -616,6 +607,8 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
 }
 .aimd-send-popover .input {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   resize: vertical;
   min-height: 120px;
   padding: 10px 12px;
@@ -667,22 +660,6 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
 }
 .aimd-send-popover .btn--primary:hover { background: var(--aimd-interactive-primary-hover); }
 .aimd-send-popover .btn--primary .aimd-icon svg { width: 16px; height: 16px; }
-
-.source {
-  display: none;
-  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
-}
-.source[data-open="1"] { display: block; }
-.source-pre {
-  margin: 0;
-  max-height: var(--aimd-panel-source-max-height);
-  overflow: auto;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 18%, transparent);
-  color: var(--aimd-text-primary);
-  font-size: var(--aimd-font-size-xs);
-  white-space: pre-wrap;
-}
 
 /* Markdown styling (shadow-isolated, legacy-inspired) */
 .markdown-body {

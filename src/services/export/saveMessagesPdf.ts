@@ -1,6 +1,8 @@
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
-import { renderMarkdownToSanitizedHtml } from '../renderer/renderMarkdown';
 import { getTokenCss } from '../../style/tokens';
+import { Marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
+import createDOMPurify from 'dompurify';
 
 export type PdfPrintPlan = {
     containerId: string;
@@ -25,6 +27,122 @@ const BUNDLED_KATEX_CSS = `
 .katex-display>.katex{display:inline-block;text-align:left}
 `;
 
+// Ported from the legacy renderer's markdown stylesheet (`StyleManager#getMarkdownStyles`, since removed from `archive/`).
+// Why: PDF must be based on extracted markdown, re-rendered with stable line break semantics (`breaks:true`),
+// and printed with the same typography normalization the legacy feature relied on.
+const LEGACY_MARKDOWN_BODY_CSS = `
+      .markdown-body {
+        --fgColor-default: var(--aimd-text-primary);
+        --fgColor-muted: var(--aimd-text-secondary);
+        --fgColor-accent: var(--aimd-text-link, var(--aimd-interactive-primary));
+        --bgColor-default: var(--aimd-bg-primary);
+        --bgColor-muted: var(--aimd-bg-secondary);
+        --borderColor-default: var(--aimd-border-default);
+        --codeInline-bg: color-mix(in srgb, var(--bgColor-muted) 84%, var(--fgColor-default) 16%);
+        --codeInline-border: color-mix(in srgb, var(--borderColor-default) 70%, transparent);
+        --codeBlock-bg: var(--aimd-code-block-bg, var(--aimd-bg-secondary));
+        --codeBlock-border: color-mix(in srgb, var(--borderColor-default) 82%, transparent);
+        --codeBlock-shadow: inset 0 0 0 1px color-mix(in srgb, var(--borderColor-default) 56%, transparent);
+        
+        margin: 0;
+        padding: 0;
+        color: var(--fgColor-default);
+        font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
+          'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        word-wrap: break-word;
+      }
+
+      /* Code placeholder styles */
+      .markdown-body .code-placeholder {
+        background: var(--bgColor-muted);
+        border: 1px solid var(--borderColor-default);
+        border-radius: 6px;
+        padding: 12px;
+        margin: 1em 0;
+        text-align: center;
+      }
+
+      .markdown-body .code-placeholder-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        color: var(--fgColor-muted);
+        margin-bottom: 8px;
+      }
+
+      .markdown-body .code-placeholder-icon {
+        font-size: 48px;
+        opacity: 0.5;
+      }
+
+      /* Other markdown styles */
+      .markdown-body h1, .markdown-body h2 {
+        border-bottom: 1px solid var(--borderColor-default);
+        padding-bottom: 0.3em;
+      }
+
+      .markdown-body code {
+        background: var(--codeInline-bg);
+        border: 1px solid var(--codeInline-border);
+        padding: 0.16em 0.4em;
+        border-radius: 3px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+          'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', monospace;
+        font-size: 85%;
+        color: var(--fgColor-default);
+      }
+
+      .markdown-body pre {
+        background: var(--codeBlock-bg);
+        border: 1px solid var(--codeBlock-border);
+        padding: 16px;
+        border-radius: 6px;
+        overflow: auto;
+        margin: 1em 0;
+        box-shadow: var(--codeBlock-shadow);
+      }
+
+      .markdown-body pre code {
+        display: block;
+        background: transparent;
+        border: none;
+        padding: 0;
+        white-space: pre;
+        font-size: 13px;
+        line-height: 1.55;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+          'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', monospace;
+      }
+
+      .markdown-body table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      .markdown-body th, .markdown-body td {
+        border: 1px solid var(--borderColor-default);
+        padding: 6px 13px;
+      }
+
+      .markdown-body blockquote {
+        border-left: 4px solid var(--borderColor-default);
+        padding-left: 16px;
+        color: var(--fgColor-muted);
+      }
+
+      .markdown-fallback {
+        background: var(--bgColor-muted);
+        padding: 16px;
+        border-radius: 6px;
+        color: var(--fgColor-default);
+        font-family: ui-monospace, monospace;
+        font-size: 14px;
+        white-space: pre-wrap;
+      }
+`;
+
 function escapeHtml(text: string): string {
     return (text || '')
         .replace(/&/g, '&amp;')
@@ -38,6 +156,27 @@ function tokenCssAsRoot(theme: 'light' | 'dark'): string {
     return getTokenCss(theme).replace(':host', ':root');
 }
 
+function renderMarkdownForPdf(markdown: string): string {
+    const instance = new Marked();
+    instance.setOptions({
+        gfm: true,
+        breaks: true,
+    });
+    instance.use(
+        markedKatex({
+            throwOnError: false,
+            output: 'html',
+            nonStandard: true,
+        })
+    );
+
+    const raw = instance.parse(markdown || '') as string;
+    const dompurify = createDOMPurify(window as any);
+    return dompurify.sanitize(raw, {
+        USE_PROFILES: { html: true },
+    }) as string;
+}
+
 export function buildPdfPrintPlan(
     turns: ChatTurn[],
     selectedIndices: number[],
@@ -48,19 +187,38 @@ export function buildPdfPrintPlan(
     const selected = selectedIndices.map((i) => turns[i]).filter((x): x is ChatTurn => Boolean(x));
     if (selected.length === 0) return null;
 
-    const render = options?.renderMarkdown ?? renderMarkdownToSanitizedHtml;
+    const render = options?.renderMarkdown ?? renderMarkdownForPdf;
 
     const tokens = tokenCssAsRoot('light');
+    const scopedMarkdownCss = LEGACY_MARKDOWN_BODY_CSS
+        .replace(/\.markdown-body/g, `#${CONTAINER_ID} .markdown-body`)
+        .replace(/\.markdown-fallback/g, `#${CONTAINER_ID} .markdown-fallback`);
     const baseCss = `
 ${tokens}
 
 @media print {
+  :root {
+    /* Force high-contrast print colors (legacy expectation: black text on white paper). */
+    --aimd-bg-primary: #ffffff;
+    --aimd-bg-secondary: #f6f8fa;
+    --aimd-text-primary: #000000;
+    --aimd-text-secondary: #333333;
+    --aimd-border-default: #d0d7de;
+  }
+  html, body {
+    background: var(--aimd-bg-primary) !important;
+    color: var(--aimd-text-primary) !important;
+  }
   body > *:not(#${CONTAINER_ID}) { display: none !important; }
   #${CONTAINER_ID} {
     display: block !important;
     position: static !important;
     font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
       'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+  }
+  #${CONTAINER_ID}, #${CONTAINER_ID} * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
 
@@ -71,8 +229,12 @@ ${tokens}
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
+  background: var(--aimd-bg-primary);
   color: var(--aimd-text-primary);
 }
+
+/* Base markdown styles (legacy parity; scoped to print container) */
+${scopedMarkdownCss}
 
 .pdf-title-page { text-align: center; padding: 90px 20px; }
 .pdf-title-page h1 { font-size: 28px; margin: 0 0 16px 0; color: var(--aimd-text-primary); }
@@ -98,41 +260,21 @@ ${tokens}
 }
 .user-prompt-label { font-weight: 600; color: var(--aimd-interactive-primary); margin-bottom: 8px; }
 .assistant-response { padding: 0 16px; }
-.assistant-response-label { font-weight: 600; margin-bottom: 12px; color: #16a34a; }
-
-/* Minimal markdown-ish typography */
-.assistant-response p { margin: 0 0 16px 0; line-height: 1.6; }
-.assistant-response p:last-child { margin-bottom: 0; }
-.assistant-response pre {
-  margin: 16px 0;
-  padding: 16px;
-  border-radius: 8px;
-  overflow: auto;
-  background: var(--aimd-bg-secondary);
-  border: 1px solid var(--aimd-border-default);
-}
-.assistant-response code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.9em;
-}
-.assistant-response table { border-collapse: collapse; width: 100%; }
-.assistant-response th, .assistant-response td { border: 1px solid var(--aimd-border-default); padding: 6px 10px; }
-.assistant-response blockquote {
-  margin: 16px 0;
-  padding-left: 16px;
-  border-left: 4px solid var(--aimd-border-default);
-  color: var(--aimd-text-secondary);
+.assistant-response-label {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: color-mix(in srgb, var(--aimd-state-success-border) 88%, var(--aimd-text-primary) 12%);
 }
 
-.markdown-fallback {
-  background: var(--aimd-bg-secondary);
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid var(--aimd-border-default);
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
-}
+/* Typography normalization (legacy parity) */
+#${CONTAINER_ID} p { margin: 0 0 16px 0; line-height: 1.6; }
+#${CONTAINER_ID} p:last-child { margin-bottom: 0; }
+#${CONTAINER_ID} ul, #${CONTAINER_ID} ol { margin: 0 0 16px 0; padding-left: 24px; }
+#${CONTAINER_ID} li { margin-bottom: 4px; }
+#${CONTAINER_ID} h1, #${CONTAINER_ID} h2, #${CONTAINER_ID} h3, #${CONTAINER_ID} h4 { margin: 24px 0 12px 0; line-height: 1.3; }
+#${CONTAINER_ID} h1:first-child, #${CONTAINER_ID} h2:first-child, #${CONTAINER_ID} h3:first-child { margin-top: 0; }
+#${CONTAINER_ID} pre { margin: 16px 0; }
+#${CONTAINER_ID} blockquote { margin: 16px 0; padding-left: 16px; }
 
 .katex-display { break-inside: avoid; page-break-inside: avoid; }
 `;
@@ -169,7 +311,7 @@ ${tokens}
   </div>
   <div class="assistant-response">
     <div class="assistant-response-label">${t('pdfAssistantLabel')}</div>
-    <div>${renderedAssistant}</div>
+    <div class="markdown-body">${renderedAssistant}</div>
   </div>
 </div>
 `;
@@ -177,4 +319,3 @@ ${tokens}
 
     return { containerId: CONTAINER_ID, html };
 }
-

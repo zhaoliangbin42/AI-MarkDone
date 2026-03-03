@@ -8,15 +8,15 @@ import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler'
 import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { collectReaderItems } from '../../../services/reader/collectReaderItems';
-import { exportConversationMarkdown, exportConversationPdf } from '../../../services/export/saveMessagesFacade';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import type { TranslateFn } from '../../../services/export/saveMessagesTypes';
 import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon, sendIcon } from '../../../assets/icons';
+import { saveMessagesDialog } from '../export/SaveMessagesDialog';
+import { sourcePanel } from '../source/sourcePanelSingleton';
 
 type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean; position: number };
 
@@ -48,12 +48,6 @@ export class MessageToolbarOrchestrator {
     private bookmarksController: BookmarksPanelController | null = null;
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
-    private exportT: TranslateFn = (key, args) => {
-        if (args === undefined) return t(key);
-        if (Array.isArray(args)) return t(key, args.map((x) => String(x)));
-        return t(key, String(args));
-    };
-
     private getReaderActions(): Array<{ id: string; label: string; icon?: string; kind?: 'default' | 'primary' | 'danger'; placement?: 'header' | 'footer_left'; toggle?: boolean; onClick: any }> {
         if (!this.sendController) return [];
         return [
@@ -263,9 +257,10 @@ export class MessageToolbarOrchestrator {
                 icon: fileCodeIcon,
                 kind: 'secondary',
                 disabledWhenPending: true,
-                    onClick: async () => {
-                    const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
-                    await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'source', actions: this.getReaderActions() as any });
+                onClick: async () => {
+                    const res = copyMarkdownFromMessage(this.adapter, messageElement);
+                    if (!res.ok) return { ok: false, message: res.error.message };
+                    sourcePanel.show({ theme: this.theme, title: t('modalSourceTitle'), content: res.markdown });
                 },
             });
         }
@@ -291,29 +286,9 @@ export class MessageToolbarOrchestrator {
                 icon: downloadIcon,
                 kind: 'secondary',
                 disabledWhenPending: true,
-                onClick: async () => ({ ok: true }),
-                menu: [
-                    {
-                        id: 'export_md',
-                        label: 'Markdown (.md)',
-                        onClick: async () => {
-                            const position = this.getPositionForMessage(messageElement);
-                            if (!position) return { ok: false, message: 'Position not available' };
-                            const res = await exportConversationMarkdown(this.adapter, [position - 1], { t: this.exportT });
-                            return res.ok && !res.noop ? { ok: true, message: 'Exported' } : { ok: false, message: 'Export failed' };
-                        },
-                    },
-                    {
-                        id: 'export_pdf',
-                        label: 'PDF (Print)',
-                        onClick: async () => {
-                            const position = this.getPositionForMessage(messageElement);
-                            if (!position) return { ok: false, message: 'Position not available' };
-                            const res = await exportConversationPdf(this.adapter, [position - 1], { t: this.exportT });
-                            return res.ok && !res.noop ? { ok: true, message: 'Print opened' } : { ok: false, message: 'Export failed' };
-                        },
-                    },
-                ],
+                onClick: async () => {
+                    saveMessagesDialog.open(this.adapter, this.theme);
+                },
             });
         }
 

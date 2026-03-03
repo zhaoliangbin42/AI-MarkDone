@@ -288,22 +288,22 @@ export class MessageToolbar {
   --aimd-tb-hover: color-mix(in srgb, #000 6%, transparent);
   --aimd-tb-pressed: color-mix(in srgb, #000 10%, transparent);
   --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-primary) 82%, transparent);
-  --aimd-tb-outline: color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+  --aimd-tb-outline: color-mix(in srgb, var(--aimd-text-primary) 14%, transparent);
 }
 :host([data-aimd-theme="dark"]) {
   --aimd-tb-hover: color-mix(in srgb, #fff 10%, transparent);
   --aimd-tb-pressed: color-mix(in srgb, #fff 16%, transparent);
   --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-primary) 26%, transparent);
-  --aimd-tb-outline: color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
+  --aimd-tb-outline: color-mix(in srgb, var(--aimd-text-primary) 22%, transparent);
 }
 :host([data-aimd-placement="actionbar"]) .wrap { margin-top: 0; justify-content: flex-start; }
 :host([data-aimd-placement="actionbar"]) .bar {
   /* Embedded into ChatGPT's official action area: no extra surface/shadow. */
-  padding: 0;
+  padding: 3px;
   gap: 4px;
   box-shadow: none;
-  background: transparent;
-  border: 0;
+  background: var(--aimd-tb-surface);
+  border: 1px solid var(--aimd-tb-outline);
 }
 :host([data-aimd-placement="actionbar"]) .icon-btn { width: 32px; height: 32px; border-radius: 10px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }

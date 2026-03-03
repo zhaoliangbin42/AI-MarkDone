@@ -144,3 +144,8 @@ src/
 - [ ] `npm run build` 成功 (同时构建 Chrome 和 Firefox)
 - [ ] 接口变更已更新相关文档
 - [ ] `CHANGELOG.md` 已更新（见 [changelog.md](.agent/rules/changelog.md)），必须使用英文
+
+## Codex 默认验证（强制）
+
+- Codex 每次执行（产生代码变更）后，默认必须执行 `npm run build` 进行编译验证
+- 例外：仅讨论/解释、不修改代码；或用户明确要求跳过编译
