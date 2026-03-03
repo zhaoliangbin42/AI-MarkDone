@@ -13,6 +13,7 @@ import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale } from '../../ui/content/components/i18n';
 import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
+import { SendController } from '../../ui/content/sending/SendController';
 
 ensurePageTokens();
 
@@ -27,12 +28,14 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     const themeManager = new ThemeManager();
     const mathClick = new MathClickHandler();
     const readerPanel = new ReaderPanel();
+    const sendController = new SendController();
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const folding = new ChatGPTFoldingController();
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
+        sendController,
         bookmarksController,
         onMessageInjected: (messageElement) => {
             const behavior = settingsClient.getCached()?.behavior ?? DEFAULT_SETTINGS.behavior;
@@ -45,6 +48,8 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
 
     settingsClient.init();
     let lastLocale = settingsClient.getCached()?.language ?? DEFAULT_SETTINGS.language;
+    // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
+    void setLocale(lastLocale);
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
@@ -62,6 +67,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     themeManager.subscribe((theme) => {
         messageToolbars.setTheme(theme);
         readerPanel.setTheme(theme);
+        sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
         folding.setTheme(theme);
     });

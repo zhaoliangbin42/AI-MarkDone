@@ -781,6 +781,7 @@ export class BookmarksTabView {
                 {
                     id: 'goto',
                     label: t('openConversation'),
+                    icon: externalLinkIcon,
                     kind: 'default',
                     onClick: async (ctx: ReaderPanelActionContext) => {
                         const current = list[ctx.index] ?? null;

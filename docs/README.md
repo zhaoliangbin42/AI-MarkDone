@@ -10,7 +10,6 @@
 
 ### 1.1 架构（Architecture）
 
-- `docs/architecture/AS_IS.md`：当前系统（as-is）能力、边界、依赖与问题清单（用于重构前对齐共识）
 - `docs/architecture/BLUEPRINT.md`：目标架构蓝图（to-be），含分层、依赖规则、契约与演进策略
 - `docs/architecture/DEPENDENCY_RULES.md`：依赖方向与“禁止耦合”规则（可转为 lint/CI 门禁）
 - `docs/architecture/BROWSER_COMPATIBILITY.md`：Chrome MV3 / Firefox MV2 兼容性与构建产物边界
@@ -37,6 +36,10 @@
 
 - `docs/governance/DOCS_GOVERNANCE.md`：文档库治理（权威层级、迁移/废弃规则、命名与更新流程）
 
+### 1.4.1 过程记录（Process / Evidence）
+
+- `docs/DEVLOG.md`：开发证据日志（append-only；记录命令与观察到的结果）
+
 ### 1.5 样式（Style）
 
 - `docs/style/STYLE_SYSTEM.md`：样式系统（Tokens + Shadow DOM + Theme）
@@ -50,20 +53,14 @@
 
 ## 2. 现存旧文档的处理策略（迁移中）
 
-`docs/` 下历史审查与调试文档已统一归档到 `docs/_legacy/**`（例如 `docs/_legacy/review/**`、`docs/_legacy/debug/**`）。这些文档包含有价值的信息，但并不等于“未来权威规范”。
-
-策略：
-
-1. 先建立权威骨架：architecture / refactor / governance / contracts
-2. 再把可继承内容迁移到权威文档（保留可追溯性）
-3. 迁移完成后，将历史文档统一归档或删除（以 `REFACTOR_CHECKLIST.md` 的“Docs Migration”阶段为准）
+为保持文档库精简，本仓库仅保留“面向未来的权威文档 + 必要 runbooks”。历史审查产物如需追溯，优先通过 issue/PR 讨论记录或外部归档系统保存，避免在 `docs/` 内长期堆积造成漂移与误导。
 
 ---
 
 ## 3. 快速入口（建议阅读顺序）
 
-1. `docs/architecture/AS_IS.md`
-2. `docs/architecture/BLUEPRINT.md`
+1. `docs/architecture/BLUEPRINT.md`
+2. `docs/FEATURES.md`
 3. `docs/rewrite/PROGRAM.md`
 4. `docs/rewrite/FEATURE_PARITY.md`
 5. `docs/refactor/REFACTOR_CHECKLIST.md`

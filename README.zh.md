@@ -121,7 +121,7 @@
 
 欢迎提交 PR 或 Issue！
 
-如果你采用大模型进行开发，详细开发规范请参考 [GEMINI.md](./GEMINI.md)。
+如果你采用大模型进行开发，请以 `.agent/rules/*` 与 `docs/README.md` 作为权威规范。
 
 ```bash
 # 安装依赖

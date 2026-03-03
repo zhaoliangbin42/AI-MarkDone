@@ -66,7 +66,7 @@ describe('ChatGPTAdapter injection contract', () => {
             const ok = adapter.injectToolbar(message, host);
             expect(ok).toBe(true);
             expect(host.dataset.aimdPlacement).toBe('actionbar');
-            // Host should be in the action bar row and placed to the right of the official button group.
+            // Host should be in the action bar row and adjacent to the official button group.
             expect(row.contains(host)).toBe(true);
             expect(host.previousElementSibling).toBe(officialGroup);
             expect(host.dataset.aimdPlacement).toBe('actionbar');

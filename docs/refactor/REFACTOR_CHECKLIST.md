@@ -14,7 +14,6 @@
 ## Phase 0 — 文档与蓝图固化（Docs Foundation）
 
 - [x] 建立权威文档入口：`docs/README.md`
-- [x] 固化 as-is 分析：`docs/architecture/AS_IS.md`
 - [x] 固化 to-be 蓝图：`docs/architecture/BLUEPRINT.md`
 - [x] 固化依赖规则：`docs/architecture/DEPENDENCY_RULES.md`
 - [x] 固化站点适配器契约：`docs/antigravity/platform/ADAPTER_CONTRACT.md`
@@ -108,6 +107,7 @@ Checklist（每个域通用）：
 - [x] Service：markdown 渲染+净化（`src/services/renderer/renderMarkdown.ts`）
 - [x] UI：ReaderPanel（`src/ui/content/reader/ReaderPanel.ts`）
 - [x] UI：ReaderPanel 可配置（按钮开关 + 注入 actions，用于跨模块复用）
+- [x] Service/Driver：Message sending（composer sync + send ready + click）（`src/services/sending/sendService.ts`, `src/drivers/content/sending/composerPort.ts`, `src/drivers/content/adapters/sites/chatgpt.ts`）
 - [x] UI：消息工具栏增加 Reader 入口（`src/ui/content/MessageToolbar.ts`）
 - [x] Driver：注入框架稳定性升级（debounce scan + route watcher）（`src/drivers/content/injection/*`）
 - [x] 冻结功能与验收口径：`docs/FEATURES.md`

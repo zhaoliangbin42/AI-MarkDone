@@ -182,7 +182,7 @@
 权威规范：
 
 - Tokens 规范：`docs/antigravity/style/TOKEN_REFERENCE.md`
-- 设计系统入口：`docs/design_system.md`
+- 样式系统：`docs/style/STYLE_SYSTEM.md`
 
 工程落地要求：
 

@@ -7,17 +7,24 @@ import { resolveContent } from '../../../services/reader/types';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { copyIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
+import { createIcon } from '../components/Icon';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
     index: number;
     items: ReaderItem[];
+    anchorEl?: HTMLElement;
+    shadow?: ShadowRoot;
 };
 
 export type ReaderPanelAction = {
     id: string;
     label: string;
+    icon?: string;
+    tooltip?: string;
     kind?: 'default' | 'primary' | 'danger';
+    placement?: 'header' | 'footer_left';
+    toggle?: boolean;
     onClick: (ctx: ReaderPanelActionContext) => void | Promise<void>;
 };
 
@@ -231,24 +238,35 @@ export class ReaderPanel {
 
         const custom = this.shadow.querySelector<HTMLElement>('[data-role="custom_actions"]');
         if (!custom) return;
+        const footerLeft = this.shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]');
         custom.replaceChildren();
+        footerLeft?.replaceChildren();
         for (const action of opts.actions) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = `chip ${action.kind === 'primary' ? 'chip--primary' : action.kind === 'danger' ? 'chip--danger' : ''}`.trim();
-            btn.textContent = action.label;
-            btn.setAttribute('aria-label', action.label);
+            if (action.icon) {
+                btn.className = `icon ${action.kind === 'primary' ? 'icon--primary' : action.kind === 'danger' ? 'icon--danger' : ''}`.trim();
+                btn.title = action.tooltip || action.label;
+                btn.setAttribute('aria-label', action.label);
+                btn.appendChild(createIcon(action.icon));
+            } else {
+                btn.className = `chip ${action.kind === 'primary' ? 'chip--primary' : action.kind === 'danger' ? 'chip--danger' : ''}`.trim();
+                btn.textContent = action.label;
+                btn.setAttribute('aria-label', action.label);
+            }
             btn.addEventListener('click', async () => {
                 const ctx = this.getActionContext();
                 if (!ctx) return;
                 try {
                     btn.disabled = true;
-                    await action.onClick(ctx);
+                    await action.onClick({ ...ctx, anchorEl: btn, shadow: this.shadow || undefined });
                 } finally {
                     btn.disabled = false;
                 }
             });
-            custom.appendChild(btn);
+            const placement = action.placement || 'header';
+            if (placement === 'footer_left' && footerLeft) footerLeft.appendChild(btn);
+            else custom.appendChild(btn);
         }
     }
 
@@ -352,6 +370,7 @@ export class ReaderPanel {
     </div>
   </div>
   <div class="footer">
+    <div class="footer-left" data-role="footer_left_actions"></div>
     <div class="dots" data-role="dots" aria-label="Pagination"></div>
     <div class="nav" data-role="nav">
       <button class="nav-btn" data-action="prev" aria-label="Previous">‹</button>
@@ -379,9 +398,7 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
 .overlay {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--aimd-overlay-bg) 70%, rgba(0,0,0,0.12));
-  backdrop-filter: blur(8px) saturate(160%);
-  -webkit-backdrop-filter: blur(8px) saturate(160%);
+  background: var(--aimd-overlay-bg);
 }
 
 .panel {
@@ -392,29 +409,15 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   width: var(--aimd-panel-width);
   max-width: var(--aimd-panel-max-width);
   height: var(--aimd-panel-height);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
+  /* Gmail/Material-like solid surface (no blur/sheens). */
+  background: var(--aimd-bg-primary);
   color: var(--aimd-text-primary);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
-  border-radius: 20px;
-  box-shadow:
-    0 28px 90px color-mix(in srgb, #000 28%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--aimd-border-default);
+  border-radius: 16px;
+  box-shadow: var(--aimd-shadow-panel);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(140% 90% at 20% 0%, color-mix(in srgb, #fff 20%, transparent) 0%, transparent 60%),
-    radial-gradient(90% 80% at 90% 120%, color-mix(in srgb, #fff 10%, transparent) 0%, transparent 55%);
-  mix-blend-mode: overlay;
-  opacity: 0.6;
 }
 
 .header {
@@ -423,8 +426,8 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   justify-content: space-between;
   gap: var(--aimd-space-2);
   padding: 12px 14px;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 62%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+  background: var(--aimd-bg-primary);
+  border-bottom: 1px solid var(--aimd-border-default);
 }
 
 .title {
@@ -448,19 +451,31 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   display: grid;
   place-items: center;
   border-radius: 999px;
-  color: color-mix(in srgb, var(--aimd-text-primary) 80%, transparent);
+  color: color-mix(in srgb, var(--aimd-text-primary) 82%, transparent);
   border: 1px solid transparent;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 26%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
-  transition: background 150ms ease, transform 150ms ease, border-color 150ms ease;
+  background: transparent;
+  transition: background 150ms ease, transform 120ms ease;
 }
 .icon svg { width: 18px; height: 18px; display: block; }
 .icon:hover {
-  background: color-mix(in srgb, var(--aimd-bg-primary) 42%, transparent);
-  border-color: color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+  background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent);
 }
-.icon:active { transform: scale(0.96); }
+.icon:active { transform: none; background: color-mix(in srgb, var(--aimd-text-primary) 14%, transparent); }
 .icon:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
+.icon--primary {
+  background: var(--aimd-interactive-primary);
+  border-color: transparent;
+  color: var(--aimd-text-on-primary);
+  box-shadow: none;
+}
+.icon--primary:hover { background: var(--aimd-interactive-primary-hover); }
+.icon--danger {
+  background: color-mix(in srgb, var(--aimd-state-error-border) 16%, transparent);
+  border-color: transparent;
+  color: var(--aimd-text-primary);
+  box-shadow: none;
+}
+.icon--danger:hover { background: color-mix(in srgb, var(--aimd-state-error-border) 24%, transparent); }
 
 .body {
   flex: 1;
@@ -470,12 +485,20 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
 
 .footer {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 56%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+  background: var(--aimd-bg-primary);
+  border-top: 1px solid var(--aimd-border-default);
+}
+
+.footer-left {
+  position: relative;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .custom-actions { display: flex; gap: 8px; align-items: center; }
@@ -513,13 +536,13 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--aimd-text-primary);
   font-size: 18px;
   line-height: 1;
 }
-.nav-btn:hover { background: color-mix(in srgb, var(--aimd-bg-primary) 34%, transparent); }
+.nav-btn:hover { background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent); }
 .nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .nav-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
 
@@ -540,7 +563,110 @@ ${katexUrl ? `@import url("${katexUrl}");` : ''}
 .chip--primary:hover { background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 92%, transparent); }
 .chip--danger { border-color: var(--aimd-state-error-border); }
 
-.status { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
+.status {
+  justify-self: end;
+  font-size: var(--aimd-font-size-xs);
+  color: var(--aimd-text-secondary);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Send popover (Reader footer-left) */
+.aimd-send-popover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: min(520px, calc(100vw - 48px));
+  max-width: 520px;
+  background: var(--aimd-bg-primary);
+  color: var(--aimd-text-primary);
+  border: 1px solid var(--aimd-border-default);
+  border-radius: 12px;
+  box-shadow: var(--aimd-shadow-panel);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+.aimd-send-popover::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  background: var(--aimd-bg-primary);
+  border-right: 1px solid var(--aimd-border-default);
+  border-bottom: 1px solid var(--aimd-border-default);
+  transform: rotate(45deg);
+}
+.aimd-send-popover .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.aimd-send-popover .title {
+  font-size: 14px;
+  font-weight: 650;
+}
+.aimd-send-popover .icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+}
+.aimd-send-popover .input {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--aimd-border-default);
+  background: var(--aimd-bg-secondary);
+  color: var(--aimd-text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  outline: none;
+}
+.aimd-send-popover .input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent);
+  outline-offset: 2px;
+}
+.aimd-send-popover .foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.aimd-send-popover .status {
+  min-height: 18px;
+  color: var(--aimd-text-secondary);
+}
+.aimd-send-popover .actions { display: flex; gap: 8px; align-items: center; }
+.aimd-send-popover .btn {
+  all: unset;
+  cursor: pointer;
+  user-select: none;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
+  background: transparent;
+  color: var(--aimd-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.aimd-send-popover .btn:hover { background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent); }
+.aimd-send-popover .btn:active { background: color-mix(in srgb, var(--aimd-text-primary) 14%, transparent); }
+.aimd-send-popover .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.aimd-send-popover .btn--primary {
+  background: var(--aimd-interactive-primary);
+  border-color: transparent;
+  color: var(--aimd-text-on-primary);
+}
+.aimd-send-popover .btn--primary:hover { background: var(--aimd-interactive-primary-hover); }
+.aimd-send-popover .btn--primary .aimd-icon svg { width: 16px; height: 16px; }
 
 .source {
   display: none;
