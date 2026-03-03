@@ -758,6 +758,7 @@ export const arrowUp01Icon = Icons.arrowUp01;
 export const bookOpenIcon = Icons.bookOpen;
 export const copyIcon = Icons.copy;
 export const fileCodeIcon = Icons.code;
+export const fileTextIcon = Icons.fileText;
 export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
 export const messageSquareTextIcon = Icons.messageSquareText;

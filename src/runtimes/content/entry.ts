@@ -80,7 +80,8 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     });
 
     messageToolbars.init();
-    folding.init(adapter, 'light');
+    const initialTheme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
+    folding.init(adapter, initialTheme);
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
     const pending = consumePendingNavigation();

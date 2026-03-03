@@ -16,6 +16,7 @@ description: 红线规则 - 绝对禁止违反的开发规则
 | **禁止添加 `!important`** | 破坏 CSS 层叠机制（例外：`@media print` 规则） |
 | **禁止假设文件/函数存在** | 必须先 `grep` 搜索确认后再修改 |
 | **禁止硬编码颜色/尺寸** | 必须使用 `--aimd-*` Design Token |
+| **禁止跳过默认编译验证** | Codex 每次执行（产生代码变更）后默认必须 `npm run build` |
 | **禁止未 build 就报告完成** | 必须 `npm run build` 验证成功 |
 
 ## 强制要求
