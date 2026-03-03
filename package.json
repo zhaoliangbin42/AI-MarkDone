@@ -15,8 +15,8 @@
         "type-check": "tsc --noEmit",
         "test": "vitest",
         "test:ui": "vitest --ui",
-        "test:smoke": "vitest run tests/unit/contracts/protocol.test.ts tests/unit/style/tokens.test.ts tests/unit/governance/review-round3-artifacts.test.ts",
-        "test:release": "vitest run tests/unit/governance/review-round3-artifacts.test.ts",
+        "test:smoke": "vitest run tests/unit/contracts/protocol.test.ts tests/unit/style/tokens.test.ts tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts",
+        "test:release": "vitest run tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts",
         "test:core": "vitest run",
         "verify:entry-format:chrome": "bash scripts/verify-extension-entry-format.sh chrome",
         "verify:entry-format:firefox": "bash scripts/verify-extension-entry-format.sh firefox"

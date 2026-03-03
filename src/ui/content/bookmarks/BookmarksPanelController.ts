@@ -75,6 +75,10 @@ export class BookmarksPanelController {
         this.adapter = adapter;
     }
 
+    getAdapter(): SiteAdapter {
+        return this.adapter;
+    }
+
     setTheme(theme: Theme): void {
         this.theme = theme;
         this.emit();

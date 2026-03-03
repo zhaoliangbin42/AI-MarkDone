@@ -65,6 +65,7 @@
 | Copy current page markdown | ReaderPanel `Copy` | `src/ui/content/reader/ReaderPanel.ts`, `src/drivers/content/clipboard/clipboard.ts` | integration test | Reader 页内容与 Copy pipeline 对齐（同一条消息输出一致）。 |
 | View Source | ReaderPanel toggle | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可查看源文本、可复制。 |
 | Configurable actions (per module reuse) | `ReaderPanel.show(..., { showNav/showCopy/showSource, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration (covered by TypeScript + existing reader test) | 同一 ReaderPanel 可被不同模块复用（如 Bookmarks 预览注入 GoTo），避免重复维护“预览框”。 |
+| Message sending (composer sync + send) | ReaderPanel `Send` → `sendText(adapter, text)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/sending/sendService.ts`, `src/drivers/content/sending/composerPort.ts`, `src/drivers/content/adapters/sites/chatgpt.ts`, `src/core/sending/contenteditable.ts` | `tests/unit/core/sending/*`, `tests/unit/drivers/content/sending/*`, `tests/integration/sending/*` | 多行文本换行保持一致；不会触发语音按钮；等待 send ready 后再点击发送。 |
 
 ---
 
@@ -153,7 +154,6 @@
 
 以下内容不作为本阶段验收目标：
 
-- Message sending（输入框同步/发送按钮模拟/完成检测）
 - i18n（语言选择/迁移/无 raw key）
 - Settings UI（当前仅 Core）
 - Save Messages UI entry（当前仅 Core）

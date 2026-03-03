@@ -759,6 +759,8 @@ export const bookOpenIcon = Icons.bookOpen;
 export const copyIcon = Icons.copy;
 export const fileCodeIcon = Icons.code;
 export const sigmaIcon = Icons.sigma;
+export const sendIcon = Icons.send;
+export const messageSquareTextIcon = Icons.messageSquareText;
 
 // Platform
 export const chatgptIcon = Icons.chatgpt;

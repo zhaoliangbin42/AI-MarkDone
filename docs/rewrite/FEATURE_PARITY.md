@@ -27,7 +27,7 @@
 - [x] 渲染链路（markdown/code/math/table 混排）
 - [x] Copy（从 Reader 复制 markdown）
 - [x] 可配置按钮/动作（用于复用到 Bookmarks 等模块）
-- [ ] Message sending（输入框同步/发送按钮模拟/完成检测）
+- [x] Message sending（输入框同步/发送按钮模拟/完成检测）
 
 ---
 

@@ -122,7 +122,7 @@ Secure, verified, and auto-updated.
 
 Contributions are welcome!
 
-If you are using LLMs for development, please refer to our [GEMINI.md](./GEMINI.md) for coding standards.
+If you are using LLMs for development, follow `.agent/rules/*` and `docs/README.md` as the source of truth.
 
 ```bash
 # Install dependencies

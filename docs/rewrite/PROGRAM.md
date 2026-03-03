@@ -27,7 +27,7 @@
 
 说明：
 
-- `docs/_legacy/**` 用于历史文档归档（已完成）；`archive/` 用于旧代码归档（即将开始）
+- `archive/` 用于旧代码归档（可追溯，但不作为未来规范/实现依据）
 - 归档后，新 `src/` 将按目标架构从零创建
 
 ### 2.2 重建
@@ -82,4 +82,3 @@
 - 重写 checklist：`docs/refactor/REFACTOR_CHECKLIST.md`
 - 测试蓝图：`docs/testing/TESTING_BLUEPRINT.md`
 - 样式系统：`docs/style/STYLE_SYSTEM.md`
-

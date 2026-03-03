@@ -284,35 +284,39 @@ export class MessageToolbar {
 :host {
   display: inline-flex;
   flex: 0 0 auto;
+  /* Material/Gmail-like state layers (scoped to this shadow root) */
+  --aimd-tb-hover: color-mix(in srgb, #000 6%, transparent);
+  --aimd-tb-pressed: color-mix(in srgb, #000 10%, transparent);
+  --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-primary) 82%, transparent);
+  --aimd-tb-outline: color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+}
+:host([data-aimd-theme="dark"]) {
+  --aimd-tb-hover: color-mix(in srgb, #fff 10%, transparent);
+  --aimd-tb-pressed: color-mix(in srgb, #fff 16%, transparent);
+  --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-primary) 26%, transparent);
+  --aimd-tb-outline: color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
 }
 :host([data-aimd-placement="actionbar"]) .wrap { margin-top: 0; justify-content: flex-start; }
 :host([data-aimd-placement="actionbar"]) .bar {
-  padding: 3px;
-  gap: 2px;
-  /* The host action bar row can clip shadows; keep it flat to avoid "cut shadow" artifacts. */
+  /* Embedded into ChatGPT's official action area: no extra surface/shadow. */
+  padding: 0;
+  gap: 4px;
   box-shadow: none;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #fff 10%, transparent), transparent 60%),
-    color-mix(in srgb, var(--aimd-bg-primary) 14%, transparent);
-  border-color: color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
+  background: transparent;
+  border: 0;
 }
-:host([data-aimd-theme="dark"][data-aimd-placement="actionbar"]) .bar {
-  /* Dark mode: avoid "sheen" lighting; keep a simple, embedded solid surface. */
-  background: color-mix(in srgb, var(--aimd-bg-primary) 18%, transparent);
-}
-:host([data-aimd-placement="actionbar"]) .icon-btn { width: 28px; height: 28px; border-radius: 8px; }
+:host([data-aimd-placement="actionbar"]) .icon-btn { width: 32px; height: 32px; border-radius: 10px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
 :host([data-aimd-placement="actionbar"]) .note { display: none !important; }
 :host([data-aimd-placement="actionbar"]) .status {
   position: absolute;
   right: 6px;
   bottom: calc(100% + 8px);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 28%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 18%, var(--aimd-border-default) 82%);
-  box-shadow: 0 10px 30px color-mix(in srgb, #000 18%, transparent);
+  background: var(--aimd-tb-surface);
+  border: 1px solid var(--aimd-tb-outline);
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 20%, transparent);
   white-space: nowrap;
 }
-:host([data-aimd-placement="actionbar"]) .bar::before { opacity: 0.38; }
 :host([data-aimd-placement="content"]) .wrap {
   margin-top: var(--aimd-space-2);
 }
@@ -324,39 +328,19 @@ export class MessageToolbar {
 .bar {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  /* Embedded look: no outer drop shadow (avoids host clipping, matches ChatGPT native action row feel). */
-  background: color-mix(in srgb, var(--aimd-bg-primary) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 45%, transparent);
+  background: var(--aimd-tb-surface);
+  border: 1px solid var(--aimd-tb-outline);
   color: var(--aimd-text-primary);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   position: relative;
-  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition: background 150ms ease, border-color 150ms ease;
 }
 .bar:hover {
-  transform: none;
-  background: color-mix(in srgb, var(--aimd-interactive-highlight) 16%, transparent);
+  background: color-mix(in srgb, var(--aimd-tb-surface) 92%, var(--aimd-tb-hover) 8%);
 }
-:host([data-aimd-placement="actionbar"]) .bar:hover { transform: none; }
-.bar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  pointer-events: none;
-  background:
-    radial-gradient(140% 90% at 20% 10%, color-mix(in srgb, #fff 22%, transparent) 0%, transparent 60%),
-    radial-gradient(90% 80% at 80% 120%, color-mix(in srgb, #fff 10%, transparent) 0%, transparent 55%);
-  mix-blend-mode: overlay;
-  opacity: 0.18;
-  transition: opacity 180ms ease;
-}
-.bar:hover::before { opacity: 0.24; }
-:host([data-aimd-placement="actionbar"]) .bar:hover::before { opacity: 0.38; }
-:host([data-aimd-theme="dark"]) .bar::before { opacity: 0; }
-:host([data-aimd-theme="dark"]) .bar:hover::before { opacity: 0; }
 
 .group { display: inline-flex; align-items: center; gap: 2px; }
 .sep {
@@ -395,34 +379,27 @@ export class MessageToolbar {
   transition: background 150ms ease, transform 120ms ease, box-shadow 150ms ease;
 }
 .icon-btn:hover {
-  /* Higher-contrast hover state (more visible on ChatGPT surfaces) */
-  background: color-mix(in srgb, var(--aimd-interactive-highlight) 34%, transparent);
+  background: var(--aimd-tb-hover);
   box-shadow: none;
 }
-.icon-btn:active { transform: scale(0.96); }
+.icon-btn:active {
+  transform: none;
+  background: var(--aimd-tb-pressed);
+}
 .icon-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
 .icon-btn[data-flash="1"] {
   /* Momentary feedback without looking like "active" state */
-  background: color-mix(in srgb, var(--aimd-interactive-highlight) 40%, transparent);
+  background: color-mix(in srgb, var(--aimd-tb-hover) 70%, transparent);
 }
 
 .icon-btn svg { width: 16px; height: 16px; display: block; }
 
-.icon-btn[data-active="1"] {
-  background: color-mix(in srgb, var(--aimd-interactive-highlight) 92%, transparent);
-  box-shadow: none;
-}
 .icon-btn.primary {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--aimd-interactive-primary) 96%, transparent), color-mix(in srgb, var(--aimd-interactive-primary-hover) 92%, transparent));
+  background: var(--aimd-interactive-primary);
   color: var(--aimd-text-on-primary);
   box-shadow: none;
 }
-.icon-btn.primary:hover { background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 95%, transparent); }
-:host([data-aimd-theme="dark"]) .icon-btn.primary {
-  /* Dark mode: keep primary button flat (no gradient sheen). */
-  background: var(--aimd-interactive-primary);
-}
-:host([data-aimd-theme="dark"]) .icon-btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
+.icon-btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
 .icon-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .note { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
 .status {
@@ -461,14 +438,6 @@ export class MessageToolbar {
 .menu-item:hover {
   background: color-mix(in srgb, var(--aimd-bg-primary) 46%, transparent);
   border-color: color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
-}
-
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .bar,
-  .menu {
-    backdrop-filter: blur(14px) saturate(170%);
-    -webkit-backdrop-filter: blur(14px) saturate(170%);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

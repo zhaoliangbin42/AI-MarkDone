@@ -12,10 +12,11 @@ import { exportConversationMarkdown, exportConversationPdf } from '../../../serv
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel } from '../reader/ReaderPanel';
+import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
 import type { TranslateFn } from '../../../services/export/saveMessagesTypes';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon, sendIcon } from '../../../assets/icons';
 
 type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean; position: number };
 
@@ -43,6 +44,7 @@ export class MessageToolbarOrchestrator {
     private unsubscribeLocale: (() => void) | null = null;
     private observedContainer: HTMLElement | null = null;
     private readerPanel: ReaderPanel;
+    private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
@@ -52,9 +54,39 @@ export class MessageToolbarOrchestrator {
         return t(key, String(args));
     };
 
-    constructor(adapter: SiteAdapter, opts: { readerPanel: ReaderPanel; bookmarksController?: BookmarksPanelController; onMessageInjected?: (messageElement: HTMLElement) => void }) {
+    private getReaderActions(): Array<{ id: string; label: string; icon?: string; kind?: 'default' | 'primary' | 'danger'; placement?: 'header' | 'footer_left'; toggle?: boolean; onClick: any }> {
+        if (!this.sendController) return [];
+        return [
+            {
+                id: 'send',
+                label: t('send'),
+                icon: sendIcon,
+                kind: 'primary',
+                placement: 'footer_left',
+                toggle: true,
+                onClick: (ctx: any) => {
+                    const shadow = ctx?.shadow as ShadowRoot | undefined;
+                    const anchorBtn = ctx?.anchorEl as HTMLElement | undefined;
+                    if (!shadow || !anchorBtn) return;
+                    const anchorWrap = anchorBtn.closest?.('[data-role="footer_left_actions"]') as HTMLElement | null;
+                    this.sendController?.togglePopover({ adapter: this.adapter, shadow, anchor: anchorWrap || anchorBtn });
+                },
+            },
+        ];
+    }
+
+    constructor(
+        adapter: SiteAdapter,
+        opts: {
+            readerPanel: ReaderPanel;
+            sendController?: SendController;
+            bookmarksController?: BookmarksPanelController;
+            onMessageInjected?: (messageElement: HTMLElement) => void;
+        }
+    ) {
         this.adapter = adapter;
         this.readerPanel = opts.readerPanel;
+        this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
@@ -231,9 +263,9 @@ export class MessageToolbarOrchestrator {
                 icon: fileCodeIcon,
                 kind: 'secondary',
                 disabledWhenPending: true,
-                onClick: async () => {
+                    onClick: async () => {
                     const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
-                    await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'source' });
+                    await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'source', actions: this.getReaderActions() as any });
                 },
             });
         }
@@ -247,7 +279,7 @@ export class MessageToolbarOrchestrator {
             disabledWhenPending: true,
             onClick: async () => {
                 const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
-                await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'render' });
+                await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'render', actions: this.getReaderActions() as any });
             },
         });
 
@@ -497,7 +529,9 @@ export class MessageToolbarOrchestrator {
     private refreshWordCountForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, pending: boolean): void {
         if (!this.behavior.showWordCount) return;
         if (pending) {
-            toolbar.setStats(['Streaming…']);
+            // Avoid duplicating the streaming note ("Streaming…") in both the stats area and the note field.
+            // During pending/streaming, keep the stats area quiet and recompute once stable.
+            toolbar.setStats([]);
             return;
         }
 

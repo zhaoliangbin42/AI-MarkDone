@@ -139,4 +139,35 @@ export abstract class SiteAdapter {
      * If a Deep Research panel is open, return its content root for parsing.
      */
     getDeepResearchContent?(): HTMLElement | null;
+
+    // =========================
+    // Message sending (composer)
+    // =========================
+
+    /**
+     * Return the platform's native composer input element.
+     *
+     * Notes:
+     * - Prefer the "real" editor element (e.g. contenteditable ProseMirror root) when present.
+     * - Must return a stable element for DOM-based message sending.
+     */
+    getComposerInputElement?(): HTMLElement | HTMLTextAreaElement | HTMLInputElement | null;
+
+    /**
+     * Return the platform's native "send" button element.
+     *
+     * This may represent a multi-state button (e.g. voice when empty, send when text present).
+     */
+    getComposerSendButtonElement?(): HTMLElement | null;
+
+    /**
+     * Optional: best-effort "streaming in progress" signal at the composer level.
+     */
+    isComposerStreaming?(): boolean;
+
+    /**
+     * Optional: declare the composer kind for this platform.
+     * If omitted, the sending driver will derive it from the returned element.
+     */
+    getComposerKind?(): 'textarea' | 'contenteditable' | 'unknown';
 }

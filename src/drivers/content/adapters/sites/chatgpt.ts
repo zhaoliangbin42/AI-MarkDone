@@ -123,13 +123,14 @@ export class ChatGPTAdapter extends SiteAdapter {
                         toolbarHost.dataset.aimdPlacement = 'actionbar';
                         toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
                         toolbarHost.style.pointerEvents = 'auto';
-                        // Keep our toolbar on the same row but pushed to the far right (legacy positioning).
-                        // `margin-left: auto` works with flex layouts and avoids reflowing the official group.
-                        toolbarHost.style.marginLeft = 'auto';
+                        toolbarHost.style.marginLeft = '0';
                         toolbarHost.style.marginRight = '0';
 
-                        // Place to the right of the official button group (legacy position expectation).
+                        // Keep our toolbar on the same row and right-aligned as part of the official action area.
+                        // ChatGPT action row uses `justify-end`; inserting *before* the official group keeps the whole
+                        // cluster aligned right, while ensuring the official buttons remain the rightmost items.
                         if (row && group && group.parentElement === row) {
+                            // Place to the right of the official group (legacy expectation).
                             row.insertBefore(toolbarHost, group.nextSibling);
                         } else {
                             targetRow.insertBefore(toolbarHost, actionBarAnchor);
@@ -202,6 +203,42 @@ export class ChatGPTAdapter extends SiteAdapter {
             if (container instanceof HTMLElement) return container;
         }
         return null;
+    }
+
+    // =========================
+    // Composer (message sending)
+    // =========================
+
+    getComposerKind(): 'textarea' | 'contenteditable' | 'unknown' {
+        return 'contenteditable';
+    }
+
+    getComposerInputElement(): HTMLElement | HTMLTextAreaElement | HTMLInputElement | null {
+        // Prefer the real ProseMirror editor root (textarea is often hidden and not the source of truth).
+        const editable = document.querySelector('#prompt-textarea.ProseMirror[contenteditable="true"]');
+        if (editable instanceof HTMLElement) return editable;
+
+        const fallbackEditable = document.querySelector('[contenteditable="true"]#prompt-textarea');
+        if (fallbackEditable instanceof HTMLElement) return fallbackEditable;
+
+        const textarea = document.querySelector('textarea[name="prompt-textarea"]');
+        if (textarea instanceof HTMLTextAreaElement) return textarea;
+
+        return null;
+    }
+
+    getComposerSendButtonElement(): HTMLElement | null {
+        // Only return the explicit send button when present.
+        // Why: the composer submit control can be multi-state (voice/dictate vs send).
+        // Our sending driver prefers semantic form submission (requestSubmit) and uses this only as a fallback.
+        const btn = document.querySelector('button[data-testid="send-button"]');
+        return btn instanceof HTMLElement ? btn : null;
+    }
+
+    isComposerStreaming(): boolean {
+        // Best-effort: if Stop button exists, streaming is likely in progress.
+        const stopButton = document.querySelector('button[aria-label*="Stop"], button[aria-label*="停止"]');
+        return !!stopButton;
     }
 
     isNoiseNode(node: Node, context: NoiseContext): boolean {
