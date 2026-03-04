@@ -1,8 +1,9 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
-import { collectConversationMessageRefs } from '../../drivers/content/conversation/collectConversationMessageRefs';
+import { collectConversationTurnRefs } from '../../drivers/content/conversation/collectConversationTurnRefs';
+import { buildConversationMetadata } from '../../drivers/content/conversation/metadata';
 import { downloadText } from '../../drivers/content/export/downloadFile';
 import { printPdf } from '../../drivers/content/export/printPdf';
-import { copyMarkdownFromMessage } from '../copy/copy-markdown';
+import { copyMarkdownFromTurn } from '../copy/copy-turn-markdown';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import { buildMarkdownExport } from './saveMessagesMarkdown';
 import { buildPdfPrintPlan } from './saveMessagesPdf';
@@ -13,51 +14,14 @@ export type ExportOptions = {
     t: TranslateFn;
 };
 
-function platformNameFromId(id: string): string {
-    switch (id) {
-        case 'chatgpt':
-            return 'ChatGPT';
-        case 'gemini':
-            return 'Gemini';
-        case 'claude':
-            return 'Claude';
-        case 'deepseek':
-            return 'DeepSeek';
-        default:
-            return 'Unknown';
-    }
-}
-
-function getConversationTitle(): string {
-    let title = document.querySelector('title')?.textContent?.trim() || 'Conversation';
-    title = title
-        .replace(' - ChatGPT', '')
-        .replace(' - Claude', '')
-        .replace(' - Gemini', '')
-        .replace(' - DeepSeek', '')
-        .trim();
-    if (title.length > 100) title = `${title.substring(0, 100)}...`;
-    if (!title) title = 'Conversation';
-    return title;
-}
-
-function getConversationMetadata(adapter: SiteAdapter, count: number): ConversationMetadata {
-    return {
-        url: window.location.href,
-        exportedAt: new Date().toISOString(),
-        title: getConversationTitle(),
-        count,
-        platform: platformNameFromId(adapter.getPlatformId()),
-    };
-}
-
 function buildTurns(adapter: SiteAdapter): ChatTurn[] {
-    const refs = collectConversationMessageRefs(adapter);
+    const refs = collectConversationTurnRefs(adapter);
     return refs.map((ref) => {
-        const res = copyMarkdownFromMessage(adapter, ref.messageEl);
+        const md = copyMarkdownFromTurn(adapter, ref.messageEls);
+        const assistant = md.ok ? md.markdown : '';
         return {
             user: ref.userPrompt,
-            assistant: res.ok ? res.markdown : '',
+            assistant,
             index: ref.index,
         };
     });
@@ -65,7 +29,7 @@ function buildTurns(adapter: SiteAdapter): ChatTurn[] {
 
 export function collectConversationTurns(adapter: SiteAdapter): { turns: ChatTurn[]; metadata: ConversationMetadata } {
     const turns = buildTurns(adapter);
-    const metadata = getConversationMetadata(adapter, turns.length);
+    const metadata = buildConversationMetadata(adapter, turns.length) as ConversationMetadata;
     return { turns, metadata };
 }
 

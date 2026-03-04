@@ -1,7 +1,7 @@
 import type { AppSettings, FoldingMode } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
 import type { SettingsCategory } from '../../../../../contracts/protocol';
-import { settingsRemoteApi } from '../../../../../services/settings/remoteApi';
+import { settingsClientRpc } from '../../../../../drivers/shared/clients/settingsClientRpc';
 import type { ModalHost } from '../../../components/ModalHost';
 import { t } from '../../../components/i18n';
 import { Icons } from '../../../../../assets/icons';
@@ -163,7 +163,7 @@ export class SettingsTabView {
         };
 
         this.writeCategoryDebounced = debounce((category, value) => {
-            void settingsRemoteApi.setCategory(category, value);
+            void settingsClientRpc.setCategory(category, value);
         }, 320);
 
         this.bindHandlers();
@@ -175,7 +175,7 @@ export class SettingsTabView {
     }
 
     async refresh(): Promise<void> {
-        const res = await settingsRemoteApi.getAll();
+        const res = await settingsClientRpc.getAll();
         if (!res.ok) return;
         const next = res.data.settings as AppSettings | null;
         if (!next) return;

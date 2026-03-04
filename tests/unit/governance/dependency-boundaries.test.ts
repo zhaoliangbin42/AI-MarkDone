@@ -52,9 +52,14 @@ function isForbiddenDriverImport(spec: string): boolean {
 
 function isForbiddenServiceImport(spec: string): boolean {
     if (spec.startsWith('@/ui')) return true;
+    if (spec.startsWith('@/drivers/shared/rpc')) return true;
+    if (spec.startsWith('@/drivers/shared/clients')) return true;
     if (spec.startsWith('./') || spec.startsWith('../')) {
         const parts = spec.split('/').filter(Boolean);
         if (parts.includes('ui')) return true;
+        const joined = parts.join('/');
+        if (joined.includes('drivers/shared/rpc')) return true;
+        if (joined.includes('drivers/shared/clients')) return true;
     }
     return false;
 }
@@ -92,4 +97,3 @@ describe('Dependency boundaries (UI / Service / Driver)', () => {
         expect(violations, violations.join('\n')).toEqual([]);
     });
 });
-

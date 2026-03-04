@@ -52,9 +52,29 @@ describe('collectConversationMessageRefs', () => {
         expect(refs).toHaveLength(2);
         expect(refs[0]?.index).toBe(0);
         expect(refs[0]?.userPrompt).toBe('p1');
+        expect(refs[0]?.messageEls).toHaveLength(1);
         expect(refs[1]?.index).toBe(1);
         expect(refs[1]?.userPrompt).toBe('p2');
+        expect(refs[1]?.messageEls).toHaveLength(1);
         expect(refs.map((r) => r.messageId)).toEqual(['a1', 'a2']);
     });
-});
 
+    it('groups multiple assistant segments under the same conversation turn', () => {
+        document.body.innerHTML = `
+          <div id="container">
+            <div data-testid="conversation-turn-2">
+              <div class="assistant" data-id="a1" data-prompt="p1"></div>
+              <div class="assistant" data-id="a2" data-prompt="p1"></div>
+            </div>
+          </div>
+        `;
+
+        const adapter = new TestAdapter();
+        const refs = collectConversationMessageRefs(adapter);
+
+        expect(refs).toHaveLength(1);
+        expect(refs[0]?.userPrompt).toBe('p1');
+        expect(refs[0]?.messageEls).toHaveLength(2);
+        expect(refs[0]?.messageId).toBe('a2');
+    });
+});

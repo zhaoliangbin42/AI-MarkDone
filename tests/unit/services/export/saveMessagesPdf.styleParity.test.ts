@@ -31,6 +31,7 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(html).toContain('class="message-section"');
         expect(html).toContain('break-before: page');
         expect(html).toContain('@media print');
+        expect(html).toContain('--aimd-text-primary: #000000');
         expect(html).toContain('katex-styles-bundled');
         expect(html).toContain('class="markdown-body"');
         expect(html).toContain('中文用户');

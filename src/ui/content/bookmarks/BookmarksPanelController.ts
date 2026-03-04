@@ -2,11 +2,12 @@ import type { Theme } from '../../../core/types/theme';
 import type { Bookmark, Folder, BookmarksSortMode } from '../../../core/bookmarks/types';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { PathUtils } from '../../../core/bookmarks/path';
-import { bookmarksRemoteApi } from '../../../services/bookmarks/remoteApi';
-import type { Result } from '../../../services/bookmarks/remoteApi';
+import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
+import type { Result } from '../../../drivers/shared/clients/bookmarksClient';
 import { computeBookmarksPanelViewModel, type BookmarksPanelState, type BookmarksPanelViewModel } from '../../../services/bookmarks/panelModel';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
-import { isSamePageUrl, scrollToAssistantPositionWithRetry, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
+import { isSamePageUrl, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
+import { scrollToConversationTargetWithRetry } from '../../../drivers/content/conversation/navigation';
 
 export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
 
@@ -128,8 +129,8 @@ export class BookmarksPanelController {
         const seq = ++this.refreshSeq;
         this.setStatus('Loading…');
         const [listRes, foldersRes] = await Promise.all([
-            bookmarksRemoteApi.list({ sortMode: this.state.sortMode }),
-            bookmarksRemoteApi.foldersList(),
+            bookmarksClient.list({ sortMode: this.state.sortMode }),
+            bookmarksClient.foldersList(),
         ]);
         if (seq !== this.refreshSeq) return;
 
@@ -154,7 +155,7 @@ export class BookmarksPanelController {
 
     async refreshPositionsForUrl(url: string): Promise<void> {
         this.positionsUrl = url;
-        const res = await bookmarksRemoteApi.positions({ url });
+        const res = await bookmarksClient.positions({ url });
         if (res.ok) {
             this.positionsForCurrentUrl = new Set(res.data.positions);
         } else {
@@ -256,7 +257,7 @@ export class BookmarksPanelController {
     }
 
     async deleteBookmark(bookmark: Bookmark): Promise<void> {
-        const res = await bookmarksRemoteApi.remove({ url: bookmark.url, position: bookmark.position });
+        const res = await bookmarksClient.remove({ url: bookmark.url, position: bookmark.position });
         if (!res.ok) {
             this.setStatus(res.message);
             return;
@@ -269,54 +270,54 @@ export class BookmarksPanelController {
     }
 
     async exportAll(preserveStructure: boolean): Promise<Result<{ payload: any }>> {
-        return bookmarksRemoteApi.exportAll({ preserveStructure });
+        return bookmarksClient.exportAll({ preserveStructure });
     }
 
     async exportSelected(preserveStructure: boolean): Promise<Result<{ payload: any }>> {
         const items = this.getSelectedBookmarkItems();
-        return bookmarksRemoteApi.exportSelected({ items, preserveStructure });
+        return bookmarksClient.exportSelected({ items, preserveStructure });
     }
 
     async importJsonText(jsonText: string, saveContextOnly: boolean): Promise<Result<any>> {
-        const res = await bookmarksRemoteApi.import({ jsonText, options: { saveContextOnly } });
+        const res = await bookmarksClient.import({ jsonText, options: { saveContextOnly } });
         if (res.ok) await this.refreshAll();
         return res;
     }
 
     async repair(): Promise<Result<any>> {
-        const res = await bookmarksRemoteApi.repair();
+        const res = await bookmarksClient.repair();
         if (res.ok) await this.refreshAll();
         return res;
     }
 
     async createFolder(path: string): Promise<Result<any>> {
         const normalized = PathUtils.normalize(path);
-        const res = await bookmarksRemoteApi.foldersCreate({ path: normalized });
+        const res = await bookmarksClient.foldersCreate({ path: normalized });
         if (res.ok) await this.refreshAll();
         return res;
     }
 
     async renameFolder(oldPath: string, newName: string): Promise<Result<any>> {
-        const res = await bookmarksRemoteApi.foldersRename({ oldPath, newName });
+        const res = await bookmarksClient.foldersRename({ oldPath, newName });
         if (res.ok) await this.refreshAll();
         return res;
     }
 
     async moveFolder(sourcePath: string, targetParentPath: string): Promise<Result<any>> {
-        const res = await bookmarksRemoteApi.foldersMove({ sourcePath, targetParentPath });
+        const res = await bookmarksClient.foldersMove({ sourcePath, targetParentPath });
         if (res.ok) await this.refreshAll();
         return res;
     }
 
     async deleteFolder(path: string): Promise<Result<any>> {
-        const res = await bookmarksRemoteApi.foldersDelete({ path });
+        const res = await bookmarksClient.foldersDelete({ path });
         if (res.ok) await this.refreshAll();
         return res;
     }
 
     async batchDelete(): Promise<Result<any>> {
         const items = this.getSelectedBookmarkItems();
-        const res = await bookmarksRemoteApi.bulkRemove({ items });
+        const res = await bookmarksClient.bulkRemove({ items });
         if (res.ok) {
             await this.refreshAll();
             this.clearSelection();
@@ -326,7 +327,7 @@ export class BookmarksPanelController {
 
     async batchMove(targetFolderPath: string): Promise<Result<any>> {
         const items = this.getSelectedBookmarkItems();
-        const res = await bookmarksRemoteApi.bulkMove({ items, targetFolderPath });
+        const res = await bookmarksClient.bulkMove({ items, targetFolderPath });
         if (res.ok) {
             await this.refreshAll();
             this.clearSelection();
@@ -339,7 +340,11 @@ export class BookmarksPanelController {
         const target = bookmark.url;
         if (isSamePageUrl(current, target)) {
             this.setStatus('Navigating…');
-            await scrollToAssistantPositionWithRetry(this.adapter, bookmark.position, { timeoutMs: 2000, intervalMs: 200 });
+            await scrollToConversationTargetWithRetry(
+                this.adapter,
+                { kind: 'legacyAssistantPosition', position: bookmark.position },
+                { timeoutMs: 2000, intervalMs: 200 }
+            );
             return;
         }
         setPendingNavigation({ url: target, position: bookmark.position });
@@ -409,14 +414,14 @@ export class BookmarksPanelController {
     }): Promise<Result<{ saved: boolean }>> {
         const isBookmarked = this.isPositionBookmarked(params.url, params.position);
         if (isBookmarked) {
-            const res = await bookmarksRemoteApi.remove({ url: params.url, position: params.position });
+            const res = await bookmarksClient.remove({ url: params.url, position: params.position });
             if (!res.ok) return res;
             this.positionsForCurrentUrl.delete(params.position);
             this.emit();
             return { ok: true, data: { saved: false } };
         }
 
-        const res = await bookmarksRemoteApi.save({
+        const res = await bookmarksClient.save({
             url: params.url,
             position: params.position,
             userMessage: params.userMessage,
