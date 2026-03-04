@@ -10,11 +10,11 @@ import type {
     BookmarksSavePayload,
     ExtRequest,
     ProtocolErrorCode,
-} from '../../contracts/protocol';
-import { createRequestId, PROTOCOL_VERSION } from '../../contracts/protocol';
-import { sendExtRequest } from '../../drivers/shared/rpc';
-import type { BookmarksSortMode, FolderCreatePayload, FolderDeletePayload, FolderMovePayload, FolderRenamePayload } from '../../contracts/protocol';
-import type { Bookmark, Folder } from '../../core/bookmarks/types';
+} from '../../../contracts/protocol';
+import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
+import { sendExtRequest } from '../rpc';
+import type { BookmarksSortMode, FolderCreatePayload, FolderDeletePayload, FolderMovePayload, FolderRenamePayload } from '../../../contracts/protocol';
+import type { Bookmark, Folder } from '../../../core/bookmarks/types';
 
 export type Result<T> = { ok: true; data: T } | { ok: false; errorCode: ProtocolErrorCode; message: string };
 
@@ -27,9 +27,10 @@ function toResult<T>(res: any): Result<T> {
 }
 
 async function call<T extends ExtRequest['type']>(type: T, payload?: any): Promise<Result<any>> {
-    const req: ExtRequest = payload === undefined
-        ? { v: PROTOCOL_VERSION, id: createRequestId(), type } as any
-        : { v: PROTOCOL_VERSION, id: createRequestId(), type, payload } as any;
+    const req: ExtRequest =
+        payload === undefined
+            ? ({ v: PROTOCOL_VERSION, id: createRequestId(), type } as any)
+            : ({ v: PROTOCOL_VERSION, id: createRequestId(), type, payload } as any);
     const res = await sendExtRequest(req as any);
     return toResult(res as any);
 }
@@ -44,7 +45,7 @@ export type BulkMoveResponse = { moved: number; missing: number };
 export type ExportResponse = { payload: any };
 export type RepairResponse = { stats: any };
 
-export const bookmarksRemoteApi = {
+export const bookmarksClient = {
     async list(payload?: BookmarksListPayload): Promise<Result<ListResponse>> {
         return call('bookmarks:list', payload);
     },
@@ -94,4 +95,3 @@ export const bookmarksRemoteApi = {
         return { sortMode: 'time-desc', platform: 'All' };
     },
 };
-

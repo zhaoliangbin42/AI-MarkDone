@@ -6,9 +6,16 @@ vi.mock('../../../../src/drivers/content/export/downloadFile', () => ({
 vi.mock('../../../../src/drivers/content/export/printPdf', () => ({
     printPdf: vi.fn(),
 }));
-vi.mock('../../../../src/drivers/content/conversation/collectConversationMessageRefs', () => ({
-    collectConversationMessageRefs: vi.fn(() => [
-        { index: 0, messageEl: document.createElement('div'), userPrompt: 'u1', messageId: 'm1' },
+vi.mock('../../../../src/drivers/content/conversation/collectConversationTurnRefs', () => ({
+    collectConversationTurnRefs: vi.fn(() => [
+        {
+            index: 0,
+            primaryMessageEl: document.createElement('div'),
+            messageEls: [document.createElement('div')],
+            userPrompt: 'u1',
+            messageId: 'm1',
+            turnRootEl: document.createElement('div'),
+        },
     ]),
 }));
 vi.mock('../../../../src/services/copy/copy-markdown', () => ({
@@ -48,4 +55,3 @@ describe('exportConversationMarkdown', () => {
         expect(arg.content).toContain('MD');
     });
 });
-

@@ -7,6 +7,8 @@ import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler';
 import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
+import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
+import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { collectReaderItems } from '../../../services/reader/collectReaderItems';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
@@ -48,6 +50,44 @@ export class MessageToolbarOrchestrator {
     private bookmarksController: BookmarksPanelController | null = null;
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
+    private turnRefs: ConversationTurnRef[] = [];
+    private turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+
+    private rebuildTurnIndex(): void {
+        try {
+            const turns = collectConversationTurnRefs(this.adapter);
+            this.turnRefs = turns;
+            this.turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+            for (const turn of turns) {
+                for (const el of turn.messageEls) this.turnRefBySegment.set(el, turn);
+            }
+        } catch {
+            this.turnRefs = [];
+            this.turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+        }
+    }
+
+    private getTurnRefForElement(messageElement: HTMLElement): ConversationTurnRef | null {
+        const direct = this.turnRefBySegment.get(messageElement);
+        if (direct) return direct;
+        for (const turn of this.turnRefs) {
+            for (const el of turn.messageEls) {
+                if (el === messageElement || el.contains(messageElement) || messageElement.contains(el)) return turn;
+            }
+        }
+        return null;
+    }
+
+    private getMergedMarkdownForElement(messageElement: HTMLElement): ReturnType<typeof copyMarkdownFromMessage> {
+        const turn = this.getTurnRefForElement(messageElement);
+        if (!turn) return copyMarkdownFromMessage(this.adapter, messageElement);
+        return copyMarkdownFromTurn(this.adapter, turn.messageEls);
+    }
+
+    private getUserPromptForElement(messageElement: HTMLElement): string {
+        const turn = this.getTurnRefForElement(messageElement);
+        return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
+    }
     private getReaderActions(): Array<{ id: string; label: string; icon?: string; kind?: 'default' | 'primary' | 'danger'; placement?: 'header' | 'footer_left'; toggle?: boolean; onClick: any }> {
         if (!this.sendController) return [];
         return [
@@ -208,10 +248,10 @@ export class MessageToolbarOrchestrator {
 
                     if (!position) return { ok: false, message: 'Position not available' };
 
-                    const userMessage = this.adapter.extractUserPrompt(messageElement) ?? '';
+                    const userMessage = this.getUserPromptForElement(messageElement);
                     if (!userMessage.trim()) return { ok: false, message: 'No user prompt found' };
 
-                    const md = copyMarkdownFromMessage(this.adapter, messageElement);
+                    const md = this.getMergedMarkdownForElement(messageElement);
                     if (!md.ok) return { ok: false, message: md.error.message };
 
                     const title = userMessage.length > 50 ? `${userMessage.slice(0, 50)}...` : userMessage;
@@ -241,12 +281,12 @@ export class MessageToolbarOrchestrator {
             icon: copyIcon,
             kind: 'secondary',
             disabledWhenPending: true,
-            onClick: async () => {
-                const res = copyMarkdownFromMessage(this.adapter, messageElement);
-                if (!res.ok) return { ok: false, message: res.error.message };
-                const ok = await copyTextToClipboard(res.markdown);
-                return ok ? { ok: true, message: 'Copied' } : { ok: false, message: 'Clipboard write failed.' };
-            },
+                onClick: async () => {
+                    const res = this.getMergedMarkdownForElement(messageElement);
+                    if (!res.ok) return { ok: false, message: res.error.message };
+                    const ok = await copyTextToClipboard(res.markdown);
+                    return ok ? { ok: true, message: 'Copied' } : { ok: false, message: 'Clipboard write failed.' };
+                },
         });
 
         if (this.behavior.showViewSource) {
@@ -258,7 +298,7 @@ export class MessageToolbarOrchestrator {
                 kind: 'secondary',
                 disabledWhenPending: true,
                 onClick: async () => {
-                    const res = copyMarkdownFromMessage(this.adapter, messageElement);
+                    const res = this.getMergedMarkdownForElement(messageElement);
                     if (!res.ok) return { ok: false, message: res.error.message };
                     sourcePanel.show({ theme: this.theme, title: t('modalSourceTitle'), content: res.markdown });
                 },
@@ -312,6 +352,7 @@ export class MessageToolbarOrchestrator {
     }
 
     private scanAndInject(): void {
+        this.rebuildTurnIndex();
         const selector = this.adapter.getMessageSelector();
         const container = this.adapter.getObserverContainer() || document.body;
         const nodes = discoverMessageElements(container, selector);
@@ -423,6 +464,8 @@ export class MessageToolbarOrchestrator {
     }
 
     private refreshPendingStates(): void {
+        // Keep the turn index reasonably fresh for stats/actions without rebuilding per-click.
+        if (this.turnRefs.length === 0) this.rebuildTurnIndex();
         // Anchor-keyed records
         for (const anchor of Array.from(this.anchorKeys)) {
             const record = this.recordsByAnchor.get(anchor);
@@ -512,7 +555,7 @@ export class MessageToolbarOrchestrator {
 
         // Legacy-like: compute when content is stable; if empty, retry a few times.
         const tryCompute = (attempt: number) => {
-            const md = copyMarkdownFromMessage(this.adapter, messageElement);
+            const md = this.getMergedMarkdownForElement(messageElement);
             if (!md.ok) {
                 toolbar.setStats(['—']);
                 return;

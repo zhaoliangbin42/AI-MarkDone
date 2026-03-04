@@ -1,6 +1,6 @@
-import type { ExtRequest, ProtocolErrorCode, SettingsCategory } from '../../contracts/protocol';
-import { createRequestId, PROTOCOL_VERSION } from '../../contracts/protocol';
-import { sendExtRequest } from '../../drivers/shared/rpc';
+import type { ExtRequest, ProtocolErrorCode, SettingsCategory } from '../../../contracts/protocol';
+import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
+import { sendExtRequest } from '../rpc';
 
 export type Result<T> = { ok: true; data: T } | { ok: false; errorCode: ProtocolErrorCode; message: string };
 
@@ -13,14 +13,15 @@ function toResult<T>(res: any): Result<T> {
 }
 
 async function call<T extends ExtRequest['type']>(type: T, payload?: any): Promise<Result<any>> {
-    const req: ExtRequest = payload === undefined
-        ? ({ v: PROTOCOL_VERSION, id: createRequestId(), type } as any)
-        : ({ v: PROTOCOL_VERSION, id: createRequestId(), type, payload } as any);
+    const req: ExtRequest =
+        payload === undefined
+            ? ({ v: PROTOCOL_VERSION, id: createRequestId(), type } as any)
+            : ({ v: PROTOCOL_VERSION, id: createRequestId(), type, payload } as any);
     const res = await sendExtRequest(req as any);
     return toResult(res as any);
 }
 
-export const settingsRemoteApi = {
+export const settingsClientRpc = {
     async getAll(): Promise<Result<{ settings: unknown }>> {
         return call('settings:getAll');
     },

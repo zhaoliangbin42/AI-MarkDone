@@ -1,6 +1,8 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
 import type { ReaderItem } from './types';
 import { copyMarkdownFromMessage } from '../copy/copy-markdown';
+import { collectConversationTurnRefs } from '../../drivers/content/conversation/collectConversationTurnRefs';
+import { copyMarkdownFromTurn } from '../copy/copy-turn-markdown';
 
 export type CollectReaderItemsResult = {
     items: ReaderItem[];
@@ -17,33 +19,29 @@ function defaultGetMarkdown(adapter: SiteAdapter, messageElement: HTMLElement): 
 export function collectReaderItems(
     adapter: SiteAdapter,
     startMessageElement: HTMLElement,
-    getMarkdown: GetMarkdownFn = (el) => defaultGetMarkdown(adapter, el)
+    getMarkdown?: GetMarkdownFn
 ): CollectReaderItemsResult {
-    const selector = adapter.getMessageSelector();
-    const container = adapter.getObserverContainer() || document.body;
-    const raw = Array.from(container.querySelectorAll(selector)).filter(
-        (n): n is HTMLElement => n instanceof HTMLElement
+    const turns = collectConversationTurnRefs(adapter);
+    const getMarkdownForEl: GetMarkdownFn = getMarkdown ?? ((el) => defaultGetMarkdown(adapter, el));
+
+    const startIndexRaw = turns.findIndex((t) =>
+        t.messageEls.some((el) => el === startMessageElement || el.contains(startMessageElement) || startMessageElement.contains(el))
     );
-    const messages = Array.from(new Set(raw)).filter((el) => {
-        const parent = el.parentElement;
-        if (!parent) return true;
-        try {
-            return parent.closest(selector) === null;
-        } catch {
-            return true;
-        }
-    });
+    const startIndex = startIndexRaw >= 0 ? startIndexRaw : Math.max(0, turns.length - 1);
 
-    const startIndexRaw = messages.findIndex((m) => m === startMessageElement || m.contains(startMessageElement));
-    const startIndex = startIndexRaw >= 0 ? startIndexRaw : Math.max(0, messages.length - 1);
-
-    const items: ReaderItem[] = messages.map((messageElement, index) => {
-        const prompt = adapter.extractUserPrompt(messageElement) || `Message ${index + 1}`;
-        const messageId = adapter.getMessageId(messageElement);
+    const items: ReaderItem[] = turns.map((turn, index) => {
+        const messageId = turn.messageId;
         return {
             id: `${adapter.getPlatformId()}-${messageId ?? index}`,
-            userPrompt: prompt,
-            content: () => getMarkdown(messageElement),
+            userPrompt: turn.userPrompt,
+            content: () => {
+                if (!getMarkdown) {
+                    const merged = copyMarkdownFromTurn(adapter, turn.messageEls);
+                    return merged.ok ? merged.markdown : '';
+                }
+                const parts = turn.messageEls.map((el) => getMarkdownForEl(el).trim()).filter(Boolean);
+                return parts.join('\n\n');
+            },
             meta: { platformId: adapter.getPlatformId(), messageId },
         };
     });

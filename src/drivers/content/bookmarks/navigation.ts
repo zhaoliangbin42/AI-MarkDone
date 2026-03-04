@@ -1,4 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
+import { scrollToConversationTarget, scrollToConversationTargetWithRetry } from '../conversation/navigation';
 
 const NAV_KEY = 'aimd:bookmarkNavigate:v1';
 
@@ -55,7 +56,7 @@ export function highlightElement(element: HTMLElement): void {
 
 export type ScrollResult = { ok: true } | { ok: false; message: string };
 
-export function scrollToAssistantPosition(adapter: SiteAdapter, position: number): ScrollResult {
+function legacyScrollToAssistantPosition(adapter: SiteAdapter, position: number): ScrollResult {
     if (!Number.isFinite(position) || position <= 0) return { ok: false, message: 'Invalid position' };
     const selector = adapter.getMessageSelector();
     const messages = Array.from(document.querySelectorAll(selector)).filter((n): n is HTMLElement => n instanceof HTMLElement);
@@ -67,20 +68,30 @@ export function scrollToAssistantPosition(adapter: SiteAdapter, position: number
     return { ok: true };
 }
 
+export function scrollToAssistantPosition(adapter: SiteAdapter, position: number): ScrollResult {
+    const mapped = scrollToConversationTarget(adapter, { kind: 'legacyAssistantPosition', position });
+    if (mapped.ok) return mapped;
+
+    // Fallback for platforms where turn grouping is unavailable or DOM is in flux.
+    // Keeps legacy behavior as a safety net.
+    return legacyScrollToAssistantPosition(adapter, position);
+}
+
 export async function scrollToAssistantPositionWithRetry(
     adapter: SiteAdapter,
     position: number,
     options?: { timeoutMs?: number; intervalMs?: number }
 ): Promise<ScrollResult> {
+    const mapped = await scrollToConversationTargetWithRetry(adapter, { kind: 'legacyAssistantPosition', position }, options);
+    if (mapped.ok) return mapped;
     const timeoutMs = options?.timeoutMs ?? 2000;
     const intervalMs = options?.intervalMs ?? 200;
     const start = Date.now();
     let last: ScrollResult = { ok: false, message: 'Not ready' };
     while (Date.now() - start < timeoutMs) {
-        last = scrollToAssistantPosition(adapter, position);
+        last = legacyScrollToAssistantPosition(adapter, position);
         if (last.ok) return last;
         await new Promise((r) => window.setTimeout(r, intervalMs));
     }
     return last;
 }
-
