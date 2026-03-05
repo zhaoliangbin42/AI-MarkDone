@@ -762,6 +762,7 @@ export const fileTextIcon = Icons.fileText;
 export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
 export const messageSquareTextIcon = Icons.messageSquareText;
+export const checkIcon = Icons.check;
 
 // Platform
 export const chatgptIcon = Icons.chatgpt;

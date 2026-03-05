@@ -260,6 +260,9 @@
     "deleteFolder": {
         "message": "Delete folder"
     },
+    "deleteFolderConfirm": {
+        "message": "Delete \"$1\" and its subfolders?"
+    },
     "openConversation": {
         "message": "Open in Conversation"
     },
@@ -277,6 +280,12 @@
     },
     "titleRequired": {
         "message": "Title is required"
+    },
+    "titleTooLong": {
+        "message": "Title must be 100 characters or less"
+    },
+    "titleForbiddenChars": {
+        "message": "Title contains invalid characters"
     },
     "errorCalculating": {
         "message": "Error calculating"
@@ -430,6 +439,15 @@
     },
     "folderNameNoSlash": {
         "message": "Folder name cannot contain \"/\"."
+    },
+    "folderNameTooLong": {
+        "message": "Folder name must be $1 characters or less."
+    },
+    "folderNameTraversal": {
+        "message": "Folder name cannot contain \"..\"."
+    },
+    "folderNameInvalidChars": {
+        "message": "Folder name contains invalid characters."
     },
     "spacesCollapsed": {
         "message": "Consecutive spaces were collapsed."
@@ -889,5 +907,38 @@
     },
     "loadingText": {
         "message": "Loading..."
+    },
+    "positionNotAvailable": {
+        "message": "Position not available"
+    },
+    "clipboardWriteFailed": {
+        "message": "Clipboard write failed"
+    },
+    "savedStatus": {
+        "message": "Saved"
+    },
+    "removedStatus": {
+        "message": "Removed"
+    },
+    "sendFailed": {
+        "message": "Send failed"
+    },
+    "sendEmpty": {
+        "message": "Empty"
+    },
+    "sendingStatus": {
+        "message": "Sending..."
+    },
+    "sentStatus": {
+        "message": "Sent"
+    },
+    "paginationLabel": {
+        "message": "Pagination"
+    },
+    "goToPage": {
+        "message": "Go to $1"
+    },
+    "streamingStatus": {
+        "message": "Streaming..."
     }
 }

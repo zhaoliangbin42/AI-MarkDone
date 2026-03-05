@@ -69,6 +69,10 @@ export type FolderDeletePayload = { path: string };
 export type FolderRenamePayload = { oldPath: string; newName: string };
 export type FolderMovePayload = { sourcePath: string; targetParentPath: string };
 
+export type BookmarksUiStateKey = 'lastSelectedFolderPath';
+export type BookmarksUiStateGetPayload = { key: BookmarksUiStateKey };
+export type BookmarksUiStateSetPayload = { key: BookmarksUiStateKey; value: string | null };
+
 export type SettingsGetCategoryPayload = { category: SettingsCategory };
 export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
 
@@ -93,7 +97,9 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:create'; payload: FolderCreatePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:delete'; payload: FolderDeletePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:rename'; payload: FolderRenamePayload }
-    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:move'; payload: FolderMovePayload };
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:move'; payload: FolderMovePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:get'; payload: BookmarksUiStateGetPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:set'; payload: BookmarksUiStateSetPayload };
 
 export type ExtResponse =
     | { v: ProtocolVersion; id: RequestId; ok: true; type: ExtRequest['type']; data?: unknown }
@@ -134,6 +140,8 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'bookmarks:folders:delete',
         'bookmarks:folders:rename',
         'bookmarks:folders:move',
+        'bookmarks:uiState:get',
+        'bookmarks:uiState:set',
     ]);
 
     return allowedTypes.has(type);

@@ -4,6 +4,7 @@ import { readComposer, writeComposer } from '../../../drivers/content/sending/co
 import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { sendIcon, xIcon } from '../../../assets/icons';
+import { t } from '../components/i18n';
 
 type State = {
     theme: Theme;
@@ -45,18 +46,18 @@ export class SendPopover {
         pop.className = 'aimd-send-popover';
         pop.setAttribute('role', 'dialog');
         pop.setAttribute('aria-modal', 'false');
-        pop.setAttribute('aria-label', 'Send');
+        pop.setAttribute('aria-label', t('send'));
         pop.innerHTML = `
   <div class="head">
-    <div class="title">Send</div>
-    <button class="icon" type="button" data-action="close" aria-label="Close" title="Close">${xIcon}</button>
+    <div class="title">${t('send')}</div>
+    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
   </div>
-  <textarea class="input" data-role="text" rows="6" placeholder="Type a message..."></textarea>
+  <textarea class="input" data-role="text" rows="6" placeholder="${t('typeYourMessage')}"></textarea>
   <div class="foot">
     <div class="status" data-role="status"></div>
     <div class="actions">
-      <button class="btn" type="button" data-action="cancel" aria-label="Cancel">Cancel</button>
-      <button class="btn btn--primary" type="button" data-action="send" aria-label="Send">${createIcon(sendIcon).outerHTML}<span>Send</span></button>
+      <button class="btn" type="button" data-action="cancel" aria-label="${t('btnCancel')}">${t('btnCancel')}</button>
+      <button class="btn btn--primary" type="button" data-action="send" aria-label="${t('send')}">${createIcon(sendIcon).outerHTML}<span>${t('send')}</span></button>
     </div>
   </div>
 `;
@@ -161,20 +162,20 @@ export class SendPopover {
 
         const text = textarea.value;
         if (text.length === 0) {
-            this.setStatus('Empty');
+            this.setStatus(t('sendEmpty'));
             window.setTimeout(() => this.setStatus(''), 1200);
             return;
         }
 
         this.setPending(true);
-        this.setStatus('Sending…');
+        this.setStatus(t('sendingStatus'));
         try {
             const res = await sendText(adapter, text, { focusComposer: true, timeoutMs: 3000 });
             if (!res.ok) {
-                this.setStatus(res.message || 'Send failed');
+                this.setStatus(res.message || t('sendFailed'));
                 return;
             }
-            this.setStatus('Sent');
+            this.setStatus(t('sentStatus'));
             window.setTimeout(() => this.close(shadow, { syncBack: false }), 120);
         } finally {
             window.setTimeout(() => this.setStatus(''), 1200);
@@ -182,4 +183,3 @@ export class SendPopover {
         }
     }
 }
-

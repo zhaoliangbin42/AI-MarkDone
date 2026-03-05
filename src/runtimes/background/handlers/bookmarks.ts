@@ -72,6 +72,23 @@ function getQuotaBytesFallback(): number {
     return 10 * 1024 * 1024;
 }
 
+function normalizeLastSelectedFolderPath(raw: unknown): string | null {
+    if (typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    try {
+        PathUtils.validatePath(trimmed);
+        return PathUtils.normalize(trimmed);
+    } catch {
+        return null;
+    }
+}
+
+async function readLastSelectedFolderPath(): Promise<string | null> {
+    const result = await localStoragePort.get([LEGACY_STORAGE_KEYS.lastSelectedFolderPath]);
+    return normalizeLastSelectedFolderPath(result[LEGACY_STORAGE_KEYS.lastSelectedFolderPath]);
+}
+
 function normalizeStoredBookmark(key: string, raw: unknown, now: number): Bookmark | null {
     if (!raw || typeof raw !== 'object') return null;
     const rec = raw as Record<string, unknown>;
@@ -251,6 +268,7 @@ async function applyFolderRelocateWithJournal(params: {
     opId?: string;
 }): Promise<void> {
     await backgroundStorageQueue.enqueue(async () => {
+        const lastSelected = await readLastSelectedFolderPath();
         const { folderPaths, folders } = await loadAllFolders();
         const bookmarks = await loadAllBookmarks(params.now);
 
@@ -271,6 +289,13 @@ async function applyFolderRelocateWithJournal(params: {
             ...relocatePlan.bookmarkSetPatch,
             [LEGACY_STORAGE_KEYS.folderPathsIndex]: relocatePlan.updatedFolderPaths,
         };
+
+        if (lastSelected) {
+            const updated = PathUtils.updatePathPrefix(params.oldPath, params.newPath, lastSelected);
+            if (updated !== lastSelected) {
+                setPatch[LEGACY_STORAGE_KEYS.lastSelectedFolderPath] = updated;
+            }
+        }
         await localStoragePort.set(setPatch);
 
         if (relocatePlan.folderRemoveKeys.length > 0) {
@@ -619,10 +644,25 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
         case 'bookmarks:folders:delete': {
             return backgroundStorageQueue.enqueue(async () => {
                 try {
+                    const lastSelected = await readLastSelectedFolderPath();
                     const { folderPaths } = await loadAllFolders();
                     const bookmarks = await loadAllBookmarks(now);
                     const plan = planDeleteFolder({ path: request.payload.path, folderPaths, bookmarks });
-                    await localStoragePort.remove(plan.removeKeys);
+                    const removeKeys = [...plan.removeKeys];
+
+                    if (lastSelected) {
+                        const deletedPath = PathUtils.normalize(request.payload.path);
+                        if (lastSelected === deletedPath || PathUtils.isDescendantOf(lastSelected, deletedPath)) {
+                            const parent = PathUtils.getParentPath(deletedPath);
+                            if (parent) {
+                                await localStoragePort.set({ [LEGACY_STORAGE_KEYS.lastSelectedFolderPath]: parent });
+                            } else {
+                                removeKeys.push(LEGACY_STORAGE_KEYS.lastSelectedFolderPath);
+                            }
+                        }
+                    }
+
+                    await localStoragePort.remove(removeKeys);
                     await folderIndexStore.setFolderPaths(plan.updatedFolderPaths);
                     return { response: ok(request.id, request.type, { deleted: request.payload.path }) };
                 } catch (e) {
@@ -665,6 +705,42 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 const mapped = toProtocolErrorCode(e);
                 return { response: err(request.id, request.type, mapped.code, mapped.message) };
             }
+        }
+        case 'bookmarks:uiState:get': {
+            if (request.payload.key !== 'lastSelectedFolderPath') {
+                return { response: err(request.id, request.type, 'INVALID_REQUEST', 'Unknown uiState key') };
+            }
+            return backgroundStorageQueue.enqueue(async () => {
+                const value = await readLastSelectedFolderPath();
+                return { response: ok(request.id, request.type, { value }) };
+            });
+        }
+        case 'bookmarks:uiState:set': {
+            if (request.payload.key !== 'lastSelectedFolderPath') {
+                return { response: err(request.id, request.type, 'INVALID_REQUEST', 'Unknown uiState key') };
+            }
+
+            const value = request.payload.value;
+            if (value !== null && typeof value !== 'string') {
+                return { response: err(request.id, request.type, 'INVALID_REQUEST', 'Invalid uiState value') };
+            }
+
+            return backgroundStorageQueue.enqueue(async () => {
+                if (value === null) {
+                    await localStoragePort.remove([LEGACY_STORAGE_KEYS.lastSelectedFolderPath]);
+                    return { response: ok(request.id, request.type, { value: null }) };
+                }
+
+                try {
+                    PathUtils.validatePath(value);
+                    const normalized = PathUtils.normalize(value);
+                    await localStoragePort.set({ [LEGACY_STORAGE_KEYS.lastSelectedFolderPath]: normalized });
+                    return { response: ok(request.id, request.type, { value: normalized }) };
+                } catch (e) {
+                    const mapped = toProtocolErrorCode(e);
+                    return { response: err(request.id, request.type, mapped.code, mapped.message) };
+                }
+            });
         }
         default:
             return { response: err(request.id, request.type, 'UNKNOWN_TYPE', 'Unknown bookmarks request') };

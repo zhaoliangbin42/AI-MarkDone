@@ -1,4 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
+import { listAssistantSegmentElements } from './assistantSegments';
 
 export type ConversationTurnRef = {
     index: number;
@@ -11,9 +12,10 @@ export type ConversationTurnRef = {
 
 export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationTurnRef[] {
     const selector = adapter.getMessageSelector();
-    const container = adapter.getObserverContainer() || document.body;
+    const raw = listAssistantSegmentElements(adapter);
 
-    const raw = Array.from(container.querySelectorAll(selector)).filter((n): n is HTMLElement => n instanceof HTMLElement);
+    // Turn grouping should avoid nested duplicates (artifact wrappers, quote cards, etc).
+    // This does NOT affect legacy position semantics, which are defined by `listAssistantSegmentElements`.
     const messages = Array.from(new Set(raw)).filter((el) => {
         const parent = el.parentElement;
         if (!parent) return true;
@@ -26,8 +28,10 @@ export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationT
 
     const groups = new Map<HTMLElement, HTMLElement[]>();
     for (const messageEl of messages) {
-        const turnRoot = messageEl.closest?.('[data-testid^="conversation-turn-"]');
-        const key = (turnRoot instanceof HTMLElement ? turnRoot : messageEl) as HTMLElement;
+        const adapterTurnRoot = adapter.getTurnRootElement?.(messageEl) ?? null;
+        const heuristicTurnRoot = messageEl.closest?.('[data-testid^="conversation-turn-"]');
+        const turnRoot = (adapterTurnRoot || (heuristicTurnRoot instanceof HTMLElement ? heuristicTurnRoot : null)) as HTMLElement | null;
+        const key = (turnRoot || messageEl) as HTMLElement;
         const group = groups.get(key);
         if (group) group.push(messageEl);
         else groups.set(key, [messageEl]);
@@ -45,4 +49,3 @@ export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationT
 
     return refs;
 }
-
