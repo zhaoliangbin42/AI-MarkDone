@@ -9,7 +9,7 @@ import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboar
 import { copyIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
-import { t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -49,6 +49,7 @@ type ReaderPanelState = {
 export class ReaderPanel {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private state: ReaderPanelState = {
         theme: 'light',
         items: [],
@@ -123,12 +124,23 @@ export class ReaderPanel {
         document.documentElement.appendChild(host);
         this.host = host;
         this.shadow = shadow;
+
+        if (!this.unsubscribeLocale) {
+            this.unsubscribeLocale = subscribeLocaleChange(() => {
+                this.applyI18nStaticStrings();
+                this.render();
+            });
+        }
+
+        this.applyI18nStaticStrings();
     }
 
     private unmount(): void {
         this.host?.remove();
         this.host = null;
         this.shadow = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
     }
 
     private async go(delta: number): Promise<void> {
@@ -170,7 +182,7 @@ export class ReaderPanel {
             btn.disabled = true;
             const markdown = await resolveContent(item.content);
             const ok = await copyTextToClipboard(markdown);
-            this.setStatus(ok ? 'Copied' : 'Copy failed');
+            this.setStatus(ok ? t('btnCopied') : t('copyFailed'));
         } finally {
             window.setTimeout(() => this.setStatus(''), 1200);
             btn.disabled = false;
@@ -199,7 +211,7 @@ export class ReaderPanel {
 
         const titleEl = this.shadow.querySelector<HTMLElement>('[data-field="title"]');
         const counterEl = this.shadow.querySelector<HTMLElement>('[data-field="counter"]');
-        if (titleEl) titleEl.textContent = item ? item.userPrompt : 'Reader';
+        if (titleEl) titleEl.textContent = item ? item.userPrompt : t('btnReader');
         if (counterEl) counterEl.textContent = total > 0 ? `${idx + 1}/${total}` : '';
 
         this.renderActions();
@@ -318,10 +330,40 @@ export class ReaderPanel {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `dot ${active ? 'dot--active' : ''}`.trim();
-        btn.setAttribute('aria-label', `Go to ${index + 1}`);
+        btn.setAttribute('aria-label', t('goToPage', String(index + 1)));
         btn.title = `${index + 1}`;
         btn.addEventListener('click', () => this.jumpTo(index));
         return btn;
+    }
+
+    private applyI18nStaticStrings(): void {
+        if (!this.shadow) return;
+        const panel = this.shadow.querySelector<HTMLElement>('.panel');
+        if (panel) panel.setAttribute('aria-label', t('btnReader'));
+
+        const copyBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
+        if (copyBtn) {
+            copyBtn.setAttribute('aria-label', t('btnCopyText'));
+            copyBtn.title = t('btnCopyText');
+        }
+        const sourceBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="source"]');
+        if (sourceBtn) {
+            sourceBtn.setAttribute('aria-label', t('btnViewSource'));
+            sourceBtn.title = t('btnViewSource');
+        }
+        const closeBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="close"]');
+        if (closeBtn) {
+            closeBtn.setAttribute('aria-label', t('btnClose'));
+            closeBtn.title = t('btnClose');
+        }
+
+        const prevBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="prev"]');
+        if (prevBtn) prevBtn.setAttribute('aria-label', t('previousMessage'));
+        const nextBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="next"]');
+        if (nextBtn) nextBtn.setAttribute('aria-label', t('nextMessage'));
+
+        const dots = this.shadow.querySelector<HTMLElement>('[data-role="dots"]');
+        if (dots) dots.setAttribute('aria-label', t('paginationLabel'));
     }
 
     private calculateDotSizing(total: number): { size: number; gap: number } {
@@ -342,15 +384,15 @@ export class ReaderPanel {
     private getHtml(): string {
         return `
 <div class="overlay" data-role="overlay"></div>
-<div class="panel" role="dialog" aria-modal="true" aria-label="Reader">
+<div class="panel" role="dialog" aria-modal="true" aria-label="${t('btnReader')}">
   <div class="header">
     <div class="title" data-field="title"></div>
     <div class="header-right">
       <div class="counter" data-field="counter"></div>
       <div class="custom-actions" data-role="custom_actions"></div>
-      <button class="icon" data-action="copy" aria-label="Copy" title="Copy">${copyIcon}</button>
-      <button class="icon" data-action="source" aria-label="Source" title="Source">${fileCodeIcon}</button>
-      <button class="icon" data-action="close" aria-label="Close" title="Close">${xIcon}</button>
+      <button class="icon" data-action="copy" aria-label="${t('btnCopyText')}" title="${t('btnCopyText')}">${copyIcon}</button>
+      <button class="icon" data-action="source" aria-label="${t('btnViewSource')}" title="${t('btnViewSource')}">${fileCodeIcon}</button>
+      <button class="icon" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
     </div>
   </div>
   <div class="body">
@@ -358,10 +400,10 @@ export class ReaderPanel {
   </div>
   <div class="footer">
     <div class="footer-left" data-role="footer_left_actions"></div>
-    <div class="dots" data-role="dots" aria-label="Pagination"></div>
+    <div class="dots" data-role="dots" aria-label="${t('paginationLabel')}"></div>
     <div class="nav" data-role="nav">
-      <button class="nav-btn" data-action="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-action="next" aria-label="Next">›</button>
+      <button class="nav-btn" data-action="prev" aria-label="${t('previousMessage')}">‹</button>
+      <button class="nav-btn" data-action="next" aria-label="${t('nextMessage')}">›</button>
     </div>
     <div class="status" data-field="status"></div>
   </div>

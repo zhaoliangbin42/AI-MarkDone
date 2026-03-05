@@ -1,4 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
+import { listAssistantSegmentElements } from './assistantSegments';
 import { collectConversationTurnRefs } from './collectConversationTurnRefs';
 
 export type ConversationLocator =
@@ -52,7 +53,7 @@ export function resolveConversationTarget(adapter: SiteAdapter, locator: Convers
     const position = locator.position;
     if (!Number.isFinite(position) || position <= 0) return { ok: false, message: 'Invalid position' };
 
-    const segments = turns.flatMap((t) => t.messageEls);
+    const segments = listAssistantSegmentElements(adapter);
     const segIndex = position - 1;
     if (segIndex < 0 || segIndex >= segments.length) return { ok: false, message: 'Position out of range' };
 
@@ -91,4 +92,3 @@ export async function scrollToConversationTargetWithRetry(
     }
     return last;
 }
-

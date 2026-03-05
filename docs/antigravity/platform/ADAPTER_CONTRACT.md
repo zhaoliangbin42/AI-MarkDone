@@ -43,6 +43,8 @@ Adapter 不负责：
 - `getMessageSelector()`
 - `getMessageContentSelector()`
 - `getActionBarSelector()`
+- `getToolbarAnchorElement?(assistantMessageElement: HTMLElement): HTMLElement | null`
+- `getTurnRootElement?(assistantMessageElement: HTMLElement): HTMLElement | null`
 - `injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean`
 - `isStreamingMessage(messageElement: HTMLElement): boolean`
 - `getMessageId(messageElement: HTMLElement): string | null`
@@ -53,6 +55,8 @@ Adapter 不负责：
 - `getMessageSelector()` 必须只命中 **assistant 消息**（不包含 user prompt），且尽量稳定（避免易变 class hash）。
 - `getMessageContentSelector()` 必须命中“正文根节点”（Copy/Reader 会优先解析该节点；找不到时会回退到 messageElement）。
 - `getActionBarSelector()` 作为“完成态锚点”的辅助（streaming guard / pending 状态）；若平台没有明确 action bar，应返回一个尽量可靠的完成态锚点选择器。
+- `getToolbarAnchorElement?()` 只用于“身份与位置锚点”：必须返回对同一逻辑消息稳定且唯一的元素；不得产生副作用；拿不到应返回 `null`（调用方回退到 messageElement 的去重标记）。
+- `getTurnRootElement?()` 用于“turn 分组”的结构性锚点：应返回包裹本段 assistant segment 的稳定容器（优先使用站点已有的 turn wrapper）；不得产生副作用；拿不到应返回 `null`（调用方回退到平台无关的 best-effort turn grouping）。
 - `injectToolbar()` 必须是幂等安全的：允许重复调用但不会导致错误位置注入；必须具备 fallback（action bar → content after → append）。
 - `isStreamingMessage()` 必须是 best-effort：误判为 streaming 只会禁用按钮，不得影响注入与扫描。
 - `getMessageId()` 用于去重注入：必须尽量稳定；拿不到可返回 `null`（调用方会走 dataset 标记兜底）。

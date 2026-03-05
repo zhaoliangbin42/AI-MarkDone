@@ -107,6 +107,11 @@ export class ChatGPTAdapter extends SiteAdapter {
         return (copyBtn.closest('div.z-0.flex') as HTMLElement | null) || (copyBtn.parentElement as HTMLElement | null);
     }
 
+    getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const el = assistantMessageElement.closest?.('[data-testid^="conversation-turn-"]');
+        return el instanceof HTMLElement ? el : null;
+    }
+
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         try {
             const contentElement = messageElement.querySelector(this.getMessageContentSelector());

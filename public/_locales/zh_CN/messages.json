@@ -260,6 +260,9 @@
     "deleteFolder": {
         "message": "删除文件夹"
     },
+    "deleteFolderConfirm": {
+        "message": "删除“$1”及其子文件夹？"
+    },
     "openConversation": {
         "message": "在对话中打开"
     },
@@ -277,6 +280,12 @@
     },
     "titleRequired": {
         "message": "标题不能为空"
+    },
+    "titleTooLong": {
+        "message": "标题长度不能超过 100 个字符"
+    },
+    "titleForbiddenChars": {
+        "message": "标题包含非法字符"
     },
     "errorCalculating": {
         "message": "计算错误"
@@ -430,6 +439,15 @@
     },
     "folderNameNoSlash": {
         "message": "文件夹名称不能包含 \"/\"。"
+    },
+    "folderNameTooLong": {
+        "message": "文件夹名称长度不能超过 $1 个字符。"
+    },
+    "folderNameTraversal": {
+        "message": "文件夹名称不能包含 \"..\"。"
+    },
+    "folderNameInvalidChars": {
+        "message": "文件夹名称包含非法字符。"
     },
     "spacesCollapsed": {
         "message": "连续空格已被合并。"
@@ -889,5 +907,38 @@
     },
     "loadingText": {
         "message": "加载中..."
+    },
+    "positionNotAvailable": {
+        "message": "无法获取位置"
+    },
+    "clipboardWriteFailed": {
+        "message": "写入剪贴板失败"
+    },
+    "savedStatus": {
+        "message": "已保存"
+    },
+    "removedStatus": {
+        "message": "已移除"
+    },
+    "sendFailed": {
+        "message": "发送失败"
+    },
+    "sendEmpty": {
+        "message": "内容为空"
+    },
+    "sendingStatus": {
+        "message": "发送中..."
+    },
+    "sentStatus": {
+        "message": "已发送"
+    },
+    "paginationLabel": {
+        "message": "分页"
+    },
+    "goToPage": {
+        "message": "跳转到 $1"
+    },
+    "streamingStatus": {
+        "message": "生成中..."
     }
 }

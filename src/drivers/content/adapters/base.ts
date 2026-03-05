@@ -59,6 +59,17 @@ export abstract class SiteAdapter {
     getToolbarAnchorElement?(_assistantMessageElement: HTMLElement): HTMLElement | null;
 
     /**
+     * Optional: returns a stable DOM element that represents the "logical turn root"
+     * containing this assistant message segment.
+     *
+     * Used by conversation turn grouping (Reader / Export / navigation). Platforms should
+     * prefer structural keys (turn wrapper containers) over text heuristics.
+     *
+     * If omitted, turn grouping falls back to platform-agnostic best-effort heuristics.
+     */
+    getTurnRootElement?(_assistantMessageElement: HTMLElement): HTMLElement | null;
+
+    /**
      * Platform-specific injection strategy for a per-message toolbar host element.
      */
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {

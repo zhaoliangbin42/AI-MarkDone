@@ -19,6 +19,7 @@ import { WordCounter } from '../../../core/text/wordCounter';
 import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon, sendIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { sourcePanel } from '../source/sourcePanelSingleton';
+import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 
 type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean; position: number };
 
@@ -219,6 +220,7 @@ export class MessageToolbarOrchestrator {
             record?.toolbar.setTheme(theme);
         }
         this.readerPanel.setTheme(theme);
+        bookmarkSaveDialog.setTheme(theme);
     }
 
     setBehaviorFlags(flags: Partial<{ showViewSource: boolean; showSaveMessages: boolean; showWordCount: boolean }>): void {
@@ -246,10 +248,49 @@ export class MessageToolbarOrchestrator {
                     const url = this.getBookmarkPageUrl();
                     const position = this.getPositionForMessage(messageElement);
 
-                    if (!position) return { ok: false, message: 'Position not available' };
+                    if (!position) return { ok: false, message: t('positionNotAvailable') };
+
+                    const already = this.bookmarksController!.isPositionBookmarked(url, position);
+                    if (!already) {
+                        // Open a dedicated save dialog (Google/Material style) to pick title + folder.
+                        // Do not block the toolbar action handler while the dialog is open.
+                        void (async () => {
+                            const userMessage = this.getUserPromptForElement(messageElement);
+                            if (!userMessage.trim()) return;
+
+                            const md = this.getMergedMarkdownForElement(messageElement);
+                            if (!md.ok) return;
+
+                            const currentFolderPath = this.bookmarksController!.getDefaultFolderPath();
+                            const res = await bookmarkSaveDialog.open({
+                                theme: this.theme,
+                                userPrompt: userMessage,
+                                existingTitle: userMessage,
+                                currentFolderPath,
+                                mode: 'create',
+                            });
+                            if (!res.ok) return;
+
+                            const saveRes = await this.bookmarksController!.toggleBookmarkFromToolbar({
+                                url,
+                                position,
+                                folderPath: res.folderPath,
+                                userMessage,
+                                aiResponse: md.markdown,
+                                platform: 'ChatGPT',
+                                title: res.title,
+                            });
+                            if (!saveRes.ok) return;
+
+                            toolbar?.setActionActive('bookmark_toggle', true);
+                            this.bookmarksController!.selectFolder(res.folderPath);
+                        })();
+
+                        return;
+                    }
 
                     const userMessage = this.getUserPromptForElement(messageElement);
-                    if (!userMessage.trim()) return { ok: false, message: 'No user prompt found' };
+                    if (!userMessage.trim()) return { ok: false, message: t('failedToExtractUserMessage') };
 
                     const md = this.getMergedMarkdownForElement(messageElement);
                     if (!md.ok) return { ok: false, message: md.error.message };
@@ -269,7 +310,7 @@ export class MessageToolbarOrchestrator {
                     if (!res.ok) return { ok: false, message: res.message };
 
                     toolbar?.setActionActive('bookmark_toggle', res.data.saved);
-                    return { ok: true, message: res.data.saved ? 'Saved' : 'Removed' };
+                    return { ok: true, message: res.data.saved ? t('savedStatus') : t('removedStatus') };
                 },
             });
         }
@@ -285,7 +326,7 @@ export class MessageToolbarOrchestrator {
                     const res = this.getMergedMarkdownForElement(messageElement);
                     if (!res.ok) return { ok: false, message: res.error.message };
                     const ok = await copyTextToClipboard(res.markdown);
-                    return ok ? { ok: true, message: 'Copied' } : { ok: false, message: 'Clipboard write failed.' };
+                    return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
                 },
         });
 

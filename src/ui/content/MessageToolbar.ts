@@ -2,6 +2,7 @@ import type { Theme } from '../../core/types/theme';
 import { getTokenCss } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 import { createIcon } from './components/Icon';
+import { t } from './components/i18n';
 
 export type ToolbarActionResult = { ok: true; message?: string } | { ok: false; message: string };
 
@@ -65,7 +66,7 @@ export class MessageToolbar {
             const btn = this.actionButtons.get(action.id);
             if (btn) btn.disabled = pending;
         }
-        if (note) note.textContent = pending ? 'Streaming…' : '';
+        if (note) note.textContent = pending ? t('streamingStatus') : '';
     }
 
     setStats(lines: string[]): void {
@@ -131,8 +132,8 @@ export class MessageToolbar {
             const stats = document.createElement('span');
             stats.className = 'stats';
             stats.dataset.role = 'stats';
-            stats.setAttribute('aria-label', 'Word count');
-            stats.textContent = 'Loading…';
+            stats.setAttribute('aria-label', t('wordCountLabel'));
+            stats.textContent = t('loading');
             bar.appendChild(stats);
         }
 

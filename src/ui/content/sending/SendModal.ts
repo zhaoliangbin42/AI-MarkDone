@@ -5,6 +5,7 @@ import { sendText } from '../../../services/sending/sendService';
 import { ensureStyle } from '../../../style/shadow';
 import { getTokenCss } from '../../../style/tokens';
 import { xIcon } from '../../../assets/icons';
+import { t } from '../components/i18n';
 
 export class SendModal {
     private host: HTMLElement | null = null;
@@ -132,20 +133,20 @@ export class SendModal {
 
         const text = textarea.value;
         if (text.length === 0) {
-            this.setStatus('Empty');
+            this.setStatus(t('sendEmpty'));
             window.setTimeout(() => this.setStatus(''), 1200);
             return;
         }
 
         this.setPending(true);
-        this.setStatus('Sending…');
+        this.setStatus(t('sendingStatus'));
         try {
             const res = await sendText(adapter, text, { focusComposer: true, timeoutMs: 3000 });
             if (!res.ok) {
-                this.setStatus(res.message || 'Send failed');
+                this.setStatus(res.message || t('sendFailed'));
                 return;
             }
-            this.setStatus('Sent');
+            this.setStatus(t('sentStatus'));
             window.setTimeout(() => this.close({ syncBack: false }), 150);
         } finally {
             window.setTimeout(() => this.setStatus(''), 1400);
@@ -156,17 +157,17 @@ export class SendModal {
     private getHtml(): string {
         return `
 <div class="overlay" data-role="overlay"></div>
-<div class="dialog" role="dialog" aria-modal="true" aria-label="Send message">
+<div class="dialog" role="dialog" aria-modal="true" aria-label="${t('sendMessage')}">
   <div class="head">
-    <div class="title">Send</div>
-    <button class="icon" type="button" data-action="close" aria-label="Close" title="Close">${xIcon}</button>
+    <div class="title">${t('send')}</div>
+    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
   </div>
-  <textarea class="input" data-role="text" rows="7" placeholder="Type a message..."></textarea>
+  <textarea class="input" data-role="text" rows="7" placeholder="${t('typeYourMessage')}"></textarea>
   <div class="foot">
     <div class="status" data-role="status"></div>
     <div class="actions">
-      <button class="btn" type="button" data-action="cancel" aria-label="Cancel">Cancel</button>
-      <button class="btn btn--primary" type="button" data-action="send" aria-label="Send">Send</button>
+      <button class="btn" type="button" data-action="cancel" aria-label="${t('btnCancel')}">${t('btnCancel')}</button>
+      <button class="btn btn--primary" type="button" data-action="send" aria-label="${t('send')}">${t('send')}</button>
     </div>
   </div>
 </div>

@@ -8,6 +8,8 @@ import type {
     BookmarksPositionsPayload,
     BookmarksRemovePayload,
     BookmarksSavePayload,
+    BookmarksUiStateGetPayload,
+    BookmarksUiStateSetPayload,
     ExtRequest,
     ProtocolErrorCode,
 } from '../../../contracts/protocol';
@@ -44,6 +46,8 @@ export type BulkRemoveResponse = { removed: number };
 export type BulkMoveResponse = { moved: number; missing: number };
 export type ExportResponse = { payload: any };
 export type RepairResponse = { stats: any };
+export type UiStateGetResponse = { value: string | null };
+export type UiStateSetResponse = { value: string | null };
 
 export const bookmarksClient = {
     async list(payload?: BookmarksListPayload): Promise<Result<ListResponse>> {
@@ -90,6 +94,14 @@ export const bookmarksClient = {
     },
     async foldersMove(payload: FolderMovePayload): Promise<Result<any>> {
         return call('bookmarks:folders:move', payload);
+    },
+    async uiStateGetLastSelectedFolderPath(): Promise<Result<UiStateGetResponse>> {
+        const payload: BookmarksUiStateGetPayload = { key: 'lastSelectedFolderPath' };
+        return call('bookmarks:uiState:get', payload);
+    },
+    async uiStateSetLastSelectedFolderPath(value: string | null): Promise<Result<UiStateSetResponse>> {
+        const payload: BookmarksUiStateSetPayload = { key: 'lastSelectedFolderPath', value };
+        return call('bookmarks:uiState:set', payload);
     },
     async listOptionsDefaults(): Promise<{ sortMode: BookmarksSortMode; platform: string }> {
         return { sortMode: 'time-desc', platform: 'All' };

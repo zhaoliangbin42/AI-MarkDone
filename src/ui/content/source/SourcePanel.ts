@@ -116,7 +116,7 @@ export class SourcePanel {
         try {
             btn.disabled = true;
             const ok = await copyTextToClipboard(this.state.content || '');
-            this.setStatus(ok ? t('btnCopied') : 'Copy failed');
+            this.setStatus(ok ? t('btnCopied') : t('copyFailed'));
         } finally {
             window.setTimeout(() => this.setStatus(''), 1200);
             btn.disabled = false;
@@ -132,7 +132,7 @@ export class SourcePanel {
     private getHtml(): string {
         return `
 <div class="overlay" data-role="overlay"></div>
-<div class="panel" role="dialog" aria-modal="true" aria-label="Source">
+<div class="panel" role="dialog" aria-modal="true" aria-label="${t('modalSourceTitle')}">
   <div class="header">
     <div class="title" data-field="title"></div>
     <div class="header-right">

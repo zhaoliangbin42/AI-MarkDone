@@ -16,6 +16,29 @@ Verification:
 - `npm run test:core` (pass)
 - `npm run build` (pass; Chrome MV3 + Firefox MV2)
 
+## 2026-03-04 — i18n closure: settings-driven locale switch + catalog loader hardening
+
+- Hardened UI i18n catalog loading (fetch + XHR fallback) and ensured `auto` resolves to an effective locale with catalogs loaded on first run.
+- Replaced remaining user-visible UI literals (toolbar/reader/source/send + statuses) with `t()` keys and added missing locale strings.
+- Added unit tests covering fetch/XHR catalog load paths, `auto` locale resolution, and substitution behavior.
+
+Verification:
+- `npm run type-check` (pass)
+- `npm run test:core` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2)
+
+## 2026-03-04 — Bookmarks save-dialog infra: UI-state persistence + draft/folder-picker models (no UI wiring)
+
+- Added bookmarks UI-state RPC for `lastSelectedFolderPath` (`bookmarks:uiState:get/set`) with background write authority.
+- Hardened UI-state consistency on folder relocate/delete (updates `lastSelectedFolderPath` to new path or parent/null).
+- Added pure “save dialog” draft + folder picker models (mode: `create|edit|folder-select`) and pure bookmark title validation.
+- Added unit tests for handler roundtrips, client request shapes, and model correctness/perf.
+
+Verification:
+- `npm run type-check` (pass)
+- `npm run test:core` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2)
+
 ## 2026-03-03 — Docs minimization + governance test scripts update
 
 - Removed outdated docs and legacy review artifacts from `docs/` to keep a small authoritative set.
@@ -25,3 +48,29 @@ Verification:
 - `npm run test:smoke` (pass)
 - `npm run type-check` (pass)
 - `npm run test:core` (pass)
+
+## 2026-03-04 — Data-freeze hardening: assistant segment SSoT + turn grouping hook + legacy position mapping stability
+
+- Added canonical assistant segment enumeration SSoT for legacy `position` semantics: `listAssistantSegmentElements(adapter)`.
+- Refactored bookmark `getAssistantPosition()` and `legacyAssistantPosition` navigation mapping to use the same segment SSoT (prevents “mapped-but-wrong” drift).
+- Added optional adapter hook `getTurnRootElement()` to keep turn grouping platform-specific (future adapters can implement without changing services/UI).
+- Updated turn collector to build from segment SSoT while keeping nested de-dup for turn grouping only (does not change persisted `position` meaning).
+- Added/updated unit tests for segment enumeration, position indexing, and Thinking fixture navigation consistency.
+
+Verification:
+- `npm run type-check` (pass)
+- `npm run test:core` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2)
+
+## 2026-03-04 — Bookmarks save dialog (UI): title + folder picker + folder creation prompt
+
+- Added `BookmarkSaveDialog` (Material/Gmail-style) for bookmark creation: title input + folder tree picker.
+- Persisted last-selected folder via existing background UI-state RPC (best-effort) and used it for default selection.
+- Added inline folder creation prompt (no native `window.prompt`) and refreshes folder list on success.
+- Wired toolbar “Bookmark” action to open the dialog when saving a new bookmark (remove flow unchanged).
+- Added UI unit test for save dialog close result.
+
+Verification:
+- `npm run type-check` (pass)
+- `npm run test:core` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2)

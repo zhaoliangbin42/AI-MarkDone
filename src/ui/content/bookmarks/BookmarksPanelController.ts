@@ -8,6 +8,7 @@ import { computeBookmarksPanelViewModel, type BookmarksPanelState, type Bookmark
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { isSamePageUrl, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
 import { scrollToConversationTargetWithRetry } from '../../../drivers/content/conversation/navigation';
+import { t } from '../components/i18n';
 
 export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
 
@@ -127,7 +128,7 @@ export class BookmarksPanelController {
 
     async refreshAll(): Promise<void> {
         const seq = ++this.refreshSeq;
-        this.setStatus('Loading…');
+        this.setStatus(t('loading'));
         const [listRes, foldersRes] = await Promise.all([
             bookmarksClient.list({ sortMode: this.state.sortMode }),
             bookmarksClient.foldersList(),
@@ -146,7 +147,7 @@ export class BookmarksPanelController {
             this.setStatus(listRes.message);
         } else if (!foldersRes.ok) {
             this.setStatus(foldersRes.message);
-        } else if (this.status === 'Loading…') {
+        } else {
             this.setStatus('');
         }
 
@@ -253,7 +254,7 @@ export class BookmarksPanelController {
     async copyBookmarkMarkdown(bookmark: Bookmark): Promise<void> {
         const text = bookmark.aiResponse ?? '';
         const ok = await copyTextToClipboard(text);
-        this.setStatus(ok ? 'Copied' : 'Copy failed');
+        this.setStatus(ok ? t('btnCopied') : t('copyFailed'));
     }
 
     async deleteBookmark(bookmark: Bookmark): Promise<void> {
@@ -266,7 +267,7 @@ export class BookmarksPanelController {
             this.positionsForCurrentUrl.delete(bookmark.position);
         }
         await this.refreshAll();
-        this.setStatus('Deleted');
+        this.setStatus(t('deletedStatus'));
     }
 
     async exportAll(preserveStructure: boolean): Promise<Result<{ payload: any }>> {
