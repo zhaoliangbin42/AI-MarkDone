@@ -1,5 +1,7 @@
 import type { Theme } from '../../../../core/types/theme';
 import { SiteAdapter, type NoiseContext, type ThemeDetector } from '../base';
+import { chatgptMarkdownParserAdapter } from '../parser/chatgpt';
+import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 import { logger } from '../../../../core/logger';
 
 const detector: ThemeDetector = {
@@ -30,6 +32,10 @@ export class ChatGPTAdapter extends SiteAdapter {
 
     getThemeDetector(): ThemeDetector {
         return detector;
+    }
+
+    getMarkdownParserAdapter(): MarkdownParserAdapter {
+        return chatgptMarkdownParserAdapter;
     }
 
     shouldEnhanceUnrenderedMath(): boolean {
@@ -208,6 +214,36 @@ export class ChatGPTAdapter extends SiteAdapter {
             if (container instanceof HTMLElement) return container;
         }
         return null;
+    }
+
+    getHeaderIconAnchorElement(): HTMLElement | null {
+        const anchor = document.querySelector('#page-header #conversation-header-actions');
+        return anchor instanceof HTMLElement ? anchor : null;
+    }
+
+    injectHeaderIcon(iconHost: HTMLElement): boolean {
+        const anchor = this.getHeaderIconAnchorElement();
+        if (!anchor) return false;
+
+        if (iconHost instanceof HTMLElement) {
+            iconHost.className =
+                'text-token-text-primary no-draggable hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover touch:h-10 touch:w-10 flex h-9 w-9 items-center justify-center rounded-lg focus:outline-none disabled:opacity-50';
+            iconHost.style.width = '36px';
+            iconHost.style.height = '36px';
+            iconHost.style.minWidth = '36px';
+            iconHost.style.minHeight = '36px';
+            iconHost.style.background = 'transparent';
+            iconHost.style.border = '0';
+            iconHost.style.padding = '0';
+            const icon = iconHost.querySelector('img');
+            if (icon instanceof HTMLElement) {
+                icon.style.width = '22px';
+                icon.style.height = '22px';
+            }
+        }
+
+        anchor.insertBefore(iconHost, anchor.firstChild);
+        return true;
     }
 
     // =========================

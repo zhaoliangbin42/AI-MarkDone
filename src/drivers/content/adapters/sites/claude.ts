@@ -1,5 +1,7 @@
 import type { Theme } from '../../../../core/types/theme';
 import { SiteAdapter, type NoiseContext, type ThemeDetector } from '../base';
+import { claudeMarkdownParserAdapter } from '../parser/claude';
+import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -29,6 +31,10 @@ export class ClaudeAdapter extends SiteAdapter {
         return detector;
     }
 
+    getMarkdownParserAdapter(): MarkdownParserAdapter {
+        return claudeMarkdownParserAdapter;
+    }
+
     extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
         const normalize = (text: string): string =>
             text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
@@ -56,7 +62,7 @@ export class ClaudeAdapter extends SiteAdapter {
     }
 
     getMessageSelector(): string {
-        return 'div.group[data-is-streaming="false"], div.group[style*="height: auto"]';
+        return 'div.group[style*="height: auto"]';
     }
 
     getMessageContentSelector(): string {
@@ -65,6 +71,11 @@ export class ClaudeAdapter extends SiteAdapter {
 
     getActionBarSelector(): string {
         return 'div[role="group"][aria-label="Message actions"]';
+    }
+
+    getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const turn = assistantMessageElement.closest('div.group[style*="height: auto"]');
+        return turn instanceof HTMLElement ? turn : null;
     }
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {

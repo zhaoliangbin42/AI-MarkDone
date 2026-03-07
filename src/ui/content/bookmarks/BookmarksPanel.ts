@@ -1,6 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from './BookmarksPanelController';
-import { ensureStyle } from '../../../style/shadow';
 import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import { ModalHost } from '../components/ModalHost';
 import { subscribeLocaleChange, t } from '../components/i18n';
@@ -15,6 +14,8 @@ import {
     settingsIcon,
     xIcon,
 } from '../../../assets/icons';
+import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 
 function downloadJson(filename: string, data: unknown): void {
     try {
@@ -40,6 +41,8 @@ export class BookmarksPanel {
     private readerPanel: ReaderPanel;
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private hostHandle: ShadowDialogHostHandle | null = null;
+    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private visible: boolean = false;
     private unsubscribe: (() => void) | null = null;
     private snapshot: BookmarksPanelSnapshot | null = null;
@@ -47,8 +50,6 @@ export class BookmarksPanel {
     private bookmarksTab: BookmarksTabView | null = null;
     private settingsTab: SettingsTabView | null = null;
     private activeTabId: 'bookmarks' | 'settings' | 'sponsor' = 'bookmarks';
-    private prevHtmlOverflow: string | null = null;
-    private prevBodyOverflow: string | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private localeRemountPending = false;
 
@@ -118,25 +119,16 @@ export class BookmarksPanel {
             });
         }
 
-        // Prevent scroll chaining into the host page while the overlay is open.
-        // Why: users expect wheel scrolling to stay within the panel (legacy behavior).
-        if (this.prevHtmlOverflow === null) {
-            this.prevHtmlOverflow = document.documentElement.style.overflow || '';
-            document.documentElement.style.overflow = 'hidden';
-        }
-        if (this.prevBodyOverflow === null) {
-            this.prevBodyOverflow = document.body.style.overflow || '';
-            document.body.style.overflow = 'hidden';
-        }
-
-        const host = document.createElement('div');
-        host.id = 'aimd-bookmarks-panel-host';
-        host.style.position = 'fixed';
-        host.style.inset = '0';
-        host.style.zIndex = 'var(--aimd-z-panel)';
-
-        const shadow = host.attachShadow({ mode: 'open' });
-        ensureStyle(shadow, getBookmarksPanelCss(this.controller.getTheme()));
+        const theme = this.controller.getTheme();
+        const handle = mountShadowDialogHost({
+            id: 'aimd-bookmarks-panel-host',
+            html: '<div data-role="mount"></div>',
+            cssText: getBookmarksPanelCss(theme),
+            lockScroll: true,
+        });
+        const host = handle.host;
+        const shadow = handle.shadow;
+        const mount = shadow.querySelector<HTMLElement>('[data-role="mount"]');
 
         const modal = new ModalHost(shadow);
 
@@ -192,24 +184,23 @@ export class BookmarksPanel {
         shell.overlay.addEventListener('click', () => this.hide());
         shell.closeBtn.addEventListener('click', () => this.hide());
 
-        // Keyboard isolation: stop events from escaping to the host page.
-        host.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: host,
+            onEscape: () => {
                 if (modal.isOpen()) modal.closeTop();
                 else this.hide();
-                return;
-            }
-            e.stopPropagation();
+            },
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: shell.panel,
         });
 
         shell.panel.appendChild(footer);
-        shadow.append(shell.overlay, shell.panel);
-        document.documentElement.appendChild(host);
+        mount?.append(shell.overlay, shell.panel);
 
         this.host = host;
         this.shadow = shadow;
+        this.hostHandle = handle;
         this.bookmarksTab = bookmarksTab;
         this.settingsTab = settingsTab;
         this.refs = { ...shell, footerStatus: status, footerMeta: meta };
@@ -237,18 +228,14 @@ export class BookmarksPanel {
         this.bookmarksTab = null;
         this.settingsTab = null;
         this.shadow = null;
-        this.host?.remove();
-        this.host = null;
 
-        // Restore host page scrolling.
-        if (this.prevHtmlOverflow !== null) {
-            document.documentElement.style.overflow = this.prevHtmlOverflow;
-            this.prevHtmlOverflow = null;
-        }
-        if (this.prevBodyOverflow !== null) {
-            document.body.style.overflow = this.prevBodyOverflow;
-            this.prevBodyOverflow = null;
-        }
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = null;
+
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+
+        this.host = null;
     }
 
     private render(): void {
@@ -258,8 +245,7 @@ export class BookmarksPanel {
         if (!refs || !shadow || !snap) return;
 
         const theme: Theme = this.controller.getTheme();
-        const style = shadow.querySelector('style');
-        if (style) style.textContent = getBookmarksPanelCss(theme);
+        this.hostHandle?.setCss(getBookmarksPanelCss(theme));
 
         refs.footerStatus.textContent = snap.status || '';
         refs.footerMeta.textContent = snap.vm.bookmarks.length ? `${snap.vm.bookmarks.length}` : '';

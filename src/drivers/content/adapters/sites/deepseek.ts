@@ -1,5 +1,7 @@
 import type { Theme } from '../../../../core/types/theme';
 import { SiteAdapter, type NoiseContext, type ThemeDetector } from '../base';
+import { deepseekMarkdownParserAdapter } from '../parser/deepseek';
+import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -19,6 +21,80 @@ const detector: ThemeDetector = {
 };
 
 export class DeepseekAdapter extends SiteAdapter {
+    private findHeaderBar(): HTMLElement | null {
+        const firstMessage = document.querySelector(this.getMessageSelector());
+        if (!(firstMessage instanceof HTMLElement)) return null;
+
+        let cursor: HTMLElement | null = firstMessage.closest('.ds-scroll-area');
+        while (cursor) {
+            const parent = cursor.parentElement;
+            if (!(parent instanceof HTMLElement)) break;
+
+            const siblings = Array.from(parent.children);
+            const cursorIndex = siblings.indexOf(cursor);
+            for (let i = cursorIndex - 1; i >= 0; i -= 1) {
+                const candidate = siblings[i];
+                if (candidate instanceof HTMLElement && this.looksLikeHeaderBar(candidate)) {
+                    return candidate;
+                }
+            }
+
+            cursor = parent;
+        }
+
+        return null;
+    }
+
+    private looksLikeHeaderBar(candidate: HTMLElement): boolean {
+        return Array.from(candidate.children).some(
+            (child) =>
+                child instanceof HTMLElement &&
+                (child.querySelector('.ds-icon-button') !== null || this.findHeaderTitleAnchor(child) !== null)
+        );
+    }
+
+    private findHeaderTitleAnchor(headerBar: HTMLElement | null): HTMLElement | null {
+        if (!(headerBar instanceof HTMLElement)) return null;
+
+        for (const child of Array.from(headerBar.children)) {
+            if (!(child instanceof HTMLElement)) continue;
+            const directAnchor = this.isHeaderTitleAnchor(child) ? child : null;
+            if (directAnchor) return directAnchor;
+
+            for (const grandChild of Array.from(child.children)) {
+                if (this.isHeaderTitleAnchor(grandChild)) {
+                    return grandChild as HTMLElement;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private isHeaderTitleAnchor(element: Element): element is HTMLElement {
+        return (
+            element instanceof HTMLElement &&
+            /flex:\s*1\s+1\s+0%/.test(element.getAttribute('style') || '') &&
+            /display:\s*flex/.test(element.getAttribute('style') || '') &&
+            Boolean(element.textContent?.trim())
+        );
+    }
+
+    private getActionRow(messageElement: HTMLElement): HTMLElement | null {
+        const message = messageElement.closest('div.ds-message') || messageElement;
+        const wrapper = message.parentElement;
+        if (!(wrapper instanceof HTMLElement)) return null;
+
+        for (const child of Array.from(wrapper.children)) {
+            if (child === message || !(child instanceof HTMLElement)) continue;
+            if (!child.matches('.ds-flex')) continue;
+            if (!child.querySelector('.ds-icon-button')) continue;
+            return child;
+        }
+
+        return null;
+    }
+
     matches(url: string): boolean {
         return url.includes('chat.deepseek.com');
     }
@@ -31,9 +107,20 @@ export class DeepseekAdapter extends SiteAdapter {
         return detector;
     }
 
+    getMarkdownParserAdapter(): MarkdownParserAdapter {
+        return deepseekMarkdownParserAdapter;
+    }
+
     extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
         const normalize = (text: string): string =>
             text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+
+        const extractUserText = (candidate: HTMLElement): string | null => {
+            if (candidate.querySelector('.ds-markdown')) return null;
+            const text = (candidate.textContent || '').trim();
+            const normalized = normalize(text);
+            return normalized || null;
+        };
 
         const message = assistantMessageElement.closest('div.ds-message') || assistantMessageElement;
         const parent = message.parentElement;
@@ -46,24 +133,22 @@ export class DeepseekAdapter extends SiteAdapter {
             if (idx >= 0) {
                 for (let i = idx - 1; i >= 0; i -= 1) {
                     const prev = messages[i];
-                    // User prompts typically do NOT contain .ds-markdown.
-                    if (prev.querySelector('.ds-markdown')) continue;
-                    const text = (prev.textContent || '').trim();
-                    const normalized = normalize(text);
-                    return normalized || null;
+                    const prompt = extractUserText(prev);
+                    if (prompt) return prompt;
                 }
             }
         }
 
-        // Fallback: previous sibling walk for a non-markdown ds-message.
+        // Fallback: walk previous siblings across wrapper layers until a non-markdown ds-message is found.
         let cursor: Element | null = message;
         while (cursor) {
             let prev: Element | null = cursor.previousElementSibling;
             while (prev) {
-                if (prev instanceof HTMLElement && prev.classList.contains('ds-message') && !prev.querySelector('.ds-markdown')) {
-                    const text = (prev.textContent || '').trim();
-                    const normalized = normalize(text);
-                    return normalized || null;
+                if (prev instanceof HTMLElement) {
+                    const directMessage = prev.classList.contains('ds-message') ? prev : null;
+                    const nestedMessage = prev.querySelector('.ds-message') as HTMLElement | null;
+                    const prompt = (directMessage && extractUserText(directMessage)) || (nestedMessage && extractUserText(nestedMessage));
+                    if (prompt) return prompt;
                 }
                 prev = prev.previousElementSibling;
             }
@@ -85,10 +170,34 @@ export class DeepseekAdapter extends SiteAdapter {
         return '.ds-flex > .ds-icon-button';
     }
 
+    getToolbarAnchorElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        return this.getActionRow(assistantMessageElement);
+    }
+
+    getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const turn = assistantMessageElement.closest('div.ds-message');
+        return turn instanceof HTMLElement ? turn : null;
+    }
+
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
-        const actionBar = messageElement.querySelector(this.getActionBarSelector());
-        if (actionBar && actionBar.parentElement) {
-            actionBar.parentElement.insertBefore(toolbarHost, actionBar);
+        const actionRow = this.getActionRow(messageElement);
+        if (actionRow) {
+            const spacer = Array.from(actionRow.children).find(
+                (child): child is HTMLElement => child instanceof HTMLElement && /flex:\s*1\s+1\s+0%/.test(child.getAttribute('style') || '')
+            );
+
+            if (spacer?.nextSibling) {
+                actionRow.insertBefore(toolbarHost, spacer.nextSibling);
+            } else {
+                actionRow.appendChild(toolbarHost);
+            }
+
+            return true;
+        }
+
+        const content = messageElement.querySelector(this.getMessageContentSelector());
+        if (content?.parentElement) {
+            content.parentElement.insertBefore(toolbarHost, content.nextSibling);
             return true;
         }
 
@@ -114,12 +223,74 @@ export class DeepseekAdapter extends SiteAdapter {
     }
 
     getObserverContainer(): HTMLElement | null {
-        const selectors = ['.ds-scroll-area', 'main', 'body'];
+        const firstMessage = document.querySelector(this.getMessageSelector());
+        if (firstMessage instanceof HTMLElement) {
+            let cursor: HTMLElement | null = firstMessage.parentElement;
+            while (cursor) {
+                if (cursor.matches('.ds-scroll-area, main')) {
+                    return cursor;
+                }
+                cursor = cursor.parentElement;
+            }
+        }
+
+        const selectors = ['main', 'body'];
         for (const selector of selectors) {
             const container = document.querySelector(selector);
-            if (container instanceof HTMLElement) return container;
+            if (container instanceof HTMLElement && container.querySelector(this.getMessageSelector())) {
+                return container;
+            }
+        }
+
+        const body = document.body;
+        if (body.querySelector(this.getMessageSelector())) {
+            return body;
         }
         return null;
+    }
+
+    getHeaderIconAnchorElement(): HTMLElement | null {
+        return this.findHeaderTitleAnchor(this.findHeaderBar());
+    }
+
+    injectHeaderIcon(iconHost: HTMLElement): boolean {
+        const anchor = this.getHeaderIconAnchorElement();
+        if (!anchor) return false;
+
+        if (iconHost instanceof HTMLElement) {
+            iconHost.className = 'ds-icon-button ds-icon-button--l';
+            iconHost.setAttribute('role', 'button');
+            iconHost.setAttribute('tabindex', '0');
+            iconHost.setAttribute('aria-disabled', 'false');
+            iconHost.style.marginLeft = '12px';
+            iconHost.style.height = '40px';
+
+            if (iconHost.dataset.aimdDecorated !== 'deepseek') {
+                const icon = iconHost.querySelector('img');
+                const hoverBg = document.createElement('div');
+                hoverBg.className = 'ds-icon-button__hover-bg';
+
+                const iconWrap = document.createElement('div');
+                iconWrap.className = 'ds-icon';
+                iconWrap.style.width = '22px';
+                iconWrap.style.height = '22px';
+
+                if (icon instanceof HTMLImageElement) {
+                    icon.style.width = '22px';
+                    icon.style.height = '22px';
+                    iconWrap.appendChild(icon);
+                }
+
+                const focusRing = document.createElement('div');
+                focusRing.className = 'ds-focus-ring';
+
+                iconHost.replaceChildren(hoverBg, iconWrap, focusRing);
+                iconHost.dataset.aimdDecorated = 'deepseek';
+            }
+        }
+
+        anchor.appendChild(iconHost);
+        return true;
     }
 
     normalizeDOM(element: HTMLElement): void {

@@ -2,7 +2,6 @@ import type { Theme } from '../../../../core/types/theme';
 import { PathUtils } from '../../../../core/bookmarks/path';
 import type { ProtocolErrorCode } from '../../../../contracts/protocol';
 import { bookmarksClient } from '../../../../drivers/shared/clients/bookmarksClient';
-import { ensureStyle } from '../../../../style/shadow';
 import { getTokenCss } from '../../../../style/tokens';
 import {
     checkIcon,
@@ -20,6 +19,8 @@ import { t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
 import { getBookmarkSaveDialogCss } from './bookmarkSaveDialogCss';
+import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../../components/shadowDialogHost';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
 
 type FolderLite = { path: string; name: string; depth: number };
 
@@ -41,10 +42,10 @@ type InlineSubfolderState = { parentPath: string; value: string; error: string; 
 export class BookmarkSaveDialog {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private hostHandle: ShadowDialogHostHandle | null = null;
+    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private theme: Theme = 'light';
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
-    private prevHtmlOverflow: string | null = null;
-    private prevBodyOverflow: string | null = null;
 
     private folders: FolderLite[] = [];
     private state: BookmarkSaveDraftState | null = null;
@@ -104,9 +105,7 @@ export class BookmarkSaveDialog {
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        if (!this.shadow) return;
-        const style = this.shadow.querySelector('style');
-        if (style) style.textContent = getTokenCss(theme) + getBookmarkSaveDialogCss(theme);
+        this.hostHandle?.setCss(getTokenCss(theme) + getBookmarkSaveDialogCss(theme));
     }
 
     private close(result: BookmarkSaveDialogResult): void {
@@ -114,22 +113,19 @@ export class BookmarkSaveDialog {
         this.resolve = null;
 
         this.shadow = null;
-        this.host?.remove();
+
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = null;
+
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+
         this.host = null;
         this.state = null;
         this.status = '';
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
-
-        if (this.prevHtmlOverflow !== null) {
-            document.documentElement.style.overflow = this.prevHtmlOverflow;
-            this.prevHtmlOverflow = null;
-        }
-        if (this.prevBodyOverflow !== null) {
-            document.body.style.overflow = this.prevBodyOverflow;
-            this.prevBodyOverflow = null;
-        }
 
         resolve?.(result);
     }
@@ -169,21 +165,14 @@ export class BookmarkSaveDialog {
 
     private mount(): void {
         if (this.host) return;
-
-        this.prevHtmlOverflow = document.documentElement.style.overflow || '';
-        this.prevBodyOverflow = document.body.style.overflow || '';
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-
-        const host = document.createElement('div');
-        host.className = 'aimd-bookmark-save-dialog-host';
-        host.style.position = 'fixed';
-        host.style.inset = '0';
-        host.style.zIndex = 'var(--aimd-z-panel)';
-
-        const shadow = host.attachShadow({ mode: 'open' });
-        shadow.innerHTML = this.getHtml();
-        ensureStyle(shadow, getTokenCss(this.theme) + getBookmarkSaveDialogCss(this.theme));
+        const handle = mountShadowDialogHost({
+            id: 'aimd-bookmark-save-dialog-host',
+            html: this.getHtml(),
+            cssText: getTokenCss(this.theme) + getBookmarkSaveDialogCss(this.theme),
+            lockScroll: true,
+        });
+        const host = handle.host;
+        const shadow = handle.shadow;
 
         shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.close({ ok: false, reason: 'cancel' });
@@ -202,10 +191,9 @@ export class BookmarkSaveDialog {
             this.renderFooterOnly();
         });
 
-        host.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: host,
+            onEscape: () => {
                 if (this.rootFolderModal) {
                     this.rootFolderModal = null;
                     this.renderModalLayer();
@@ -217,15 +205,15 @@ export class BookmarkSaveDialog {
                     return;
                 }
                 this.close({ ok: false, reason: 'cancel' });
-                return;
-            }
-            // prevent leaking shortcuts into the host page
-            e.stopPropagation();
+            },
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: shadow.querySelector<HTMLElement>('.panel') ?? undefined,
         });
 
-        document.documentElement.appendChild(host);
         this.host = host;
         this.shadow = shadow;
+        this.hostHandle = handle;
     }
 
     private renderLoading(): void {

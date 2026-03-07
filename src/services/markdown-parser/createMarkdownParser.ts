@@ -1,6 +1,6 @@
 import { Parser } from './core/Parser';
 import type { ParserOptions } from './core/types';
-import type { IPlatformAdapter } from './adapters/IPlatformAdapter';
+import type { MarkdownParserAdapter } from '../../drivers/content/adapters/parser/MarkdownParserAdapter';
 import { createMathBlockRule } from './rules/block/MathBlockRule';
 import { createMathInlineRule } from './rules/inline/MathInlineRule';
 import { createCodeBlockRule } from './rules/block/CodeBlockRule';
@@ -29,7 +29,7 @@ function getDefaultMaxProcessingTimeMs(): number {
     return isTestEnv ? 60_000 : 15_000;
 }
 
-export function createMarkdownParser(adapter: IPlatformAdapter, options: ParserOptions = {}): Parser {
+export function createMarkdownParser(adapter: MarkdownParserAdapter, options: ParserOptions = {}): Parser {
     const parser = new Parser(adapter, {
         // Why: large "Deep Research" style responses can exceed 5s in JSDOM and on slower machines.
         // Keep a hard cap, but allow enough headroom to avoid falling back to raw textContent.

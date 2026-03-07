@@ -1,7 +1,7 @@
 import { ParserError, checkMaxDepth, withErrorBoundary } from './ErrorBoundary';
 import { RuleEngine } from './RuleEngine';
 import type { ParserContext, ParserOptions } from './types';
-import type { IPlatformAdapter } from '../adapters/IPlatformAdapter';
+import type { MarkdownParserAdapter } from '../../../drivers/content/adapters/parser/MarkdownParserAdapter';
 import type { RuleContext } from './Rule';
 import { logger } from '../../../core/logger';
 
@@ -15,11 +15,11 @@ const DEFAULT_OPTIONS: Required<ParserOptions> = {
 };
 
 export class Parser {
-    private adapter: IPlatformAdapter;
+    private adapter: MarkdownParserAdapter;
     private engine: RuleEngine;
     private options: Required<ParserOptions>;
 
-    constructor(adapter: IPlatformAdapter, options: ParserOptions = {}) {
+    constructor(adapter: MarkdownParserAdapter, options: ParserOptions = {}) {
         this.adapter = adapter;
         this.engine = new RuleEngine();
         this.options = { ...DEFAULT_OPTIONS, ...options };
@@ -92,13 +92,14 @@ export class Parser {
 
     private processNodeUnsafe(node: Node, context: ParserContext, depth: number): string {
         if (node.nodeType === Node.TEXT_NODE) {
-            return node.textContent || '';
+            const text = node.textContent || '';
+            return this.adapter.cleanText ? this.adapter.cleanText(text) : text;
         }
         if (node.nodeType !== Node.ELEMENT_NODE) {
             return '';
         }
 
-        const rule = this.engine.findRule(node);
+        const rule = this.engine.findRule(node, this.adapter);
         if (rule) {
             const children = Array.from(node.childNodes || []);
             const childContent = children.map((child) => this.processNode(child, context, depth + 1)).join('');
@@ -125,8 +126,7 @@ export class Parser {
         return this.engine;
     }
 
-    getAdapter(): IPlatformAdapter {
+    getAdapter(): MarkdownParserAdapter {
         return this.adapter;
     }
 }
-

@@ -5,6 +5,14 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- ChatGPT and DeepSeek: Added an adapter-driven header bookmark icon entry backed by a shared runtime orchestrator.
+
+### Changed
+- Platform adapters now own page-header icon anchors and injection rules, keeping runtime lifecycle logic platform-agnostic.
+
 ## [3.0.0] - 2026-02-18
 
 ### Added

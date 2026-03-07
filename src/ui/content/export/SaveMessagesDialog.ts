@@ -1,6 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { ensureStyle } from '../../../style/shadow';
 import { getTokenCss } from '../../../style/tokens';
 import { t } from '../components/i18n';
 import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
@@ -11,6 +10,8 @@ import {
 } from '../../../services/export/saveMessagesFacade';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon } from '../../../assets/icons';
+import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 
 type State = {
     theme: Theme;
@@ -23,13 +24,13 @@ type State = {
 export class SaveMessagesDialog {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private hostHandle: ShadowDialogHostHandle | null = null;
+    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private adapter: SiteAdapter | null = null;
     private turns: Array<{ user: string; assistant: string; index: number }> = [];
     private metadata: { url: string; exportedAt: string; title: string; count: number; platform: string } | null = null;
     private tooltipTimer: number | null = null;
     private tooltipEl: HTMLElement | null = null;
-    private prevHtmlOverflow: string | null = null;
-    private prevBodyOverflow: string | null = null;
     private exportT: TranslateFn = (key, args) => {
         if (args === undefined) return t(key);
         if (Array.isArray(args)) return t(key, args.map((x) => String(x)));
@@ -61,50 +62,33 @@ export class SaveMessagesDialog {
         this.state.format = 'markdown';
         this.state.saving = false;
 
-        // Scroll lock (dialog parity with bookmarks panel).
-        if (this.prevHtmlOverflow === null) {
-            this.prevHtmlOverflow = document.documentElement.style.overflow || '';
-            document.documentElement.style.overflow = 'hidden';
-        }
-        if (this.prevBodyOverflow === null) {
-            this.prevBodyOverflow = document.body.style.overflow || '';
-            document.body.style.overflow = 'hidden';
-        }
+        const handle = mountShadowDialogHost({
+            id: 'aimd-save-messages-dialog-host',
+            html: this.getHtml(),
+            cssText: getTokenCss(theme) + getSaveMessagesDialogCss(theme),
+            lockScroll: true,
+        });
 
-        const host = document.createElement('div');
-        host.id = 'aimd-save-messages-dialog-host';
-        host.style.position = 'fixed';
-        host.style.inset = '0';
-        host.style.zIndex = 'var(--aimd-z-panel)';
+        this.host = handle.host;
+        this.shadow = handle.shadow;
+        this.hostHandle = handle;
 
-        const shadow = host.attachShadow({ mode: 'open' });
-        shadow.innerHTML = this.getHtml();
-        ensureStyle(shadow, getTokenCss(theme) + getSaveMessagesDialogCss(theme));
-
-        this.host = host;
-        this.shadow = shadow;
-
-        shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', (e) => {
+        this.shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.close();
         });
-        shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close());
-        shadow.querySelector<HTMLButtonElement>('[data-action="select_all"]')?.addEventListener('click', () => this.selectAll());
-        shadow.querySelector<HTMLButtonElement>('[data-action="deselect_all"]')?.addEventListener('click', () => this.deselectAll());
-        shadow.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', () => void this.save());
+        this.shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close());
+        this.shadow.querySelector<HTMLButtonElement>('[data-action="select_all"]')?.addEventListener('click', () => this.selectAll());
+        this.shadow.querySelector<HTMLButtonElement>('[data-action="deselect_all"]')?.addEventListener('click', () => this.deselectAll());
+        this.shadow.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', () => void this.save());
         this.bindFormatHandlers();
 
-        shadow.addEventListener('keydown', (e) => {
-            const ev = e as KeyboardEvent;
-            if (ev.key === 'Escape') {
-                ev.preventDefault();
-                ev.stopPropagation();
-                this.close();
-                return;
-            }
-            ev.stopPropagation();
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: handle.host,
+            onEscape: () => this.close(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: this.shadow.querySelector<HTMLElement>('.panel') ?? undefined,
         });
-
-        document.documentElement.appendChild(host);
 
         this.render();
     }
@@ -116,22 +100,18 @@ export class SaveMessagesDialog {
         }
         this.hideTooltip();
 
-        this.host?.remove();
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = null;
+
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+
         this.host = null;
         this.shadow = null;
         this.adapter = null;
         this.turns = [];
         this.metadata = null;
         this.state.selected.clear();
-
-        if (this.prevHtmlOverflow !== null) {
-            document.documentElement.style.overflow = this.prevHtmlOverflow;
-            this.prevHtmlOverflow = null;
-        }
-        if (this.prevBodyOverflow !== null) {
-            document.body.style.overflow = this.prevBodyOverflow;
-            this.prevBodyOverflow = null;
-        }
     }
 
     private getHtml(): string {

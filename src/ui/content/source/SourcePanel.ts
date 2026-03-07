@@ -1,9 +1,10 @@
 import type { Theme } from '../../../core/types/theme';
 import { getTokenCss } from '../../../style/tokens';
-import { ensureStyle } from '../../../style/shadow';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { t } from '../components/i18n';
 import { copyIcon, xIcon } from '../../../assets/icons';
+import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 
 type State = {
     theme: Theme;
@@ -15,9 +16,9 @@ type State = {
 export class SourcePanel {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private hostHandle: ShadowDialogHostHandle | null = null;
+    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private state: State = { theme: 'light', title: '', content: '', visible: false };
-    private prevHtmlOverflow: string | null = null;
-    private prevBodyOverflow: string | null = null;
 
     isVisible(): boolean {
         return this.state.visible;
@@ -25,8 +26,7 @@ export class SourcePanel {
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
-        const style = this.shadow?.querySelector('style');
-        if (style) style.textContent = this.getCss();
+        this.hostHandle?.setCss(this.getCss());
     }
 
     show(params: { theme: Theme; title?: string; content: string }): void {
@@ -34,16 +34,6 @@ export class SourcePanel {
         this.state.title = params.title || t('modalSourceTitle');
         this.state.content = params.content;
         this.state.visible = true;
-
-        // Prevent scroll chaining into the host page while the overlay is open.
-        if (this.prevHtmlOverflow === null) {
-            this.prevHtmlOverflow = document.documentElement.style.overflow || '';
-            document.documentElement.style.overflow = 'hidden';
-        }
-        if (this.prevBodyOverflow === null) {
-            this.prevBodyOverflow = document.body.style.overflow || '';
-            document.body.style.overflow = 'hidden';
-        }
 
         this.mount();
         this.render();
@@ -56,49 +46,40 @@ export class SourcePanel {
 
     private mount(): void {
         if (this.host) return;
-
-        const host = document.createElement('div');
-        host.id = 'aimd-source-panel-host';
-        host.style.position = 'fixed';
-        host.style.inset = '0';
-        host.style.zIndex = 'var(--aimd-z-panel)';
-
-        const shadow = host.attachShadow({ mode: 'open' });
-        shadow.innerHTML = this.getHtml();
-        ensureStyle(shadow, this.getCss());
+        const handle = mountShadowDialogHost({
+            id: 'aimd-source-panel-host',
+            html: this.getHtml(),
+            cssText: this.getCss(),
+            lockScroll: true,
+        });
+        const host = handle.host;
+        const shadow = handle.shadow;
 
         shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', () => this.hide());
         shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.hide());
         shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')?.addEventListener('click', () => void this.copy());
 
-        host.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                this.hide();
-                return;
-            }
-            e.stopPropagation();
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: host,
+            onEscape: () => this.hide(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
         });
 
-        document.documentElement.appendChild(host);
         this.host = host;
         this.shadow = shadow;
+        this.hostHandle = handle;
     }
 
     private unmount(): void {
-        this.host?.remove();
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = null;
+
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+
         this.host = null;
         this.shadow = null;
-
-        if (this.prevHtmlOverflow !== null) {
-            document.documentElement.style.overflow = this.prevHtmlOverflow;
-            this.prevHtmlOverflow = null;
-        }
-        if (this.prevBodyOverflow !== null) {
-            document.body.style.overflow = this.prevBodyOverflow;
-            this.prevBodyOverflow = null;
-        }
     }
 
     private render(): void {

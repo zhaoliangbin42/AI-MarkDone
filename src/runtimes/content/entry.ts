@@ -13,18 +13,13 @@ import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale } from '../../ui/content/components/i18n';
 import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
+import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
 
 ensurePageTokens();
 
 const adapter = getAdapter();
-if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
-    // ChatGPT-only validation stage.
-    // Other platforms remain out of scope until this loop is fully stable and audited.
-    // Why: reduce variables and enforce a single acceptance target.
-    // Note: no global UI is injected in this stage.
-    // (Adapters may still exist for future parity work.)
-} else {
+if (adapter) {
     const themeManager = new ThemeManager();
     const mathClick = new MathClickHandler();
     const readerPanel = new ReaderPanel();
@@ -32,7 +27,10 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
-    const folding = new ChatGPTFoldingController();
+    const folding = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTFoldingController() : null;
+    const headerIcon = new HeaderIconOrchestrator(adapter, {
+        onToggle: () => bookmarksPanel.toggle(),
+    });
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
         sendController,
@@ -42,7 +40,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
             if (behavior.enableClickToCopy) {
                 mathClick.enable(messageElement);
             }
-            folding.registerMessage(messageElement);
+            folding?.registerMessage(messageElement);
         },
     });
 
@@ -55,7 +53,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
         }
-        folding.setPolicy(snap.settings.chatgpt);
+        folding?.setPolicy(snap.settings.chatgpt);
         messageToolbars.setBehaviorFlags({
             showViewSource: snap.settings.behavior.showViewSource,
             showSaveMessages: snap.settings.behavior.showSaveMessages,
@@ -69,7 +67,7 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
         readerPanel.setTheme(theme);
         sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
-        folding.setTheme(theme);
+        folding?.setTheme(theme);
     });
 
     browser.runtime.onMessage.addListener((msg: unknown) => {
@@ -80,8 +78,11 @@ if (!adapter || adapter.getPlatformId() !== 'chatgpt') {
     });
 
     messageToolbars.init();
-    const initialTheme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
-    folding.init(adapter, initialTheme);
+    headerIcon.init();
+    if (folding) {
+        const initialTheme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
+        folding.init(adapter, initialTheme);
+    }
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
     const pending = consumePendingNavigation();

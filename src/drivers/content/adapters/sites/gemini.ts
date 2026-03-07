@@ -1,5 +1,7 @@
 import type { Theme } from '../../../../core/types/theme';
 import { SiteAdapter, type NoiseContext, type ThemeDetector } from '../base';
+import { geminiMarkdownParserAdapter } from '../parser/gemini';
+import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -27,6 +29,10 @@ export class GeminiAdapter extends SiteAdapter {
 
     getThemeDetector(): ThemeDetector {
         return detector;
+    }
+
+    getMarkdownParserAdapter(): MarkdownParserAdapter {
+        return geminiMarkdownParserAdapter;
     }
 
     extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
@@ -92,6 +98,11 @@ export class GeminiAdapter extends SiteAdapter {
 
     getActionBarSelector(): string {
         return '.response-container-footer, .response-footer';
+    }
+
+    getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const turn = assistantMessageElement.closest('.conversation-container');
+        return turn instanceof HTMLElement ? turn : null;
     }
 
     isStreamingMessage(element: HTMLElement): boolean {

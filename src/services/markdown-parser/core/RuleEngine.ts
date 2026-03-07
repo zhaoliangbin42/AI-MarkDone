@@ -1,3 +1,4 @@
+import type { MarkdownParserAdapter } from '../../../drivers/content/adapters/parser/MarkdownParserAdapter';
 import type { Rule } from './Rule';
 
 export class RuleEngine {
@@ -8,9 +9,9 @@ export class RuleEngine {
         this.rules.sort((a, b) => a.priority - b.priority);
     }
 
-    findRule(node: Node): Rule | null {
+    findRule(node: Node, adapter: MarkdownParserAdapter): Rule | null {
         for (const rule of this.rules) {
-            if (matchesFilter(rule.filter, node)) {
+            if (matchesFilter(rule.filter, node, adapter)) {
                 return rule;
             }
         }
@@ -22,12 +23,11 @@ export class RuleEngine {
     }
 }
 
-function matchesFilter(filter: Rule['filter'], node: Node): boolean {
+function matchesFilter(filter: Rule['filter'], node: Node, adapter: MarkdownParserAdapter): boolean {
     if (Array.isArray(filter)) {
         if (node.nodeType !== Node.ELEMENT_NODE) return false;
         const elem = node as Element;
         return filter.includes(elem.tagName.toLowerCase());
     }
-    return filter(node);
+    return filter(node, adapter);
 }
-

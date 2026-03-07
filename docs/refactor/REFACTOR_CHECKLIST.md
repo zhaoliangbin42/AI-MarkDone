@@ -94,6 +94,7 @@ Checklist（每个域通用）：
 
 - [x] Service：copy pipeline（`src/services/copy/copy-markdown.ts`）
 - [x] Driver：站点 copy root + noise filtering hooks（`src/drivers/content/adapters/sites/*`）
+- [x] Driver：platform markdown parser capability（`src/drivers/content/adapters/parser/*`）
 - [x] Driver：clipboard 写入（`src/drivers/content/clipboard/clipboard.ts`）
 - [x] Driver：LaTeX click mode（`src/drivers/content/math/math-click.ts`）
 - [x] UI：每条消息 Copy Markdown 按钮（`src/ui/content/MessageToolbar.ts`）
@@ -133,6 +134,7 @@ Checklist（每个域通用）：
 - [x] Driver/Protocol：positions snapshot + bulk ops（`src/contracts/protocol.ts`, `src/runtimes/background/handlers/bookmarks.ts`）
 - [x] UI：书签条目点击预览复用 ReaderPanel（搜索=全局顺序翻页；非搜索=folder 范围翻页）
 - [x] UI：MessageToolbar 增加 Bookmark 快捷按钮（保存/取消 + 状态同步）（`src/ui/content/controllers/MessageToolbarOrchestrator.ts`）
+- [x] Driver/UI：adapter-owned header bookmark icon hook + thin runtime orchestrator（ChatGPT / DeepSeek）
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
 - [ ] 人工验收：扩展图标打开面板；面板内导入/导出/repair；Go To 定位与高亮；批量移动/删除
 

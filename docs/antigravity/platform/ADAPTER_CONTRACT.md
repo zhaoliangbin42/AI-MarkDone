@@ -18,6 +18,7 @@ Adapter 只负责：
 - 流式状态探测（平台特化）
 - 平台噪声节点识别（结构性噪声，不基于文本）
 - DOM 结构规范化（normalizeDOM），用于解析管线前处理
+- Markdown parser capability（数学/代码块/LaTeX/语言识别的站点差异）
 - 主题探测与主题变化观察目标（ThemeDetector）
 
 Adapter 不负责：
@@ -45,6 +46,8 @@ Adapter 不负责：
 - `getActionBarSelector()`
 - `getToolbarAnchorElement?(assistantMessageElement: HTMLElement): HTMLElement | null`
 - `getTurnRootElement?(assistantMessageElement: HTMLElement): HTMLElement | null`
+- `getHeaderIconAnchorElement(): HTMLElement | null`
+- `injectHeaderIcon(iconHost: HTMLElement): boolean`
 - `injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean`
 - `isStreamingMessage(messageElement: HTMLElement): boolean`
 - `getMessageId(messageElement: HTMLElement): string | null`
@@ -57,6 +60,8 @@ Adapter 不负责：
 - `getActionBarSelector()` 作为“完成态锚点”的辅助（streaming guard / pending 状态）；若平台没有明确 action bar，应返回一个尽量可靠的完成态锚点选择器。
 - `getToolbarAnchorElement?()` 只用于“身份与位置锚点”：必须返回对同一逻辑消息稳定且唯一的元素；不得产生副作用；拿不到应返回 `null`（调用方回退到 messageElement 的去重标记）。
 - `getTurnRootElement?()` 用于“turn 分组”的结构性锚点：应返回包裹本段 assistant segment 的稳定容器（优先使用站点已有的 turn wrapper）；不得产生副作用；拿不到应返回 `null`（调用方回退到平台无关的 best-effort turn grouping）。
+- `getHeaderIconAnchorElement()` 用于页面级书签入口：应返回站点顶部 header 中稳定、唯一、可重复挂载的锚点元素；不得产生副作用；拿不到应返回 `null`。
+- `injectHeaderIcon()` 负责平台级 header icon 注入策略；必须幂等安全，允许 SPA 反复重挂；若 header 尚未可用应返回 `false`，由 runtime 统一重试。
 - `injectToolbar()` 必须是幂等安全的：允许重复调用但不会导致错误位置注入；必须具备 fallback（action bar → content after → append）。
 - `isStreamingMessage()` 必须是 best-effort：误判为 streaming 只会禁用按钮，不得影响注入与扫描。
 - `getMessageId()` 用于去重注入：必须尽量稳定；拿不到可返回 `null`（调用方会走 dataset 标记兜底）。
@@ -67,12 +72,14 @@ Adapter 不负责：
 - `normalizeDOM(root: HTMLElement): void`
 - `isNoiseNode(node: Node, context: NoiseContext): boolean`
 - `getArtifactPlaceholder(node: HTMLElement): string | null`
+- `getMarkdownParserAdapter(): MarkdownParserAdapter | null`
 
 要求：
 
 - `normalizeDOM()` 仅允许对传入节点做原地变换；调用方只会在 clone 上调用（不得污染页面真实 DOM）。
 - 噪声判断必须只基于结构/位置/属性，不基于文本内容（避免语言/i18n 漂移）。
 - placeholder 文本必须可被用户理解且可回归（尽量稳定）；返回 `null` 表示直接删除噪声节点。
+- `getMarkdownParserAdapter()` 若返回非空，必须提供 parser 所需的站点差异能力（如 math/code 识别、LaTeX 提取、代码语言识别、必要文本清洗）；Service 不得再按 platform id 分支选择 parser adapter。
 
 ### 2.4 可选扩展（Optional platform extras）
 

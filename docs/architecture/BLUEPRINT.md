@@ -106,7 +106,12 @@
 
 ### 3.2 Site Adapter Contract（站点差异收敛点）
 
-目标：站点差异只能存在于 adapter（driver）实现里，Service 层不感知 DOM 选择器。
+目标：站点差异只能存在于 adapter（driver）实现里，Service 层不感知 DOM 选择器，也不按 platform id 分支选择 parser 实现。
+
+补充约束：
+
+- 页面级入口（例如 header bookmark icon）的 DOM 锚点与注入规则，同样属于 adapter 契约的一部分
+- runtime 只允许持有平台无关的生命周期编排器（如 toolbar/header icon orchestrator），不得在入口层写平台选择器
 
 契约位置：
 
