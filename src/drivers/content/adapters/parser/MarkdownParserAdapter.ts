@@ -3,15 +3,13 @@ export interface LatexResult {
     isBlock: boolean;
 }
 
-export interface IPlatformAdapter {
+export interface MarkdownParserAdapter {
     readonly name: string;
 
-    selectMathNodes(root: HTMLElement): HTMLElement[];
-    selectCodeBlocks(root: HTMLElement): HTMLElement[];
+    isMathNode(node: Element): boolean;
+    isCodeBlockNode(node: Element): boolean;
     extractLatex(mathNode: HTMLElement): LatexResult | null;
     getCodeLanguage(codeBlock: HTMLElement): string;
     isBlockMath(mathNode: HTMLElement): boolean;
     cleanText?(text: string): string;
-    canHandle?(root: HTMLElement): number;
 }
-

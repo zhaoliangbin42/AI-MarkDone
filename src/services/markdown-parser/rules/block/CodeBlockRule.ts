@@ -17,17 +17,19 @@ function normalizeCodeBlockText(raw: string): string {
 export function createCodeBlockRule(): Rule {
     return {
         name: 'code-block',
-        filter: (node) => {
+        filter: (node, adapter) => {
             if (node.nodeType !== Node.ELEMENT_NODE) return false;
-            const elem = node as Element;
-            return elem.tagName === 'PRE' && elem.querySelector('code') !== null;
+            return adapter.isCodeBlockNode(node as Element);
         },
         priority: 3,
         replacement: (_content, node, context) => {
-            const preElem = node as HTMLElement;
-            const codeElem = preElem.querySelector('code') as HTMLElement | null;
+            const blockElem = node as HTMLElement;
+            const codeElem =
+                blockElem.tagName === 'CODE'
+                    ? blockElem
+                    : ((blockElem.querySelector('code') as HTMLElement | null) || (blockElem.matches('pre') ? blockElem : null));
             if (!codeElem) {
-                return `\`\`\`\n${preElem.textContent || ''}\n\`\`\`\n\n`;
+                return `\`\`\`\n${blockElem.textContent || ''}\n\`\`\`\n\n`;
             }
             const language = context.adapter.getCodeLanguage(codeElem);
             const code = normalizeCodeBlockText(codeElem.textContent || '');
@@ -36,4 +38,3 @@ export function createCodeBlockRule(): Rule {
         },
     };
 }
-

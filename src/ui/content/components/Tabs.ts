@@ -32,11 +32,6 @@ export class Tabs {
             btn.title = tab.label;
             btn.setAttribute('aria-label', tab.label);
             btn.innerHTML = `<span class="aimd-tab-icon">${tab.icon}</span><span class="aimd-tab-label">${tab.label}</span>`;
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.setActive(tab.id);
-            });
             sidebar.appendChild(btn);
             this.buttons.set(tab.id, btn);
 
@@ -53,6 +48,8 @@ export class Tabs {
             const id = btn?.getAttribute('data-tab-id') ?? null;
             if (!id) return;
             this.setActive(id);
+            // Ensure keyboard shortcuts (like ESC) continue to work reliably after tab switches.
+            btn?.focus?.({ preventScroll: true } as any);
         });
 
         this.root.append(sidebar, body);

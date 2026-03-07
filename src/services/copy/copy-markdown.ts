@@ -2,11 +2,6 @@ import { logger } from '../../core/logger';
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
 import { enhanceUnrenderedMath } from './preprocess/math-extractor';
 import { createMarkdownParser } from '../markdown-parser/createMarkdownParser';
-import type { IPlatformAdapter } from '../markdown-parser/adapters/IPlatformAdapter';
-import { ChatGPTAdapter as ChatGPTParserAdapter } from '../markdown-parser/adapters/ChatGPTAdapter';
-import { GeminiAdapter as GeminiParserAdapter } from '../markdown-parser/adapters/GeminiAdapter';
-import { ClaudeAdapter as ClaudeParserAdapter } from '../markdown-parser/adapters/ClaudeAdapter';
-import { DeepseekAdapter as DeepseekParserAdapter } from '../markdown-parser/adapters/DeepseekAdapter';
 
 export type CopyMarkdownResult =
     | { ok: true; markdown: string }
@@ -42,21 +37,6 @@ function removeNoiseNodes(root: HTMLElement, adapter: SiteAdapter): void {
     });
 }
 
-function getParserAdapter(platformId: string): IPlatformAdapter | null {
-    switch (platformId) {
-        case 'chatgpt':
-            return new ChatGPTParserAdapter();
-        case 'gemini':
-            return new GeminiParserAdapter();
-        case 'claude':
-            return new ClaudeParserAdapter();
-        case 'deepseek':
-            return new DeepseekParserAdapter();
-        default:
-            return null;
-    }
-}
-
 function resolveContentRoot(adapter: SiteAdapter, messageElement: HTMLElement): HTMLElement | null {
     if (messageElement.tagName.toLowerCase() === 'article') {
         return messageElement;
@@ -80,7 +60,7 @@ function resolveContentRoot(adapter: SiteAdapter, messageElement: HTMLElement): 
 }
 
 export function copyMarkdownFromMessage(adapter: SiteAdapter, messageElement: HTMLElement): CopyMarkdownResult {
-    const parserAdapter = getParserAdapter(adapter.getPlatformId());
+    const parserAdapter = adapter.getMarkdownParserAdapter();
     if (!parserAdapter) {
         return { ok: false, error: { code: 'UNSUPPORTED_SITE', message: 'Unsupported platform.' } };
     }

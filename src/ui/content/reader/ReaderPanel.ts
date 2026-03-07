@@ -1,7 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import { browser } from '../../../drivers/shared/browser';
 import { getTokenCss } from '../../../style/tokens';
-import { ensureStyle } from '../../../style/shadow';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
@@ -10,6 +9,8 @@ import { copyIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -49,6 +50,8 @@ type ReaderPanelState = {
 export class ReaderPanel {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private hostHandle: ShadowDialogHostHandle | null = null;
+    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private state: ReaderPanelState = {
         theme: 'light',
@@ -60,10 +63,7 @@ export class ReaderPanel {
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
-        const style = this.shadow?.querySelector('style');
-        if (style) {
-            style.textContent = this.getCss();
-        }
+        this.hostHandle?.setCss(this.getCss());
         this.render();
     }
 
@@ -100,17 +100,14 @@ export class ReaderPanel {
 
     private mount(): void {
         if (this.host) return;
-
-        const host = document.createElement('div');
-        host.id = 'aimd-reader-panel-host';
-        host.style.position = 'fixed';
-        host.style.inset = '0';
-        host.style.zIndex = 'var(--aimd-z-panel)';
-
-        const shadow = host.attachShadow({ mode: 'open' });
-        shadow.innerHTML = this.getHtml();
-        // Why: `innerHTML` replaces the whole shadow tree. Inject styles after template mount.
-        ensureStyle(shadow, this.getCss());
+        const handle = mountShadowDialogHost({
+            id: 'aimd-reader-panel-host',
+            html: this.getHtml(),
+            cssText: this.getCss(),
+            lockScroll: true,
+        });
+        const host = handle.host;
+        const shadow = handle.shadow;
 
         const overlay = shadow.querySelector<HTMLElement>('[data-role="overlay"]');
         overlay?.addEventListener('click', () => this.hide());
@@ -121,9 +118,17 @@ export class ReaderPanel {
         shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')?.addEventListener('click', () => void this.copyCurrent());
         shadow.querySelector<HTMLButtonElement>('[data-action="source"]')?.addEventListener('click', () => void this.openSourcePanel());
 
-        document.documentElement.appendChild(host);
         this.host = host;
         this.shadow = shadow;
+        this.hostHandle = handle;
+
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: host,
+            onEscape: () => this.hide(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: shadow.querySelector<HTMLElement>('.panel') ?? undefined,
+        });
 
         if (!this.unsubscribeLocale) {
             this.unsubscribeLocale = subscribeLocaleChange(() => {
@@ -136,7 +141,12 @@ export class ReaderPanel {
     }
 
     private unmount(): void {
-        this.host?.remove();
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = null;
+
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+
         this.host = null;
         this.shadow = null;
         this.unsubscribeLocale?.();

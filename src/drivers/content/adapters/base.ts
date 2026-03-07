@@ -1,4 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
+import type { MarkdownParserAdapter } from './parser/MarkdownParserAdapter';
 
 export interface ThemeDetector {
     detect(): Theme | null;
@@ -127,6 +128,35 @@ export abstract class SiteAdapter {
      */
     getArtifactPlaceholder(_node: HTMLElement): string | null {
         return null;
+    }
+
+    /**
+     * Optional parser capability owned by the driver layer.
+     *
+     * Service/parser core consumes this contract without branching on platform ids.
+     */
+    getMarkdownParserAdapter(): MarkdownParserAdapter | null {
+        return null;
+    }
+
+    /**
+     * Optional stable anchor for the page-level header icon entry.
+     *
+     * Why: page headers are often re-rendered independently from message containers.
+     * The runtime owns lifecycle; adapters own header DOM differences.
+     */
+    getHeaderIconAnchorElement(): HTMLElement | null {
+        return null;
+    }
+
+    /**
+     * Platform-specific injection strategy for the page-level header icon host.
+     */
+    injectHeaderIcon(iconHost: HTMLElement): boolean {
+        const anchor = this.getHeaderIconAnchorElement();
+        if (!anchor) return false;
+        anchor.appendChild(iconHost);
+        return true;
     }
 
     // =========================

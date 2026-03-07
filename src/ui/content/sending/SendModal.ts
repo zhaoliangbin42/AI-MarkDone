@@ -2,18 +2,19 @@ import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { readComposer, writeComposer } from '../../../drivers/content/sending/composerPort';
 import { sendText } from '../../../services/sending/sendService';
-import { ensureStyle } from '../../../style/shadow';
 import { getTokenCss } from '../../../style/tokens';
 import { xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
+import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 
 export class SendModal {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
+    private hostHandle: ShadowDialogHostHandle | null = null;
+    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private adapter: SiteAdapter | null = null;
     private theme: Theme = 'light';
-    private prevHtmlOverflow: string | null = null;
-    private prevBodyOverflow: string | null = null;
     private pending: boolean = false;
 
     isOpen(): boolean {
@@ -22,10 +23,7 @@ export class SendModal {
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        if (this.shadow) {
-            const style = this.shadow.querySelector('style');
-            if (style) style.textContent = getTokenCss(theme) + this.getCss();
-        }
+        this.hostHandle?.setCss(getTokenCss(theme) + this.getCss());
     }
 
     open(params: { adapter: SiteAdapter; theme: Theme; initialText?: string }): void {
@@ -58,59 +56,43 @@ export class SendModal {
 
     private mount(): void {
         if (this.host) return;
-
-        // Lock host page scroll (Gmail-like overlay behavior).
-        this.prevHtmlOverflow = document.documentElement.style.overflow || '';
-        this.prevBodyOverflow = document.body.style.overflow || '';
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-
-        const host = document.createElement('div');
-        host.className = 'aimd-send-modal-host';
-        host.style.position = 'fixed';
-        host.style.inset = '0';
-        host.style.zIndex = 'var(--aimd-z-panel)';
-
-        const shadow = host.attachShadow({ mode: 'open' });
-        shadow.innerHTML = this.getHtml();
-        // Important: inject styles AFTER template mount. `innerHTML` replaces the whole shadow tree.
-        ensureStyle(shadow, getTokenCss(this.theme) + this.getCss());
+        const handle = mountShadowDialogHost({
+            id: 'aimd-send-modal-host',
+            html: this.getHtml(),
+            cssText: getTokenCss(this.theme) + this.getCss(),
+            lockScroll: true,
+        });
+        const host = handle.host;
+        const shadow = handle.shadow;
 
         shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', () => this.close({ syncBack: true }));
         shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close({ syncBack: true }));
         shadow.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close({ syncBack: true }));
         shadow.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit());
 
-        host.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                this.close({ syncBack: true });
-                return;
-            }
-            // Keep keyboard events inside the modal to avoid affecting the host page.
-            e.stopPropagation();
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: host,
+            onEscape: () => this.close({ syncBack: true }),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: shadow.querySelector<HTMLElement>('.dialog') ?? undefined,
         });
 
-        document.documentElement.appendChild(host);
         this.host = host;
         this.shadow = shadow;
+        this.hostHandle = handle;
     }
 
     private unmount(): void {
         this.shadow = null;
-        this.host?.remove();
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = null;
+
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+
         this.host = null;
         this.pending = false;
-
-        if (this.prevHtmlOverflow !== null) {
-            document.documentElement.style.overflow = this.prevHtmlOverflow;
-            this.prevHtmlOverflow = null;
-        }
-        if (this.prevBodyOverflow !== null) {
-            document.body.style.overflow = this.prevBodyOverflow;
-            this.prevBodyOverflow = null;
-        }
     }
 
     private setStatus(text: string): void {
