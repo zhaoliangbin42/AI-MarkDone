@@ -19,6 +19,47 @@ const detector: ThemeDetector = {
 };
 
 export class ClaudeAdapter extends SiteAdapter {
+    private findMessageRoot(messageElement: HTMLElement): HTMLElement | null {
+        if (messageElement.matches('div.group[style*="height: auto"]')) return messageElement;
+
+        const root = messageElement.closest('div.group[style*="height: auto"]');
+        return root instanceof HTMLElement ? root : null;
+    }
+
+    private findActionBar(messageElement: HTMLElement): HTMLElement | null {
+        const root = this.findMessageRoot(messageElement) ?? messageElement;
+        const nested = root.querySelector(this.getActionBarSelector());
+        if (nested instanceof HTMLElement) return nested;
+
+        let cursor: HTMLElement | null = root;
+        for (let depth = 0; cursor && depth < 3; depth += 1) {
+            const sibling = cursor.nextElementSibling;
+            if (
+                sibling instanceof HTMLElement
+                && sibling.getAttribute('role') === 'group'
+                && sibling.getAttribute('aria-label') === 'Message actions'
+            ) {
+                return sibling;
+            }
+            cursor = cursor.parentElement;
+        }
+
+        return null;
+    }
+
+    private findActionRowTarget(messageElement: HTMLElement): HTMLElement | null {
+        const actionBar = this.findActionBar(messageElement);
+        if (!actionBar) return null;
+
+        const innerRow = actionBar.querySelector('.flex.items-stretch.justify-between');
+        if (innerRow instanceof HTMLElement) return innerRow;
+
+        const firstChild = actionBar.firstElementChild;
+        if (firstChild instanceof HTMLElement) return firstChild;
+
+        return actionBar;
+    }
+
     matches(url: string): boolean {
         return url.includes('claude.ai');
     }
@@ -73,25 +114,38 @@ export class ClaudeAdapter extends SiteAdapter {
         return 'div[role="group"][aria-label="Message actions"]';
     }
 
+    getToolbarAnchorElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        return this.findActionRowTarget(assistantMessageElement);
+    }
+
     getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
-        const turn = assistantMessageElement.closest('div.group[style*="height: auto"]');
-        return turn instanceof HTMLElement ? turn : null;
+        return this.findMessageRoot(assistantMessageElement);
     }
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
-        const actionBar = messageElement.querySelector(this.getActionBarSelector());
-        if (actionBar && actionBar.parentElement) {
-            actionBar.parentElement.insertBefore(toolbarHost, actionBar);
+        const actionRowTarget = this.findActionRowTarget(messageElement);
+        if (actionRowTarget) {
+            toolbarHost.dataset.aimdPlacement = 'actionbar';
+            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
+            toolbarHost.style.pointerEvents = 'auto';
+            toolbarHost.style.marginLeft = 'auto';
+            toolbarHost.style.flex = '0 0 auto';
+            toolbarHost.style.alignSelf = 'center';
+            actionRowTarget.appendChild(toolbarHost);
             return true;
         }
 
-        const content = messageElement.querySelector(this.getMessageContentSelector());
+        const root = this.findMessageRoot(messageElement) ?? messageElement;
+        const content = root.querySelector(this.getMessageContentSelector());
         if (content && content.parentElement) {
+            toolbarHost.dataset.aimdPlacement = 'content';
+            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
             content.parentElement.insertBefore(toolbarHost, content.nextSibling);
             return true;
         }
 
-        messageElement.appendChild(toolbarHost);
+        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
+        root.appendChild(toolbarHost);
         return true;
     }
 
@@ -118,9 +172,61 @@ export class ClaudeAdapter extends SiteAdapter {
         const selectors = ['main', '[data-testid="page-header"]', 'body'];
         for (const selector of selectors) {
             const container = document.querySelector(selector);
-            if (container instanceof HTMLElement) return container;
+            if (container instanceof HTMLElement) {
+                const messageCount = container.querySelectorAll(this.getMessageSelector()).length;
+                if (messageCount > 0) return container;
+            }
+        }
+        const body = document.body;
+        if (body instanceof HTMLElement) {
+            const messageCount = body.querySelectorAll(this.getMessageSelector()).length;
+            return messageCount > 0 ? body : null;
         }
         return null;
+    }
+
+    getHeaderIconAnchorElement(): HTMLElement | null {
+        const shareButton = document.querySelector('button[data-testid="wiggle-controls-actions-share"]');
+        if (shareButton instanceof HTMLElement && shareButton.parentElement instanceof HTMLElement) {
+            return shareButton.parentElement;
+        }
+
+        const selectors = ['[data-testid="wiggle-controls-actions"]', '[data-testid="chat-actions"]'];
+        for (const selector of selectors) {
+            const anchor = document.querySelector(selector);
+            if (anchor instanceof HTMLElement) return anchor;
+        }
+
+        return null;
+    }
+
+    injectHeaderIcon(iconHost: HTMLElement): boolean {
+        const anchor = this.getHeaderIconAnchorElement();
+        if (!anchor) return false;
+
+        iconHost.className =
+            'inline-flex items-center justify-center relative shrink-0 can-focus select-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none disabled:drop-shadow-none border-transparent transition font-base duration-300 ease-[cubic-bezier(0.165,0.85,0.45,1)] h-8 w-8 rounded-md active:scale-95 group/btn Button_ghost__BUAoh';
+        iconHost.style.marginRight = '0';
+
+        if (iconHost.dataset.aimdDecorated !== 'claude') {
+            const icon = iconHost.querySelector('img');
+            const iconWrapper = document.createElement('div');
+            iconWrapper.className = 'flex items-center justify-center text-text-500 group-hover/btn:text-text-100';
+
+            if (icon instanceof HTMLElement) {
+                icon.style.width = '22px';
+                icon.style.height = '22px';
+                icon.style.objectFit = 'contain';
+                iconWrapper.appendChild(icon);
+            }
+
+            iconHost.replaceChildren(iconWrapper);
+            iconHost.dataset.aimdDecorated = 'claude';
+        }
+
+        const shareButton = anchor.querySelector('[data-testid="wiggle-controls-actions-share"]');
+        anchor.insertBefore(iconHost, shareButton || anchor.firstChild);
+        return true;
     }
 
     isNoiseNode(node: Node, _context: NoiseContext): boolean {

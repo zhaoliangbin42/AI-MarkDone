@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Platform adapters now own page-header icon anchors and injection rules, keeping runtime lifecycle logic platform-agnostic.
 
+### Fixed
+- Gemini: Fixed the message toolbar position so it stays aligned with the official action row on the latest layout.
+- Claude: Fixed the message toolbar and header bookmark icon injection after the latest layout update.
+- ChatGPT: Fixed the toolbar width jumping wider while a response is still streaming.
+
 ## [3.0.0] - 2026-02-18
 
 ### Added
