@@ -19,6 +19,11 @@ const detector: ThemeDetector = {
 };
 
 export class GeminiAdapter extends SiteAdapter {
+    private getActionRow(messageElement: HTMLElement): HTMLElement | null {
+        const actions = messageElement.querySelector('message-actions .actions-container-v2');
+        return actions instanceof HTMLElement ? actions : null;
+    }
+
     matches(url: string): boolean {
         return url.includes('gemini.google.com');
     }
@@ -97,12 +102,40 @@ export class GeminiAdapter extends SiteAdapter {
     }
 
     getActionBarSelector(): string {
-        return '.response-container-footer, .response-footer';
+        return 'message-actions .actions-container-v2';
+    }
+
+    getToolbarAnchorElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        return this.getActionRow(assistantMessageElement);
     }
 
     getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
         const turn = assistantMessageElement.closest('.conversation-container');
         return turn instanceof HTMLElement ? turn : null;
+    }
+
+    injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
+        const actionRow = this.getActionRow(messageElement);
+        if (actionRow) {
+            const buttons = actionRow.querySelector('.buttons-container-v2');
+            toolbarHost.dataset.aimdPlacement = 'actionbar';
+            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
+            if (buttons?.nextSibling) actionRow.insertBefore(toolbarHost, buttons.nextSibling);
+            else actionRow.appendChild(toolbarHost);
+            return true;
+        }
+
+        const content = messageElement.querySelector(this.getMessageContentSelector());
+        if (content?.parentElement) {
+            toolbarHost.dataset.aimdPlacement = 'content';
+            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
+            content.parentElement.insertBefore(toolbarHost, content.nextSibling);
+            return true;
+        }
+
+        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
+        messageElement.appendChild(toolbarHost);
+        return true;
     }
 
     isStreamingMessage(element: HTMLElement): boolean {
@@ -138,6 +171,51 @@ export class GeminiAdapter extends SiteAdapter {
             if (container instanceof HTMLElement) return container;
         }
         return document.body;
+    }
+
+    getHeaderIconAnchorElement(): HTMLElement | null {
+        const logo = document.querySelector('[data-test-id="bard-logo-only"]');
+        if (logo instanceof HTMLElement && logo.parentElement instanceof HTMLElement) {
+            return logo.parentElement;
+        }
+
+        const selectors = ['.bard-logo-container.logo-only', '.bard-logo-container'];
+        for (const selector of selectors) {
+            const anchor = document.querySelector(selector);
+            if (anchor instanceof HTMLElement) return anchor;
+        }
+
+        return null;
+    }
+
+    injectHeaderIcon(iconHost: HTMLElement): boolean {
+        const anchor = this.getHeaderIconAnchorElement();
+        if (!anchor) return false;
+
+        iconHost.className = 'mdc-icon-button mat-mdc-icon-button mat-mdc-button-base';
+        iconHost.style.marginLeft = '12px';
+        iconHost.style.color = 'var(--gem-sys-color--on-surface)';
+        iconHost.style.width = '40px';
+        iconHost.style.height = '40px';
+
+        if (iconHost.dataset.aimdDecorated !== 'gemini') {
+            const icon = iconHost.querySelector('img');
+            const overlay = document.createElement('span');
+            overlay.className = 'mat-mdc-button-persistent-ripple mdc-icon-button__ripple';
+
+            iconHost.replaceChildren(overlay);
+            if (icon instanceof HTMLElement) {
+                icon.style.width = '22px';
+                icon.style.height = '22px';
+                icon.style.objectFit = 'contain';
+                iconHost.appendChild(icon);
+            }
+
+            iconHost.dataset.aimdDecorated = 'gemini';
+        }
+
+        anchor.appendChild(iconHost);
+        return true;
     }
 
     isDeepResearchMessage(element: HTMLElement): boolean {

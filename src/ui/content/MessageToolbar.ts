@@ -60,6 +60,7 @@ export class MessageToolbar {
 
     setPending(pending: boolean): void {
         this.pending = pending;
+        this.host.setAttribute('data-aimd-pending', pending ? '1' : '0');
         const note = this.shadow.querySelector<HTMLElement>('[data-field="note"]');
         for (const action of this.actions) {
             if (!action.disabledWhenPending) continue;
@@ -72,8 +73,12 @@ export class MessageToolbar {
     setStats(lines: string[]): void {
         const box = this.shadow.querySelector<HTMLElement>('[data-role="stats"]');
         if (!box) return;
+        const statsSeparator = this.shadow.querySelector<HTMLElement>('[data-role="stats-separator"]');
+        const visibleLines = lines.filter((x) => x.trim().length > 0);
         box.replaceChildren();
-        for (const line of lines.filter((x) => x.trim().length > 0)) {
+        box.dataset.empty = visibleLines.length === 0 ? '1' : '0';
+        if (statsSeparator) statsSeparator.hidden = visibleLines.length === 0;
+        for (const line of visibleLines) {
             const div = document.createElement('div');
             div.textContent = line;
             box.appendChild(div);
@@ -106,6 +111,7 @@ export class MessageToolbar {
             const sep = document.createElement('span');
             sep.className = 'sep';
             sep.setAttribute('aria-hidden', 'true');
+            sep.dataset.role = 'stats-separator';
             bar.appendChild(sep);
         };
 
@@ -132,6 +138,7 @@ export class MessageToolbar {
             const stats = document.createElement('span');
             stats.className = 'stats';
             stats.dataset.role = 'stats';
+            stats.dataset.empty = '0';
             stats.setAttribute('aria-label', t('wordCountLabel'));
             stats.textContent = t('loading');
             bar.appendChild(stats);
@@ -309,6 +316,7 @@ export class MessageToolbar {
 :host([data-aimd-placement="actionbar"]) .icon-btn { width: 32px; height: 32px; border-radius: 10px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
 :host([data-aimd-placement="actionbar"]) .note { display: none !important; }
+:host([data-aimd-pending="1"]) .note { display: none !important; }
 :host([data-aimd-placement="actionbar"]) .status {
   position: absolute;
   right: 6px;
@@ -363,6 +371,11 @@ export class MessageToolbar {
   padding: 0 6px;
   min-width: 76px;
   user-select: none;
+}
+.stats[data-empty="1"] {
+  display: none;
+  min-width: 0;
+  padding: 0;
 }
 
 .icon-btn {

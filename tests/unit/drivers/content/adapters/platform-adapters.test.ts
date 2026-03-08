@@ -57,8 +57,8 @@ describe('non-ChatGPT adapter contracts', () => {
         });
     });
 
-    it('Gemini exposes stable message, prompt, turn, and parser hooks', () => {
-        const html = readFileSync('mocks/Gemini/Gemini-DeepResearch.html', 'utf-8');
+    it('Gemini exposes stable message, prompt, turn, and parser hooks on the latest layout', () => {
+        const html = readFileSync('mocks/Gemini/Gemini-All.html', 'utf-8');
         withDom(html, 'https://gemini.google.com/app', () => {
             const adapter = new GeminiAdapter();
             const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
@@ -72,19 +72,44 @@ describe('non-ChatGPT adapter contracts', () => {
             const message = messages[messages.length - 1]!;
             expect(adapter.extractUserPrompt(message)).toBeTruthy();
             expect(adapter.isStreamingMessage(message)).toBe(false);
-            expect(adapter.isDeepResearchMessage?.(message)).toBe(true);
-            expect(adapter.getDeepResearchContent()).toBeInstanceOf(HTMLElement);
             expect(adapter.getTurnRootElement?.(message)).toBeInstanceOf(HTMLElement);
 
             const host = document.createElement('div');
+            host.id = 'aimd-test-gemini-toolbar';
             const ok = adapter.injectToolbar(message, host);
             expect(ok).toBe(true);
             expect(host.isConnected).toBe(true);
+            const actions = message.querySelector('message-actions .actions-container-v2') as HTMLElement | null;
+            expect(actions).toBeTruthy();
+            expect(actions?.contains(host)).toBe(true);
+            expect(host.dataset.aimdPlacement).toBe('actionbar');
+            expect(host.previousElementSibling?.className).toContain('buttons-container-v2');
         });
     });
 
-    it('Claude exposes stable message, prompt, turn, and parser hooks', () => {
-        const html = readFileSync('mocks/Claude/Claude-Artifact.html', 'utf-8');
+    it('Gemini exposes a stable header icon anchor and injects next to the logo', () => {
+        const html = readFileSync('mocks/Gemini/Gemini-All.html', 'utf-8');
+        withDom(html, 'https://gemini.google.com/app', () => {
+            const adapter = new GeminiAdapter();
+            const anchor = adapter.getHeaderIconAnchorElement?.() ?? null;
+
+            expect(anchor).toBeInstanceOf(HTMLElement);
+            expect(anchor?.className).toContain('bard-logo-container');
+
+            const host = document.createElement('div');
+            const icon = document.createElement('img');
+            host.appendChild(icon);
+
+            const ok = adapter.injectHeaderIcon?.(host) ?? false;
+            expect(ok).toBe(true);
+            expect(anchor?.lastElementChild).toBe(host);
+            expect(host.className).toContain('mat-mdc-icon-button');
+            expect(host.querySelector('.mdc-icon-button__ripple')).toBeInstanceOf(HTMLElement);
+        });
+    });
+
+    it('Claude exposes stable message, prompt, turn, and parser hooks on the latest layout', () => {
+        const html = readFileSync('mocks/Claude/Claude-All.html', 'utf-8');
         withDom(html, 'https://claude.ai/chat/mock', () => {
             const adapter = new ClaudeAdapter();
             const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
@@ -99,11 +124,61 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(adapter.extractUserPrompt(message)).toBeTruthy();
             expect(adapter.isStreamingMessage(message)).toBe(false);
             expect(adapter.getTurnRootElement?.(message)).toBeInstanceOf(HTMLElement);
+            const actionBar = message.querySelector('div[role="group"][aria-label="Message actions"]') as HTMLElement | null;
+            expect(actionBar).toBeInstanceOf(HTMLElement);
+            const actionRow = actionBar?.querySelector('.flex.items-stretch.justify-between') as HTMLElement | null;
+            expect(actionRow).toBeInstanceOf(HTMLElement);
+            const trailingGroup = actionRow?.querySelector(':scope > .flex.items-center:last-child') as HTMLElement | null;
+            expect(trailingGroup).toBeInstanceOf(HTMLElement);
+            const anchor = adapter.getToolbarAnchorElement?.(message) ?? null;
+            expect(anchor).toBeInstanceOf(HTMLElement);
+            expect(anchor).toBe(actionRow);
 
             const host = document.createElement('div');
+            host.id = 'aimd-test-claude-toolbar';
             const ok = adapter.injectToolbar(message, host);
             expect(ok).toBe(true);
             expect(host.isConnected).toBe(true);
+            expect(anchor?.contains(host)).toBe(true);
+            expect(host.parentElement).toBe(anchor);
+            expect(host.dataset.aimdPlacement).toBe('actionbar');
+            expect(host.previousElementSibling).toBe(trailingGroup);
+            expect(host.style.marginLeft).toBe('auto');
+        });
+    });
+
+    it('Claude exposes a stable header icon anchor and injects before the Share button', () => {
+        const html = readFileSync('mocks/Claude/Claude-All.html', 'utf-8');
+        withDom(html, 'https://claude.ai/chat/mock', () => {
+            const adapter = new ClaudeAdapter();
+            const anchor = adapter.getHeaderIconAnchorElement?.() ?? null;
+
+            expect(anchor).toBeInstanceOf(HTMLElement);
+            expect(anchor?.getAttribute('data-testid')).toBe('wiggle-controls-actions');
+
+            const shareButton = anchor?.querySelector('[data-testid="wiggle-controls-actions-share"]') ?? null;
+            expect(shareButton).toBeInstanceOf(HTMLElement);
+
+            const host = document.createElement('div');
+            const icon = document.createElement('img');
+            host.appendChild(icon);
+
+            const ok = adapter.injectHeaderIcon?.(host) ?? false;
+            expect(ok).toBe(true);
+            expect(host.nextElementSibling).toBe(shareButton);
+            expect(host.className).toContain('Button_ghost__BUAoh');
+        });
+    });
+
+    it('Claude observer container must contain assistant messages instead of binding to the header', () => {
+        const html = readFileSync('mocks/Claude/Claude-All.html', 'utf-8');
+        withDom(html, 'https://claude.ai/chat/mock', () => {
+            const adapter = new ClaudeAdapter();
+            const container = adapter.getObserverContainer();
+
+            expect(container).toBeInstanceOf(HTMLElement);
+            expect(container?.getAttribute('data-testid')).not.toBe('page-header');
+            expect(container?.querySelector(adapter.getMessageSelector())).toBeInstanceOf(HTMLElement);
         });
     });
 
