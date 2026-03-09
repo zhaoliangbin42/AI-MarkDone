@@ -29,6 +29,7 @@ export class Tabs {
             btn.className = 'aimd-tab-btn';
             // Use explicit attribute to avoid dataset/casing edge cases.
             btn.setAttribute('data-tab-id', tab.id);
+            btn.setAttribute('data-role', 'panel-nav-item');
             btn.title = tab.label;
             btn.setAttribute('aria-label', tab.label);
             btn.innerHTML = `<span class="aimd-tab-icon">${tab.icon}</span><span class="aimd-tab-label">${tab.label}</span>`;
@@ -69,6 +70,7 @@ export class Tabs {
         this.active = id;
         this.buttons.forEach((btn, tabId) => {
             btn.dataset.active = tabId === id ? '1' : '0';
+            btn.setAttribute('aria-pressed', tabId === id ? 'true' : 'false');
         });
         this.contentMap.forEach((el, tabId) => {
             el.dataset.active = tabId === id ? '1' : '0';
