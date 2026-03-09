@@ -1,6 +1,6 @@
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
-import { chevronDownIcon, chatgptIcon } from '../../../../../assets/icons';
+import { Icons, chevronDownIcon, chatgptIcon } from '../../../../../assets/icons';
 
 export type PlatformDropdownItem = {
     value: string;
@@ -20,9 +20,12 @@ function normalizeSelected(value: string): string {
 
 function iconForValue(value: string): string {
     const v = value.trim().toLowerCase();
-    if (v === 'all') return chatgptIcon;
+    if (v === 'all') return Icons.layers;
     if (v.includes('chatgpt')) return chatgptIcon;
-    return chatgptIcon;
+    if (v.includes('gemini')) return Icons.gemini;
+    if (v.includes('claude')) return Icons.claude;
+    if (v.includes('deepseek')) return Icons.deepseek;
+    return Icons.layers;
 }
 
 export class PlatformDropdown {

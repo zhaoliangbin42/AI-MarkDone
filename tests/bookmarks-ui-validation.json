@@ -1,0 +1,138 @@
+{
+  "version": "2.0",
+  "exportDate": "2026-03-08T10:00:00.000Z",
+  "bookmarks": [
+    {
+      "url": "https://chatgpt.com/c/conv-001",
+      "urlWithoutProtocol": "chatgpt.com/c/conv-001",
+      "position": 1,
+      "userMessage": "Design system audit for ChatGPT panel",
+      "aiResponse": "Audit summary and recommendations.",
+      "timestamp": 1738368000000,
+      "title": "Alpha Audit",
+      "platform": "ChatGPT",
+      "folderPath": "Workspace/ChatGPT"
+    },
+    {
+      "url": "https://chatgpt.com/c/conv-002",
+      "urlWithoutProtocol": "chatgpt.com/c/conv-002",
+      "position": 2,
+      "userMessage": "Compare toolbar states",
+      "aiResponse": "Compared toolbar states across variants.",
+      "timestamp": 1738454400000,
+      "title": "Zulu Toolbar",
+      "platform": "ChatGPT",
+      "folderPath": "Workspace/ChatGPT"
+    },
+    {
+      "url": "https://chatgpt.com/c/conv-003",
+      "urlWithoutProtocol": "chatgpt.com/c/conv-003",
+      "position": 3,
+      "userMessage": "Refine bookmark hover actions",
+      "aiResponse": "Refined action spacing and affordances.",
+      "timestamp": 1738540800000,
+      "title": "Hover Actions",
+      "platform": "ChatGPT",
+      "folderPath": "Workspace/ChatGPT/Nested"
+    },
+    {
+      "url": "https://gemini.google.com/app/aaa111",
+      "urlWithoutProtocol": "gemini.google.com/app/aaa111",
+      "position": 1,
+      "userMessage": "Summarize Gemini UI constraints",
+      "aiResponse": "Constraint summary for Gemini surfaces.",
+      "timestamp": 1738627200000,
+      "title": "Gemini Summary",
+      "platform": "Gemini",
+      "folderPath": "Workspace/Gemini"
+    },
+    {
+      "url": "https://gemini.google.com/app/bbb222",
+      "urlWithoutProtocol": "gemini.google.com/app/bbb222",
+      "position": 4,
+      "userMessage": "Sort validation sample",
+      "aiResponse": "Created sample records for sorting validation.",
+      "timestamp": 1738713600000,
+      "title": "Beta Sort",
+      "platform": "Gemini",
+      "folderPath": "Workspace/Gemini"
+    },
+    {
+      "url": "https://gemini.google.com/app/ccc333",
+      "urlWithoutProtocol": "gemini.google.com/app/ccc333",
+      "position": 5,
+      "userMessage": "Nested folder example",
+      "aiResponse": "Example for nested folder rendering.",
+      "timestamp": 1738800000000,
+      "title": "Nested Example",
+      "platform": "Gemini",
+      "folderPath": "Workspace/Gemini/Nested"
+    },
+    {
+      "url": "https://claude.ai/chat/claude-001",
+      "urlWithoutProtocol": "claude.ai/chat/claude-001",
+      "position": 1,
+      "userMessage": "Prepare Claude migration notes",
+      "aiResponse": "Migration notes drafted.",
+      "timestamp": 1738886400000,
+      "title": "Claude Notes",
+      "platform": "Claude",
+      "folderPath": "Workspace/Claude"
+    },
+    {
+      "url": "https://claude.ai/chat/claude-002",
+      "urlWithoutProtocol": "claude.ai/chat/claude-002",
+      "position": 2,
+      "userMessage": "Alphabetical ordering check",
+      "aiResponse": "Ordering check complete.",
+      "timestamp": 1738972800000,
+      "title": "Echo Ordering",
+      "platform": "Claude",
+      "folderPath": "Workspace/Claude"
+    },
+    {
+      "url": "https://claude.ai/chat/claude-003",
+      "urlWithoutProtocol": "claude.ai/chat/claude-003",
+      "position": 3,
+      "userMessage": "Folder collapse case",
+      "aiResponse": "Folder collapse case documented.",
+      "timestamp": 1739059200000,
+      "title": "Collapse Case",
+      "platform": "Claude",
+      "folderPath": "Workspace/Claude/Nested"
+    },
+    {
+      "url": "https://chat.deepseek.com/a/ds-001",
+      "urlWithoutProtocol": "chat.deepseek.com/a/ds-001",
+      "position": 1,
+      "userMessage": "DeepSeek panel benchmark",
+      "aiResponse": "Benchmark summary prepared.",
+      "timestamp": 1739145600000,
+      "title": "DeepSeek Benchmark",
+      "platform": "DeepSeek",
+      "folderPath": "Workspace/DeepSeek"
+    },
+    {
+      "url": "https://chat.deepseek.com/a/ds-002",
+      "urlWithoutProtocol": "chat.deepseek.com/a/ds-002",
+      "position": 2,
+      "userMessage": "Latest timestamp record",
+      "aiResponse": "Latest record for descending sort validation.",
+      "timestamp": 1739232000000,
+      "title": "Latest Record",
+      "platform": "DeepSeek",
+      "folderPath": "Workspace/DeepSeek"
+    },
+    {
+      "url": "https://chat.deepseek.com/a/ds-003",
+      "urlWithoutProtocol": "chat.deepseek.com/a/ds-003",
+      "position": 3,
+      "userMessage": "Shared root folder case",
+      "aiResponse": "Shared root folder case saved.",
+      "timestamp": 1739318400000,
+      "title": "Root Shared",
+      "platform": "DeepSeek",
+      "folderPath": "Workspace/DeepSeek/Nested"
+    }
+  ]
+}
