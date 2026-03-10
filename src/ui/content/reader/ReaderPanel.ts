@@ -52,6 +52,7 @@ export class ReaderPanel {
     private shadow: ShadowRoot | null = null;
     private hostHandle: ShadowDialogHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private state: ReaderPanelState = {
         theme: 'light',
@@ -118,6 +119,20 @@ export class ReaderPanel {
         shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')?.addEventListener('click', () => void this.copyCurrent());
         shadow.querySelector<HTMLButtonElement>('[data-action="source"]')?.addEventListener('click', () => void this.openSourcePanel());
 
+        this.onKeyDown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return;
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                void this.go(-1);
+                return;
+            }
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                void this.go(1);
+            }
+        };
+        host.addEventListener('keydown', this.onKeyDown);
+
         this.host = host;
         this.shadow = shadow;
         this.hostHandle = handle;
@@ -141,6 +156,11 @@ export class ReaderPanel {
     }
 
     private unmount(): void {
+        if (this.host && this.onKeyDown) {
+            this.host.removeEventListener('keydown', this.onKeyDown);
+        }
+        this.onKeyDown = null;
+
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
 
@@ -220,9 +240,10 @@ export class ReaderPanel {
         const item = this.state.items[idx];
 
         const titleEl = this.shadow.querySelector<HTMLElement>('[data-field="title"]');
-        const counterEl = this.shadow.querySelector<HTMLElement>('[data-field="counter"]');
         if (titleEl) titleEl.textContent = item ? item.userPrompt : t('btnReader');
-        if (counterEl) counterEl.textContent = total > 0 ? `${idx + 1}/${total}` : '';
+        this.shadow.querySelectorAll<HTMLElement>('[data-field="counter"]').forEach((el) => {
+            el.textContent = total > 0 ? `${idx + 1}/${total}` : '';
+        });
 
         this.renderActions();
         this.renderDots();
@@ -325,8 +346,10 @@ export class ReaderPanel {
             if (start > 1) pushEllipsis();
         }
 
-        for (let i = start; i <= end; i++) {
-            if (i === 0 || i === total - 1) continue;
+        const loopStart = start > 0 ? start : 0;
+        const loopEnd = end < total - 1 ? end : total - 1;
+
+        for (let i = loopStart; i <= loopEnd; i++) {
             dots.appendChild(this.createDot(i, i === idx));
         }
 
@@ -398,7 +421,6 @@ export class ReaderPanel {
   <div class="header">
     <div class="title" data-field="title"></div>
     <div class="header-right">
-      <div class="counter" data-field="counter"></div>
       <div class="custom-actions" data-role="custom_actions"></div>
       <button class="icon" data-action="copy" aria-label="${t('btnCopyText')}" title="${t('btnCopyText')}">${copyIcon}</button>
       <button class="icon" data-action="source" aria-label="${t('btnViewSource')}" title="${t('btnViewSource')}">${fileCodeIcon}</button>
@@ -410,7 +432,10 @@ export class ReaderPanel {
   </div>
   <div class="footer">
     <div class="footer-left" data-role="footer_left_actions"></div>
-    <div class="dots" data-role="dots" aria-label="${t('paginationLabel')}"></div>
+    <div class="pager-stack" data-role="pager_stack">
+      <div class="counter counter--footer" data-field="counter"></div>
+      <div class="dots" data-role="dots" aria-label="${t('paginationLabel')}"></div>
+    </div>
     <div class="nav" data-role="nav">
       <button class="nav-btn" data-action="prev" aria-label="${t('previousMessage')}">‹</button>
       <button class="nav-btn" data-action="next" aria-label="${t('nextMessage')}">›</button>
@@ -528,16 +553,17 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 
 .footer {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 8px 14px 10px;
   background: var(--aimd-bg-primary);
   border-top: 1px solid var(--aimd-border-default);
 }
 
 .footer-left {
   position: relative;
+  grid-column: 1;
   justify-self: start;
   display: flex;
   align-items: center;
@@ -545,8 +571,16 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 }
 
 .custom-actions { display: flex; gap: 8px; align-items: center; }
-.dots {
+.pager-stack {
+  grid-column: 2;
   justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.dots {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -554,6 +588,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   min-width: 0;
   max-width: 100%;
   flex-wrap: wrap;
+}
+.counter--footer {
+  font-size: var(--aimd-font-size-xs);
+  color: var(--aimd-text-secondary);
+  line-height: 1;
 }
 .ellipsis { color: var(--aimd-text-secondary); font-size: 12px; padding: 0 2px; }
 .dot {
@@ -570,7 +609,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   width: calc(var(--aimd-dot-size, 8px) * 1.7);
   background: color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
 }
-.nav { justify-self: end; display: grid; grid-auto-flow: column; gap: 8px; align-items: center; }
+.nav { grid-column: 4; justify-self: end; display: grid; grid-auto-flow: column; gap: 8px; align-items: center; }
 .nav-btn {
   all: unset;
   cursor: pointer;

@@ -7,11 +7,6 @@ import type { ModalHost } from '../../../components/ModalHost';
 import type { ReaderPanel, ReaderPanelActionContext } from '../../../reader/ReaderPanel';
 import { PlatformDropdown } from '../components/PlatformDropdown';
 import {
-    arrowDown10Icon,
-    arrowDownAZIcon,
-    arrowUp01Icon,
-    arrowUpAZIcon,
-    chatgptIcon,
     chevronDownIcon,
     chevronRightIcon,
     copyIcon,
@@ -24,6 +19,10 @@ import {
     pencilIcon,
     refreshCwIcon,
     searchIcon,
+    sortAlphaAscIcon,
+    sortAZIcon,
+    sortTimeAscIcon,
+    sortTimeIcon,
     trashIcon,
     uploadIcon,
     wrenchIcon,
@@ -105,12 +104,12 @@ export class BookmarksTabView {
         });
 
         const sortTimeBtn = this.makeIconButton({
-            icon: arrowDown10Icon,
+            icon: sortTimeIcon,
             label: t('sortByTimeLabel'),
             onClick: () => this.toggleTimeSort(),
         });
         const sortAlphaBtn = this.makeIconButton({
-            icon: arrowDownAZIcon,
+            icon: sortAZIcon,
             label: t('sortAlphaLabel'),
             onClick: () => this.toggleAlphaSort(),
         });
@@ -158,10 +157,12 @@ export class BookmarksTabView {
 
         const sortGroup = document.createElement('div');
         sortGroup.className = 'aimd-toolbar-group aimd-toolbar-group--sort';
+        sortGroup.dataset.priority = 'primary';
         sortGroup.append(sortTimeBtn, sortAlphaBtn);
 
         const actionsGroup = document.createElement('div');
         actionsGroup.className = 'aimd-toolbar-group aimd-toolbar-group--actions';
+        actionsGroup.dataset.priority = 'secondary';
         actionsGroup.append(
             folderCreateBtn,
             importBtn,
@@ -227,7 +228,6 @@ export class BookmarksTabView {
         this.refs.platform.setItems(platforms.map((value) => ({
             value,
             label: value === 'All' ? t('allPlatforms') : value,
-            icon: value === 'All' ? chatgptIcon : (value.toLowerCase().includes('chatgpt') ? chatgptIcon : chatgptIcon),
         })));
         this.refs.platform.setValue(snap.vm.platform);
 
@@ -309,7 +309,7 @@ export class BookmarksTabView {
 
     private getEffectiveExpanded(nodePath: string, isExpanded: boolean, selectedPath: string | null): boolean {
         if (!selectedPath) return isExpanded;
-        if (selectedPath === nodePath) return true;
+        if (selectedPath === nodePath) return isExpanded;
         if (selectedPath.startsWith(`${nodePath}/`)) return true; // ensure ancestors expand to reveal selection
         if (nodePath.startsWith(`${selectedPath}/`)) return isExpanded; // descendants controlled by user
         return false; // collapse non-selected branches (rows still visible)
@@ -569,8 +569,8 @@ export class BookmarksTabView {
         this.refs.sortTimeBtn.dataset.active = timeIsActive ? '1' : '0';
         this.refs.sortAlphaBtn.dataset.active = alphaIsActive ? '1' : '0';
 
-        const timeIcon = mode === 'time-asc' ? arrowUp01Icon : arrowDown10Icon;
-        const alphaIcon = mode === 'alpha-desc' ? arrowUpAZIcon : arrowDownAZIcon;
+        const timeIcon = mode === 'time-asc' ? sortTimeAscIcon : sortTimeIcon;
+        const alphaIcon = mode === 'alpha-asc' ? sortAlphaAscIcon : sortAZIcon;
 
         this.refs.sortTimeBtn.innerHTML = timeIcon;
         this.refs.sortAlphaBtn.innerHTML = alphaIcon;
