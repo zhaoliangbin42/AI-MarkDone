@@ -73,6 +73,34 @@ describe('ReaderPanel navigation', () => {
         }
     });
 
+    it('renders bookmarked pages as square dots and keeps the active bookmarked page highlighted', async () => {
+        setClipboardMock();
+
+        const panel = new ReaderPanel();
+        try {
+            await panel.show(
+                [
+                    { id: 'a', userPrompt: 'Q1', content: 'md1', meta: { position: 1, bookmarked: false } },
+                    { id: 'b', userPrompt: 'Q2', content: 'md2', meta: { position: 2, bookmarked: true } },
+                    { id: 'c', userPrompt: 'Q3', content: 'md3', meta: { position: 3, bookmarked: true } },
+                ],
+                1,
+                'light'
+            );
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('[data-role="dots"] .dot'));
+
+            expect(dots[0]?.classList.contains('dot--bookmarked')).toBe(false);
+            expect(dots[1]?.classList.contains('dot--bookmarked')).toBe(true);
+            expect(dots[1]?.classList.contains('dot--active')).toBe(true);
+            expect(dots[2]?.classList.contains('dot--bookmarked')).toBe(true);
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('supports ArrowLeft and ArrowRight to change pages', async () => {
         setClipboardMock();
 

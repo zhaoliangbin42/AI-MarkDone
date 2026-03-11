@@ -5,10 +5,11 @@ export function getBookmarkSaveDialogCss(theme: Theme): string {
 
     return `
 :host {
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: var(--aimd-font-family-sans);
 }
 
 * { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
 
 .overlay {
   position: fixed;

@@ -90,6 +90,7 @@ export class ChatGPTFoldBar {
 :host {
   display: block;
   width: 100%;
+  font-family: var(--aimd-font-family-sans);
 }
 .bar {
   display: flex;
@@ -132,7 +133,6 @@ export class ChatGPTFoldBar {
 .label {
   flex: 1 1 auto;
   min-width: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   font-size: var(--aimd-font-size-sm);
   font-weight: 600;
   line-height: 1.2;

@@ -5,7 +5,7 @@ import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
-import { copyIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
+import { chevronRightIcon, copyIcon, fileCodeIcon, maximizeIcon, minimizeIcon, xIcon } from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
@@ -18,6 +18,8 @@ export type ReaderPanelActionContext = {
     items: ReaderItem[];
     anchorEl?: HTMLElement;
     shadow?: ShadowRoot;
+    notify: (text: string, timeoutMs?: number) => void;
+    rerender: () => void;
 };
 
 export type ReaderPanelAction = {
@@ -28,6 +30,8 @@ export type ReaderPanelAction = {
     kind?: 'default' | 'primary' | 'danger';
     placement?: 'header' | 'footer_left';
     toggle?: boolean;
+    rerenderOnClick?: boolean;
+    isActive?: (ctx: ReaderPanelActionContext) => boolean;
     onClick: (ctx: ReaderPanelActionContext) => void | Promise<void>;
 };
 
@@ -44,6 +48,7 @@ type ReaderPanelState = {
     items: ReaderItem[];
     index: number;
     visible: boolean;
+    fullscreen: boolean;
     options: Required<Pick<ReaderPanelShowOptions, 'showNav' | 'showCopy' | 'showSource' | 'initialView'>> & { actions: ReaderPanelAction[] };
 };
 
@@ -54,11 +59,14 @@ export class ReaderPanel {
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
+    private dotTooltipTimer: number | null = null;
+    private dotTooltipTarget: HTMLElement | null = null;
     private state: ReaderPanelState = {
         theme: 'light',
         items: [],
         index: 0,
         visible: false,
+        fullscreen: false,
         options: { showNav: true, showCopy: true, showSource: true, initialView: 'render', actions: [] },
     };
 
@@ -73,6 +81,7 @@ export class ReaderPanel {
         this.state.index = Math.max(0, Math.min(startIndex, Math.max(0, items.length - 1)));
         this.state.theme = theme;
         this.state.visible = true;
+        this.state.fullscreen = false;
         this.state.options = {
             showNav: options?.showNav ?? true,
             showCopy: options?.showCopy ?? true,
@@ -118,6 +127,7 @@ export class ReaderPanel {
         shadow.querySelector<HTMLButtonElement>('[data-action="next"]')?.addEventListener('click', () => void this.go(1));
         shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')?.addEventListener('click', () => void this.copyCurrent());
         shadow.querySelector<HTMLButtonElement>('[data-action="source"]')?.addEventListener('click', () => void this.openSourcePanel());
+        shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')?.addEventListener('click', () => this.toggleFullscreen());
 
         this.onKeyDown = (e: KeyboardEvent) => {
             if (e.defaultPrevented) return;
@@ -156,6 +166,7 @@ export class ReaderPanel {
     }
 
     private unmount(): void {
+        this.clearDotTooltip();
         if (this.host && this.onKeyDown) {
             this.host.removeEventListener('keydown', this.onKeyDown);
         }
@@ -240,10 +251,19 @@ export class ReaderPanel {
         const item = this.state.items[idx];
 
         const titleEl = this.shadow.querySelector<HTMLElement>('[data-field="title"]');
-        if (titleEl) titleEl.textContent = item ? item.userPrompt : t('btnReader');
+        if (titleEl) {
+            const fullTitle = item ? item.userPrompt : t('btnReader');
+            titleEl.textContent = this.truncateTitle(fullTitle);
+            titleEl.title = fullTitle;
+        }
         this.shadow.querySelectorAll<HTMLElement>('[data-field="counter"]').forEach((el) => {
             el.textContent = total > 0 ? `${idx + 1}/${total}` : '';
         });
+        const hintEl = this.shadow.querySelector<HTMLElement>('[data-field="pager_hint"]');
+        if (hintEl) hintEl.textContent = total > 1 ? t('readerPagerHint') : '';
+        const panelEl = this.shadow.querySelector<HTMLElement>('.panel');
+        if (panelEl) panelEl.dataset.fullscreen = this.state.fullscreen ? '1' : '0';
+        this.renderFullscreenButton();
 
         this.renderActions();
         this.renderDots();
@@ -260,8 +280,8 @@ export class ReaderPanel {
         const total = this.state.items.length;
         const opts = this.state.options;
 
-        const nav = this.shadow.querySelector<HTMLElement>('[data-role="nav"]');
-        if (nav) nav.style.display = opts.showNav && total > 1 ? 'grid' : 'none';
+        const pagerCore = this.shadow.querySelector<HTMLElement>('[data-role="pager_core"]');
+        if (pagerCore) pagerCore.style.display = opts.showNav && total > 0 ? 'flex' : 'none';
 
         const copyBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
         if (copyBtn) copyBtn.style.display = opts.showCopy ? 'grid' : 'none';
@@ -274,11 +294,20 @@ export class ReaderPanel {
         const footerLeft = this.shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]');
         custom.replaceChildren();
         footerLeft?.replaceChildren();
+        const actionCtx = this.getActionContext();
         for (const action of opts.actions) {
             const btn = document.createElement('button');
             btn.type = 'button';
+            const isActive = actionCtx ? Boolean(action.isActive?.(actionCtx)) : false;
             if (action.icon) {
-                btn.className = `icon ${action.kind === 'primary' ? 'icon--primary' : action.kind === 'danger' ? 'icon--danger' : ''}`.trim();
+                const tone = isActive && action.toggle
+                    ? 'icon--primary'
+                    : action.kind === 'primary'
+                        ? 'icon--primary'
+                        : action.kind === 'danger'
+                            ? 'icon--danger'
+                            : '';
+                btn.className = `icon ${tone}`.trim();
                 btn.title = action.tooltip || action.label;
                 btn.setAttribute('aria-label', action.label);
                 btn.appendChild(createIcon(action.icon));
@@ -287,6 +316,7 @@ export class ReaderPanel {
                 btn.textContent = action.label;
                 btn.setAttribute('aria-label', action.label);
             }
+            btn.dataset.active = isActive ? '1' : '0';
             btn.addEventListener('click', async () => {
                 const ctx = this.getActionContext();
                 if (!ctx) return;
@@ -295,6 +325,9 @@ export class ReaderPanel {
                     await action.onClick({ ...ctx, anchorEl: btn, shadow: this.shadow || undefined });
                 } finally {
                     btn.disabled = false;
+                    if (action.rerenderOnClick !== false) {
+                        this.render();
+                    }
                 }
             });
             const placement = action.placement || 'header';
@@ -309,8 +342,9 @@ export class ReaderPanel {
         if (!dots) return;
         const total = this.state.items.length;
         const idx = this.state.index;
+        this.clearDotTooltip();
         dots.replaceChildren();
-        if (total <= 1) return;
+        if (total <= 0) return;
 
         const sizing = this.calculateDotSizing(total);
         dots.style.setProperty('--aimd-dot-size', `${sizing.size}px`);
@@ -361,12 +395,66 @@ export class ReaderPanel {
 
     private createDot(index: number, active: boolean): HTMLButtonElement {
         const btn = document.createElement('button');
+        const item = this.state.items[index];
+        const bookmarked = Boolean(item?.meta?.bookmarked);
         btn.type = 'button';
-        btn.className = `dot ${active ? 'dot--active' : ''}`.trim();
+        btn.className = `dot ${active ? 'dot--active' : ''} ${bookmarked ? 'dot--bookmarked' : ''}`.trim();
         btn.setAttribute('aria-label', t('goToPage', String(index + 1)));
         btn.title = `${index + 1}`;
         btn.addEventListener('click', () => this.jumpTo(index));
+        btn.addEventListener('mouseenter', () => this.scheduleDotTooltip(btn, index));
+        btn.addEventListener('mouseleave', () => this.clearDotTooltip(btn));
         return btn;
+    }
+
+    private scheduleDotTooltip(target: HTMLElement, index: number): void {
+        this.clearDotTooltip();
+        this.dotTooltipTarget = target;
+        this.dotTooltipTimer = window.setTimeout(() => {
+            if (this.dotTooltipTarget !== target) return;
+            const item = this.state.items[index];
+            if (!item) return;
+
+            const tooltip = document.createElement('div');
+            tooltip.className = 'dot-tooltip';
+
+            const indexEl = document.createElement('span');
+            indexEl.className = 'dot-tooltip__index';
+            indexEl.textContent = String(index + 1);
+
+            const textEl = document.createElement('span');
+            textEl.className = 'dot-tooltip__text';
+            textEl.textContent = this.truncatePrompt(item.userPrompt, 50);
+
+            tooltip.append(indexEl, textEl);
+            target.appendChild(tooltip);
+        }, 150);
+    }
+
+    private clearDotTooltip(target?: HTMLElement | null): void {
+        if (this.dotTooltipTimer !== null) {
+            clearTimeout(this.dotTooltipTimer);
+            this.dotTooltipTimer = null;
+        }
+        const owner = target ?? this.dotTooltipTarget;
+        owner?.querySelector('.dot-tooltip')?.remove();
+        this.dotTooltipTarget = null;
+    }
+
+    private toggleFullscreen(): void {
+        this.state.fullscreen = !this.state.fullscreen;
+        this.render();
+    }
+
+    private renderFullscreenButton(): void {
+        if (!this.shadow) return;
+        const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]');
+        if (!btn) return;
+        const isFullscreen = this.state.fullscreen;
+        const label = isFullscreen ? t('exitFullscreen') : t('toggleFullscreen');
+        btn.setAttribute('aria-label', label);
+        btn.title = label;
+        btn.replaceChildren(createIcon(isFullscreen ? minimizeIcon : maximizeIcon));
     }
 
     private applyI18nStaticStrings(): void {
@@ -384,6 +472,7 @@ export class ReaderPanel {
             sourceBtn.setAttribute('aria-label', t('btnViewSource'));
             sourceBtn.title = t('btnViewSource');
         }
+        this.renderFullscreenButton();
         const closeBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="close"]');
         if (closeBtn) {
             closeBtn.setAttribute('aria-label', t('btnClose'));
@@ -408,10 +497,28 @@ export class ReaderPanel {
         return { size: 6, gap: 4 };
     }
 
+    private truncateTitle(text: string): string {
+        const chars = Array.from(text || '');
+        if (chars.length <= 40) return text;
+        return `${chars.slice(0, 40).join('')}…`;
+    }
+
+    private truncatePrompt(text: string, maxLength: number): string {
+        const chars = Array.from(text || '');
+        if (chars.length <= maxLength) return text;
+        return `${chars.slice(0, maxLength).join('')}…`;
+    }
+
     private getActionContext(): ReaderPanelActionContext | null {
         const item = this.state.items[this.state.index] ?? null;
         if (!item) return null;
-        return { item, index: this.state.index, items: this.state.items };
+        return {
+            item,
+            index: this.state.index,
+            items: this.state.items,
+            notify: (text, timeoutMs) => this.notify(text, timeoutMs),
+            rerender: () => this.render(),
+        };
     }
 
     private getHtml(): string {
@@ -424,6 +531,7 @@ export class ReaderPanel {
       <div class="custom-actions" data-role="custom_actions"></div>
       <button class="icon" data-action="copy" aria-label="${t('btnCopyText')}" title="${t('btnCopyText')}">${copyIcon}</button>
       <button class="icon" data-action="source" aria-label="${t('btnViewSource')}" title="${t('btnViewSource')}">${fileCodeIcon}</button>
+      <button class="icon" data-action="fullscreen" aria-label="${t('toggleFullscreen')}" title="${t('toggleFullscreen')}">${maximizeIcon}</button>
       <button class="icon" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
     </div>
   </div>
@@ -432,15 +540,16 @@ export class ReaderPanel {
   </div>
   <div class="footer">
     <div class="footer-left" data-role="footer_left_actions"></div>
-    <div class="pager-stack" data-role="pager_stack">
-      <div class="counter counter--footer" data-field="counter"></div>
+    <div class="pager-core" data-role="pager_core">
+      <button class="nav-btn nav-btn--prev" data-action="prev" aria-label="${t('previousMessage')}">${chevronRightIcon}</button>
       <div class="dots" data-role="dots" aria-label="${t('paginationLabel')}"></div>
+      <button class="nav-btn nav-btn--next" data-action="next" aria-label="${t('nextMessage')}">${chevronRightIcon}</button>
     </div>
-    <div class="nav" data-role="nav">
-      <button class="nav-btn" data-action="prev" aria-label="${t('previousMessage')}">‹</button>
-      <button class="nav-btn" data-action="next" aria-label="${t('nextMessage')}">›</button>
+    <div class="footer-meta" data-role="footer_meta">
+      <div class="counter counter--footer" data-field="counter"></div>
+      <div class="hint" data-field="pager_hint"></div>
+      <div class="status" data-field="status"></div>
     </div>
-    <div class="status" data-field="status"></div>
   </div>
 </div>
 `;
@@ -460,6 +569,7 @@ ${getTokenCss(this.state.theme)}
 ${katexUrl ? `@import url("${katexUrl}");` : ''}
 
 /* Reset (shadow-scoped) */
+:host { font-family: var(--aimd-font-family-sans); }
 *, *::before, *::after { box-sizing: border-box; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 
@@ -486,6 +596,23 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: top var(--aimd-duration-base) var(--aimd-ease-in-out),
+              left var(--aimd-duration-base) var(--aimd-ease-in-out),
+              width var(--aimd-duration-base) var(--aimd-ease-in-out),
+              max-width var(--aimd-duration-base) var(--aimd-ease-in-out),
+              height var(--aimd-duration-base) var(--aimd-ease-in-out),
+              border-radius var(--aimd-duration-base) var(--aimd-ease-in-out),
+              transform var(--aimd-duration-base) var(--aimd-ease-in-out);
+}
+
+.panel[data-fullscreen="1"] {
+  top: 0;
+  left: 0;
+  transform: none;
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  border-radius: 0;
 }
 
 .header {
@@ -553,32 +680,35 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 
 .footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  padding: 8px 14px 10px;
+  padding: 10px 14px 12px;
   background: var(--aimd-bg-primary);
   border-top: 1px solid var(--aimd-border-default);
 }
 
 .footer-left {
   position: relative;
-  grid-column: 1;
   justify-self: start;
   display: flex;
   align-items: center;
+  min-height: 36px;
   min-width: 0;
 }
 
 .custom-actions { display: flex; gap: 8px; align-items: center; }
-.pager-stack {
-  grid-column: 2;
+.pager-core {
   justify-self: center;
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 45%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 55%, transparent);
 }
 .dots {
   display: flex;
@@ -593,6 +723,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   font-size: var(--aimd-font-size-xs);
   color: var(--aimd-text-secondary);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 .ellipsis { color: var(--aimd-text-secondary); font-size: 12px; padding: 0 2px; }
 .dot {
@@ -602,31 +733,41 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   height: var(--aimd-dot-size, 8px);
   border-radius: 999px;
   background: color-mix(in srgb, var(--aimd-text-secondary) 38%, transparent);
-  transition: transform 160ms ease, background 160ms ease, width 160ms ease;
+  position: relative;
+  transition: transform 160ms ease, background 160ms ease, width 160ms ease, border-radius 160ms ease, box-shadow 160ms ease;
 }
 .dot:hover { background: color-mix(in srgb, var(--aimd-text-secondary) 68%, transparent); transform: scale(1.18); }
 .dot--active {
   width: calc(var(--aimd-dot-size, 8px) * 1.7);
   background: color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 18%, transparent);
 }
-.nav { grid-column: 4; justify-self: end; display: grid; grid-auto-flow: column; gap: 8px; align-items: center; }
+.dot--bookmarked {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 72%, transparent);
+}
+.dot--bookmarked.dot--active {
+  width: calc(var(--aimd-dot-size, 8px) * 1.5);
+  border-radius: 4px;
+  background: var(--aimd-interactive-primary);
+}
 .nav-btn {
   all: unset;
   cursor: pointer;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   background: transparent;
   border: 1px solid transparent;
   color: var(--aimd-text-primary);
-  font-size: 18px;
-  line-height: 1;
 }
 .nav-btn:hover { background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent); }
 .nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .nav-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
+.nav-btn svg { width: 14px; height: 14px; display: block; }
+.nav-btn--prev svg { transform: rotate(180deg); }
 
 .chip {
   all: unset;
@@ -645,12 +786,77 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 .chip--primary:hover { background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 92%, transparent); }
 .chip--danger { border-color: var(--aimd-state-error-border); }
 
-.status {
+.footer-meta {
   justify-self: end;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-height: 36px;
+}
+
+.hint {
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 88%, transparent);
+  white-space: nowrap;
+}
+
+.status {
   font-size: var(--aimd-font-size-xs);
   color: var(--aimd-text-secondary);
   white-space: nowrap;
   min-width: 0;
+}
+
+.dot-tooltip {
+  position: absolute;
+  bottom: calc(100% + var(--aimd-space-2));
+  left: 50%;
+  transform: translate(-50%, 4px);
+  display: grid;
+  gap: var(--aimd-space-1);
+  min-width: 132px;
+  max-width: 260px;
+  padding: var(--aimd-space-2) var(--aimd-space-3);
+  border-radius: var(--aimd-radius-lg);
+  background: var(--aimd-sys-color-surface-frosted);
+  color: var(--aimd-text-primary);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  opacity: 1;
+  z-index: var(--aimd-z-tooltip);
+  transition: opacity var(--aimd-duration-fast) var(--aimd-ease-in-out), transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.dot-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: inherit;
+  border-right: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
+}
+
+.dot-tooltip__index {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--aimd-interactive-primary);
+  font-weight: 700;
+}
+
+.dot-tooltip__text {
+  font-size: var(--aimd-text-lg);
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--aimd-text-primary) 88%, transparent);
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* Send popover (Reader footer-left) */
@@ -660,6 +866,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   bottom: calc(100% + 10px);
   width: min(520px, calc(100vw - 48px));
   max-width: 520px;
+  font-family: var(--aimd-font-family-sans);
   background: var(--aimd-bg-primary);
   color: var(--aimd-text-primary);
   border: 1px solid var(--aimd-border-default);
@@ -756,8 +963,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 .markdown-body {
   margin: 0;
   padding: 0;
+  width: 100%;
+  max-width: 1000px;
+  margin-inline: auto;
+  font-family: var(--aimd-font-family-sans);
   color: var(--aimd-text-primary);
-  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   font-size: 15px;
   line-height: 1.65;
   word-wrap: break-word;
@@ -771,7 +981,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
   padding: 0.16em 0.4em;
   border-radius: 6px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--aimd-font-family-mono);
   font-size: 0.9em;
 }
 .markdown-body pre {

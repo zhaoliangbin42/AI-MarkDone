@@ -3,7 +3,6 @@ import { browser } from '../../../../../drivers/shared/browser';
 import { getTokenCss } from '../../../../../style/tokens';
 
 export function getBookmarksPanelCss(theme: Theme): string {
-    const isDark = theme === 'dark';
     const katexUrl = (() => {
         try {
             return browser.runtime.getURL('vendor/katex/katex.min.css');
@@ -11,22 +10,6 @@ export function getBookmarksPanelCss(theme: Theme): string {
             return '';
         }
     })();
-
-    // Legacy-style semantic tokens (scoped to this panel only).
-    // Gmail/Material-like overlay: dim only (no glass blur).
-    const overlayHeavy = isDark ? 'rgba(0,0,0,0.60)' : 'rgba(148, 163, 184, 0.34)';
-    const overlayBackdrop = 'none';
-    const borderSubtle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const borderStrong = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)';
-    const interactiveHover = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.04)';
-    const interactiveActive = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(59,130,246,0.10)';
-    const shadowXs = isDark ? '0 1px 2px rgba(0,0,0,0.55)' : '0 1px 2px rgba(0,0,0,0.12)';
-    const shadowSm = isDark ? '0 4px 12px rgba(0,0,0,0.45)' : '0 4px 12px rgba(0,0,0,0.12)';
-    const shadowLg = isDark ? '0 10px 28px rgba(0,0,0,0.62)' : '0 22px 56px rgba(148,163,184,0.24)';
-    const shadowXl = isDark ? '0 18px 60px rgba(0,0,0,0.66)' : '0 28px 80px rgba(148,163,184,0.28)';
-    const shadowFocus = isDark ? '0 0 0 2px rgba(26,115,232,0.38)' : '0 0 0 2px rgba(59,130,246,0.20)';
-    const scrollbarThumb = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.16)';
-    const scrollbarThumbHover = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.24)';
 
     const space6 = 'calc(var(--aimd-space-4) * 1.5)';
     const space8 = 'calc(var(--aimd-space-4) * 2)';
@@ -36,83 +19,8 @@ export function getBookmarksPanelCss(theme: Theme): string {
 ${getTokenCss(theme)}
 ${katexUrl ? `@import url("${katexUrl}");` : ''}
 
-:host {
-  --aimd-font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  --aimd-text-xs: var(--aimd-font-size-xs);
-  --aimd-text-sm: var(--aimd-font-size-sm);
-  --aimd-text-base: 14px;
-  --aimd-text-lg: 16px;
-  --aimd-text-xl: 18px;
-  --aimd-leading-normal: 1.5;
-  --aimd-font-medium: 500;
-  --aimd-font-semibold: 600;
-  --aimd-radius-xs: 4px;
-  --aimd-radius-sm: 6px;
-  --aimd-radius-xl: 14px;
-  --aimd-radius-2xl: 18px;
-  --aimd-duration-fast: 150ms;
-  --aimd-duration-base: 200ms;
-  --aimd-duration-slow: 300ms;
-  --aimd-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-out: var(--aimd-ease-out);
-
-  --aimd-bg-overlay-heavy: ${overlayHeavy};
-  --aimd-overlay-backdrop: ${overlayBackdrop};
-  --aimd-border-subtle: ${borderSubtle};
-  --aimd-border-strong: ${borderStrong};
-  --aimd-border-focus: var(--aimd-interactive-primary);
-  --aimd-shadow-xs: ${shadowXs};
-  --aimd-shadow-sm: ${shadowSm};
-  --aimd-shadow-lg: ${shadowLg};
-  --aimd-shadow-xl: ${shadowXl};
-  --aimd-shadow-focus: ${shadowFocus};
-
-  --aimd-interactive-hover: ${interactiveHover};
-  --aimd-interactive-active: ${interactiveActive};
-  --aimd-interactive-selected: var(--aimd-interactive-highlight);
-  --aimd-interactive-danger: #ef4444;
-
-  /* Gmail-like state layers */
-  --aimd-gmail-hover: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(148,163,184,0.12)'};
-  --aimd-gmail-pressed: ${isDark ? 'rgba(255,255,255,0.14)' : 'rgba(59,130,246,0.16)'};
-  --aimd-gmail-selected: ${isDark ? 'rgba(138,180,248,0.22)' : 'rgba(219,234,254,0.96)'};
-  --aimd-gmail-selected-text: ${isDark ? '#8ab4f8' : '#2563eb'};
-
-  /* Legacy-aligned semantic aliases (panel-scoped; do not depend on global token completeness) */
-  --aimd-bg-tertiary: color-mix(in srgb, var(--aimd-bg-secondary) 82%, var(--aimd-bg-primary));
-  --aimd-bg-surface: var(--aimd-bg-primary);
-  --aimd-text-tertiary: color-mix(in srgb, var(--aimd-text-secondary) 72%, transparent);
-  --aimd-text-warning: ${isDark ? '#fbbf24' : '#b45309'};
-  --aimd-text-link: var(--aimd-interactive-primary);
-  --aimd-text-link-hover: var(--aimd-interactive-primary-hover);
-
-  --aimd-button-primary-bg: var(--aimd-interactive-primary);
-  --aimd-button-primary-hover: var(--aimd-interactive-primary-hover);
-  --aimd-button-primary-text: var(--aimd-text-on-primary);
-  --aimd-button-secondary-bg: var(--aimd-bg-secondary);
-  --aimd-button-secondary-hover: color-mix(in srgb, var(--aimd-bg-secondary) 70%, var(--aimd-interactive-hover));
-  --aimd-button-secondary-text: var(--aimd-text-primary);
-
-  --aimd-shadow-md: ${isDark ? '0 8px 20px rgba(0,0,0,0.50)' : '0 8px 20px rgba(0,0,0,0.14)'};
-  --aimd-feedback-danger-bg: color-mix(in srgb, #ef4444 14%, transparent);
-  --aimd-color-warning: ${isDark ? '#fbbf24' : '#f59e0b'};
-  --aimd-color-danger: #ef4444;
-
-  --aimd-button-icon-bg: transparent;
-  --aimd-button-icon-text: var(--aimd-text-secondary);
-  --aimd-button-icon-hover: var(--aimd-interactive-hover);
-  --aimd-button-icon-text-hover: var(--aimd-text-primary);
-  --aimd-button-icon-active: var(--aimd-interactive-selected);
-
-  --aimd-scrollbar-thumb: ${scrollbarThumb};
-  --aimd-scrollbar-thumb-hover: ${scrollbarThumbHover};
-
-  --aimd-tree-indent-base: 12px;
-  --aimd-tree-indent-step: 22px;
-}
-
 /* Reset (Shadow DOM scoped) */
+:host { font-family: var(--aimd-font-family-sans); }
 * { box-sizing: border-box; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -171,7 +79,6 @@ input::placeholder { opacity: 1; }
   display: flex;
   flex-direction: column;
   overscroll-behavior: contain;
-  font-family: var(--aimd-font-sans);
 }
 
 .aimd-panel-header {
@@ -622,7 +529,7 @@ input::placeholder { opacity: 1; }
   border-bottom: 1px solid var(--aimd-border-subtle);
 }
 .aimd-detail-text { padding: 12px; color: var(--aimd-text-primary); white-space: pre-wrap; line-height: var(--aimd-leading-normal); }
-.aimd-detail-markdown { padding: 12px; }
+.aimd-detail-markdown { padding: 12px; font-family: var(--aimd-font-family-sans); }
 .aimd-detail-markdown :where(p) { margin: 0 0 10px 0; }
 .aimd-detail-markdown :where(ul, ol) { margin: 0 0 10px 18px; padding: 0; }
 .aimd-detail-markdown :where(li) { margin: 4px 0; }
@@ -630,7 +537,7 @@ input::placeholder { opacity: 1; }
 .aimd-detail-markdown :where(h1) { font-size: 18px; }
 .aimd-detail-markdown :where(h2) { font-size: 16px; }
 .aimd-detail-markdown :where(h3) { font-size: 14px; }
-.aimd-detail-markdown :where(code) { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+.aimd-detail-markdown :where(code) { font-family: var(--aimd-font-family-mono); font-size: 12px; }
 .aimd-detail-markdown :where(pre) {
   margin: 10px 0;
   padding: 10px 12px;

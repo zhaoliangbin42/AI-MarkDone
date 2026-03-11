@@ -4,6 +4,7 @@ export function getSaveMessagesDialogCss(_theme: Theme): string {
     // Theme is handled via `getTokenCss(theme)` injected by the caller.
     return `
 :host {
+  font-family: var(--aimd-font-family-sans);
   --aimd-dlg-surface: var(--aimd-bg-primary);
   --aimd-dlg-text: var(--aimd-text-primary);
   --aimd-dlg-muted: var(--aimd-text-secondary);
@@ -14,6 +15,11 @@ export function getSaveMessagesDialogCss(_theme: Theme): string {
   --aimd-dlg-primary: var(--aimd-interactive-primary);
   --aimd-dlg-primary-hover: var(--aimd-interactive-primary-hover);
   --aimd-dlg-on-primary: var(--aimd-text-on-primary);
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
 }
 
 /* Overlay */
@@ -225,4 +231,3 @@ export function getSaveMessagesDialogCss(_theme: Theme): string {
 }
 `;
 }
-

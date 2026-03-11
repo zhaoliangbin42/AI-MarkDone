@@ -28,5 +28,13 @@ describe('collectReaderItems', () => {
         expect(res.items.length).toBe(1);
         expect(res.startIndex).toBe(0);
         expect(res.items[0].userPrompt).toBe('Hello from user');
+        expect(res.items[0].meta).toMatchObject({
+            platformId: 'chatgpt',
+            messageId: 'a1',
+            position: 1,
+            bookmarkable: true,
+            bookmarked: false,
+        });
+        expect(res.items[0].meta?.url).toBe(window.location.href);
     });
 });

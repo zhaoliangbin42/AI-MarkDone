@@ -750,6 +750,8 @@ export const pencilIcon = Icons.edit;
 export const externalLinkIcon = Icons.link;
 export const chevronDownIcon = Icons.chevronDown;
 export const chevronRightIcon = Icons.chevronRight;
+export const maximizeIcon = Icons.maximize;
+export const minimizeIcon = Icons.minimize;
 export const moveIcon = Icons.move;
 export const arrowDownAZIcon = Icons.arrowDownAZ;
 export const arrowUpAZIcon = Icons.arrowUpAZ;
@@ -765,6 +767,7 @@ export const fileCodeIcon = Icons.code;
 export const fileTextIcon = Icons.fileText;
 export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
+export const locateIcon = Icons.locate;
 export const messageSquareTextIcon = Icons.messageSquareText;
 export const checkIcon = Icons.check;
 

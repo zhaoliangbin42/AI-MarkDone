@@ -48,4 +48,27 @@ describe('ReaderPanel (MVP)', () => {
         panel.hide();
         expect(document.querySelector('#aimd-reader-panel-host')).toBeNull();
     });
+
+    it('toggles between standard and fullscreen reader layouts', async () => {
+        const panel = new ReaderPanel();
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'md1' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = (host as any).shadowRoot as ShadowRoot;
+        const panelEl = shadow.querySelector<HTMLElement>('.panel')!;
+        const fullscreenBtn = shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')!;
+
+        expect(panelEl.dataset.fullscreen).toBe('0');
+        expect(fullscreenBtn.title).toBeTruthy();
+        const styles = shadow.querySelector('style')?.textContent ?? '';
+        expect(styles).toContain('max-width: 1000px');
+
+        fullscreenBtn.click();
+        expect(panelEl.dataset.fullscreen).toBe('1');
+
+        fullscreenBtn.click();
+        expect(panelEl.dataset.fullscreen).toBe('0');
+
+        panel.hide();
+    });
 });

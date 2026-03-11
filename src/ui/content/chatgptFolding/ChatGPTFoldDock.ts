@@ -78,6 +78,7 @@ export class ChatGPTFoldDock {
   z-index: var(--aimd-z-panel);
   pointer-events: auto;
   display: block;
+  font-family: var(--aimd-font-family-sans);
   /* Hard width cap: ensures the dock never grows horizontally. */
   width: var(--aimd-space-3);
 }
@@ -102,7 +103,6 @@ export class ChatGPTFoldDock {
   width: 100%;
   min-height: calc(var(--aimd-space-4) * 3);
   color: var(--aimd-text-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   font-size: var(--aimd-font-size-xs);
   font-weight: 700;
   line-height: 1;

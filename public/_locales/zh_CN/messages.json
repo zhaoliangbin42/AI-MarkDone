@@ -710,6 +710,12 @@
     "promptTargetFolderPath": {
         "message": "目标文件夹路径"
     },
+    "folderPathPlaceholder": {
+        "message": "Work/Project"
+    },
+    "folderNamePlaceholder": {
+        "message": "文件夹"
+    },
     "noSelectionLabel": {
         "message": "未选择"
     },
@@ -937,6 +943,9 @@
     },
     "goToPage": {
         "message": "跳转到 $1"
+    },
+    "readerPagerHint": {
+        "message": "也可用方向键"
     },
     "streamingStatus": {
         "message": "生成中..."

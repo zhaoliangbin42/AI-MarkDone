@@ -19,6 +19,10 @@ describe('SourcePanel', () => {
         expect(shadow.querySelector('[data-action="copy"]')).toBeTruthy();
         expect(shadow.querySelector('[data-action="close"]')).toBeTruthy();
         expect(shadow.querySelector('[data-role="content"]')?.textContent).toBe('RAW');
+        const styles = shadow.querySelector('style')?.textContent ?? '';
+        expect(styles).toContain('font-family: var(--aimd-font-family-sans);');
+        expect(styles).toContain('.pre {');
+        expect(styles).toContain('font-family: var(--aimd-font-family-mono);');
 
         // Should not include Reader navigation/dots/source toggle UI.
         expect(shadow.querySelector('[data-role="dots"]')).toBeNull();
@@ -33,4 +37,3 @@ describe('SourcePanel', () => {
         expect(document.getElementById('aimd-source-panel-host')).toBeNull();
     });
 });
-

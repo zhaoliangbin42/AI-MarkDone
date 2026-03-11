@@ -16,6 +16,16 @@ function defaultGetMarkdown(adapter: SiteAdapter, messageElement: HTMLElement): 
     return res.ok ? res.markdown : '';
 }
 
+function stripHash(url: string): string {
+    try {
+        const parsed = new URL(url);
+        parsed.hash = '';
+        return `${parsed.origin}${parsed.pathname}${parsed.search}`;
+    } catch {
+        return url.split('#')[0] || url;
+    }
+}
+
 export function collectReaderItems(
     adapter: SiteAdapter,
     startMessageElement: HTMLElement,
@@ -23,6 +33,7 @@ export function collectReaderItems(
 ): CollectReaderItemsResult {
     const turns = collectConversationTurnRefs(adapter);
     const getMarkdownForEl: GetMarkdownFn = getMarkdown ?? ((el) => defaultGetMarkdown(adapter, el));
+    const pageUrl = stripHash(window.location.href);
 
     const startIndexRaw = turns.findIndex((t) =>
         t.messageEls.some((el) => el === startMessageElement || el.contains(startMessageElement) || startMessageElement.contains(el))
@@ -42,7 +53,14 @@ export function collectReaderItems(
                 const parts = turn.messageEls.map((el) => getMarkdownForEl(el).trim()).filter(Boolean);
                 return parts.join('\n\n');
             },
-            meta: { platformId: adapter.getPlatformId(), messageId },
+            meta: {
+                platformId: adapter.getPlatformId(),
+                messageId,
+                position: index + 1,
+                url: pageUrl,
+                bookmarkable: true,
+                bookmarked: false,
+            },
         };
     });
 

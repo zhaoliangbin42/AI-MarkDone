@@ -158,6 +158,15 @@ export class SendModal {
 
     private getCss(): string {
         return `
+:host {
+  font-family: var(--aimd-font-family-sans);
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -259,6 +268,7 @@ export class SendModal {
   outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent);
   outline-offset: 2px;
 }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn--primary {
   background: var(--aimd-interactive-primary);
   border-color: var(--aimd-interactive-primary);

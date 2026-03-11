@@ -11,6 +11,10 @@ export type ContentProvider = string | (() => string) | (() => Promise<string>);
 export type ReaderItemMeta = {
     platformId?: string;
     messageId?: string | null;
+    position?: number;
+    url?: string;
+    bookmarkable?: boolean;
+    bookmarked?: boolean;
 };
 
 export type ReaderItem = {
@@ -25,4 +29,3 @@ export async function resolveContent(provider: ContentProvider): Promise<string>
     const value = provider();
     return value instanceof Promise ? await value : value;
 }
-

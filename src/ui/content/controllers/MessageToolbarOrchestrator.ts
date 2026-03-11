@@ -1,5 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import { scrollToAssistantPositionWithRetry } from '../../../drivers/content/bookmarks/navigation';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { getConversationUrl } from '../../../drivers/content/bookmarks/position';
 import { discoverMessageElements } from '../../../drivers/content/injection/messageDiscovery';
@@ -10,13 +11,14 @@ import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { collectReaderItems } from '../../../services/reader/collectReaderItems';
+import { resolveContent } from '../../../services/reader/types';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
-import type { ReaderPanel } from '../reader/ReaderPanel';
+import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon, sendIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon, locateIcon, sendIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
@@ -89,16 +91,112 @@ export class MessageToolbarOrchestrator {
         const turn = this.getTurnRefForElement(messageElement);
         return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
     }
-    private getReaderActions(): Array<{ id: string; label: string; icon?: string; kind?: 'default' | 'primary' | 'danger'; placement?: 'header' | 'footer_left'; toggle?: boolean; onClick: any }> {
-        if (!this.sendController) return [];
-        return [
-            {
+
+    private decorateReaderItems(items: Array<{ meta?: Record<string, unknown> }>): void {
+        if (!this.bookmarksController) return;
+        const url = this.getBookmarkPageUrl();
+        for (const item of items) {
+            const position = Number(item.meta?.position ?? 0);
+            item.meta = {
+                ...(item.meta || {}),
+                url,
+                bookmarkable: position > 0,
+                bookmarked: position > 0 ? this.bookmarksController.isPositionBookmarked(url, position) : false,
+            };
+        }
+    }
+
+    private getReaderActions(_messageElement: HTMLElement): ReaderPanelAction[] {
+        const actions: ReaderPanelAction[] = [];
+
+        if (this.bookmarksController) {
+            actions.push({
+                id: 'bookmark_toggle',
+                label: t('btnBookmark'),
+                tooltip: t('btnBookmark'),
+                icon: bookmarkIcon,
+                placement: 'header',
+                toggle: true,
+                isActive: (ctx: any) => Boolean(ctx?.item?.meta?.bookmarked),
+                onClick: async (ctx: any) => {
+                    const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
+                    const url = typeof meta.url === 'string' ? meta.url : this.getBookmarkPageUrl();
+                    const position = Number(meta.position ?? 0);
+                    if (!position) {
+                        ctx?.notify?.(t('positionNotAvailable'));
+                        return;
+                    }
+
+                    const userPrompt = String(ctx?.item?.userPrompt || '').trim();
+                    if (!userPrompt) {
+                        ctx?.notify?.(t('failedToExtractUserMessage'));
+                        return;
+                    }
+
+                    const markdown = await resolveContent(ctx.item.content);
+                    const already = this.bookmarksController!.isPositionBookmarked(url, position);
+
+                    if (!already) {
+                        const currentFolderPath = this.bookmarksController!.getDefaultFolderPath();
+                        const res = await bookmarkSaveDialog.open({
+                            theme: this.theme,
+                            userPrompt,
+                            existingTitle: userPrompt,
+                            currentFolderPath,
+                            mode: 'create',
+                        });
+                        if (!res.ok) return;
+
+                        const saveRes = await this.bookmarksController!.toggleBookmarkFromToolbar({
+                            url,
+                            position,
+                            folderPath: res.folderPath,
+                            userMessage: userPrompt,
+                            aiResponse: markdown,
+                            platform: 'ChatGPT',
+                            title: res.title,
+                        });
+                        if (!saveRes.ok) {
+                            ctx?.notify?.(saveRes.message);
+                            return;
+                        }
+                        ctx.item.meta = { ...(ctx.item.meta || {}), url, position, bookmarked: true, bookmarkable: true };
+                        ctx?.notify?.(t('savedStatus'));
+                        ctx?.rerender?.();
+                        return;
+                    }
+
+                    const folderPath = this.bookmarksController!.getDefaultFolderPath();
+                    const title = userPrompt.length > 50 ? `${userPrompt.slice(0, 50)}...` : userPrompt;
+                    const res = await this.bookmarksController!.toggleBookmarkFromToolbar({
+                        url,
+                        position,
+                        folderPath,
+                        userMessage: userPrompt,
+                        aiResponse: markdown,
+                        platform: 'ChatGPT',
+                        title,
+                    });
+                    if (!res.ok) {
+                        ctx?.notify?.(res.message);
+                        return;
+                    }
+                    ctx.item.meta = { ...(ctx.item.meta || {}), url, position, bookmarked: res.data.saved, bookmarkable: true };
+                    ctx?.notify?.(res.data.saved ? t('savedStatus') : t('removedStatus'));
+                    ctx?.rerender?.();
+                },
+            });
+        }
+
+        if (this.sendController) {
+            actions.push({
                 id: 'send',
                 label: t('send'),
                 icon: sendIcon,
                 kind: 'primary',
                 placement: 'footer_left',
                 toggle: true,
+                rerenderOnClick: false,
                 onClick: (ctx: any) => {
                     const shadow = ctx?.shadow as ShadowRoot | undefined;
                     const anchorBtn = ctx?.anchorEl as HTMLElement | undefined;
@@ -106,8 +204,30 @@ export class MessageToolbarOrchestrator {
                     const anchorWrap = anchorBtn.closest?.('[data-role="footer_left_actions"]') as HTMLElement | null;
                     this.sendController?.togglePopover({ adapter: this.adapter, shadow, anchor: anchorWrap || anchorBtn });
                 },
+            });
+        }
+
+        actions.push({
+            id: 'locate',
+            label: t('openConversation'),
+            tooltip: t('openConversationLabel'),
+            icon: locateIcon,
+            placement: 'footer_left',
+            onClick: async (ctx: any) => {
+                const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
+                const position = Number(meta.position ?? 0);
+                if (!position) {
+                    ctx?.notify?.(t('positionNotAvailable'));
+                    return;
+                }
+
+                this.readerPanel.hide();
+                const result = await scrollToAssistantPositionWithRetry(this.adapter, position, { timeoutMs: 2500, intervalMs: 200 });
+                if (!result.ok) ctx?.notify?.(t('positionNotAvailable'));
             },
-        ];
+        });
+
+        return actions;
     }
 
     constructor(
@@ -355,7 +475,8 @@ export class MessageToolbarOrchestrator {
             disabledWhenPending: true,
             onClick: async () => {
                 const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
-                await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'render', actions: this.getReaderActions() as any });
+                this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
+                await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'render', actions: this.getReaderActions(messageElement) as any });
             },
         });
 

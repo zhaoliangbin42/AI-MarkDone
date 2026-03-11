@@ -710,6 +710,12 @@
     "promptTargetFolderPath": {
         "message": "Target folder path"
     },
+    "folderPathPlaceholder": {
+        "message": "Work/Project"
+    },
+    "folderNamePlaceholder": {
+        "message": "Folder"
+    },
     "noSelectionLabel": {
         "message": "No selection"
     },
@@ -937,6 +943,9 @@
     },
     "goToPage": {
         "message": "Go to $1"
+    },
+    "readerPagerHint": {
+        "message": "Arrow keys ready"
     },
     "streamingStatus": {
         "message": "Streaming..."

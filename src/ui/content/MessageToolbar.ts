@@ -292,6 +292,7 @@ export class MessageToolbar {
 :host {
   display: inline-flex;
   flex: 0 0 auto;
+  font-family: var(--aimd-font-family-sans);
   /* Material/Gmail-like state layers (scoped to this shadow root) */
   --aimd-tb-hover: color-mix(in srgb, #000 6%, transparent);
   --aimd-tb-pressed: color-mix(in srgb, #000 10%, transparent);
@@ -343,7 +344,6 @@ export class MessageToolbar {
   background: var(--aimd-tb-surface);
   border: 1px solid var(--aimd-tb-outline);
   color: var(--aimd-text-primary);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   position: relative;
   transition: background 150ms ease, border-color 150ms ease;
 }

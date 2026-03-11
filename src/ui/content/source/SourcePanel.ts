@@ -135,6 +135,7 @@ export class SourcePanel {
         return `
 ${getTokenCss(this.state.theme)}
 
+:host { font-family: var(--aimd-font-family-sans); }
 *, *::before, *::after { box-sizing: border-box; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 
@@ -206,7 +207,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 .pre {
   margin: 0;
   white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-family: var(--aimd-font-family-mono);
   font-size: 13px;
   line-height: 1.55;
   color: var(--aimd-text-primary);
