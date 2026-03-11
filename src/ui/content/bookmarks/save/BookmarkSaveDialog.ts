@@ -21,6 +21,7 @@ import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolder
 import { getBookmarkSaveDialogCss } from './bookmarkSaveDialogCss';
 import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
+import { TooltipDelegate } from '../../../../utils/tooltip';
 
 type FolderLite = { path: string; name: string; depth: number };
 
@@ -44,6 +45,7 @@ export class BookmarkSaveDialog {
     private shadow: ShadowRoot | null = null;
     private hostHandle: ShadowDialogHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private tooltipDelegate: TooltipDelegate | null = null;
     private theme: Theme = 'light';
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
@@ -113,6 +115,8 @@ export class BookmarkSaveDialog {
         this.resolve = null;
 
         this.shadow = null;
+        this.tooltipDelegate?.disconnect();
+        this.tooltipDelegate = null;
 
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
@@ -214,6 +218,8 @@ export class BookmarkSaveDialog {
         this.host = host;
         this.shadow = shadow;
         this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(shadow);
+        this.tooltipDelegate.refresh(shadow);
     }
 
     private renderLoading(): void {

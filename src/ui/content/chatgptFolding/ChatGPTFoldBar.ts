@@ -3,6 +3,7 @@ import { getTokenCss } from '../../../style/tokens';
 import { createIcon } from '../components/Icon';
 import { chevronDownIcon, chevronRightIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 export type ChatGPTFoldBarCallbacks = {
     onToggle: () => void;
@@ -15,6 +16,7 @@ export class ChatGPTFoldBar {
     private callbacks: ChatGPTFoldBarCallbacks;
     private labelEl: HTMLDivElement;
     private buttonEl: HTMLButtonElement;
+    private tooltipDelegate: TooltipDelegate;
 
     constructor(theme: Theme, callbacks: ChatGPTFoldBarCallbacks) {
         this.callbacks = callbacks;
@@ -27,6 +29,7 @@ export class ChatGPTFoldBar {
         this.styleEl = document.createElement('style');
         this.styleEl.textContent = getTokenCss(theme) + this.getCss();
         this.shadowRoot.appendChild(this.styleEl);
+        this.tooltipDelegate = new TooltipDelegate(this.shadowRoot);
 
         const bar = document.createElement('div');
         bar.className = 'bar';
@@ -63,6 +66,7 @@ export class ChatGPTFoldBar {
     }
 
     dispose(): void {
+        this.tooltipDelegate.disconnect();
         this.rootEl.remove();
     }
 
@@ -81,8 +85,9 @@ export class ChatGPTFoldBar {
         this.buttonEl.replaceChildren(createIcon(collapsed ? chevronRightIcon : chevronDownIcon));
 
         const label = collapsed ? t('btnExpand') : t('btnCollapse');
-        this.buttonEl.title = label;
+        this.buttonEl.dataset.tooltip = label;
         this.buttonEl.setAttribute('aria-label', label);
+        this.tooltipDelegate.refresh(this.shadowRoot);
     }
 
     private getCss(): string {

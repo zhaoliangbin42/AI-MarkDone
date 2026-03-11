@@ -30,8 +30,12 @@ describe('MathClickHandler', () => {
 
         target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await Promise.resolve();
+        await Promise.resolve();
 
         expect(writeText).toHaveBeenCalledWith('x_1 + y');
+        const tooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip[data-variant="ephemeral"]');
+        expect(tooltip).toBeTruthy();
+        expect(tooltip?.textContent).toContain('Copied');
         handler.disable();
         container.remove();
     });

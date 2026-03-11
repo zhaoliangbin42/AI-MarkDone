@@ -7,12 +7,14 @@ import { xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
 import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 export class SendModal {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
     private hostHandle: ShadowDialogHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private tooltipDelegate: TooltipDelegate | null = null;
     private adapter: SiteAdapter | null = null;
     private theme: Theme = 'light';
     private pending: boolean = false;
@@ -81,10 +83,14 @@ export class SendModal {
         this.host = host;
         this.shadow = shadow;
         this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(shadow);
+        this.tooltipDelegate.refresh(shadow);
     }
 
     private unmount(): void {
         this.shadow = null;
+        this.tooltipDelegate?.disconnect();
+        this.tooltipDelegate = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
 
@@ -142,7 +148,7 @@ export class SendModal {
 <div class="dialog" role="dialog" aria-modal="true" aria-label="${t('sendMessage')}">
   <div class="head">
     <div class="title">${t('send')}</div>
-    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
+    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
   </div>
   <textarea class="input" data-role="text" rows="7" placeholder="${t('typeYourMessage')}"></textarea>
   <div class="foot">

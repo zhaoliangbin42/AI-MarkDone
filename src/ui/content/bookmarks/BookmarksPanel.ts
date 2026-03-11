@@ -16,6 +16,7 @@ import {
 } from '../../../assets/icons';
 import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 function downloadJson(filename: string, data: unknown): void {
     try {
@@ -52,6 +53,7 @@ export class BookmarksPanel {
     private activeTabId: 'bookmarks' | 'settings' | 'sponsor' = 'bookmarks';
     private unsubscribeLocale: (() => void) | null = null;
     private localeRemountPending = false;
+    private tooltipDelegate: TooltipDelegate | null = null;
 
     constructor(controller: BookmarksPanelController, readerPanel: ReaderPanel) {
         this.controller = controller;
@@ -201,6 +203,8 @@ export class BookmarksPanel {
         this.host = host;
         this.shadow = shadow;
         this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(shadow);
+        this.tooltipDelegate.refresh(shadow);
         this.bookmarksTab = bookmarksTab;
         this.settingsTab = settingsTab;
         this.refs = { ...shell, footerStatus: status, footerMeta: meta };
@@ -227,6 +231,8 @@ export class BookmarksPanel {
         this.snapshot = null;
         this.bookmarksTab = null;
         this.settingsTab = null;
+        this.tooltipDelegate?.disconnect();
+        this.tooltipDelegate = null;
         this.shadow = null;
 
         this.keyboardHandle?.detach();
@@ -251,6 +257,7 @@ export class BookmarksPanel {
         refs.footerMeta.textContent = snap.vm.bookmarks.length ? `${snap.vm.bookmarks.length}` : '';
 
         this.bookmarksTab?.update(snap);
+        this.tooltipDelegate?.refresh(shadow);
     }
 
     private async exportAll(modal: ModalHost): Promise<void> {

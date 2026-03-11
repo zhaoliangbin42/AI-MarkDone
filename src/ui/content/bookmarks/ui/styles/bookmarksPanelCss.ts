@@ -1,6 +1,7 @@
 import type { Theme } from '../../../../../core/types/theme';
 import { browser } from '../../../../../drivers/shared/browser';
 import { getTokenCss } from '../../../../../style/tokens';
+import { getMarkdownThemeCss } from '../../../components/markdownTheme';
 
 export function getBookmarksPanelCss(theme: Theme): string {
     const katexUrl = (() => {
@@ -529,32 +530,8 @@ input::placeholder { opacity: 1; }
   border-bottom: 1px solid var(--aimd-border-subtle);
 }
 .aimd-detail-text { padding: 12px; color: var(--aimd-text-primary); white-space: pre-wrap; line-height: var(--aimd-leading-normal); }
-.aimd-detail-markdown { padding: 12px; font-family: var(--aimd-font-family-sans); }
-.aimd-detail-markdown :where(p) { margin: 0 0 10px 0; }
-.aimd-detail-markdown :where(ul, ol) { margin: 0 0 10px 18px; padding: 0; }
-.aimd-detail-markdown :where(li) { margin: 4px 0; }
-.aimd-detail-markdown :where(h1, h2, h3) { margin: 14px 0 8px; font-weight: var(--aimd-font-semibold); }
-.aimd-detail-markdown :where(h1) { font-size: 18px; }
-.aimd-detail-markdown :where(h2) { font-size: 16px; }
-.aimd-detail-markdown :where(h3) { font-size: 14px; }
-.aimd-detail-markdown :where(code) { font-family: var(--aimd-font-family-mono); font-size: 12px; }
-.aimd-detail-markdown :where(pre) {
-  margin: 10px 0;
-  padding: 10px 12px;
-  border-radius: var(--aimd-radius-lg);
-  border: 1px solid var(--aimd-border-subtle);
-  background: var(--aimd-bg-secondary);
-  overflow: auto;
-}
-.aimd-detail-markdown :where(pre code) { background: transparent; padding: 0; border: none; }
-.aimd-detail-markdown :where(blockquote) {
-  margin: 10px 0;
-  padding: 10px 12px;
-  border-left: 3px solid var(--aimd-border-strong);
-  background: var(--aimd-bg-secondary);
-  border-radius: var(--aimd-radius-lg);
-  color: var(--aimd-text-secondary);
-}
+.aimd-detail-markdown { padding: 12px; }
+${getMarkdownThemeCss('.aimd-detail-markdown')}
 
 .aimd-panel-footer {
   display: flex;

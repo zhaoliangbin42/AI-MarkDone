@@ -193,41 +193,5 @@ button, input, select, textarea {
 }
 .btn--primary:hover { background: var(--aimd-dlg-primary-hover); }
 .count { font-size: 12px; color: var(--aimd-dlg-muted); white-space: nowrap; }
-
-/* Tooltip (portal to overlay) */
-.tooltip {
-  position: absolute;
-  max-width: 320px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--aimd-dlg-surface) 90%, transparent);
-  border: 1px solid var(--aimd-dlg-outline);
-  box-shadow: 0 18px 50px color-mix(in srgb, #000 22%, transparent);
-  color: var(--aimd-dlg-text);
-  font-size: 12px;
-  line-height: 1.4;
-  pointer-events: none;
-  opacity: 0;
-  transform: translate(-50%, -6px);
-  transition: opacity 120ms ease, transform 120ms ease;
-  z-index: var(--aimd-z-tooltip);
-}
-.tooltip[data-open="1"] { opacity: 1; transform: translate(-50%, -12px); }
-.tooltip::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 12px;
-  height: 12px;
-  transform: translateX(-50%) rotate(45deg);
-  background: color-mix(in srgb, var(--aimd-dlg-surface) 90%, transparent);
-  border-right: 1px solid var(--aimd-dlg-outline);
-  border-bottom: 1px solid var(--aimd-dlg-outline);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tooltip { transition: none !important; }
-}
 `;
 }

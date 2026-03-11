@@ -36,7 +36,7 @@ describe('ReaderPanel navigation', () => {
             expect(counter?.textContent).toBe('1/750');
 
             const active = shadow.querySelector<HTMLButtonElement>('[data-role="dots"] .dot--active');
-            expect(active?.title).toBe('1');
+            expect(active?.dataset.tooltipTitle).toBe('1');
         } finally {
             panel.hide();
         }
@@ -67,7 +67,7 @@ describe('ReaderPanel navigation', () => {
             const active = dots.find((dot) => dot.classList.contains('dot--active'));
 
             expect(dots).toHaveLength(3);
-            expect(active?.title).toBe('3');
+            expect(active?.dataset.tooltipTitle).toBe('3');
         } finally {
             panel.hide();
         }
@@ -124,12 +124,12 @@ describe('ReaderPanel navigation', () => {
 
             host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
             await Promise.resolve();
-            await Promise.resolve();
+            await new Promise((resolve) => setTimeout(resolve, 0));
             expect(counter?.textContent).toBe('3/3');
 
             host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
             await Promise.resolve();
-            await Promise.resolve();
+            await new Promise((resolve) => setTimeout(resolve, 0));
             expect(counter?.textContent).toBe('2/3');
         } finally {
             panel.hide();

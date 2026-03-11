@@ -59,7 +59,7 @@ describe('ReaderPanel (MVP)', () => {
         const fullscreenBtn = shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')!;
 
         expect(panelEl.dataset.fullscreen).toBe('0');
-        expect(fullscreenBtn.title).toBeTruthy();
+        expect(fullscreenBtn.dataset.tooltip).toBeTruthy();
         const styles = shadow.querySelector('style')?.textContent ?? '';
         expect(styles).toContain('max-width: 1000px');
 

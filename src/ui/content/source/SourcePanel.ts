@@ -5,6 +5,7 @@ import { t } from '../components/i18n';
 import { copyIcon, xIcon } from '../../../assets/icons';
 import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 type State = {
     theme: Theme;
@@ -18,6 +19,7 @@ export class SourcePanel {
     private shadow: ShadowRoot | null = null;
     private hostHandle: ShadowDialogHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private tooltipDelegate: TooltipDelegate | null = null;
     private state: State = { theme: 'light', title: '', content: '', visible: false };
 
     isVisible(): boolean {
@@ -69,9 +71,13 @@ export class SourcePanel {
         this.host = host;
         this.shadow = shadow;
         this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(shadow);
+        this.tooltipDelegate.refresh(shadow);
     }
 
     private unmount(): void {
+        this.tooltipDelegate?.disconnect();
+        this.tooltipDelegate = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
 
@@ -117,8 +123,8 @@ export class SourcePanel {
   <div class="header">
     <div class="title" data-field="title"></div>
     <div class="header-right">
-      <button class="icon" data-action="copy" aria-label="${t('btnCopyText')}" title="${t('btnCopyText')}">${copyIcon}</button>
-      <button class="icon" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
+      <button class="icon" data-action="copy" aria-label="${t('btnCopyText')}" data-tooltip="${t('btnCopyText')}">${copyIcon}</button>
+      <button class="icon" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
     </div>
   </div>
   <div class="body">

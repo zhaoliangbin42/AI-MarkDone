@@ -5,6 +5,7 @@ import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { sendIcon, xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
+import { upgradeTitleTooltips } from '../../../utils/tooltip';
 
 type State = {
     theme: Theme;
@@ -50,7 +51,7 @@ export class SendPopover {
         pop.innerHTML = `
   <div class="head">
     <div class="title">${t('send')}</div>
-    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
+    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
   </div>
   <textarea class="input" data-role="text" rows="6" placeholder="${t('typeYourMessage')}"></textarea>
   <div class="foot">
@@ -77,6 +78,7 @@ export class SendPopover {
         // Note: anchor wrapper is `.footer-left` in ReaderPanel.
         params.anchor.appendChild(pop);
         this.popoverEl = pop;
+        upgradeTitleTooltips(pop);
 
         const text = params.initialText ?? (() => {
             const snap = readComposer(params.adapter);

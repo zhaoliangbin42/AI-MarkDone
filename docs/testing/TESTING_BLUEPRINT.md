@@ -70,3 +70,24 @@ tests/
 - `docs/refactor/REFACTOR_CHECKLIST.md` 的新增阶段（Testing System Refactor）
 - 协议/存储/适配器契约的门禁测试（contracts）
 
+---
+
+## 6. Entry Bundle Release Gates
+
+针对浏览器扩展 entry（尤其 `content.js` / `background.js`），构建门禁必须覆盖“运行时加载格式”而不只看 TypeScript/单测是否通过。
+
+要求：
+
+- entry bundle 不得包含 top-level `import`
+- entry bundle 不得包含会在运行时继续拉取 JS chunk 的动态加载语法（例如 `import('./assets/...')`、`await import(...)`、`__vitePreload(...)`）
+- 该门禁必须同时作用于 Chrome MV3 与 Firefox MV2 产物
+
+原因：
+
+- content script 运行时一旦被 entry 格式问题打断，会导致工具栏注入、header icon、Reader 等上层 UI 全部“看起来一起失效”
+- 这类问题可能通过单元测试和常规 build，但会在真实页面里以 `Unexpected token 'export'` 之类运行时错误暴露
+
+执行口径：
+
+- 保持 `scripts/verify-extension-entry-format.sh` 作为 release gate
+- 每次引入新的 markdown/runtime enhancement、懒加载库或 content-side UI enhancement 时，必须重新验证 entry bundle 仍是单体可执行格式

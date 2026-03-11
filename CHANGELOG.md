@@ -16,13 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader, bookmarks, toolbar, folding, and save dialogs now inherit the default UI font instead of shipping separate sans-serif stacks.
 - UI text surfaces now use a shared ChatGPT-aligned sans token inside Shadow DOM, while source/code views keep a dedicated mono token.
 - Reader pagination now uses shared iconography and legacy-aligned preview cards for a cleaner, more consistent control bar.
+- Reader, bookmarks, export dialogs, folding controls, and math-copy feedback now share a single blue-on-white tooltip system instead of mixing browser titles and ad hoc popovers.
+- Interactive markdown styling now uses one shared GitHub-inspired theme layer across reader and bookmark detail surfaces.
 
 ### Fixed
+- Runtime: Fixed the content script entry so markdown enhancement experiments no longer emit module-split imports that break toolbar injection at runtime.
+- Markdown: Removed the experimental Mermaid runtime path so content-script stability and bundle size no longer depend on a heavy diagram renderer.
 - Gemini: Fixed the message toolbar position so it stays aligned with the official action row on the latest layout.
 - Claude: Fixed the message toolbar and header bookmark icon injection after the latest layout update.
 - ChatGPT: Fixed the toolbar width jumping wider while a response is still streaming.
 - Reader: Fixed the header title truncation, restored larger hover previews, and added a footer shortcut back to the current conversation turn.
 - Bookmarks: Fixed folder-path and folder-name prompts still using hardcoded placeholders instead of localized UI strings.
+- Bookmarks: Fixed the panel empty state so existing folders no longer fall back to the misleading `No folders yet` message.
+- Bookmarks: Removed the repair and refresh toolbar icons from the panel surface without changing the underlying maintenance actions.
 
 ## [3.0.0] - 2026-02-18
 

@@ -1,6 +1,7 @@
 import type { Theme } from '../../../core/types/theme';
 import { getTokenCss } from '../../../style/tokens';
 import { t } from '../components/i18n';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 export type ChatGPTFoldDockCallbacks = {
     onCollapseAll: () => void;
@@ -14,6 +15,7 @@ export class ChatGPTFoldDock {
     private shadowRoot: ShadowRoot;
     private styleEl: HTMLStyleElement;
     private callbacks: ChatGPTFoldDockCallbacks;
+    private tooltipDelegate: TooltipDelegate;
 
     constructor(theme: Theme, callbacks: ChatGPTFoldDockCallbacks) {
         this.callbacks = callbacks;
@@ -30,6 +32,7 @@ export class ChatGPTFoldDock {
         this.styleEl = document.createElement('style');
         this.styleEl.textContent = getTokenCss(theme) + this.getCss();
         this.shadowRoot.appendChild(this.styleEl);
+        this.tooltipDelegate = new TooltipDelegate(this.shadowRoot);
 
         const dockEl = document.createElement('div');
         dockEl.className = 'dock';
@@ -40,7 +43,7 @@ export class ChatGPTFoldDock {
         // Use ASCII '-' to match legacy width expectations (unicode '−' is wider and clips in a thin dock).
         collapseBtn.textContent = '-';
         collapseBtn.setAttribute('aria-label', t('chatgptCollapseAll'));
-        collapseBtn.title = t('chatgptCollapseAll');
+        collapseBtn.dataset.tooltip = t('chatgptCollapseAll');
         collapseBtn.addEventListener('click', () => this.callbacks.onCollapseAll());
 
         const expandBtn = document.createElement('button');
@@ -48,11 +51,12 @@ export class ChatGPTFoldDock {
         expandBtn.type = 'button';
         expandBtn.textContent = '+';
         expandBtn.setAttribute('aria-label', t('chatgptExpandAll'));
-        expandBtn.title = t('chatgptExpandAll');
+        expandBtn.dataset.tooltip = t('chatgptExpandAll');
         expandBtn.addEventListener('click', () => this.callbacks.onExpandAll());
 
         dockEl.append(collapseBtn, expandBtn);
         this.shadowRoot.appendChild(dockEl);
+        this.tooltipDelegate.refresh(this.shadowRoot);
     }
 
     getElement(): HTMLElement {
@@ -65,6 +69,7 @@ export class ChatGPTFoldDock {
     }
 
     dispose(): void {
+        this.tooltipDelegate.disconnect();
         this.rootEl.remove();
     }
 

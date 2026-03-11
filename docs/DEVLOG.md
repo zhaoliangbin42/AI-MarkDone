@@ -74,3 +74,15 @@ Verification:
 - `npm run type-check` (pass)
 - `npm run test:core` (pass)
 - `npm run build` (pass; Chrome MV3 + Firefox MV2)
+
+## 2026-03-11 — Content runtime rollback: remove Mermaid enhancement, keep fenced-code highlighting
+
+- Investigated a full content-runtime regression where toolbar/header injection stopped after `Unexpected token 'export'`.
+- Traced the breakage to markdown enhancement experiments that introduced module-split imports into `content.js`; this was incompatible with extension content-script entry constraints.
+- Added a stricter entry-format gate to reject runtime dynamic-import syntax in browser entry bundles.
+- Removed Mermaid runtime enhancement entirely and reverted Mermaid fenced blocks to regular code-block rendering.
+- Kept Markdown theme improvements and fenced-code highlighting in the Reader path without reintroducing content entry chunk splitting.
+
+Verification:
+- `npm run test:core` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2)

@@ -1,6 +1,7 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { Icons } from '../../../assets/icons';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { getDocumentTooltipDelegate } from '../../../utils/tooltip';
 
 type ToggleHandler = () => void | Promise<void>;
 
@@ -20,6 +21,7 @@ export class HeaderIconOrchestrator {
 
     init(): void {
         this.ensureStyles();
+        getDocumentTooltipDelegate();
         this.ensureInjected();
         this.observer = new MutationObserver(() => this.scheduleEnsureInjected());
         this.observer.observe(document.body, { childList: true, subtree: true });
@@ -105,7 +107,8 @@ export class HeaderIconOrchestrator {
     private applyLabel(): void {
         if (!this.host) return;
         const label = t('bookmarks');
-        this.host.title = label;
+        this.host.dataset.tooltip = label;
         this.host.setAttribute('aria-label', label);
+        getDocumentTooltipDelegate().refresh(this.host);
     }
 }

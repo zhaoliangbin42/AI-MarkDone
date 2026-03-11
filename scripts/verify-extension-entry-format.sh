@@ -27,6 +27,12 @@ for file in "${files[@]}"; do
     rg -n "^import " "$file" || true
     exit 1
   fi
+
+  if rg -n "__vitePreload\\(|\\bawait\\s+import\\s*\\(|\\bimport\\s*\\(\\s*['\\\"]\\./assets/" "$file" >/dev/null 2>&1; then
+    echo "Entry file contains dynamic import (not allowed): $file"
+    rg -n "__vitePreload\\(|\\bawait\\s+import\\s*\\(|\\bimport\\s*\\(\\s*['\\\"]\\./assets/" "$file" || true
+    exit 1
+  fi
 done
 
 echo "Entry format verification passed for $target."

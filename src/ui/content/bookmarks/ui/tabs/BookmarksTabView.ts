@@ -17,7 +17,6 @@ import {
     folderPlusIcon,
     moveIcon,
     pencilIcon,
-    refreshCwIcon,
     searchIcon,
     sortAlphaAscIcon,
     sortAZIcon,
@@ -25,7 +24,6 @@ import {
     sortTimeIcon,
     trashIcon,
     uploadIcon,
-    wrenchIcon,
     xIcon,
 } from '../../../../../assets/icons';
 
@@ -143,18 +141,6 @@ export class BookmarksTabView {
             onClick: () => void this.exportSelected(),
         });
 
-        const repairBtn = this.makeIconButton({
-            icon: wrenchIcon,
-            label: t('repairBtn'),
-            onClick: () => void this.repair(),
-        });
-
-        const refreshBtn = this.makeIconButton({
-            icon: refreshCwIcon,
-            label: t('refreshBtn'),
-            onClick: () => void this.controller.refreshAll(),
-        });
-
         const sortGroup = document.createElement('div');
         sortGroup.className = 'aimd-toolbar-group aimd-toolbar-group--sort';
         sortGroup.dataset.priority = 'primary';
@@ -167,9 +153,7 @@ export class BookmarksTabView {
             folderCreateBtn,
             importBtn,
             exportBtn,
-            exportSelectedBtn,
-            repairBtn,
-            refreshBtn
+            exportSelectedBtn
         );
 
         const toolbarRight = document.createElement('div');
@@ -253,9 +237,9 @@ export class BookmarksTabView {
             frag.appendChild(this.renderFolderNode(node, 0, visibleKeys, selectedPath));
         }
 
-        if (snap.vm.folderTree.length === 0 || (visibleKeys.size === 0 && !selectedPath)) {
+        if (snap.vm.folderTree.length === 0) {
             frag.appendChild(this.renderEmptyState());
-        } else if (visibleKeys.size === 0 && selectedPath) {
+        } else if (visibleKeys.size === 0) {
             frag.appendChild(this.renderEmptyState({ kind: 'no_results' }));
         }
 
@@ -628,24 +612,6 @@ export class BookmarksTabView {
             return;
         }
         this.controller.setPanelStatus(t('importedStatus'));
-    }
-
-    private async repair(): Promise<void> {
-        const ok = await this.modal.confirm({
-            kind: 'warning',
-            title: t('repairBtn'),
-            message: t('repairConfirm'),
-            confirmText: t('btnOk'),
-            cancelText: t('btnCancel'),
-            danger: true,
-        });
-        if (!ok) return;
-        const res = await this.controller.repair();
-        if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('repairBtn'), message: res.message, confirmText: t('btnOk') });
-            return;
-        }
-        this.controller.setPanelStatus(t('repairedStatus'));
     }
 
     private async createFolder(): Promise<void> {

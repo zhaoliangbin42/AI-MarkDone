@@ -12,6 +12,7 @@ import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon } from '../../../assets/icons';
 import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 type State = {
     theme: Theme;
@@ -29,8 +30,7 @@ export class SaveMessagesDialog {
     private adapter: SiteAdapter | null = null;
     private turns: Array<{ user: string; assistant: string; index: number }> = [];
     private metadata: { url: string; exportedAt: string; title: string; count: number; platform: string } | null = null;
-    private tooltipTimer: number | null = null;
-    private tooltipEl: HTMLElement | null = null;
+    private tooltipDelegate: TooltipDelegate | null = null;
     private exportT: TranslateFn = (key, args) => {
         if (args === undefined) return t(key);
         if (Array.isArray(args)) return t(key, args.map((x) => String(x)));
@@ -72,6 +72,7 @@ export class SaveMessagesDialog {
         this.host = handle.host;
         this.shadow = handle.shadow;
         this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(this.shadow);
 
         this.shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.close();
@@ -94,11 +95,8 @@ export class SaveMessagesDialog {
     }
 
     close(): void {
-        if (this.tooltipTimer) {
-            window.clearTimeout(this.tooltipTimer);
-            this.tooltipTimer = null;
-        }
-        this.hideTooltip();
+        this.tooltipDelegate?.disconnect();
+        this.tooltipDelegate = null;
 
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
@@ -120,7 +118,7 @@ export class SaveMessagesDialog {
   <div class="panel" role="dialog" aria-modal="true" aria-label="${t('saveMessagesTitle')}">
     <div class="header">
       <div class="title">${t('saveMessagesTitle')}</div>
-      <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
+      <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
     </div>
     <div class="body">
       <div class="section">
@@ -162,14 +160,15 @@ export class SaveMessagesDialog {
                 b.textContent = String(idx + 1);
                 b.dataset.index = String(idx);
                 b.dataset.selected = this.state.selected.has(idx) ? '1' : '0';
+                b.dataset.tooltip = turn.user;
+                b.dataset.tooltipTitle = String(idx + 1);
+                b.dataset.tooltipVariant = 'preview';
                 b.addEventListener('click', () => {
                     if (this.state.selected.has(idx)) this.state.selected.delete(idx);
                     else this.state.selected.add(idx);
                     b.dataset.selected = this.state.selected.has(idx) ? '1' : '0';
                     this.updateFooter();
                 });
-                b.addEventListener('mouseenter', () => this.showTooltip(b, turn.user));
-                b.addEventListener('mouseleave', () => this.hideTooltip());
                 grid.appendChild(b);
             });
         }
@@ -181,6 +180,7 @@ export class SaveMessagesDialog {
         });
 
         this.updateFooter();
+        this.tooltipDelegate?.refresh(this.shadow);
     }
 
     private bindFormatHandlers(): void {
@@ -248,47 +248,6 @@ export class SaveMessagesDialog {
         }
     }
 
-    private showTooltip(btn: HTMLElement, userPrompt: string): void {
-        if (!this.shadow) return;
-        if (this.tooltipTimer) window.clearTimeout(this.tooltipTimer);
-
-        this.tooltipTimer = window.setTimeout(() => {
-            this.hideTooltip();
-            const overlay = this.shadow?.querySelector<HTMLElement>('[data-role="overlay"]');
-            if (!overlay) return;
-
-            const tooltip = document.createElement('div');
-            tooltip.className = 'tooltip';
-            tooltip.dataset.open = '0';
-            const maxLen = 100;
-            tooltip.textContent = userPrompt.length > maxLen ? `${userPrompt.slice(0, maxLen - 3)}...` : userPrompt;
-            overlay.appendChild(tooltip);
-            this.tooltipEl = tooltip;
-
-            const btnRect = btn.getBoundingClientRect();
-            const overlayRect = overlay.getBoundingClientRect();
-            const left = btnRect.left - overlayRect.left + btnRect.width / 2;
-            const top = btnRect.top - overlayRect.top;
-            tooltip.style.left = `${left}px`;
-            tooltip.style.top = `${top}px`;
-            tooltip.style.transform = 'translate(-50%, -6px)';
-
-            window.requestAnimationFrame(() => {
-                tooltip.dataset.open = '1';
-            });
-        }, 150);
-    }
-
-    private hideTooltip(): void {
-        if (this.tooltipTimer) {
-            window.clearTimeout(this.tooltipTimer);
-            this.tooltipTimer = null;
-        }
-        if (this.tooltipEl) {
-            this.tooltipEl.remove();
-            this.tooltipEl = null;
-        }
-    }
 }
 
 export const saveMessagesDialog = new SaveMessagesDialog();

@@ -145,4 +145,88 @@ describe('BookmarksTabView', () => {
         expect(row?.getAttribute('aria-expanded')).toBe('false');
         expect(children?.dataset.expanded).toBe('0');
     });
+
+    it('shows a no-results empty state instead of no-folders when folders exist but nothing is visible', () => {
+        const controller = {
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            selectFolder: vi.fn(),
+        } as any;
+
+        const view = new BookmarksTabView({
+            controller,
+            readerPanel: {} as any,
+            modal: {} as any,
+        });
+
+        view.update({
+            vm: {
+                query: 'x',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [
+                    {
+                        folder: { path: 'abc', name: 'abc', depth: 1, createdAt: 0, updatedAt: 0 },
+                        children: [],
+                        bookmarks: [],
+                        isExpanded: true,
+                        isSelected: false,
+                    },
+                ],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['abc'],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: '',
+        } as any);
+
+        const root = view.getElement();
+        expect(root.textContent).toContain('noResultsTitle');
+        expect(root.textContent).not.toContain('noFoldersYet');
+    });
+
+    it('does not render repair or refresh buttons in the toolbar', () => {
+        const controller = {
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            selectFolder: vi.fn(),
+        } as any;
+
+        const view = new BookmarksTabView({
+            controller,
+            readerPanel: {} as any,
+            modal: {} as any,
+        });
+
+        view.update({
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: '',
+        } as any);
+
+        const labels = Array.from(view.getElement().querySelectorAll<HTMLButtonElement>('button')).map((btn) => btn.getAttribute('aria-label'));
+        expect(labels).not.toContain('Repair');
+        expect(labels).not.toContain('Refresh');
+    });
 });

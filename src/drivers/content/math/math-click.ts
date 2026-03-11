@@ -1,6 +1,7 @@
 import { logger } from '../../../core/logger';
 import { extractLatexSource } from '../../../core/latex/extractLatexSource';
 import { copyTextToClipboard } from '../clipboard/clipboard';
+import { getDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 
 const STYLE_ID = 'aimd-math-click-style';
 
@@ -11,24 +12,6 @@ function ensureMathClickStyle(): void {
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-@keyframes aimdFadeOut {
-  0% { opacity: 1; transform: translate(-50%, calc(-100% - var(--aimd-space-2))) translateY(0); }
-  100% { opacity: 0; transform: translate(-50%, calc(-100% - var(--aimd-space-2))) translateY(calc(-1 * var(--aimd-space-2))); }
-}
-
-.aimd-math-click-tooltip {
-  position: fixed;
-  transform: translate(-50%, calc(-100% - var(--aimd-space-2)));
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  padding: calc(var(--aimd-space-2) / 2) var(--aimd-space-2);
-  border-radius: calc(var(--aimd-radius-lg) / 2);
-  font-size: var(--aimd-font-size-xs);
-  font-weight: 650;
-  pointer-events: none;
-  z-index: var(--aimd-z-tooltip);
-  animation: aimdFadeOut 1.5s forwards;
-}
 `;
 
     (document.head || document.documentElement).appendChild(style);
@@ -60,6 +43,7 @@ export class MathClickHandler {
 
     enable(container: HTMLElement): void {
         ensureMathClickStyle();
+        getDocumentTooltipDelegate();
         this.processContainer(container);
 
         if (this.observers.has(container)) {
@@ -287,18 +271,12 @@ export class MathClickHandler {
 
     private showCopyFeedback(element: HTMLElement): void {
         element.style.backgroundColor = 'var(--aimd-interactive-flash)';
-
-        const tooltip = document.createElement('div');
-        tooltip.textContent = 'Copied';
-        tooltip.className = 'aimd-math-click-tooltip';
-
-        const rect = element.getBoundingClientRect();
-        tooltip.style.top = `${rect.top}px`;
-        tooltip.style.left = `${rect.left + rect.width / 2}px`;
-        document.body.appendChild(tooltip);
+        showEphemeralTooltip({
+            anchor: element,
+            text: 'Copied',
+        });
 
         setTimeout(() => {
-            tooltip.remove();
             element.style.backgroundColor = '';
             if (element.matches(':hover')) {
                 element.style.backgroundColor = 'var(--aimd-interactive-highlight)';
