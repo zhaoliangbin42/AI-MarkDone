@@ -120,9 +120,9 @@ Secure, verified, and auto-updated.
 
 ## 💻 Development & Contribution
 
-Contributions are welcome!
+Contributions are welcome.
 
-If you are using LLMs for development, follow `.agent/rules/*` and `docs/README.md` as the source of truth.
+If you are using Codex or another LLM for development, use [AGENTS.md](./AGENTS.md) for the repository entrypoint and [docs/README.md](./docs/README.md) for the authoritative system documents.
 
 ```bash
 # Install dependencies
@@ -151,7 +151,7 @@ npm run build
 
 ## ☕️ Support the Author
 
-If this extension saves you time, consider buying me a coffee to support future updates!
+If this extension saves you time, consider buying me a coffee to support future updates.
 
 <div align="center">
   <div style="display: flex; justify-content: center; gap: 20px;">
@@ -166,7 +166,6 @@ If this extension saves you time, consider buying me a coffee to support future 
   </div>
 </div>
 
-
 ## ✅ TODO
 
 - Full-text bookmarks
@@ -177,6 +176,4 @@ If this extension saves you time, consider buying me a coffee to support future 
 
 This project is licensed under the [MIT License](./LICENSE).
 
-We welcome all forms of contribution and discussion! If you have any questions, ideas, or just want to chat about AI or research, feel free to open an [Issue](https://github.com/zhaoliangbin42/AI-MarkDone/issues) or reach out.
-
-Happy coding! 🚀
+We welcome all forms of contribution and discussion. If you have questions or ideas, open an [Issue](https://github.com/zhaoliangbin42/AI-MarkDone/issues).

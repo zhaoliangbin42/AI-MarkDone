@@ -1,4 +1,15 @@
-# Rewrite Program (Greenfield, Feature-Parity Driven)
+# Rewrite Program (Transition Execution Document)
+
+本文件是**过渡执行文档**，用于描述 rewrite 阶段的总体执行方式、迁移顺序和阶段性质量门禁。它不是长期架构权威，也不替代当前系统事实。
+
+长期稳定规则请以以下文档为准：
+
+- `docs/architecture/CURRENT_STATE.md`
+- `docs/architecture/BLUEPRINT.md`
+- `docs/architecture/DEPENDENCY_RULES.md`
+- `docs/architecture/RUNTIME_PROTOCOL.md`
+- `docs/FEATURES.md`
+- `docs/testing/CURRENT_TEST_GATES.md`
 
 本项目接下来采用 **推倒重来（greenfield rewrite）** 的方式重建代码库与架构：旧实现整体进入 `archive/`，新实现按目标架构从标准路径重新创建。重写过程以“功能闭环 + 验收门禁”驱动，每完成功能并通过验收后，删除 `archive/` 中对应的旧代码，直到完全替换。
 

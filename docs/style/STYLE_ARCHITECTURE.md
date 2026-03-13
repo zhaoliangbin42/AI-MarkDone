@@ -15,27 +15,34 @@
 
 权威分工：
 
-- Google / Material：分层方法论、治理方式、生命周期约束
-- Ariakit：视觉关系、组件原型、主题观感基线
-- 本文档：把上述两者收敛为 AI-MarkDone 的唯一样式架构
+- 本文档：收敛 AI-MarkDone 的唯一样式架构
+- `STYLE_SYSTEM.md`：定义 token、主题、Shadow DOM 隔离与样式边界
+- 历史视觉参考：仅作为参考，不作为新模块方案的硬约束
 
 约束：
 
 - `AGENTS.md` 只负责指路，不承载样式细则
 - `docs/README.md` 只列本文档与视觉参考，不重复规则
-- `.agent/*` 只能引用本文档及配套文档，不得另起一套样式体系
+- `.codex/*` 只能引用本文档及配套文档，不得另起一套样式体系
 
 补充：
 
-- `docs/style/ARIAKIT_EXAMPLES_STYLE_REFERENCE.md` 负责视觉基线与组件原型
-- Ariakit 官方 `Styling` / `Composition` 指南负责回答安全可依赖的状态属性、选择器边界与组合约束
-- 当 examples 无法回答“哪些状态可安全依赖”时，必须以 Ariakit 官方指南为准，并同步固化到本地权威文档
+- `docs/style/ARIAKIT_EXAMPLES_STYLE_REFERENCE.md` 仅保留为历史参考，不再驱动新模块方案
+
+## 1.1 What This Means In Practice
+
+对日常开发来说，样式体系可以简化理解成：
+
+- 要做页面内 UI：必须进 Shadow DOM
+- 要写视觉值：优先 theme preset 或 `--aimd-*` token
+- 要写组件 CSS：只写结构和少量局部样式，不依赖第三方类名前缀去重画整套皮肤
+- 要处理主题：通过 `themeMode` / `themePreset`，不要在组件里直接读宿主页面主题细节
 
 ---
 
 ## 2. 分层模型
 
-样式系统采用四层概念，但只有三层 token：
+样式系统采用四层概念，不同 UI 实现共享同一套边界规则：
 
 1. Reference Layer
 2. System Layer
@@ -80,9 +87,10 @@
 
 规则：
 
-- 组件默认只依赖 `--aimd-sys-*`
-- 新的视觉需求优先判断是否应进入 system layer
-- light / dark 切换只允许改变 system / reference 值，不得改组件结构
+- 遗留组件默认只依赖 `--aimd-sys-*`
+- 主题驱动组件默认依赖主题对象和 component token
+- 新的视觉需求优先判断是否应进入 theme preset 或 system layer
+- light / dark 切换只允许改变视觉源的值，不得改组件结构
 
 ### 2.3 Component Layer
 
@@ -101,7 +109,8 @@
 
 规则：
 
-- 组件 token 默认映射到 system token
+- 常规 UI 原语优先复用项目统一基础组件，不要为单个模块再造一套视觉规则
+- 组件 token 默认映射到主题层组件 token 或 system token
 - 组件 token 允许覆盖，但必须有明确组件语义
 - 禁止组件 token 直接绑定 primitive value
 - 禁止组件 token 反向成为新的全局语义层
@@ -150,6 +159,7 @@
 组件样式规则：
 
 - 组件样式继续与组件共置
+- 组件只允许保留最小布局样式，不允许依赖第三方组件库类名前缀做皮肤重绘
 - 组件文件允许定义薄的 component alias token
 - 组件文件不得再定义“伪全局 system token”
 
@@ -160,15 +170,32 @@
 主题同步原则：
 
 - Theme detection 仍由 driver 层提供
-- UI 通过 `data-aimd-theme` 或 `getTokenCss(theme)` 消费 token
-- token 是主题变化的唯一承载面
-- dark mode 只换 token 值，不改单元结构
+- UI 通过 `themeMode + themePreset` 消费主题
+- 遗留 UI 通过 `data-aimd-theme` 或 `getTokenCss(theme)` 消费 token
+- dark mode 只换主题值，不改单元结构
 
 Shadow DOM 原则：
 
 - 页面内 UI 必须在 Shadow DOM 中渲染
-- 样式注入统一经由 `src/style/tokens.ts` 总入口
+- 样式注入必须显式指向对应的 `shadowRoot`
+- 每个 `ShadowRoot` 都必须维护独立的运行时样式上下文，不能复用默认全局 cache
+- 每个 `ShadowRoot` 都必须拥有稳定且唯一的样式命名域，避免 document 级别去重导致后续 root 跳过样式注入
+- 修复/自愈逻辑必须使用运行态组件类名做健康判定，不能假设某个固定前缀永远存在
+- 遗留 UI 样式注入统一经由 `src/style/tokens.ts` 总入口
 - 页面 DOM 例外场景统一经由 `src/style/pageTokens.ts`
+
+## 5.1 Mock-First Workflow
+
+从 `MessageToolbar` 之后，所有新 UI 模块都必须遵守：
+
+- 先在 `mocks/components/<module>/index.html` 完成真实组件挂载型 mock，而不是手写静态原型
+- 至少验证 `light / dark` 与两套 preset
+- 至少验证两个独立实例同时挂载时，每个 `ShadowRoot` 都有运行时样式节点
+- 获得显式批准后，才能合并进 `src/ui/**`
+- mock 与生产实现必须共享同一套组件选型和主题 preset 结论
+- 若使用导出的 HTML 快照做验收，必须确认快照包含运行时样式节点；只有自定义 host style 的快照不能作为通过依据
+- 若快照来自浏览器导出的 declarative shadow DOM（`<template shadowrootmode="open">`），必须先重新挂载真实组件并生成 live `shadowRoot`，再做样式验收
+- 真实组件重扫前必须先清理所有没有 live `shadowRoot` 的旧 toolbar host，防止历史模板中的样式哈希污染新的运行时样式注入判断
 
 ---
 

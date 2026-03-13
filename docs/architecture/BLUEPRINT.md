@@ -101,7 +101,8 @@
 
 对应权威文档：
 
-- `docs/architecture/DEPENDENCY_RULES.md`（协议文件只能在 shared/contract 层）
+- `docs/architecture/DEPENDENCY_RULES.md`（协议文件只能在 contract 层）
+- `docs/architecture/RUNTIME_PROTOCOL.md`（当前协议语义与错误模型）
 - `docs/antigravity/platform/ADAPTER_CONTRACT.md`（适配器与协议协作方式）
 
 ### 3.2 Site Adapter Contract（站点差异收敛点）
@@ -149,34 +150,36 @@
 
 当前主要落点：
 
-- Toolbar/Modal/Buttons：`src/content/components/*`
-- ReaderPanel UI（需拆分）：`src/content/features/re-render.ts`
-- Bookmarks Panel UI（需拆分）：`src/bookmarks/components/SimpleBookmarkPanel.ts`
-- Bookmark modals：`src/bookmarks/components/BookmarkSaveModal.ts`
+- 内容页组件与控制器：`src/ui/content/*`
+- ReaderPanel UI：`src/ui/content/reader/ReaderPanel.ts`
+- Bookmarks Panel UI：`src/ui/content/bookmarks/*`
+- React/Shadow foundation：`src/ui/foundation/*`
 
 ### Service 层（目标：统一用例编排，跨站一致）
 
 当前主要落点（后续需“搬离 UI/driver 细节”）：
 
-- Content features：`src/content/features/*`（save/export/folding/math-click/deep-research/message sending）
-- Parse/Render orchestration：`src/content/parsers/markdown-parser.ts`, `src/parser/*`, `src/renderer/*`
-- Bookmarks operations（目前混在面板内）：`src/bookmarks/components/SimpleBookmarkPanel.ts`（导入合并/判重/分析等）
+- Bookmarks use cases：`src/services/bookmarks/*`
+- Copy / Reader / Export / Sending：`src/services/copy/*`, `src/services/reader/*`, `src/services/export/*`, `src/services/sending/*`
+- Markdown parser / renderer：`src/services/markdown-parser/*`, `src/services/renderer/*`
+- Settings use cases：`src/services/settings/*`
 
 ### Driver 层（目标：站点差异与基础设施能力中心）
 
 当前主要落点：
 
-- Site adapters：`src/content/adapters/*`, `src/content/adapters/registry.ts`
-- Observers/injectors/datasource：`src/content/observers/*`, `src/content/injectors/*`, `src/content/datasource/*`
-- Browser abstraction：`src/utils/browser.ts`
-- Background capabilities（需增强）：`src/background/service-worker.ts`, `src/background/background-firefox.js`
-- Storage infra：`src/settings/SettingsManager.ts`, `src/bookmarks/storage/*`
+- Site adapters：`src/drivers/content/adapters/*`
+- Injection / conversation / clipboard / theme / sending bridges：`src/drivers/content/*`
+- Browser abstraction：`src/drivers/shared/browser.ts`
+- Background capabilities：`src/drivers/background/storage/*`, `src/runtimes/background/handlers/*`
 
 ### Contracts（非“层”，是协作面）
 
 当前落点（待升级为版本化协议）：
 
-- runtime messages：`src/shared/runtime-messages.ts` + guards（需要收敛）
+- runtime protocol：`src/contracts/protocol.ts`
+- platform contract：`src/contracts/platform.ts`
+- storage contract：`src/contracts/storage.ts`
 
 ---
 
@@ -200,28 +203,28 @@
 
 ## 5. 大文件拆分蓝图（先结构后优化）
 
-### 5.1 `SimpleBookmarkPanel.ts` 拆分方向（示例）
+### 5.1 `BookmarksPanel.ts` 拆分方向（示例）
 
 拆分目标：把“UI / state / operations / infra”分离，并移除对 content/ReaderPanel 实现的反向依赖。
 
 建议拆分子模块（示意命名）：
 
-- `bookmarks/panel/view/*`：模板与 DOM 渲染（UI）
-- `bookmarks/panel/controller/*`：交互状态机（selection/tab/keyboard）
-- `bookmarks/panel/services/*`：导入合并/判重/分析（Service）
-- `bookmarks/panel/infra/*`：storage sync/theme sync（Driver）
+- `src/ui/content/bookmarks/ui/*`：模板与 DOM 渲染（UI）
+- `src/ui/content/bookmarks/*Controller*`：交互状态机（selection/tab/keyboard）
+- `src/services/bookmarks/*`：导入合并/判重/分析（Service）
+- `src/drivers/content/bookmarks/*` 与 `src/drivers/background/storage/*`：导航与存储基础设施（Driver）
 
-### 5.2 `re-render.ts`（ReaderPanel）拆分方向
+### 5.2 `ReaderPanel.ts` 拆分方向
 
 拆分目标：ReaderPanel UI 与数据采集/书签联动/发送逻辑解耦。
 
 建议拆分：
 
-- `reader/ui/*`：Panel DOM + navigation + styles
-- `reader/service/*`：数据准备、缓存策略、bookmark intent
-- `reader/driver/*`：从 live page 采集 `ReaderItem[]`（保留在 content datasource）
+- `src/ui/content/reader/*`：Panel UI + navigation + styles
+- `src/services/reader/*`：数据准备、缓存策略、bookmark intent
+- `src/drivers/content/conversation/*`：从 live page 采集 `ReaderItem[]` 所需的页面引用
 
-### 5.3 `content/index.ts` 拆分方向
+### 5.3 `src/runtimes/content/entry.ts` 拆分方向
 
 拆分目标：入口只做 bootstrap；把 platform gating、message handler、observer wiring、feature wiring 拆出模块。
 

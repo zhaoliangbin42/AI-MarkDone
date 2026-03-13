@@ -26,6 +26,9 @@ Debug/
 .tmp*
 archive/
 mocks/
+!mocks/
+!mocks/components/
+!mocks/components/**
 
 # Logs
 *.log

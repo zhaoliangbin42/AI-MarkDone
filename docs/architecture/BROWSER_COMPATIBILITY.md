@@ -23,13 +23,11 @@
 | Popup | `src/popup/popup.html`（复制） | 同上 | ✅ 100% |
 | Icons/locales/KaTeX assets | `public/*`/`vendor/*`（复制） | 同上 | ✅ 100% |
 
-为什么 background 分离（稳定性优先）：
-
-为什么 background 不再分离（可审计性优先）：
+为什么 background 入口保持共享（可审计性优先）：
 
 - runtime API 差异已通过 `drivers/shared/browser.ts` 与 runtime detection 收敛
 - 同一份 handler（protocol 路由 + write authority）更易审计、更少分叉漂移
-  - Chrome MV3 的 lifecycle 约束通过“幂等 + 落盘 + best-effort recovery”满足（例如 bookmarks journal replay）
+- Chrome MV3 的 lifecycle 约束通过“幂等 + 落盘 + best-effort recovery”满足（例如 bookmarks journal replay）
 
 ---
 
@@ -60,6 +58,6 @@ dist-firefox/
 
 ## 4. 开发规则（与蓝图/契约一致）
 
-- 新增/修改 background 行为：必须同时更新 Chrome 与 Firefox 两个 background 文件，并更新相关协议/契约文档
-- 新增/修改 content 行为：优先走 `src/utils/browser.ts` 的统一 API（避免直接依赖 `chrome.*`）
+- 新增/修改 background 行为：以 `src/runtimes/background/entry.ts` 为共享入口，并同步验证 Chrome 与 Firefox 产物
+- 新增/修改 content 行为：优先走 `src/drivers/shared/browser.ts` 的统一 API（避免直接依赖 `chrome.*`）
 - 所有跨 runtime 通信：必须收敛到“单点协议定义”（见 `docs/architecture/BLUEPRINT.md` 的 protocol 章节）

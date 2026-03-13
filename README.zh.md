@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — ChatGPT提效神器，支持Gemini, Claude和DeepSeek</h1>
+  <h1>AI-MarkDone — ChatGPT、Gemini 等平台增强扩展</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -8,14 +8,14 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <br/>
+    </br>
     <img src="https://img.shields.io/badge/Platforms-ChatGPT%20%7C%20Gemini%20%7C%20Claude%20%7C%20DeepSeek-10A37F" alt="Platforms">
     <a href="https://github.com/zhaoliangbin42/AI-MarkDone">
       <img src="https://img.shields.io/github/stars/zhaoliangbin42/AI-MarkDone?style=social" alt="GitHub stars">
     </a>
   </p>
-  <p><strong>阅读、收藏、导出，沉浸在与大模型的对话中。</strong></p>
-  <p><em>阅读模式、一键复制 Markdown、书签管理、精美 PDF 导出，以及针对 Deep Research 的可读性优化。</em></p>
+  <p><strong>Read, save, export. Stay in flow.</strong></p>
+  <p><em>阅读模式、一键 Markdown 复制、书签管理与精美 PDF 导出。</em></p>
 
   中文文档 | [English](./README.md)
 </div>
@@ -28,64 +28,63 @@
 
 ---
 
-## 🤔 是否适合我？
+## 🤔 适合谁使用？
 
-- ChatGPT 变慢、页面变重，长对话越聊越难翻？
-- 滚动条拖到手酸，还是找不到刚才那段关键内容？
-- **消息越堆越多，ChatGPT 越来越卡？** 几十条消息堆在一起，页面渲染明显变慢，你只想专注最近几条。
-- 你需要一个稳定的阅读视图：读得清楚，也能继续聊，不丢上下文？不然每次发送消息，自动跳到底部，难受得很！
-- 你想要干净的 Markdown（Obsidian/Typora），或一份精美 PDF？
-- 你希望能把重要内容“存下来并整理”，之后随时找得到？
-- 你经常被 Deep Research 的“源码堆”劝退，希望输出能更可读、更可用？
+- **ChatGPT 变慢了？** 长对话让页面越来越重，阅读和定位都变得很难受。
+- **总是找不到刚才那一段？** 滚动很久才能回到关键内容。
+- **页面越来越卡？** 消息越积越多，渲染越来越慢，你只想专注最近几轮。
+- **需要稳定阅读视图？** 希望一边继续聊天，一边保留清晰上下文。
+- **需要可复用输出？** 想把结果整理成标准 Markdown 或直接导出为 PDF。
+- **知识总是散落？** 需要真正能帮你整理内容的书签系统。
+- **Deep Research 输出太乱？** 希望清洗成更适合阅读和复用的结构化内容。
 
-上面这些痛点，但凡占一个，这款插件都无比适合你。
+如果这些问题你都遇到过，**AI-MarkDone** 就是为此而做。
 
 ---
 
 ## 界面展示
 
 <p align="center">
-  <img src="imgs/ScreenShot-Toolbar-zh.png" style="max-width:800px;width:100%;" />
+  <img src="imgs/ScreenShot-Toolbar-en.png" style="max-width:800px;width:100%;" />
 </p>
 <p align="center">
   <img src="imgs/ScreenShot-Folding.png" style="max-width:800px;width:100%;" />
 </p>
 <p align="center">
-  <img src="imgs/ScreenShot-Reader-zh.png" style="max-width:800px;width:100%;" />
+  <img src="imgs/ScreenShot-Reader-en.png" style="max-width:800px;width:100%;" />
 </p>
 
 ---
 
-## ✨ 核心特性
+## ✨ 核心功能
 
-### ⚡ 对话折叠（ChatGPT 提速神器）
-- **折叠旧消息**：把早期对话收起来，页面渲染更轻快，滚动更流畅，立竿见影。
-- **快捷控制栏**：右侧固定悬浮栏，一键"全部折叠"或"全部展开"。
-- **智能默认**：设置默认展开最近 N 条消息，每次打开对话自动聚焦最新内容。
-- **手动控制**：任意消息随时折叠或展开，灵活自由。
+### ⚡ 对话折叠（ChatGPT 加速）
+- **折叠旧消息**：把前面的对话压缩成细条，页面渲染更轻、更快。
+- **快速控制**：右侧固定控制栏支持一键全部折叠或展开。
+- **智能默认值**：可配置默认保留展开的最近消息数量。
+- **手动控制**：任意消息都可以单独折叠或展开。
 
-### 📚 阅读模式（专注视图）
-- **稳定上下文**：完整渲染 Markdown，读起来更清晰。
-- **快速切换**：左右方向键切换消息，减少反复滚动。
-- **边读边聊**：在阅读模式中继续发送消息，不丢焦点。
+### 📚 阅读模式（Focus View）
+- **稳定上下文**：独立阅读面板完整渲染 Markdown。
+- **快速导航**：支持 `Left` / `Right` 键切换消息。
+- **不中断聊天**：阅读模式下也能发送消息。
 
 ### 📦 导出与复制（Markdown + PDF）
-- **标准 Markdown**：一键复制可直接粘贴到 Obsidian、Typora、VS Code。
-- **智能降噪**：自动清理引用标记、超链接等干扰信息。
-- **精美 PDF**：需要可分享的输出时，直接导出成排版友好的 PDF（支持消息部分选中）。
-- **Deep Research 清理**：把“源码堆”整理成更可读的 Markdown。
+- **标准 Markdown**：可直接用于 Obsidian、Typora、VS Code。
+- **精美 PDF**：导出适合分享或归档的 PDF。
+- **Deep Research 清洗**：把杂乱内容恢复成可读的 Markdown。
 
-### 🔖 书签系统（可整理）
-- **一键收藏**：把重要内容存下来，随时回看。
-- **文件夹分类**：按项目/主题整理，井井有条。
-- **预览与跳转**：书签面板内预览，并一键跳回原对话位置。
+### 🔖 真正有用的书签
+- **一键保存**：重要消息即时收藏。
+- **分组整理**：支持文件夹管理不同主题。
+- **预览与跳转**：从书签预览并回到原始聊天位置。
 
-### 🧮 LaTeX 公式点击复制
-- **点一下就复制**：支持行内 (`$...$`) 与块级 (`$$...$$`) 公式。
-- **无需框选**：需要哪一个公式就取哪一个，不破坏正文。
+### 🧮 一键复制 LaTeX
+- **点击即复制**：支持行内公式与块级公式。
+- **无需手动选区**：精确提取单个公式。
 
-### 📊 对话字数统计
-- **实时统计**：字数与字符数实时显示，并过滤代码噪音。
+### 📊 字数统计
+- **实时统计**：显示当前消息的字数与字符数，并排除代码噪音。
 
 ---
 
@@ -104,24 +103,26 @@
 
 ### 🏬 Chrome 商店（推荐）
 
-👉 **[前往 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh)**
+👉 **[从 Chrome Web Store 安装](https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh)**
 
+安全、已审核、支持自动更新。
 
 ### 📦 手动安装（开发者模式）
 
 1. 前往 GitHub [Releases](https://github.com/zhaoliangbin42/AI-MarkDone/releases) 下载最新 ZIP 包。
-2. 解压 ZIP 文件。
-3. Chrome 地址栏输入 `chrome://extensions/`，开启右上角 **开发者模式**。
-4. 点击“加载已解压的扩展程序”，选择解压后的 `dist/` 文件夹。
-5. 刷新页面即可使用 🎉
+2. 解压文件。
+3. 打开 Chrome，进入 `chrome://extensions/`。
+4. 开启右上角“开发者模式”。
+5. 点击“加载已解压的扩展程序”，选择解压后的 `dist/` 文件夹。
+6. 刷新 ChatGPT 或 Gemini 页面即可开始使用。
 
 ---
 
 ## 💻 开发与贡献
 
-欢迎提交 PR 或 Issue！
+欢迎提交 PR 或 Issue。
 
-如果你采用大模型进行开发，请以 `.agent/rules/*` 与 `docs/README.md` 作为权威规范。
+如果你使用 Codex 或其他大模型参与开发，请以 [AGENTS.md](./AGENTS.md) 作为仓库入口规范，并以 [docs/README.md](./docs/README.md) 作为系统权威文档入口。
 
 ```bash
 # 安装依赖
@@ -140,17 +141,17 @@ npm run test:core
 npm run build
 ```
 
-## 📅 更新日志 (Latest)
+## 📅 最新更新
 
 ### v3.0.0
-- **✨ 新增**: ChatGPT 对话折叠功能 — 折叠旧消息提升页面速度，右侧快捷栏一键控制。
-- **🐛 修复**: Gemini Deep Research 嵌入阅读按钮内容提取不正确的问题。
+- **✨ 新增**：ChatGPT 对话折叠，可快速收起旧消息并通过右侧控制栏一键管理。
+- **🐛 修复**：修复 Gemini Deep Research 内嵌阅读按钮提取内容异常的问题。
 
-[查看完整更新日志](./CHANGELOG.md)
+[完整更新日志](./CHANGELOG.md)
 
-## ☕️ 请作者喝杯咖啡
+## ☕️ 支持作者
 
-如果觉得这个插件对你有帮助，欢迎请我喝杯咖啡，支持我继续开发更多功能！
+如果这个扩展帮你节省了时间，欢迎请作者喝杯咖啡，支持后续更新。
 
 <div align="center">
   <div style="display: flex; justify-content: center; gap: 20px;">
@@ -159,7 +160,7 @@ npm run build
       <img src="imgs/bmc_qr.png" alt="Buy Me A Coffee" width="200" style="border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
     <div style="display: flex; flex-direction: column; align-items: center;">
-      <p><strong>微信 (WeChat)</strong></p>
+      <p><strong>WeChat</strong></p>
       <img src="imgs/wechat_qr.png" alt="WeChat Reward" width="200" style="border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
   </div>
@@ -167,14 +168,12 @@ npm run build
 
 ## ✅ TODO
 
-- 全文书签
-- 消息正文评论
-- More...
+- 书签全文搜索
+- 消息评论
+- 更多功能...
 
-## 📜 许可证与交流
+## 📜 许可与联系
 
-本项目基于 [MIT License](./LICENSE) 发布。
+本项目基于 [MIT License](./LICENSE) 开源。
 
-欢迎任何形式的贡献与交流！如果你有任何问题、建议，或者想探讨 AI 与科研话题，欢迎提交 [Issue](https://github.com/zhaoliangbin42/AI-MarkDone/issues) 或直接联系我。
-
-Happy coding! 🚀
+欢迎通过 [Issue](https://github.com/zhaoliangbin42/AI-MarkDone/issues) 提出问题、建议或讨论想法。

@@ -1,6 +1,15 @@
-# Rewrite Checklist (Archive → Rebuild → Delete)
+# Rewrite Checklist (Transition Execution Document)
 
-目的：以“功能模块”为边界推进 **推倒重来（greenfield rewrite）**。旧实现整体进入 `archive/`，新实现按目标架构从标准路径重建。每完成功能闭环并通过验收后，删除 `archive/` 中对应旧代码，直到完全替换。
+本文件是**过渡执行文档**，用于跟踪 rewrite/refactor 期间的阶段状态、执行顺序和迁移验收。它不是长期架构权威，也不是日常开发行为规范。
+
+长期稳定规则请以以下文档为准：
+
+- `docs/architecture/CURRENT_STATE.md`
+- `docs/architecture/BLUEPRINT.md`
+- `docs/architecture/DEPENDENCY_RULES.md`
+- `docs/architecture/RUNTIME_PROTOCOL.md`
+- `docs/FEATURES.md`
+- `docs/testing/CURRENT_TEST_GATES.md`
 
 约束：每个阶段结束必须满足验证门禁（测试/构建/人工回归）；并且不得把旧结构性债务（反向依赖、协议分散、UI 直写存储等）搬运到新实现。
 
@@ -87,8 +96,21 @@ Checklist（每个域通用）：
 - [x] Contracts：`src/contracts/protocol.ts` / `src/contracts/platform.ts` / `src/contracts/storage.ts`
 - [x] Driver：Theme detection + observer（`src/drivers/content/theme/theme-manager.ts`）
 - [x] UI：消息级工具栏骨架（`src/ui/content/MessageToolbar.ts`）
+- [x] UI：theme registry + preset foundation（`src/ui/foundation/themes/*`）
+- [x] Mock workflow：`mocks/components/toolbar/` 作为 HTML mock-first 基线
 - [x] 自动化门禁：`npm run test:smoke` / `npm run build`
 - [ ] 人工验收：ChatGPT 打开后每条消息工具栏出现（稳定注入）
+
+后续 UI 模块追加门禁：
+
+- [ ] 每个模块先在 `mocks/components/<module>/index.html` 完成真实组件挂载型 mock
+- [ ] 每个 mock 至少覆盖 `light / dark` 与两套 preset
+- [ ] 每个 mock 至少覆盖两个独立实例同时挂载，且每个 `ShadowRoot` 都有运行时样式节点
+- [ ] 每个 `ShadowRoot` 都有独立样式上下文与唯一命名域，避免 document 级去重污染多实例页面
+- [ ] 样式健康检查与自愈逻辑基于运行态类名和 token/runtime style 节点，不能硬编码固定类名前缀
+- [ ] 若验收输入是浏览器导出的 HTML 快照，必须区分 declarative shadow DOM 模板和 live `shadowRoot`；只认可重新挂载后的运行态结果
+- [ ] 重扫前清理所有没有 live `shadowRoot` 的旧 toolbar host，避免历史样式模板污染新的运行时注入
+- [ ] 获得显式批准后再合并到 `src/ui/**`
 
 ### Module B — Copy（Markdown + LaTeX click mode + Code + Tables）
 
@@ -126,7 +148,7 @@ Checklist（每个域通用）：
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
 - [ ] 人工验收：Bookmarks UI 上线前，先通过脚本/console 调用完成 save/import/export/repair/rename/move 的闭环验证
 
-### Module E — Bookmarks Panel（UI：面板 + Toolbar 快捷入口；ChatGPT-only）
+### Module E — Bookmarks Panel（UI：面板 + Toolbar 快捷入口）
 
 - [x] UI：BookmarksPanel overlay（打开/关闭/ESC/Shadow DOM + tokens）（`src/ui/content/bookmarks/BookmarksPanel.ts`）
 - [x] UI：BookmarksPanelController（状态管理 + intents 编排）（`src/ui/content/bookmarks/BookmarksPanelController.ts`）

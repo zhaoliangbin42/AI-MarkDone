@@ -1,6 +1,8 @@
-# Feature Parity Backlog (Authoritative)
+# Feature Parity Backlog (Transition Execution Document)
 
-目的：定义“重写要实现什么”。该清单是重写过程的功能边界与验收参考，完成一个条目必须同时具备测试与回归证据。
+本文件是**过渡执行文档**，用于定义 rewrite 阶段的功能交付顺序、功能边界和阶段性验收参考。它不是长期产品能力权威。
+
+长期产品能力与验收口径请以 `docs/FEATURES.md` 为准。
 
 说明：具体平台覆盖与支持状态以 `docs/antigravity/platform/CAPABILITY_MATRIX.md` 为准；这里定义重写阶段的交付顺序与验收粒度。
 

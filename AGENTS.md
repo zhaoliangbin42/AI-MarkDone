@@ -1,151 +1,127 @@
-# AI-MarkDone 开发规范
+# AI-MarkDone Engineering Guide
 
-> 适用对象: AI Agent (Claude/Gemini/GPT) 及人类开发者  
-> 版本: 4.2.0
+This repository uses a Codex-first engineering guide for day-to-day development. Keep this file short, stable, and focused on entrypoints.
 
----
+## Project Facts
 
-## 项目概述
+| Item | Value |
+|:--|:--|
+| Product | AI-MarkDone |
+| Type | Browser extension |
+| Targets | Chrome MV3, Firefox MV2 |
+| Runtime surfaces | content runtime, background runtime, extension UI |
+| Stack | TypeScript, Vite, Shadow DOM |
+| Core constraints | platform adapters, tokenized UI, dual-browser build parity |
 
-| 属性 | 值 |
-|:-----|:---|
-| 项目名称 | AI-MarkDone |
-| 类型 | 浏览器扩展 (Chrome MV3 / Firefox MV2) |
-| 目标平台 | ChatGPT, Gemini, Claude, Deepseek |
-| 技术栈 | TypeScript, Vite, Shadow DOM |
-| 核心功能 | 公式复制、Markdown 复制、实时预览、字数统计、书签管理 |
+## Read Order
 
----
+1. This file for repository-wide expectations.
+2. `.codex/rules/*` for cross-cutting engineering rules.
+3. `.codex/guides/*` for task-oriented guidance.
+4. [docs/README.md](docs/README.md) for the long-lived system of record.
+5. The specific contract or architecture document for the area you are changing.
 
-## 规则文件
+## Common Commands
 
-开发前必须阅读对应规则文件。
+- `npm install`
+- `npm run test:smoke`
+- `npm run test:core`
+- `npm run build`
 
-| 规则 | 文件 | 说明 |
-|:----|:----|:----|
-| 红线规则 | [critical-rules.md](.agent/rules/critical-rules.md) | 绝对禁止违反 |
-| CHANGELOG | [changelog.md](.agent/rules/changelog.md) | 变更日志格式 |
-| 样式规范 | [style-guide.md](.agent/rules/style-guide.md) | CSS/Token 规则 |
-| 日志规范 | [logging.md](.agent/rules/logging.md) | 日志格式与级别 |
-| 注释规范 | [commenting.md](.agent/rules/commenting.md) | 只保留 Why/约束/契约 |
+## Non-Negotiables
 
----
+- Search before editing. Do not assume files, symbols, selectors, or contracts exist.
+- Do not use destructive rollback commands such as `git checkout --`, `git reset --hard`, or bulk `sed` replacements.
+- UI changes must use the established `--aimd-*` token system. Do not hardcode colors, spacing, radius, or z-index values in shipped UI.
+- Do not use `!important` outside explicit print-only rules.
+- Keep architecture changes aligned with the authoritative docs in `docs/`.
+- Any repo-tracked code change must be verified with `npm run build` before completion unless the user explicitly waives it.
 
-## 工作流
+## Required Engineering Behaviors
 
-输入斜杠命令触发对应工作流。
+- Treat user corrections as process failures, not one-off mistakes.
+  - State what was wrong.
+  - Adjust the plan or rule you are following.
+  - Do not repeat the same mistake silently.
+- For bug fixes, reproduce the bug with a failing test before changing implementation whenever the bug is testable in this repository.
+  - If it is not realistically testable, state why and add the closest practical regression check.
+- Before writing code for a materially ambiguous request, ask clarifying questions instead of guessing.
+- After any code change, explicitly list important edge cases and suggest the tests that should cover them.
+- Do not claim success from reasoning alone.
+  - Use commands, tests, or build output as evidence.
+- Prefer the smallest safe change that satisfies the request and preserves current contracts.
 
-| 命令 | 工作流 | 用途 |
-|:-----|:-------|:-----|
-| `/develop` | [development.md](.agent/workflows/development.md) | 新功能开发 |
-| `/bugfix` | [bug-fix.md](.agent/workflows/bug-fix.md) | Bug 修复 |
-| `/changelog-maintenance` | [changelog-maintenance.md](.agent/workflows/changelog-maintenance.md) | Changelog 维护 SOP |
-| `/review` | [code-review.md](.agent/workflows/code-review.md) | 代码审查 |
-| `/style` | [style-modification.md](.agent/workflows/style-modification.md) | 样式修改 |
-| `/release` | [release-preparation.md](.agent/workflows/release-preparation.md) | 发版准备 |
-| `/adapt` | [platform-adaptation.md](.agent/workflows/platform-adaptation.md) | 新平台适配 |
+## Where Rules Live
 
----
+- `.codex/rules/critical-rules.md`
+  - hard constraints that apply across all work
+- `.codex/rules/commenting.md`
+  - comment policy for why, contracts, and directive reasons
+- `.codex/rules/logging.md`
+  - log shape, level selection, and sensitive-data guardrails
+- `.codex/rules/style-guide.md`
+  - UI token, Shadow DOM, and selector rules
+- `.codex/rules/changelog.md`
+  - user-facing changelog policy
+- `.codex/rules/documentation.md`
+  - when and how to update `docs/*`
 
-## Artifacts 与 Skills
+## Where Guides Live
 
-### Artifacts (Antigravity 内置)
+- `.codex/guides/development.md`
+  - new behavior, refactors, and feature work
+- `.codex/guides/bug-fix.md`
+  - reproduce, diagnose, fix, and verify bugs
+- `.codex/guides/code-review.md`
+  - review expectations, findings format, and verification
+- `.codex/guides/release.md`
+  - release preparation and validation
+- `.codex/guides/platform-adaptation.md`
+  - adding or extending platform support
+- `.codex/guides/style-modification.md`
+  - style-system specific workflow
 
-| Artifact | 用途 | 生成时机 |
-|:---------|:-----|:---------|
-| `task.md` | 任务分解与进度跟踪 | Planning Mode 自动 |
-| `implementation_plan.md` | 技术实现计划 | Planning Mode，需用户 Review |
-| `walkthrough.md` | 完成后的变更总结 | Verification 后自动 |
+## Source Of Truth
 
-### Skills (能力补充)
+`docs/` remains the long-lived system of record for architecture, contracts, testing, and governance.
 
-仅用于 Artifacts 未覆盖的能力：
+Start here:
 
-| Skill | 用途 | 激活时机 |
-|:------|:-----|:---------|
-| `brainstorming` | 对话技巧（需求探索） | 需求不清晰时 |
-| `systematic-debugging` | Bug 调试方法论 | `/bugfix` 强制 |
-| `test-driven-development` | TDD 纪律 | 写代码前 |
-| `verification-before-completion` | 完成前验证 | 声称完成前 |
-| `requesting-code-review` | 发起代码审查 | `/review` |
-| `receiving-code-review` | 响应审查反馈 | 收到反馈时 |
+- [docs/README.md](docs/README.md)
+- [docs/architecture/CURRENT_STATE.md](docs/architecture/CURRENT_STATE.md)
+- [docs/architecture/BLUEPRINT.md](docs/architecture/BLUEPRINT.md)
+- [docs/architecture/DEPENDENCY_RULES.md](docs/architecture/DEPENDENCY_RULES.md)
+- [docs/architecture/RUNTIME_PROTOCOL.md](docs/architecture/RUNTIME_PROTOCOL.md)
+- [docs/architecture/BROWSER_COMPATIBILITY.md](docs/architecture/BROWSER_COMPATIBILITY.md)
+- [docs/antigravity/platform/ADAPTER_CONTRACT.md](docs/antigravity/platform/ADAPTER_CONTRACT.md)
+- [docs/antigravity/platform/CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md)
+- [docs/style/STYLE_SYSTEM.md](docs/style/STYLE_SYSTEM.md)
+- [docs/testing/CURRENT_TEST_GATES.md](docs/testing/CURRENT_TEST_GATES.md)
+- [docs/testing/TESTING_BLUEPRINT.md](docs/testing/TESTING_BLUEPRINT.md)
+- [docs/governance/DOCS_GOVERNANCE.md](docs/governance/DOCS_GOVERNANCE.md)
 
----
+## Change Routing
 
-## Think Keywords
+- Adapter or platform behavior
+  - read `docs/antigravity/platform/ADAPTER_CONTRACT.md`
+- Architecture or layer boundaries
+  - read `docs/architecture/CURRENT_STATE.md`
+  - read `docs/architecture/BLUEPRINT.md`
+  - read `docs/architecture/DEPENDENCY_RULES.md`
+- Runtime messaging or background/content boundaries
+  - read `docs/architecture/RUNTIME_PROTOCOL.md`
+- Style-system or theme changes
+  - read `docs/style/STYLE_SYSTEM.md`
+- Testing or release gates
+  - read `docs/testing/CURRENT_TEST_GATES.md`
+  - read `docs/testing/TESTING_BLUEPRINT.md`
 
-| 关键词 | 思考预算 | 适用场景 |
-|:-------|:---------|:---------|
-| `think` | ~4k tokens | 简单代码分析 |
-| `think deeply` | ~10k tokens | 代码审查、Bug 分析 |
-| `ultrathink` | ~32k tokens | 架构决策、复杂重构 |
+## Minimum Verification
 
----
+- Run `npm run build` after repo-tracked code changes.
+- Update the relevant authoritative docs when contracts, platform support, architecture boundaries, or testing gates change.
+- Update `CHANGELOG.md` in English when the change affects end users.
 
-## 架构概览
+## Scope Note
 
-```
-src/
-├── background/       # Background Script (Chrome: service-worker.ts, Firefox: background-firefox.js)
-├── content/          # Content Script 主入口
-│   ├── adapters/     # 平台适配器 (ChatGPT/Gemini/Claude/Deepseek)
-│   ├── components/   # 页面内 UI 组件（Shadow DOM）
-│   ├── observers/    # 页面变化监听（MutationObserver 等）
-│   ├── injectors/    # 注入与挂载逻辑
-│   ├── features/     # 功能模块
-│   └── parsers/      # Markdown 解析器
-├── bookmarks/        # 书签功能模块
-├── settings/         # 设置管理（schema/迁移/缓存）
-├── parser/           # Parser v3（规则引擎）
-├── renderer/         # Markdown 渲染器
-├── styles/           # 样式与 Token
-├── shared/           # 共享契约（协议/类型）
-└── utils/            # 全局工具函数（browser/i18n/logger/tokens 等）
-```
-
----
-
-## 文档规范
-
-工程文档遵循以下原则：
-
-1. **内容平权**: 所有内容同等权重，慎用 `[!IMPORTANT]`、`[!WARNING]` 等人为强调标记
-2. **逻辑驱动**: 文档仅包含与业务逻辑相关的技术内容，不引入主观权重判断
-3. **简洁清晰**: 使用表格、列表等结构化形式，避免冗余描述
-4. **可执行性**: 每条规则必须可验证、可执行，不使用模糊表述
-
----
-
-## 权威文档库（Docs）
-
-`docs/` 目录正在重建为面向未来的权威文档库。任何架构/协议/存储/适配器契约/重构拆分相关的变更，必须以权威文档为准并同步更新。
-
-| 文档 | 用途 |
-|:----|:----|
-| [docs/README.md](docs/README.md) | 权威文档入口（source of truth） |
-| [AS_IS.md](docs/architecture/AS_IS.md) | 当前系统分析（能力/边界/依赖/问题清单） |
-| [BLUEPRINT.md](docs/architecture/BLUEPRINT.md) | 目标架构蓝图（MV3 哲学、契约、演进策略） |
-| [DEPENDENCY_RULES.md](docs/architecture/DEPENDENCY_RULES.md) | 依赖方向规则（可转为 CI 门禁） |
-| [BROWSER_COMPATIBILITY.md](docs/architecture/BROWSER_COMPATIBILITY.md) | Chrome MV3 / Firefox MV2 兼容性边界 |
-| [ADAPTER_CONTRACT.md](docs/antigravity/platform/ADAPTER_CONTRACT.md) | 站点适配器契约（跨站差异收敛点） |
-| [CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md) | 平台功能支持矩阵 |
-| [REFACTOR_CHECKLIST.md](docs/refactor/REFACTOR_CHECKLIST.md) | 分阶段重构 checklist（checkbox 实时更新） |
-| [DOCS_GOVERNANCE.md](docs/governance/DOCS_GOVERNANCE.md) | 文档库治理（权威层级/迁移/废弃规则） |
-| [STYLE_SYSTEM.md](docs/style/STYLE_SYSTEM.md) | 样式系统（Tokens + Shadow DOM + Theme） |
-| [TESTING_BLUEPRINT.md](docs/testing/TESTING_BLUEPRINT.md) | 测试体系蓝图（分层结构与契约门禁） |
-
-历史文档已统一归档到 `docs/_legacy/**`（例如 `docs/_legacy/review/**`、`docs/_legacy/debug/**`）；重构期间不要把它们当作未来规范依据。
-
-
----
-
-## 提交前检查
-
-- [ ] `npm run build` 成功 (同时构建 Chrome 和 Firefox)
-- [ ] 接口变更已更新相关文档
-- [ ] `CHANGELOG.md` 已更新（见 [changelog.md](.agent/rules/changelog.md)），必须使用英文
-
-## Codex 默认验证（强制）
-
-- Codex 每次执行（产生代码变更）后，默认必须执行 `npm run build` 进行编译验证
-- 例外：仅讨论/解释、不修改代码；或用户明确要求跳过编译
+This guide is for Codex-based collaboration in this repository. It intentionally does not document tool-specific artifact workflows, slash commands, or prompt rituals.

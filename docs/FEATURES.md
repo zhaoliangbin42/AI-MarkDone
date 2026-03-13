@@ -1,8 +1,8 @@
-# AI-MarkDone — Frozen Features & Acceptance (Authoritative)
+# AI-MarkDone — Product Capabilities & Acceptance (Authoritative)
 
-目的：用 **一个** 权威文档固化“已冻结的功能能力 / 冻结决策 / 验收口径 / 测试映射”，避免多份功能文档漂移。
+目的：用 **一个** 权威文档固化当前产品能力、验收口径与测试映射，避免多份功能文档漂移。
 
-范围：本文件以 **ChatGPT-only 验证** 为当前重构阶段的唯一目标平台；其它平台适配不作为本阶段验收条件。
+范围：本文件定义“能力在支持的平台上应如何工作”。各平台支持状态与支持级别，以 `docs/antigravity/platform/CAPABILITY_MATRIX.md` 为准。
 
 术语：
 
@@ -12,13 +12,13 @@
 
 ---
 
-## A) Frozen Decisions（冻结决策）
+## A) Product Decisions（产品决策）
 
-这些决策在本阶段视为冻结点，改动必须更新本文件并补齐回归证据。
+这些决策属于当前稳定产品行为。改动必须更新本文件并补齐回归证据。
 
 | Topic | Decision | Rationale |
 |---|---|---|
-| Validation platform | ChatGPT only | 降低变量，优先把架构与注入稳定性做实。 |
+| Platform support policy | Capability behavior is defined here, support level lives in `CAPABILITY_MATRIX.md` | 把“产品能力”与“平台支持状态”分开治理，减少文档职责混叠。 |
 | UI entrypoints | **No global toolbar** (remove `RewriteToolbar`) | 减少注入点与 UI 干扰；聚焦“每条消息工具栏 + ReaderPanel”。 |
 | Action icon click | Background sends `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 先用扩展图标作为稳定入口（无需额外注入点）；后续再评估页面内入口模块化实现。 |
 | Per-message toolbar placement | Prefer the official action bar row (same line); fallback after message content, aligned right | 避免把官方工具栏挤到下方；同时保留无 action bar 场景的稳定可见兜底。 |
@@ -93,13 +93,13 @@
 
 ---
 
-### B.4 Bookmarks Panel（Content UI; ChatGPT-only validation）
+### B.4 Bookmarks Panel（Content UI）
 
 说明：BookmarksPanel 的职责是 **展示 + 交互 + intent 触发**，所有写入仍由 background handler 执行（MV3 可审计/可恢复边界不变）。
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
-| Toggle panel via extension icon | Background action click → `ui:toggle_toolbar` → Content toggles panel | `src/runtimes/background/entry.ts`, `src/runtimes/content/entry.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | manual | 在 ChatGPT 页面点击扩展图标可打开/关闭面板。 |
+| Toggle panel via extension icon | Background action click → `ui:toggle_toolbar` → Content toggles panel | `src/runtimes/background/entry.ts`, `src/runtimes/content/entry.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | manual | 在支持书签面板的平台页面点击扩展图标可打开/关闭面板。 |
 | List/search/sort/filter bookmarks | Panel controls → view model | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts`, `src/services/bookmarks/panelModel.ts` | `tests/unit/services/bookmarks/panelModel.test.ts` | 面板内可搜索、排序，列表可读且不污染宿主样式。 |
 | Folder tree + CRUD | Panel buttons → `bookmarks:folders:*` | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts` | manual | 文件夹可创建/重命名/移动/删除（删除需要空文件夹约束）。 |
 | Preview (reuse ReaderPanel) | Click bookmark row → `ReaderPanel.show(items, startIndex, theme, options)` | `src/ui/content/bookmarks/ui/tabs/BookmarksTabView.ts`, `src/ui/content/reader/ReaderPanel.ts` | manual | 分页范围沿用 legacy：有搜索词→按树顺序翻“全部可见书签”；无搜索词→仅在该 folder 内翻页。 |
@@ -157,7 +157,7 @@
 - i18n（语言选择/迁移/无 raw key）
 - Settings UI（当前仅 Core）
 - Save Messages UI entry（当前仅 Core）
-- 多平台适配与一致性（仅 ChatGPT）
+- 超出 `CAPABILITY_MATRIX.md` 当前支持范围的平台承诺
 
 ---
 
@@ -169,7 +169,7 @@
 - `npm run test:core`
 - `npm run build`（Chrome MV3 + Firefox MV2）
 
-### D.2 手工验收清单（ChatGPT-only）
+### D.2 手工验收清单（在支持的平台上）
 
 - 刷新 / 切换对话 / 连续生成：每条 assistant 消息最终出现工具栏（不重复、不漂移）
 - Copy Markdown：复制当前消息内容
