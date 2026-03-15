@@ -5,20 +5,58 @@ import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { sendIcon, xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
-import { upgradeTitleTooltips } from '../../../utils/tooltip';
+import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
 
 type State = {
     theme: Theme;
     adapter: SiteAdapter | null;
     open: boolean;
     anchor: HTMLElement | null;
+    width: number;
+    height: number;
 };
 
+type ResizeState = {
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+    shadow: ShadowRoot;
+};
+
+const DEFAULT_WIDTH = 420;
+const DEFAULT_HEIGHT = 260;
+const MIN_WIDTH = 320;
+const MIN_HEIGHT = 220;
+const MAX_WIDTH = 680;
+const MAX_HEIGHT = 520;
+
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 export class SendPopover {
-    private state: State = { theme: 'light', adapter: null, open: false, anchor: null };
+    private state: State = {
+        theme: 'light',
+        adapter: null,
+        open: false,
+        anchor: null,
+        width: DEFAULT_WIDTH,
+        height: DEFAULT_HEIGHT,
+    };
     private popoverEl: HTMLElement | null = null;
     private onShadowPointerDown: ((e: Event) => void) | null = null;
     private pending = false;
+    private resizeState: ResizeState | null = null;
+    private onWindowMouseMove: ((event: MouseEvent) => void) | null = null;
+    private onWindowMouseUp: ((event: MouseEvent) => void) | null = null;
+    private anchorPositionReset: (() => void) | null = null;
+    private draftSyncToken = 0;
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
@@ -38,76 +76,88 @@ export class SendPopover {
     }
 
     open(params: { shadow: ShadowRoot; anchor: HTMLElement; adapter: SiteAdapter; theme: Theme; initialText?: string }): void {
+        this.ensureStyles(params.shadow);
+
         this.state.adapter = params.adapter;
         this.state.theme = params.theme;
         this.state.open = true;
         this.state.anchor = params.anchor;
 
+        this.anchorPositionReset?.();
+        this.anchorPositionReset = this.ensureAnchorPositioning(params.anchor);
+
         const pop = document.createElement('div');
-        pop.className = 'aimd-send-popover';
+        pop.className = 'send-popover';
         pop.setAttribute('role', 'dialog');
         pop.setAttribute('aria-modal', 'false');
         pop.setAttribute('aria-label', t('send'));
+        this.applySize(pop, this.getClampedSize(params.shadow, this.state.width, this.state.height));
         pop.innerHTML = `
-  <div class="head">
-    <div class="title">${t('send')}</div>
-    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
+  <div class="send-popover__head">
+    <strong>${escapeHtml(t('send'))}</strong>
+    <div class="send-popover__head-actions">
+      <button class="icon-btn" type="button" data-action="close" aria-label="${escapeHtml(t('btnClose'))}">${createIcon(xIcon).outerHTML}</button>
+    </div>
   </div>
-  <textarea class="input" data-role="text" rows="6" placeholder="${t('typeYourMessage')}"></textarea>
-  <div class="foot">
-    <div class="status" data-role="status"></div>
-    <div class="actions">
-      <button class="btn" type="button" data-action="cancel" aria-label="${t('btnCancel')}">${t('btnCancel')}</button>
-      <button class="btn btn--primary" type="button" data-action="send" aria-label="${t('send')}">${createIcon(sendIcon).outerHTML}<span>${t('send')}</span></button>
+  <button class="send-popover__resize-handle" type="button" data-action="resize" aria-label="Resize send popover">
+    <span class="send-popover__resize-grip" aria-hidden="true"></span>
+  </button>
+  <textarea class="send-popover__input" data-role="text" rows="5" placeholder="${escapeHtml(t('typeYourMessage'))}"></textarea>
+  <div class="send-popover__foot">
+    <div class="status-line" data-role="status"></div>
+    <div class="button-row">
+      <button class="studio-btn studio-btn--ghost" type="button" data-action="cancel" aria-label="${escapeHtml(t('btnCancel'))}">${escapeHtml(t('btnCancel'))}</button>
+      <button class="studio-btn studio-btn--primary" type="button" data-action="send" aria-label="${escapeHtml(t('send'))}">${createIcon(sendIcon).outerHTML}<span>${escapeHtml(t('send'))}</span></button>
     </div>
   </div>
 `;
 
-        // Anchor positioning: above the anchor, left-aligned to anchor.
-        const panel = params.shadow.querySelector<HTMLElement>('.panel');
-        const footer = params.shadow.querySelector<HTMLElement>('.footer');
-        if (panel && footer) {
-            panel.style.position = 'fixed';
-        }
-        pop.style.position = 'absolute';
-        pop.style.left = '0';
-        pop.style.bottom = 'calc(100% + 10px)';
-        pop.style.zIndex = '1';
-
-        // Mount under the anchor (in DOM) so absolute positioning is relative to a stable container.
-        // Note: anchor wrapper is `.footer-left` in ReaderPanel.
         params.anchor.appendChild(pop);
         this.popoverEl = pop;
-        upgradeTitleTooltips(pop);
 
         const text = params.initialText ?? (() => {
             const snap = readComposer(params.adapter);
             return snap.ok ? snap.text : '';
         })();
         const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
-        if (textarea) textarea.value = text;
+        if (textarea) {
+            textarea.value = text;
+            textarea.addEventListener('input', () => {
+                void this.syncComposerDraft(textarea.value);
+            });
+        }
         window.setTimeout(() => textarea?.focus(), 0);
+
+        const resizeHandle = pop.querySelector<HTMLButtonElement>('[data-action="resize"]');
+        if (resizeHandle) {
+            resizeHandle.style.position = 'absolute';
+            resizeHandle.style.top = '6px';
+            resizeHandle.style.right = '6px';
+            resizeHandle.style.width = '20px';
+            resizeHandle.style.height = '20px';
+        }
+
+        void this.syncComposerDraft(text);
 
         pop.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
         pop.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
         pop.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit(params.shadow));
+        pop.querySelector<HTMLButtonElement>('[data-action="resize"]')?.addEventListener('mousedown', (event) => this.startResize(event, params.shadow));
 
-        // Keyboard isolation within the popover.
-        pop.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
+        pop.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
                 this.close(params.shadow, { syncBack: true });
                 return;
             }
-            e.stopPropagation();
+            event.stopPropagation();
         });
 
-        // Click outside closes (but does not close Reader).
         if (!this.onShadowPointerDown) {
             this.onShadowPointerDown = (ev: Event) => {
                 if (!this.state.open) return;
-                const path = (ev as any).composedPath?.() as Array<unknown> | undefined;
+                const path = (ev as MouseEvent & { composedPath?: () => Array<unknown> }).composedPath?.() as Array<unknown> | undefined;
                 const inPath = (node: unknown) => Array.isArray(path) && path.includes(node);
                 if (this.popoverEl && inPath(this.popoverEl)) return;
                 if (this.state.anchor && inPath(this.state.anchor)) return;
@@ -127,11 +177,14 @@ export class SendPopover {
             void writeComposer(adapter, text, { focus: false, strategy: 'auto' });
         }
 
+        this.stopResize();
         this.popoverEl?.remove();
         this.popoverEl = null;
         this.pending = false;
         this.state.open = false;
         this.state.anchor = null;
+        this.anchorPositionReset?.();
+        this.anchorPositionReset = null;
 
         if (this.onShadowPointerDown) {
             shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
@@ -139,9 +192,45 @@ export class SendPopover {
         }
     }
 
+    private ensureStyles(shadow: ShadowRoot): void {
+        if (shadow.querySelector('style[data-aimd-send-popover-style]')) return;
+        const style = document.createElement('style');
+        style.dataset.aimdSendPopoverStyle = '1';
+        style.textContent = getSendPopoverCss();
+        shadow.appendChild(style);
+    }
+
+    private ensureAnchorPositioning(anchor: HTMLElement): (() => void) | null {
+        const currentPosition = window.getComputedStyle(anchor).position;
+        if (currentPosition !== 'static') return null;
+        const previousInline = anchor.style.position;
+        anchor.style.position = 'relative';
+        return () => {
+            anchor.style.position = previousInline;
+        };
+    }
+
     private applyTheme(): void {
         if (!this.popoverEl) return;
         this.popoverEl.setAttribute('data-aimd-theme', this.state.theme);
+    }
+
+    private async syncComposerDraft(text: string): Promise<void> {
+        const adapter = this.state.adapter;
+        if (!adapter) return;
+        try {
+            const input = adapter.getComposerInputElement?.() ?? null;
+            if (!input) return;
+        } catch {
+            return;
+        }
+        const token = ++this.draftSyncToken;
+        const result = await writeComposer(adapter, text, { focus: false, strategy: 'auto' });
+        if (token !== this.draftSyncToken) return;
+        if (!result.ok) {
+            this.setStatus(result.message);
+            window.setTimeout(() => this.setStatus(''), 1200);
+        }
     }
 
     private setStatus(text: string): void {
@@ -153,6 +242,77 @@ export class SendPopover {
         this.pending = pending;
         const btn = this.popoverEl?.querySelector<HTMLButtonElement>('[data-action="send"]');
         if (btn) btn.disabled = pending;
+    }
+
+    private startResize(event: MouseEvent, shadow: ShadowRoot): void {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!this.popoverEl) return;
+
+        this.stopResize();
+        const rect = this.popoverEl.getBoundingClientRect();
+        const currentWidth = rect.width > 0 ? rect.width : Number.parseFloat(this.popoverEl.style.width) || this.state.width;
+        const currentHeight = rect.height > 0 ? rect.height : Number.parseFloat(this.popoverEl.style.height) || this.state.height;
+
+        this.resizeState = {
+            startX: event.clientX,
+            startY: event.clientY,
+            startWidth: currentWidth,
+            startHeight: currentHeight,
+            shadow,
+        };
+
+        this.onWindowMouseMove = (moveEvent: MouseEvent) => this.handleResize(moveEvent);
+        this.onWindowMouseUp = () => this.stopResize();
+        window.addEventListener('mousemove', this.onWindowMouseMove);
+        window.addEventListener('mouseup', this.onWindowMouseUp);
+    }
+
+    private handleResize(event: MouseEvent): void {
+        if (!this.resizeState || !this.popoverEl) return;
+
+        const dx = event.clientX - this.resizeState.startX;
+        const dy = event.clientY - this.resizeState.startY;
+        const nextWidth = this.resizeState.startWidth + dx;
+        const nextHeight = this.resizeState.startHeight - dy;
+        this.applySize(this.popoverEl, this.getClampedSize(this.resizeState.shadow, nextWidth, nextHeight));
+    }
+
+    private stopResize(): void {
+        if (this.onWindowMouseMove) {
+            window.removeEventListener('mousemove', this.onWindowMouseMove);
+            this.onWindowMouseMove = null;
+        }
+        if (this.onWindowMouseUp) {
+            window.removeEventListener('mouseup', this.onWindowMouseUp);
+            this.onWindowMouseUp = null;
+        }
+        this.resizeState = null;
+    }
+
+    private getClampedSize(shadow: ShadowRoot, width: number, height: number): { width: number; height: number } {
+        const surface = shadow.querySelector<HTMLElement>('.panel-window--reader, .panel-window');
+        const rect = surface?.getBoundingClientRect();
+        const surfaceWidth = rect?.width && rect.width > 0
+            ? rect.width
+            : Number.parseFloat(surface?.style.width || '') || window.innerWidth;
+        const surfaceHeight = rect?.height && rect.height > 0
+            ? rect.height
+            : Number.parseFloat(surface?.style.height || '') || window.innerHeight;
+        const maxWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, surfaceWidth - 44));
+        const maxHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, surfaceHeight - 120));
+
+        return {
+            width: Math.max(MIN_WIDTH, Math.min(maxWidth, Math.round(width))),
+            height: Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(height))),
+        };
+    }
+
+    private applySize(popover: HTMLElement, next: { width: number; height: number }): void {
+        this.state.width = next.width;
+        this.state.height = next.height;
+        popover.style.width = `${next.width}px`;
+        popover.style.height = `${next.height}px`;
     }
 
     private async submit(shadow: ShadowRoot): Promise<void> {

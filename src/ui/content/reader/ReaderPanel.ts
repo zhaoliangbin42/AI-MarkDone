@@ -435,6 +435,7 @@ export class ReaderPanel {
             for (let index = 0; index < total; index += 1) {
                 dots.appendChild(this.createDot(index, index === activeIndex));
             }
+            this.scrollActiveDotIntoView();
             return;
         }
 
@@ -461,6 +462,8 @@ export class ReaderPanel {
             if (end < total - 2) dots.appendChild(this.createEllipsis());
             dots.appendChild(this.createDot(total - 1, activeIndex === total - 1));
         }
+
+        this.scrollActiveDotIntoView();
     }
 
     private createDot(index: number, active: boolean): HTMLButtonElement {
@@ -484,6 +487,11 @@ export class ReaderPanel {
         span.textContent = '…';
         span.setAttribute('aria-hidden', 'true');
         return span;
+    }
+
+    private scrollActiveDotIntoView(): void {
+        const activeDot = this.hostHandle?.surfaceRoot.querySelector<HTMLElement>('.reader-dots .reader-dot--active');
+        activeDot?.scrollIntoView?.({ inline: 'nearest', block: 'nearest', behavior: 'auto' });
     }
 
     private toggleFullscreen(): void {
@@ -567,6 +575,7 @@ export class ReaderPanel {
     </div>
     <div class="reader-footer__meta">
       <div class="hint">${escapeHtml(pagerHint)}</div>
+      <div class="reader-footer-page">${total > 0 ? `${this.state.index + 1}/${total}` : '0/0'}</div>
       <div class="status-line" data-field="status">${escapeHtml(this.state.statusText)}</div>
     </div>
   </div>
@@ -588,11 +597,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 
 .panel-window {
   position: fixed;
-  top: var(--aimd-panel-top);
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
   width: min(var(--aimd-panel-max-width), calc(100vw - var(--aimd-space-6)));
   height: min(var(--aimd-panel-height), calc(100vh - var(--aimd-space-6)));
+  max-height: calc(100vh - var(--aimd-space-6));
   background: var(--aimd-bg-primary);
   color: var(--aimd-text-primary);
   border: 1px solid var(--aimd-border-default);
@@ -604,12 +613,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 }
 
 .panel-window--reader {
-  min-height: 720px;
+  min-height: min(720px, calc(100vh - var(--aimd-space-6)));
 }
 
 .panel-window--reader[data-fullscreen="1"] {
-  top: 0;
-  left: 0;
+  inset: 0;
   transform: none;
   width: 100%;
   height: 100%;
@@ -850,6 +858,8 @@ ${getMarkdownThemeCss('.reader-markdown')}
 }
 
 .reader-footer__meta {
+  display: grid;
+  gap: 4px;
   justify-self: end;
   text-align: right;
   max-width: 220px;
@@ -858,6 +868,12 @@ ${getMarkdownThemeCss('.reader-markdown')}
 .reader-footer__meta .hint {
   font-size: 13px;
   line-height: 1.45;
+  color: var(--aimd-text-secondary);
+}
+
+.reader-footer-page {
+  font-size: var(--aimd-text-sm);
+  line-height: 1.4;
   color: var(--aimd-text-secondary);
 }
 
@@ -874,12 +890,16 @@ ${getMarkdownThemeCss('.reader-markdown')}
 
 .reader-dots {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
   gap: 8px;
   max-width: min(280px, 34vw);
-  overflow-x: auto;
-  overflow-y: hidden;
+  max-height: calc((var(--aimd-dot-size, 10px) * 3) + 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
   scrollbar-width: none;
-  padding: 2px 0;
+  padding: 2px 6px 2px 0;
 }
 
 .reader-dots::-webkit-scrollbar {

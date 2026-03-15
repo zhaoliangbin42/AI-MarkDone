@@ -28,6 +28,7 @@ describe('ReaderPanel presentation', () => {
             const assistantSection = shadow.querySelector<HTMLElement>('.reader-message--assistant');
             const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown');
             const hint = shadow.querySelector<HTMLElement>('.reader-footer__meta .hint');
+            const footerPage = shadow.querySelector<HTMLElement>('.reader-footer__meta .reader-footer-page');
             const katexLink = shadow.querySelector<HTMLLinkElement>('link[data-aimd-style-link="aimd-reader-panel-katex"]');
             const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
 
@@ -42,7 +43,12 @@ describe('ReaderPanel presentation', () => {
             expect(assistantSection?.textContent).toContain('AI');
             expect(markdownRoot?.textContent).toContain('md1');
             expect(hint?.textContent).toBe('');
+            expect(footerPage?.textContent).toBe('1/1');
             expect(source).toContain("tailwind-overlay.css?inline");
+            expect(source).toContain('inset: 50% auto auto 50%;');
+            expect(source).toContain('transform: translate(-50%, -50%);');
+            expect(source).toContain('max-height: calc(100vh - var(--aimd-space-6));');
+            expect(source).not.toContain('top: var(--aimd-panel-top);');
             expect(katexLink?.rel).toBe('stylesheet');
         } finally {
             panel.hide();

@@ -117,7 +117,7 @@ describe('ReaderPanel actions placement', () => {
                         onClick: ({ anchorEl }) => {
                             const anchor = anchorEl?.closest('.reader-footer__left') as HTMLElement | null;
                             const overlay = document.createElement('div');
-                            overlay.className = 'aimd-send-popover';
+                            overlay.className = 'send-popover';
                             anchor?.appendChild(overlay);
                         },
                     },
@@ -131,7 +131,7 @@ describe('ReaderPanel actions placement', () => {
 
             btn.click();
 
-            expect(footerLeft.querySelector('.aimd-send-popover')).toBeTruthy();
+            expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
         } finally {
             panel.hide();
         }
@@ -169,8 +169,8 @@ describe('ReaderPanel actions placement', () => {
 
             btn.click();
 
-            expect(footerLeft.querySelector('.aimd-send-popover')).toBeTruthy();
-            expect(footerLeft.querySelector<HTMLTextAreaElement>('.aimd-send-popover .input')?.value).toBe('hello');
+            expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
+            expect(footerLeft.querySelector<HTMLTextAreaElement>('.send-popover .send-popover__input')?.value).toBe('hello');
         } finally {
             panel.hide();
         }

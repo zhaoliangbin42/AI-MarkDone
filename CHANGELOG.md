@@ -15,10 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified the runtime style pipeline around shared reference tokens, semantic tokens, and stable UI exports.
 - Reader, bookmarks, toolbar, folding, and save dialogs now inherit the default UI font instead of shipping separate sans-serif stacks.
 - UI text surfaces now use a shared ChatGPT-aligned sans token inside Shadow DOM, while source/code views keep a dedicated mono token.
+- Reader and bookmark panels now use rebuilt mock-aligned shells, with the reader footer showing the current page and long pagination sets wrapping inside a capped scroll area.
 - Reader pagination now uses shared iconography and legacy-aligned preview cards for a cleaner, more consistent control bar.
 - Reader, bookmarks, export dialogs, folding controls, and math-copy feedback now share a single blue-on-white tooltip system instead of mixing browser titles and ad hoc popovers.
 - Interactive markdown styling now uses one shared GitHub-inspired theme layer across reader and bookmark detail surfaces.
 - Markdown rendering now runs through one shared unified pipeline for reader, bookmarks, mocks, and PDF export, with GFM, KaTeX math, syntax highlighting, and sanitization handled in one pass.
+- Reader send popovers now use the rebuilt mock-aligned surface and sync drafts through the shared composer bridge when the platform composer is available.
 
 ### Fixed
 - Runtime: Fixed the content script entry so markdown enhancement experiments no longer emit module-split imports that break toolbar injection at runtime.
@@ -28,11 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude: Fixed the message toolbar and header bookmark icon injection after the latest layout update.
 - ChatGPT: Fixed the toolbar width jumping wider while a response is still streaming.
 - Reader: Fixed the header title truncation, restored larger hover previews, and added a footer shortcut back to the current conversation turn.
+- Reader: Fixed rebuilt panel positioning so zoomed or short viewports keep the reader surface inside the visible window.
 - Bookmarks: Fixed folder-path and folder-name prompts still using hardcoded placeholders instead of localized UI strings.
 - Bookmarks: Fixed the panel empty state so existing folders no longer fall back to the misleading `No folders yet` message.
 - Bookmarks: Removed the repair and refresh toolbar icons from the panel surface without changing the underlying maintenance actions.
 - Bookmarks: Fixed folder selection, counts, expansion, and empty-folder checkbox behavior in the rebuilt bookmarks tree.
 - Bookmarks: Restored bookmark row reader previews, added platform icons, added a move action, and updated hover/date layout to match the latest panel design.
+- Bookmarks: Fixed rebuilt row actions, outside-click dismiss behavior, and backdrop handling so the panel controls behave consistently with the new shell.
 
 ## [3.0.0] - 2026-02-18
 

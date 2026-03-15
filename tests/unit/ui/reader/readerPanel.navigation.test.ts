@@ -158,4 +158,41 @@ describe('ReaderPanel navigation', () => {
             panel.hide();
         }
     });
+
+    it('shows the current page in the footer and scrolls the active pager dot into view for long conversations', async () => {
+        setClipboardMock();
+        const scrollIntoView = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+            value: scrollIntoView,
+            configurable: true,
+        });
+
+        const panel = new ReaderPanel();
+        const items = Array.from({ length: 50 }, (_, index) => ({
+            id: `item-${index}`,
+            userPrompt: `Q${index + 1}`,
+            content: `md${index + 1}`,
+        }));
+
+        try {
+            await panel.show(items, 30, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const footerPage = shadow.querySelector<HTMLElement>('.reader-footer__meta .reader-footer-page');
+            const dots = shadow.querySelector<HTMLElement>('.reader-dots');
+            const styleText = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
+            const dotsRule = styleText.match(/\.reader-dots\s*\{[\s\S]*?\}/)?.[0] ?? '';
+
+            expect(footerPage?.textContent).toBe('31/50');
+            expect(dots).toBeTruthy();
+            expect(dotsRule).toContain('.reader-dots {');
+            expect(dotsRule).toContain('flex-wrap: wrap;');
+            expect(dotsRule).toContain('overflow-y: auto;');
+            expect(dotsRule).toContain('overflow-x: hidden;');
+            expect(scrollIntoView).toHaveBeenCalled();
+        } finally {
+            panel.hide();
+        }
+    });
 });

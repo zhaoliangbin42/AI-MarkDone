@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { SendPopover } from '@/ui/content/sending/SendPopover';
 
 describe('SendPopover', () => {
-    it('opens and closes on outside click / ESC', () => {
+    it('opens with the mock send-popover structure and closes on outside click / ESC', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
 
         const panel = document.createElement('div');
-        panel.className = 'panel';
+        panel.className = 'panel-window panel-window--reader';
         const footerLeft = document.createElement('div');
-        footerLeft.className = 'footer-left';
-        footerLeft.setAttribute('data-role', 'footer_left_actions');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
         panel.appendChild(footerLeft);
         shadow.appendChild(panel);
 
@@ -24,20 +24,147 @@ describe('SendPopover', () => {
 
         const pop = new SendPopover();
         pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
-        expect(footerLeft.querySelector('.aimd-send-popover')).toBeTruthy();
+        const opened = footerLeft.querySelector<HTMLElement>('.send-popover');
+        const styleNode = shadow.querySelector('style[data-aimd-send-popover-style]');
+        expect(opened).toBeTruthy();
+        expect(styleNode).toBeTruthy();
+        expect(opened?.querySelector('.send-popover__head')).toBeTruthy();
+        expect(opened?.querySelector('.send-popover__head-actions')).toBeTruthy();
+        expect(opened?.querySelector('.send-popover__resize-handle')).toBeTruthy();
+        expect(opened?.querySelector('.send-popover__resize-grip')).toBeTruthy();
+        expect(opened?.querySelector<HTMLTextAreaElement>('.send-popover__input')?.value).toBe('hi');
+        expect(opened?.querySelector('.send-popover__foot .status-line')).toBeTruthy();
+        expect(opened?.querySelector('.send-popover__foot .button-row')).toBeTruthy();
+        expect(opened?.querySelector('[data-tooltip]')).toBeNull();
+        expect(opened?.querySelector('.send-popover__resize-handle')?.getAttribute('title')).toBeNull();
+        expect(styleNode?.textContent).toContain('top: 6px;');
+        expect(styleNode?.textContent).toContain('right: 6px;');
+        expect(styleNode?.textContent).toContain('padding-right: 14px;');
+        expect(styleNode?.textContent).toContain('linear-gradient(135deg, transparent 0 40%, currentColor 40% 48%');
+        expect(styleNode?.textContent).toContain('.send-popover__resize-handle,');
+        expect(styleNode?.textContent).toContain('.send-popover__resize-handle:hover,');
+        expect(styleNode?.textContent).toContain('border-color: transparent;');
+        expect(styleNode?.textContent).toContain('transition: none;');
 
         // ESC closes (bubble is mounted as child of footerLeft)
-        const el = footerLeft.querySelector('.aimd-send-popover') as HTMLElement;
+        const el = footerLeft.querySelector('.send-popover') as HTMLElement;
         el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        expect(footerLeft.querySelector('.aimd-send-popover')).toBeNull();
+        expect(footerLeft.querySelector('.send-popover')).toBeNull();
 
         // Reopen and close via outside click.
         pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
-        expect(footerLeft.querySelector('.aimd-send-popover')).toBeTruthy();
+        expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
         const outside = document.createElement('div');
         shadow.appendChild(outside);
         outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
-        expect(footerLeft.querySelector('.aimd-send-popover')).toBeNull();
+        expect(footerLeft.querySelector('.send-popover')).toBeNull();
+    });
+
+    it('resizes upward and to the right from the top-right handle while clamping to the panel bounds', () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        panel.style.width = '760px';
+        panel.style.height = '520px';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const anchor = document.createElement('div');
+        footerLeft.appendChild(anchor);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+
+        const popover = footerLeft.querySelector<HTMLElement>('.send-popover')!;
+        const handle = footerLeft.querySelector<HTMLElement>('.send-popover__resize-handle')!;
+        const startWidth = Number.parseFloat(popover.style.width);
+        const startHeight = Number.parseFloat(popover.style.height);
+
+        handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 300, clientY: 240 }));
+        window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 360, clientY: 180 }));
+        window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 360, clientY: 180 }));
+
+        expect(Number.parseFloat(popover.style.width)).toBeGreaterThan(startWidth);
+        expect(Number.parseFloat(popover.style.height)).toBeGreaterThan(startHeight);
+        expect(Number.parseFloat(popover.style.width)).toBeLessThanOrEqual(680);
+        expect(Number.parseFloat(popover.style.height)).toBeLessThanOrEqual(400);
+
+        pop.close(shadow, { syncBack: false });
+    });
+
+    it('syncs the draft into the official composer infrastructure while typing', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const anchor = document.createElement('div');
+        footerLeft.appendChild(anchor);
+
+        const composer = document.createElement('textarea');
+        composer.value = 'seed';
+        document.body.appendChild(composer);
+
+        const adapter = {
+            getComposerInputElement: () => composer,
+            getComposerSendButtonElement: () => null,
+            getComposerKind: () => 'textarea',
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        textarea.value = 'hello world';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        await Promise.resolve();
+
+        expect(composer.value).toBe('hello world');
+
+        pop.close(shadow, { syncBack: false });
+        composer.remove();
+    });
+
+    it('does not surface a composer-not-found error when opened without an available composer input', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        await Promise.resolve();
+
+        const status = footerLeft.querySelector<HTMLElement>('.send-popover [data-role="status"]');
+        expect(status?.textContent).toBe('');
+
+        pop.close(shadow, { syncBack: false });
     });
 });
-
