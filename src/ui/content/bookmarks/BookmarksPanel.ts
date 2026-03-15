@@ -1055,20 +1055,14 @@ export class BookmarksPanel {
         }));
 
         await this.readerPanel.show(items, startIndex, this.controller.getTheme(), {
-            actions: [
-                {
-                    id: 'goto',
-                    label: 'Open conversation',
-                    icon: externalLinkIcon,
-                    kind: 'default',
-                    onClick: async (ctx) => {
-                        const current = list[ctx.index] ?? null;
-                        if (!current) return;
-                        this.readerPanel.hide();
-                        await this.controller.goToBookmark(current);
-                    },
-                },
-            ],
+            showOpenConversation: true,
+            dotStyle: 'plain',
+            onOpenConversation: async (ctx) => {
+                const current = list[ctx.index] ?? null;
+                if (!current) return;
+                this.readerPanel.hide();
+                await this.controller.goToBookmark(current);
+            },
         });
     }
 
@@ -1126,9 +1120,24 @@ export class BookmarksPanel {
         return this.hostHandle?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="import-file"]') ?? null;
     }
 
+    private getResolvableBookmarks(): Bookmark[] {
+        if (!this.snapshot) return [];
+
+        const merged = new Map<string, Bookmark>();
+        for (const bookmark of getAllBookmarks(this.snapshot.vm.folderTree)) {
+            merged.set(bookmarkSelectionKey(bookmark), bookmark);
+        }
+        for (const bookmark of this.snapshot.vm.bookmarks) {
+            if (!merged.has(bookmarkSelectionKey(bookmark))) {
+                merged.set(bookmarkSelectionKey(bookmark), bookmark);
+            }
+        }
+        return [...merged.values()];
+    }
+
     private findBookmarkBySelectionKey(key?: string): Bookmark | null {
         if (!key || !this.snapshot) return null;
-        return this.snapshot.vm.bookmarks.find((bookmark) => bookmarkSelectionKey(bookmark) === key) ?? null;
+        return this.getResolvableBookmarks().find((bookmark) => bookmarkSelectionKey(bookmark) === key) ?? null;
     }
 
     private async createFolder(): Promise<void> {

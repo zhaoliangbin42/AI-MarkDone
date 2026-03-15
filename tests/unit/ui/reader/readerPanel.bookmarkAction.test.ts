@@ -38,9 +38,11 @@ describe('ReaderPanel bookmark action injection', () => {
         const options = readerPanel.show.mock.calls[0][3];
         const bookmarkAction = options.actions.find((action: any) => action.id === 'bookmark_toggle');
         const locateAction = options.actions.find((action: any) => action.id === 'locate');
+        expect(options.showOpenConversation).toBe(false);
         expect(bookmarkAction).toBeTruthy();
         expect(bookmarkAction.placement).toBe('header');
         expect(locateAction).toBeTruthy();
         expect(locateAction.placement).toBe('footer_left');
+        expect(locateAction.tooltip).toBe('jumpToMessage');
     });
 });

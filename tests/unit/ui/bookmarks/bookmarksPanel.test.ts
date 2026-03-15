@@ -54,6 +54,11 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('font-size: var(--aimd-text-lg);');
         expect(css).toContain('.tree-title-meta');
         expect(css).toContain('.tree-item:hover .tree-main--bookmark .tree-subtitle');
+        expect(css).toContain('--_bookmarks-tree-actions-width:');
+        expect(css).toContain('--_bookmarks-tree-actions-z: calc(var(--aimd-z-base) + 1);');
+        expect(css).toContain('padding-right: var(--_bookmarks-tree-actions-width);');
+        expect(css).toContain('.tree-actions {');
+        expect(css).toContain('z-index: var(--_bookmarks-tree-actions-z);');
         expect(css).not.toContain('rgba(');
         expect(css).not.toContain('#0f172a');
         expect(css).not.toContain('background: white;');
@@ -635,6 +640,10 @@ describe('BookmarksPanel', () => {
 
         expect(readerPanel.show).toHaveBeenCalledTimes(1);
         expect(controller.goToBookmark).not.toHaveBeenCalled();
+        const options = readerPanel.show.mock.calls[0][3];
+        expect(options.showOpenConversation).toBe(true);
+        expect(options.dotStyle).toBe('plain');
+        expect(options.actions).toBeUndefined();
 
         panel.hide();
     });
@@ -777,6 +786,192 @@ describe('BookmarksPanel', () => {
         actions[2]!.click();
 
         expect(controller.moveBookmark).toHaveBeenCalledWith(bookmark, 'Archive');
+        promptSpy.mockRestore();
+        panel.hide();
+    });
+
+    it('dispatches the bookmark row hover actions through the formal panel click seam', async () => {
+        const bookmark = {
+            title: 'Saved thread',
+            userMessage: 'Prompt',
+            aiResponse: 'Answer',
+            url: 'https://chat.openai.com/c/123',
+            urlWithoutProtocol: 'chat.openai.com/c/123',
+            folderPath: 'Import',
+            position: 8,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime(),
+            createdAt: new Date('2026-03-15T08:00:00.000Z').getTime(),
+            platform: 'ChatGPT',
+        } as any;
+
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [bookmark],
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks: [bookmark],
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT · 2026/3/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+            goToBookmark: vi.fn(async () => undefined),
+            copyBookmarkMarkdown: vi.fn(async () => undefined),
+            moveBookmark: vi.fn(async () => ({ ok: true })),
+            deleteBookmark: vi.fn(async () => undefined),
+        } as any;
+
+        const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Archive');
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const buttons = Array.from(shadow.querySelectorAll<HTMLElement>('.tree-item--bookmark .tree-actions .icon-btn'));
+
+        buttons[0]!.click();
+        buttons[1]!.click();
+        buttons[2]!.click();
+        buttons[3]!.click();
+
+        expect(controller.goToBookmark).toHaveBeenCalledWith(bookmark);
+        expect(controller.copyBookmarkMarkdown).toHaveBeenCalledWith(bookmark);
+        expect(controller.moveBookmark).toHaveBeenCalledWith(bookmark, 'Archive');
+        expect(controller.deleteBookmark).toHaveBeenCalledWith(bookmark);
+
+        confirmSpy.mockRestore();
+        promptSpy.mockRestore();
+        panel.hide();
+    });
+
+    it('keeps bookmark row actions working when the rendered tree contains items outside the filtered vm.bookmarks list', async () => {
+        const visibleTreeBookmark = {
+            title: 'Scoped tree item',
+            userMessage: 'Prompt',
+            aiResponse: 'Answer',
+            url: 'https://chat.openai.com/c/scoped',
+            urlWithoutProtocol: 'chat.openai.com/c/scoped',
+            folderPath: 'Import',
+            position: 3,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime(),
+            createdAt: new Date('2026-03-15T08:00:00.000Z').getTime(),
+            platform: 'ChatGPT',
+        } as any;
+        const filteredVmBookmark = {
+            title: 'Different scoped item',
+            userMessage: 'Prompt B',
+            aiResponse: 'Answer B',
+            url: 'https://chat.openai.com/c/other',
+            urlWithoutProtocol: 'chat.openai.com/c/other',
+            folderPath: 'Elsewhere',
+            position: 9,
+            timestamp: new Date('2026-03-15T09:00:00.000Z').getTime(),
+            createdAt: new Date('2026-03-15T09:00:00.000Z').getTime(),
+            platform: 'ChatGPT',
+        } as any;
+
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [filteredVmBookmark],
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks: [visibleTreeBookmark],
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: 'Elsewhere',
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import', 'Elsewhere'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT · 2026/3/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+            goToBookmark: vi.fn(async () => undefined),
+            copyBookmarkMarkdown: vi.fn(async () => undefined),
+            moveBookmark: vi.fn(async () => ({ ok: true })),
+            deleteBookmark: vi.fn(async () => undefined),
+        } as any;
+
+        const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Archive');
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const buttons = Array.from(shadow.querySelectorAll<HTMLElement>('.tree-item--bookmark .tree-actions .icon-btn'));
+
+        expect(buttons).toHaveLength(4);
+
+        buttons[0]!.click();
+        buttons[1]!.click();
+        buttons[2]!.click();
+        buttons[3]!.click();
+
+        expect(controller.goToBookmark).toHaveBeenCalledWith(visibleTreeBookmark);
+        expect(controller.copyBookmarkMarkdown).toHaveBeenCalledWith(visibleTreeBookmark);
+        expect(controller.moveBookmark).toHaveBeenCalledWith(visibleTreeBookmark, 'Archive');
+        expect(controller.deleteBookmark).toHaveBeenCalledWith(visibleTreeBookmark);
+
+        confirmSpy.mockRestore();
         promptSpy.mockRestore();
         panel.hide();
     });

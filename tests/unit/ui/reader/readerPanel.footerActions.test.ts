@@ -25,21 +25,21 @@ describe('ReaderPanel actions placement', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             expect(shadow).toBeTruthy();
 
-            const footer = shadow.querySelector<HTMLElement>('.footer');
-            const footerLeft = shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]');
-            const pagerCore = shadow.querySelector<HTMLElement>('[data-role="pager_core"]');
-            const dots = shadow.querySelector<HTMLElement>('[data-role="dots"]');
-            const pagerCounter = shadow.querySelector<HTMLElement>('[data-field="counter"]');
-            const hint = shadow.querySelector<HTMLElement>('[data-field="pager_hint"]');
-            const footerMeta = shadow.querySelector<HTMLElement>('[data-role="footer_meta"]');
+            const footer = shadow.querySelector<HTMLElement>('.reader-footer');
+            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left');
+            const pagerCore = shadow.querySelector<HTMLElement>('.reader-footer__center');
+            const dots = shadow.querySelector<HTMLElement>('.reader-dots');
+            const pagerCounter = shadow.querySelector<HTMLElement>('.reader-header-page');
+            const hint = shadow.querySelector<HTMLElement>('.reader-footer__meta .hint');
+            const footerMeta = shadow.querySelector<HTMLElement>('.reader-footer__meta');
 
             expect(footer).toBeTruthy();
             expect(footerLeft).toBeTruthy();
             expect(pagerCore).toBeTruthy();
             expect(pagerCounter?.textContent).toBe('2/2');
-            expect(hint?.textContent?.length).toBeGreaterThan(0);
-            expect(footerMeta?.contains(pagerCounter as Node)).toBe(true);
+            expect(hint?.textContent).toBe('');
             expect(pagerCore?.contains(dots as Node)).toBe(true);
+            expect(footerMeta).toBeTruthy();
         } finally {
             panel.hide();
         }
@@ -67,7 +67,7 @@ describe('ReaderPanel actions placement', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             expect(shadow).toBeTruthy();
 
-            const footerLeft = shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]');
+            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left');
             expect(footerLeft).toBeTruthy();
             const btn = footerLeft!.querySelector('button') as HTMLButtonElement;
             expect(btn).toBeTruthy();
@@ -94,7 +94,7 @@ describe('ReaderPanel actions placement', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const footerLeft = shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]');
+            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left');
             const buttons = Array.from(footerLeft?.querySelectorAll('button') ?? []);
 
             expect(buttons).toHaveLength(2);
@@ -115,7 +115,7 @@ describe('ReaderPanel actions placement', () => {
                         placement: 'footer_left',
                         rerenderOnClick: false,
                         onClick: ({ anchorEl }) => {
-                            const anchor = anchorEl?.closest('[data-role="footer_left_actions"]') as HTMLElement | null;
+                            const anchor = anchorEl?.closest('.reader-footer__left') as HTMLElement | null;
                             const overlay = document.createElement('div');
                             overlay.className = 'aimd-send-popover';
                             anchor?.appendChild(overlay);
@@ -126,7 +126,7 @@ describe('ReaderPanel actions placement', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const footerLeft = shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]')!;
+            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left')!;
             const btn = footerLeft.querySelector('button') as HTMLButtonElement;
 
             btn.click();
@@ -164,7 +164,7 @@ describe('ReaderPanel actions placement', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const footerLeft = shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]')!;
+            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left')!;
             const btn = footerLeft.querySelector('button') as HTMLButtonElement;
 
             btn.click();
@@ -193,11 +193,11 @@ describe('ReaderPanel actions placement', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             expect(shadow).toBeTruthy();
 
-            const styles = shadow.querySelector('style')?.textContent ?? '';
-            expect(styles).toContain('.pager-core {');
-            expect(styles).toContain('.footer-meta {');
-            expect(shadow.querySelector('[data-action="prev"] svg')).toBeTruthy();
-            expect(shadow.querySelector('[data-action="next"] svg')).toBeTruthy();
+            const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
+            expect(styles).toContain('.reader-footer__center {');
+            expect(styles).toContain('.reader-footer__meta {');
+            expect(shadow.querySelector('[data-action="reader-prev"] svg')).toBeTruthy();
+            expect(shadow.querySelector('[data-action="reader-next"] svg')).toBeTruthy();
         } finally {
             panel.hide();
         }
@@ -211,16 +211,16 @@ describe('ReaderPanel actions placement', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
 
-            const pagerCore = shadow.querySelector<HTMLElement>('[data-role="pager_core"]');
-            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('[data-role="dots"] .dot'));
-            const counter = shadow.querySelector<HTMLElement>('[data-field="counter"]');
-            const prev = shadow.querySelector<HTMLButtonElement>('[data-action="prev"]');
-            const next = shadow.querySelector<HTMLButtonElement>('[data-action="next"]');
+            const pagerCore = shadow.querySelector<HTMLElement>('.reader-footer__center');
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+            const counter = shadow.querySelector<HTMLElement>('.reader-header-page');
+            const prev = shadow.querySelector<HTMLButtonElement>('[data-action="reader-prev"]');
+            const next = shadow.querySelector<HTMLButtonElement>('[data-action="reader-next"]');
 
             expect(pagerCore).toBeTruthy();
             expect(pagerCore?.style.display).not.toBe('none');
             expect(dots).toHaveLength(1);
-            expect(dots[0]?.classList.contains('dot--active')).toBe(true);
+            expect(dots[0]?.classList.contains('reader-dot--active')).toBe(true);
             expect(counter?.textContent).toBe('1/1');
             expect(prev?.disabled).toBe(true);
             expect(next?.disabled).toBe(true);

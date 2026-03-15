@@ -5,14 +5,23 @@ import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
-import { chevronRightIcon, copyIcon, fileCodeIcon, maximizeIcon, minimizeIcon, xIcon } from '../../../assets/icons';
+import {
+    chevronRightIcon,
+    copyIcon,
+    externalLinkIcon,
+    fileCodeIcon,
+    maximizeIcon,
+    minimizeIcon,
+    xIcon,
+} from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { TooltipDelegate, upgradeTitleTooltips } from '../../../utils/tooltip';
 import { getMarkdownThemeCss } from '../components/markdownTheme';
+import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
+import overlayCssText from '../../../style/tailwind-overlay.css?inline';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -41,6 +50,9 @@ export type ReaderPanelShowOptions = {
     showNav?: boolean;
     showCopy?: boolean;
     showSource?: boolean;
+    showOpenConversation?: boolean;
+    dotStyle?: 'meta' | 'plain';
+    onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
     actions?: ReaderPanelAction[];
     initialView?: 'render' | 'source';
 };
@@ -51,29 +63,46 @@ type ReaderPanelState = {
     index: number;
     visible: boolean;
     fullscreen: boolean;
-    options: Required<Pick<ReaderPanelShowOptions, 'showNav' | 'showCopy' | 'showSource' | 'initialView'>> & { actions: ReaderPanelAction[] };
+    renderedHtml: string;
+    statusText: string;
+    options: Required<Pick<ReaderPanelShowOptions, 'showNav' | 'showCopy' | 'showSource' | 'showOpenConversation' | 'dotStyle' | 'initialView'>> & {
+        actions: ReaderPanelAction[];
+        onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
+    };
 };
 
 export class ReaderPanel {
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
-    private hostHandle: ShadowDialogHostHandle | null = null;
+    private hostHandle: OverlaySurfaceHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
+    private contentRenderToken = 0;
+    private statusTimer: number | null = null;
     private state: ReaderPanelState = {
         theme: 'light',
         items: [],
         index: 0,
         visible: false,
         fullscreen: false,
-        options: { showNav: true, showCopy: true, showSource: true, initialView: 'render', actions: [] },
+        renderedHtml: '',
+        statusText: '',
+        options: {
+            showNav: true,
+            showCopy: true,
+            showSource: true,
+            showOpenConversation: true,
+            dotStyle: 'meta',
+            initialView: 'render',
+            actions: [],
+        },
     };
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
-        this.hostHandle?.setCss(this.getCss());
+        this.hostHandle?.setThemeCss(getTokenCss(theme));
         this.render();
     }
 
@@ -83,20 +112,35 @@ export class ReaderPanel {
         this.state.theme = theme;
         this.state.visible = true;
         this.state.fullscreen = false;
+        this.state.renderedHtml = '';
+        this.state.statusText = '';
         this.state.options = {
             showNav: options?.showNav ?? true,
             showCopy: options?.showCopy ?? true,
             showSource: options?.showSource ?? true,
+            showOpenConversation: options?.showOpenConversation ?? true,
+            dotStyle: options?.dotStyle ?? 'meta',
             initialView: options?.initialView ?? 'render',
+            onOpenConversation: options?.onOpenConversation,
             actions: options?.actions ?? [],
         };
 
         this.mount();
+        this.render(false);
+        this.keyboardHandle?.detach();
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: this.hostHandle?.host ?? document.body,
+            onEscape: () => this.hide(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: this.hostHandle?.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.hostHandle?.host ?? undefined,
+        });
+
         if (this.state.options.initialView === 'source') {
             void this.openSourcePanel();
         }
-        await this.renderBody();
-        this.render();
+
+        await this.renderCurrentContent();
     }
 
     hide(): void {
@@ -106,65 +150,51 @@ export class ReaderPanel {
 
     notify(text: string, timeoutMs: number = 1400): void {
         this.setStatus(text);
-        window.setTimeout(() => this.setStatus(''), timeoutMs);
+        if (this.statusTimer) window.clearTimeout(this.statusTimer);
+        this.statusTimer = window.setTimeout(() => this.setStatus(''), timeoutMs);
     }
 
     private mount(): void {
-        if (this.host) return;
-        const handle = mountShadowDialogHost({
+        if (this.hostHandle) return;
+
+        const handle = mountOverlaySurfaceHost({
             id: 'aimd-reader-panel-host',
-            html: this.getHtml(),
-            cssText: this.getCss(),
+            themeCss: getTokenCss(this.state.theme),
+            surfaceCss: this.getCss(),
+            overlayCss: overlayCssText,
             lockScroll: true,
+            surfaceStyleId: 'aimd-reader-panel-structure',
+            overlayStyleId: 'aimd-reader-panel-tailwind',
         });
-        const host = handle.host;
-        const shadow = handle.shadow;
 
-        const overlay = shadow.querySelector<HTMLElement>('[data-role="overlay"]');
-        overlay?.addEventListener('click', () => this.hide());
+        this.host = handle.host;
+        this.shadow = handle.shadow;
+        this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
 
-        shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.hide());
-        shadow.querySelector<HTMLButtonElement>('[data-action="prev"]')?.addEventListener('click', () => void this.go(-1));
-        shadow.querySelector<HTMLButtonElement>('[data-action="next"]')?.addEventListener('click', () => void this.go(1));
-        shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')?.addEventListener('click', () => void this.copyCurrent());
-        shadow.querySelector<HTMLButtonElement>('[data-action="source"]')?.addEventListener('click', () => void this.openSourcePanel());
-        shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')?.addEventListener('click', () => this.toggleFullscreen());
+        handle.backdropRoot.addEventListener('click', () => this.hide());
+        handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
 
-        this.onKeyDown = (e: KeyboardEvent) => {
-            if (e.defaultPrevented) return;
-            if (e.key === 'ArrowLeft') {
-                e.preventDefault();
+        this.onKeyDown = (event: KeyboardEvent) => {
+            if (event.defaultPrevented) return;
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
                 void this.go(-1);
                 return;
             }
-            if (e.key === 'ArrowRight') {
-                e.preventDefault();
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
                 void this.go(1);
             }
         };
-        host.addEventListener('keydown', this.onKeyDown);
+        handle.host.addEventListener('keydown', this.onKeyDown);
 
-        this.host = host;
-        this.shadow = shadow;
-        this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(shadow);
-
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: host,
-            onEscape: () => this.hide(),
-            stopPropagationAll: true,
-            ignoreEscapeWhileComposing: true,
-            trapTabWithin: shadow.querySelector<HTMLElement>('.panel') ?? undefined,
-        });
+        const katexUrl = this.getKatexUrl();
+        if (katexUrl) ensureShadowStylesheetLink(handle.shadow, katexUrl, 'aimd-reader-panel-katex');
 
         if (!this.unsubscribeLocale) {
-            this.unsubscribeLocale = subscribeLocaleChange(() => {
-                this.applyI18nStaticStrings();
-                this.render();
-            });
+            this.unsubscribeLocale = subscribeLocaleChange(() => this.render());
         }
-
-        this.applyI18nStaticStrings();
     }
 
     private unmount(): void {
@@ -172,27 +202,70 @@ export class ReaderPanel {
             this.host.removeEventListener('keydown', this.onKeyDown);
         }
         this.onKeyDown = null;
+
+        if (this.statusTimer) {
+            window.clearTimeout(this.statusTimer);
+            this.statusTimer = null;
+        }
+
+        this.contentRenderToken += 1;
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
-
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
-
-        this.hostHandle?.unmount();
-        this.hostHandle = null;
-
-        this.host = null;
-        this.shadow = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.hostHandle?.unmount();
+        this.hostHandle = null;
+        this.host = null;
+        this.shadow = null;
+    }
+
+    private async handleSurfaceClick(event: Event): Promise<void> {
+        const target = event.target as HTMLElement | null;
+        const actionEl = target?.closest<HTMLElement>('[data-action]');
+        if (!actionEl) return;
+
+        const action = actionEl.dataset.action;
+        switch (action) {
+            case 'close-panel':
+                this.hide();
+                return;
+            case 'reader-prev':
+                await this.go(-1);
+                return;
+            case 'reader-next':
+                await this.go(1);
+                return;
+            case 'reader-jump': {
+                const index = Number(actionEl.dataset.index ?? -1);
+                if (Number.isFinite(index) && index >= 0) this.jumpTo(index);
+                return;
+            }
+            case 'reader-copy':
+                await this.copyCurrent();
+                return;
+            case 'reader-source':
+                await this.openSourcePanel();
+                return;
+            case 'reader-fullscreen':
+                this.toggleFullscreen();
+                return;
+            case 'reader-open-conversation':
+                this.openConversation();
+                return;
+            default:
+                return;
+        }
     }
 
     private async go(delta: number): Promise<void> {
         const next = this.state.index + delta;
         if (next < 0 || next >= this.state.items.length) return;
         this.state.index = next;
-        await this.renderBody();
-        this.render();
+        this.state.renderedHtml = '';
+        this.render(false);
+        await this.renderCurrentContent();
     }
 
     private jumpTo(index: number): void {
@@ -201,35 +274,39 @@ export class ReaderPanel {
         void this.go(next - this.state.index);
     }
 
-    private async renderBody(): Promise<void> {
-        if (!this.shadow) return;
+    private async renderCurrentContent(): Promise<void> {
         const item = this.state.items[this.state.index];
-        const container = this.shadow.querySelector<HTMLElement>('[data-role="content"]');
-        if (!container || !item) return;
+        if (!item) {
+            this.state.renderedHtml = '';
+            this.render(false);
+            return;
+        }
 
+        const token = ++this.contentRenderToken;
         const markdown = await resolveContent(item.content);
+        if (token !== this.contentRenderToken) return;
 
-        const html = renderMarkdownToSanitizedHtml(markdown);
-        this.applyHtml(container, html);
-        container.scrollTop = 0;
+        this.state.renderedHtml = renderMarkdownToSanitizedHtml(markdown);
+        this.render(false);
+
+        const body = this.hostHandle?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        if (body) body.scrollTop = 0;
     }
 
     private async copyCurrent(): Promise<void> {
-        if (!this.shadow) return;
         const item = this.state.items[this.state.index];
         if (!item) return;
 
-        const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        if (!btn) return;
+        const button = this.hostHandle?.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="reader-copy"]');
+        if (!button) return;
 
         try {
-            btn.disabled = true;
+            button.disabled = true;
             const markdown = await resolveContent(item.content);
             const ok = await copyTextToClipboard(markdown);
-            this.setStatus(ok ? t('btnCopied') : t('copyFailed'));
+            this.notify(ok ? t('btnCopied') : t('copyFailed'));
         } finally {
-            window.setTimeout(() => this.setStatus(''), 1200);
-            btn.disabled = false;
+            button.disabled = false;
         }
     }
 
@@ -240,126 +317,123 @@ export class ReaderPanel {
         sourcePanel.show({ theme: this.state.theme, title: t('modalSourceTitle'), content: markdown });
     }
 
-    private setStatus(text: string): void {
-        if (!this.shadow) return;
-        const el = this.shadow.querySelector<HTMLElement>('[data-field="status"]');
-        if (el) el.textContent = text;
+    private openConversation(): void {
+        const ctx = this.getActionContext();
+        if (ctx && this.state.options.onOpenConversation) {
+            void this.state.options.onOpenConversation(ctx);
+            return;
+        }
+
+        const item = this.state.items[this.state.index];
+        const url = item?.meta?.url?.trim();
+        if (!url) {
+            this.notify(this.getLabel('openConversationLabel', 'Conversation link unavailable'));
+            return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
     }
 
-    private render(): void {
-        if (!this.shadow) return;
+    private setStatus(text: string): void {
+        this.state.statusText = text;
+        const status = this.hostHandle?.surfaceRoot.querySelector<HTMLElement>('[data-field="status"]');
+        if (status) status.textContent = text;
+    }
 
-        const total = this.state.items.length;
-        const idx = this.state.index;
-        const item = this.state.items[idx];
+    private render(preserveScrollTop: boolean = true): void {
+        if (!this.hostHandle) return;
 
-        const titleEl = this.shadow.querySelector<HTMLElement>('[data-field="title"]');
-        if (titleEl) {
-            const fullTitle = item ? item.userPrompt : t('btnReader');
-            titleEl.textContent = this.truncateTitle(fullTitle);
-            if (titleEl.textContent !== fullTitle) titleEl.dataset.tooltip = fullTitle;
-            else delete titleEl.dataset.tooltip;
-        }
-        this.shadow.querySelectorAll<HTMLElement>('[data-field="counter"]').forEach((el) => {
-            el.textContent = total > 0 ? `${idx + 1}/${total}` : '';
-        });
-        const hintEl = this.shadow.querySelector<HTMLElement>('[data-field="pager_hint"]');
-        if (hintEl) hintEl.textContent = total > 1 ? t('readerPagerHint') : '';
-        const panelEl = this.shadow.querySelector<HTMLElement>('.panel');
-        if (panelEl) panelEl.dataset.fullscreen = this.state.fullscreen ? '1' : '0';
-        this.renderFullscreenButton();
+        const currentBody = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        const scrollTop = preserveScrollTop ? currentBody?.scrollTop ?? 0 : 0;
+
+        this.hostHandle.setSurfaceCss(this.getCss());
+        this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
+        this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
 
         this.renderActions();
         this.renderDots();
-        this.tooltipDelegate?.refresh(this.shadow);
+        upgradeTitleTooltips(this.hostHandle.surfaceRoot);
+        this.tooltipDelegate?.refresh(this.shadow ?? undefined);
 
-        const prevBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="prev"]');
-        const nextBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="next"]');
-        if (prevBtn) prevBtn.disabled = idx <= 0;
-        if (nextBtn) nextBtn.disabled = idx >= total - 1;
+        const nextBody = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        if (nextBody && preserveScrollTop) {
+            nextBody.scrollTop = scrollTop;
+        }
     }
 
     private renderActions(): void {
-        if (!this.shadow) return;
+        if (!this.hostHandle) return;
 
-        const total = this.state.items.length;
-        const opts = this.state.options;
+        const headerSlot = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('[data-role="header-custom-actions"]');
+        const footerSlot = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('[data-role="footer-left-actions"]');
+        if (!headerSlot || !footerSlot) return;
 
-        const pagerCore = this.shadow.querySelector<HTMLElement>('[data-role="pager_core"]');
-        if (pagerCore) pagerCore.style.display = opts.showNav && total > 0 ? 'flex' : 'none';
+        headerSlot.replaceChildren();
+        footerSlot.replaceChildren();
 
-        const copyBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        if (copyBtn) copyBtn.style.display = opts.showCopy ? 'grid' : 'none';
-
-        const sourceBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="source"]');
-        if (sourceBtn) sourceBtn.style.display = opts.showSource ? 'grid' : 'none';
-
-        const custom = this.shadow.querySelector<HTMLElement>('[data-role="custom_actions"]');
-        if (!custom) return;
-        const footerLeft = this.shadow.querySelector<HTMLElement>('[data-role="footer_left_actions"]');
-        custom.replaceChildren();
-        footerLeft?.replaceChildren();
-        const actionCtx = this.getActionContext();
-        for (const action of opts.actions) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            const isActive = actionCtx ? Boolean(action.isActive?.(actionCtx)) : false;
+        const ctx = this.getActionContext();
+        for (const action of this.state.options.actions) {
+            const active = ctx ? Boolean(action.isActive?.(ctx)) : false;
+            const button = document.createElement('button');
+            button.type = 'button';
             if (action.icon) {
-                const tone = isActive && action.toggle
-                    ? 'icon--primary'
-                    : action.kind === 'primary'
-                        ? 'icon--primary'
-                        : action.kind === 'danger'
-                            ? 'icon--danger'
-                            : '';
-                btn.className = `icon ${tone}`.trim();
-                btn.dataset.tooltip = action.tooltip || action.label;
-                btn.setAttribute('aria-label', action.label);
-                btn.appendChild(createIcon(action.icon));
+                button.className = `icon-btn ${active && action.toggle ? 'icon-btn--active' : ''} ${action.kind === 'danger' ? 'icon-btn--danger' : ''}`.trim();
+                button.appendChild(createIcon(action.icon));
             } else {
-                btn.className = `chip ${action.kind === 'primary' ? 'chip--primary' : action.kind === 'danger' ? 'chip--danger' : ''}`.trim();
-                btn.textContent = action.label;
-                btn.setAttribute('aria-label', action.label);
+                button.className = `secondary-btn secondary-btn--compact ${action.kind === 'primary' ? 'secondary-btn--primary' : ''} ${action.kind === 'danger' ? 'secondary-btn--danger' : ''}`.trim();
+                button.textContent = action.label;
             }
-            btn.dataset.active = isActive ? '1' : '0';
-            btn.addEventListener('click', async () => {
-                const ctx = this.getActionContext();
-                if (!ctx) return;
+            button.setAttribute('aria-label', action.label);
+            button.dataset.tooltip = action.tooltip || action.label;
+            button.dataset.active = active ? '1' : '0';
+            button.addEventListener('click', async () => {
+                const nextCtx = this.getActionContext();
+                if (!nextCtx) return;
                 try {
-                    btn.disabled = true;
-                    await action.onClick({ ...ctx, anchorEl: btn, shadow: this.shadow || undefined });
+                    button.disabled = true;
+                    await action.onClick({ ...nextCtx, anchorEl: button, shadow: this.shadow || undefined });
                 } finally {
-                    btn.disabled = false;
+                    button.disabled = false;
                     if (action.rerenderOnClick !== false) {
                         this.render();
                     }
                 }
             });
-            const placement = action.placement || 'header';
-            if (placement === 'footer_left' && footerLeft) footerLeft.appendChild(btn);
-            else custom.appendChild(btn);
+
+            if ((action.placement || 'header') === 'footer_left') {
+                footerSlot.appendChild(button);
+            } else {
+                headerSlot.appendChild(button);
+            }
         }
     }
 
     private renderDots(): void {
-        if (!this.shadow) return;
-        const dots = this.shadow.querySelector<HTMLElement>('[data-role="dots"]');
+        if (!this.hostHandle) return;
+
+        const dots = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.reader-dots');
         if (!dots) return;
+
         const total = this.state.items.length;
-        const idx = this.state.index;
+        const activeIndex = this.state.index;
         dots.replaceChildren();
-        if (total <= 0) return;
+
+        if (!this.state.options.showNav || total <= 0) {
+            const footerCenter = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.reader-footer__center');
+            if (footerCenter) footerCenter.style.display = 'none';
+            return;
+        }
+
+        const footerCenter = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.reader-footer__center');
+        if (footerCenter) footerCenter.style.display = '';
 
         const sizing = this.calculateDotSizing(total);
         dots.style.setProperty('--aimd-dot-size', `${sizing.size}px`);
         dots.style.setProperty('--aimd-dot-gap', `${sizing.gap}px`);
 
-        // When the total is reasonable, render all dots (legacy-inspired, very scan-friendly).
-        // For very large conversations, fall back to a windowed control to avoid hundreds of nodes.
         const renderAllThreshold = 60;
         if (total <= renderAllThreshold) {
-            for (let i = 0; i < total; i += 1) {
-                dots.appendChild(this.createDot(i, i === idx));
+            for (let index = 0; index < total; index += 1) {
+                dots.appendChild(this.createDot(index, index === activeIndex));
             }
             return;
         }
@@ -367,48 +441,49 @@ export class ReaderPanel {
         const maxDots = 11;
         const windowSize = Math.min(maxDots, total);
         const half = Math.floor(windowSize / 2);
-        let start = Math.max(0, idx - half);
+        let start = Math.max(0, activeIndex - half);
         let end = Math.min(total - 1, start + windowSize - 1);
         start = Math.max(0, end - windowSize + 1);
 
-        const pushEllipsis = () => {
-            const el = document.createElement('span');
-            el.className = 'ellipsis';
-            el.textContent = '…';
-            el.setAttribute('aria-hidden', 'true');
-            dots.appendChild(el);
-        };
-
         if (start > 0) {
-            dots.appendChild(this.createDot(0, idx === 0));
-            if (start > 1) pushEllipsis();
+            dots.appendChild(this.createDot(0, activeIndex === 0));
+            if (start > 1) dots.appendChild(this.createEllipsis());
         }
 
         const loopStart = start > 0 ? start : 0;
         const loopEnd = end < total - 1 ? end : total - 1;
 
-        for (let i = loopStart; i <= loopEnd; i++) {
-            dots.appendChild(this.createDot(i, i === idx));
+        for (let index = loopStart; index <= loopEnd; index += 1) {
+            dots.appendChild(this.createDot(index, index === activeIndex));
         }
 
         if (end < total - 1) {
-            if (end < total - 2) pushEllipsis();
-            dots.appendChild(this.createDot(total - 1, idx === total - 1));
+            if (end < total - 2) dots.appendChild(this.createEllipsis());
+            dots.appendChild(this.createDot(total - 1, activeIndex === total - 1));
         }
     }
 
     private createDot(index: number, active: boolean): HTMLButtonElement {
-        const btn = document.createElement('button');
+        const button = document.createElement('button');
         const item = this.state.items[index];
-        const bookmarked = Boolean(item?.meta?.bookmarked);
-        btn.type = 'button';
-        btn.className = `dot ${active ? 'dot--active' : ''} ${bookmarked ? 'dot--bookmarked' : ''}`.trim();
-        btn.setAttribute('aria-label', t('goToPage', String(index + 1)));
-        btn.dataset.tooltipTitle = String(index + 1);
-        btn.dataset.tooltip = item?.userPrompt || t('goToPage', String(index + 1));
-        btn.dataset.tooltipVariant = 'preview';
-        btn.addEventListener('click', () => this.jumpTo(index));
-        return btn;
+        const bookmarked = this.state.options.dotStyle === 'meta' && Boolean(item?.meta?.bookmarked);
+        button.type = 'button';
+        button.className = `reader-dot ${active ? 'reader-dot--active' : ''} ${bookmarked ? 'reader-dot--bookmarked' : ''}`.trim();
+        button.dataset.action = 'reader-jump';
+        button.dataset.index = String(index);
+        button.dataset.tooltipTitle = String(index + 1);
+        button.dataset.tooltip = item?.userPrompt || this.getLabel('goToPage', `Go to page ${index + 1}`, String(index + 1));
+        button.dataset.tooltipVariant = 'preview';
+        button.setAttribute('aria-label', this.getLabel('goToPage', `Go to page ${index + 1}`, String(index + 1)));
+        return button;
+    }
+
+    private createEllipsis(): HTMLElement {
+        const span = document.createElement('span');
+        span.className = 'reader-ellipsis';
+        span.textContent = '…';
+        span.setAttribute('aria-hidden', 'true');
+        return span;
     }
 
     private toggleFullscreen(): void {
@@ -416,67 +491,12 @@ export class ReaderPanel {
         this.render();
     }
 
-    private renderFullscreenButton(): void {
-        if (!this.shadow) return;
-        const btn = this.shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]');
-        if (!btn) return;
-        const isFullscreen = this.state.fullscreen;
-        const label = isFullscreen ? t('exitFullscreen') : t('toggleFullscreen');
-        btn.setAttribute('aria-label', label);
-        btn.dataset.tooltip = label;
-        btn.replaceChildren(createIcon(isFullscreen ? minimizeIcon : maximizeIcon));
-    }
-
-    private applyI18nStaticStrings(): void {
-        if (!this.shadow) return;
-        const panel = this.shadow.querySelector<HTMLElement>('.panel');
-        if (panel) panel.setAttribute('aria-label', t('btnReader'));
-
-        const copyBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        if (copyBtn) {
-            copyBtn.setAttribute('aria-label', t('btnCopyText'));
-            copyBtn.dataset.tooltip = t('btnCopyText');
-        }
-        const sourceBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="source"]');
-        if (sourceBtn) {
-            sourceBtn.setAttribute('aria-label', t('btnViewSource'));
-            sourceBtn.dataset.tooltip = t('btnViewSource');
-        }
-        this.renderFullscreenButton();
-        const closeBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="close"]');
-        if (closeBtn) {
-            closeBtn.setAttribute('aria-label', t('btnClose'));
-            closeBtn.dataset.tooltip = t('btnClose');
-        }
-
-        const prevBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="prev"]');
-        if (prevBtn) {
-            prevBtn.setAttribute('aria-label', t('previousMessage'));
-            prevBtn.dataset.tooltip = t('previousMessage');
-        }
-        const nextBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="next"]');
-        if (nextBtn) {
-            nextBtn.setAttribute('aria-label', t('nextMessage'));
-            nextBtn.dataset.tooltip = t('nextMessage');
-        }
-
-        const dots = this.shadow.querySelector<HTMLElement>('[data-role="dots"]');
-        if (dots) dots.setAttribute('aria-label', t('paginationLabel'));
-    }
-
     private calculateDotSizing(total: number): { size: number; gap: number } {
-        // Legacy-inspired tiers (also keeps "Apple page control" density reasonable).
         if (total <= 10) return { size: 10, gap: 10 };
         if (total <= 20) return { size: 9, gap: 8 };
         if (total <= 35) return { size: 8, gap: 6 };
         if (total <= 50) return { size: 7, gap: 5 };
         return { size: 6, gap: 4 };
-    }
-
-    private truncateTitle(text: string): string {
-        const chars = Array.from(text || '');
-        if (chars.length <= 40) return text;
-        return `${chars.slice(0, 40).join('')}…`;
     }
 
     private getActionContext(): ReaderPanelActionContext | null {
@@ -492,33 +512,62 @@ export class ReaderPanel {
     }
 
     private getHtml(): string {
+        const item = this.state.items[this.state.index];
+        const total = this.state.items.length;
+        const title = this.getLabel('btnReader', 'Reader panel');
+        const openConversationLabel = this.getLabel('openConversationLabel', 'Open conversation');
+        const copyLabel = this.getLabel('btnCopyText', 'Copy markdown');
+        const sourceLabel = this.getLabel('btnViewSource', 'View source');
+        const fullscreenLabel = this.state.fullscreen
+            ? this.getLabel('exitFullscreen', 'Exit fullscreen')
+            : this.getLabel('toggleFullscreen', 'Toggle fullscreen');
+        const closeLabel = this.getLabel('btnClose', 'Close panel');
+        const previousLabel = this.getLabel('previousMessage', 'Previous message');
+        const nextLabel = this.getLabel('nextMessage', 'Next message');
+        const pagerHint = '';
+
         return `
-<div class="overlay" data-role="overlay"></div>
-<div class="panel" role="dialog" aria-modal="true" aria-label="${t('btnReader')}">
-  <div class="header">
-    <div class="title" data-field="title"></div>
-    <div class="header-right">
-      <div class="custom-actions" data-role="custom_actions"></div>
-      <button class="icon" data-action="copy" aria-label="${t('btnCopyText')}" data-tooltip="${t('btnCopyText')}">${copyIcon}</button>
-      <button class="icon" data-action="source" aria-label="${t('btnViewSource')}" data-tooltip="${t('btnViewSource')}">${fileCodeIcon}</button>
-      <button class="icon" data-action="fullscreen" aria-label="${t('toggleFullscreen')}" data-tooltip="${t('toggleFullscreen')}">${maximizeIcon}</button>
-      <button class="icon" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
+<div class="panel-window panel-window--reader" data-fullscreen="${this.state.fullscreen ? '1' : '0'}" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+  <div class="panel-header">
+    <div class="panel-header__meta panel-header__meta--reader">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="reader-header-page">${total > 0 ? `${this.state.index + 1}/${total}` : '0/0'}</div>
+    </div>
+    <div class="panel-header__actions">
+      <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
+      ${this.state.options.showOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" data-tooltip="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
+      ${this.state.options.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" data-tooltip="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
+      ${this.state.options.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" data-tooltip="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
+      <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" data-tooltip="${escapeHtml(fullscreenLabel)}">${iconMarkup(this.state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
+      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="body">
-    <div class="markdown-body" data-role="content"></div>
+  <div class="reader-body">
+    <article class="reader-content">
+      <div class="reader-thread">
+        <section class="reader-message reader-message--user">
+          <div class="reader-message__label">User message</div>
+          <div class="reader-message__body reader-message__body--prompt">${escapeHtml(item?.userPrompt || '')}</div>
+        </section>
+        <section class="reader-message reader-message--assistant">
+          <div class="reader-message__label">AI response</div>
+          <div class="reader-markdown markdown-body">${this.state.renderedHtml}</div>
+        </section>
+      </div>
+    </article>
   </div>
-  <div class="footer">
-    <div class="footer-left" data-role="footer_left_actions"></div>
-    <div class="pager-core" data-role="pager_core">
-      <button class="nav-btn nav-btn--prev" data-action="prev" aria-label="${t('previousMessage')}">${chevronRightIcon}</button>
-      <div class="dots" data-role="dots" aria-label="${t('paginationLabel')}"></div>
-      <button class="nav-btn nav-btn--next" data-action="next" aria-label="${t('nextMessage')}">${chevronRightIcon}</button>
+  <div class="reader-footer">
+    <div class="reader-footer__left">
+      <div class="reader-footer__actions" data-role="footer-left-actions"></div>
     </div>
-    <div class="footer-meta" data-role="footer_meta">
-      <div class="counter counter--footer" data-field="counter"></div>
-      <div class="hint" data-field="pager_hint"></div>
-      <div class="status" data-field="status"></div>
+    <div class="reader-footer__center">
+      <button class="nav-btn nav-btn--reader" data-action="reader-prev" aria-label="${escapeHtml(previousLabel)}" data-tooltip="${escapeHtml(previousLabel)}" ${this.state.index <= 0 ? 'disabled' : ''}>${iconMarkup(chevronRightIcon)}</button>
+      <div class="reader-dots" aria-label="${escapeHtml(this.getLabel('paginationLabel', 'Pagination'))}"></div>
+      <button class="nav-btn nav-btn--next nav-btn--reader" data-action="reader-next" aria-label="${escapeHtml(nextLabel)}" data-tooltip="${escapeHtml(nextLabel)}" ${this.state.index >= total - 1 ? 'disabled' : ''}>${iconMarkup(chevronRightIcon)}</button>
+    </div>
+    <div class="reader-footer__meta">
+      <div class="hint">${escapeHtml(pagerHint)}</div>
+      <div class="status-line" data-field="status">${escapeHtml(this.state.statusText)}</div>
     </div>
   </div>
 </div>
@@ -526,379 +575,434 @@ export class ReaderPanel {
     }
 
     private getCss(): string {
-        const katexUrl = (() => {
-            try {
-                return browser.runtime.getURL('vendor/katex/katex.min.css');
-            } catch {
-                return '';
-            }
-        })();
-
         return `
-${getTokenCss(this.state.theme)}
-${katexUrl ? `@import url("${katexUrl}");` : ''}
-
-/* Reset (shadow-scoped) */
 :host { font-family: var(--aimd-font-family-sans); }
 *, *::before, *::after { box-sizing: border-box; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 
-.overlay {
+.panel-stage__overlay {
   position: fixed;
   inset: 0;
-  background: var(--aimd-overlay-bg);
+  background: color-mix(in srgb, var(--aimd-overlay-bg) 28%, transparent);
 }
 
-.panel {
+.panel-window {
   position: fixed;
   top: var(--aimd-panel-top);
   left: 50%;
   transform: translateX(-50%);
-  width: var(--aimd-panel-width);
-  max-width: var(--aimd-panel-max-width);
-  height: var(--aimd-panel-height);
-  /* Gmail/Material-like solid surface (no blur/sheens). */
+  width: min(var(--aimd-panel-max-width), calc(100vw - var(--aimd-space-6)));
+  height: min(var(--aimd-panel-height), calc(100vh - var(--aimd-space-6)));
   background: var(--aimd-bg-primary);
   color: var(--aimd-text-primary);
   border: 1px solid var(--aimd-border-default);
-  border-radius: 16px;
+  border-radius: var(--aimd-radius-2xl);
   box-shadow: var(--aimd-shadow-panel);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: top var(--aimd-duration-base) var(--aimd-ease-in-out),
-              left var(--aimd-duration-base) var(--aimd-ease-in-out),
-              width var(--aimd-duration-base) var(--aimd-ease-in-out),
-              max-width var(--aimd-duration-base) var(--aimd-ease-in-out),
-              height var(--aimd-duration-base) var(--aimd-ease-in-out),
-              border-radius var(--aimd-duration-base) var(--aimd-ease-in-out),
-              transform var(--aimd-duration-base) var(--aimd-ease-in-out);
 }
 
-.panel[data-fullscreen="1"] {
+.panel-window--reader {
+  min-height: 720px;
+}
+
+.panel-window--reader[data-fullscreen="1"] {
   top: 0;
   left: 0;
   transform: none;
-  width: 100vw;
-  max-width: none;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  max-height: none;
   border-radius: 0;
 }
 
-.header {
+.panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--aimd-space-2);
-  padding: 12px 14px;
-  background: var(--aimd-bg-primary);
+  gap: var(--aimd-space-3);
+  min-height: 72px;
+  padding: var(--aimd-space-4) var(--aimd-space-5);
   border-bottom: 1px solid var(--aimd-border-default);
-}
-
-.title {
-  font-size: var(--aimd-font-size-sm);
-  font-weight: 650;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.header-right { display: flex; align-items: center; gap: 8px; }
-.counter { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
-
-.icon {
-  all: unset;
-  cursor: pointer;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--aimd-text-primary) 82%, transparent);
-  border: 1px solid transparent;
-  background: transparent;
-  transition: background 150ms ease, transform 120ms ease;
-}
-.icon svg { width: 18px; height: 18px; display: block; }
-.icon:hover {
-  background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent);
-}
-.icon:active { transform: none; background: color-mix(in srgb, var(--aimd-text-primary) 14%, transparent); }
-.icon:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
-.icon--primary {
-  background: var(--aimd-interactive-primary);
-  border-color: transparent;
-  color: var(--aimd-text-on-primary);
-  box-shadow: none;
-}
-.icon--primary:hover { background: var(--aimd-interactive-primary-hover); }
-.icon--danger {
-  background: color-mix(in srgb, var(--aimd-state-error-border) 16%, transparent);
-  border-color: transparent;
-  color: var(--aimd-text-primary);
-  box-shadow: none;
-}
-.icon--danger:hover { background: color-mix(in srgb, var(--aimd-state-error-border) 24%, transparent); }
-
-.body {
-  flex: 1;
-  overflow: auto;
-  padding: 14px 16px 10px;
-}
-
-.markdown-body {
-  width: 100%;
-  max-width: 1000px;
-  margin-inline: auto;
-}
-
-.footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px 12px;
   background: var(--aimd-bg-primary);
-  border-top: 1px solid var(--aimd-border-default);
 }
 
-.footer-left {
-  position: relative;
-  justify-self: start;
+.panel-header__meta {
   display: flex;
   align-items: center;
-  min-height: 36px;
   min-width: 0;
 }
 
-.custom-actions { display: flex; gap: 8px; align-items: center; }
-.pager-core {
-  justify-self: center;
+.panel-header__meta--reader {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 45%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 55%, transparent);
+  gap: 10px;
 }
-.dots {
+
+.panel-header__meta--reader h2 {
+  margin: 0;
+  font-size: var(--aimd-text-xl);
+  line-height: 1.2;
+  font-weight: var(--aimd-font-semibold);
+}
+
+.reader-header-page {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--aimd-text-sm);
+  line-height: 1.4;
+  color: var(--aimd-text-secondary);
+}
+
+.panel-header__actions,
+.panel-header__actions-group {
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-btn,
+.nav-btn,
+.secondary-btn {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.icon-btn,
+.nav-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--aimd-dot-gap, 8px);
-  min-width: 0;
-  max-width: 100%;
-  flex-wrap: wrap;
-}
-.counter--footer {
-  font-size: var(--aimd-font-size-xs);
-  color: var(--aimd-text-secondary);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.ellipsis { color: var(--aimd-text-secondary); font-size: 12px; padding: 0 2px; }
-.dot {
-  all: unset;
-  cursor: pointer;
-  width: var(--aimd-dot-size, 8px);
-  height: var(--aimd-dot-size, 8px);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--aimd-text-secondary) 38%, transparent);
-  position: relative;
-  transition: transform 160ms ease, background 160ms ease, width 160ms ease, border-radius 160ms ease, box-shadow 160ms ease;
-}
-.dot:hover { background: color-mix(in srgb, var(--aimd-text-secondary) 68%, transparent); transform: scale(1.18); }
-.dot--active {
-  width: calc(var(--aimd-dot-size, 8px) * 1.7);
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 18%, transparent);
-}
-.dot--bookmarked {
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 72%, transparent);
-}
-.dot--bookmarked.dot--active {
-  width: calc(var(--aimd-dot-size, 8px) * 1.5);
-  border-radius: 4px;
-  background: var(--aimd-interactive-primary);
-}
-.nav-btn {
-  all: unset;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
+  border-radius: var(--aimd-radius-full);
+  color: var(--aimd-text-primary);
   background: transparent;
-  border: 1px solid transparent;
-  color: var(--aimd-text-primary);
-}
-.nav-btn:hover { background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent); }
-.nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.nav-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
-.nav-btn svg { width: 14px; height: 14px; display: block; }
-.nav-btn--prev svg { transform: rotate(180deg); }
-
-.chip {
-  all: unset;
-  cursor: pointer;
-  user-select: none;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 28%, transparent);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 55%, transparent);
-  font-size: var(--aimd-font-size-xs);
-  color: var(--aimd-text-primary);
-}
-.chip:hover { background: color-mix(in srgb, var(--aimd-bg-primary) 42%, transparent); }
-.chip:disabled { opacity: 0.55; cursor: not-allowed; }
-.chip--primary { background: color-mix(in srgb, var(--aimd-interactive-primary) 92%, transparent); color: var(--aimd-text-on-primary); border-color: transparent; }
-.chip--primary:hover { background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 92%, transparent); }
-.chip--danger { border-color: var(--aimd-state-error-border); }
-
-.footer-meta {
-  justify-self: end;
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-  min-height: 36px;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 
-.hint {
-  font-size: 11px;
-  letter-spacing: 0.01em;
-  color: color-mix(in srgb, var(--aimd-text-secondary) 88%, transparent);
-  white-space: nowrap;
+.icon-btn:hover,
+.nav-btn:hover {
+  background: var(--aimd-interactive-hover);
 }
 
-.status {
-  font-size: var(--aimd-font-size-xs);
-  color: var(--aimd-text-secondary);
-  white-space: nowrap;
-  min-width: 0;
+.icon-btn:active,
+.nav-btn:active {
+  background: var(--aimd-interactive-active);
 }
 
-/* Send popover (Reader footer-left) */
-.aimd-send-popover {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 10px);
-  width: min(520px, calc(100vw - 48px));
-  max-width: 520px;
-  font-family: var(--aimd-font-family-sans);
-  background: var(--aimd-bg-primary);
-  color: var(--aimd-text-primary);
-  border: 1px solid var(--aimd-border-default);
-  border-radius: 12px;
-  box-shadow: var(--aimd-shadow-panel);
-  padding: 10px;
-  display: grid;
-  gap: 10px;
+.icon-btn:disabled,
+.nav-btn:disabled,
+.secondary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
-.aimd-send-popover::after {
-  content: "";
-  position: absolute;
-  left: 18px;
-  bottom: -7px;
-  width: 12px;
-  height: 12px;
-  background: var(--aimd-bg-primary);
-  border-right: 1px solid var(--aimd-border-default);
-  border-bottom: 1px solid var(--aimd-border-default);
-  transform: rotate(45deg);
+
+.icon-btn:focus-visible,
+.nav-btn:focus-visible,
+.secondary-btn:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: 2px;
 }
-.aimd-send-popover .head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+
+.icon-btn .aimd-icon,
+.icon-btn .aimd-icon svg,
+.nav-btn .aimd-icon,
+.nav-btn .aimd-icon svg {
+  width: 18px;
+  height: 18px;
 }
-.aimd-send-popover .title {
-  font-size: 14px;
-  font-weight: 650;
+
+.icon-btn--active {
+  background: var(--aimd-interactive-selected);
+  color: var(--aimd-interactive-primary);
 }
-.aimd-send-popover .icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
+
+.icon-btn--danger {
+  color: var(--aimd-interactive-danger);
 }
-.aimd-send-popover .input {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
-  min-height: 120px;
-  padding: 10px 12px;
-  border-radius: 10px;
+
+.secondary-btn {
+  min-height: 40px;
+  padding: 0 var(--aimd-space-4);
+  border-radius: var(--aimd-radius-full);
   border: 1px solid var(--aimd-border-default);
   background: var(--aimd-bg-secondary);
   color: var(--aimd-text-primary);
-  font-size: 13px;
-  line-height: 1.45;
-  outline: none;
-}
-.aimd-send-popover .input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent);
-  outline-offset: 2px;
-}
-.aimd-send-popover .foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.aimd-send-popover .status {
-  min-height: 18px;
-  color: var(--aimd-text-secondary);
-}
-.aimd-send-popover .actions { display: flex; gap: 8px; align-items: center; }
-.aimd-send-popover .btn {
-  all: unset;
-  cursor: pointer;
-  user-select: none;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
-  background: transparent;
-  color: var(--aimd-text-primary);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  justify-content: center;
+  gap: var(--aimd-space-2);
+  font-size: var(--aimd-text-sm);
+  line-height: 1;
+  font-weight: var(--aimd-font-medium);
 }
-.aimd-send-popover .btn:hover { background: color-mix(in srgb, var(--aimd-text-primary) 8%, transparent); }
-.aimd-send-popover .btn:active { background: color-mix(in srgb, var(--aimd-text-primary) 14%, transparent); }
-.aimd-send-popover .btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.aimd-send-popover .btn--primary {
-  background: var(--aimd-interactive-primary);
-  border-color: transparent;
-  color: var(--aimd-text-on-primary);
-}
-.aimd-send-popover .btn--primary:hover { background: var(--aimd-interactive-primary-hover); }
-.aimd-send-popover .btn--primary .aimd-icon svg { width: 16px; height: 16px; }
 
-${getMarkdownThemeCss('.markdown-body')}
+.secondary-btn:hover {
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 78%, var(--aimd-interactive-hover));
+}
+
+.secondary-btn--compact {
+  min-height: 36px;
+  padding: 0 var(--aimd-space-3);
+}
+
+.secondary-btn--primary {
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  border-color: transparent;
+}
+
+.secondary-btn--primary:hover {
+  background: var(--aimd-interactive-primary-hover);
+}
+
+.secondary-btn--danger {
+  color: var(--aimd-interactive-danger);
+}
+
+.reader-body {
+  flex: 1;
+  overflow: auto;
+  padding: 26px 28px 20px;
+}
+
+.reader-content {
+  max-width: min(1000px, 100%);
+  margin: 0 auto;
+}
+
+.reader-thread {
+  display: grid;
+  gap: 18px;
+}
+
+.reader-message {
+  display: grid;
+  gap: 14px;
+  padding: 24px 28px;
+  border-radius: var(--aimd-radius-2xl);
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 68%, transparent);
+}
+
+.reader-message--assistant {
+  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, var(--aimd-bg-secondary));
+}
+
+.reader-message__label {
+  font-size: var(--aimd-text-xs);
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aimd-text-secondary);
+}
+
+.reader-message__body--prompt {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--aimd-text-primary);
+}
+
+.reader-markdown {
+  min-width: 0;
+}
+
+${getMarkdownThemeCss('.reader-markdown')}
+
+.reader-markdown :where(.katex-display) {
+  margin: 1em 0;
+  padding: 0;
+}
+
+.reader-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
+  position: relative;
+}
+
+.reader-footer__left,
+.reader-footer__center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reader-footer__left {
+  position: relative;
+}
+
+.reader-footer__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reader-footer__center {
+  justify-content: center;
+  min-width: 0;
+}
+
+.reader-footer__meta {
+  justify-self: end;
+  text-align: right;
+  max-width: 220px;
+}
+
+.reader-footer__meta .hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--aimd-text-secondary);
+}
+
+.status-line {
+  min-height: 18px;
+  font-size: var(--aimd-text-xs);
+  line-height: 1.4;
+  color: var(--aimd-text-secondary);
+}
+
+.status-line:empty {
+  display: none;
+}
+
+.reader-dots {
+  display: flex;
+  gap: 8px;
+  max-width: min(280px, 34vw);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+
+.reader-dots::-webkit-scrollbar {
+  display: none;
+}
+
+.reader-dot {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  cursor: pointer;
+  border: 0;
+  box-shadow: none;
+  flex: none;
+  width: var(--aimd-dot-size, 10px);
+  height: var(--aimd-dot-size, 10px);
+  border-radius: var(--aimd-radius-full);
+  background: color-mix(in srgb, var(--aimd-border-default) 90%, transparent);
+}
+
+.reader-dot--active {
+  width: calc(var(--aimd-dot-size, 10px) * 2.2);
+  background: var(--aimd-interactive-primary);
+}
+
+.reader-dot--bookmarked {
+  border-radius: var(--aimd-radius-xs);
+}
+
+.reader-dot--bookmarked.reader-dot--active {
+  border-radius: var(--aimd-radius-sm);
+}
+
+.reader-ellipsis {
+  color: var(--aimd-text-secondary);
+  line-height: 1;
+}
+
+.nav-btn--reader {
+  width: 44px;
+  height: 44px;
+}
+
+.nav-btn--reader:first-child .aimd-icon svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 900px) {
+  .panel-window {
+    width: min(var(--aimd-panel-max-width), calc(100vw - var(--aimd-space-4)));
+    height: min(var(--aimd-panel-height), calc(100vh - var(--aimd-space-4)));
+  }
+
+  .panel-header {
+    padding: var(--aimd-space-4);
+    min-height: 64px;
+  }
+
+  .reader-body {
+    padding: 20px 18px 16px;
+  }
+
+  .reader-message {
+    padding: 20px;
+  }
+
+  .reader-footer {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .reader-footer__left,
+  .reader-footer__center {
+    justify-content: center;
+  }
+
+  .reader-footer__meta {
+    justify-self: center;
+    text-align: center;
+  }
+}
 `;
     }
 
-    private applyHtml(container: HTMLElement, html: string): void {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
-        const wrapper = doc.body.firstElementChild as HTMLElement | null;
-        if (!wrapper) {
-            container.replaceChildren();
-            return;
-        }
-        const fragment = document.createDocumentFragment();
-        Array.from(wrapper.childNodes).forEach((node) => fragment.appendChild(node));
-        container.replaceChildren(fragment);
-        upgradeTitleTooltips(container);
+    private getLabel(key: string, fallback: string, substitutions?: string | string[]): string {
+        const translated = t(key, substitutions as any);
+        if (!translated || translated === key) return fallback;
+        return translated;
     }
+
+    private getKatexUrl(): string {
+        try {
+            return browser.runtime.getURL('vendor/katex/katex.min.css');
+        } catch {
+            return '';
+        }
+    }
+}
+
+function iconMarkup(svg: string): string {
+    return `<span class="aimd-icon">${svg}</span>`;
+}
+
+function escapeHtml(input: string): string {
+    return input
+        .split('&').join('&amp;')
+        .split('<').join('&lt;')
+        .split('>').join('&gt;')
+        .split('"').join('&quot;')
+        .split("'").join('&#39;');
+}
+
+function ensureShadowStylesheetLink(shadow: ShadowRoot, href: string, styleId: string): HTMLLinkElement {
+    const existing = shadow.querySelector<HTMLLinkElement>(`link[data-aimd-style-link="${styleId}"]`);
+    if (existing) {
+        if (existing.href !== href) existing.href = href;
+        return existing;
+    }
+
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.setAttribute('data-aimd-style-link', styleId);
+    shadow.appendChild(link);
+    return link;
 }

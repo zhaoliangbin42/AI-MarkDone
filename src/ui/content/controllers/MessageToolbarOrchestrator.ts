@@ -209,8 +209,8 @@ export class MessageToolbarOrchestrator {
 
         actions.push({
             id: 'locate',
-            label: t('openConversation'),
-            tooltip: t('openConversationLabel'),
+            label: t('jumpToMessage'),
+            tooltip: t('jumpToMessage'),
             icon: locateIcon,
             placement: 'footer_left',
             onClick: async (ctx: any) => {
@@ -476,7 +476,11 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
-                await this.readerPanel.show(items, startIndex, this.theme, { initialView: 'render', actions: this.getReaderActions(messageElement) as any });
+                await this.readerPanel.show(items, startIndex, this.theme, {
+                    initialView: 'render',
+                    showOpenConversation: false,
+                    actions: this.getReaderActions(messageElement) as any,
+                });
             },
         });
 

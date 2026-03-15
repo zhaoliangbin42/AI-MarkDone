@@ -32,6 +32,7 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-control-height: 44px;
   --_bookmarks-action-height: 42px;
   --_bookmarks-icon-button-size: 38px;
+  --_bookmarks-tree-actions-width: calc(var(--_bookmarks-icon-button-size) * 4 + (calc(var(--aimd-space-1) + var(--aimd-space-1) / 2) * 3) + (var(--aimd-space-2) * 2));
   --_bookmarks-panel-title-size: var(--aimd-text-2xl);
   --_bookmarks-tree-title-size: var(--aimd-text-lg);
   --_bookmarks-control-surface: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
@@ -56,6 +57,7 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-knob-surface: var(--aimd-bg-primary);
   --_bookmarks-media-surface: var(--aimd-bg-primary);
   --_bookmarks-inline-menu-z: var(--aimd-z-tooltip);
+  --_bookmarks-tree-actions-z: calc(var(--aimd-z-base) + 1);
   --_bookmarks-celebration-z: calc(var(--aimd-z-base) + 3);
   --_bookmarks-label-meta-size: var(--aimd-text-xs);
   --_bookmarks-meta-size: var(--aimd-text-sm);
@@ -458,13 +460,14 @@ input::placeholder { opacity: 1; color: var(--aimd-text-secondary); }
 
 .tree-item {
   position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: 20px 18px 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--aimd-space-2);
   min-height: var(--_bookmarks-action-height);
   padding: var(--aimd-space-1) var(--aimd-space-2);
-  padding-right: 116px;
+  padding-right: var(--_bookmarks-tree-actions-width);
   border-radius: var(--_bookmarks-row-radius);
   transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
@@ -578,6 +581,8 @@ input::placeholder { opacity: 1; color: var(--aimd-text-secondary); }
 .tree-main {
   all: unset;
   box-sizing: border-box;
+  position: relative;
+  z-index: var(--aimd-z-base);
   width: 100%;
   min-width: 0;
   padding: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2) 0;
@@ -663,6 +668,7 @@ input::placeholder { opacity: 1; color: var(--aimd-text-secondary); }
   position: absolute;
   top: 50%;
   right: var(--aimd-space-2);
+  z-index: var(--_bookmarks-tree-actions-z);
   display: inline-flex;
   align-items: center;
   gap: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2);

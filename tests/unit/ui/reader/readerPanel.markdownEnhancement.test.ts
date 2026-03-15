@@ -12,7 +12,7 @@ describe('ReaderPanel markdown enhancement', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const content = shadow.querySelector<HTMLElement>('[data-role="content"]');
+            const content = shadow.querySelector<HTMLElement>('.reader-markdown');
 
             expect(content?.querySelector('.aimd-mermaid')).toBeNull();
             expect(content?.querySelector('pre[data-code-language="mermaid"] code')?.className).toContain('language-mermaid');

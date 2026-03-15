@@ -32,10 +32,10 @@ describe('ReaderPanel navigation', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
 
-            const counter = shadow.querySelector<HTMLElement>('[data-field="counter"]');
+            const counter = shadow.querySelector<HTMLElement>('.reader-header-page');
             expect(counter?.textContent).toBe('1/750');
 
-            const active = shadow.querySelector<HTMLButtonElement>('[data-role="dots"] .dot--active');
+            const active = shadow.querySelector<HTMLButtonElement>('.reader-dots .reader-dot--active');
             expect(active?.dataset.tooltipTitle).toBe('1');
         } finally {
             panel.hide();
@@ -60,11 +60,11 @@ describe('ReaderPanel navigation', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
 
-            const counter = shadow.querySelector<HTMLElement>('[data-field="counter"]');
+            const counter = shadow.querySelector<HTMLElement>('.reader-header-page');
             expect(counter?.textContent).toBe('3/3');
 
-            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('[data-role="dots"] .dot'));
-            const active = dots.find((dot) => dot.classList.contains('dot--active'));
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+            const active = dots.find((dot) => dot.classList.contains('reader-dot--active'));
 
             expect(dots).toHaveLength(3);
             expect(active?.dataset.tooltipTitle).toBe('3');
@@ -90,12 +90,36 @@ describe('ReaderPanel navigation', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('[data-role="dots"] .dot'));
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
 
-            expect(dots[0]?.classList.contains('dot--bookmarked')).toBe(false);
-            expect(dots[1]?.classList.contains('dot--bookmarked')).toBe(true);
-            expect(dots[1]?.classList.contains('dot--active')).toBe(true);
-            expect(dots[2]?.classList.contains('dot--bookmarked')).toBe(true);
+            expect(dots[0]?.classList.contains('reader-dot--bookmarked')).toBe(false);
+            expect(dots[1]?.classList.contains('reader-dot--bookmarked')).toBe(true);
+            expect(dots[1]?.classList.contains('reader-dot--active')).toBe(true);
+            expect(dots[2]?.classList.contains('reader-dot--bookmarked')).toBe(true);
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('can force plain round pager dots even when items carry bookmark metadata', async () => {
+        const panel = new ReaderPanel();
+        try {
+            await panel.show(
+                [
+                    { id: 'a', userPrompt: 'Q1', content: 'md1', meta: { position: 1, bookmarked: true } },
+                    { id: 'b', userPrompt: 'Q2', content: 'md2', meta: { position: 2, bookmarked: true } },
+                ],
+                0,
+                'light',
+                { dotStyle: 'plain' } as any
+            );
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+
+            expect(dots[0]?.classList.contains('reader-dot--bookmarked')).toBe(false);
+            expect(dots[1]?.classList.contains('reader-dot--bookmarked')).toBe(false);
         } finally {
             panel.hide();
         }
@@ -119,18 +143,17 @@ describe('ReaderPanel navigation', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
 
-            const counter = shadow.querySelector<HTMLElement>('[data-field="counter"]');
-            expect(counter?.textContent).toBe('2/3');
+            expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('2/3');
 
             host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
             await Promise.resolve();
             await new Promise((resolve) => setTimeout(resolve, 0));
-            expect(counter?.textContent).toBe('3/3');
+            expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('3/3');
 
             host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
             await Promise.resolve();
             await new Promise((resolve) => setTimeout(resolve, 0));
-            expect(counter?.textContent).toBe('2/3');
+            expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('2/3');
         } finally {
             panel.hide();
         }

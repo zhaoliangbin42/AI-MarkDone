@@ -29,18 +29,20 @@ describe('ReaderPanel (MVP)', () => {
         const shadow = (host as any).shadowRoot as ShadowRoot;
         expect(shadow).toBeTruthy();
 
-        const copyBtn = shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
+        const copyBtn = shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy"]');
         expect(copyBtn).toBeTruthy();
         copyBtn!.click();
         await Promise.resolve();
         await Promise.resolve();
         expect(writeText).toHaveBeenCalledWith('md1');
 
-        const nextBtn = shadow.querySelector<HTMLButtonElement>('[data-action="next"]')!;
+        const nextBtn = shadow.querySelector<HTMLButtonElement>('[data-action="reader-next"]')!;
         nextBtn.click();
         await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
-        copyBtn!.click();
+        const nextCopyBtn = shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy"]');
+        nextCopyBtn!.click();
         await Promise.resolve();
         await Promise.resolve();
         expect(writeText).toHaveBeenCalledWith('md2');
@@ -55,19 +57,19 @@ describe('ReaderPanel (MVP)', () => {
 
         const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
         const shadow = (host as any).shadowRoot as ShadowRoot;
-        const panelEl = shadow.querySelector<HTMLElement>('.panel')!;
-        const fullscreenBtn = shadow.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')!;
+        const panelEl = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+        const fullscreenBtn = shadow.querySelector<HTMLButtonElement>('[data-action="reader-fullscreen"]')!;
 
         expect(panelEl.dataset.fullscreen).toBe('0');
         expect(fullscreenBtn.dataset.tooltip).toBeTruthy();
-        const styles = shadow.querySelector('style')?.textContent ?? '';
-        expect(styles).toContain('max-width: 1000px');
+        const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
+        expect(styles).toContain('.panel-window--reader');
 
         fullscreenBtn.click();
-        expect(panelEl.dataset.fullscreen).toBe('1');
+        expect(shadow.querySelector<HTMLElement>('.panel-window--reader')?.dataset.fullscreen).toBe('1');
 
-        fullscreenBtn.click();
-        expect(panelEl.dataset.fullscreen).toBe('0');
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-fullscreen"]')!.click();
+        expect(shadow.querySelector<HTMLElement>('.panel-window--reader')?.dataset.fullscreen).toBe('0');
 
         panel.hide();
     });

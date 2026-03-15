@@ -772,20 +772,14 @@ export class BookmarksTabView {
         }));
 
         await this.readerPanel.show(items, startIndex, this.controller.getTheme(), {
-            actions: [
-                {
-                    id: 'goto',
-                    label: t('openConversation'),
-                    icon: externalLinkIcon,
-                    kind: 'default',
-                    onClick: async (ctx: ReaderPanelActionContext) => {
-                        const current = list[ctx.index] ?? null;
-                        if (!current) return;
-                        this.readerPanel.hide();
-                        await this.goTo(current);
-                    },
-                },
-            ],
+            showOpenConversation: true,
+            dotStyle: 'plain',
+            onOpenConversation: async (ctx: ReaderPanelActionContext) => {
+                const current = list[ctx.index] ?? null;
+                if (!current) return;
+                this.readerPanel.hide();
+                await this.goTo(current);
+            },
         });
     }
 
