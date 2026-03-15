@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader, bookmarks, toolbar, folding, and save dialogs now inherit the default UI font instead of shipping separate sans-serif stacks.
 - UI text surfaces now use a shared ChatGPT-aligned sans token inside Shadow DOM, while source/code views keep a dedicated mono token.
 - Reader and bookmark panels now use rebuilt mock-aligned shells, with the reader footer showing the current page and long pagination sets wrapping inside a capped scroll area.
+- Source panels now use the rebuilt mock-aligned shell and shared overlay host pipeline while keeping raw markdown copy behavior intact.
 - Reader pagination now uses shared iconography and legacy-aligned preview cards for a cleaner, more consistent control bar.
 - Reader, bookmarks, export dialogs, folding controls, and math-copy feedback now share a single blue-on-white tooltip system instead of mixing browser titles and ad hoc popovers.
 - Interactive markdown styling now uses one shared GitHub-inspired theme layer across reader and bookmark detail surfaces.
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Fixed folder selection, counts, expansion, and empty-folder checkbox behavior in the rebuilt bookmarks tree.
 - Bookmarks: Restored bookmark row reader previews, added platform icons, added a move action, and updated hover/date layout to match the latest panel design.
 - Bookmarks: Fixed rebuilt row actions, outside-click dismiss behavior, and backdrop handling so the panel controls behave consistently with the new shell.
+- Source: Rebuilt the raw source panel with the mock-aligned header/body layout while preserving copy, close, outside-click, and escape handling.
 
 ## [3.0.0] - 2026-02-18
 
