@@ -1,0 +1,27 @@
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme) prefix(tw);
+@import "tailwindcss/utilities.css" layer(utilities) prefix(tw);
+
+@theme inline {
+  --color-surface: var(--aimd-bg-primary);
+  --color-surface-secondary: var(--aimd-bg-secondary);
+  --color-text-primary: var(--aimd-text-primary);
+  --color-text-secondary: var(--aimd-text-secondary);
+  --color-border-default: var(--aimd-border-default);
+  --color-border-strong: var(--aimd-border-strong);
+  --color-interactive: var(--aimd-interactive-primary);
+  --color-interactive-hover: var(--aimd-interactive-primary-hover);
+  --color-on-interactive: var(--aimd-text-on-primary);
+  --color-state-success: var(--aimd-state-success-border);
+  --color-state-error: var(--aimd-state-error-border);
+
+  --radius-panel: var(--aimd-radius-2xl);
+  --radius-control: var(--aimd-radius-lg);
+
+  --shadow-overlay: var(--aimd-shadow-lg);
+  --shadow-floating: var(--aimd-shadow-sm);
+
+  --spacing-overlay-2: var(--aimd-space-2);
+  --spacing-overlay-3: var(--aimd-space-3);
+  --spacing-overlay-4: var(--aimd-space-4);
+}

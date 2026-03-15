@@ -65,10 +65,22 @@ Manual regression is required when:
 - preparing a release
 - adding or expanding platform support
 - changing UI injection, toolbar behavior, reader behavior, bookmarks flows, or browser compatibility boundaries
+- changing style-system rules, Tailwind alias boundaries, or overlay/toolbar UI architecture
 
 Use:
 
 - `docs/testing/E2E_REGRESSION_GUIDE.md`
+
+For new UI modules or major UI refactors, manual regression now also includes the mock-first visual gate:
+
+- build a real mounted mock in `mocks/components/<module>/index.html`
+- open it in a browser and validate light/dark, key interaction states, dual-instance rendering, and live `shadowRoot` style nodes
+- keep screenshot or snapshot evidence before merging the implementation into `src/ui/**`
+- if the change introduces or modifies an overlay host/runtime boundary, also validate:
+  - backdrop / surface / modal layering
+  - repeated open/close stability
+  - modal stacking and ESC routing
+  - both Chromium-style shared stylesheet and Firefox-style fallback paths
 
 ---
 
@@ -76,6 +88,8 @@ Use:
 
 - Docs-only changes
   - no automated test gate required unless a test/document contract changes
+- UI workflow or style-system policy changes
+  - update the relevant docs and call out the new mock-first/browser validation expectation explicitly
 - Localized implementation change
   - targeted tests + `npm run build`
 - Shared contract or boundary change

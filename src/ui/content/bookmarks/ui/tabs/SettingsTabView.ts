@@ -4,11 +4,23 @@ import type { SettingsCategory } from '../../../../../contracts/protocol';
 import { settingsClientRpc } from '../../../../../drivers/shared/clients/settingsClientRpc';
 import type { ModalHost } from '../../../components/ModalHost';
 import { t } from '../../../components/i18n';
-import { Icons } from '../../../../../assets/icons';
+import { checkIcon, chevronDownIcon, Icons } from '../../../../../assets/icons';
+
+type SelectRef = {
+    root: HTMLElement;
+    shell: HTMLElement;
+    trigger: HTMLButtonElement;
+    triggerLabel: HTMLElement;
+    menu: HTMLElement;
+    getValue: () => string;
+    setValue: (value: string) => void;
+    close: () => void;
+    onChange: (listener: (value: string) => void) => void;
+};
 
 type Refs = {
     platforms: Record<'chatgpt' | 'gemini' | 'claude' | 'deepseek', HTMLInputElement>;
-    foldingMode: HTMLSelectElement;
+    foldingMode: SelectRef;
     foldingCountItem: HTMLElement;
     foldingCount: HTMLInputElement;
     showFoldDock: HTMLInputElement;
@@ -20,7 +32,7 @@ type Refs = {
         saveContextOnly: HTMLInputElement;
         renderCodeInReader: HTMLInputElement;
     };
-    language: HTMLSelectElement;
+    language: SelectRef;
     storageText: HTMLElement;
 };
 
@@ -38,7 +50,14 @@ export class SettingsTabView {
     private onExportAllBookmarks: (() => Promise<void>) | null;
     private settings: AppSettings = { ...DEFAULT_SETTINGS };
     private refs: Refs;
+    private selectRefs: SelectRef[] = [];
     private writeCategoryDebounced: (category: SettingsCategory, value: unknown) => void;
+    private handleDocumentClick = (event: MouseEvent): void => {
+        const target = event.target as Node | null;
+        if (!target) return;
+        if (this.selectRefs.some((selectRef) => selectRef.root.contains(target))) return;
+        this.closeSelectMenus();
+    };
 
     constructor(params: { modal: ModalHost; onExportAllBookmarks?: () => Promise<void> }) {
         this.modal = params.modal;
@@ -46,12 +65,13 @@ export class SettingsTabView {
 
         this.root = document.createElement('div');
         this.root.className = 'aimd-settings';
+        document.addEventListener('click', this.handleDocumentClick, true);
 
         const scroll = document.createElement('div');
-        scroll.className = 'aimd-scroll';
+        scroll.className = 'aimd-scroll settings-panel-scroll';
 
         const content = document.createElement('div');
-        content.className = 'settings-content';
+        content.className = 'settings-grid settings-content';
 
         // Platforms group
         const platformsGroup = this.createGroup(Icons.globe, t('platforms'));
@@ -59,7 +79,7 @@ export class SettingsTabView {
             chatgpt: this.createToggle(platformsGroup.body, `${Icons.chatgpt} ChatGPT`, t('enableOnChatGPT')),
             gemini: this.createToggle(platformsGroup.body, `${Icons.gemini} Gemini`, t('enableOnGemini')),
             claude: this.createToggle(platformsGroup.body, `${Icons.claude} Claude`, t('enableOnClaude')),
-            deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} Deepseek`, t('enableOnDeepseek')),
+            deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} DeepSeek`, t('enableOnDeepseek')),
         };
 
         // ChatGPT group
@@ -68,8 +88,8 @@ export class SettingsTabView {
             { value: 'off', label: t('chatgptFoldingModeOff') },
             { value: 'all', label: t('chatgptFoldingModeAll') },
             { value: 'keep_last_n', label: t('chatgptFoldingModeKeepLastN') },
-        ]);
-        foldingMode.select.id = 'aimd-chatgpt-folding-mode';
+        ], 'folding-mode');
+        foldingMode.trigger.id = 'aimd-chatgpt-folding-mode';
 
         const foldingCountItem = this.createNumber(chatgptGroup.body, t('chatgptFoldingCountLabel'), t('chatgptFoldingCountDesc'));
         foldingCountItem.input.id = 'aimd-chatgpt-folding-count';
@@ -93,8 +113,7 @@ export class SettingsTabView {
             { value: 'auto', label: t('languageAuto') },
             { value: 'en', label: t('languageEnglish') },
             { value: 'zh_CN', label: t('languageZhCN') },
-        ]);
-        language.select.classList.add('language-select');
+        ], 'language');
 
         // Data & storage group (legacy shows storage usage + export)
         const storageGroup = this.createGroup(Icons.database, t('dataAndStorage'));
@@ -146,7 +165,7 @@ export class SettingsTabView {
                 claude: platforms.claude.input,
                 deepseek: platforms.deepseek.input,
             },
-            foldingMode: foldingMode.select,
+            foldingMode,
             foldingCountItem: foldingCountItem.root,
             foldingCount: foldingCountItem.input,
             showFoldDock: showFoldDock.input,
@@ -158,7 +177,7 @@ export class SettingsTabView {
                 saveContextOnly: saveContextOnly.input,
                 renderCodeInReader: renderCodeInReader.input,
             },
-            language: language.select,
+            language,
             storageText,
         };
 
@@ -193,8 +212,8 @@ export class SettingsTabView {
         }
 
         // ChatGPT folding
-        this.refs.foldingMode.addEventListener('change', () => {
-            const mode = this.refs.foldingMode.value as FoldingMode;
+        this.refs.foldingMode.onChange((value) => {
+            const mode = value as FoldingMode;
             this.settings.chatgpt.foldingMode = mode;
             this.applySettingsToDom();
             this.writeCategoryDebounced('chatgpt', { foldingMode: mode });
@@ -205,6 +224,20 @@ export class SettingsTabView {
             this.settings.chatgpt.defaultExpandedCount = next;
             this.writeCategoryDebounced('chatgpt', { defaultExpandedCount: next });
         });
+        this.refs.foldingCount.addEventListener('change', () => {
+            const n = Number(this.refs.foldingCount.value);
+            this.refs.foldingCount.value = String(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
+        });
+        for (const direction of ['up', 'down'] as const) {
+            const stepper = this.refs.foldingCountItem.querySelector<HTMLButtonElement>(`[data-action="settings-step-count"][data-direction="${direction}"]`);
+            stepper?.addEventListener('click', () => {
+                const current = Number(this.refs.foldingCount.value);
+                const normalized = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
+                const next = direction === 'up' ? normalized + 1 : Math.max(0, normalized - 1);
+                this.refs.foldingCount.value = String(next);
+                this.refs.foldingCount.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        }
         this.refs.showFoldDock.addEventListener('change', () => {
             const next = this.refs.showFoldDock.checked;
             this.settings.chatgpt.showFoldDock = next;
@@ -261,8 +294,7 @@ export class SettingsTabView {
         });
 
         // Language
-        this.refs.language.addEventListener('change', () => {
-            const value = this.refs.language.value;
+        this.refs.language.onChange((value) => {
             this.settings.language = value as any;
             this.writeCategoryDebounced('language', value);
         });
@@ -275,7 +307,7 @@ export class SettingsTabView {
         this.refs.platforms.claude.checked = Boolean(s.platforms.claude);
         this.refs.platforms.deepseek.checked = Boolean(s.platforms.deepseek);
 
-        this.refs.foldingMode.value = s.chatgpt.foldingMode;
+        this.refs.foldingMode.setValue(s.chatgpt.foldingMode);
         this.refs.foldingCount.value = String(s.chatgpt.defaultExpandedCount);
         this.refs.showFoldDock.checked = Boolean(s.chatgpt.showFoldDock);
 
@@ -286,18 +318,36 @@ export class SettingsTabView {
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
         this.refs.behavior.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
 
-        this.refs.language.value = s.language;
+        this.refs.language.setValue(s.language);
+
+        this.syncToggle(this.refs.platforms.chatgpt);
+        this.syncToggle(this.refs.platforms.gemini);
+        this.syncToggle(this.refs.platforms.claude);
+        this.syncToggle(this.refs.platforms.deepseek);
+        this.syncToggle(this.refs.showFoldDock);
+        this.syncToggle(this.refs.behavior.showViewSource);
+        this.syncToggle(this.refs.behavior.showSaveMessages);
+        this.syncToggle(this.refs.behavior.showWordCount);
+        this.syncToggle(this.refs.behavior.enableClickToCopy);
+        this.syncToggle(this.refs.behavior.saveContextOnly);
+        this.syncToggle(this.refs.behavior.renderCodeInReader);
 
         // Only show count input when keep_last_n.
         const showCount = s.chatgpt.foldingMode === 'keep_last_n';
         this.refs.foldingCountItem.style.display = showCount ? 'flex' : 'none';
     }
 
+    private syncToggle(input: HTMLInputElement): void {
+        const toggle = input.closest<HTMLElement>('.toggle-switch');
+        if (!toggle) return;
+        toggle.dataset.checked = input.checked ? '1' : '0';
+    }
+
     private createGroup(icon: string, title: string): { root: HTMLElement; body: HTMLElement } {
         const root = document.createElement('div');
-        root.className = 'settings-group';
+        root.className = 'settings-card settings-group';
         const h = document.createElement('h3');
-        h.className = 'settings-group-title';
+        h.className = 'card-title settings-group-title';
         h.innerHTML = `${icon}<span>${title}</span>`;
         const body = document.createElement('div');
         root.append(h, body);
@@ -306,14 +356,12 @@ export class SettingsTabView {
 
     private createToggle(parent: HTMLElement, labelHtml: string, desc: string): { root: HTMLElement; input: HTMLInputElement } {
         const item = document.createElement('div');
-        item.className = 'settings-item';
+        item.className = 'toggle-row settings-item';
         const info = document.createElement('div');
-        info.className = 'settings-item-info';
-        const label = document.createElement('span');
-        label.className = 'settings-item-label';
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
         label.innerHTML = labelHtml;
-        const p = document.createElement('span');
-        p.className = 'settings-item-desc';
+        const p = document.createElement('p');
         p.textContent = desc;
         info.append(label, p);
 
@@ -321,61 +369,181 @@ export class SettingsTabView {
         toggle.className = 'toggle-switch';
         const input = document.createElement('input');
         input.type = 'checkbox';
-        const slider = document.createElement('span');
-        slider.className = 'toggle-slider';
-        toggle.append(input, slider);
+        const knob = document.createElement('span');
+        knob.className = 'toggle-knob';
+        input.addEventListener('change', () => {
+            toggle.dataset.checked = input.checked ? '1' : '0';
+        });
+        toggle.append(input, knob);
 
         item.append(info, toggle);
         parent.appendChild(item);
         return { root: item, input };
     }
 
-    private createSelect(parent: HTMLElement, labelText: string, desc: string, options: Array<{ value: string; label: string }>): { root: HTMLElement; select: HTMLSelectElement } {
+    private createSelect(
+        parent: HTMLElement,
+        labelText: string,
+        desc: string,
+        options: Array<{ value: string; label: string }>,
+        menuName: string
+    ): SelectRef {
         const item = document.createElement('div');
-        item.className = 'settings-item';
+        item.className = 'settings-row settings-item';
         const info = document.createElement('div');
-        info.className = 'settings-item-info';
-        const label = document.createElement('span');
-        label.className = 'settings-item-label';
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
         label.textContent = labelText;
-        const p = document.createElement('span');
-        p.className = 'settings-item-desc';
+        const p = document.createElement('p');
         p.textContent = desc;
         info.append(label, p);
 
-        const select = document.createElement('select');
-        select.className = 'settings-select';
-        for (const opt of options) {
-            const o = document.createElement('option');
-            o.value = opt.value;
-            o.textContent = opt.label;
-            select.appendChild(o);
-        }
-        item.append(info, select);
+        const shell = document.createElement('div');
+        shell.className = 'settings-select-shell';
+        shell.dataset.open = '0';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'settings-select-trigger';
+        trigger.dataset.action = 'toggle-settings-menu';
+        trigger.dataset.menu = menuName;
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+
+        const triggerLabel = document.createElement('span');
+        triggerLabel.className = 'settings-select-trigger__label';
+        const triggerCaret = document.createElement('span');
+        triggerCaret.className = 'settings-select-trigger__caret';
+        triggerCaret.innerHTML = chevronDownIcon;
+        trigger.append(triggerLabel, triggerCaret);
+
+        const menu = document.createElement('div');
+        menu.className = 'settings-select-menu';
+        menu.dataset.open = '0';
+        menu.setAttribute('role', 'listbox');
+        menu.tabIndex = -1;
+
+        const listeners = new Set<(value: string) => void>();
+        let currentValue = options[0]?.value ?? '';
+
+        const optionButtons = options.map((opt) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'settings-select-option';
+            button.dataset.value = opt.value;
+            button.setAttribute('role', 'option');
+            const optionLabel = document.createElement('span');
+            optionLabel.textContent = opt.label;
+            const optionCheck = document.createElement('span');
+            optionCheck.className = 'settings-option-check';
+            optionCheck.innerHTML = checkIcon;
+            button.append(optionLabel, optionCheck);
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                currentValue = opt.value;
+                syncValue();
+                listeners.forEach((listener) => listener(currentValue));
+                close();
+            });
+            menu.appendChild(button);
+            return button;
+        });
+
+        const syncValue = (): void => {
+            const selectedOption = options.find((opt) => opt.value === currentValue) ?? options[0] ?? { value: '', label: '' };
+            currentValue = selectedOption.value;
+            triggerLabel.textContent = selectedOption.label;
+            trigger.setAttribute('aria-label', selectedOption.label);
+            for (const button of optionButtons) {
+                const isSelected = button.dataset.value === currentValue;
+                button.dataset.selected = isSelected ? '1' : '0';
+                button.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            }
+        };
+        const close = (): void => {
+            shell.dataset.open = '0';
+            menu.dataset.open = '0';
+            trigger.setAttribute('aria-expanded', 'false');
+        };
+        const open = (): void => {
+            this.closeSelectMenus();
+            shell.dataset.open = '1';
+            menu.dataset.open = '1';
+            trigger.setAttribute('aria-expanded', 'true');
+        };
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (shell.dataset.open === '1') {
+                close();
+                return;
+            }
+            open();
+        });
+
+        syncValue();
+        shell.append(trigger, menu);
+        item.append(info, shell);
         parent.appendChild(item);
-        return { root: item, select };
+        const ref: SelectRef = {
+            root: item,
+            shell,
+            trigger,
+            triggerLabel,
+            menu,
+            getValue: () => currentValue,
+            setValue: (value: string) => {
+                currentValue = value;
+                syncValue();
+            },
+            close,
+            onChange: (listener) => listeners.add(listener),
+        };
+        this.selectRefs.push(ref);
+        return ref;
     }
 
     private createNumber(parent: HTMLElement, labelText: string, desc: string): { root: HTMLElement; input: HTMLInputElement } {
         const item = document.createElement('div');
-        item.className = 'settings-item';
+        item.className = 'settings-row settings-item';
         item.id = 'chatgpt-folding-count-item';
         const info = document.createElement('div');
-        info.className = 'settings-item-info';
-        const label = document.createElement('span');
-        label.className = 'settings-item-label';
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
         label.textContent = labelText;
-        const p = document.createElement('span');
-        p.className = 'settings-item-desc';
+        const p = document.createElement('p');
         p.textContent = desc;
         info.append(label, p);
 
         const input = document.createElement('input');
         input.className = 'settings-number';
         input.type = 'number';
+        const field = document.createElement('div');
+        field.className = 'settings-number-field';
+        const stepper = document.createElement('div');
+        stepper.className = 'settings-number-stepper';
+        const stepUp = document.createElement('button');
+        stepUp.type = 'button';
+        stepUp.className = 'settings-number-step';
+        stepUp.dataset.action = 'settings-step-count';
+        stepUp.dataset.direction = 'up';
+        stepUp.setAttribute('aria-label', 'Increase expanded count');
+        stepUp.innerHTML = chevronDownIcon;
+        const stepDown = document.createElement('button');
+        stepDown.type = 'button';
+        stepDown.className = 'settings-number-step settings-number-step--down';
+        stepDown.dataset.action = 'settings-step-count';
+        stepDown.dataset.direction = 'down';
+        stepDown.setAttribute('aria-label', 'Decrease expanded count');
+        stepDown.innerHTML = chevronDownIcon;
+        stepper.append(stepUp, stepDown);
+        field.append(input, stepper);
 
-        item.append(info, input);
+        item.append(info, field);
         parent.appendChild(item);
         return { root: item, input };
+    }
+
+    private closeSelectMenus(): void {
+        for (const selectRef of this.selectRefs) selectRef.close();
     }
 }

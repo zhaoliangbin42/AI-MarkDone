@@ -4,15 +4,15 @@ export function getMarkdownThemeCss(scope: string): string {
 ${s} {
   color: var(--aimd-text-primary);
   font-family: var(--aimd-font-family-sans);
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: var(--aimd-text-base);
+  line-height: 1.72;
   word-break: break-word;
 }
-${s} > :first-child { margin-top: 0 !important; }
-${s} > :last-child { margin-bottom: 0 !important; }
+${s} > :first-child { margin-top: 0; }
+${s} > :last-child { margin-bottom: 0; }
 ${s} :where(h1, h2, h3, h4, h5, h6) {
   margin: 1.5em 0 0.7em;
-  font-weight: 700;
+  font-weight: var(--aimd-font-semibold);
   line-height: 1.25;
   letter-spacing: -0.02em;
 }
@@ -83,7 +83,7 @@ ${s} :where(pre) {
   overflow: auto;
   padding: 16px 18px;
   border-radius: var(--aimd-radius-xl);
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 84%, #0f172a 10%);
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, var(--aimd-text-primary) 4%);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 60%, transparent);
 }
@@ -100,17 +100,35 @@ ${s} :where(.hljs) {
   background: transparent;
   color: var(--aimd-text-primary);
 }
-${s} :where(.hljs-comment, .hljs-quote) { color: #6e7781; }
-${s} :where(.hljs-keyword, .hljs-selector-tag, .hljs-subst) { color: #cf222e; }
-${s} :where(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-tag .hljs-attr) { color: #0550ae; }
-${s} :where(.hljs-string, .hljs-doctag) { color: #0a3069; }
-${s} :where(.hljs-title, .hljs-section, .hljs-selector-id) { color: #8250df; }
-${s} :where(.hljs-type, .hljs-class .hljs-title) { color: #953800; }
-${s} :where(.hljs-tag, .hljs-name, .hljs-attribute) { color: #116329; }
-${s} :where(.hljs-meta, .hljs-meta .hljs-keyword) { color: #1f6feb; }
-${s} :where(.hljs-addition) { color: #116329; background: rgba(46, 160, 67, 0.12); }
-${s} :where(.hljs-deletion) { color: #82071e; background: rgba(248, 81, 73, 0.12); }
-${s} :where(.task-list-item) { list-style: none; }
-${s} :where(.task-list-item input) { margin: 0 0.5em 0.15em -1.4em; vertical-align: middle; }
+${s} :where(.hljs-comment, .hljs-quote) { color: var(--aimd-text-tertiary); }
+${s} :where(.hljs-keyword, .hljs-selector-tag, .hljs-subst) { color: color-mix(in srgb, var(--aimd-color-danger) 76%, var(--aimd-interactive-primary)); }
+${s} :where(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-tag .hljs-attr) { color: color-mix(in srgb, var(--aimd-interactive-primary) 78%, var(--aimd-text-primary)); }
+${s} :where(.hljs-string, .hljs-doctag) { color: color-mix(in srgb, var(--aimd-state-success-border) 72%, var(--aimd-text-primary)); }
+${s} :where(.hljs-title, .hljs-section, .hljs-selector-id) { color: color-mix(in srgb, var(--aimd-text-link) 68%, var(--aimd-text-primary)); }
+${s} :where(.hljs-type, .hljs-class .hljs-title) { color: color-mix(in srgb, var(--aimd-color-warning) 68%, var(--aimd-text-primary)); }
+${s} :where(.hljs-tag, .hljs-name, .hljs-attribute) { color: color-mix(in srgb, var(--aimd-state-success-border) 80%, var(--aimd-text-primary)); }
+${s} :where(.hljs-meta, .hljs-meta .hljs-keyword) { color: color-mix(in srgb, var(--aimd-text-link) 84%, var(--aimd-bg-primary)); }
+${s} :where(.hljs-addition) { color: color-mix(in srgb, var(--aimd-state-success-border) 82%, var(--aimd-text-primary)); background: color-mix(in srgb, var(--aimd-state-success-border) 14%, transparent); }
+${s} :where(.hljs-deletion) { color: color-mix(in srgb, var(--aimd-color-danger) 82%, var(--aimd-text-primary)); background: color-mix(in srgb, var(--aimd-color-danger) 12%, transparent); }
+${s} :where(.contains-task-list) {
+  padding-left: 0;
+  list-style: none;
+}
+${s} :where(.task-list-item) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65em;
+  list-style: none;
+}
+${s} :where(.task-list-item input) {
+  margin: 0.22em 0 0;
+  accent-color: var(--aimd-interactive-primary);
+}
+${s} :where(.katex-display) {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35em 0.1em;
+}
 `;
 }

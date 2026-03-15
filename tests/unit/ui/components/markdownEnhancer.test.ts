@@ -1,27 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('highlight.js/lib/common', () => ({
-    default: {
-        highlightElement: vi.fn((code: HTMLElement) => {
-            code.innerHTML = `<span class="hljs-keyword">${code.textContent ?? ''}</span>`;
-        }),
-    },
-}));
+import { describe, expect, it } from 'vitest';
 
 import { enhanceRenderedMarkdown } from '@/ui/content/components/markdownEnhancer';
 
 describe('enhanceRenderedMarkdown', () => {
-    it('highlights regular fenced code blocks without mermaid-specific hydration', async () => {
+    it('acts as a compatibility no-op because highlighting now happens in the markdown renderer', async () => {
         const container = document.createElement('div');
         container.innerHTML = `
-          <pre data-code-language="ts"><code class="language-ts">const x = 1;</code></pre>
-          <pre data-code-language="mermaid"><code class="language-mermaid">graph TD;A-->B;</code></pre>
+          <pre data-code-language="ts"><code class="hljs language-ts"><span class="hljs-keyword">const</span> x = 1;</code></pre>
+          <pre data-code-language="mermaid"><code class="hljs language-mermaid">graph TD;A-->B;</code></pre>
         `;
+        const before = container.innerHTML;
 
         await enhanceRenderedMarkdown(container);
 
-        expect(container.querySelector('pre[data-code-language="ts"] code')?.dataset.aimdHighlighted).toBe('1');
-        expect(container.querySelector('pre[data-code-language="mermaid"] code')?.dataset.aimdHighlighted).toBe('1');
+        expect(container.innerHTML).toBe(before);
         expect(container.querySelector('.aimd-mermaid')).toBeNull();
     });
 });

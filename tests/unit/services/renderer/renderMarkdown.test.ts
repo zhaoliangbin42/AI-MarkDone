@@ -17,12 +17,44 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(html).toContain('katex');
     });
 
+    it('renders gfm tables, task lists, code highlighting, and display math in one pass', () => {
+        const html = renderMarkdownToSanitizedHtml(
+            [
+                '| Col | Value |',
+                '| --- | --- |',
+                '| alpha | beta |',
+                '',
+                '- [x] shipped',
+                '- [ ] pending',
+                '',
+                '```ts',
+                'const answer = 42;',
+                '```',
+                '',
+                '$$',
+                '\\int_0^1 x^2 \\\\, dx = \\\\frac{1}{3}',
+                '$$',
+            ].join('\n')
+        );
+
+        expect(html).toContain('<table>');
+        expect(html).toContain('task-list-item');
+        expect(html).toContain('hljs');
+        expect(html).toContain('hljs-keyword');
+        expect(html).toContain('katex-display');
+    });
+
+    it('supports optional soft line breaks for print-style rendering', () => {
+        const html = renderMarkdownToSanitizedHtml('line 1\nline 2', { softBreaks: true });
+        expect(html).toContain('line 1<br');
+    });
+
     it('renders mermaid fences as regular code blocks and preserves language classes for fenced code blocks', () => {
         const html = renderMarkdownToSanitizedHtml('```mermaid\ngraph TD\nA-->B\n```\n\n```ts\nconst x = 1;\n```');
 
         expect(html).not.toContain('data-aimd-mermaid-block="1"');
-        expect(html).toContain('class="language-mermaid"');
-        expect(html).toContain('class="language-ts"');
+        expect(html).toContain('language-mermaid');
+        expect(html).toContain('language-ts');
         expect(html).toContain('data-code-language="ts"');
         expect(html).toContain('data-code-language="mermaid"');
     });

@@ -1,4 +1,23 @@
-import { browser } from '../drivers/shared/browser';
+declare const chrome: {
+    runtime?: {
+        getURL?: (path: string) => string;
+    };
+} | undefined;
+
+function getRuntimeUrl(path: string): string {
+    const maybeBrowser = typeof globalThis !== 'undefined' ? (globalThis as { browser?: { runtime?: { getURL?: (value: string) => string } } }).browser : undefined;
+    const browserGetUrl = maybeBrowser?.runtime?.getURL;
+    if (typeof browserGetUrl === 'function') {
+        return browserGetUrl(path);
+    }
+
+    const chromeGetUrl = typeof chrome !== 'undefined' ? chrome?.runtime?.getURL : undefined;
+    if (typeof chromeGetUrl === 'function') {
+        return chromeGetUrl(path);
+    }
+
+    return path;
+}
 
 /**
  * Icon System - Inline SVG Icons
@@ -658,7 +677,7 @@ export const Icons = {
      */
     createBrandIcon(): HTMLImageElement {
         const img = document.createElement('img');
-        img.src = browser.runtime.getURL('icons/icon128.png');
+        img.src = getRuntimeUrl('icons/icon128.png');
         img.alt = 'AI-MarkDone';
         img.style.display = 'block';
         return img;

@@ -1,8 +1,6 @@
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import { getTokenCss } from '../../style/tokens';
-import { Marked } from 'marked';
-import markedKatex from 'marked-katex-extension';
-import createDOMPurify from 'dompurify';
+import { renderMarkdownToSanitizedHtml } from '../renderer/renderMarkdown';
 
 export type PdfPrintPlan = {
     containerId: string;
@@ -157,24 +155,7 @@ function tokenCssAsRoot(theme: 'light' | 'dark'): string {
 }
 
 function renderMarkdownForPdf(markdown: string): string {
-    const instance = new Marked();
-    instance.setOptions({
-        gfm: true,
-        breaks: true,
-    });
-    instance.use(
-        markedKatex({
-            throwOnError: false,
-            output: 'html',
-            nonStandard: true,
-        })
-    );
-
-    const raw = instance.parse(markdown || '') as string;
-    const dompurify = createDOMPurify(window as any);
-    return dompurify.sanitize(raw, {
-        USE_PROFILES: { html: true },
-    }) as string;
+    return renderMarkdownToSanitizedHtml(markdown, { softBreaks: true });
 }
 
 export function buildPdfPrintPlan(

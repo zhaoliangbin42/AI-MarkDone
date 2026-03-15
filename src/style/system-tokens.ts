@@ -59,6 +59,7 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-type-body-medium-size: var(--aimd-ref-type-size-200);
   --aimd-sys-type-title-medium-size: var(--aimd-ref-type-size-300);
   --aimd-sys-type-title-large-size: 18px;
+  --aimd-sys-type-title-hero-size: 26px;
   --aimd-sys-type-family-sans: ui-sans-serif, -apple-system, "system-ui", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, "sans-serif", "Segoe UI Emoji", "Segoe UI Symbol";
   --aimd-sys-type-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --aimd-sys-type-label-line-height: var(--aimd-ref-type-line-100);
@@ -80,6 +81,8 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-space-2: var(--aimd-ref-space-200);
   --aimd-sys-space-3: var(--aimd-ref-space-300);
   --aimd-sys-space-4: var(--aimd-ref-space-400);
+  --aimd-sys-space-5: calc(var(--aimd-ref-space-400) + var(--aimd-ref-space-100));
+  --aimd-sys-space-6: calc(var(--aimd-ref-space-400) + var(--aimd-ref-space-200));
   --aimd-sys-space-compact-gap: var(--aimd-ref-space-100);
   --aimd-sys-space-compact-padding: var(--aimd-ref-space-100);
 
@@ -91,6 +94,8 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-size-panel-width: var(--aimd-ref-size-fluid-viewport-92);
   --aimd-sys-size-panel-max-width: var(--aimd-ref-size-900);
   --aimd-sys-size-panel-height: var(--aimd-ref-size-fluid-viewport-82);
+  --aimd-sys-size-panel-wide-max-width: 1180px;
+  --aimd-sys-size-panel-wide-max-height: 820px;
   --aimd-sys-size-panel-source-max-height: var(--aimd-ref-size-220);
   --aimd-sys-space-panel-top: var(--aimd-ref-size-fluid-viewport-10);
 
@@ -146,6 +151,7 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-text-base: var(--aimd-sys-type-body-medium-size);
   --aimd-text-lg: var(--aimd-sys-type-title-medium-size);
   --aimd-text-xl: var(--aimd-sys-type-title-large-size);
+  --aimd-text-2xl: var(--aimd-sys-type-title-hero-size);
   --aimd-leading-normal: var(--aimd-sys-type-body-line-height);
   --aimd-leading-reading: var(--aimd-sys-type-reading-line-height);
   --aimd-font-medium: var(--aimd-sys-type-weight-medium);
@@ -156,15 +162,20 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-radius-lg: var(--aimd-sys-shape-corner-md);
   --aimd-radius-xl: var(--aimd-sys-shape-corner-xl);
   --aimd-radius-2xl: var(--aimd-sys-shape-corner-2xl);
+  --aimd-radius-full: var(--aimd-sys-shape-corner-full);
   --aimd-space-1: var(--aimd-sys-space-1);
   --aimd-space-2: var(--aimd-sys-space-2);
   --aimd-space-3: var(--aimd-sys-space-3);
   --aimd-space-4: var(--aimd-sys-space-4);
+  --aimd-space-5: var(--aimd-sys-space-5);
+  --aimd-space-6: var(--aimd-sys-space-6);
   --aimd-size-icon-md: var(--aimd-sys-size-icon-md);
   --aimd-panel-top: var(--aimd-sys-space-panel-top);
   --aimd-panel-width: var(--aimd-sys-size-panel-width);
   --aimd-panel-max-width: var(--aimd-sys-size-panel-max-width);
   --aimd-panel-height: var(--aimd-sys-size-panel-height);
+  --aimd-panel-wide-max-width: var(--aimd-sys-size-panel-wide-max-width);
+  --aimd-panel-wide-max-height: var(--aimd-sys-size-panel-wide-max-height);
   --aimd-panel-source-max-height: var(--aimd-sys-size-panel-source-max-height);
   --aimd-duration-fast: var(--aimd-sys-motion-duration-fast);
   --aimd-duration-base: var(--aimd-sys-motion-duration-enter);

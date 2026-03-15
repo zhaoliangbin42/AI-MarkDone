@@ -42,7 +42,8 @@ export class MessageToolbar {
         this.host.className = 'aimd-message-toolbar-host';
         this.host.setAttribute('data-aimd-theme', theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
-        ensureStyle(this.shadow, getTokenCss(theme) + this.getCss());
+        ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
+        ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-base', cache: 'shared' });
         this.tooltipDelegate = new TooltipDelegate(this.shadow);
         this.mount();
     }
@@ -57,8 +58,7 @@ export class MessageToolbar {
 
     setTheme(theme: Theme): void {
         this.host.setAttribute('data-aimd-theme', theme);
-        const style = this.shadow.querySelector('style');
-        if (style) style.textContent = getTokenCss(theme) + this.getCss();
+        ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
     }
 
     setPending(pending: boolean): void {

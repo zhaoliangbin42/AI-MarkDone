@@ -11,8 +11,14 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-sys-color-surface');
         expect(css).toContain('--aimd-shadow-xl');
         expect(css).toContain('--aimd-radius-2xl');
+        expect(css).toContain('--aimd-radius-full');
         expect(css).toContain('--aimd-text-base');
+        expect(css).toContain('--aimd-text-2xl');
         expect(css).toContain('--aimd-interactive-hover');
+        expect(css).toContain('--aimd-space-5');
+        expect(css).toContain('--aimd-space-6');
+        expect(css).toContain('--aimd-panel-wide-max-width');
+        expect(css).toContain('--aimd-panel-wide-max-height');
         expect(css).not.toContain('--aimd-bg-primary: #');
     });
 

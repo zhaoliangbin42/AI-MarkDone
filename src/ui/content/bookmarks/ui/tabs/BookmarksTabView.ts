@@ -33,7 +33,6 @@ type Refs = {
     sortTimeBtn: HTMLButtonElement;
     sortAlphaBtn: HTMLButtonElement;
     importFile: HTMLInputElement;
-    exportSelectedBtn: HTMLButtonElement;
     batch: HTMLElement;
     tree: HTMLElement;
 };
@@ -83,13 +82,13 @@ export class BookmarksTabView {
         this.onRequestHidePanel = params.onRequestHidePanel ?? null;
 
         this.root = document.createElement('div');
-        this.root.className = 'aimd-bookmarks';
+        this.root.className = 'bookmarks-tab-content';
 
         const toolbar = document.createElement('div');
-        toolbar.className = 'aimd-bookmarks-toolbar';
+        toolbar.className = 'toolbar-row toolbar-row--bookmarks';
 
         const search = document.createElement('div');
-        search.className = 'aimd-search';
+        search.className = 'search-field';
         search.appendChild(createIcon(searchIcon));
         const query = document.createElement('input');
         query.type = 'text';
@@ -135,38 +134,29 @@ export class BookmarksTabView {
             onClick: () => void this.exportAll(),
         });
 
-        const exportSelectedBtn = this.makeIconButton({
-            icon: downloadIcon,
-            label: t('exportSelected'),
-            onClick: () => void this.exportSelected(),
-        });
-
         const sortGroup = document.createElement('div');
-        sortGroup.className = 'aimd-toolbar-group aimd-toolbar-group--sort';
-        sortGroup.dataset.priority = 'primary';
+        sortGroup.className = 'toolbar-actions';
         sortGroup.append(sortTimeBtn, sortAlphaBtn);
 
         const actionsGroup = document.createElement('div');
-        actionsGroup.className = 'aimd-toolbar-group aimd-toolbar-group--actions';
-        actionsGroup.dataset.priority = 'secondary';
+        actionsGroup.className = 'toolbar-actions';
         actionsGroup.append(
             folderCreateBtn,
             importBtn,
-            exportBtn,
-            exportSelectedBtn
+            exportBtn
         );
 
         const toolbarRight = document.createElement('div');
-        toolbarRight.className = 'aimd-toolbar-right';
+        toolbarRight.className = 'toolbar-actions';
         toolbarRight.append(sortGroup, actionsGroup, importFile);
 
         toolbar.append(search, platform.getElement(), toolbarRight);
 
         const batch = document.createElement('div');
-        batch.className = 'aimd-batch';
+        batch.className = 'batch-bar';
 
         const tree = document.createElement('div');
-        tree.className = 'aimd-scroll aimd-tree';
+        tree.className = 'tree-panel';
         tree.setAttribute('role', 'tree');
 
         this.root.append(toolbar, batch, tree);
@@ -174,8 +164,7 @@ export class BookmarksTabView {
         tree.addEventListener('click', (e) => {
             const target = e.target as HTMLElement | null;
             if (!target) return;
-            if (target.closest('.aimd-tree-item')) return;
-            if (target.closest('.aimd-tree-filter')) return;
+            if (target.closest('.tree-item')) return;
             this.controller.selectFolder(null);
         });
 
@@ -185,7 +174,6 @@ export class BookmarksTabView {
             sortTimeBtn,
             sortAlphaBtn,
             importFile,
-            exportSelectedBtn,
             batch,
             tree,
         };
@@ -198,6 +186,10 @@ export class BookmarksTabView {
     focusPrimaryInput(): void {
         this.refs.query.focus();
         this.refs.query.select();
+    }
+
+    dismissTransientUi(): void {
+        this.refs.platform.close();
     }
 
     update(snap: BookmarksPanelSnapshot): void {
@@ -216,8 +208,6 @@ export class BookmarksTabView {
         this.refs.platform.setValue(snap.vm.platform);
 
         const selectedBookmarkCount = this.countSelectedBookmarks(snap.selectedKeys);
-        this.refs.exportSelectedBtn.disabled = selectedBookmarkCount === 0;
-
         this.renderBatchBar(this.refs.batch, selectedBookmarkCount);
         this.renderTree(this.refs.tree, snap);
         this.updateSortButtons(snap.vm.sortMode);
@@ -226,21 +216,26 @@ export class BookmarksTabView {
     private renderTree(container: HTMLElement, snap: BookmarksPanelSnapshot): void {
         const visibleKeys = new Set<string>(snap.vm.bookmarks.map(bookmarkSelectionKey));
         const selectedPath = snap.vm.selectedFolderPath;
+        const hasActiveFilters = Boolean(snap.vm.query.trim())
+            || snap.vm.platform !== 'All'
+            || selectedPath !== null;
+        const hasLibraryContent = snap.vm.bookmarks.length > 0
+            || snap.vm.folderTree.some((node) => this.hasRealFolderContent(node));
 
         const frag = document.createDocumentFragment();
-
-        if (selectedPath) {
-            frag.appendChild(this.renderFolderFilterBar(selectedPath));
-        }
+        let renderedNodeCount = 0;
 
         for (const node of snap.vm.folderTree) {
-            frag.appendChild(this.renderFolderNode(node, 0, visibleKeys, selectedPath));
+            const rendered = this.renderFolderNode(node, 0, visibleKeys, selectedPath);
+            if (!rendered) continue;
+            renderedNodeCount += 1;
+            frag.appendChild(rendered);
         }
 
-        if (snap.vm.folderTree.length === 0) {
-            frag.appendChild(this.renderEmptyState());
-        } else if (visibleKeys.size === 0) {
-            frag.appendChild(this.renderEmptyState({ kind: 'no_results' }));
+        if (renderedNodeCount === 0) {
+            frag.appendChild(this.renderEmptyState({
+                kind: hasActiveFilters || hasLibraryContent ? 'no_results' : 'empty',
+            }));
         }
 
         container.replaceChildren(frag);
@@ -251,16 +246,15 @@ export class BookmarksTabView {
         depth: number,
         visibleKeys: Set<string>,
         selectedPath: string | null
-    ): HTMLElement {
+    ): HTMLElement | null {
         const wrapper = document.createElement('div');
-        wrapper.className = 'aimd-tree-node';
+        wrapper.className = 'tree-node';
 
         const totalVisible = this.countVisibleUnderFolder(node, visibleKeys);
-        const hasVisibleBookmarks = node.bookmarks.some((b) => visibleKeys.has(bookmarkSelectionKey(b)));
-        const hasAnyChildFolders = node.children.length > 0;
-        const hasChildren = hasAnyChildFolders || hasVisibleBookmarks;
-
         const nodePath = node.folder.path;
+
+        const hasDirectBookmarks = node.bookmarks.length > 0;
+        const hasChildren = hasDirectBookmarks || node.children.length > 0;
         const effectiveExpanded = this.getEffectiveExpanded(nodePath, node.isExpanded, selectedPath);
 
         const row = this.renderFolderRow({
@@ -276,11 +270,13 @@ export class BookmarksTabView {
         wrapper.appendChild(row);
 
         const children = document.createElement('div');
-        children.className = 'aimd-tree-children';
+        children.className = 'tree-children';
         children.dataset.expanded = effectiveExpanded ? '1' : '0';
 
         for (const child of node.children) {
-            children.appendChild(this.renderFolderNode(child, depth + 1, visibleKeys, selectedPath));
+            const rendered = this.renderFolderNode(child, depth + 1, visibleKeys, selectedPath);
+            if (!rendered) continue;
+            children.appendChild(rendered);
         }
         for (const b of node.bookmarks) {
             if (!visibleKeys.has(bookmarkSelectionKey(b))) continue;
@@ -306,6 +302,11 @@ export class BookmarksTabView {
         return count;
     }
 
+    private hasRealFolderContent(node: FolderTreeNode): boolean {
+        if (node.bookmarks.length > 0) return true;
+        return node.children.some((child) => this.hasRealFolderContent(child));
+    }
+
     private renderFolderRow(params: {
         label: string;
         path: string | null;
@@ -316,8 +317,9 @@ export class BookmarksTabView {
         count: number;
     }): HTMLElement {
         const row = document.createElement('div');
-        row.className = 'aimd-tree-item aimd-tree-item--folder';
-        row.dataset.selected = params.isSelected ? '1' : '0';
+        row.className = 'tree-item tree-item--folder';
+        row.dataset.selected = '0';
+        row.dataset.path = params.path ?? '';
         row.setAttribute('role', 'treeitem');
         row.setAttribute('aria-level', String(params.depth + 1));
         if (params.path) row.setAttribute('aria-expanded', params.isExpanded ? 'true' : 'false');
@@ -329,7 +331,7 @@ export class BookmarksTabView {
 
         const caret = document.createElement('button');
         caret.type = 'button';
-        caret.className = 'aimd-tree-caret';
+        caret.className = 'tree-caret';
         caret.disabled = !params.hasChildren;
         caret.innerHTML = params.hasChildren ? (params.isExpanded ? chevronDownIcon : chevronRightIcon) : '';
         caret.addEventListener('click', (e) => {
@@ -341,12 +343,13 @@ export class BookmarksTabView {
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.className = 'aimd-tree-check';
+        checkbox.className = 'tree-check';
         checkbox.disabled = !params.path;
         if (params.path) {
             const state = this.controller.getFolderCheckboxState(params.path);
             checkbox.checked = state.checked;
             checkbox.indeterminate = state.indeterminate;
+            checkbox.dataset.indeterminate = state.indeterminate ? '1' : '0';
         }
         checkbox.addEventListener('click', (e) => e.stopPropagation());
         checkbox.addEventListener('change', (e) => {
@@ -355,22 +358,38 @@ export class BookmarksTabView {
             this.controller.toggleFolderSelection(params.path);
         });
 
+        const main = document.createElement('button');
+        main.type = 'button';
+        main.className = 'tree-main tree-main--folder';
+        main.dataset.path = params.path ?? '';
         const label = document.createElement('div');
-        label.className = 'aimd-tree-label';
+        label.className = 'tree-label';
         label.textContent = params.label;
+        main.appendChild(label);
+        main.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.selectFolder(params.path);
+        });
+        main.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.selectFolder(params.path);
+        });
 
         const icon = document.createElement('div');
-        icon.className = 'aimd-tree-folder-icon';
+        icon.className = 'tree-folder-icon';
         if (params.path) {
             icon.appendChild(createIcon(params.isExpanded ? folderOpenIcon : folderIcon));
         }
 
         const count = document.createElement('div');
-        count.className = 'aimd-tree-count';
+        count.className = 'tree-count';
         count.textContent = params.path ? String(params.count) : '';
 
         const actions = document.createElement('div');
-        actions.className = 'aimd-tree-actions';
+        actions.className = 'tree-actions';
 
         if (params.path) {
             actions.append(
@@ -388,7 +407,7 @@ export class BookmarksTabView {
                 }),
                 this.makeRowAction({
                     icon: moveIcon,
-                    label: t('moveSelected'),
+                    label: t('moveFolder'),
                     kind: 'default',
                     onClick: () => void this.moveFolder(params.path!),
                 }),
@@ -401,21 +420,14 @@ export class BookmarksTabView {
             );
         }
 
-        row.append(caret, checkbox, icon, label, count, actions);
-        row.addEventListener('click', () => this.controller.selectFolder(params.path));
-        row.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.controller.selectFolder(params.path);
-            }
-        });
+        row.append(caret, checkbox, icon, main, count, actions);
 
         return row;
     }
 
     private renderBookmarkRow(b: Bookmark, depth: number): HTMLElement {
         const row = document.createElement('div');
-        row.className = 'aimd-tree-item aimd-tree-item--bookmark';
+        row.className = 'tree-item tree-item--bookmark';
         row.setAttribute('role', 'treeitem');
         row.setAttribute('aria-level', String(depth + 1));
         row.tabIndex = 0;
@@ -424,9 +436,17 @@ export class BookmarksTabView {
         const step = this.indentStepPx ?? 18;
         row.style.paddingLeft = `${base + depth * step}px`;
 
+        const caretSlot = document.createElement('span');
+        caretSlot.className = 'tree-caret-slot';
+        caretSlot.setAttribute('aria-hidden', 'true');
+
+        const iconSlot = document.createElement('span');
+        iconSlot.className = 'tree-icon-slot';
+        iconSlot.setAttribute('aria-hidden', 'true');
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.className = 'aimd-tree-check';
+        checkbox.className = 'tree-check';
         checkbox.checked = this.snapshot?.selectedKeys?.has(bookmarkSelectionKey(b)) ?? false;
         checkbox.addEventListener('click', (e) => e.stopPropagation());
         checkbox.addEventListener('change', (e) => {
@@ -434,18 +454,33 @@ export class BookmarksTabView {
             this.controller.toggleBookmarkSelection(b);
         });
 
-        const main = document.createElement('div');
-        main.className = 'aimd-tree-main';
+        const main = document.createElement('button');
+        main.type = 'button';
+        main.className = 'tree-main tree-main--bookmark';
+        main.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void this.openPreviewInReader(b);
+        });
+        main.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            void this.openPreviewInReader(b);
+        });
+        const labelRow = document.createElement('span');
+        labelRow.className = 'tree-label-row';
         const title = document.createElement('div');
-        title.className = 'aimd-tree-title';
+        title.className = 'tree-label';
         title.textContent = getBookmarkDisplayTitle(b);
         const subtitle = document.createElement('div');
-        subtitle.className = 'aimd-tree-subtitle';
+        subtitle.className = 'tree-subtitle';
         subtitle.textContent = this.controller.getBookmarkRowSubtitle(b);
-        main.append(title, subtitle);
+        labelRow.append(title, subtitle);
+        main.appendChild(labelRow);
 
         const actions = document.createElement('div');
-        actions.className = 'aimd-tree-actions';
+        actions.className = 'tree-actions';
         actions.append(
             this.makeRowAction({
                 icon: externalLinkIcon,
@@ -467,14 +502,7 @@ export class BookmarksTabView {
             })
         );
 
-        row.append(checkbox, main, actions);
-        row.addEventListener('click', () => void this.openPreviewInReader(b));
-        row.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                void this.openPreviewInReader(b);
-            }
-        });
+        row.append(caretSlot, checkbox, iconSlot, main, actions);
         return row;
     }
 
@@ -483,10 +511,11 @@ export class BookmarksTabView {
         container.dataset.active = selectedBookmarkCount > 0 ? '1' : '0';
 
         const label = document.createElement('div');
+        label.className = 'batch-label';
         label.textContent = selectedBookmarkCount > 0 ? t('selectedCount', String(selectedBookmarkCount)) : t('noSelectionLabel');
 
         const actions = document.createElement('div');
-        actions.className = 'aimd-batch-actions';
+        actions.className = 'batch-actions';
 
         const clearBtn = this.makeIconButton({
             icon: xIcon,
@@ -675,7 +704,7 @@ export class BookmarksTabView {
     private async moveFolder(path: string): Promise<void> {
         const parent = await this.modal.prompt({
             kind: 'info',
-            title: t('moveSelected'),
+            title: t('moveFolder'),
             message: t('promptTargetParentFolder'),
             placeholder: '',
             defaultValue: '',
@@ -684,7 +713,7 @@ export class BookmarksTabView {
         });
         if (parent === null) return;
         const res = await this.controller.moveFolder(path, parent);
-        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('moveSelected'), message: res.message, confirmText: t('btnOk') });
+        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('moveFolder'), message: res.message, confirmText: t('btnOk') });
         this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
     }
 
@@ -822,7 +851,7 @@ export class BookmarksTabView {
     }): HTMLButtonElement {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `aimd-icon-btn aimd-icon-btn--${params.kind ?? 'default'}`;
+        btn.className = `icon-btn${params.kind === 'danger' ? ' icon-btn--danger' : ''}`;
         btn.title = params.label;
         btn.setAttribute('aria-label', params.label);
         btn.appendChild(createIcon(params.icon));
@@ -845,7 +874,6 @@ export class BookmarksTabView {
             kind: params.kind ?? 'default',
             onClick: params.onClick,
         });
-        btn.classList.add('aimd-tree-action-btn');
         btn.addEventListener('click', (e) => e.stopPropagation());
         return btn;
     }
@@ -872,48 +900,27 @@ export class BookmarksTabView {
         return count;
     }
 
-    private renderFolderFilterBar(path: string): HTMLElement {
-        const wrap = document.createElement('div');
-        wrap.className = 'aimd-tree-filter';
-
-        const label = document.createElement('div');
-        label.className = 'aimd-tree-filter-label';
-        label.textContent = `${t('folderLabel')} ${path}`;
-
-        const clear = this.makeIconButton({
-            icon: xIcon,
-            label: t('btnClose'),
-            onClick: () => this.controller.selectFolder(null),
-        });
-        clear.classList.add('aimd-tree-filter-clear');
-
-        wrap.append(label, clear);
-        return wrap;
-    }
-
     private renderEmptyState(params?: { kind?: 'empty' | 'no_results' }): HTMLElement {
         const kind = params?.kind ?? 'empty';
         const root = document.createElement('div');
-        root.className = 'aimd-empty';
+        root.className = 'empty-state';
 
         const icon = document.createElement('div');
-        icon.className = 'aimd-empty-icon';
+        icon.className = 'empty-icon';
         icon.appendChild(createIcon(folderIcon));
 
-        const title = document.createElement('div');
-        title.className = 'aimd-empty-title';
+        const title = document.createElement('strong');
         title.textContent = kind === 'no_results' ? t('noResultsTitle') : t('noFoldersYet');
 
-        const desc = document.createElement('div');
-        desc.className = 'aimd-empty-desc';
+        const desc = document.createElement('p');
         desc.textContent = kind === 'no_results' ? t('noResultsHint') : t('createFirstFolder');
 
         const actions = document.createElement('div');
-        actions.className = 'aimd-empty-actions';
+        actions.className = 'empty-actions';
 
         const createBtn = document.createElement('button');
         createBtn.type = 'button';
-        createBtn.className = 'aimd-empty-primary';
+        createBtn.className = 'studio-btn studio-btn--primary';
         createBtn.textContent = kind === 'no_results' ? t('clearFiltersBtn') : t('createFirstFolderBtn');
         createBtn.addEventListener('click', () => {
             if (kind === 'no_results') {
@@ -927,7 +934,7 @@ export class BookmarksTabView {
 
         const importBtn = document.createElement('button');
         importBtn.type = 'button';
-        importBtn.className = 'aimd-empty-secondary';
+        importBtn.className = 'studio-btn studio-btn--secondary';
         importBtn.textContent = t('importBookmarks');
         importBtn.addEventListener('click', () => this.refs.importFile.click());
 

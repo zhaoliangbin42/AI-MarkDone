@@ -13,10 +13,36 @@
 - **可回归**：关键能力（bookmarks、reader、parse/render、settings、i18n）必须有可重复回归套件
 - **可定位**：失败能快速映射到模块（而不是“全局 E2E 才能发现”）
 - **兼容性**：Chrome MV3 / Firefox MV2 的差异点必须被测试锁定（至少 release gates）
+- **可视验收**：UI 模块在并入插件前必须先完成 mock-first 浏览器视觉验证，而不是只依赖 build 或 jsdom
 
 ---
 
-## 2. 目标测试分层（建议目录结构）
+## 2. UI Mock Visual Testing Blueprint
+
+所有新 UI 模块与高风险 UI 重构都必须先通过 mock-first 视觉验收，再进入插件实现。
+
+固定流程：
+
+1. 在 `mocks/components/<module>/index.html` 建立真实组件挂载型 mock。
+2. mock 必须复用真实组件、真实 token 注入链路、真实 Shadow DOM 挂载方式。
+3. 在浏览器中打开 mock 页面，验证：
+   - `light / dark`
+   - hover / focus / active / disabled / open 等关键状态
+   - 两个独立实例同时挂载
+   - live `shadowRoot` 中的运行时样式节点
+   - 溢出、滚动、分层、对齐和密度
+4. 留存截图或快照作为视觉验收依据。
+5. mock 页面视觉达到批准基线后，才能把实现迁入 `src/ui/**`。
+6. 迁入插件后，再执行真实 content runtime 集成验证与双浏览器回归。
+
+模块差异：
+
+- Toolbar：重点看高密度多实例、注入稳定性、轻量布局、样式隔离
+- Overlay：重点看单例打开/关闭、主题同步、层级、焦点管理、滚动与定位
+
+---
+
+## 3. 目标测试分层（建议目录结构）
 
 建议把测试按“目的/层级”拆清楚（避免 `unit`、`integration`、`release` 概念混用）：
 
@@ -40,7 +66,7 @@ tests/
 
 ---
 
-## 3. “每个逻辑函数单测”的可执行定义（避免空泛）
+## 4. “每个逻辑函数单测”的可执行定义（避免空泛）
 
 不现实也不必要对所有私有方法逐一写测试；建议采用可执行口径：
 
@@ -55,24 +81,26 @@ tests/
 
 ---
 
-## 4. 现有体系中的问题（As-Is）
+## 5. 现有体系中的问题（As-Is）
 
 - 测试中存在对历史文档路径的硬依赖（例如 round-3 artifacts），会锁死 docs 结构
 - 大文件热点已经超过文件治理门禁，但测试只能“提醒”，不能强制拆分完成
 - 存储/协议/适配器契约尚未形成统一 schema，因此测试难以作为“架构门禁”
+- UI 视觉迭代如果直接在插件内进行，回归成本高，且很难沉淀稳定的视觉验收证据
 
 ---
 
-## 5. 与重构 checklist 的关系
+## 6. 与重构 checklist 的关系
 
 本蓝图将被落实到：
 
 - `docs/refactor/REFACTOR_CHECKLIST.md` 的新增阶段（Testing System Refactor）
 - 协议/存储/适配器契约的门禁测试（contracts）
+- mock-first 视觉验收与 runtime integration 的双阶段 UI 门禁
 
 ---
 
-## 6. Entry Bundle Release Gates
+## 7. Entry Bundle Release Gates
 
 针对浏览器扩展 entry（尤其 `content.js` / `background.js`），构建门禁必须覆盖“运行时加载格式”而不只看 TypeScript/单测是否通过。
 

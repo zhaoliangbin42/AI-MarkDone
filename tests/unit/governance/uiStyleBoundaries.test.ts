@@ -53,6 +53,13 @@ describe('UI style governance', () => {
         expect(source).not.toContain('--aimd-text-base:');
     });
 
+    it('does not ship mock-stage positioning overrides inside the formal bookmarks panel css', () => {
+        const source = fs.readFileSync(path.join(repoRoot, 'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts'), 'utf8');
+
+        expect(source).not.toContain('.panel-stage__overlay.aimd-panel-overlay');
+        expect(source).not.toContain('.panel-window.panel-window--bookmarks.aimd-panel');
+    });
+
     it('uses the shared sans token across shadow-root UI surfaces', () => {
         for (const file of sansFiles) {
             const source = fs.readFileSync(path.join(repoRoot, file), 'utf8');

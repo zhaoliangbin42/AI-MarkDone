@@ -254,6 +254,9 @@
     "renameFolder": {
         "message": "重命名文件夹"
     },
+    "moveFolder": {
+        "message": "移动文件夹"
+    },
     "delete": {
         "message": "删除"
     },
@@ -552,7 +555,7 @@
         "message": "在 Claude 上启用扩展"
     },
     "enableOnDeepseek": {
-        "message": "在 Deepseek 上启用扩展"
+        "message": "在 DeepSeek 上启用扩展"
     },
     "viewSourceLabel": {
         "message": "工具栏 > 查看源码"

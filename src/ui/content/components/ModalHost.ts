@@ -32,16 +32,16 @@ type CustomOptions = {
 };
 
 export class ModalHost {
-    private shadow: ShadowRoot;
+    private root: ShadowRoot | HTMLElement;
     private container: HTMLElement;
     private openCount: number = 0;
     private lastActive: HTMLElement | null = null;
 
-    constructor(shadow: ShadowRoot) {
-        this.shadow = shadow;
+    constructor(root: ShadowRoot | HTMLElement) {
+        this.root = root;
         this.container = document.createElement('div');
         this.container.className = 'aimd-modal-host';
-        this.shadow.appendChild(this.container);
+        this.root.appendChild(this.container);
     }
 
     isOpen(): boolean {

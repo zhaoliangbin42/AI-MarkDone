@@ -30,19 +30,30 @@ function getTooltipCss(): string {
   pointer-events: none;
   z-index: var(--aimd-z-tooltip);
   opacity: 0;
-  transform: translate(-50%, -6px);
+  transform: translateX(-50%);
   transition: opacity var(--aimd-duration-fast) var(--aimd-ease-in-out),
-              transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+              translate var(--aimd-duration-fast) var(--aimd-ease-in-out);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   white-space: normal;
+  translate: 0 4px;
 }
 .aimd-tooltip[data-open="1"] {
   opacity: 1;
-  transform: translate(-50%, -12px);
+  translate: 0 0;
 }
 .aimd-tooltip[data-variant="preview"] {
   padding: var(--aimd-space-2) var(--aimd-space-3);
+}
+.aimd-tooltip[data-placement="top"] {
+  translate: 0 4px;
+}
+.aimd-tooltip[data-placement="bottom"] {
+  translate: 0 -4px;
+}
+.aimd-tooltip[data-open="1"][data-placement="top"],
+.aimd-tooltip[data-open="1"][data-placement="bottom"] {
+  translate: 0 0;
 }
 .aimd-tooltip__title {
   display: block;
@@ -102,6 +113,34 @@ function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
 
+function getTooltipMetrics(tooltip: HTMLElement): { width: number; height: number } {
+    const rect = tooltip.getBoundingClientRect();
+    return {
+        width: rect.width || tooltip.offsetWidth || 260,
+        height: rect.height || tooltip.offsetHeight || 36,
+    };
+}
+
+function positionTooltipElement(tooltip: HTMLElement, rect: DOMRect): void {
+    const gap = 10;
+    const viewportPadding = 12;
+    const { width, height } = getTooltipMetrics(tooltip);
+    const centerX = rect.left + rect.width / 2;
+    const clampedLeft = clamp(centerX, viewportPadding + width / 2, window.innerWidth - viewportPadding - width / 2);
+
+    const preferredTop = rect.top - height - gap;
+    const fallbackTop = rect.bottom + gap;
+    const maxTop = Math.max(viewportPadding, window.innerHeight - height - viewportPadding);
+    const placement = preferredTop >= viewportPadding ? 'top' : 'bottom';
+    const top = placement === 'top'
+        ? preferredTop
+        : clamp(fallbackTop, viewportPadding, maxTop);
+
+    tooltip.dataset.placement = placement;
+    tooltip.style.left = `${clampedLeft}px`;
+    tooltip.style.top = `${top}px`;
+}
+
 function truncatePreview(text: string, maxLen: number = 96): string {
     const value = text.trim();
     return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
@@ -116,6 +155,7 @@ function buildTooltipEl(root: ShadowRoot | Document, target: TooltipTarget): HTM
     tooltip.className = 'aimd-tooltip';
     tooltip.dataset.open = '0';
     tooltip.dataset.variant = variant;
+    tooltip.dataset.placement = 'top';
 
     const titleText = (target.dataset.tooltipTitle || '').trim();
     if (variant === 'preview' && titleText) {
@@ -263,13 +303,7 @@ export class TooltipDelegate {
         this.tooltipEl = tooltip;
 
         const rect = target.getBoundingClientRect();
-        tooltip.style.left = `${rect.left + rect.width / 2}px`;
-        tooltip.style.top = `${Math.max(12, rect.top)}px`;
-
-        const width = tooltip.offsetWidth || 260;
-        const half = width / 2;
-        const clampedLeft = clamp(rect.left + rect.width / 2, 12 + half, window.innerWidth - 12 - half);
-        tooltip.style.left = `${clampedLeft}px`;
+        positionTooltipElement(tooltip, rect);
 
         window.requestAnimationFrame(() => {
             if (tooltip === this.tooltipEl) tooltip.dataset.open = '1';
@@ -321,11 +355,8 @@ export function showEphemeralTooltip(params: {
     body.className = 'aimd-tooltip__body';
     body.textContent = params.text;
     tooltip.appendChild(body);
-
-    const rect = params.anchor.getBoundingClientRect();
-    tooltip.style.left = `${rect.left + rect.width / 2}px`;
-    tooltip.style.top = `${rect.top}px`;
     getTooltipLayer(root).appendChild(tooltip);
+    positionTooltipElement(tooltip, params.anchor.getBoundingClientRect());
 
     window.setTimeout(() => {
         tooltip.remove();

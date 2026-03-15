@@ -1,6 +1,6 @@
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
-import { Icons, chevronDownIcon, chatgptIcon } from '../../../../../assets/icons';
+import { Icons, checkIcon, chevronDownIcon, chatgptIcon } from '../../../../../assets/icons';
 
 export type PlatformDropdownItem = {
     value: string;
@@ -48,29 +48,33 @@ export class PlatformDropdown {
         this.onChange = params.onChange;
 
         this.root = document.createElement('div');
-        this.root.className = 'aimd-platform';
+        this.root.className = 'platform-dropdown';
 
         this.button = document.createElement('button');
         this.button.type = 'button';
-        this.button.className = 'aimd-platform-btn';
+        this.button.className = 'platform-dropdown__trigger';
         this.button.setAttribute('aria-haspopup', 'listbox');
         this.button.setAttribute('aria-expanded', 'false');
         this.button.setAttribute('aria-label', t('allPlatforms'));
 
+        const valueShell = document.createElement('span');
+        valueShell.className = 'platform-dropdown__value';
+
         this.iconEl = document.createElement('span');
-        this.iconEl.className = 'aimd-platform-icon';
+        this.iconEl.className = 'platform-option-icon';
 
         this.labelEl = document.createElement('span');
-        this.labelEl.className = 'aimd-platform-label';
+        this.labelEl.className = 'platform-dropdown__label';
 
         const caret = document.createElement('span');
-        caret.className = 'aimd-platform-caret';
+        caret.className = 'platform-dropdown__caret';
         caret.appendChild(createIcon(chevronDownIcon));
 
-        this.button.append(this.iconEl, this.labelEl, caret);
+        valueShell.append(this.iconEl, this.labelEl);
+        this.button.append(valueShell, caret);
 
         this.menu = document.createElement('div');
-        this.menu.className = 'aimd-platform-menu';
+        this.menu.className = 'platform-dropdown__menu';
         this.menu.setAttribute('role', 'listbox');
         this.menu.tabIndex = -1;
 
@@ -88,7 +92,7 @@ export class PlatformDropdown {
             }
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                const opts = this.menu.querySelectorAll<HTMLButtonElement>('.aimd-platform-option');
+                const opts = this.menu.querySelectorAll<HTMLButtonElement>('.platform-dropdown__option');
                 opts[this.activeIndex]?.click();
             }
         });
@@ -122,6 +126,10 @@ export class PlatformDropdown {
         return this.root;
     }
 
+    close(): void {
+        this.setOpen(false);
+    }
+
     setItems(items: PlatformDropdownItem[]): void {
         this.items = items;
         this.renderMenu();
@@ -144,7 +152,7 @@ export class PlatformDropdown {
             window.setTimeout(() => {
                 const idx = this.items.findIndex((i) => i.value === this.value);
                 this.activeIndex = idx >= 0 ? idx : 0;
-                const opts = this.menu.querySelectorAll<HTMLButtonElement>('.aimd-platform-option');
+                const opts = this.menu.querySelectorAll<HTMLButtonElement>('.platform-dropdown__option');
                 (opts[this.activeIndex] ?? this.menu).focus();
             }, 0);
             window.addEventListener('mousedown', this.onOutsidePointerDown, { capture: true });
@@ -189,22 +197,30 @@ export class PlatformDropdown {
         for (const item of this.items) {
             const opt = document.createElement('button');
             opt.type = 'button';
-            opt.className = 'aimd-platform-option';
+            opt.className = 'platform-dropdown__option';
             opt.dataset.value = item.value;
             opt.dataset.selected = item.value === this.value ? '1' : '0';
             opt.setAttribute('role', 'option');
             opt.setAttribute('aria-selected', item.value === this.value ? 'true' : 'false');
-            opt.title = item.label;
             opt.setAttribute('aria-label', item.label);
 
+            const valueShell = document.createElement('span');
+            valueShell.className = 'platform-dropdown__value';
+
             const icon = document.createElement('span');
-            icon.className = 'aimd-platform-option-icon';
+            icon.className = 'platform-option-icon';
             icon.appendChild(createIcon(item.icon ?? iconForValue(item.value)));
             const label = document.createElement('span');
-            label.className = 'aimd-platform-option-label';
+            label.className = 'platform-dropdown__label';
             label.textContent = item.label;
+            const check = document.createElement('span');
+            check.className = 'platform-option-check';
+            if (item.value === this.value) {
+                check.appendChild(createIcon(checkIcon));
+            }
 
-            opt.append(icon, label);
+            valueShell.append(icon, label);
+            opt.append(valueShell, check);
             opt.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.value = item.value;
@@ -218,7 +234,7 @@ export class PlatformDropdown {
     }
 
     private moveActive(delta: number): void {
-        const opts = this.menu.querySelectorAll<HTMLButtonElement>('.aimd-platform-option');
+        const opts = this.menu.querySelectorAll<HTMLButtonElement>('.platform-dropdown__option');
         if (opts.length === 0) return;
         this.activeIndex = (this.activeIndex + delta + opts.length) % opts.length;
         opts[this.activeIndex]?.focus();

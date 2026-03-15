@@ -13,7 +13,6 @@ import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../component
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { TooltipDelegate, upgradeTitleTooltips } from '../../../utils/tooltip';
 import { getMarkdownThemeCss } from '../components/markdownTheme';
-import { enhanceRenderedMarkdown } from '../components/markdownEnhancer';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -212,7 +211,6 @@ export class ReaderPanel {
 
         const html = renderMarkdownToSanitizedHtml(markdown);
         this.applyHtml(container, html);
-        await enhanceRenderedMarkdown(container);
         container.scrollTop = 0;
     }
 

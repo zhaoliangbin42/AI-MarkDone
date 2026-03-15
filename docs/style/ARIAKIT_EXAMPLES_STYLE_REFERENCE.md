@@ -1,5 +1,7 @@
 # Ariakit Examples Style Reference
 
+> Historical reference only as of 2026-03-13. This document is kept for visual archaeology and comparison, not as an active implementation authority. New modules must follow `docs/style/STYLE_SYSTEM.md`, `docs/style/STYLE_ARCHITECTURE.md`, active ADRs, and the mock-first testing workflow.
+
 目的：将 [Ariakit Examples](https://ariakit.org/examples) 固化为 AI-MarkDone 后续 UI 设计迁移的外部风格基线。
 
 适用范围：页面内 UI、浮层、菜单、对话框、表单控件、工具栏、提示层。
@@ -16,9 +18,10 @@
 
 ---
 
-## 1. 执行规则
+## 1. 历史参考规则
 
-- 后续 UI 设计默认先对照本文档，而不是直接自由发挥。
+- 本文档不再作为新模块方案输入，也不参与当前样式权威链路。
+- 只有在需要回溯历史视觉判断或比较旧参考时，才读取本文档。
 - 如 Ariakit 示例与项目红线冲突，必须保留 Ariakit 的视觉关系，但实现上改用 `--aimd-*` tokens，不能硬编码颜色/尺寸。
 - 本文档分为两层：
   - `Observed`：从 Ariakit 页面直接提取到的结构、样式、源码规律。

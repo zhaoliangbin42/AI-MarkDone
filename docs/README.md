@@ -45,11 +45,14 @@ These are transition-execution documents, not long-lived architecture authority:
 ### Decisions
 
 - `docs/adr/README.md`
+- `docs/adr/ADR-0005-tailwind-alias-overlay-boundary.md`
 
 ### Style
 
 - `docs/style/STYLE_SYSTEM.md`
 - `docs/style/STYLE_ARCHITECTURE.md`
+- `docs/style/ARIAKIT_EXAMPLES_STYLE_REFERENCE.md`
+  - historical reference only; not an active authority for new modules
 
 ### Testing
 
@@ -69,6 +72,7 @@ These are transition-execution documents, not long-lived architecture authority:
 - Move repeated behavioral guidance into `.codex/rules/*` or `.codex/guides/*`, not into `docs/`.
 - Remove or archive stale documents once their content has been absorbed into a current authoritative file.
 - Do not add references to non-existent documents.
+- Treat `docs/style/STYLE_SYSTEM.md` + `docs/style/STYLE_ARCHITECTURE.md` + active ADRs as the authority for UI style direction.
 
 ## Suggested Reading Order
 
@@ -94,3 +98,7 @@ These are transition-execution documents, not long-lived architecture authority:
   - `docs/testing/CURRENT_TEST_GATES.md`
   - `docs/testing/TESTING_BLUEPRINT.md`
   - `docs/testing/E2E_REGRESSION_GUIDE.md`
+- Style-system and UI workflow changes
+  - `docs/style/STYLE_SYSTEM.md`
+  - `docs/style/STYLE_ARCHITECTURE.md`
+  - `docs/adr/ADR-0005-tailwind-alias-overlay-boundary.md`

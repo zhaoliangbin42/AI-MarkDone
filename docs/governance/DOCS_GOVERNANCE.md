@@ -25,6 +25,7 @@ Tier A 文档位置应集中在：
 - `docs/architecture/*`
 - `docs/adr/*`
 - `docs/governance/*`
+- `docs/style/*`（长期样式系统规则与边界）
 - `docs/antigravity/platform/*`（契约与矩阵）
 - `docs/FEATURES.md`（冻结能力与验收口径）
 - `docs/testing/CURRENT_TEST_GATES.md`（当前测试与验证门禁）
@@ -59,6 +60,7 @@ Tier A 文档位置应集中在：
 - 当前落地边界发生变化（更新 `CURRENT_STATE.md`）
 - runtime message shape / error code / version 变化（更新 `RUNTIME_PROTOCOL.md`）
 - 引入新的消息协议类型、存储 schema、迁移逻辑（更新 `BLUEPRINT.md` + checklist）
+- 长期样式系统规则、Tailwind 使用边界、mock-first UI 流程变化（更新 `docs/style/*` 与相关测试文档）
 - 重构拆分/移动文件（更新 checklist 的“完成状态”和“新路径”）
 - 关键架构决策变化（新增或更新 `docs/adr/*`）
 - 稳定的排查/验证流程形成共识（新增或更新 `docs/runbooks/*`）
@@ -78,6 +80,7 @@ Tier A 文档位置应集中在：
 - `CURRENT_STATE.md`：当前落地事实（as-is）
 - `BLUEPRINT.md`：目标架构（to-be）
 - `RUNTIME_PROTOCOL.md`：content/background 协议边界
+- `docs/style/STYLE_SYSTEM.md` / `docs/style/STYLE_ARCHITECTURE.md`：长期 UI 样式规则、Tailwind 边界、mock-first 视觉流程
 - `CURRENT_TEST_GATES.md`：当前必须执行的测试与验证门禁
 - `docs/adr/*`：高影响决策与理由
 - `docs/runbooks/*`：重复出现的排查与验证步骤

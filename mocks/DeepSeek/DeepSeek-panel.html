@@ -1,0 +1,2488 @@
+<div id="aimd-bookmarks-panel-host" class="aimd-bookmarks-panel-host" style="position: fixed; inset: 0px; z-index: var(--aimd-z-panel);" tabindex="-1"><template shadowrootmode="open">
+<div data-role="overlay-root">
+  <div data-role="overlay-backdrop-root"></div>
+  <div data-role="overlay-surface-root"><div class="panel-window panel-window--bookmarks" role="dialog" aria-modal="true" aria-label="Bookmarks">
+          <div class="panel-header">
+            <div class="panel-header__meta">
+              <h2 class="aimd-panel-title">Bookmarks</h2>
+            </div>
+            <div class="panel-header__actions">
+              <button class="icon-btn" type="button" data-action="close-panel" aria-label="Close panel"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg></span></button>
+            </div>
+          </div>
+          <div class="bookmarks-shell">
+            <nav class="bookmarks-sidebar">
+              <button class="tab-btn" type="button" data-action="set-bookmarks-tab" data-tab="bookmarks" data-active="1"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+  </svg></span><span>Bookmarks</span></button>
+              <button class="tab-btn" type="button" data-action="set-bookmarks-tab" data-tab="settings" data-active="0"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+    <circle cx="12" cy="12" r="3"></circle>
+  </svg></span><span>Settings</span></button>
+              <button class="tab-btn" type="button" data-action="set-bookmarks-tab" data-tab="sponsor" data-active="0"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 8h1a4 4 0 1 1 0 8h-1"></path>
+    <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path>
+    <line x1="6" y1="2" x2="6" y2="4"></line>
+    <line x1="10" y1="2" x2="10" y2="4"></line>
+    <line x1="14" y1="2" x2="14" y2="4"></line>
+  </svg></span><span>Sponsor</span></button>
+            </nav>
+            <div class="bookmarks-body">
+              <section class="tab-panel tab-panel--bookmarks" data-active="1">
+                <div class="toolbar-row toolbar-row--bookmarks">
+                  <div class="search-field">
+                    <span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="8"></circle>
+    <path d="m21 21-4.35-4.35"></path>
+  </svg></span>
+                    <input data-role="bookmark-query" value="" placeholder="Search bookmarks">
+                  </div>
+                  
+      <div class="platform-dropdown" data-open="0">
+        <button class="platform-dropdown__trigger" type="button" data-action="toggle-platform-menu" aria-haspopup="listbox" aria-expanded="false">
+          <span class="platform-dropdown__value">
+            <span class="platform-option-icon"><span class="aimd-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></span></span>
+            <span class="platform-dropdown__label">All platforms</span>
+          </span>
+          <span class="platform-dropdown__caret"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+    </svg></span></span>
+        </button>
+        <div class="platform-dropdown__menu" data-open="0" role="listbox">
+          
+            <button class="platform-dropdown__option" type="button" data-action="select-platform" data-value="All" role="option" data-selected="1">
+              <span class="platform-option-icon"><span class="aimd-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></span></span>
+              <span class="platform-dropdown__label">All platforms</span>
+            </button>
+          
+        </div>
+      </div>
+    
+                  <div class="toolbar-actions">
+                    <button class="icon-btn" type="button" data-action="toggle-sort-time" data-active="1" aria-label="Sort by time"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 16 4 4 4-4"></path>
+    <path d="M7 20V4"></path>
+    <path d="M17 10V4h-2"></path>
+    <path d="M15 10h4"></path>
+    <rect x="15" y="14" width="4" height="6" ry="2"></rect>
+  </svg></span></button>
+                    <button class="icon-btn" type="button" data-action="toggle-sort-alpha" data-active="0" aria-label="Sort alphabetically"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m3 16 4 4 4-4"></path>
+    <path d="M7 20V4"></path>
+    <path d="M20 8h-5"></path>
+    <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10"></path>
+    <path d="M15 14h5l-5 6h5"></path>
+  </svg></span></button>
+                    <button class="icon-btn" type="button" data-action="create-folder" aria-label="Create folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+    <line x1="12" y1="10" x2="12" y2="16"></line>
+    <line x1="9" y1="13" x2="15" y2="13"></line>
+  </svg></span></button>
+                    <button class="icon-btn" type="button" data-action="import-bookmarks" aria-label="Import bookmarks"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="12" y1="12" x2="12" y2="18"></line>
+    <line x1="9" y1="15" x2="12" y2="12"></line>
+    <line x1="15" y1="15" x2="12" y2="12"></line>
+  </svg></span></button>
+                    <button class="icon-btn" type="button" data-action="export-all-bookmarks" aria-label="Export all bookmarks"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="12" y1="18" x2="12" y2="12"></line>
+    <line x1="9" y1="15" x2="12" y2="18"></line>
+    <line x1="15" y1="15" x2="12" y2="18"></line>
+  </svg></span></button>
+                    <input data-role="import-file" type="file" accept="application/json" style="display:none">
+                  </div>
+                </div>
+                <div class="tree-panel">
+      <div class="tree-node">
+        <div class="tree-item tree-item--folder" style="padding-left:10px" data-action="toggle-folder-expand" data-path="abc" role="treeitem" aria-level="1" aria-expanded="true">
+          <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="abc" disabled=""></button>
+          <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="abc" data-indeterminate="0">
+          <div class="tree-folder-icon"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"></path>
+  </svg></span></div>
+          <button class="tree-main tree-main--folder" type="button" data-action="toggle-folder-expand" data-path="abc">
+            <div class="tree-label">abc</div>
+          </button>
+          <div class="tree-count"></div>
+          <div class="tree-actions">
+            <button class="icon-btn" type="button" data-action="create-subfolder" data-path="abc" aria-label="New subfolder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+    <line x1="12" y1="10" x2="12" y2="16"></line>
+    <line x1="9" y1="13" x2="15" y2="13"></line>
+  </svg></span></button>
+            <button class="icon-btn" type="button" data-action="rename-folder" data-path="abc" aria-label="Rename folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+  </svg></span></button>
+            <button class="icon-btn" type="button" data-action="move-folder" data-path="abc" aria-label="Move folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2v20"></path>
+    <path d="m15 5-3-3-3 3"></path>
+    <path d="m15 19-3 3-3-3"></path>
+    <path d="M2 12h20"></path>
+    <path d="m5 15-3-3 3-3"></path>
+    <path d="m19 15 3-3-3-3"></path>
+  </svg></span></button>
+            <button class="icon-btn icon-btn--danger" type="button" data-action="delete-folder" data-path="abc" aria-label="Delete folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"></path>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+  </svg></span></button>
+          </div>
+        </div>
+        <div class="tree-children" data-expanded="1">
+          
+        </div>
+      </div>
+    
+      <div class="tree-node">
+        <div class="tree-item tree-item--folder" style="padding-left:10px" data-action="toggle-folder-expand" data-path="sadf" role="treeitem" aria-level="1" aria-expanded="false">
+          <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="sadf" disabled=""></button>
+          <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="sadf" data-indeterminate="0">
+          <div class="tree-folder-icon"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+  </svg></span></div>
+          <button class="tree-main tree-main--folder" type="button" data-action="toggle-folder-expand" data-path="sadf">
+            <div class="tree-label">sadf</div>
+          </button>
+          <div class="tree-count"></div>
+          <div class="tree-actions">
+            <button class="icon-btn" type="button" data-action="create-subfolder" data-path="sadf" aria-label="New subfolder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+    <line x1="12" y1="10" x2="12" y2="16"></line>
+    <line x1="9" y1="13" x2="15" y2="13"></line>
+  </svg></span></button>
+            <button class="icon-btn" type="button" data-action="rename-folder" data-path="sadf" aria-label="Rename folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+  </svg></span></button>
+            <button class="icon-btn" type="button" data-action="move-folder" data-path="sadf" aria-label="Move folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2v20"></path>
+    <path d="m15 5-3-3-3 3"></path>
+    <path d="m15 19-3 3-3-3"></path>
+    <path d="M2 12h20"></path>
+    <path d="m5 15-3-3 3-3"></path>
+    <path d="m19 15 3-3-3-3"></path>
+  </svg></span></button>
+            <button class="icon-btn icon-btn--danger" type="button" data-action="delete-folder" data-path="sadf" aria-label="Delete folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"></path>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+  </svg></span></button>
+          </div>
+        </div>
+        <div class="tree-children" data-expanded="0">
+          
+        </div>
+      </div>
+    
+      <div class="tree-node">
+        <div class="tree-item tree-item--folder" style="padding-left:10px" data-action="toggle-folder-expand" data-path="test" role="treeitem" aria-level="1" aria-expanded="false">
+          <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="test" disabled=""></button>
+          <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="test" data-indeterminate="0">
+          <div class="tree-folder-icon"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+  </svg></span></div>
+          <button class="tree-main tree-main--folder" type="button" data-action="toggle-folder-expand" data-path="test">
+            <div class="tree-label">test</div>
+          </button>
+          <div class="tree-count"></div>
+          <div class="tree-actions">
+            <button class="icon-btn" type="button" data-action="create-subfolder" data-path="test" aria-label="New subfolder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+    <line x1="12" y1="10" x2="12" y2="16"></line>
+    <line x1="9" y1="13" x2="15" y2="13"></line>
+  </svg></span></button>
+            <button class="icon-btn" type="button" data-action="rename-folder" data-path="test" aria-label="Rename folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+  </svg></span></button>
+            <button class="icon-btn" type="button" data-action="move-folder" data-path="test" aria-label="Move folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2v20"></path>
+    <path d="m15 5-3-3-3 3"></path>
+    <path d="m15 19-3 3-3-3"></path>
+    <path d="M2 12h20"></path>
+    <path d="m5 15-3-3 3-3"></path>
+    <path d="m19 15 3-3-3-3"></path>
+  </svg></span></button>
+            <button class="icon-btn icon-btn--danger" type="button" data-action="delete-folder" data-path="test" aria-label="Delete folder"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"></path>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+  </svg></span></button>
+          </div>
+        </div>
+        <div class="tree-children" data-expanded="0">
+          
+        </div>
+      </div>
+    </div>
+                <div class="batch-bar" data-active="0" aria-hidden="true">
+                  <div class="batch-label"></div>
+                  <div class="batch-actions">
+                    <button class="icon-btn" type="button" data-action="batch-clear" aria-label="Clear selection" disabled=""><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg></span></button>
+                    <button class="icon-btn" type="button" data-action="batch-move" aria-label="Move selected" disabled=""><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2v20"></path>
+    <path d="m15 5-3-3-3 3"></path>
+    <path d="m15 19-3 3-3-3"></path>
+    <path d="M2 12h20"></path>
+    <path d="m5 15-3-3 3-3"></path>
+    <path d="m19 15 3-3-3-3"></path>
+  </svg></span></button>
+                    <button class="icon-btn icon-btn--danger" type="button" data-action="batch-delete" aria-label="Delete selected" disabled=""><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"></path>
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+  </svg></span></button>
+                    <button class="icon-btn" type="button" data-action="batch-export" aria-label="Export selected" disabled=""><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="12" y1="18" x2="12" y2="12"></line>
+    <line x1="9" y1="15" x2="12" y2="18"></line>
+    <line x1="15" y1="15" x2="12" y2="18"></line>
+  </svg></span></button>
+                  </div>
+                </div>
+              </section>
+              <section class="tab-panel settings-panel" data-active="0">
+                
+      <div class="settings-grid">
+        <section class="settings-card">
+          <div class="card-title"><span class="aimd-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></span> Platforms</div>
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>ChatGPT</strong>
+          <p>Enable AI-MarkDone on ChatGPT.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-platform-chatgpt" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Gemini</strong>
+          <p>Enable AI-MarkDone on Gemini.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-platform-gemini" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Claude</strong>
+          <p>Enable AI-MarkDone on Claude.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-platform-claude" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>DeepSeek</strong>
+          <p>Enable AI-MarkDone on DeepSeek.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-platform-deepseek" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+        </section>
+        <section class="settings-card">
+          <div class="card-title"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 41 41" fill="none">
+    <path d="M37.5324 16.8707C37.9808 15.5241 38.1363 14.0974 37.9886 12.6859C37.8409 11.2744 37.3934 9.91076 36.676 8.68622C35.6126 6.83404 33.9882 5.3676 32.0373 4.4985C30.0864 3.62941 27.9098 3.40259 25.8215 3.85078C24.8796 2.7893 23.7219 1.94125 22.4257 1.36341C21.1295 0.785575 19.7249 0.491269 18.3058 0.500197C16.1708 0.495044 14.0893 1.16803 12.3614 2.42214C10.6335 3.67624 9.34853 5.44666 8.6917 7.47815C7.30085 7.76286 5.98686 8.3414 4.8377 9.17505C3.68854 10.0087 2.73073 11.0782 2.02839 12.312C0.956464 14.1591 0.498905 16.2988 0.721698 18.4228C0.944492 20.5467 1.83612 22.5449 3.268 24.1293C2.81966 25.4759 2.66413 26.9026 2.81182 28.3141C2.95951 29.7256 3.40701 31.0892 4.12437 32.3138C5.18791 34.1659 6.8123 35.6322 8.76321 36.5013C10.7141 37.3704 12.8907 37.5973 14.9789 37.1492C15.9208 38.2107 17.0786 39.0587 18.3747 39.6366C19.6709 40.2144 21.0755 40.5087 22.4946 40.4998C24.6307 40.5054 26.7133 39.8321 28.4418 38.5772C30.1704 37.3223 31.4556 35.5506 32.1119 33.5179C33.5027 33.2332 34.8167 32.6547 35.9659 31.821C37.115 30.9874 38.0728 29.9178 38.7752 28.684C39.8458 26.8371 40.3023 24.6979 40.0789 22.5748C39.8556 20.4517 38.9639 18.4544 37.5324 16.8707ZM22.4978 37.8849C20.7443 37.8874 19.0459 37.2733 17.6994 36.1501C17.7601 36.117 17.8666 36.0586 17.936 36.0161L25.9004 31.4156C26.1003 31.3019 26.2663 31.137 26.3813 30.9378C26.4964 30.7386 26.5563 30.5124 26.5549 30.2825V19.0542L29.9213 20.998C29.9389 21.0068 29.9541 21.0198 29.9656 21.0359C29.977 21.052 29.9842 21.0707 29.9867 21.0902V30.3889C29.9842 32.375 29.1946 34.2791 27.7909 35.6841C26.3872 37.0892 24.4838 37.8806 22.4978 37.8849ZM6.39227 31.0064C5.51397 29.4888 5.19742 27.7107 5.49804 25.9832C5.55718 26.0187 5.66048 26.0818 5.73461 26.1244L13.699 30.7248C13.8975 30.8408 14.1233 30.902 14.3532 30.902C14.583 30.902 14.8088 30.8408 15.0073 30.7248L24.731 25.1103V28.9979C24.7321 29.0177 24.7283 29.0376 24.7199 29.0556C24.7115 29.0736 24.6988 29.0893 24.6829 29.1012L16.6317 33.7497C14.9096 34.7416 12.8643 35.0097 10.9447 34.4954C9.02506 33.9811 7.38785 32.7263 6.39227 31.0064ZM4.29707 13.6194C5.17156 12.0998 6.55279 10.9364 8.19885 10.3327C8.19885 10.4013 8.19491 10.5228 8.19491 10.6071V19.808C8.19351 20.0378 8.25334 20.2638 8.36823 20.4629C8.48312 20.6619 8.64893 20.8267 8.84863 20.9404L18.5723 26.5542L15.206 28.4979C15.1894 28.5089 15.1703 28.5155 15.1505 28.5173C15.1307 28.5191 15.1107 28.516 15.0924 28.5082L7.04046 23.8557C5.32135 22.8601 4.06716 21.2235 3.55289 19.3046C3.03862 17.3858 3.30624 15.3413 4.29707 13.6194ZM31.955 20.0556L22.2312 14.4411L25.5976 12.4981C25.6142 12.4872 25.6333 12.4805 25.6531 12.4787C25.6729 12.4769 25.6928 12.4801 25.7111 12.4879L33.7631 17.1364C34.9967 17.849 36.0017 18.8982 36.6606 20.1613C37.3194 21.4244 37.6047 22.849 37.4832 24.2684C37.3617 25.6878 36.8382 27.0432 35.9743 28.1759C35.1103 29.3086 33.9415 30.1717 32.6047 30.6641C32.6047 30.5947 32.6047 30.4733 32.6047 30.3889V21.188C32.6066 20.9586 32.5474 20.7328 32.4332 20.5338C32.319 20.3348 32.154 20.1698 31.955 20.0556ZM35.3055 15.0128C35.2464 14.9765 35.1431 14.9142 35.069 14.8717L27.1045 10.2712C26.906 10.1554 26.6803 10.0943 26.4504 10.0943C26.2206 10.0943 25.9948 10.1554 25.7963 10.2712L16.0726 15.8858V11.9982C16.0715 11.9783 16.0753 11.9585 16.0837 11.9405C16.0921 11.9225 16.1048 11.9068 16.1207 11.8949L24.1719 7.25025C25.4053 6.53903 26.8158 6.19376 28.2383 6.25482C29.6608 6.31589 31.0364 6.78077 32.2044 7.59508C33.3723 8.40939 34.2842 9.53945 34.8334 10.8531C35.3826 12.1667 35.5464 13.6095 35.3055 15.0128ZM14.2424 21.9419L10.8752 19.9981C10.8576 19.9893 10.8423 19.9763 10.8309 19.9602C10.8195 19.9441 10.8122 19.9254 10.8098 19.9058V10.6071C10.8107 9.18295 11.2173 7.78848 11.9819 6.58696C12.7466 5.38544 13.8377 4.42659 15.1275 3.82264C16.4173 3.21869 17.8524 2.99464 19.2649 3.1767C20.6775 3.35876 22.0089 3.93941 23.1034 4.85067C23.0427 4.88379 22.937 4.94215 22.8668 4.98473L14.9024 9.58517C14.7025 9.69878 14.5366 9.86356 14.4215 10.0626C14.3065 10.2616 14.2466 10.4877 14.2479 10.7175L14.2424 21.9419ZM16.071 17.9991L20.4018 15.4978L24.7325 17.9975V22.9985L20.4018 25.4983L16.071 22.9985V17.9991Z" fill="currentColor"></path>
+  </svg></span> ChatGPT</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <strong>Folding mode</strong>
+              <p>Controls how many messages stay expanded by default.</p>
+            </div>
+            
+      <div class="settings-select-shell" data-open="0">
+        <button class="settings-select-trigger" type="button" data-action="toggle-settings-menu" data-menu="folding-mode" aria-haspopup="listbox" aria-expanded="false">
+          <span class="settings-select-trigger__label">Off</span>
+          <span class="settings-select-trigger__caret"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+    </svg></span></span>
+        </button>
+        <div class="settings-select-menu" data-open="0" role="listbox" tabindex="-1">
+          
+            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="folding-mode" data-value="off" role="option" aria-selected="true" data-selected="1">
+              <span>Off</span>
+              <span class="settings-option-check"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg></span></span>
+            </button>
+          
+            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="folding-mode" data-value="all" role="option" aria-selected="false" data-selected="0">
+              <span>All</span>
+              <span class="settings-option-check"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg></span></span>
+            </button>
+          
+            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="folding-mode" data-value="keep_last_n" role="option" aria-selected="false" data-selected="0">
+              <span>Keep last N</span>
+              <span class="settings-option-check"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg></span></span>
+            </button>
+          
+        </div>
+      </div>
+    
+          </div>
+          <div class="settings-row" data-visible="0">
+            <div class="settings-label">
+              <strong>Expanded count</strong>
+              <p>Used only when the folding mode keeps the latest N messages visible.</p>
+            </div>
+            <div class="settings-number-field">
+              <input class="settings-number" data-role="settings-folding-count" type="number" min="0" value="8">
+              <div class="settings-number-stepper">
+                <button class="settings-number-step" type="button" data-action="settings-step-count" data-direction="up" aria-label="Increase expanded count"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+    </svg></span></button>
+                <button class="settings-number-step settings-number-step--down" type="button" data-action="settings-step-count" data-direction="down" aria-label="Decrease expanded count"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+    </svg></span></button>
+              </div>
+            </div>
+          </div>
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Show fold dock</strong>
+          <p>Keep the compact fold dock visible in supported threads.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-fold-dock" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+        </section>
+        <section class="settings-card">
+          <div class="card-title"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+    <circle cx="12" cy="12" r="3"></circle>
+  </svg></span> Behavior</div>
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Show View Source</strong>
+          <p>Show the View Source action in supported toolbars and panels.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-show-view-source" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Show Save Messages</strong>
+          <p>Show the Save Messages action where export is supported.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-show-save-messages" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Show Word Count</strong>
+          <p>Display word count information for saved and rendered content.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-show-word-count" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Enable click-to-copy</strong>
+          <p>Copy message content directly when supported surfaces are clicked.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-click-to-copy" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Save context only</strong>
+          <p>Only save the conversation context instead of the full thread when exporting or bookmarking.</p>
+        </div>
+        <span class="toggle-switch" data-checked="0">
+          <input type="checkbox" data-role="settings-save-context-only">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+          
+      <label class="toggle-row">
+        <div class="settings-label">
+          <strong>Render code in Reader</strong>
+          <p>Render fenced code blocks with reader formatting instead of raw plain text.</p>
+        </div>
+        <span class="toggle-switch" data-checked="1">
+          <input type="checkbox" data-role="settings-render-code-reader" checked="">
+          <span class="toggle-knob"></span>
+        </span>
+      </label>
+    
+        </section>
+        <section class="settings-card">
+          <div class="card-title"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m5 8 6 6"></path>
+    <path d="m4 14 6-6 2-3"></path>
+    <path d="M2 5h12"></path>
+    <path d="M7 2h1"></path>
+    <path d="m22 22-5-10-5 10"></path>
+    <path d="M14 18h6"></path>
+  </svg></span> Language</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <strong>Interface language</strong>
+              <p>Auto follows the browser, or pin the UI to a specific locale.</p>
+            </div>
+            
+      <div class="settings-select-shell" data-open="0">
+        <button class="settings-select-trigger" type="button" data-action="toggle-settings-menu" data-menu="language" aria-haspopup="listbox" aria-expanded="false">
+          <span class="settings-select-trigger__label">Auto</span>
+          <span class="settings-select-trigger__caret"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+    </svg></span></span>
+        </button>
+        <div class="settings-select-menu" data-open="0" role="listbox" tabindex="-1">
+          
+            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="language" data-value="auto" role="option" aria-selected="true" data-selected="1">
+              <span>Auto</span>
+              <span class="settings-option-check"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg></span></span>
+            </button>
+          
+            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="language" data-value="en" role="option" aria-selected="false" data-selected="0">
+              <span>English</span>
+              <span class="settings-option-check"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg></span></span>
+            </button>
+          
+            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="language" data-value="zh_CN" role="option" aria-selected="false" data-selected="0">
+              <span>简体中文</span>
+              <span class="settings-option-check"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg></span></span>
+            </button>
+          
+        </div>
+      </div>
+    
+          </div>
+        </section>
+        <section class="settings-card">
+          <div class="card-title"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path>
+  </svg></span> Data &amp; storage</div>
+          <div class="storage-header">
+            <strong>Storage used</strong>
+            <span>42%</span>
+          </div>
+          <div class="storage-track"><div class="storage-fill" style="width:42%"></div></div>
+          <div class="backup-callout">
+            <div>
+              <strong>Backup your bookmarks</strong>
+              <p>Export everything before major refactors or browser reinstalls.</p>
+            </div>
+            <button class="secondary-btn" type="button" data-action="settings-export-backup"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="12" y1="18" x2="12" y2="12"></line>
+    <line x1="9" y1="15" x2="12" y2="18"></line>
+    <line x1="15" y1="15" x2="12" y2="18"></line>
+  </svg></span> Export all</button>
+          </div>
+        </section>
+      </div>
+    
+              </section>
+              <section class="tab-panel sponsor-panel" data-active="0">
+                
+      <div class="sponsor-celebration" aria-hidden="true"></div>
+      <div class="sponsor-shell">
+        <div class="sponsor-title-row">
+          <img class="sponsor-brand-mark" src="chrome-extension://infnenmofmhhcanoeminannepnmnjhej/icons/icon128.png" alt="AI-MarkDone">
+        </div>
+        <section class="sponsor-card sponsor-card--primary">
+          <div class="sponsor-section-head">
+            <div class="sponsor-section-icon"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+        <path d="M9 18c-4.51 2-5-2-7-2"></path>
+    </svg></span></div>
+            <div class="sponsor-section-copy">
+              <div class="sponsor-section-label">Open source support</div>
+              <div class="sponsor-section-note">Star the repository to help the project stay visible.</div>
+            </div>
+          </div>
+          <p>If the project is useful, starring the repository is the fastest way to help. It improves discoverability and makes continued maintenance easier to justify.</p>
+          <div class="sponsor-action-row">
+            <button class="primary-btn sponsor-cta-button" type="button" data-action="sponsor-github"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+        <path d="M9 18c-4.51 2-5-2-7-2"></path>
+    </svg></span> Star on GitHub</button>
+          </div>
+        </section>
+        <section class="sponsor-card sponsor-card--secondary">
+          <div class="sponsor-section-head sponsor-section-head--centered">
+            <div class="sponsor-section-icon sponsor-section-icon--warm"><span class="aimd-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 8h1a4 4 0 1 1 0 8h-1"></path>
+    <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path>
+    <line x1="6" y1="2" x2="6" y2="4"></line>
+    <line x1="10" y1="2" x2="10" y2="4"></line>
+    <line x1="14" y1="2" x2="14" y2="4"></line>
+  </svg></span></div>
+            <div class="sponsor-section-copy">
+              <div class="sponsor-section-label">Donate</div>
+              <div class="sponsor-section-note">Support development directly with the existing sponsor channels.</div>
+            </div>
+          </div>
+          <p>If AI-MarkDone saves you time, you can also support development directly through the same two channels used in the shipped sponsor tab.</p>
+          <div class="sponsor-qr-grid">
+            <article class="sponsor-qr-card">
+              <div class="sponsor-qr-meta">
+                <strong>Buy Me a Coffee</strong>
+                <span>Quick international support</span>
+              </div>
+              <div class="sponsor-qr-frame">
+                <img class="sponsor-qr-image" src="chrome-extension://infnenmofmhhcanoeminannepnmnjhej/icons/bmc_qr.png" alt="Buy Me a Coffee QR code">
+              </div>
+            </article>
+            <article class="sponsor-qr-card">
+              <div class="sponsor-qr-meta">
+                <strong>WeChat reward</strong>
+                <span>Direct appreciation in WeChat</span>
+              </div>
+              <div class="sponsor-qr-frame">
+                <img class="sponsor-qr-image" src="chrome-extension://infnenmofmhhcanoeminannepnmnjhej/icons/wechat_qr.png" alt="WeChat appreciation code">
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    
+              </section>
+            </div>
+          </div>
+        </div></div>
+  <div data-role="overlay-modal-root"></div>
+</div>
+<style>
+:host {
+  --aimd-ref-color-neutral-0: #FFFFFF;
+  --aimd-ref-color-neutral-50: #F6F7F9;
+  --aimd-ref-color-neutral-500: #6B7280;
+  --aimd-ref-color-neutral-900: #111827;
+  --aimd-ref-color-neutral-700: #374151;
+  --aimd-ref-color-neutral-alpha-06: rgba(0,0,0,0.06);
+  --aimd-ref-color-neutral-alpha-08: rgba(0,0,0,0.08);
+  --aimd-ref-color-neutral-alpha-12: rgba(0,0,0,0.12);
+  --aimd-ref-color-neutral-alpha-16: rgba(0,0,0,0.16);
+  --aimd-ref-color-neutral-alpha-18: rgba(0,0,0,0.18);
+  --aimd-ref-color-black-alpha-06: rgba(0,0,0,0.06);
+  --aimd-ref-color-black-alpha-10: rgba(0,0,0,0.10);
+  --aimd-ref-color-white-alpha-10: rgba(255,255,255,0.10);
+  --aimd-ref-color-white-alpha-16: rgba(255,255,255,0.16);
+  --aimd-ref-color-brand-600: #2563eb;
+  --aimd-ref-color-brand-700: #1d4ed8;
+  --aimd-ref-color-neutral-white: #ffffff;
+  --aimd-ref-color-brand-alpha-12: rgba(37, 99, 235, 0.12);
+  --aimd-ref-color-brand-alpha-28: rgba(37, 99, 235, 0.28);
+  --aimd-ref-color-brand-alpha-35: rgba(37,99,235,0.35);
+  --aimd-ref-color-green-alpha-35: rgba(16,185,129,0.35);
+  --aimd-ref-color-red-alpha-35: rgba(239,68,68,0.35);
+  --aimd-ref-color-black-alpha-35: rgba(0,0,0,0.35);
+  --aimd-ref-shadow-300: 0 10px 24px rgba(0,0,0,0.18);
+  --aimd-ref-shadow-500: 0 18px 50px rgba(0,0,0,0.25);
+
+  --aimd-ref-type-size-075: 12px;
+  --aimd-ref-type-size-100: 13px;
+  --aimd-ref-type-size-200: 14px;
+  --aimd-ref-type-size-300: 16px;
+  --aimd-ref-type-line-100: 1.25;
+  --aimd-ref-type-line-200: 1.5;
+  --aimd-ref-type-line-300: 1.65;
+  --aimd-ref-type-weight-500: 500;
+  --aimd-ref-type-weight-600: 600;
+
+  --aimd-ref-radius-150: 6px;
+  --aimd-ref-radius-200: 8px;
+  --aimd-ref-radius-250: 10px;
+  --aimd-ref-radius-300: 12px;
+  --aimd-ref-radius-400: 16px;
+  --aimd-ref-radius-full: 999px;
+
+  --aimd-ref-space-100: 4px;
+  --aimd-ref-space-200: 8px;
+  --aimd-ref-space-300: 12px;
+  --aimd-ref-space-400: 16px;
+
+  --aimd-ref-size-260: 26px;
+  --aimd-ref-size-160: 16px;
+  --aimd-ref-size-280: 28px;
+  --aimd-ref-size-300: 30px;
+  --aimd-ref-size-320: 32px;
+  --aimd-ref-size-220: 220px;
+  --aimd-ref-size-900: 900px;
+  --aimd-ref-size-fluid-viewport-92: 92vw;
+  --aimd-ref-size-fluid-viewport-82: 82vh;
+  --aimd-ref-size-fluid-viewport-10: 10vh;
+
+  --aimd-ref-motion-duration-fast: 150ms;
+  --aimd-ref-motion-duration-enter: 200ms;
+  --aimd-ref-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --aimd-ref-z-base: 1;
+  --aimd-ref-z-panel: 9000;
+  --aimd-ref-z-tooltip: 10000;
+}
+
+
+:host {
+  --aimd-sys-color-surface: var(--aimd-ref-color-neutral-0);
+  --aimd-sys-color-surface-subtle: var(--aimd-ref-color-neutral-50);
+  --aimd-sys-color-surface-elevated: var(--aimd-ref-color-neutral-0);
+  --aimd-sys-color-surface-frosted: color-mix(in srgb, var(--aimd-sys-color-surface) 82%, transparent);
+  --aimd-sys-color-surface-quiet: var(--aimd-ref-color-neutral-alpha-06);
+  --aimd-sys-color-surface-hover: var(--aimd-ref-color-neutral-alpha-12);
+  --aimd-sys-color-surface-pressed: var(--aimd-ref-color-neutral-alpha-18);
+  --aimd-sys-color-text-primary: var(--aimd-ref-color-neutral-900);
+  --aimd-sys-color-text-secondary: var(--aimd-ref-color-neutral-700);
+  --aimd-sys-color-text-secondary-muted: var(--aimd-ref-color-neutral-500);
+  --aimd-sys-color-border-default: var(--aimd-ref-color-neutral-alpha-12);
+  --aimd-sys-color-border-subtle: var(--aimd-ref-color-neutral-alpha-08);
+  --aimd-sys-color-border-strong: var(--aimd-ref-color-neutral-alpha-16);
+  --aimd-sys-color-outline-soft: color-mix(in srgb, var(--aimd-sys-color-text-primary) 14%, transparent);
+  --aimd-sys-color-interactive-hover-layer: var(--aimd-ref-color-black-alpha-06);
+  --aimd-sys-color-interactive-pressed-layer: var(--aimd-ref-color-black-alpha-10);
+  --aimd-sys-color-accent: var(--aimd-ref-color-brand-600);
+  --aimd-sys-color-accent-hover: var(--aimd-ref-color-brand-700);
+  --aimd-sys-color-on-accent: var(--aimd-ref-color-neutral-white);
+  --aimd-sys-color-accent-soft: var(--aimd-ref-color-brand-alpha-12);
+  --aimd-sys-color-accent-flash: var(--aimd-ref-color-brand-alpha-28);
+  --aimd-sys-color-focus-ring: var(--aimd-ref-color-brand-alpha-35);
+  --aimd-sys-color-state-info-border: var(--aimd-ref-color-brand-alpha-35);
+  --aimd-sys-color-state-success-border: var(--aimd-ref-color-green-alpha-35);
+  --aimd-sys-color-state-error-border: var(--aimd-ref-color-red-alpha-35);
+  --aimd-sys-color-overlay: var(--aimd-ref-color-black-alpha-35);
+  --aimd-sys-color-overlay-heavy: rgba(148, 163, 184, 0.34);
+  --aimd-sys-color-warning: #f59e0b;
+  --aimd-sys-color-warning-text: #b45309;
+  --aimd-sys-color-danger: #ef4444;
+  --aimd-sys-color-link: var(--aimd-sys-color-accent);
+  --aimd-sys-color-link-hover: var(--aimd-sys-color-accent-hover);
+  --aimd-sys-color-scrollbar-thumb: rgba(0,0,0,0.16);
+  --aimd-sys-color-scrollbar-thumb-hover: rgba(0,0,0,0.24);
+  --aimd-sys-color-gmail-hover: rgba(148,163,184,0.12);
+  --aimd-sys-color-gmail-pressed: rgba(59,130,246,0.16);
+  --aimd-sys-color-gmail-selected: rgba(219,234,254,0.96);
+  --aimd-sys-color-gmail-selected-text: #2563eb;
+
+  --aimd-sys-shadow-xs: 0 1px 2px rgba(0,0,0,0.12);
+  --aimd-sys-shadow-sm: 0 4px 12px rgba(0,0,0,0.12);
+  --aimd-sys-shadow-md: 0 8px 20px rgba(0,0,0,0.14);
+  --aimd-sys-shadow-lg: 0 22px 56px rgba(148,163,184,0.24);
+  --aimd-sys-shadow-xl: 0 28px 80px rgba(148,163,184,0.28);
+  --aimd-sys-shadow-focus: 0 0 0 2px rgba(59,130,246,0.20);
+  --aimd-sys-shadow-panel: var(--aimd-ref-shadow-500);
+  --aimd-sys-shadow-floating: var(--aimd-ref-shadow-300);
+  --aimd-sys-shadow-popover: var(--aimd-ref-shadow-500);
+
+  --aimd-sys-type-label-small-size: var(--aimd-ref-type-size-075);
+  --aimd-sys-type-label-medium-size: var(--aimd-ref-type-size-100);
+  --aimd-sys-type-body-medium-size: var(--aimd-ref-type-size-200);
+  --aimd-sys-type-title-medium-size: var(--aimd-ref-type-size-300);
+  --aimd-sys-type-title-large-size: 18px;
+  --aimd-sys-type-family-sans: ui-sans-serif, -apple-system, "system-ui", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, "sans-serif", "Segoe UI Emoji", "Segoe UI Symbol";
+  --aimd-sys-type-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --aimd-sys-type-label-line-height: var(--aimd-ref-type-line-100);
+  --aimd-sys-type-body-line-height: var(--aimd-ref-type-line-200);
+  --aimd-sys-type-reading-line-height: var(--aimd-ref-type-line-300);
+  --aimd-sys-type-weight-medium: var(--aimd-ref-type-weight-500);
+  --aimd-sys-type-weight-semibold: var(--aimd-ref-type-weight-600);
+
+  --aimd-sys-shape-corner-xs: 4px;
+  --aimd-sys-shape-corner-sm: var(--aimd-ref-radius-150);
+  --aimd-sys-shape-corner-md: var(--aimd-ref-radius-200);
+  --aimd-sys-shape-corner-compact: var(--aimd-ref-radius-250);
+  --aimd-sys-shape-corner-lg: var(--aimd-ref-radius-300);
+  --aimd-sys-shape-corner-xl: 14px;
+  --aimd-sys-shape-corner-2xl: 18px;
+  --aimd-sys-shape-corner-full: var(--aimd-ref-radius-full);
+
+  --aimd-sys-space-1: var(--aimd-ref-space-100);
+  --aimd-sys-space-2: var(--aimd-ref-space-200);
+  --aimd-sys-space-3: var(--aimd-ref-space-300);
+  --aimd-sys-space-4: var(--aimd-ref-space-400);
+  --aimd-sys-space-compact-gap: var(--aimd-ref-space-100);
+  --aimd-sys-space-compact-padding: var(--aimd-ref-space-100);
+
+  --aimd-sys-size-icon-sm: var(--aimd-ref-size-160);
+  --aimd-sys-size-icon-md: var(--aimd-ref-size-260);
+  --aimd-sys-size-control-compact-tight: var(--aimd-ref-size-280);
+  --aimd-sys-size-control-compact: var(--aimd-ref-size-300);
+  --aimd-sys-size-control-compact-relaxed: var(--aimd-ref-size-320);
+  --aimd-sys-size-panel-width: var(--aimd-ref-size-fluid-viewport-92);
+  --aimd-sys-size-panel-max-width: var(--aimd-ref-size-900);
+  --aimd-sys-size-panel-height: var(--aimd-ref-size-fluid-viewport-82);
+  --aimd-sys-size-panel-source-max-height: var(--aimd-ref-size-220);
+  --aimd-sys-space-panel-top: var(--aimd-ref-size-fluid-viewport-10);
+
+  --aimd-sys-motion-duration-fast: var(--aimd-ref-motion-duration-fast);
+  --aimd-sys-motion-duration-enter: var(--aimd-ref-motion-duration-enter);
+  --aimd-sys-motion-duration-slow: 300ms;
+  --aimd-sys-motion-easing-standard: var(--aimd-ref-motion-easing-standard);
+  --aimd-sys-motion-easing-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --aimd-sys-z-base: var(--aimd-ref-z-base);
+  --aimd-sys-z-panel: var(--aimd-ref-z-panel);
+  --aimd-sys-z-tooltip: var(--aimd-ref-z-tooltip);
+
+  --aimd-bg-primary: var(--aimd-sys-color-surface);
+  --aimd-bg-secondary: var(--aimd-sys-color-surface-subtle);
+  --aimd-bg-tertiary: color-mix(in srgb, var(--aimd-bg-secondary) 82%, var(--aimd-bg-primary));
+  --aimd-bg-surface: var(--aimd-sys-color-surface-elevated);
+  --aimd-text-primary: var(--aimd-sys-color-text-primary);
+  --aimd-text-secondary: var(--aimd-sys-color-text-secondary);
+  --aimd-text-tertiary: color-mix(in srgb, var(--aimd-text-secondary) 72%, transparent);
+  --aimd-border-default: var(--aimd-sys-color-border-default);
+  --aimd-border-subtle: var(--aimd-sys-color-border-subtle);
+  --aimd-border-strong: var(--aimd-sys-color-border-strong);
+  --aimd-border-focus: var(--aimd-sys-color-accent);
+  --aimd-interactive-primary: var(--aimd-sys-color-accent);
+  --aimd-interactive-primary-hover: var(--aimd-sys-color-accent-hover);
+  --aimd-text-on-primary: var(--aimd-sys-color-on-accent);
+  --aimd-interactive-highlight: var(--aimd-sys-color-accent-soft);
+  --aimd-interactive-flash: var(--aimd-sys-color-accent-flash);
+  --aimd-interactive-hover: var(--aimd-sys-color-interactive-hover-layer);
+  --aimd-interactive-active: var(--aimd-sys-color-interactive-pressed-layer);
+  --aimd-interactive-selected: var(--aimd-sys-color-accent-soft);
+  --aimd-interactive-danger: var(--aimd-sys-color-danger);
+  --aimd-state-success-border: var(--aimd-sys-color-state-success-border);
+  --aimd-state-error-border: var(--aimd-sys-color-state-error-border);
+  --aimd-focus-ring: var(--aimd-sys-color-focus-ring);
+  --aimd-overlay-bg: var(--aimd-sys-color-overlay);
+  --aimd-bg-overlay-heavy: var(--aimd-sys-color-overlay-heavy);
+  --aimd-overlay-backdrop: none;
+  --aimd-shadow-xs: var(--aimd-sys-shadow-xs);
+  --aimd-shadow-sm: var(--aimd-sys-shadow-sm);
+  --aimd-shadow-md: var(--aimd-sys-shadow-md);
+  --aimd-shadow-lg: var(--aimd-sys-shadow-lg);
+  --aimd-shadow-xl: var(--aimd-sys-shadow-xl);
+  --aimd-shadow-focus: var(--aimd-sys-shadow-focus);
+  --aimd-shadow-panel: var(--aimd-sys-shadow-panel);
+  --aimd-font-size-xs: var(--aimd-sys-type-label-small-size);
+  --aimd-font-size-sm: var(--aimd-sys-type-label-medium-size);
+  --aimd-font-family-sans: var(--aimd-sys-type-family-sans);
+  --aimd-font-family-mono: var(--aimd-sys-type-family-mono);
+  --aimd-text-xs: var(--aimd-sys-type-label-small-size);
+  --aimd-text-sm: var(--aimd-sys-type-label-medium-size);
+  --aimd-text-base: var(--aimd-sys-type-body-medium-size);
+  --aimd-text-lg: var(--aimd-sys-type-title-medium-size);
+  --aimd-text-xl: var(--aimd-sys-type-title-large-size);
+  --aimd-leading-normal: var(--aimd-sys-type-body-line-height);
+  --aimd-leading-reading: var(--aimd-sys-type-reading-line-height);
+  --aimd-font-medium: var(--aimd-sys-type-weight-medium);
+  --aimd-font-semibold: var(--aimd-sys-type-weight-semibold);
+  --aimd-radius-xs: var(--aimd-sys-shape-corner-xs);
+  --aimd-radius-sm: var(--aimd-sys-shape-corner-sm);
+  --aimd-radius-md: var(--aimd-sys-shape-corner-sm);
+  --aimd-radius-lg: var(--aimd-sys-shape-corner-md);
+  --aimd-radius-xl: var(--aimd-sys-shape-corner-xl);
+  --aimd-radius-2xl: var(--aimd-sys-shape-corner-2xl);
+  --aimd-space-1: var(--aimd-sys-space-1);
+  --aimd-space-2: var(--aimd-sys-space-2);
+  --aimd-space-3: var(--aimd-sys-space-3);
+  --aimd-space-4: var(--aimd-sys-space-4);
+  --aimd-size-icon-md: var(--aimd-sys-size-icon-md);
+  --aimd-panel-top: var(--aimd-sys-space-panel-top);
+  --aimd-panel-width: var(--aimd-sys-size-panel-width);
+  --aimd-panel-max-width: var(--aimd-sys-size-panel-max-width);
+  --aimd-panel-height: var(--aimd-sys-size-panel-height);
+  --aimd-panel-source-max-height: var(--aimd-sys-size-panel-source-max-height);
+  --aimd-duration-fast: var(--aimd-sys-motion-duration-fast);
+  --aimd-duration-base: var(--aimd-sys-motion-duration-enter);
+  --aimd-duration-slow: var(--aimd-sys-motion-duration-slow);
+  --aimd-ease-out: var(--aimd-sys-motion-easing-emphasis);
+  --aimd-ease-in-out: var(--aimd-sys-motion-easing-standard);
+  --aimd-z-base: var(--aimd-sys-z-base);
+  --aimd-z-panel: var(--aimd-sys-z-panel);
+  --aimd-z-tooltip: var(--aimd-sys-z-tooltip);
+  --aimd-gmail-hover: var(--aimd-sys-color-gmail-hover);
+  --aimd-gmail-pressed: var(--aimd-sys-color-gmail-pressed);
+  --aimd-gmail-selected: var(--aimd-sys-color-gmail-selected);
+  --aimd-gmail-selected-text: var(--aimd-sys-color-gmail-selected-text);
+  --aimd-text-warning: var(--aimd-sys-color-warning-text);
+  --aimd-text-link: var(--aimd-sys-color-link);
+  --aimd-text-link-hover: var(--aimd-sys-color-link-hover);
+  --aimd-button-primary-bg: var(--aimd-interactive-primary);
+  --aimd-button-primary-hover: var(--aimd-interactive-primary-hover);
+  --aimd-button-primary-text: var(--aimd-text-on-primary);
+  --aimd-button-secondary-bg: var(--aimd-bg-secondary);
+  --aimd-button-secondary-hover: color-mix(in srgb, var(--aimd-bg-secondary) 70%, var(--aimd-interactive-hover));
+  --aimd-button-secondary-text: var(--aimd-text-primary);
+  --aimd-feedback-danger-bg: color-mix(in srgb, var(--aimd-sys-color-danger) 14%, transparent);
+  --aimd-color-warning: var(--aimd-sys-color-warning);
+  --aimd-color-danger: var(--aimd-sys-color-danger);
+  --aimd-button-icon-bg: transparent;
+  --aimd-button-icon-text: var(--aimd-text-secondary);
+  --aimd-button-icon-hover: var(--aimd-interactive-hover);
+  --aimd-button-icon-text-hover: var(--aimd-text-primary);
+  --aimd-button-icon-active: var(--aimd-interactive-selected);
+  --aimd-scrollbar-thumb: var(--aimd-sys-color-scrollbar-thumb);
+  --aimd-scrollbar-thumb-hover: var(--aimd-sys-color-scrollbar-thumb-hover);
+}
+</style><style data-aimd-style-id="aimd-bookmarks-panel-structure">
+:host { font-family: var(--aimd-font-family-sans); }
+* { box-sizing: border-box; }
+button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
+button { cursor: pointer; }
+input::placeholder { opacity: 1; color: var(--aimd-text-secondary); }
+
+.aimd-scroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.aimd-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aimd-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.panel-stage__overlay,
+.aimd-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--aimd-bg-overlay-heavy);
+  backdrop-filter: var(--aimd-overlay-backdrop);
+  -webkit-backdrop-filter: var(--aimd-overlay-backdrop);
+  z-index: 0;
+}
+
+.panel-window,
+.aimd-panel {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 30px;
+  color: var(--aimd-text-primary);
+  overscroll-behavior: contain;
+}
+
+.panel-window {
+  width: min(1180px, 100%);
+  max-height: 100%;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--aimd-bg-primary) 97%, rgba(255,255,255,0.64)),
+    color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, rgba(255,255,255,0.5));
+  box-shadow: 0 32px 120px color-mix(in srgb, #0f172a 18%, transparent);
+}
+
+.panel-window--bookmarks,
+.aimd-panel {
+  width: min(1180px, calc(100vw - 56px));
+  max-width: min(1180px, calc(100vw - 56px));
+  height: min(820px, calc(100vh - 56px));
+  max-height: calc(100vh - 56px);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, rgba(255,255,255,0.6));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--aimd-bg-primary) 98%, white),
+    color-mix(in srgb, var(--aimd-bg-secondary) 92%, transparent)
+  );
+  box-shadow: 0 36px 96px color-mix(in srgb, #0f172a 16%, transparent);
+}
+
+.aimd-panel-header,
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 58%, transparent);
+}
+
+.panel-header__meta,
+.panel-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.panel-header__meta { flex: 1 1 auto; }
+
+.aimd-panel-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-weight: 720;
+  color: var(--aimd-text-primary);
+}
+
+.icon-btn,
+.tab-btn,
+.tree-main,
+.studio-btn,
+.primary-btn,
+.secondary-btn {
+  transition:
+    background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.icon-btn {
+  all: unset;
+  box-sizing: border-box;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--aimd-text-secondary);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+}
+
+.icon-btn[data-active="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 14%, transparent);
+  color: var(--aimd-interactive-primary);
+}
+
+.icon-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-btn--danger {
+  color: var(--aimd-color-danger);
+}
+
+.bookmarks-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+
+.bookmarks-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 20px;
+  border-right: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 32%, transparent);
+  overflow: auto;
+}
+
+.bookmarks-body,
+.tab-panel {
+  min-height: 0;
+  height: 100%;
+}
+
+.aimd-settings,
+.aimd-sponsor {
+  min-height: 0;
+  height: 100%;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel[data-active="1"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-btn {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 50px;
+  padding: 14px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  color: var(--aimd-text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tab-btn:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 8%, transparent);
+}
+
+.tab-btn[data-active="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 12%, transparent);
+  color: var(--aimd-text-primary);
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 20%, transparent);
+}
+
+.tab-btn span:last-child {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.bookmarks-tab-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+}
+
+.toolbar-row--bookmarks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  padding: 18px 20px 10px;
+  background: transparent;
+}
+
+.search-field {
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.search-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-field input {
+  all: unset;
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.platform-dropdown {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.platform-dropdown__trigger {
+  all: unset;
+  box-sizing: border-box;
+  width: 220px;
+  height: 44px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  cursor: pointer;
+}
+
+.platform-dropdown__trigger:hover,
+.platform-dropdown[data-open="1"] .platform-dropdown__trigger {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+}
+
+.platform-dropdown__value {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-dropdown__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.platform-dropdown__caret {
+  display: inline-flex;
+  color: var(--aimd-text-secondary);
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.platform-dropdown[data-open="1"] .platform-dropdown__caret {
+  transform: rotate(180deg);
+}
+
+.platform-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 20;
+  min-width: 100%;
+  padding: 8px;
+  display: none;
+  gap: 4px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
+}
+
+.platform-dropdown__menu[data-open="1"] {
+  display: grid;
+}
+
+.platform-dropdown__option {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  color: var(--aimd-text-primary);
+  cursor: pointer;
+}
+
+.platform-dropdown__option:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 8%, transparent);
+}
+
+.platform-dropdown__option[data-selected="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+  color: var(--aimd-interactive-primary);
+}
+
+.platform-option-icon,
+.platform-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.tree-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 96px;
+}
+
+.tree-node {
+  display: grid;
+}
+
+.tree-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px 18px 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 4px 8px;
+  padding-right: 116px;
+  border-radius: 14px;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.tree-item + .tree-item {
+  margin-top: 2px;
+}
+
+.tree-item:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+}
+
+.tree-caret,
+.tree-caret-slot,
+.tree-icon-slot {
+  width: 20px;
+  height: 20px;
+}
+
+.tree-caret,
+.tree-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--aimd-text-secondary);
+  cursor: pointer;
+}
+
+.tree-caret {
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 10px;
+}
+
+.tree-caret[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tree-check {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid color-mix(in srgb, var(--aimd-text-secondary) 22%, transparent);
+  border-radius: 6px;
+  background: var(--aimd-bg-primary);
+  box-shadow: var(--aimd-shadow-xs);
+  display: grid;
+  place-items: center;
+  justify-self: center;
+}
+
+.tree-check::before {
+  content: '';
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+  transform-origin: center;
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.tree-check:hover {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 40%, var(--aimd-border-default));
+}
+
+.tree-check:checked {
+  border-color: var(--aimd-interactive-primary);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 14%, var(--aimd-bg-primary));
+}
+
+.tree-check:checked::before {
+  border-left-color: var(--aimd-interactive-primary);
+  border-bottom-color: var(--aimd-interactive-primary);
+  transform: translateY(-1px) rotate(-45deg) scale(1);
+}
+
+.tree-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 16%, transparent);
+}
+
+.tree-check[data-indeterminate="1"]::before {
+  width: 8px;
+  height: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--aimd-interactive-primary);
+  transform: scale(1);
+}
+
+.tree-main {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-main--folder .tree-label,
+.tree-main--bookmark .tree-label-row,
+.tree-main--bookmark .tree-label {
+  width: 100%;
+  text-align: left;
+}
+
+.tree-label-row {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+
+.tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.tree-subtitle,
+.status-line,
+.counter {
+  color: var(--aimd-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.tree-folder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.tree-count {
+  min-width: 18px;
+  justify-self: end;
+  text-align: right;
+  font-size: 12px;
+  color: var(--aimd-text-secondary);
+  transition: opacity var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.tree-actions {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  transform: translateY(-50%) translateX(6px);
+  transition: opacity var(--aimd-duration-fast) var(--aimd-ease-in-out), transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.tree-item:hover .tree-actions,
+.tree-item:focus-within .tree-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+.tree-item:hover .tree-count,
+.tree-item:focus-within .tree-count {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tree-children {
+  display: none;
+}
+
+.tree-children[data-expanded="1"] {
+  display: grid;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 320px;
+  margin: 24px 20px 0;
+  padding: 32px;
+  border: 1px dashed color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  border-radius: 22px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 82%, transparent);
+  color: var(--aimd-text-secondary);
+}
+
+.empty-actions {
+  display: inline-flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.studio-btn {
+  all: unset;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--aimd-border-default);
+  background: transparent;
+  color: var(--aimd-text-primary);
+  cursor: pointer;
+}
+
+.studio-btn:hover {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+}
+
+.studio-btn--primary {
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  border-color: transparent;
+}
+
+.studio-btn--secondary {
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+}
+
+.batch-bar {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 58%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, rgba(255,255,255,0.6));
+  box-shadow: 0 20px 44px color-mix(in srgb, #0f172a 14%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(18px);
+  transition: opacity 220ms var(--aimd-ease-in-out), transform 220ms var(--aimd-ease-in-out);
+}
+
+.batch-bar[data-active="1"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.batch-label {
+  min-width: 0;
+  font-size: 14px;
+  color: var(--aimd-text-secondary);
+}
+
+.batch-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.aimd-panel-footer,
+.panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px 18px;
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
+}
+
+.settings-panel,
+.sponsor-panel {
+  min-height: 0;
+  padding: 20px;
+  overflow: auto;
+}
+
+.settings-panel-scroll,
+.sponsor-panel-scroll {
+  min-height: 0;
+  height: 100%;
+}
+
+.settings-grid {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.settings-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 90%, transparent);
+}
+
+.card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.toggle-row,
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
+}
+
+.settings-card > .card-title + .toggle-row,
+.settings-card > .card-title + .settings-row {
+  border-top: none;
+}
+
+.settings-label {
+  min-width: 0;
+}
+
+.settings-label strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.settings-label p,
+.settings-item-warning-text,
+.sponsor-section-note,
+.qr-card-label,
+.qr-card-label-link {
+  margin: 4px 0 0;
+  color: var(--aimd-text-secondary);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aimd-border-default) 90%, transparent);
+  padding: 3px;
+  flex: 0 0 auto;
+}
+
+.toggle-switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-switch[data-checked="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent);
+}
+
+.toggle-knob {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 2px 10px color-mix(in srgb, #0f172a 18%, transparent);
+  transform: translateX(0);
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.toggle-switch[data-checked="1"] .toggle-knob {
+  transform: translateX(20px);
+}
+
+.settings-select-shell {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.settings-select-trigger {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  width: 220px;
+  height: 44px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.settings-select-trigger:hover,
+.settings-select-shell[data-open="1"] .settings-select-trigger {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+}
+
+.settings-select-trigger__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-select-trigger__caret {
+  display: inline-flex;
+  color: var(--aimd-text-secondary);
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.settings-select-shell[data-open="1"] .settings-select-trigger__caret {
+  transform: rotate(180deg);
+}
+
+.settings-select-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 20;
+  min-width: 100%;
+  padding: 8px;
+  gap: 4px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
+}
+
+.settings-select-menu[data-open="1"] {
+  display: grid;
+}
+
+.settings-select-option {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  text-align: left;
+  color: var(--aimd-text-primary);
+  cursor: pointer;
+}
+
+.settings-select-option:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 8%, transparent);
+}
+
+.settings-select-option[data-selected="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+  color: var(--aimd-interactive-primary);
+}
+
+.settings-option-check {
+  display: inline-flex;
+  opacity: 0;
+}
+
+.settings-select-option[data-selected="1"] .settings-option-check {
+  opacity: 1;
+}
+
+.settings-number-field {
+  width: 220px;
+  height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.settings-number-field:hover,
+.settings-number-field:focus-within {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+}
+
+.settings-number {
+  all: unset;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  padding: 0 14px;
+  color: var(--aimd-text-primary);
+}
+
+.settings-number::-webkit-outer-spin-button,
+.settings-number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.settings-number-stepper {
+  width: 38px;
+  border-left: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+}
+
+.settings-number-step {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--aimd-text-secondary);
+  cursor: pointer;
+}
+
+.settings-number-step + .settings-number-step {
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+}
+
+.settings-number-step:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 8%, transparent);
+}
+
+.settings-number-step .aimd-icon svg {
+  transform: rotate(180deg);
+}
+
+.settings-number-step--down .aimd-icon svg {
+  transform: none;
+}
+
+.settings-storage-info {
+  margin-top: 2px;
+  display: grid;
+  gap: 10px;
+}
+
+.storage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.storage-label,
+.storage-value {
+  font-size: 14px;
+  color: var(--aimd-text-secondary);
+}
+
+.storage-value {
+  color: var(--aimd-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.storage-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--aimd-border-default) 40%, transparent);
+}
+
+.storage-progress-bar {
+  width: 0%;
+  height: 100%;
+  background: var(--aimd-interactive-primary);
+}
+
+.storage-progress-bar.warning { background: var(--aimd-color-warning); }
+.storage-progress-bar.critical { background: var(--aimd-color-danger); }
+
+.settings-backup-warning {
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
+}
+
+.export-backup-btn,
+.primary-btn,
+.secondary-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.export-backup-btn {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+}
+
+.primary-btn {
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+}
+
+.secondary-btn {
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+}
+
+.support-content,
+.sponsor-shell {
+  width: min(620px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+  padding-bottom: 18px;
+}
+
+.sponsor-celebration {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 28px;
+  z-index: 4;
+}
+
+.sponsor-burst-piece {
+  position: absolute;
+  width: 9px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--piece-color, var(--aimd-interactive-primary));
+  transform: translate(-50%, -50%) rotate(var(--piece-rotate, 0deg));
+  opacity: 0;
+  animation: sponsor-burst 900ms var(--aimd-ease-out) forwards;
+}
+
+@keyframes sponsor-burst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--piece-rotate, 0deg)) scale(0.45);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(
+        calc(-50% + var(--piece-x, 0px)),
+        calc(-50% + var(--piece-y, 0px))
+      )
+      rotate(calc(var(--piece-rotate, 0deg) + 42deg))
+      scale(1);
+  }
+}
+
+.sponsor-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sponsor-brand-mark {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+
+.support-section,
+.sponsor-card {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 90%, transparent);
+}
+
+.sponsor-section-head {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.sponsor-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sponsor-section-icon .aimd-icon,
+.sponsor-section-icon .aimd-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.sponsor-section-icon--warm {
+  color: var(--aimd-interactive-primary);
+}
+
+.sponsor-section-copy {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.sponsor-section-label {
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 500;
+  color: var(--aimd-text-primary);
+}
+
+.sponsor-action-row {
+  display: flex;
+  justify-content: center;
+}
+
+.sponsor-cta-button {
+  min-width: 220px;
+}
+
+.qr-cards-row,
+.sponsor-qr-grid {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.qr-card,
+.sponsor-qr-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 88%, transparent);
+}
+
+.sponsor-qr-meta {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.qr-image-wrapper,
+.sponsor-qr-frame {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 76%, transparent);
+  background: white;
+}
+
+.qr-image,
+.sponsor-qr-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.aimd-modal-host {
+  position: fixed;
+  inset: 0;
+  z-index: var(--aimd-z-tooltip);
+  pointer-events: none;
+}
+
+.aimd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--aimd-space-4) * 2);
+  background: var(--aimd-bg-overlay-heavy);
+  backdrop-filter: var(--aimd-overlay-backdrop);
+  -webkit-backdrop-filter: var(--aimd-overlay-backdrop);
+  pointer-events: auto;
+}
+
+.aimd-modal {
+  width: min(520px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
+  box-shadow: var(--aimd-shadow-xl);
+}
+
+.aimd-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px calc(var(--aimd-space-4) * 1.5);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 56%, transparent);
+}
+
+.aimd-modal-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.aimd-modal-close {
+  all: unset;
+  width: calc(var(--aimd-size-icon-md) + var(--aimd-space-2));
+  height: calc(var(--aimd-size-icon-md) + var(--aimd-space-2));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--aimd-text-secondary);
+  cursor: pointer;
+}
+
+.aimd-modal-close:hover {
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 60%, transparent);
+  color: var(--aimd-text-primary);
+}
+
+.aimd-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px calc(var(--aimd-space-4) * 1.5);
+  overflow: auto;
+}
+
+.aimd-modal-message {
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--aimd-text-secondary);
+}
+
+.aimd-modal-input-wrap {
+  display: flex;
+}
+
+.aimd-modal-input {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+}
+
+.aimd-modal-input:focus {
+  border-color: var(--aimd-border-focus);
+  box-shadow: var(--aimd-shadow-focus);
+}
+
+.aimd-modal-error {
+  font-size: 13px;
+  color: var(--aimd-color-danger);
+}
+
+.aimd-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px calc(var(--aimd-space-4) * 1.5) 18px;
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 56%, transparent);
+}
+
+.aimd-modal-btn {
+  all: unset;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  color: var(--aimd-text-primary);
+  cursor: pointer;
+}
+
+.aimd-modal-btn--primary {
+  background: var(--aimd-interactive-primary);
+  border-color: transparent;
+  color: var(--aimd-text-on-primary);
+}
+
+.aimd-modal-btn--danger {
+  border-color: color-mix(in srgb, var(--aimd-color-danger) 34%, transparent);
+}
+
+@media (max-width: 980px) {
+  .aimd-panel {
+    width: min(1180px, calc(100vw - 28px));
+    height: min(820px, calc(100vh - 28px));
+    max-height: calc(100vh - 28px);
+  }
+
+  .bookmarks-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .bookmarks-sidebar {
+    border-right: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(160px, 1fr);
+    overflow: auto hidden;
+  }
+
+  .toolbar-row--bookmarks {
+    flex-wrap: wrap;
+  }
+
+  .platform-dropdown__trigger {
+    width: 100%;
+  }
+
+  .batch-bar {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .qr-cards-row,
+  .sponsor-qr-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style><style data-aimd-style-id="aimd-bookmarks-panel-tailwind">/*! tailwindcss v4.2.1 | MIT License | https://tailwindcss.com */
+@layer properties {
+  @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+    *, :before, :after, ::backdrop {
+      --tw-border-style: solid;
+      --tw-font-weight: initial;
+      --tw-shadow: 0 0 #0000;
+      --tw-shadow-color: initial;
+      --tw-shadow-alpha: 100%;
+      --tw-inset-shadow: 0 0 #0000;
+      --tw-inset-shadow-color: initial;
+      --tw-inset-shadow-alpha: 100%;
+      --tw-ring-color: initial;
+      --tw-ring-shadow: 0 0 #0000;
+      --tw-inset-ring-color: initial;
+      --tw-inset-ring-shadow: 0 0 #0000;
+      --tw-ring-inset: initial;
+      --tw-ring-offset-width: 0px;
+      --tw-ring-offset-color: #fff;
+      --tw-ring-offset-shadow: 0 0 #0000;
+    }
+  }
+}
+
+@layer theme {
+  :root, :host {
+    --tw-text-lg: 1.125rem;
+    --tw-text-lg--line-height: calc(1.75 / 1.125);
+    --tw-font-weight-semibold: 600;
+  }
+}
+
+@layer utilities {
+  .tw\:flex {
+    display: flex;
+  }
+
+  .tw\:grid {
+    display: grid;
+  }
+
+  .tw\:items-start {
+    align-items: flex-start;
+  }
+
+  .tw\:justify-between {
+    justify-content: space-between;
+  }
+
+  .tw\:gap-overlay-2 {
+    gap: var(--aimd-space-2);
+  }
+
+  .tw\:gap-overlay-3 {
+    gap: var(--aimd-space-3);
+  }
+
+  .tw\:rounded-control {
+    border-radius: var(--aimd-radius-lg);
+  }
+
+  .tw\:rounded-panel {
+    border-radius: var(--aimd-radius-2xl);
+  }
+
+  .tw\:border {
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+  }
+
+  .tw\:border-border-default {
+    border-color: var(--aimd-border-default);
+  }
+
+  .tw\:border-border-strong {
+    border-color: var(--aimd-border-strong);
+  }
+
+  .tw\:bg-interactive {
+    background-color: var(--aimd-interactive-primary);
+  }
+
+  .tw\:bg-surface {
+    background-color: var(--aimd-bg-primary);
+  }
+
+  .tw\:bg-surface-secondary {
+    background-color: var(--aimd-bg-secondary);
+  }
+
+  .tw\:bg-transparent {
+    background-color: #0000;
+  }
+
+  .tw\:p-overlay-4 {
+    padding: var(--aimd-space-4);
+  }
+
+  .tw\:px-overlay-3 {
+    padding-inline: var(--aimd-space-3);
+  }
+
+  .tw\:px-overlay-4 {
+    padding-inline: var(--aimd-space-4);
+  }
+
+  .tw\:py-overlay-2 {
+    padding-block: var(--aimd-space-2);
+  }
+
+  .tw\:text-lg {
+    font-size: var(--tw-text-lg);
+    line-height: var(--tw-leading, var(--tw-text-lg--line-height));
+  }
+
+  .tw\:font-semibold {
+    --tw-font-weight: var(--tw-font-weight-semibold);
+    font-weight: var(--tw-font-weight-semibold);
+  }
+
+  .tw\:text-on-interactive {
+    color: var(--aimd-text-on-primary);
+  }
+
+  .tw\:text-text-primary {
+    color: var(--aimd-text-primary);
+  }
+
+  .tw\:text-text-secondary {
+    color: var(--aimd-text-secondary);
+  }
+
+  .tw\:shadow-overlay {
+    --tw-shadow: var(--aimd-shadow-lg);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
+
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
+
+@property --tw-font-weight {
+  syntax: "*";
+  inherits: false
+}
+
+@property --tw-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+
+@property --tw-shadow-color {
+  syntax: "*";
+  inherits: false
+}
+
+@property --tw-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
+@property --tw-inset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+
+@property --tw-inset-shadow-color {
+  syntax: "*";
+  inherits: false
+}
+
+@property --tw-inset-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
+@property --tw-ring-color {
+  syntax: "*";
+  inherits: false
+}
+
+@property --tw-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+
+@property --tw-inset-ring-color {
+  syntax: "*";
+  inherits: false
+}
+
+@property --tw-inset-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+
+@property --tw-ring-inset {
+  syntax: "*";
+  inherits: false
+}
+
+@property --tw-ring-offset-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --tw-ring-offset-color {
+  syntax: "*";
+  inherits: false;
+  initial-value: #fff;
+}
+
+@property --tw-ring-offset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+</style></template></div>

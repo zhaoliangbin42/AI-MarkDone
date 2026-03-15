@@ -254,6 +254,9 @@
     "renameFolder": {
         "message": "Rename folder"
     },
+    "moveFolder": {
+        "message": "Move folder"
+    },
     "delete": {
         "message": "Delete"
     },
@@ -552,7 +555,7 @@
         "message": "Enable extension on Claude"
     },
     "enableOnDeepseek": {
-        "message": "Enable extension on Deepseek"
+        "message": "Enable extension on DeepSeek"
     },
     "viewSourceLabel": {
         "message": "View Source"

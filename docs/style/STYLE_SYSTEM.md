@@ -20,6 +20,7 @@
 - `tokens.ts` 只负责组合与兼容出口，不再作为第二套独立视觉源
 - 页面内 UI 统一消费稳定的 `--aimd-*` 语义 token 或主题层导出的稳定语义值
 - 组件内部不得补一套 panel-scoped “伪系统 token”
+- Tailwind 如被采用，只能作为 overlay authoring 层；其 alias 必须映射回 `--aimd-*`
 
 ---
 
@@ -67,6 +68,9 @@
 6. 主题切换由 driver 和 theme provider 负责。
    - 组件只消费 `themeMode` / `themePreset`
    - 组件本身不判断宿主站点是 dark 还是 light
+7. Tailwind 只允许进入 overlay-style singleton UI。
+   - toolbar、inline message UI、其他高频重复注入 surface 禁止使用 Tailwind
+   - Tailwind alias 只能表达语义角色，不能变成新的产品 token source
 
 对页面内 UI 来说，最重要的一句话是：
 
@@ -95,6 +99,22 @@ Theme / Runtime 边界：
 
 - 主题对象负责组件视觉语义，不负责解决多 `ShadowRoot` 的样式注入问题
 - UI theme provider 必须同时负责 theme 选择与每个 `ShadowRoot` 的样式上下文隔离
+- 主题切换必须通过更新 `--aimd-*` token 值生效；不允许把 Tailwind utility/class 切换当作主题真相
+
+Overlay runtime ownership：
+
+- overlay-style singleton UI 必须通过共享 overlay host 挂载，而不是每个模块自行定义 root 容器语义
+- 共享 overlay host 负责：
+  - host / `ShadowRoot` 生命周期
+  - token css 注入
+  - overlay alias css 注入
+  - backdrop root / surface root / modal root 分层
+  - scroll lock、z-index discipline、escape routing 的基础责任
+- overlay 模块自身只负责：
+  - surface 内容渲染
+  - 局部交互
+  - controller 订阅与状态编排
+- modal layer 必须有明确 slot；不要让 modal 任意追加到 overlay `ShadowRoot` 的未知位置
 
 ---
 
@@ -110,7 +130,32 @@ Theme / Runtime 边界：
 
 ---
 
-## 5. 组件样式边界
+## 5. Tailwind Alias 边界
+
+原则：Tailwind 是 overlay UI 的书写层，不是设计系统来源。
+
+允许：
+
+- 仅在 overlay-style singleton UI 中使用 Tailwind authoring
+- 使用语义 alias 映射 `surface / text / border / interactive / state / elevation / space / radius / motion / z`
+- 通过 Tailwind alias 间接引用 `--aimd-*`
+- 在少量无法抽象的结构场景中保留组件局部 CSS
+
+禁止：
+
+- 在 toolbar、inline message UI、其他高频重复注入 surface 中使用 Tailwind
+- 直接把 Tailwind theme values 当作产品 token source
+- 使用组件级 alias 作为第一层语义，例如 `panel-*`、`toolbar-*`、`dialog-*`
+- 使用未加 `tw` 前缀的 utility class
+- 启用 Preflight 或依赖 Preflight 作为基础样式来源
+
+验收要求：
+
+- 即使使用 Tailwind，运行时主题切换也只能通过 `--aimd-*` 值变化生效
+- Tailwind alias 必须可追溯映射到 canonical `--aimd-*`
+- Overlay mock 页面必须验证 alias 层在 light / dark 下都正确取值
+
+## 6. 组件样式边界
 
 原则：组件可以定义结构私有变量，但不能重新定义设计系统语义变量。
 
@@ -118,6 +163,13 @@ Theme / Runtime 边界：
 
 - 组件私有变量，例如 `--_reader-dot-size`
 - 基于全局 token 的局部组合，例如 `color-mix(in srgb, var(--aimd-bg-primary) 82%, transparent)`
+- 只服务于单个模块内部结构的局部视觉值，可保留在组件层
+
+Token 提升规则：
+
+- 如果某个视觉语义会被 2 个或以上 overlay 模块复用，必须提升到 canonical token 或共享 overlay primitive
+- 如果某个值只服务于单一模块的内部结构，可保留为组件私有变量
+- 不允许把 mock 中的裸颜色、裸阴影、裸圆角、裸间距长期留在 shipped UI 中而不收敛来源
 
 禁止：
 
@@ -127,7 +179,7 @@ Theme / Runtime 边界：
 
 ---
 
-## 6. 与重构蓝图的关系
+## 7. 与重构蓝图的关系
 
 当发生以下变更，必须同步更新本文档与相关契约：
 
@@ -135,3 +187,4 @@ Theme / Runtime 边界：
 - 主题同步机制变更（ThemeManager 或 token 切换方式）
 - z-index 体系调整
 - UI theme registry 新增或废弃 preset
+- Tailwind alias 边界、overlay 范围或 mock-first 视觉流程发生变化

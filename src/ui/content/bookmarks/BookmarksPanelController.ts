@@ -154,6 +154,13 @@ export class BookmarksPanelController {
         this.emit();
     }
 
+    async refreshUiState(): Promise<void> {
+        const res = await bookmarksClient.uiStateGetLastSelectedFolderPath();
+        if (!res.ok) return;
+        this.state.selectedFolderPath = res.data.value ?? null;
+        this.emit();
+    }
+
     async refreshPositionsForUrl(url: string): Promise<void> {
         this.positionsUrl = url;
         const res = await bookmarksClient.positions({ url });
@@ -197,6 +204,7 @@ export class BookmarksPanelController {
     selectFolder(path: string | null): void {
         this.state.selectedFolderPath = path;
         this.emit();
+        void bookmarksClient.uiStateSetLastSelectedFolderPath(path);
     }
 
     toggleFolderExpanded(path: string): void {
@@ -208,7 +216,12 @@ export class BookmarksPanelController {
 
     getFolderCheckboxState(path: string): { checked: boolean; indeterminate: boolean } {
         const keys = this.getDescendantKeysForFolder(path);
-        if (keys.length === 0) return { checked: false, indeterminate: false };
+        if (keys.length === 0) {
+            return {
+                checked: this.state.selectedKeys.has(folderKey(path)),
+                indeterminate: false,
+            };
+        }
         let selected = 0;
         for (const k of keys) if (this.state.selectedKeys.has(k)) selected += 1;
         if (selected === 0) return { checked: false, indeterminate: false };
@@ -332,6 +345,17 @@ export class BookmarksPanelController {
         if (res.ok) {
             await this.refreshAll();
             this.clearSelection();
+        }
+        return res;
+    }
+
+    async moveBookmark(bookmark: Bookmark, targetFolderPath: string): Promise<Result<any>> {
+        const res = await bookmarksClient.bulkMove({
+            items: [{ url: bookmark.url, position: bookmark.position }],
+            targetFolderPath,
+        });
+        if (res.ok) {
+            await this.refreshAll();
         }
         return res;
     }

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Overlay Host Mock</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 32%),
+          linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+        color: #0f172a;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+        display: grid;
+        gap: 24px;
+      }
+
+      .stage {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .card {
+        border-radius: 20px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Overlay Host Mock</h1>
+        <p>Uses real Shadow DOM mounting, canonical AIMD tokens, and the overlay-only Tailwind alias layer.</p>
+      </section>
+      <section class="stage" id="overlay-mock-stage"></section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+  </html>

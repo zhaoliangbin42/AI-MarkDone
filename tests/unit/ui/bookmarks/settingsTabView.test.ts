@@ -37,12 +37,36 @@ describe('SettingsTabView', () => {
         await view.refresh();
 
         const root = view.getElement();
-        const foldingMode = root.querySelector<HTMLSelectElement>('#aimd-chatgpt-folding-mode');
+        const foldingModeTrigger = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-mode');
+        const foldingMode = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-mode .settings-select-trigger__label');
         const showFoldDock = root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[4];
 
-        expect(foldingMode?.value).toBe('off');
+        expect(foldingModeTrigger).toBeTruthy();
+        expect(foldingMode?.textContent).toBe('chatgptFoldingModeOff');
         expect(showFoldDock?.checked).toBe(true);
         expect(showFoldDock?.disabled).toBe(false);
         expect(showFoldDock?.closest('.settings-item')?.textContent).toContain('chatgptFoldDockDesc');
+    });
+
+    it('matches the shipped mock structure with custom select triggers, stepped count control, and DeepSeek casing', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+
+        const view = new SettingsTabView({ modal });
+        await view.refresh();
+
+        const root = view.getElement();
+
+        expect(root.querySelectorAll('.settings-select-trigger').length).toBeGreaterThanOrEqual(2);
+        expect(root.querySelector('.settings-select')).toBeNull();
+        expect(root.querySelector('.settings-number-field')).toBeTruthy();
+        expect(root.querySelector('[data-action="settings-step-count"][data-direction="up"]')).toBeTruthy();
+        expect(root.querySelector('[data-action="settings-step-count"][data-direction="down"]')).toBeTruthy();
+        const platformLabels = Array.from(root.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong'));
+        const deepseekLabel = platformLabels.find((node) => node.textContent?.includes('Deep'));
+
+        expect(deepseekLabel?.textContent).toContain('DeepSeek');
+        expect(deepseekLabel?.textContent).not.toContain('Deepseek');
     });
 });
