@@ -15,6 +15,7 @@ import { setLocale } from '../../ui/content/components/i18n';
 import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
 import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
+import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 
 ensurePageTokens();
 
@@ -46,6 +47,40 @@ if (adapter) {
 
     settingsClient.init();
     let lastLocale = settingsClient.getCached()?.language ?? DEFAULT_SETTINGS.language;
+    const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
+    let runtimeEnabled = settingsClient.getCached()?.platforms?.[platformKey] ?? true;
+
+    const syncClickToCopy = (enabled: boolean) => {
+        mathClick.disable();
+        if (!enabled) return;
+        for (const messageElement of discoverMessageElements(document, adapter.getMessageSelector())) {
+            mathClick.enable(messageElement);
+        }
+    };
+
+    const initFoldingIfNeeded = () => {
+        if (!folding) return;
+        const initialTheme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
+        folding.init(adapter, initialTheme);
+    };
+
+    const enableRuntime = () => {
+        if (runtimeEnabled) return;
+        runtimeEnabled = true;
+        messageToolbars.init();
+        headerIcon.init();
+        initFoldingIfNeeded();
+    };
+
+    const disableRuntime = () => {
+        if (!runtimeEnabled) return;
+        runtimeEnabled = false;
+        messageToolbars.dispose();
+        headerIcon.dispose();
+        bookmarksPanel.hide();
+        folding?.dispose();
+    };
+
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
     settingsClient.subscribe((snap) => {
@@ -53,6 +88,11 @@ if (adapter) {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
         }
+        const nextRuntimeEnabled = snap.settings.platforms?.[platformKey] ?? true;
+        if (nextRuntimeEnabled) enableRuntime();
+        else disableRuntime();
+        syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
+        readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         folding?.setPolicy(snap.settings.chatgpt);
         messageToolbars.setBehaviorFlags({
             showViewSource: snap.settings.behavior.showViewSource,
@@ -73,15 +113,15 @@ if (adapter) {
     browser.runtime.onMessage.addListener((msg: unknown) => {
         if (!isExtRequest(msg)) return;
         if (msg.type === 'ui:toggle_toolbar') {
+            if (!runtimeEnabled) return;
             void bookmarksPanel.toggle();
         }
     });
 
-    messageToolbars.init();
-    headerIcon.init();
-    if (folding) {
-        const initialTheme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
-        folding.init(adapter, initialTheme);
+    if (runtimeEnabled) {
+        messageToolbars.init();
+        headerIcon.init();
+        initFoldingIfNeeded();
     }
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.

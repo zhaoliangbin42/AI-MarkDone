@@ -290,4 +290,30 @@ describe('background bookmarks handler', () => {
         expect(payload.bookmarks).toHaveLength(1);
         expect(payload.bookmarks[0].position).toBe(2);
     });
+
+    it('returns storage usage derived from real local storage bytes and quota', async () => {
+        const store: StorageMap = {
+            'bookmark:chatgpt.com/c/1:1': {
+                url: 'https://chatgpt.com/c/1',
+                urlWithoutProtocol: 'chatgpt.com/c/1',
+                position: 1,
+                userMessage: 'u1',
+                aiResponse: 'a1',
+                timestamp: 1,
+                title: 'T1',
+                platform: 'ChatGPT',
+                folderPath: 'Import',
+            },
+        };
+        (globalThis as any).browser = createInMemoryBrowser(store);
+        (globalThis as any).chrome = { storage: { local: { QUOTA_BYTES: 1024 } } };
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        const res = await handleBookmarksRequest(req('bookmarks:storageUsage'));
+        expect(res?.response.ok).toBe(true);
+        expect((res as any).response.data.usedBytes).toBeGreaterThan(0);
+        expect((res as any).response.data.quotaBytes).toBe(1024);
+        expect((res as any).response.data.usedPercentage).toBeGreaterThan(0);
+    });
 });

@@ -11,6 +11,7 @@ import rehypeStringify from 'rehype-stringify';
 
 export type MarkdownRenderOptions = {
     softBreaks?: boolean;
+    highlightCode?: boolean;
 };
 
 type HastNode = {
@@ -82,31 +83,48 @@ function createProcessor(options?: MarkdownRenderOptions) {
         processor.use(remarkBreaks);
     }
 
-    return processor
+    const pipeline = processor
         .use(remarkRehype)
         .use(rehypeSanitize, markdownSanitizeSchema)
         .use(rehypeKatex, {
             strict: 'ignore',
-        })
-        .use(rehypeHighlight, {
+        });
+
+    if (options?.highlightCode !== false) {
+        pipeline.use(rehypeHighlight, {
             detect: false,
             ignoreMissing: true,
-        })
+        });
+    }
+
+    return pipeline
         .use(annotateCodeBlocks)
         .use(rehypeStringify);
 }
 
 let defaultProcessor: ReturnType<typeof createProcessor> | null = null;
 let softBreaksProcessor: ReturnType<typeof createProcessor> | null = null;
+let noHighlightProcessor: ReturnType<typeof createProcessor> | null = null;
+let softBreaksNoHighlightProcessor: ReturnType<typeof createProcessor> | null = null;
 
 function getProcessor(options?: MarkdownRenderOptions) {
+    const highlightCode = options?.highlightCode !== false;
     if (options?.softBreaks) {
-        softBreaksProcessor ??= createProcessor({ softBreaks: true });
-        return softBreaksProcessor;
+        if (highlightCode) {
+            softBreaksProcessor ??= createProcessor({ softBreaks: true, highlightCode: true });
+            return softBreaksProcessor;
+        }
+        softBreaksNoHighlightProcessor ??= createProcessor({ softBreaks: true, highlightCode: false });
+        return softBreaksNoHighlightProcessor;
     }
 
-    defaultProcessor ??= createProcessor();
-    return defaultProcessor;
+    if (highlightCode) {
+        defaultProcessor ??= createProcessor({ highlightCode: true });
+        return defaultProcessor;
+    }
+
+    noHighlightProcessor ??= createProcessor({ highlightCode: false });
+    return noHighlightProcessor;
 }
 
 export function renderMarkdownToSanitizedHtml(markdown: string, options?: MarkdownRenderOptions): string {

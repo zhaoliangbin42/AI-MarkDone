@@ -10,6 +10,7 @@ import type {
     BookmarksSavePayload,
     BookmarksUiStateGetPayload,
     BookmarksUiStateSetPayload,
+    BookmarksStorageUsageResponse,
     ExtRequest,
     ProtocolErrorCode,
 } from '../../../contracts/protocol';
@@ -48,6 +49,7 @@ export type ExportResponse = { payload: any };
 export type RepairResponse = { stats: any };
 export type UiStateGetResponse = { value: string | null };
 export type UiStateSetResponse = { value: string | null };
+export type StorageUsageResponse = BookmarksStorageUsageResponse;
 
 export const bookmarksClient = {
     async list(payload?: BookmarksListPayload): Promise<Result<ListResponse>> {
@@ -94,6 +96,9 @@ export const bookmarksClient = {
     },
     async foldersMove(payload: FolderMovePayload): Promise<Result<any>> {
         return call('bookmarks:folders:move', payload);
+    },
+    async storageUsage(): Promise<Result<StorageUsageResponse>> {
+        return call('bookmarks:storageUsage');
     },
     async uiStateGetLastSelectedFolderPath(): Promise<Result<UiStateGetResponse>> {
         const payload: BookmarksUiStateGetPayload = { key: 'lastSelectedFolderPath' };

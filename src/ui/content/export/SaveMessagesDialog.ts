@@ -1,6 +1,7 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { getTokenCss } from '../../../style/tokens';
+import overlayCssText from '../../../style/tailwind-overlay.css?inline';
 import { t } from '../components/i18n';
 import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
@@ -10,9 +11,10 @@ import {
 } from '../../../services/export/saveMessagesFacade';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon } from '../../../assets/icons';
-import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
+import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { TooltipDelegate } from '../../../utils/tooltip';
+import { createIcon } from '../components/Icon';
 
 type State = {
     theme: Theme;
@@ -23,9 +25,7 @@ type State = {
 };
 
 export class SaveMessagesDialog {
-    private host: HTMLElement | null = null;
-    private shadow: ShadowRoot | null = null;
-    private hostHandle: ShadowDialogHostHandle | null = null;
+    private hostHandle: OverlaySurfaceHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private adapter: SiteAdapter | null = null;
     private turns: Array<{ user: string; assistant: string; index: number }> = [];
@@ -46,11 +46,11 @@ export class SaveMessagesDialog {
     };
 
     isOpen(): boolean {
-        return Boolean(this.host);
+        return Boolean(this.hostHandle);
     }
 
     open(adapter: SiteAdapter, theme: Theme): void {
-        if (this.host) this.close();
+        if (this.hostHandle) this.close();
         this.adapter = adapter;
         this.state.theme = theme;
 
@@ -62,155 +62,106 @@ export class SaveMessagesDialog {
         this.state.format = 'markdown';
         this.state.saving = false;
 
-        const handle = mountShadowDialogHost({
-            id: 'aimd-save-messages-dialog-host',
-            html: this.getHtml(),
-            cssText: getTokenCss(theme) + getSaveMessagesDialogCss(theme),
-            lockScroll: true,
-        });
-
-        this.host = handle.host;
-        this.shadow = handle.shadow;
-        this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(this.shadow);
-
-        this.shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) this.close();
-        });
-        this.shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close());
-        this.shadow.querySelector<HTMLButtonElement>('[data-action="select_all"]')?.addEventListener('click', () => this.selectAll());
-        this.shadow.querySelector<HTMLButtonElement>('[data-action="deselect_all"]')?.addEventListener('click', () => this.deselectAll());
-        this.shadow.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', () => void this.save());
-        this.bindFormatHandlers();
-
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: handle.host,
-            onEscape: () => this.close(),
-            stopPropagationAll: true,
-            ignoreEscapeWhileComposing: true,
-            trapTabWithin: this.shadow.querySelector<HTMLElement>('.panel') ?? undefined,
-        });
-
+        this.mount();
         this.render();
     }
 
     close(): void {
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
-
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
-
         this.hostHandle?.unmount();
         this.hostHandle = null;
-
-        this.host = null;
-        this.shadow = null;
         this.adapter = null;
         this.turns = [];
         this.metadata = null;
         this.state.selected.clear();
     }
 
-    private getHtml(): string {
-        return `
-<div class="overlay" data-role="overlay">
-  <div class="panel" role="dialog" aria-modal="true" aria-label="${t('saveMessagesTitle')}">
-    <div class="header">
-      <div class="title">${t('saveMessagesTitle')}</div>
-      <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
-    </div>
-    <div class="body">
-      <div class="section">
-        <div class="label">${t('selectMessagesLabel')}</div>
-        <div class="grid" data-role="grid"></div>
-      </div>
-      <div class="section">
-        <div class="label">${t('formatLabel')}</div>
-        <div class="seg" data-role="format">
-          <button class="seg-btn" type="button" data-format="markdown" data-active="1" aria-label="${t('formatMarkdown')}">${fileCodeIcon}<span>${t('formatMarkdown')}</span></button>
-          <button class="seg-btn" type="button" data-format="pdf" data-active="0" aria-label="${t('formatPdf')}">${fileTextIcon}<span>${t('formatPdf')}</span></button>
-        </div>
-      </div>
-    </div>
-    <div class="footer">
-      <div class="left-actions">
-        <button class="btn" type="button" data-action="select_all">${t('selectAll')}</button>
-        <button class="btn" type="button" data-action="deselect_all">${t('deselectAll')}</button>
-      </div>
-      <div class="count" data-role="count"></div>
-      <button class="btn btn--primary" type="button" data-action="save">${t('btnSave')}</button>
-    </div>
-  </div>
-</div>
-`;
+    private mount(): void {
+        if (this.hostHandle) return;
+
+        const handle = mountOverlaySurfaceHost({
+            id: 'aimd-save-messages-dialog-host',
+            themeCss: getTokenCss(this.state.theme),
+            surfaceCss: this.getCss(),
+            overlayCss: overlayCssText,
+            lockScroll: true,
+            surfaceStyleId: 'aimd-save-messages-dialog-structure',
+            overlayStyleId: 'aimd-save-messages-dialog-tailwind',
+        });
+
+        this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+
+        handle.backdropRoot.addEventListener('click', () => this.close());
+        handle.surfaceRoot.addEventListener('click', (event) => void this.handleClick(event));
+
+        this.keyboardHandle = attachDialogKeyboardScope({
+            root: handle.host,
+            onEscape: () => this.close(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: handle.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? handle.host,
+        });
     }
 
     private render(): void {
-        if (!this.shadow) return;
+        if (!this.hostHandle) return;
 
-        // Grid
-        const grid = this.shadow.querySelector<HTMLElement>('[data-role="grid"]');
-        if (grid) {
-            grid.replaceChildren();
-            this.turns.forEach((turn, idx) => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'msg-btn';
-                b.textContent = String(idx + 1);
-                b.dataset.index = String(idx);
-                b.dataset.selected = this.state.selected.has(idx) ? '1' : '0';
-                b.dataset.tooltip = turn.user;
-                b.dataset.tooltipTitle = String(idx + 1);
-                b.dataset.tooltipVariant = 'preview';
-                b.addEventListener('click', () => {
-                    if (this.state.selected.has(idx)) this.state.selected.delete(idx);
-                    else this.state.selected.add(idx);
-                    b.dataset.selected = this.state.selected.has(idx) ? '1' : '0';
-                    this.updateFooter();
-                });
-                grid.appendChild(b);
-            });
-        }
-
-        // Format (active state only; handlers are bound once in `open()`).
-        const formatWrap = this.shadow.querySelector<HTMLElement>('[data-role="format"]');
-        formatWrap?.querySelectorAll<HTMLElement>('[data-format]').forEach((el) => {
-            el.dataset.active = el.getAttribute('data-format') === this.state.format ? '1' : '0';
-        });
-
-        this.updateFooter();
-        this.tooltipDelegate?.refresh(this.shadow);
+        this.hostHandle.setSurfaceCss(this.getCss());
+        this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
+        this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
+        this.tooltipDelegate?.refresh(this.hostHandle.shadow);
     }
 
-    private bindFormatHandlers(): void {
-        if (!this.shadow) return;
-        const wrap = this.shadow.querySelector<HTMLElement>('[data-role="format"]');
-        if (!wrap) return;
-        wrap.addEventListener('click', (e) => {
-            const target = e.target as HTMLElement | null;
-            const btn = target?.closest?.('[data-format]') as HTMLElement | null;
-            if (!btn) return;
-            const next = (btn.getAttribute('data-format') as SaveFormat) || 'markdown';
-            if (next === this.state.format) return;
-            this.state.format = next;
-            wrap.querySelectorAll<HTMLElement>('[data-format]').forEach((el) => {
-                el.dataset.active = el.getAttribute('data-format') === next ? '1' : '0';
-            });
-        });
+    private async handleClick(event: Event): Promise<void> {
+        const target = event.target as HTMLElement | null;
+        const actionEl = target?.closest<HTMLElement>('[data-action]');
+        if (!actionEl) {
+            const chip = target?.closest<HTMLElement>('.message-chip');
+            if (chip?.dataset.index) {
+                this.toggleTurn(Number(chip.dataset.index));
+            }
+            return;
+        }
+
+        const action = actionEl.dataset.action;
+        switch (action) {
+            case 'close-panel':
+                this.close();
+                return;
+            case 'toggle-turn':
+                this.toggleTurn(Number(actionEl.dataset.index ?? -1));
+                return;
+            case 'select-all-turns':
+                this.selectAll();
+                return;
+            case 'deselect-all-turns':
+                this.deselectAll();
+                return;
+            case 'set-format': {
+                const next = (actionEl.dataset.format as SaveFormat) || 'markdown';
+                if (next !== this.state.format) {
+                    this.state.format = next;
+                    this.render();
+                }
+                return;
+            }
+            case 'save-turns':
+                await this.save();
+                return;
+            default:
+                return;
+        }
     }
 
-    private updateFooter(): void {
-        if (!this.shadow) return;
-        const count = this.shadow.querySelector<HTMLElement>('[data-role="count"]');
-        if (count) {
-            count.textContent = t('selectedCountMessages', [`${this.state.selected.size}`, `${this.state.turnsCount}`]);
-        }
-        const saveBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="save"]');
-        if (saveBtn) {
-            saveBtn.disabled = this.state.selected.size === 0 || this.state.saving;
-            saveBtn.textContent = this.state.saving ? t('saving') : t('btnSave');
-        }
+    private toggleTurn(index: number): void {
+        if (!Number.isInteger(index) || index < 0 || index >= this.turns.length) return;
+        if (this.state.selected.has(index)) this.state.selected.delete(index);
+        else this.state.selected.add(index);
+        this.render();
     }
 
     private selectAll(): void {
@@ -228,7 +179,7 @@ export class SaveMessagesDialog {
         if (this.state.selected.size === 0 || this.state.saving) return;
 
         this.state.saving = true;
-        this.updateFooter();
+        this.render();
 
         try {
             const selectedIndices = Array.from(this.state.selected).sort((a, b) => a - b);
@@ -237,17 +188,97 @@ export class SaveMessagesDialog {
                     ? await exportTurnsPdf(this.turns, selectedIndices, this.metadata, { t: this.exportT })
                     : await exportTurnsMarkdown(this.turns, selectedIndices, this.metadata, { t: this.exportT });
 
-            if (!res.ok) {
-                // Keep dialog open; user can retry.
-                return;
-            }
+            if (!res.ok) return;
             this.close();
         } finally {
             this.state.saving = false;
-            this.updateFooter();
+            if (this.hostHandle) this.render();
         }
     }
 
+    private getHtml(): string {
+        const title = this.getLabel('saveMessagesTitle', 'Save Messages');
+        const closeLabel = this.getLabel('btnClose', 'Close panel');
+        const selectMessagesLabel = this.getLabel('selectMessagesLabel', 'Select messages');
+        const formatLabel = this.getLabel('formatLabel', 'Format');
+        const markdownLabel = this.getLabel('formatMarkdown', 'Markdown');
+        const pdfLabel = this.getLabel('formatPdf', 'PDF');
+        const selectAllLabel = this.getLabel('selectAll', 'Select all');
+        const deselectAllLabel = this.getLabel('deselectAll', 'Deselect all');
+        const saveLabel = this.state.saving ? this.getLabel('saving', 'Saving') : this.getLabel('btnSave', 'Save');
+        const countLabel = this.getSelectedCountLabel();
+
+        return `
+<div class="panel-window panel-window--dialog panel-window--save" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+  <div class="panel-header">
+    <div class="panel-header__meta">
+      <h2>${escapeHtml(title)}</h2>
+    </div>
+    <div class="panel-header__actions">
+      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
+    </div>
+  </div>
+  <div class="dialog-body">
+    <div class="section-label">${escapeHtml(selectMessagesLabel)}</div>
+    <div class="message-grid">
+      ${this.turns.map((turn, index) => {
+          const active = this.state.selected.has(index) ? '1' : '0';
+          return `<button class="message-chip" data-action="toggle-turn" data-index="${index}" data-active="${active}" data-tooltip="${escapeHtml(turn.user)}" data-tooltip-title="${index + 1}" data-tooltip-variant="preview">${index + 1}</button>`;
+      }).join('')}
+    </div>
+    <div class="section-label">${escapeHtml(formatLabel)}</div>
+    <div class="segmented">
+      <button data-action="set-format" data-format="markdown" data-active="${this.state.format === 'markdown' ? '1' : '0'}" aria-label="${escapeHtml(markdownLabel)}">${iconMarkup(fileCodeIcon)}<span>${escapeHtml(markdownLabel)}</span></button>
+      <button data-action="set-format" data-format="pdf" data-active="${this.state.format === 'pdf' ? '1' : '0'}" aria-label="${escapeHtml(pdfLabel)}">${iconMarkup(fileTextIcon)}<span>${escapeHtml(pdfLabel)}</span></button>
+    </div>
+  </div>
+  <div class="panel-footer panel-footer--between">
+    <div class="button-row">
+      <button class="secondary-btn secondary-btn--compact" data-action="select-all-turns">${escapeHtml(selectAllLabel)}</button>
+      <button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="deselect-all-turns">${escapeHtml(deselectAllLabel)}</button>
+    </div>
+    <div class="footer-cluster">
+      <div class="counter">${escapeHtml(countLabel)}</div>
+      <button class="secondary-btn secondary-btn--compact secondary-btn--primary" data-action="save-turns" ${this.state.selected.size === 0 || this.state.saving ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
+    </div>
+  </div>
+</div>
+`;
+    }
+
+    private getCss(): string {
+        return `
+${getTokenCss(this.state.theme)}
+${getSaveMessagesDialogCss(this.state.theme)}
+`;
+    }
+
+    private getLabel(key: string, fallback: string, substitutions?: string[]): string {
+        const translated = substitutions ? t(key, substitutions) : t(key);
+        if (!translated || translated === key) return fallback;
+        return translated;
+    }
+
+    private getSelectedCountLabel(): string {
+        const count = `${this.state.selected.size}`;
+        const total = `${this.state.turnsCount}`;
+        const translated = t('selectedCountMessages', [count, total]);
+        if (!translated || translated === 'selectedCountMessages') return `${count}/${total} selected`;
+        return translated;
+    }
 }
 
 export const saveMessagesDialog = new SaveMessagesDialog();
+
+function iconMarkup(svg: string): string {
+    return createIcon(svg).outerHTML;
+}
+
+function escapeHtml(input: string): string {
+    return input
+        .split('&').join('&amp;')
+        .split('<').join('&lt;')
+        .split('>').join('&gt;')
+        .split('"').join('&quot;')
+        .split("'").join('&#39;');
+}

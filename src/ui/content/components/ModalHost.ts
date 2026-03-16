@@ -1,5 +1,7 @@
-import { xIcon } from '../../../assets/icons';
+import { Icons, xIcon } from '../../../assets/icons';
+import { ensureStyle } from '../../../style/shadow';
 import { t } from './i18n';
+import { getModalHostCss } from './styles/modalHostCss';
 
 type ModalKind = 'info' | 'warning' | 'error';
 
@@ -40,7 +42,8 @@ export class ModalHost {
     constructor(root: ShadowRoot | HTMLElement) {
         this.root = root;
         this.container = document.createElement('div');
-        this.container.className = 'aimd-modal-host';
+        this.container.className = 'mock-modal-host';
+        this.ensureStyles();
         this.root.appendChild(this.container);
     }
 
@@ -51,7 +54,7 @@ export class ModalHost {
     closeTop(): void {
         const last = this.container.lastElementChild as HTMLElement | null;
         if (!last) return;
-        const cancel = last.querySelector<HTMLButtonElement>('[data-action="cancel"]');
+        const cancel = last.querySelector<HTMLButtonElement>('[data-action="modal-cancel"]');
         cancel?.click();
     }
 
@@ -63,9 +66,9 @@ export class ModalHost {
             footer: (footer, close) => {
                 const okBtn = document.createElement('button');
                 okBtn.type = 'button';
-                okBtn.className = 'aimd-modal-btn aimd-modal-btn--primary';
+                okBtn.className = 'mock-modal__button mock-modal__button--primary';
                 okBtn.textContent = opts.confirmText;
-                okBtn.dataset.action = 'cancel';
+                okBtn.dataset.action = 'modal-cancel';
                 okBtn.addEventListener('click', () => close());
                 footer.appendChild(okBtn);
                 window.setTimeout(() => okBtn.focus(), 0);
@@ -82,9 +85,9 @@ export class ModalHost {
                 footer: (footer, close) => {
                     const cancelBtn = document.createElement('button');
                     cancelBtn.type = 'button';
-                    cancelBtn.className = 'aimd-modal-btn aimd-modal-btn--secondary';
+                    cancelBtn.className = 'mock-modal__button mock-modal__button--secondary';
                     cancelBtn.textContent = opts.cancelText;
-                    cancelBtn.dataset.action = 'cancel';
+                    cancelBtn.dataset.action = 'modal-cancel';
                     cancelBtn.addEventListener('click', () => {
                         close();
                         resolve(false);
@@ -92,9 +95,9 @@ export class ModalHost {
 
                     const confirmBtn = document.createElement('button');
                     confirmBtn.type = 'button';
-                    confirmBtn.className = `aimd-modal-btn ${opts.danger ? 'aimd-modal-btn--danger' : 'aimd-modal-btn--primary'}`;
+                    confirmBtn.className = `mock-modal__button ${opts.danger ? 'mock-modal__button--danger' : 'mock-modal__button--primary'}`;
                     confirmBtn.textContent = opts.confirmText;
-                    confirmBtn.dataset.action = 'confirm';
+                    confirmBtn.dataset.action = 'modal-confirm';
                     confirmBtn.addEventListener('click', () => {
                         close();
                         resolve(true);
@@ -115,28 +118,25 @@ export class ModalHost {
                 title: opts.title,
                 message: opts.message,
                 body: (body) => {
-                    const inputWrap = document.createElement('div');
-                    inputWrap.className = 'aimd-modal-input-wrap';
                     const input = document.createElement('input');
                     input.type = 'text';
-                    input.className = 'aimd-modal-input';
+                    input.className = 'mock-modal__input';
                     input.placeholder = opts.placeholder ?? '';
                     input.value = opts.defaultValue ?? '';
-                    inputWrap.appendChild(input);
 
                     const error = document.createElement('div');
-                    error.className = 'aimd-modal-error';
+                    error.className = 'mock-modal__error';
 
-                    body.append(inputWrap, error);
+                    body.append(input, error);
 
                     return { input, error };
                 },
                 footer: (footer, close, ctx) => {
                     const cancelBtn = document.createElement('button');
                     cancelBtn.type = 'button';
-                    cancelBtn.className = 'aimd-modal-btn aimd-modal-btn--secondary';
+                    cancelBtn.className = 'mock-modal__button mock-modal__button--secondary';
                     cancelBtn.textContent = opts.cancelText;
-                    cancelBtn.dataset.action = 'cancel';
+                    cancelBtn.dataset.action = 'modal-cancel';
                     cancelBtn.addEventListener('click', () => {
                         close();
                         resolve(null);
@@ -144,9 +144,9 @@ export class ModalHost {
 
                     const confirmBtn = document.createElement('button');
                     confirmBtn.type = 'button';
-                    confirmBtn.className = 'aimd-modal-btn aimd-modal-btn--primary';
+                    confirmBtn.className = 'mock-modal__button mock-modal__button--primary';
                     confirmBtn.textContent = opts.confirmText;
-                    confirmBtn.dataset.action = 'confirm';
+                    confirmBtn.dataset.action = 'modal-confirm';
 
                     const runValidate = (): boolean => {
                         if (!opts.validate || !ctx) return true;
@@ -189,9 +189,9 @@ export class ModalHost {
                 if (!opts.footer) {
                     const okBtn = document.createElement('button');
                     okBtn.type = 'button';
-                    okBtn.className = 'aimd-modal-btn aimd-modal-btn--primary';
+                    okBtn.className = 'mock-modal__button mock-modal__button--primary';
                     okBtn.textContent = t('btnOk');
-                    okBtn.dataset.action = 'cancel';
+                    okBtn.dataset.action = 'modal-cancel';
                     okBtn.addEventListener('click', () => close());
                     footer.appendChild(okBtn);
                     window.setTimeout(() => okBtn.focus(), 0);
@@ -213,34 +213,45 @@ export class ModalHost {
         this.lastActive = (document.activeElement as HTMLElement | null) ?? null;
 
         const overlay = document.createElement('div');
-        overlay.className = 'aimd-modal-overlay';
+        overlay.className = 'mock-modal-overlay';
         overlay.dataset.kind = params.kind;
 
         const dialog = document.createElement('div');
-        dialog.className = 'aimd-modal';
+        dialog.className = 'mock-modal';
+        dialog.dataset.kind = params.kind;
         dialog.setAttribute('role', 'dialog');
         dialog.setAttribute('aria-modal', 'true');
 
         const header = document.createElement('div');
-        header.className = 'aimd-modal-header';
-        const title = document.createElement('div');
-        title.className = 'aimd-modal-title';
+        header.className = 'mock-modal__head';
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'mock-modal__title-wrap';
+
+        const kindIcon = document.createElement('span');
+        kindIcon.className = 'mock-modal__kind-icon';
+        kindIcon.innerHTML = getKindIcon(params.kind);
+
+        const titleCopy = document.createElement('div');
+        titleCopy.className = 'mock-modal__title-copy';
+        const title = document.createElement('strong');
         title.textContent = params.title;
+        titleCopy.appendChild(title);
 
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
-        closeBtn.className = 'aimd-modal-close';
+        closeBtn.className = 'mock-modal__close';
         closeBtn.innerHTML = xIcon;
-        closeBtn.dataset.action = 'cancel';
+        closeBtn.dataset.action = 'modal-cancel';
         closeBtn.setAttribute('aria-label', t('btnClose'));
 
-        header.append(title, closeBtn);
+        titleWrap.append(kindIcon, titleCopy);
+        header.append(titleWrap, closeBtn);
 
         const content = document.createElement('div');
-        content.className = 'aimd-modal-content';
+        content.className = 'mock-modal__content';
         if (params.message) {
-            const msg = document.createElement('div');
-            msg.className = 'aimd-modal-message';
+            const msg = document.createElement('p');
+            msg.className = 'mock-modal__message';
             msg.textContent = params.message;
             content.appendChild(msg);
         }
@@ -248,7 +259,7 @@ export class ModalHost {
         const ctx = params.body ? (params.body(content) as any) : undefined;
 
         const footer = document.createElement('div');
-        footer.className = 'aimd-modal-footer';
+        footer.className = 'mock-modal__footer';
 
         const close = () => {
             cleanup();
@@ -308,4 +319,29 @@ export class ModalHost {
         overlay.appendChild(dialog);
         this.container.appendChild(overlay);
     }
+
+    private ensureStyles(): void {
+        const cssText = getModalHostCss();
+        if (this.root instanceof ShadowRoot) {
+            ensureStyle(this.root, cssText, { id: 'aimd-modal-host-structure' });
+            return;
+        }
+
+        const existing = this.root.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-modal-host-structure"]');
+        if (existing) {
+            existing.textContent = cssText;
+            return;
+        }
+
+        const style = document.createElement('style');
+        style.setAttribute('data-aimd-style-id', 'aimd-modal-host-structure');
+        style.textContent = cssText;
+        this.root.appendChild(style);
+    }
+}
+
+function getKindIcon(kind: ModalKind): string {
+    if (kind === 'warning') return Icons.alertTriangle;
+    if (kind === 'error') return Icons.xCircle;
+    return Icons.info;
 }

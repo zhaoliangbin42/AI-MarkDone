@@ -114,12 +114,13 @@
 - `bookmarks:folders:delete`
 - `bookmarks:folders:rename`
 - `bookmarks:folders:move`
+- `bookmarks:storageUsage`
 - `bookmarks:uiState:get`
 - `bookmarks:uiState:set`
 
 用途：
 
-- 书签数据读写、批量操作、folder 操作、UI state 持久化
+- 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
 
 ---
 

@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const ensurePageTokens = vi.fn();
 const mathClickEnable = vi.fn();
+const mathClickDisable = vi.fn();
 const mathClickCtor = vi.fn(function () {
-    return { enable: mathClickEnable };
+    return { enable: mathClickEnable, disable: mathClickDisable };
 });
 const themeInit = vi.fn();
 const themeSubscribe = vi.fn();
@@ -11,7 +12,7 @@ const themeManagerCtor = vi.fn(function () {
     return { init: themeInit, subscribe: themeSubscribe };
 });
 const readerPanelCtor = vi.fn(function () {
-    return { setTheme: vi.fn() };
+    return { setTheme: vi.fn(), setRenderCodeInReader: vi.fn() };
 });
 const sendControllerCtor = vi.fn(function () {
     return { setTheme: vi.fn() };
@@ -19,8 +20,16 @@ const sendControllerCtor = vi.fn(function () {
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
 const settingsGetCached = vi.fn(() => null);
+let settingsSubscriber: ((snap: any) => void) | null = null;
 const settingsClientCtor = vi.fn(function () {
-    return { init: settingsInit, subscribe: settingsSubscribe, getCached: settingsGetCached };
+    return {
+        init: settingsInit,
+        subscribe: (fn: (snap: any) => void) => {
+            settingsSubscriber = fn;
+            return settingsSubscribe(fn);
+        },
+        getCached: settingsGetCached,
+    };
 });
 const bookmarksControllerRefreshAll = vi.fn(async () => {});
 const bookmarksControllerRefreshPositions = vi.fn(async () => {});
@@ -33,22 +42,26 @@ const bookmarksControllerCtor = vi.fn(function () {
     };
 });
 const bookmarksToggle = vi.fn(async () => {});
+const bookmarksHide = vi.fn();
 const bookmarksPanelCtor = vi.fn(function () {
-    return { toggle: bookmarksToggle };
+    return { toggle: bookmarksToggle, hide: bookmarksHide };
 });
 const messageToolbarsInit = vi.fn();
 const messageToolbarsSetTheme = vi.fn();
 const messageToolbarsSetBehaviorFlags = vi.fn();
+const messageToolbarsDispose = vi.fn();
 const messageToolbarCtor = vi.fn(function () {
     return {
         init: messageToolbarsInit,
         setTheme: messageToolbarsSetTheme,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
+        dispose: messageToolbarsDispose,
     };
 });
 const headerIconInit = vi.fn();
+const headerIconDispose = vi.fn();
 const headerIconCtor = vi.fn(function () {
-    return { init: headerIconInit };
+    return { init: headerIconInit, dispose: headerIconDispose };
 });
 const foldingInit = vi.fn();
 const foldingRegisterMessage = vi.fn();
@@ -72,6 +85,7 @@ let adapterPlatformId = 'gemini';
 vi.mock('@/drivers/content/adapters/registry', () => ({
     getAdapter: () => ({
         getPlatformId: () => adapterPlatformId,
+        getMessageSelector: () => '[data-testid="message"]',
     }),
 }));
 
@@ -146,7 +160,9 @@ vi.mock('@/contracts/protocol', async () => {
 afterEach(() => {
     vi.clearAllMocks();
     adapterPlatformId = 'gemini';
+    settingsSubscriber = null;
     document.documentElement.removeAttribute('data-aimd-theme');
+    document.body.innerHTML = '';
 });
 
 describe('content runtime entry', () => {
@@ -175,5 +191,65 @@ describe('content runtime entry', () => {
         expect(headerIconInit).toHaveBeenCalledTimes(1);
         expect(foldingCtor).toHaveBeenCalledTimes(1);
         expect(foldingInit).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies settings updates to runtime wiring and existing messages', async () => {
+        adapterPlatformId = 'gemini';
+        document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(settingsSubscriber).toBeTypeOf('function');
+
+        settingsSubscriber!({
+            settings: {
+                language: 'en',
+                platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
+                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                behavior: {
+                    showViewSource: true,
+                    showSaveMessages: true,
+                    showWordCount: false,
+                    enableClickToCopy: false,
+                    saveContextOnly: false,
+                    _contextOnlyConfirmed: true,
+                },
+                reader: { renderCodeInReader: false },
+            },
+        });
+
+        const reader = readerPanelCtor.mock.results[0]?.value;
+        expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
+        expect(headerIconDispose).toHaveBeenCalledTimes(1);
+        expect(bookmarksHide).toHaveBeenCalledTimes(1);
+        expect(mathClickDisable).toHaveBeenCalledTimes(1);
+        expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
+
+        settingsSubscriber!({
+            settings: {
+                language: 'en',
+                platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                behavior: {
+                    showViewSource: true,
+                    showSaveMessages: true,
+                    showWordCount: true,
+                    enableClickToCopy: true,
+                    saveContextOnly: false,
+                    _contextOnlyConfirmed: true,
+                },
+                reader: { renderCodeInReader: true },
+            },
+        });
+
+        expect(headerIconInit).toHaveBeenCalledTimes(2);
+        expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
+        expect(mathClickEnable).toHaveBeenCalledTimes(2);
+        expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
+        expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
+            showViewSource: true,
+            showSaveMessages: true,
+            showWordCount: true,
+        });
     });
 });

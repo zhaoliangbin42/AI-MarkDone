@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interactive markdown styling now uses one shared GitHub-inspired theme layer across reader and bookmark detail surfaces.
 - Markdown rendering now runs through one shared unified pipeline for reader, bookmarks, mocks, and PDF export, with GFM, KaTeX math, syntax highlighting, and sanitization handled in one pass.
 - Reader send popovers now use the rebuilt mock-aligned surface and sync drafts through the shared composer bridge when the platform composer is available.
+- Shared confirm, prompt, alert, and custom modals now use a rebuilt mock-aligned dialog shell with dedicated shared styling instead of relying on bookmark-panel-local modal CSS.
 
 ### Fixed
 - Runtime: Fixed the content script entry so markdown enhancement experiments no longer emit module-split imports that break toolbar injection at runtime.
@@ -298,6 +299,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - 2025-12-20
 
 ### Changed
+- Wire the rebuilt bookmarks settings panel to live runtime behavior for platform enablement, Reader code rendering, and click-to-copy updates.
+- Show real bookmark storage usage in settings with a live progress bar driven by background quota data.
 - Refactor injected UI styles to use shared tokens and remove inline overrides in
   bookmark dialogs.
 

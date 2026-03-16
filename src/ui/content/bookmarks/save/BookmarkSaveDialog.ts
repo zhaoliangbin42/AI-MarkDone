@@ -3,6 +3,7 @@ import { PathUtils } from '../../../../core/bookmarks/path';
 import type { ProtocolErrorCode } from '../../../../contracts/protocol';
 import { bookmarksClient } from '../../../../drivers/shared/clients/bookmarksClient';
 import { getTokenCss } from '../../../../style/tokens';
+import overlayCssText from '../../../../style/tailwind-overlay.css?inline';
 import {
     checkIcon,
     chevronDownIcon,
@@ -12,16 +13,22 @@ import {
     folderPlusIcon,
     xIcon,
 } from '../../../../assets/icons';
-import { createInitialDraftState, deriveDefaultTitle, deriveInitialSelection, reduceDraft, validateDraft } from '../../../../services/bookmarks/saveDialog/draftModel';
+import {
+    createInitialDraftState,
+    deriveDefaultTitle,
+    deriveInitialSelection,
+    reduceDraft,
+    validateDraft,
+} from '../../../../services/bookmarks/saveDialog/draftModel';
 import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/folderPickerModel';
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
 import { t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
+import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../../overlay/OverlaySurfaceHost';
+import { TooltipDelegate } from '../../../../utils/tooltip';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
 import { getBookmarkSaveDialogCss } from './bookmarkSaveDialogCss';
-import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../../components/shadowDialogHost';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
-import { TooltipDelegate } from '../../../../utils/tooltip';
 
 type FolderLite = { path: string; name: string; depth: number };
 
@@ -34,16 +41,14 @@ type OpenParams = {
     userPrompt: string;
     existingTitle?: string | null;
     currentFolderPath?: string | null;
-    mode?: SaveDialogMode; // default 'create'
+    mode?: SaveDialogMode;
 };
 
 type RootFolderModalState = { value: string; error: string; note: string };
 type InlineSubfolderState = { parentPath: string; value: string; error: string; note: string };
 
 export class BookmarkSaveDialog {
-    private host: HTMLElement | null = null;
-    private shadow: ShadowRoot | null = null;
-    private hostHandle: ShadowDialogHostHandle | null = null;
+    private hostHandle: OverlaySurfaceHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private theme: Theme = 'light';
@@ -51,19 +56,18 @@ export class BookmarkSaveDialog {
 
     private folders: FolderLite[] = [];
     private state: BookmarkSaveDraftState | null = null;
-    private status: string = '';
-    private pending: boolean = false;
-
+    private status = '';
+    private pending = false;
     private rootFolderModal: RootFolderModalState | null = null;
     private subfolderInline: InlineSubfolderState | null = null;
     private lastSelectedFolderPathCache: string | null = null;
 
     isOpen(): boolean {
-        return Boolean(this.host);
+        return Boolean(this.hostHandle);
     }
 
     async open(params: OpenParams): Promise<BookmarkSaveDialogResult> {
-        if (this.host) this.close({ ok: false, reason: 'cancel' });
+        if (this.hostHandle) this.close({ ok: false, reason: 'cancel' });
         this.theme = params.theme;
         this.status = '';
         this.pending = false;
@@ -74,7 +78,6 @@ export class BookmarkSaveDialog {
         const title = deriveDefaultTitle({ userPrompt: params.userPrompt, existingTitle: params.existingTitle ?? null });
 
         this.mount();
-        // Optimistic render from cache to avoid "seconds-level" perceived delay on repeated opens.
         if (this.folders.length > 0) {
             const selectedFolderPath = deriveInitialSelection({
                 folders: this.folders as any,
@@ -85,20 +88,16 @@ export class BookmarkSaveDialog {
             this.state = createInitialDraftState({ mode, title, selectedFolderPath });
             this.render();
         } else {
-            this.renderLoading();
             this.state = createInitialDraftState({ mode, title, selectedFolderPath: null });
-            this.renderTitleOnly();
-            this.renderFooterOnly();
+            this.render();
         }
 
-        // Fetch latest folders + last-selected (best-effort). Do not block the UI on this round trip.
         void this.refreshFoldersAndUiState({
             mode,
             currentFolderPath: params.currentFolderPath ?? null,
         });
 
-        // Focus title by default (but do it after initial render).
-        window.setTimeout(() => this.shadow?.querySelector<HTMLInputElement>('[data-role="title"]')?.focus(), 0);
+        window.setTimeout(() => this.hostHandle?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')?.focus(), 0);
 
         return await new Promise<BookmarkSaveDialogResult>((resolve) => {
             this.resolve = resolve;
@@ -107,30 +106,24 @@ export class BookmarkSaveDialog {
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.hostHandle?.setCss(getTokenCss(theme) + getBookmarkSaveDialogCss(theme));
+        this.hostHandle?.setThemeCss(getTokenCss(theme));
+        this.hostHandle?.setSurfaceCss(this.getCss());
     }
 
     private close(result: BookmarkSaveDialogResult): void {
         const resolve = this.resolve;
         this.resolve = null;
-
-        this.shadow = null;
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
-
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
-
         this.hostHandle?.unmount();
         this.hostHandle = null;
-
-        this.host = null;
         this.state = null;
         this.status = '';
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
-
         resolve?.(result);
     }
 
@@ -140,7 +133,7 @@ export class BookmarkSaveDialog {
             bookmarksClient.uiStateGetLastSelectedFolderPath(),
         ]);
 
-        if (!this.host) return;
+        if (!this.hostHandle) return;
 
         if (foldersRes.ok) {
             this.folders = foldersRes.data.folders.map((f) => ({ path: f.path, name: f.name, depth: f.depth }));
@@ -151,8 +144,6 @@ export class BookmarkSaveDialog {
         if (!this.state) return;
         const selected = this.state.selectedFolderPath;
         const exists = selected ? this.folders.some((f) => f.path === selected) : false;
-
-        // Only adjust selection if the current selection is missing; never override an explicit user selection.
         if (!exists) {
             const nextSelected = deriveInitialSelection({
                 folders: this.folders as any,
@@ -168,35 +159,27 @@ export class BookmarkSaveDialog {
     }
 
     private mount(): void {
-        if (this.host) return;
-        const handle = mountShadowDialogHost({
+        if (this.hostHandle) return;
+        const handle = mountOverlaySurfaceHost({
             id: 'aimd-bookmark-save-dialog-host',
-            html: this.getHtml(),
-            cssText: getTokenCss(this.theme) + getBookmarkSaveDialogCss(this.theme),
+            themeCss: getTokenCss(this.theme),
+            surfaceCss: this.getCss(),
+            overlayCss: overlayCssText,
             lockScroll: true,
+            surfaceStyleId: 'aimd-bookmark-save-dialog-structure',
+            overlayStyleId: 'aimd-bookmark-save-dialog-tailwind',
         });
-        const host = handle.host;
-        const shadow = handle.shadow;
 
-        shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) this.close({ ok: false, reason: 'cancel' });
-        });
-        shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
-        shadow.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
-        shadow.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', () => void this.submit());
-        shadow.querySelector<HTMLButtonElement>('[data-action="new_folder"]')?.addEventListener('click', () => this.openRootFolderModal());
+        this.hostHandle = handle;
+        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
 
-        const titleInput = shadow.querySelector<HTMLInputElement>('[data-role="title"]');
-        titleInput?.addEventListener('input', () => {
-            if (!this.state) return;
-            this.state = reduceDraft(this.state, { type: 'setTitle', title: titleInput.value });
-            // IME-friendly: do not rebuild the full tree on each keystroke.
-            this.renderTitleOnly();
-            this.renderFooterOnly();
-        });
+        handle.backdropRoot.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
+        handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
+        handle.surfaceRoot.addEventListener('input', (event) => this.handleSurfaceInput(event));
+        handle.surfaceRoot.addEventListener('keydown', (event) => void this.handleSurfaceKeyDown(event));
 
         this.keyboardHandle = attachDialogKeyboardScope({
-            root: host,
+            root: handle.host,
             onEscape: () => {
                 if (this.rootFolderModal) {
                     this.rootFolderModal = null;
@@ -212,152 +195,93 @@ export class BookmarkSaveDialog {
             },
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: shadow.querySelector<HTMLElement>('.panel') ?? undefined,
+            trapTabWithin: handle.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? handle.host,
         });
-
-        this.host = host;
-        this.shadow = shadow;
-        this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(shadow);
-        this.tooltipDelegate.refresh(shadow);
-    }
-
-    private renderLoading(): void {
-        if (!this.shadow) return;
-        const tree = this.shadow.querySelector<HTMLElement>('[data-role="tree"]');
-        if (!tree) return;
-        const empty = document.createElement('div');
-        empty.className = 'empty';
-        empty.textContent = t('loadingFolders');
-        tree.replaceChildren(empty);
-    }
-
-    private renderTitleOnly(): void {
-        if (!this.shadow || !this.state) return;
-
-        const titleInput = this.shadow.querySelector<HTMLInputElement>('[data-role="title"]');
-        if (titleInput && titleInput.value !== this.state.title) titleInput.value = this.state.title;
-
-        const validation = validateDraft(this.state);
-        if (titleInput) titleInput.setAttribute('aria-invalid', validation.titleError ? 'true' : 'false');
-
-        const titleError = this.shadow.querySelector<HTMLElement>('[data-role="title_error"]');
-        if (titleError) {
-            const msg = validation.titleError ? titleValidationMessage(validation.titleError as any) : '';
-            titleError.textContent = msg;
-            titleError.style.display = msg ? 'block' : 'none';
-        }
-    }
-
-    private renderFooterOnly(): void {
-        if (!this.shadow || !this.state) return;
-
-        const status = this.shadow.querySelector<HTMLElement>('[data-role="status"]');
-        if (status) status.textContent = this.status || '';
-
-        const validation = validateDraft(this.state);
-        const saveBtn = this.shadow.querySelector<HTMLButtonElement>('[data-action="save"]');
-        if (saveBtn) saveBtn.disabled = this.pending || !validation.canSubmit;
     }
 
     private render(): void {
-        if (!this.shadow || !this.state) return;
-        this.renderTitleOnly();
-        this.renderFooterOnly();
-
-        const vm = buildFolderPickerVm({
-            folders: this.folders as any,
-            expandedPaths: this.state.expandedPaths,
-            selectedPath: this.state.selectedFolderPath,
-        });
-
-        const tree = this.shadow.querySelector<HTMLElement>('[data-role="tree"]');
-        if (tree) {
-            tree.replaceChildren();
-            if (vm.nodes.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'empty';
-                empty.textContent = this.status || t('noFoldersYet');
-                tree.appendChild(empty);
-            } else {
-                vm.nodes.forEach((node) => tree.appendChild(this.renderNode(node)));
-            }
-        }
-
+        if (!this.hostHandle || !this.state) return;
+        this.hostHandle.setSurfaceCss(this.getCss());
+        this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
+        this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
         this.renderModalLayer();
+        this.tooltipDelegate?.refresh(this.hostHandle.shadow);
     }
 
-    private renderNode(node: any): HTMLElement {
-        const row = document.createElement('div');
-        row.className = 'row';
-        row.dataset.path = node.path;
-        row.dataset.selected = node.isSelected ? '1' : '0';
-        row.style.paddingLeft = `calc(10px + ${Math.max(0, node.depth - 1)} * 22px)`;
+    private handleSurfaceInput(event: Event): void {
+        const target = event.target as HTMLElement | null;
+        if (!this.state || !target) return;
 
-        const caret = document.createElement('span');
-        caret.className = 'caret';
+        if (target.matches('[data-role="bookmark-save-title"]')) {
+            const input = target as HTMLInputElement;
+            this.state = reduceDraft(this.state, { type: 'setTitle', title: input.value });
+            this.render();
+            return;
+        }
 
-        const hasChildren = node.children && node.children.length > 0;
-        if (hasChildren) {
-            caret.appendChild(createIcon(node.isExpanded ? chevronDownIcon : chevronRightIcon));
-            caret.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!this.state) return;
-                this.state = reduceDraft(this.state, { type: 'toggleExpanded', path: node.path });
+        if (target.matches('[data-role="bookmark-save-inline-draft"]') && this.subfolderInline) {
+            const input = target as HTMLInputElement;
+            this.subfolderInline.value = input.value;
+            this.subfolderInline.error = '';
+            this.subfolderInline.note = '';
+            this.renderModalLayer();
+        }
+    }
+
+    private async handleSurfaceClick(event: Event): Promise<void> {
+        const target = event.target as HTMLElement | null;
+        const actionEl = target?.closest<HTMLElement>('[data-action]');
+        if (!actionEl) return;
+
+        switch (actionEl.dataset.action) {
+            case 'close-panel':
+                this.close({ ok: false, reason: 'cancel' });
+                return;
+            case 'bookmark-save-submit':
+                await this.submit();
+                return;
+            case 'bookmark-save-select-folder':
+                if (actionEl.dataset.path) this.selectFolder(actionEl.dataset.path);
+                return;
+            case 'bookmark-save-toggle-folder':
+                if (!this.state || !actionEl.dataset.path) return;
+                this.state = reduceDraft(this.state, { type: 'toggleExpanded', path: actionEl.dataset.path });
                 this.render();
-            });
-        } else {
-            caret.innerHTML = '';
+                return;
+            case 'bookmark-save-new-root-folder':
+                this.openRootFolderModal();
+                return;
+            case 'bookmark-save-inline-folder':
+                if (actionEl.dataset.path) await this.openInlineSubfolderEditor(actionEl.dataset.path);
+                return;
+            case 'bookmark-save-inline-confirm':
+                if (actionEl.dataset.path) await this.confirmInlineSubfolder(actionEl.dataset.path);
+                return;
+            case 'bookmark-save-inline-cancel':
+                this.subfolderInline = null;
+                this.render();
+                return;
+            default:
+                return;
         }
+    }
 
-        const iconWrap = document.createElement('span');
-        iconWrap.className = 'folder-icon';
-        iconWrap.appendChild(createIcon(node.isExpanded ? folderOpenIcon : folderIcon));
+    private async handleSurfaceKeyDown(event: KeyboardEvent): Promise<void> {
+        const target = event.target as HTMLElement | null;
+        if (!target) return;
 
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = node.name;
-
-        const actions = document.createElement('span');
-        actions.className = 'row-actions';
-
-        if (node.canCreateSubfolder) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'icon icon-sm';
-            btn.title = t('createSubfolder');
-            btn.setAttribute('aria-label', t('createSubfolder'));
-            btn.innerHTML = folderPlusIcon;
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void this.openInlineSubfolderEditor(node.path);
-            });
-            actions.appendChild(btn);
+        if (target.matches('[data-role="bookmark-save-inline-draft"]')) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const path = (target as HTMLElement).dataset.parent;
+                if (path) await this.confirmInlineSubfolder(path);
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                this.subfolderInline = null;
+                this.render();
+            }
+            event.stopPropagation();
         }
-
-        const check = document.createElement('span');
-        check.className = 'check';
-        check.innerHTML = node.isSelected ? checkIcon : '';
-
-        row.appendChild(caret);
-        row.appendChild(iconWrap);
-        row.appendChild(name);
-        row.appendChild(actions);
-        row.appendChild(check);
-
-        row.addEventListener('click', () => this.selectFolder(node.path));
-
-        const wrap = document.createElement('div');
-        wrap.appendChild(row);
-        if (this.subfolderInline && this.subfolderInline.parentPath === node.path) {
-            wrap.appendChild(this.renderInlineSubfolderRow(node.path, node.depth));
-        }
-        if (hasChildren && node.isExpanded) {
-            for (const ch of node.children) wrap.appendChild(this.renderNode(ch));
-        }
-        return wrap.childElementCount === 1 ? row : wrap;
     }
 
     private selectFolder(path: string): void {
@@ -372,7 +296,6 @@ export class BookmarkSaveDialog {
         if (this.pending) return;
         this.rootFolderModal = { value: '', error: '', note: '' };
         this.renderModalLayer();
-        window.setTimeout(() => this.shadow?.querySelector<HTMLInputElement>('[data-role="root_folder_input"]')?.focus(), 0);
     }
 
     private async openInlineSubfolderEditor(parentPath: string): Promise<void> {
@@ -380,13 +303,24 @@ export class BookmarkSaveDialog {
         this.subfolderInline = { parentPath, value: '', error: '', note: '' };
         this.state = reduceDraft(this.state, { type: 'expandToPath', path: parentPath });
         this.render();
-
         window.setTimeout(() => {
-            const input = this.shadow?.querySelector<HTMLInputElement>(
-                `[data-role="subfolder_input"][data-parent="${CSS.escape(parentPath)}"]`
-            );
-            input?.focus();
+            this.hostHandle?.surfaceRoot.querySelector<HTMLInputElement>(`[data-role="bookmark-save-inline-draft"][data-parent="${CSS.escape(parentPath)}"]`)?.focus();
         }, 0);
+    }
+
+    private async confirmInlineSubfolder(parentPath: string): Promise<void> {
+        if (!this.subfolderInline || this.pending) return;
+        const result = await this.createFolderOnBackend({ parentPath, rawName: this.subfolderInline.value });
+        if (!result.ok) {
+            this.subfolderInline.error = result.message;
+            this.subfolderInline.note = '';
+            this.render();
+            return;
+        }
+
+        this.subfolderInline = null;
+        if (this.state) this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: result.path });
+        this.render();
     }
 
     private async createFolderOnBackend(params: { parentPath: string | null; rawName: string }): Promise<{ ok: true; path: string; note: string } | { ok: false; message: string }> {
@@ -398,15 +332,15 @@ export class BookmarkSaveDialog {
         const path = params.parentPath ? `${params.parentPath}${PathUtils.SEPARATOR}${nameNormalized}` : nameNormalized;
 
         this.pending = true;
-        this.status = t('saving');
-        this.renderFooterOnly();
+        this.status = this.getLabel('saving', 'Saving');
+        this.render();
 
         const res = await bookmarksClient.foldersCreate({ path });
         this.pending = false;
 
         if (!res.ok) {
             this.status = '';
-            this.renderFooterOnly();
+            this.render();
             return {
                 ok: false,
                 message: folderCreateBackendErrorMessage({
@@ -423,102 +357,13 @@ export class BookmarkSaveDialog {
         }
 
         this.status = '';
-        this.renderFooterOnly();
-
+        this.render();
         return { ok: true, path, note };
     }
 
-    private renderInlineSubfolderRow(parentPath: string, parentDepth: number): HTMLElement {
-        const outer = document.createElement('div');
-        outer.className = 'inline-wrap';
-        outer.style.paddingLeft = `calc(10px + ${Math.max(0, parentDepth)} * 22px)`;
-
-        const row = document.createElement('div');
-        row.className = 'inline-editor';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'input input-compact';
-        input.placeholder = t('enterFolderName');
-        input.setAttribute('data-role', 'subfolder_input');
-        input.setAttribute('data-parent', parentPath);
-        input.value = this.subfolderInline?.value ?? '';
-
-        input.addEventListener('input', () => {
-            if (!this.subfolderInline) return;
-            this.subfolderInline.value = input.value;
-            this.subfolderInline.error = '';
-            this.subfolderInline.note = '';
-        });
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                void confirm();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                this.subfolderInline = null;
-                this.render();
-            }
-            e.stopPropagation();
-        });
-
-        const okBtn = document.createElement('button');
-        okBtn.type = 'button';
-        okBtn.className = 'icon icon-sm';
-        okBtn.title = t('btnSave');
-        okBtn.setAttribute('aria-label', t('btnSave'));
-        okBtn.innerHTML = checkIcon;
-        okBtn.addEventListener('click', () => void confirm());
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.className = 'icon icon-sm';
-        cancelBtn.title = t('btnCancel');
-        cancelBtn.setAttribute('aria-label', t('btnCancel'));
-        cancelBtn.innerHTML = xIcon;
-        cancelBtn.addEventListener('click', () => {
-            this.subfolderInline = null;
-            this.render();
-        });
-
-        row.append(input, okBtn, cancelBtn);
-
-        const message = document.createElement('div');
-        message.className = 'inline-message';
-        message.setAttribute('data-role', 'inline_message');
-        const initialMsg = this.subfolderInline?.error || this.subfolderInline?.note || '';
-        message.textContent = initialMsg;
-        message.dataset.kind = this.subfolderInline?.error ? 'error' : (this.subfolderInline?.note ? 'note' : '');
-        message.style.display = initialMsg ? 'block' : 'none';
-
-        const confirm = async () => {
-            if (!this.subfolderInline || this.pending) return;
-            const rawName = this.subfolderInline.value;
-            const result = await this.createFolderOnBackend({ parentPath, rawName });
-            if (!result.ok) {
-                this.subfolderInline.error = result.message;
-                this.subfolderInline.note = '';
-                message.dataset.kind = 'error';
-                message.textContent = result.message;
-                message.style.display = 'block';
-                input.focus();
-                return;
-            }
-
-            this.subfolderInline = null;
-            if (this.state) this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: result.path });
-            this.render();
-        };
-
-        outer.append(row, message);
-        return outer;
-    }
-
     private renderModalLayer(): void {
-        if (!this.shadow) return;
-        const layer = this.shadow.querySelector<HTMLElement>('[data-role="modal_layer"]');
-        if (!layer) return;
-
+        if (!this.hostHandle) return;
+        const layer = this.hostHandle.modalRoot;
         layer.replaceChildren();
         if (!this.rootFolderModal) return;
 
@@ -535,60 +380,38 @@ export class BookmarkSaveDialog {
         panel.className = 'modal';
         panel.setAttribute('role', 'dialog');
         panel.setAttribute('aria-modal', 'true');
-        panel.setAttribute('aria-label', t('newFolder'));
+        panel.setAttribute('aria-label', this.getLabel('newFolder', 'New Folder'));
 
         const head = document.createElement('div');
         head.className = 'modal-head';
-
         const title = document.createElement('div');
         title.className = 'modal-title';
-        title.textContent = t('newFolder');
-
+        title.textContent = this.getLabel('newFolder', 'New Folder');
         const close = document.createElement('button');
         close.type = 'button';
-        close.className = 'icon icon-sm';
-        close.title = t('btnClose');
-        close.setAttribute('aria-label', t('btnClose'));
-        close.innerHTML = xIcon;
+        close.className = 'icon-btn';
+        close.setAttribute('aria-label', this.getLabel('btnClose', 'Close'));
+        close.appendChild(createIcon(xIcon));
         close.addEventListener('click', () => {
             this.rootFolderModal = null;
             this.renderModalLayer();
         });
-
         head.append(title, close);
 
         const body = document.createElement('div');
         body.className = 'modal-body';
-
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'input';
-        input.placeholder = t('enterFolderName');
-        input.setAttribute('data-role', 'root_folder_input');
+        input.className = 'text-input';
         input.value = this.rootFolderModal.value;
-
-        const err = document.createElement('div');
-        err.className = 'error';
-        err.setAttribute('data-role', 'root_folder_error');
-
-        const hint = document.createElement('div');
-        hint.className = 'hint';
-        hint.setAttribute('data-role', 'root_folder_hint');
-
-        const syncErrorHint = () => {
-            if (!this.rootFolderModal) return;
-            err.textContent = this.rootFolderModal.error || '';
-            err.style.display = this.rootFolderModal.error ? 'block' : 'none';
-            hint.textContent = this.rootFolderModal.note || '';
-        };
-        syncErrorHint();
-
+        input.placeholder = this.getLabel('enterFolderName', 'New folder');
+        input.setAttribute('data-role', 'root_folder_input');
         input.addEventListener('input', () => {
             if (!this.rootFolderModal) return;
             this.rootFolderModal.value = input.value;
             this.rootFolderModal.error = '';
             this.rootFolderModal.note = '';
-            syncErrorHint();
+            this.renderModalLayer();
         });
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -602,24 +425,32 @@ export class BookmarkSaveDialog {
             e.stopPropagation();
         });
 
-        body.append(input, err, hint);
+        const error = document.createElement('div');
+        error.className = 'error-text';
+        error.textContent = this.rootFolderModal.error || '';
+        error.style.display = this.rootFolderModal.error ? 'block' : 'none';
+
+        const hint = document.createElement('div');
+        hint.className = 'help-text';
+        hint.textContent = this.rootFolderModal.note || '';
+        hint.style.display = this.rootFolderModal.note ? 'block' : 'none';
+        body.append(input, error, hint);
 
         const actions = document.createElement('div');
         actions.className = 'modal-actions';
-
         const cancel = document.createElement('button');
         cancel.type = 'button';
-        cancel.className = 'btn';
-        cancel.textContent = t('btnCancel');
+        cancel.className = 'secondary-btn';
+        cancel.textContent = this.getLabel('btnCancel', 'Cancel');
         cancel.addEventListener('click', () => {
             this.rootFolderModal = null;
             this.renderModalLayer();
         });
 
-        const confirmBtn = document.createElement('button');
-        confirmBtn.type = 'button';
-        confirmBtn.className = 'btn btn-primary';
-        confirmBtn.textContent = t('btnSave');
+        const save = document.createElement('button');
+        save.type = 'button';
+        save.className = 'secondary-btn secondary-btn--primary';
+        save.textContent = this.getLabel('btnSave', 'Save');
 
         const confirm = async () => {
             if (!this.rootFolderModal || this.pending) return;
@@ -627,83 +458,149 @@ export class BookmarkSaveDialog {
             if (!res.ok) {
                 this.rootFolderModal.error = res.message;
                 this.rootFolderModal.note = '';
-                syncErrorHint();
-                input.focus();
+                this.renderModalLayer();
                 return;
             }
-
-            this.rootFolderModal.error = '';
-            this.rootFolderModal.note = res.note;
-            syncErrorHint();
 
             if (this.state) this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: res.path });
             this.rootFolderModal = null;
             this.render();
         };
 
-        confirmBtn.addEventListener('click', () => void confirm());
-        actions.append(cancel, confirmBtn);
+        save.addEventListener('click', () => void confirm());
+        actions.append(cancel, save);
 
         panel.append(head, body, actions);
         overlay.appendChild(panel);
         layer.appendChild(overlay);
-
         window.setTimeout(() => input.focus(), 0);
     }
 
     private async submit(): Promise<void> {
         if (!this.state || this.pending) return;
-
         const validation = validateDraft(this.state);
         if (!validation.canSubmit) {
-            this.status = '';
-            this.renderTitleOnly();
-            this.renderFooterOnly();
+            this.render();
             return;
         }
 
         const folderPath = this.state.selectedFolderPath!;
         const title = this.state.title.trim();
-
         void bookmarksClient.uiStateSetLastSelectedFolderPath(folderPath);
         this.close({ ok: true, title, folderPath });
     }
 
-    private getHtml(): string {
-        return `
-<div class="overlay" data-role="overlay">
-  <div class="panel" role="dialog" aria-modal="true" aria-label="${t('saveBookmarkTitle')}">
-    <div class="header">
-      <div class="title">${t('saveBookmarkTitle')}</div>
-      <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" title="${t('btnClose')}">${xIcon}</button>
-    </div>
-    <div class="body">
-      <div class="field">
-        <div class="label">${t('labelTitle')}</div>
-        <input class="input" data-role="title" type="text" placeholder="${t('enterBookmarkTitle')}" />
-        <div class="error" data-role="title_error" style="display:none;"></div>
-      </div>
+    private renderNode(node: any): string {
+        const expanded = node.isExpanded ? '1' : '0';
+        const selected = node.isSelected ? '1' : '0';
+        const hasChildren = Boolean(node.children?.length);
+        const inlineState = this.subfolderInline?.parentPath === node.path ? this.subfolderInline : null;
+        const inlineEditor = inlineState
+            ? `
+          <div class="inline-editor" style="padding-left:calc(10px + ${Math.max(0, node.depth)} * 22px);">
+                <input class="text-input text-input--inline" type="text" data-role="bookmark-save-inline-draft" data-parent="${escapeHtml(node.path)}" value="${escapeHtml(inlineState.value)}" placeholder="${escapeHtml(this.getLabel('enterFolderName', 'New subfolder'))}" />
+                <button class="icon-btn" data-action="bookmark-save-inline-confirm" data-path="${escapeHtml(node.path)}" aria-label="${escapeHtml(this.getLabel('btnSave', 'Save'))}">${iconMarkup(checkIcon)}</button>
+                <button class="icon-btn" data-action="bookmark-save-inline-cancel" aria-label="${escapeHtml(this.getLabel('btnCancel', 'Cancel'))}">${iconMarkup(xIcon)}</button>
+              </div>
+              ${inlineState.error ? `<div class="error-text error-text--inline">${escapeHtml(inlineState.error)}</div>` : inlineState.note ? `<div class="help-text help-text--inline">${escapeHtml(inlineState.note)}</div>` : ''}
+            `
+            : '';
 
-      <div class="field">
-        <div class="folders-head">
-          <div class="label">${t('labelFolder')}</div>
-          <div class="folders-actions">
-            <button class="icon" type="button" data-action="new_folder" aria-label="${t('newFolder')}" title="${t('newFolder')}">${folderPlusIcon}</button>
-          </div>
-        </div>
-        <div class="tree" data-role="tree"></div>
-      </div>
+        return `
+<div class="picker-node">
+  <div class="picker-row" data-path="${escapeHtml(node.path)}" data-selected="${selected}" style="padding-left:calc(10px + ${Math.max(0, node.depth - 1)} * 22px);">
+    <button class="tree-caret" data-action="bookmark-save-toggle-folder" data-path="${escapeHtml(node.path)}" ${hasChildren ? '' : 'disabled'}>
+      ${hasChildren ? iconMarkup(node.isExpanded ? chevronDownIcon : chevronRightIcon) : ''}
+    </button>
+    <button class="picker-main" data-action="bookmark-save-select-folder" data-path="${escapeHtml(node.path)}">
+      <span class="tree-folder-icon">${iconMarkup(node.isExpanded ? folderOpenIcon : folderIcon)}</span>
+      <span class="tree-label">${escapeHtml(node.name)}</span>
+    </button>
+    <button class="icon-btn" data-action="bookmark-save-inline-folder" data-path="${escapeHtml(node.path)}" aria-label="${escapeHtml(this.getLabel('createSubfolder', 'Create subfolder'))}">${iconMarkup(folderPlusIcon)}</button>
+    <span class="picker-check">${node.isSelected ? iconMarkup(checkIcon) : ''}</span>
+  </div>
+  ${inlineEditor}
+  <div class="tree-children" data-expanded="${expanded}">
+    ${(node.children || []).map((child: any) => this.renderNode(child)).join('')}
+  </div>
+</div>`;
+    }
+
+    private getHtml(): string {
+        const isFolderSelect = this.state?.mode === 'folder-select';
+        const title = isFolderSelect ? this.getLabel('labelFolder', 'Select Folder') : this.getLabel('saveBookmarkTitle', 'Save Bookmark');
+        const closeLabel = this.getLabel('btnClose', 'Close panel');
+        const titleLabel = this.getLabel('labelTitle', 'Title');
+        const folderLabel = this.getLabel('labelFolder', 'Folder');
+        const cancelLabel = this.getLabel('btnCancel', 'Cancel');
+        const saveLabel = isFolderSelect ? this.getLabel('btnConfirm', 'Confirm') : this.getLabel('btnSave', 'Save');
+        const createFolderLabel = this.getLabel('newFolder', 'Create root folder');
+        const titlePlaceholder = this.getLabel('enterBookmarkTitle', 'Enter bookmark title');
+
+        const validation = this.state ? validateDraft(this.state) : { canSubmit: false, titleError: null };
+        const vm = this.state
+            ? buildFolderPickerVm({
+                  folders: this.folders as any,
+                  expandedPaths: this.state.expandedPaths,
+                  selectedPath: this.state.selectedFolderPath,
+              })
+            : { nodes: [] };
+
+        return `
+<div class="panel-window panel-window--dialog panel-window--bookmark-save" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+  <div class="panel-header">
+    <div class="panel-header__meta panel-header__meta--reader">
+      <h2>${escapeHtml(title)}</h2>
     </div>
-    <div class="footer">
-      <div class="status" data-role="status"></div>
-      <div class="footer-actions">
-        <button class="btn" type="button" data-action="cancel">${t('btnCancel')}</button>
-        <button class="btn btn-primary" type="button" data-action="save">${t('btnSave')}</button>
+    <div class="panel-header__actions">
+      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
+    </div>
+  </div>
+  <div class="dialog-body dialog-body--bookmark-save">
+    ${isFolderSelect ? '' : `<div class="field-block">
+      <label class="field-label">${escapeHtml(titleLabel)}</label>
+      <input class="text-input text-input--bookmark-save-title" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
+      ${validation.titleError ? `<div class="error-text">${escapeHtml(titleValidationMessage(validation.titleError as any))}</div>` : ''}
+    </div>`}
+    <div class="field-block">
+      <div class="field-head">
+        <label class="field-label">${escapeHtml(folderLabel)}</label>
+        <button class="icon-btn" data-action="bookmark-save-new-root-folder" aria-label="${escapeHtml(createFolderLabel)}">${iconMarkup(folderPlusIcon)}</button>
+      </div>
+      <div class="picker-tree">
+        ${vm.nodes.length === 0 ? `<div class="help-text">${escapeHtml(this.status || this.getLabel('noFoldersYet', 'No folders yet'))}</div>` : vm.nodes.map((node: any) => this.renderNode(node)).join('')}
       </div>
     </div>
   </div>
-</div>
-<div data-role="modal_layer"></div>
-`;
+  <div class="panel-footer panel-footer--bookmark-save">
+    <div class="button-row">
+      <button class="secondary-btn" data-action="close-panel">${escapeHtml(cancelLabel)}</button>
+      <button class="secondary-btn secondary-btn--primary" data-action="bookmark-save-submit" ${this.pending || !validation.canSubmit ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
+    </div>
+  </div>
+</div>`;
     }
+
+    private getCss(): string {
+        return `${getTokenCss(this.theme)}\n${getBookmarkSaveDialogCss(this.theme)}`;
+    }
+
+    private getLabel(key: string, fallback: string): string {
+        const translated = t(key);
+        if (!translated || translated === key) return fallback;
+        return translated;
+    }
+}
+
+function iconMarkup(svg: string): string {
+    return createIcon(svg).outerHTML;
+}
+
+function escapeHtml(input: string): string {
+    return input
+        .split('&').join('&amp;')
+        .split('<').join('&lt;')
+        .split('>').join('&gt;')
+        .split('"').join('&quot;')
+        .split("'").join('&#39;');
 }

@@ -1,5 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { Bookmark, Folder, BookmarksSortMode } from '../../../core/bookmarks/types';
+import type { StorageUsageResponse } from '../../../drivers/shared/clients/bookmarksClient';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { PathUtils } from '../../../core/bookmarks/path';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
@@ -11,6 +12,12 @@ import { scrollToConversationTargetWithRetry } from '../../../drivers/content/co
 import { t } from '../components/i18n';
 
 export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
+
+declare global {
+    interface Window {
+        __AIMD_BOOKMARKS_PERF__?: boolean;
+    }
+}
 
 function getBookmarkIdentityKey(b: Bookmark): BookmarkIdentityKey {
     return `${b.urlWithoutProtocol}:${b.position}`;
@@ -37,6 +44,23 @@ function formatDate(ts: number): string {
     }
 }
 
+function shouldLogBookmarksPerf(): boolean {
+    try {
+        if (typeof window !== 'undefined' && window.__AIMD_BOOKMARKS_PERF__) return true;
+        if (typeof localStorage !== 'undefined') {
+            return localStorage.getItem('aimd:bookmarks-perf') === '1';
+        }
+    } catch {
+        // ignore
+    }
+    return false;
+}
+
+function logBookmarksPerf(stage: string, payload: Record<string, unknown>): void {
+    if (!shouldLogBookmarksPerf()) return;
+    console.log(`[aimd][bookmarks][perf] ${stage}`, payload);
+}
+
 export type BookmarksPanelSnapshot = {
     vm: BookmarksPanelViewModel;
     folders: Folder[];
@@ -44,6 +68,7 @@ export type BookmarksPanelSnapshot = {
     selectedKeys: Set<string>;
     previewId: BookmarkIdentityKey | null;
     status: string;
+    storageUsage: StorageUsageResponse | null;
 };
 
 export class BookmarksPanelController {
@@ -69,6 +94,7 @@ export class BookmarksPanelController {
 
     private previewId: BookmarkIdentityKey | null = null;
     private status: string = '';
+    private storageUsage: StorageUsageResponse | null = null;
     private refreshSeq: number = 0;
 
     private listeners = new Set<(snapshot: BookmarksPanelSnapshot) => void>();
@@ -97,10 +123,22 @@ export class BookmarksPanelController {
     }
 
     getSnapshot(): BookmarksPanelSnapshot {
+        const startedAt = performance.now();
         const vm = computeBookmarksPanelViewModel({
             folders: this.folders,
             bookmarks: this.bookmarks,
             state: this.state,
+        });
+        logBookmarksPerf('controller:getSnapshot', {
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            bookmarks: this.bookmarks.length,
+            folders: this.folders.length,
+            visibleBookmarks: vm.bookmarks.length,
+            folderTreeRoots: vm.folderTree.length,
+            selectedKeys: this.state.selectedKeys.size,
+            query: this.state.query,
+            platform: this.state.platform,
+            sortMode: this.state.sortMode,
         });
         return {
             vm,
@@ -109,6 +147,7 @@ export class BookmarksPanelController {
             selectedKeys: this.state.selectedKeys,
             previewId: this.previewId,
             status: this.status,
+            storageUsage: this.storageUsage,
         };
     }
 
@@ -129,9 +168,10 @@ export class BookmarksPanelController {
     async refreshAll(): Promise<void> {
         const seq = ++this.refreshSeq;
         this.setStatus(t('loading'));
-        const [listRes, foldersRes] = await Promise.all([
+        const [listRes, foldersRes, storageUsageRes] = await Promise.all([
             bookmarksClient.list({ sortMode: this.state.sortMode }),
             bookmarksClient.foldersList(),
+            bookmarksClient.storageUsage(),
         ]);
         if (seq !== this.refreshSeq) return;
 
@@ -140,6 +180,7 @@ export class BookmarksPanelController {
             this.folders = foldersRes.data.folders;
             this.folderPaths = foldersRes.data.folderPaths;
         }
+        this.storageUsage = storageUsageRes.ok ? storageUsageRes.data : null;
 
         if (!listRes.ok && !foldersRes.ok) {
             this.setStatus(`${listRes.message}; ${foldersRes.message}`);

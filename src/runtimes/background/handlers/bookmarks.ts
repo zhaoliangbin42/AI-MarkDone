@@ -3,6 +3,7 @@ import { PROTOCOL_VERSION } from '../../../contracts/protocol';
 import type { ProtocolErrorCode } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from '../../../contracts/storage';
 import type { Bookmark, Folder } from '../../../core/bookmarks/types';
+import { checkQuota } from '../../../core/bookmarks/quota';
 import { normalizeUrlWithoutProtocol } from '../../../core/bookmarks/keys';
 import { PathUtils, PathValidationError } from '../../../core/bookmarks/path';
 import { logger } from '../../../core/logger';
@@ -705,6 +706,18 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 const mapped = toProtocolErrorCode(e);
                 return { response: err(request.id, request.type, mapped.code, mapped.message) };
             }
+        }
+        case 'bookmarks:storageUsage': {
+            const usedBytes = await localStoragePort.getBytesInUse(null);
+            const quota = checkQuota({ usedBytes, quotaBytes });
+            return {
+                response: ok(request.id, request.type, {
+                    usedBytes,
+                    quotaBytes,
+                    usedPercentage: quota.usedPercentage,
+                    warningLevel: quota.warningLevel,
+                }),
+            };
         }
         case 'bookmarks:uiState:get': {
             if (request.payload.key !== 'lastSelectedFolderPath') {

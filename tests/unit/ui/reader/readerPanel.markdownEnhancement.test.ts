@@ -22,4 +22,23 @@ describe('ReaderPanel markdown enhancement', () => {
             panel.hide();
         }
     });
+
+    it('can disable reader code highlighting through runtime settings wiring', async () => {
+        const panel = new ReaderPanel();
+        const markdown = '```ts\nconst x = 1;\n```';
+
+        try {
+            panel.setRenderCodeInReader(false);
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: markdown }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const content = shadow.querySelector<HTMLElement>('.reader-markdown');
+
+            expect(content?.querySelector('pre[data-code-language="ts"] code')?.className || '').not.toContain('hljs');
+            expect(content?.textContent).toContain('const x = 1;');
+        } finally {
+            panel.hide();
+        }
+    });
 });

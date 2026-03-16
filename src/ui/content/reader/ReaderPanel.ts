@@ -81,6 +81,7 @@ export class ReaderPanel {
     private tooltipDelegate: TooltipDelegate | null = null;
     private contentRenderToken = 0;
     private statusTimer: number | null = null;
+    private renderCodeInReader = true;
     private state: ReaderPanelState = {
         theme: 'light',
         items: [],
@@ -104,6 +105,14 @@ export class ReaderPanel {
         this.state.theme = theme;
         this.hostHandle?.setThemeCss(getTokenCss(theme));
         this.render();
+    }
+
+    setRenderCodeInReader(enabled: boolean): void {
+        if (this.renderCodeInReader === enabled) return;
+        this.renderCodeInReader = enabled;
+        if (this.state.visible) {
+            void this.renderCurrentContent();
+        }
     }
 
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
@@ -286,7 +295,9 @@ export class ReaderPanel {
         const markdown = await resolveContent(item.content);
         if (token !== this.contentRenderToken) return;
 
-        this.state.renderedHtml = renderMarkdownToSanitizedHtml(markdown);
+        this.state.renderedHtml = renderMarkdownToSanitizedHtml(markdown, {
+            highlightCode: this.renderCodeInReader,
+        });
         this.render(false);
 
         const body = this.hostHandle?.surfaceRoot.querySelector<HTMLElement>('.reader-body');

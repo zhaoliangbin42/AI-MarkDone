@@ -26,7 +26,17 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
 }));
 
 import { BookmarksPanel } from '@/ui/content/bookmarks/BookmarksPanel';
+import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
+
+async function flushUi(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+}
+
+async function flushAnimationFrame(): Promise<void> {
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+}
 
 describe('BookmarksPanel', () => {
     beforeEach(() => {
@@ -83,6 +93,7 @@ describe('BookmarksPanel', () => {
             selectedKeys: new Set(),
             previewId: null,
             status: 'Ready',
+            storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
         };
 
         const controller = {
@@ -146,6 +157,7 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Settings');
         expect(refreshedSettingsPanel?.querySelector('.settings-card')).toBeTruthy();
         expect(refreshedSettingsPanel?.querySelector('.storage-fill')).toBeTruthy();
+        expect(refreshedSettingsPanel?.textContent).toContain('50%');
         expect(refreshedSettingsPanel?.querySelectorAll('.settings-select-trigger').length).toBeGreaterThanOrEqual(2);
         expect(refreshedSettingsPanel?.querySelector('.settings-select')).toBeNull();
         expect(refreshedSettingsPanel?.querySelector('.settings-number-field')).toBeTruthy();
@@ -773,8 +785,7 @@ describe('BookmarksPanel', () => {
             moveBookmark: vi.fn(async () => ({ ok: true })),
         } as any;
 
-        const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Archive');
-
+        const pickerSpy = vi.spyOn(bookmarkSaveDialog, 'open').mockResolvedValue({ ok: true, title: '', folderPath: 'Archive' });
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
         await panel.show();
 
@@ -784,9 +795,11 @@ describe('BookmarksPanel', () => {
         expect(labels).toEqual(['Open conversation', 'Copy', 'Move bookmark', 'Delete']);
 
         actions[2]!.click();
+        await flushUi();
 
         expect(controller.moveBookmark).toHaveBeenCalledWith(bookmark, 'Archive');
-        promptSpy.mockRestore();
+        expect(pickerSpy).toHaveBeenCalled();
+        pickerSpy.mockRestore();
         panel.hide();
     });
 
@@ -852,9 +865,7 @@ describe('BookmarksPanel', () => {
             deleteBookmark: vi.fn(async () => undefined),
         } as any;
 
-        const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Archive');
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
+        const pickerSpy = vi.spyOn(bookmarkSaveDialog, 'open').mockResolvedValue({ ok: true, title: '', folderPath: 'Archive' });
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
         await panel.show();
 
@@ -864,15 +875,18 @@ describe('BookmarksPanel', () => {
         buttons[0]!.click();
         buttons[1]!.click();
         buttons[2]!.click();
+        await flushUi();
         buttons[3]!.click();
+        await flushUi();
+        shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
+        await flushUi();
 
         expect(controller.goToBookmark).toHaveBeenCalledWith(bookmark);
         expect(controller.copyBookmarkMarkdown).toHaveBeenCalledWith(bookmark);
         expect(controller.moveBookmark).toHaveBeenCalledWith(bookmark, 'Archive');
         expect(controller.deleteBookmark).toHaveBeenCalledWith(bookmark);
 
-        confirmSpy.mockRestore();
-        promptSpy.mockRestore();
+        pickerSpy.mockRestore();
         panel.hide();
     });
 
@@ -950,9 +964,7 @@ describe('BookmarksPanel', () => {
             deleteBookmark: vi.fn(async () => undefined),
         } as any;
 
-        const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Archive');
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
+        const pickerSpy = vi.spyOn(bookmarkSaveDialog, 'open').mockResolvedValue({ ok: true, title: '', folderPath: 'Archive' });
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
         await panel.show();
 
@@ -964,15 +976,647 @@ describe('BookmarksPanel', () => {
         buttons[0]!.click();
         buttons[1]!.click();
         buttons[2]!.click();
+        await flushUi();
         buttons[3]!.click();
+        await flushUi();
+        shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
+        await flushUi();
 
         expect(controller.goToBookmark).toHaveBeenCalledWith(visibleTreeBookmark);
         expect(controller.copyBookmarkMarkdown).toHaveBeenCalledWith(visibleTreeBookmark);
         expect(controller.moveBookmark).toHaveBeenCalledWith(visibleTreeBookmark, 'Archive');
         expect(controller.deleteBookmark).toHaveBeenCalledWith(visibleTreeBookmark);
 
-        confirmSpy.mockRestore();
+        pickerSpy.mockRestore();
+        panel.hide();
+    });
+
+    it('routes create-folder and delete-bookmark through the shared modal host instead of native browser dialogs', async () => {
+        const promptSpy = vi.spyOn(window, 'prompt');
+        const confirmSpy = vi.spyOn(window, 'confirm');
+        const bookmark = {
+            title: 'Saved thread',
+            userMessage: 'Prompt',
+            aiResponse: 'Answer',
+            url: 'https://chat.openai.com/c/123',
+            urlWithoutProtocol: 'chat.openai.com/c/123',
+            folderPath: 'Import',
+            position: 8,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime(),
+            platform: 'ChatGPT',
+        } as any;
+
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [bookmark],
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks: [bookmark],
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT · 2026/3/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+            createFolder: vi.fn(async () => ({ ok: true })),
+            deleteBookmark: vi.fn(async () => undefined),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        shadow.querySelector<HTMLElement>('[data-action="create-folder"]')!.click();
+        await flushUi();
+
+        const createInput = shadow.querySelector<HTMLInputElement>('.mock-modal__input');
+        expect(createInput).toBeTruthy();
+        createInput!.value = 'Archive';
+        shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
+        await flushUi();
+
+        expect(controller.createFolder).toHaveBeenCalledWith('Archive');
+        expect(promptSpy).not.toHaveBeenCalled();
+
+        const deleteButton = shadow.querySelector<HTMLElement>('.tree-item--bookmark .tree-actions .icon-btn--danger');
+        deleteButton!.click();
+        await flushUi();
+        shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
+        await flushUi();
+
+        expect(controller.deleteBookmark).toHaveBeenCalledWith(bookmark);
+        expect(confirmSpy).not.toHaveBeenCalled();
+
         promptSpy.mockRestore();
+        confirmSpy.mockRestore();
+        panel.hide();
+    });
+
+    it('shows an import merge review modal after importing a bookmark file through the panel', async () => {
+        const file = {
+            name: 'bookmarks.json',
+            type: 'application/json',
+            text: vi.fn(async () => JSON.stringify({ bookmarks: [] })),
+        };
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            importJsonText: vi.fn(async () => ({
+                ok: true,
+                data: { imported: 3, skippedDuplicates: 1, renamed: 2, warnings: ['Used fallback folder'], folderCreateFailures: 1 },
+            })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const input = shadow.querySelector<HTMLInputElement>('[data-role="import-file"]')!;
+        Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await flushUi();
+        await flushUi();
+
+        expect(controller.importJsonText).toHaveBeenCalled();
+        expect(shadow.querySelector('.mock-modal__title-copy strong')?.textContent).toBe('Import merge review');
+        expect(shadow.querySelectorAll('.merge-summary-item').length).toBeGreaterThanOrEqual(4);
+        expect(shadow.textContent).toContain('Used fallback folder');
+
+        panel.hide();
+    });
+
+    it('uses the bookmark folder picker for moving folders instead of a free-form prompt', async () => {
+        const promptSpy = vi.spyOn(window, 'prompt');
+        const pickerSpy = vi.spyOn(bookmarkSaveDialog, 'open').mockResolvedValue({ ok: true, title: '', folderPath: 'Archive' });
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks: [],
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import', 'Archive'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            moveFolder: vi.fn(async () => ({ ok: true })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        shadow.querySelector<HTMLElement>('.tree-item--folder [data-action="move-folder"]')!.click();
+        await flushUi();
+
+        expect(pickerSpy).toHaveBeenCalled();
+        expect(controller.moveFolder).toHaveBeenCalledWith('Import', 'Archive');
+        expect(promptSpy).not.toHaveBeenCalled();
+
+        promptSpy.mockRestore();
+        pickerSpy.mockRestore();
+        panel.hide();
+    });
+
+    it('keeps the batch clear button at the far right of the bottom action bar', async () => {
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set<string>(['bm:chat.openai.com/c/demo:1']),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const actions = Array.from(shadow.querySelectorAll<HTMLElement>('.batch-actions .icon-btn'));
+        const labels = actions.map((button) => button.getAttribute('aria-label'));
+
+        expect(labels[labels.length - 1]).toBe('Clear selection');
+
+        panel.hide();
+    });
+
+    it('virtualizes very large bookmark trees instead of mounting every row at once', async () => {
+        const bookmarks = Array.from({ length: 1200 }, (_, index) => ({
+            title: `Bookmark ${index + 1}`,
+            userMessage: `Prompt ${index + 1}`,
+            aiResponse: `Answer ${index + 1}`,
+            url: `https://chat.openai.com/c/${index + 1}`,
+            urlWithoutProtocol: `chat.openai.com/c/${index + 1}`,
+            folderPath: 'Import',
+            position: index + 1,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            createdAt: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            platform: 'ChatGPT',
+        }));
+
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks,
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks,
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => '2026/03/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const treePanel = shadow.querySelector<HTMLElement>('.tree-panel')!;
+        Object.defineProperty(treePanel, 'clientHeight', {
+            configurable: true,
+            value: 640,
+        });
+        const initialRows = shadow.querySelectorAll('.tree-item');
+
+        expect(treePanel.dataset.virtualized).toBe('1');
+        expect(initialRows.length).toBeLessThan(200);
+        expect(shadow.textContent).toContain('Bookmark 1');
+
+        treePanel.scrollTop = 36000;
+        treePanel.dispatchEvent(new Event('scroll'));
+        await flushAnimationFrame();
+        await flushUi();
+
+        const visibleBookmarkTitles = Array.from(
+            shadow.querySelectorAll<HTMLElement>('.tree-item--bookmark .tree-label'),
+        ).map((node) => node.textContent ?? '');
+        const visibleIndexes = visibleBookmarkTitles
+            .map((title) => Number(title.replace('Bookmark ', '')))
+            .filter((value) => Number.isFinite(value));
+
+        expect(visibleIndexes.length).toBeGreaterThan(0);
+        expect(Math.min(...visibleIndexes)).toBeGreaterThan(500);
+        expect(Math.max(...visibleIndexes)).toBeLessThan(800);
+
+        panel.hide();
+    });
+
+    it('coalesces rapid virtual-tree scroll events into a single render pass', async () => {
+        const bookmarks = Array.from({ length: 1200 }, (_, index) => ({
+            title: `Bookmark ${index + 1}`,
+            userMessage: `Prompt ${index + 1}`,
+            aiResponse: `Answer ${index + 1}`,
+            url: `https://chat.openai.com/c/${index + 1}`,
+            urlWithoutProtocol: `chat.openai.com/c/${index + 1}`,
+            folderPath: 'Import',
+            position: index + 1,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            createdAt: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            platform: 'ChatGPT',
+        }));
+
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks,
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks,
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => '2026/03/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const rafQueue: FrameRequestCallback[] = [];
+        const originalRaf = window.requestAnimationFrame;
+        const originalCancelRaf = window.cancelAnimationFrame;
+        window.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+            rafQueue.push(callback);
+            return rafQueue.length;
+        });
+        window.cancelAnimationFrame = vi.fn();
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const treePanel = shadow.querySelector<HTMLElement>('.tree-panel')!;
+        Object.defineProperty(treePanel, 'clientHeight', {
+            configurable: true,
+            value: 640,
+        });
+
+        const renderSpy = vi.spyOn(panel as any, 'renderVirtualTreeWindow');
+        renderSpy.mockClear();
+
+        for (let index = 0; index < 10; index += 1) {
+            treePanel.scrollTop = index * 400;
+            treePanel.dispatchEvent(new Event('scroll'));
+        }
+
+        expect(renderSpy).not.toHaveBeenCalled();
+        expect(window.requestAnimationFrame).toHaveBeenCalledTimes(1);
+
+        const callback = rafQueue.shift();
+        expect(callback).toBeTruthy();
+        callback!(performance.now());
+
+        expect(renderSpy).toHaveBeenCalledTimes(1);
+
+        panel.hide();
+        window.requestAnimationFrame = originalRaf;
+        window.cancelAnimationFrame = originalCancelRaf;
+    });
+
+    it('keeps the panel shell mounted during tree selection updates instead of replacing the whole panel', async () => {
+        const bookmarks = Array.from({ length: 600 }, (_, index) => ({
+            title: `Bookmark ${index + 1}`,
+            userMessage: `Prompt ${index + 1}`,
+            aiResponse: `Answer ${index + 1}`,
+            url: `https://chat.openai.com/c/${index + 1}`,
+            urlWithoutProtocol: `chat.openai.com/c/${index + 1}`,
+            folderPath: 'Import',
+            position: index + 1,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            createdAt: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            platform: 'ChatGPT',
+        }));
+
+        let emitSnapshot: ((snapshot: any) => void) | null = null;
+        let currentSnapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks,
+                folderTree: [{
+                    folder: { name: 'Import', path: 'Import' },
+                    bookmarks,
+                    children: [],
+                    isExpanded: true,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Import'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                emitSnapshot = fn;
+                fn(currentSnapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn((path: string) => ({
+                checked: currentSnapshot.selectedKeys.has(`folder:${path}`),
+                indeterminate: false,
+            })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn((path: string) => {
+                currentSnapshot = {
+                    ...currentSnapshot,
+                    selectedKeys: new Set<string>([`folder:${path}`]),
+                };
+                emitSnapshot?.(currentSnapshot);
+            }),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => '2026/03/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const panelWindowBefore = shadow.querySelector('.panel-window');
+        const queryInputBefore = shadow.querySelector('[data-role="bookmark-query"]');
+        const checkbox = shadow.querySelector<HTMLInputElement>('.tree-item--folder .tree-check')!;
+
+        checkbox.click();
+        await flushUi();
+
+        const panelWindowAfter = shadow.querySelector('.panel-window');
+        const queryInputAfter = shadow.querySelector('[data-role="bookmark-query"]');
+        const checkboxAfter = shadow.querySelector<HTMLInputElement>('.tree-item--folder .tree-check');
+
+        expect(panelWindowAfter).toBe(panelWindowBefore);
+        expect(queryInputAfter).toBe(queryInputBefore);
+        expect(checkboxAfter?.checked).toBe(true);
+
+        panel.hide();
+    });
+
+    it('does not mount collapsed folder descendants into the DOM', async () => {
+        const deepBookmarks = Array.from({ length: 400 }, (_, index) => ({
+            title: `Deep bookmark ${index + 1}`,
+            userMessage: `Prompt ${index + 1}`,
+            aiResponse: `Answer ${index + 1}`,
+            url: `https://chat.openai.com/c/deep-${index + 1}`,
+            urlWithoutProtocol: `chat.openai.com/c/deep-${index + 1}`,
+            folderPath: 'Personal/Ideas',
+            position: index + 1,
+            timestamp: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            createdAt: new Date('2026-03-15T08:00:00.000Z').getTime() + index,
+            platform: 'ChatGPT',
+        }));
+
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: deepBookmarks,
+                folderTree: [{
+                    folder: { name: 'Personal', path: 'Personal' },
+                    bookmarks: [],
+                    children: [{
+                        folder: { name: 'Ideas', path: 'Personal/Ideas' },
+                        bookmarks: deepBookmarks,
+                        children: [],
+                        isExpanded: true,
+                    }],
+                    isExpanded: false,
+                }],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Personal', 'Personal/Ideas'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => '2026/03/15'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        expect(shadow.textContent).not.toContain('Deep bookmark 1');
+        expect(shadow.querySelectorAll('.tree-item--bookmark').length).toBe(0);
+
         panel.hide();
     });
 

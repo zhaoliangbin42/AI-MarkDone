@@ -1,6 +1,7 @@
 import { browser } from '../../../drivers/shared/browser';
 import type { Bookmark, FolderTreeNode } from '../../../core/bookmarks/types';
 import { filterBookmarks, getAllBookmarks } from '../../../core/bookmarks/tree';
+import { PathUtils } from '../../../core/bookmarks/path';
 import { DEFAULT_SETTINGS, type AppSettings, type FoldingMode } from '../../../core/settings/types';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
 import { getTokenCss } from '../../../style/tokens';
@@ -33,12 +34,42 @@ import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from './BookmarksPanelController';
 import type { ReaderPanel } from '../reader/ReaderPanel';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { ModalHost } from '../components/ModalHost';
+import { bookmarkSaveDialog } from './save/bookmarkSaveDialogSingleton';
 import overlayCssText from '../../../style/tailwind-overlay.css?inline';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
 import type { ReaderItem } from '../../../services/reader/types';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'sponsor';
 type SettingsMenuId = 'folding-mode' | 'language' | null;
+type TreeRenderPlan =
+    | { mode: 'inline'; html: string }
+    | { mode: 'virtualized'; model: VirtualTreeModel };
+type VirtualTreeModel = {
+    rows: VirtualTreeRow[];
+    totalHeight: number;
+};
+type VirtualTreeRow =
+    | {
+        kind: 'folder';
+        top: number;
+        height: number;
+        node: FolderTreeNode;
+        depth: number;
+        selectedPath: string | null;
+        count: number;
+        expanded: boolean;
+        folderCheckState: { checked: boolean; indeterminate: boolean };
+    }
+    | {
+        kind: 'bookmark';
+        top: number;
+        height: number;
+        bookmark: Bookmark;
+        depth: number;
+        selectedKeys: Set<string>;
+        subtitle: string;
+    };
 
 type UiState = {
     bookmarksTab: PanelTabId;
@@ -46,6 +77,28 @@ type UiState = {
     settingsMenuOpen: SettingsMenuId;
     settings: AppSettings;
 };
+
+const TREE_VIRTUALIZE_THRESHOLD = 240;
+const TREE_FOLDER_ROW_HEIGHT = 52;
+const TREE_BOOKMARK_ROW_HEIGHT = 62;
+const TREE_OVERSCAN_PX = 320;
+
+function shouldLogBookmarksPerf(): boolean {
+    try {
+        if (typeof window !== 'undefined' && window.__AIMD_BOOKMARKS_PERF__) return true;
+        if (typeof localStorage !== 'undefined') {
+            return localStorage.getItem('aimd:bookmarks-perf') === '1';
+        }
+    } catch {
+        // ignore
+    }
+    return false;
+}
+
+function logBookmarksPerf(stage: string, payload: Record<string, unknown>): void {
+    if (!shouldLogBookmarksPerf()) return;
+    console.log(`[aimd][bookmarks][perf] ${stage}`, payload);
+}
 
 function icon(svg: string): string {
     return `<span class="aimd-icon" aria-hidden="true">${svg}</span>`;
@@ -199,15 +252,26 @@ function getPlatformDropdownHtml(platform: string, platforms: string[], menuOpen
     `;
 }
 
-function countVisibleUnderFolder(node: FolderTreeNode, visibleKeys: Set<string>): number {
-    let count = 0;
-    for (const bookmark of node.bookmarks) {
-        if (visibleKeys.has(bookmarkSelectionKey(bookmark))) count += 1;
+function buildVisibleFolderCountMap(nodes: FolderTreeNode[], visibleKeys: Set<string>): Map<string, number> {
+    const countMap = new Map<string, number>();
+
+    const visit = (node: FolderTreeNode): number => {
+        let count = 0;
+        for (const bookmark of node.bookmarks) {
+            if (visibleKeys.has(bookmarkSelectionKey(bookmark))) count += 1;
+        }
+        for (const child of node.children) {
+            count += visit(child);
+        }
+        countMap.set(node.folder.path, count);
+        return count;
+    };
+
+    for (const node of nodes) {
+        visit(node);
     }
-    for (const child of node.children) {
-        count += countVisibleUnderFolder(child, visibleKeys);
-    }
-    return count;
+
+    return countMap;
 }
 
 function getEffectiveExpanded(nodePath: string, isExpanded: boolean, selectedPath: string | null): boolean {
@@ -267,74 +331,149 @@ function renderBookmarkRow(bookmark: Bookmark, depth: number, selectedKeys: Set<
     `;
 }
 
-function renderFolderNode(
+function renderFolderRow(
     node: FolderTreeNode,
     depth: number,
     selectedPath: string | null,
-    visibleKeys: Set<string>,
-    selectedKeys: Set<string>,
-    getFolderCheckboxState: (path: string) => { checked: boolean; indeterminate: boolean },
-    getSubtitle: (bookmark: Bookmark) => string,
+    count: number,
+    expanded: boolean,
+    folderCheckState: { checked: boolean; indeterminate: boolean },
 ): string {
     const hasDirectBookmarks = node.bookmarks.length > 0;
     const hasChildren = hasDirectBookmarks || node.children.length > 0;
-    const expanded = getEffectiveExpanded(node.folder.path, node.isExpanded, selectedPath);
-    const count = countVisibleUnderFolder(node, visibleKeys);
     const indent = 10 + depth * 18;
-    const folderCheckState = getFolderCheckboxState(node.folder.path);
-    const bookmarksHtml = node.bookmarks
-        .filter((bookmark) => visibleKeys.has(bookmarkSelectionKey(bookmark)))
-        .map((bookmark) => renderBookmarkRow(
-            bookmark,
-            depth + 1,
-            selectedKeys,
-            getBookmarkSubtitleForMock(bookmark, getSubtitle(bookmark)),
-        ))
-        .join('');
-    const childrenHtml = node.children
-        .map((child) => renderFolderNode(
-            child,
-            depth + 1,
-            selectedPath,
-            visibleKeys,
-            selectedKeys,
-            getFolderCheckboxState,
-            getSubtitle,
-        ))
-        .join('');
-
     return `
-      <div class="tree-node">
-        <div class="tree-item tree-item--folder" style="padding-left:${indent}px" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" data-selected="${selectedPath === node.folder.path ? '1' : '0'}" role="treeitem" aria-level="${depth + 1}" aria-expanded="${expanded ? 'true' : 'false'}">
-          <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" aria-label="${expanded ? 'Collapse folder' : 'Expand folder'}" ${hasChildren ? '' : 'disabled'}>${icon(expanded ? chevronDownIcon : chevronRightIcon)}</button>
-          <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="${escapeHtml(node.folder.path)}" ${folderCheckState.checked ? 'checked' : ''} data-indeterminate="${folderCheckState.indeterminate ? '1' : '0'}" />
-          <div class="tree-folder-icon">${icon(expanded ? folderOpenIcon : folderIcon)}</div>
-          <button class="tree-main tree-main--folder" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}">
-            <div class="tree-label">${escapeHtml(node.folder.name)}</div>
-          </button>
-          <div class="tree-count">${count}</div>
-          <div class="tree-actions">
-            <button class="icon-btn" type="button" data-action="create-subfolder" data-path="${escapeHtml(node.folder.path)}" aria-label="New subfolder">${icon(folderPlusIcon)}</button>
-            <button class="icon-btn" type="button" data-action="rename-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="Rename folder">${icon(pencilIcon)}</button>
-            <button class="icon-btn" type="button" data-action="move-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="Move folder">${icon(moveIcon)}</button>
-            <button class="icon-btn icon-btn--danger" type="button" data-action="delete-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="Delete folder">${icon(trashIcon)}</button>
-          </div>
-        </div>
-        <div class="tree-children" data-expanded="${expanded ? '1' : '0'}">
-          ${childrenHtml}${bookmarksHtml}
+      <div class="tree-item tree-item--folder" style="padding-left:${indent}px" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" data-selected="${selectedPath === node.folder.path ? '1' : '0'}" role="treeitem" aria-level="${depth + 1}" aria-expanded="${expanded ? 'true' : 'false'}">
+        <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" aria-label="${expanded ? 'Collapse folder' : 'Expand folder'}" ${hasChildren ? '' : 'disabled'}>${icon(expanded ? chevronDownIcon : chevronRightIcon)}</button>
+        <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="${escapeHtml(node.folder.path)}" ${folderCheckState.checked ? 'checked' : ''} data-indeterminate="${folderCheckState.indeterminate ? '1' : '0'}" />
+        <div class="tree-folder-icon">${icon(expanded ? folderOpenIcon : folderIcon)}</div>
+        <button class="tree-main tree-main--folder" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}">
+          <div class="tree-label">${escapeHtml(node.folder.name)}</div>
+        </button>
+        <div class="tree-count">${count}</div>
+        <div class="tree-actions">
+          <button class="icon-btn" type="button" data-action="create-subfolder" data-path="${escapeHtml(node.folder.path)}" aria-label="New subfolder">${icon(folderPlusIcon)}</button>
+          <button class="icon-btn" type="button" data-action="rename-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="Rename folder">${icon(pencilIcon)}</button>
+          <button class="icon-btn" type="button" data-action="move-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="Move folder">${icon(moveIcon)}</button>
+          <button class="icon-btn icon-btn--danger" type="button" data-action="delete-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="Delete folder">${icon(trashIcon)}</button>
         </div>
       </div>
     `;
 }
 
+function renderFolderNode(
+    node: FolderTreeNode,
+    depth: number,
+    selectedPath: string | null,
+    visibleKeys: Set<string>,
+    visibleCountMap: Map<string, number>,
+    selectedKeys: Set<string>,
+    getFolderCheckboxState: (path: string) => { checked: boolean; indeterminate: boolean },
+    getSubtitle: (bookmark: Bookmark) => string,
+): string {
+    const expanded = getEffectiveExpanded(node.folder.path, node.isExpanded, selectedPath);
+    const count = visibleCountMap.get(node.folder.path) ?? 0;
+    const folderCheckState = getFolderCheckboxState(node.folder.path);
+    const childContentHtml = expanded
+        ? [
+            ...node.children.map((child) => renderFolderNode(
+                child,
+                depth + 1,
+                selectedPath,
+                visibleKeys,
+                visibleCountMap,
+                selectedKeys,
+                getFolderCheckboxState,
+                getSubtitle,
+            )),
+            ...node.bookmarks
+                .filter((bookmark) => visibleKeys.has(bookmarkSelectionKey(bookmark)))
+                .map((bookmark) => renderBookmarkRow(
+                    bookmark,
+                    depth + 1,
+                    selectedKeys,
+                    getBookmarkSubtitleForMock(bookmark, getSubtitle(bookmark)),
+                )),
+        ].join('')
+        : '';
+
+    return `
+      <div class="tree-node">
+        ${renderFolderRow(node, depth, selectedPath, count, expanded, folderCheckState)}
+        <div class="tree-children" data-expanded="${expanded ? '1' : '0'}">
+          ${childContentHtml}
+        </div>
+      </div>
+    `;
+}
+
+function buildVirtualTreeModel(snapshot: BookmarksPanelSnapshot, controller: BookmarksPanelController): VirtualTreeModel | null {
+    const visibleKeys = new Set(getTreeVisibleBookmarks(snapshot).map(bookmarkSelectionKey));
+    const visibleCountMap = buildVisibleFolderCountMap(snapshot.vm.folderTree, visibleKeys);
+    const rows: VirtualTreeRow[] = [];
+    let top = 0;
+
+    const visit = (node: FolderTreeNode, depth: number, selectedPath: string | null): void => {
+        const expanded = getEffectiveExpanded(node.folder.path, node.isExpanded, selectedPath);
+        rows.push({
+            kind: 'folder',
+            top,
+            height: TREE_FOLDER_ROW_HEIGHT,
+            node,
+            depth,
+            selectedPath,
+            count: visibleCountMap.get(node.folder.path) ?? 0,
+            expanded,
+            folderCheckState: controller.getFolderCheckboxState(node.folder.path),
+        });
+        top += TREE_FOLDER_ROW_HEIGHT;
+
+        if (!expanded) return;
+
+        for (const child of node.children) {
+            visit(child, depth + 1, selectedPath);
+        }
+
+        for (const bookmark of node.bookmarks) {
+            if (!visibleKeys.has(bookmarkSelectionKey(bookmark))) continue;
+            rows.push({
+                kind: 'bookmark',
+                top,
+                height: TREE_BOOKMARK_ROW_HEIGHT,
+                bookmark,
+                depth: depth + 1,
+                selectedKeys: snapshot.selectedKeys,
+                subtitle: getBookmarkSubtitleForMock(bookmark, controller.getBookmarkRowSubtitle(bookmark)),
+            });
+            top += TREE_BOOKMARK_ROW_HEIGHT;
+        }
+    };
+
+    for (const node of snapshot.vm.folderTree) {
+        visit(node, 0, null);
+    }
+
+    if (rows.length <= TREE_VIRTUALIZE_THRESHOLD) return null;
+    return { rows, totalHeight: top };
+}
+
+function renderVirtualTreeRow(row: VirtualTreeRow): string {
+    if (row.kind === 'folder') {
+        return renderFolderRow(row.node, row.depth, row.selectedPath, row.count, row.expanded, row.folderCheckState);
+    }
+    return renderBookmarkRow(row.bookmark, row.depth, row.selectedKeys, row.subtitle);
+}
+
 function getTreeHtml(snapshot: BookmarksPanelSnapshot, controller: BookmarksPanelController): string {
     const visibleKeys = new Set(getTreeVisibleBookmarks(snapshot).map(bookmarkSelectionKey));
+    const visibleCountMap = buildVisibleFolderCountMap(snapshot.vm.folderTree, visibleKeys);
     const folderTreeHtml = snapshot.vm.folderTree
         .map((node) => renderFolderNode(
             node,
             0,
             null,
             visibleKeys,
+            visibleCountMap,
             snapshot.selectedKeys,
             (path) => controller.getFolderCheckboxState(path),
             (bookmark) => controller.getBookmarkRowSubtitle(bookmark),
@@ -356,8 +495,20 @@ function getTreeHtml(snapshot: BookmarksPanelSnapshot, controller: BookmarksPane
     `;
 }
 
-function getSettingsTabHtml(uiState: UiState): string {
+function formatPercent(value: number | null | undefined): string {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '0%';
+    const normalized = Math.max(0, Math.min(100, value));
+    const rounded = Math.round(normalized * 10) / 10;
+    return Number.isInteger(rounded) ? `${rounded}%` : `${rounded.toFixed(1)}%`;
+}
+
+function getSettingsTabHtml(uiState: UiState, snapshot: BookmarksPanelSnapshot | null): string {
     const s = uiState.settings;
+    const usage = snapshot?.storageUsage ?? null;
+    const usagePercent = formatPercent(usage?.usedPercentage);
+    const usageBarClass = usage?.warningLevel && usage.warningLevel !== 'none'
+        ? `storage-fill storage-progress-bar ${usage.warningLevel}`
+        : 'storage-fill storage-progress-bar';
     return `
       <div class="settings-grid">
         <section class="settings-card">
@@ -414,9 +565,9 @@ function getSettingsTabHtml(uiState: UiState): string {
           <div class="card-title">${icon(Icons.database)} Data & storage</div>
           <div class="storage-header">
             <strong>Storage used</strong>
-            <span>42%</span>
+            <span class="storage-value">${usagePercent}</span>
           </div>
-          <div class="storage-track"><div class="storage-fill" style="width:42%"></div></div>
+          <div class="storage-track storage-progress-track"><div class="${usageBarClass}" style="width:${usagePercent}"></div></div>
           <div class="backup-callout">
             <div>
               <strong>Backup your bookmarks</strong>
@@ -490,23 +641,14 @@ function getPanelHtml(
     bmcUrl: string,
     wechatUrl: string,
     logoUrl: string,
+    treeHtml: string,
+    treeMode: 'inline' | 'virtualized',
 ): string {
     const title = uiState.bookmarksTab === 'bookmarks' ? 'Bookmarks' : uiState.bookmarksTab === 'settings' ? 'Settings' : 'Sponsor';
     const platform = snapshot?.vm.platform ?? 'All';
     const sortMode = snapshot?.vm.sortMode ?? uiState.settings.bookmarks.sortMode;
     const query = snapshot?.vm.query ?? '';
     const selectedCount = snapshot ? countSelectedBookmarks(snapshot.selectedKeys) : 0;
-    const treeHtml = snapshot ? getTreeHtml(snapshot, controller) : `
-      <div class="empty-state">
-        <div class="empty-icon">${icon(folderIcon)}</div>
-        <strong>No folders yet</strong>
-        <p>Create a folder or import bookmarks to start browsing saved messages.</p>
-        <div class="empty-actions">
-          <button class="${buttonClass('primary')}" type="button" data-action="create-folder-empty">Create first folder</button>
-          <button class="${buttonClass('secondary')}" type="button" data-action="import-bookmarks-empty">Import bookmarks</button>
-        </div>
-      </div>
-    `;
 
     return `
       <div class="panel-stage__overlay aimd-panel-overlay">
@@ -542,19 +684,19 @@ function getPanelHtml(
                     <input data-role="import-file" type="file" accept="application/json" style="display:none" />
                   </div>
                 </div>
-                <div class="tree-panel">${treeHtml}</div>
+                <div class="tree-panel" data-virtualized="${treeMode === 'virtualized' ? '1' : '0'}">${treeHtml}</div>
                 <div class="batch-bar" data-active="${selectedCount > 0 ? '1' : '0'}" aria-hidden="${selectedCount > 0 ? 'false' : 'true'}">
                   <div class="batch-label">${selectedCount > 0 ? `${selectedCount} selected` : ''}</div>
                   <div class="batch-actions">
-                    <button class="icon-btn" type="button" data-action="batch-clear" aria-label="Clear selection" ${selectedCount === 0 ? 'disabled' : ''}>${icon(xIcon)}</button>
                     <button class="icon-btn" type="button" data-action="batch-move" aria-label="Move selected" ${selectedCount === 0 ? 'disabled' : ''}>${icon(moveIcon)}</button>
                     <button class="icon-btn icon-btn--danger" type="button" data-action="batch-delete" aria-label="Delete selected" ${selectedCount === 0 ? 'disabled' : ''}>${icon(trashIcon)}</button>
                     <button class="icon-btn" type="button" data-action="batch-export" aria-label="Export selected" ${selectedCount === 0 ? 'disabled' : ''}>${icon(downloadIcon)}</button>
+                    <button class="icon-btn" type="button" data-action="batch-clear" aria-label="Clear selection" ${selectedCount === 0 ? 'disabled' : ''}>${icon(xIcon)}</button>
                   </div>
                 </div>
               </section>
               <section class="tab-panel settings-panel" data-active="${uiState.bookmarksTab === 'settings' ? '1' : '0'}">
-                ${getSettingsTabHtml(uiState)}
+                ${getSettingsTabHtml(uiState, snapshot)}
               </section>
               <section class="tab-panel sponsor-panel" data-active="${uiState.bookmarksTab === 'sponsor' ? '1' : '0'}">
                 ${getSponsorTabHtml(bmcUrl, wechatUrl, logoUrl)}
@@ -584,7 +726,12 @@ export class BookmarksPanel {
     private visible = false;
     private hostHandle: OverlaySurfaceHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private modalHost: ModalHost | null = null;
     private snapshot: BookmarksPanelSnapshot | null = null;
+    private treeVirtualModel: VirtualTreeModel | null = null;
+    private treePanelEl: HTMLElement | null = null;
+    private treeFrameHandle: number | null = null;
+    private treeRenderedRange: { startIndex: number; endIndex: number } | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
     private readonly onShadowPointerDown = (event: Event) => {
         if (!this.hostHandle) return;
@@ -592,7 +739,7 @@ export class BookmarksPanel {
         const target = event.target as HTMLElement | null;
         if (!target) return;
 
-        if (target.closest('.aimd-modal-host, .aimd-modal-overlay, .aimd-modal')) {
+        if (target.closest('.mock-modal-host, .mock-modal-overlay, .mock-modal')) {
             return;
         }
 
@@ -651,10 +798,18 @@ export class BookmarksPanel {
             surfaceStyleId: 'aimd-bookmarks-panel-structure',
             overlayStyleId: 'aimd-bookmarks-panel-tailwind',
         });
+        this.modalHost = new ModalHost(this.hostHandle.shadow);
+        logBookmarksPerf('panel:perf-logging-enabled', {
+            visible: true,
+            tab: this.uiState.bookmarksTab,
+        });
 
         this.unsubscribeSnapshot = this.controller.subscribe((snapshot) => {
+            const previousSnapshot = this.snapshot;
             this.snapshot = snapshot;
-            this.render();
+            if (!this.applySnapshotUpdate(previousSnapshot, snapshot)) {
+                this.render();
+            }
         });
 
         await Promise.all([
@@ -683,9 +838,18 @@ export class BookmarksPanel {
         this.unsubscribeSnapshot = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
+        if (this.treeFrameHandle !== null) {
+            window.cancelAnimationFrame(this.treeFrameHandle);
+            this.treeFrameHandle = null;
+        }
+        this.treePanelEl?.removeEventListener('scroll', this.onTreePanelScroll);
+        this.treePanelEl = null;
         this.hostHandle?.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
         this.hostHandle?.unmount();
         this.hostHandle = null;
+        this.modalHost = null;
+        this.treeVirtualModel = null;
+        this.treeRenderedRange = null;
     }
 
     private async loadSettings(): Promise<void> {
@@ -696,13 +860,25 @@ export class BookmarksPanel {
 
     private render(): void {
         if (!this.hostHandle) return;
+        const startedAt = performance.now();
         this.captureScrollTops();
 
         const bmcUrl = browser.runtime.getURL('icons/bmc_qr.png');
         const wechatUrl = browser.runtime.getURL('icons/wechat_qr.png');
         const logoUrl = browser.runtime.getURL('icons/icon128.png');
+        const treePlan = this.getTreeRenderPlan();
+        this.treeVirtualModel = treePlan.mode === 'virtualized' ? treePlan.model : null;
 
-        this.hostHandle.backdropRoot.innerHTML = getPanelHtml(this.uiState, this.snapshot, this.controller, bmcUrl, wechatUrl, logoUrl);
+        this.hostHandle.backdropRoot.innerHTML = getPanelHtml(
+            this.uiState,
+            this.snapshot,
+            this.controller,
+            bmcUrl,
+            wechatUrl,
+            logoUrl,
+            treePlan.mode === 'inline' ? treePlan.html : '',
+            treePlan.mode,
+        );
         this.hostHandle.surfaceRoot.replaceChildren();
 
         const overlay = this.hostHandle.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
@@ -712,6 +888,7 @@ export class BookmarksPanel {
         this.hostHandle.backdropRoot.replaceChildren(overlay);
         this.hostHandle.surfaceRoot.appendChild(panel);
         this.restoreScrollTop();
+        this.bindTreePanel(panel.querySelector<HTMLElement>('.tree-panel'));
 
         for (const checkbox of panel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
             checkbox.indeterminate = true;
@@ -722,6 +899,229 @@ export class BookmarksPanel {
         panel.addEventListener('change', (event) => void this.handleChange(event));
         this.hostHandle.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
         this.hostHandle.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
+        logBookmarksPerf('panel:full-render', {
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            tab: this.uiState.bookmarksTab,
+            virtualized: Boolean(this.treeVirtualModel),
+            visibleBookmarks: this.snapshot?.vm.bookmarks.length ?? 0,
+        });
+    }
+
+    private readonly onTreePanelScroll = (): void => {
+        if (!this.treePanelEl) return;
+        this.panelScrollTops.bookmarks = this.treePanelEl.scrollTop;
+        if (!this.treeVirtualModel) return;
+        if (this.treeFrameHandle !== null) return;
+
+        this.treeFrameHandle = window.requestAnimationFrame(() => {
+            this.treeFrameHandle = null;
+            if (!this.treePanelEl || !this.treeVirtualModel) return;
+            this.renderVirtualTreeWindow(this.treePanelEl, this.treeVirtualModel);
+        });
+    };
+
+    private clearTreeRenderState(): void {
+        if (this.treeFrameHandle !== null) {
+            window.cancelAnimationFrame(this.treeFrameHandle);
+            this.treeFrameHandle = null;
+        }
+        this.treeRenderedRange = null;
+    }
+
+    private applySnapshotUpdate(previousSnapshot: BookmarksPanelSnapshot | null, nextSnapshot: BookmarksPanelSnapshot): boolean {
+        if (!this.hostHandle || !previousSnapshot) return false;
+        const startedAt = performance.now();
+
+        const panel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.panel-window.panel-window--bookmarks');
+        if (!panel) return false;
+
+        const bookmarksTab = panel.querySelector<HTMLElement>('.tab-panel--bookmarks');
+        if (!bookmarksTab) return false;
+
+        this.patchBookmarksToolbar(bookmarksTab, nextSnapshot);
+        this.patchTreePanel(bookmarksTab);
+        this.patchBatchBar(bookmarksTab, nextSnapshot);
+        logBookmarksPerf('panel:patch-snapshot', {
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            virtualized: Boolean(this.treeVirtualModel),
+            visibleBookmarks: nextSnapshot.vm.bookmarks.length,
+            selectedKeys: nextSnapshot.selectedKeys.size,
+            query: nextSnapshot.vm.query,
+            platform: nextSnapshot.vm.platform,
+        });
+        return true;
+    }
+
+    private patchBookmarksToolbar(bookmarksTab: HTMLElement, snapshot: BookmarksPanelSnapshot): void {
+        const queryInput = bookmarksTab.querySelector<HTMLInputElement>('[data-role="bookmark-query"]');
+        if (queryInput && document.activeElement !== queryInput && queryInput.value !== snapshot.vm.query) {
+            queryInput.value = snapshot.vm.query;
+        }
+
+        const platformDropdown = bookmarksTab.querySelector<HTMLElement>('.platform-dropdown');
+        const nextPlatformMarkup = getPlatformDropdownHtml(snapshot.vm.platform, this.controller.getPlatforms(), this.uiState.platformMenuOpen);
+        if (platformDropdown) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = nextPlatformMarkup.trim();
+            const nextDropdown = wrapper.firstElementChild;
+            if (nextDropdown) platformDropdown.replaceWith(nextDropdown);
+        }
+
+        const timeButton = bookmarksTab.querySelector<HTMLElement>('[data-action="toggle-sort-time"]');
+        if (timeButton) {
+            timeButton.dataset.active = snapshot.vm.sortMode.startsWith('time') ? '1' : '0';
+            timeButton.innerHTML = icon(snapshot.vm.sortMode === 'time-asc' ? sortTimeAscIcon : sortTimeIcon);
+        }
+
+        const alphaButton = bookmarksTab.querySelector<HTMLElement>('[data-action="toggle-sort-alpha"]');
+        if (alphaButton) {
+            alphaButton.dataset.active = snapshot.vm.sortMode.startsWith('alpha') ? '1' : '0';
+            alphaButton.innerHTML = icon(snapshot.vm.sortMode === 'alpha-asc' ? sortAlphaAscIcon : sortAZIcon);
+        }
+    }
+
+    private patchTreePanel(bookmarksTab: HTMLElement): void {
+        const treePanel = bookmarksTab.querySelector<HTMLElement>('.tree-panel');
+        if (!treePanel) return;
+        const startedAt = performance.now();
+
+        const treePlan = this.getTreeRenderPlan();
+        this.treeVirtualModel = treePlan.mode === 'virtualized' ? treePlan.model : null;
+        treePanel.dataset.virtualized = treePlan.mode === 'virtualized' ? '1' : '0';
+
+        if (treePlan.mode === 'inline') {
+            if (this.treePanelEl) {
+                this.treePanelEl.removeEventListener('scroll', this.onTreePanelScroll);
+            }
+            this.clearTreeRenderState();
+            this.treePanelEl = treePanel;
+            treePanel.innerHTML = treePlan.html;
+            for (const checkbox of treePanel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
+                checkbox.indeterminate = true;
+            }
+            logBookmarksPerf('panel:patch-tree-inline', {
+                durationMs: Number((performance.now() - startedAt).toFixed(2)),
+                visibleBookmarks: this.snapshot?.vm.bookmarks.length ?? 0,
+            });
+            return;
+        }
+
+        this.bindTreePanel(treePanel);
+        logBookmarksPerf('panel:patch-tree-virtualized', {
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            rows: treePlan.model.rows.length,
+            totalHeight: treePlan.model.totalHeight,
+        });
+    }
+
+    private patchBatchBar(bookmarksTab: HTMLElement, snapshot: BookmarksPanelSnapshot): void {
+        const selectedCount = countSelectedBookmarks(snapshot.selectedKeys);
+        const batchBar = bookmarksTab.querySelector<HTMLElement>('.batch-bar');
+        if (!batchBar) return;
+
+        batchBar.dataset.active = selectedCount > 0 ? '1' : '0';
+        batchBar.setAttribute('aria-hidden', selectedCount > 0 ? 'false' : 'true');
+        const label = batchBar.querySelector<HTMLElement>('.batch-label');
+        if (label) {
+            label.textContent = selectedCount > 0 ? `${selectedCount} selected` : '';
+        }
+
+        for (const button of batchBar.querySelectorAll<HTMLButtonElement>('.icon-btn')) {
+            button.disabled = selectedCount === 0;
+        }
+    }
+
+    private getTreeRenderPlan(): TreeRenderPlan {
+        if (!this.snapshot) {
+            return {
+                mode: 'inline',
+                html: `
+      <div class="empty-state">
+        <div class="empty-icon">${icon(folderIcon)}</div>
+        <strong>No folders yet</strong>
+        <p>Create a folder or import bookmarks to start browsing saved messages.</p>
+        <div class="empty-actions">
+          <button class="${buttonClass('primary')}" type="button" data-action="create-folder-empty">Create first folder</button>
+          <button class="${buttonClass('secondary')}" type="button" data-action="import-bookmarks-empty">Import bookmarks</button>
+        </div>
+      </div>
+    `,
+            };
+        }
+
+        const virtualModel = buildVirtualTreeModel(this.snapshot, this.controller);
+        if (virtualModel) {
+            return { mode: 'virtualized', model: virtualModel };
+        }
+
+        return {
+            mode: 'inline',
+            html: getTreeHtml(this.snapshot, this.controller),
+        };
+    }
+
+    private bindTreePanel(treePanel: HTMLElement | null): void {
+        this.treePanelEl?.removeEventListener('scroll', this.onTreePanelScroll);
+        this.clearTreeRenderState();
+        this.treePanelEl = treePanel;
+        if (!treePanel) return;
+
+        if (this.treeVirtualModel) {
+            treePanel.addEventListener('scroll', this.onTreePanelScroll, { passive: true });
+            this.renderVirtualTreeWindow(treePanel, this.treeVirtualModel);
+        }
+    }
+
+    private renderVirtualTreeWindow(treePanel: HTMLElement, model: VirtualTreeModel): void {
+        const startedAt = performance.now();
+        const viewportHeight = treePanel.clientHeight || 640;
+        const startPx = Math.max(0, treePanel.scrollTop - TREE_OVERSCAN_PX);
+        const endPx = treePanel.scrollTop + viewportHeight + TREE_OVERSCAN_PX;
+
+        let startIndex = 0;
+        while (startIndex < model.rows.length && model.rows[startIndex]!.top + model.rows[startIndex]!.height <= startPx) {
+            startIndex += 1;
+        }
+
+        let endIndex = startIndex;
+        while (endIndex < model.rows.length && model.rows[endIndex]!.top < endPx) {
+            endIndex += 1;
+        }
+
+        const nextRange = {
+            startIndex,
+            endIndex: Math.max(startIndex + 1, endIndex),
+        };
+        if (
+            this.treeRenderedRange
+            && this.treeRenderedRange.startIndex === nextRange.startIndex
+            && this.treeRenderedRange.endIndex === nextRange.endIndex
+        ) {
+            return;
+        }
+
+        this.treeRenderedRange = nextRange;
+        const visibleRows = model.rows.slice(startIndex, Math.max(startIndex + 1, endIndex));
+        const topSpacer = visibleRows[0]?.top ?? 0;
+        const lastRow = visibleRows[visibleRows.length - 1];
+        const bottomSpacer = lastRow ? Math.max(0, model.totalHeight - (lastRow.top + lastRow.height)) : model.totalHeight;
+
+        treePanel.innerHTML = `
+          <div class="tree-virtual-spacer" style="height:${topSpacer}px"></div>
+          ${visibleRows.map((row) => renderVirtualTreeRow(row)).join('')}
+          <div class="tree-virtual-spacer" style="height:${bottomSpacer}px"></div>
+        `;
+
+        for (const checkbox of treePanel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
+            checkbox.indeterminate = true;
+        }
+        logBookmarksPerf('panel:render-virtual-window', {
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            startIndex: nextRange.startIndex,
+            endIndex: nextRange.endIndex,
+            renderedRows: visibleRows.length,
+            scrollTop: treePanel.scrollTop,
+        });
     }
 
     private async handleClick(event: Event): Promise<void> {
@@ -733,6 +1133,12 @@ export class BookmarksPanel {
         if (!actionEl) return;
 
         const action = actionEl.dataset.action;
+        logBookmarksPerf('panel:action', {
+            action,
+            tab: this.uiState.bookmarksTab,
+            bookmarkId: actionEl.dataset.bookmarkId ?? null,
+            path: actionEl.dataset.path ?? null,
+        });
         switch (action) {
             case 'close-panel':
                 this.hide();
@@ -830,7 +1236,7 @@ export class BookmarksPanel {
             }
             case 'delete-bookmark': {
                 const bookmark = this.findBookmarkBySelectionKey(actionEl.dataset.bookmarkId);
-                if (bookmark && window.confirm('Delete this bookmark?')) {
+                if (bookmark && await this.confirmDialog('warning', 'Delete bookmark', 'Delete this bookmark?', true)) {
                     await this.controller.deleteBookmark(bookmark);
                 }
                 return;
@@ -1141,32 +1547,57 @@ export class BookmarksPanel {
     }
 
     private async createFolder(): Promise<void> {
-        const path = window.prompt('New folder path', '');
+        const path = await this.promptDialog('info', 'Create folder', 'New folder path', '');
         if (!path?.trim()) return;
-        await this.controller.createFolder(path);
+        const res = await this.controller.createFolder(path);
+        this.controller.setPanelStatus(res.ok ? 'Folder created.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Create folder', res.message);
+        }
     }
 
     private async createSubfolder(parentPath: string): Promise<void> {
-        const name = window.prompt('Subfolder name', '');
+        const name = await this.promptDialog('info', 'Create subfolder', 'Subfolder name', '');
         if (!name?.trim()) return;
-        await this.controller.createFolder(`${parentPath}/${name}`);
+        const res = await this.controller.createFolder(`${parentPath}/${name}`);
+        this.controller.setPanelStatus(res.ok ? 'Folder created.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Create subfolder', res.message);
+            return;
+        }
+        this.controller.toggleFolderExpanded(parentPath);
     }
 
     private async renameFolder(path: string): Promise<void> {
-        const name = window.prompt('New folder name', '');
+        const name = await this.promptDialog('info', 'Rename folder', 'New folder name', '');
         if (!name?.trim()) return;
-        await this.controller.renameFolder(path, name);
+        const res = await this.controller.renameFolder(path, name);
+        this.controller.setPanelStatus(res.ok ? 'Folder renamed.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Rename folder', res.message);
+        }
     }
 
     private async moveFolder(path: string): Promise<void> {
-        const parent = window.prompt('Target parent folder', '');
+        const parent = await this.pickFolder({
+            title: 'Move folder',
+            currentFolderPath: PathUtils.getParentPath(path),
+        });
         if (parent === null) return;
-        await this.controller.moveFolder(path, parent);
+        const res = await this.controller.moveFolder(path, parent);
+        this.controller.setPanelStatus(res.ok ? 'Folder moved.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Move folder', res.message);
+        }
     }
 
     private async deleteFolder(path: string): Promise<void> {
-        if (!window.confirm(`Delete folder "${path}"?`)) return;
-        await this.controller.deleteFolder(path);
+        if (!await this.confirmDialog('warning', 'Delete folder', `Delete folder "${path}"?`, true)) return;
+        const res = await this.controller.deleteFolder(path);
+        this.controller.setPanelStatus(res.ok ? 'Folder deleted.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Delete folder', res.message);
+        }
     }
 
     private async exportAll(): Promise<void> {
@@ -1184,20 +1615,38 @@ export class BookmarksPanel {
     }
 
     private async batchMove(): Promise<void> {
-        const target = window.prompt('Target folder path', this.controller.getDefaultFolderPath());
+        const target = await this.pickFolder({
+            title: 'Move selected bookmarks',
+            currentFolderPath: this.controller.getDefaultFolderPath(),
+        });
         if (target === null) return;
-        await this.controller.batchMove(target);
+        const res = await this.controller.batchMove(target);
+        this.controller.setPanelStatus(res.ok ? 'Bookmarks moved.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Move selected bookmarks', res.message);
+        }
     }
 
     private async batchDelete(): Promise<void> {
-        if (!window.confirm('Delete selected bookmarks?')) return;
-        await this.controller.batchDelete();
+        if (!await this.confirmDialog('warning', 'Delete selected bookmarks', 'Delete selected bookmarks?', true)) return;
+        const res = await this.controller.batchDelete();
+        this.controller.setPanelStatus(res.ok ? 'Bookmarks deleted.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Delete selected bookmarks', res.message);
+        }
     }
 
     private async moveBookmark(bookmark: Bookmark): Promise<void> {
-        const target = window.prompt('Target folder path', bookmark.folderPath || this.controller.getDefaultFolderPath());
+        const target = await this.pickFolder({
+            title: 'Move bookmark',
+            currentFolderPath: bookmark.folderPath || this.controller.getDefaultFolderPath(),
+        });
         if (target === null) return;
-        await this.controller.moveBookmark(bookmark, target);
+        const res = await this.controller.moveBookmark(bookmark, target);
+        this.controller.setPanelStatus(res.ok ? 'Bookmark moved.' : res.message);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Move bookmark', res.message);
+        }
     }
 
     private async importFromFile(input: HTMLInputElement): Promise<void> {
@@ -1205,6 +1654,157 @@ export class BookmarksPanel {
         input.value = '';
         if (!file) return;
         const jsonText = await file.text();
-        await this.controller.importJsonText(jsonText, this.uiState.settings.behavior.saveContextOnly);
+        const res = await this.controller.importJsonText(jsonText, this.uiState.settings.behavior.saveContextOnly);
+        if (!res.ok) {
+            await this.alertDialog('error', 'Import bookmarks', res.message);
+            return;
+        }
+        this.controller.setPanelStatus('Bookmarks imported.');
+        await this.showImportMergeSummary(res.data);
+    }
+
+    private async promptDialog(kind: 'info' | 'warning' | 'error', title: string, message: string, defaultValue = ''): Promise<string | null> {
+        if (!this.modalHost) {
+            return window.prompt(message, defaultValue);
+        }
+        return this.modalHost.prompt({
+            kind,
+            title,
+            message,
+            defaultValue,
+            confirmText: 'Confirm',
+            cancelText: 'Cancel',
+        });
+    }
+
+    private async confirmDialog(
+        kind: 'info' | 'warning' | 'error',
+        title: string,
+        message: string,
+        danger = false,
+        confirmText?: string,
+    ): Promise<boolean> {
+        if (!this.modalHost) {
+            return window.confirm(message);
+        }
+        return this.modalHost.confirm({
+            kind,
+            title,
+            message,
+            danger,
+            confirmText: confirmText ?? (danger ? 'Delete' : 'Confirm'),
+            cancelText: 'Cancel',
+        });
+    }
+
+    private async alertDialog(kind: 'info' | 'warning' | 'error', title: string, message: string): Promise<void> {
+        if (!this.modalHost) {
+            window.alert(message);
+            return;
+        }
+        await this.modalHost.alert({
+            kind,
+            title,
+            message,
+            confirmText: 'OK',
+        });
+    }
+
+    private async pickFolder(params: { title: string; currentFolderPath: string | null }): Promise<string | null> {
+        const result = await bookmarkSaveDialog.open({
+            theme: this.controller.getTheme(),
+            userPrompt: '',
+            existingTitle: '',
+            currentFolderPath: params.currentFolderPath,
+            mode: 'folder-select',
+        });
+        if (!result.ok) return null;
+        return result.folderPath;
+    }
+
+    private async showImportMergeSummary(result: {
+        imported?: number;
+        skippedDuplicates?: number;
+        renamed?: number;
+        warnings?: string[];
+        folderCreateFailures?: number;
+    }): Promise<void> {
+        if (!this.modalHost) return;
+
+        const body = document.createElement('div');
+        const summarySection = document.createElement('section');
+        summarySection.className = 'merge-section merge-section--summary';
+        const summaryHeading = document.createElement('div');
+        summaryHeading.className = 'merge-section__heading';
+        summaryHeading.textContent = 'Summary';
+        const summary = document.createElement('div');
+        summary.className = 'merge-summary';
+
+        const items = [
+            { label: 'Imported', value: String(result.imported ?? 0) },
+            { label: 'Skipped duplicates', value: String(result.skippedDuplicates ?? 0) },
+            { label: 'Renamed titles', value: String(result.renamed ?? 0) },
+            { label: 'Folder fallbacks', value: String(result.folderCreateFailures ?? 0) },
+        ];
+
+        for (const item of items) {
+            const article = document.createElement('article');
+            article.className = 'merge-summary-item';
+            const label = document.createElement('span');
+            label.className = 'merge-summary-item__label';
+            label.textContent = item.label;
+            const value = document.createElement('strong');
+            value.textContent = item.value;
+            article.append(label, value);
+            summary.appendChild(article);
+        }
+
+        summarySection.append(summaryHeading, summary);
+        body.appendChild(summarySection);
+
+        const detailSection = document.createElement('section');
+        detailSection.className = 'merge-section merge-section--detail';
+        const detailHeading = document.createElement('div');
+        detailHeading.className = 'merge-section__heading';
+        detailHeading.textContent = 'Details';
+        const entries = document.createElement('div');
+        entries.className = 'merge-entry-list';
+        const warningMessages = Array.isArray(result.warnings) ? result.warnings : [];
+        const rows = [
+            { title: 'Imported bookmarks', detail: `${result.imported ?? 0} bookmarks were added or updated.`, status: 'import' },
+            { title: 'Duplicate bookmarks', detail: `${result.skippedDuplicates ?? 0} duplicates were skipped.`, status: 'duplicate' },
+            { title: 'Renamed titles', detail: `${result.renamed ?? 0} titles were renamed to avoid conflicts.`, status: 'rename' },
+            ...warningMessages.map((warning) => ({ title: 'Warning', detail: warning, status: 'normal' as const })),
+        ];
+
+        for (const row of rows) {
+            const article = document.createElement('article');
+            article.className = 'merge-entry';
+            const top = document.createElement('div');
+            top.className = 'merge-entry__top';
+            const title = document.createElement('strong');
+            title.textContent = row.title;
+            const status = document.createElement('span');
+            status.className = 'merge-entry-status';
+            status.dataset.status = row.status;
+            status.textContent = row.status === 'import' ? 'Imported'
+                : row.status === 'duplicate' ? 'Duplicate'
+                    : row.status === 'rename' ? 'Renamed'
+                        : 'Info';
+            top.append(title, status);
+            const detail = document.createElement('p');
+            detail.textContent = row.detail;
+            article.append(top, detail);
+            entries.appendChild(article);
+        }
+
+        detailSection.append(detailHeading, entries);
+        body.appendChild(detailSection);
+
+        await this.modalHost.showCustom({
+            kind: warningMessages.length > 0 || (result.folderCreateFailures ?? 0) > 0 ? 'warning' : 'info',
+            title: 'Import merge review',
+            body,
+        });
     }
 }
