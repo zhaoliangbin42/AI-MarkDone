@@ -245,4 +245,40 @@ export class GeminiAdapter extends SiteAdapter {
 
         return false;
     }
+
+    getComposerKind(): 'textarea' | 'contenteditable' | 'unknown' {
+        return 'contenteditable';
+    }
+
+    getComposerInputElement(): HTMLElement | HTMLTextAreaElement | HTMLInputElement | null {
+        const selectors = [
+            'rich-textarea .ql-editor[contenteditable="true"]',
+            '.ql-editor[contenteditable="true"][role="textbox"]',
+            '[role="textbox"][contenteditable="true"]',
+        ];
+        for (const selector of selectors) {
+            const input = document.querySelector(selector);
+            if (input instanceof HTMLElement) return input;
+        }
+        return null;
+    }
+
+    getComposerSendButtonElement(): HTMLElement | null {
+        const selectors = [
+            'button.send-button.submit',
+            '.send-button.submit',
+            'button[aria-label*="Send"]',
+            'button[aria-label*="发送"]',
+        ];
+        for (const selector of selectors) {
+            const button = document.querySelector(selector);
+            if (button instanceof HTMLElement) return button;
+        }
+        return null;
+    }
+
+    isComposerStreaming(): boolean {
+        const stopButton = document.querySelector('button[aria-label*="Stop"], button[aria-label*="停止"]');
+        return stopButton instanceof HTMLElement;
+    }
 }

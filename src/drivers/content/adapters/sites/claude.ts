@@ -247,4 +247,39 @@ export class ClaudeAdapter extends SiteAdapter {
         }
         return null;
     }
+
+    getComposerKind(): 'textarea' | 'contenteditable' | 'unknown' {
+        return 'contenteditable';
+    }
+
+    getComposerInputElement(): HTMLElement | HTMLTextAreaElement | HTMLInputElement | null {
+        const selectors = [
+            'div[contenteditable="true"][data-testid="chat-input"]',
+            '[data-testid="chat-input"][contenteditable="true"]',
+            'div[contenteditable="true"][aria-label*="Claude"]',
+        ];
+        for (const selector of selectors) {
+            const input = document.querySelector(selector);
+            if (input instanceof HTMLElement) return input;
+        }
+        return null;
+    }
+
+    getComposerSendButtonElement(): HTMLElement | null {
+        const selectors = [
+            'button[type="submit"]',
+            'button[aria-label*="Send"]',
+            'button[aria-label*="发送"]',
+        ];
+        for (const selector of selectors) {
+            const button = document.querySelector(selector);
+            if (button instanceof HTMLElement) return button;
+        }
+        return null;
+    }
+
+    isComposerStreaming(): boolean {
+        const stopButton = document.querySelector('button[aria-label*="Stop"], button[aria-label*="停止"]');
+        return stopButton instanceof HTMLElement;
+    }
 }

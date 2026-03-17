@@ -332,4 +332,41 @@ export class DeepseekAdapter extends SiteAdapter {
 
         return false;
     }
+
+    getComposerKind(): 'textarea' | 'contenteditable' | 'unknown' {
+        return 'textarea';
+    }
+
+    getComposerInputElement(): HTMLElement | HTMLTextAreaElement | HTMLInputElement | null {
+        const selectors = [
+            'textarea[placeholder="Message DeepSeek"]',
+            'textarea.d96f2d2a',
+            'textarea._27c9245',
+            'textarea',
+        ];
+        for (const selector of selectors) {
+            const input = document.querySelector(selector);
+            if (input instanceof HTMLTextAreaElement) return input;
+        }
+        return null;
+    }
+
+    getComposerSendButtonElement(): HTMLElement | null {
+        const selectors = [
+            '.ds-floating-button[role="button"]',
+            '.ds-send-button[role="button"]',
+            '.ec4f5d61 [role="button"]:last-child',
+            '[role="button"][aria-disabled]',
+        ];
+        for (const selector of selectors) {
+            const button = document.querySelector(selector);
+            if (button instanceof HTMLElement) return button;
+        }
+        return null;
+    }
+
+    isComposerStreaming(): boolean {
+        const stopButton = document.querySelector('[role="button"][aria-label*="Stop"], [role="button"][aria-label*="停止"]');
+        return stopButton instanceof HTMLElement;
+    }
 }

@@ -4,7 +4,7 @@ import { readComposer, writeComposer } from '../../../drivers/content/sending/co
 import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { sendIcon, xIcon } from '../../../assets/icons';
-import { t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
 
 type State = {
@@ -51,12 +51,14 @@ export class SendPopover {
     };
     private popoverEl: HTMLElement | null = null;
     private onShadowPointerDown: ((e: Event) => void) | null = null;
+    private onDocumentPointerDown: ((e: Event) => void) | null = null;
     private pending = false;
     private resizeState: ResizeState | null = null;
     private onWindowMouseMove: ((event: MouseEvent) => void) | null = null;
     private onWindowMouseUp: ((event: MouseEvent) => void) | null = null;
     private anchorPositionReset: (() => void) | null = null;
     private draftSyncToken = 0;
+    private unsubscribeLocale: (() => void) | null = null;
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
@@ -99,10 +101,10 @@ export class SendPopover {
       <button class="icon-btn" type="button" data-action="close" aria-label="${escapeHtml(t('btnClose'))}">${createIcon(xIcon).outerHTML}</button>
     </div>
   </div>
-  <button class="send-popover__resize-handle" type="button" data-action="resize" aria-label="Resize send popover">
+  <button class="send-popover__resize-handle" type="button" data-action="resize" aria-label="${escapeHtml(t('resizeSendPopover'))}">
     <span class="send-popover__resize-grip" aria-hidden="true"></span>
   </button>
-  <textarea class="send-popover__input" data-role="text" rows="5" placeholder="${escapeHtml(t('typeYourMessage'))}"></textarea>
+  <textarea class="send-popover__input aimd-field-control aimd-field-control--standalone" data-role="text" rows="5" placeholder="${escapeHtml(t('typeYourMessage'))}"></textarea>
   <div class="send-popover__foot">
     <div class="status-line" data-role="status"></div>
     <div class="button-row">
@@ -156,14 +158,25 @@ export class SendPopover {
 
         if (!this.onShadowPointerDown) {
             this.onShadowPointerDown = (ev: Event) => {
-                if (!this.state.open) return;
-                const path = (ev as MouseEvent & { composedPath?: () => Array<unknown> }).composedPath?.() as Array<unknown> | undefined;
-                const inPath = (node: unknown) => Array.isArray(path) && path.includes(node);
-                if (this.popoverEl && inPath(this.popoverEl)) return;
-                if (this.state.anchor && inPath(this.state.anchor)) return;
+                if (this.shouldIgnorePointerDown(ev)) return;
                 this.close(params.shadow, { syncBack: true });
             };
             params.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
+        }
+
+        if (!this.onDocumentPointerDown) {
+            this.onDocumentPointerDown = (ev: Event) => {
+                if (this.shouldIgnorePointerDown(ev)) return;
+                this.close(params.shadow, { syncBack: true });
+            };
+            document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
+        }
+
+        if (!this.unsubscribeLocale) {
+            this.unsubscribeLocale = subscribeLocaleChange(() => {
+                if (!this.state.open || !this.popoverEl) return;
+                this.refreshLocalizedCopy();
+            });
         }
 
         this.applyTheme();
@@ -185,10 +198,16 @@ export class SendPopover {
         this.state.anchor = null;
         this.anchorPositionReset?.();
         this.anchorPositionReset = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
 
         if (this.onShadowPointerDown) {
             shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
             this.onShadowPointerDown = null;
+        }
+        if (this.onDocumentPointerDown) {
+            document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
+            this.onDocumentPointerDown = null;
         }
     }
 
@@ -213,6 +232,15 @@ export class SendPopover {
     private applyTheme(): void {
         if (!this.popoverEl) return;
         this.popoverEl.setAttribute('data-aimd-theme', this.state.theme);
+    }
+
+    private shouldIgnorePointerDown(ev: Event): boolean {
+        if (!this.state.open) return true;
+        const path = (ev as MouseEvent & { composedPath?: () => Array<unknown> }).composedPath?.() as Array<unknown> | undefined;
+        const inPath = (node: unknown) => Array.isArray(path) && path.includes(node);
+        if (this.popoverEl && inPath(this.popoverEl)) return true;
+        if (this.state.anchor && inPath(this.state.anchor)) return true;
+        return false;
     }
 
     private async syncComposerDraft(text: string): Promise<void> {
@@ -242,6 +270,30 @@ export class SendPopover {
         this.pending = pending;
         const btn = this.popoverEl?.querySelector<HTMLButtonElement>('[data-action="send"]');
         if (btn) btn.disabled = pending;
+    }
+
+    private refreshLocalizedCopy(): void {
+        if (!this.popoverEl) return;
+        this.popoverEl.setAttribute('aria-label', t('send'));
+        const title = this.popoverEl.querySelector<HTMLElement>('.send-popover__head strong');
+        if (title) title.textContent = t('send');
+        const close = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="close"]');
+        if (close) close.setAttribute('aria-label', t('btnClose'));
+        const resize = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="resize"]');
+        if (resize) resize.setAttribute('aria-label', t('resizeSendPopover'));
+        const textarea = this.popoverEl.querySelector<HTMLTextAreaElement>('[data-role="text"]');
+        if (textarea) textarea.setAttribute('placeholder', t('typeYourMessage'));
+        const cancel = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="cancel"]');
+        if (cancel) {
+            cancel.setAttribute('aria-label', t('btnCancel'));
+            cancel.textContent = t('btnCancel');
+        }
+        const send = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="send"]');
+        if (send) {
+            send.setAttribute('aria-label', t('send'));
+            const text = send.querySelector('span');
+            if (text) text.textContent = t('send');
+        }
     }
 
     private startResize(event: MouseEvent, shadow: ShadowRoot): void {

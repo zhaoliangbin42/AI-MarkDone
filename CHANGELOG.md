@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Fixed folder selection, counts, expansion, and empty-folder checkbox behavior in the rebuilt bookmarks tree.
 - Bookmarks: Restored bookmark row reader previews, added platform icons, added a move action, and updated hover/date layout to match the latest panel design.
 - Bookmarks: Fixed rebuilt row actions, outside-click dismiss behavior, and backdrop handling so the panel controls behave consistently with the new shell.
+- Bookmarks: Restored shared tooltips in the rebuilt panel and unified input focus/placeholder behavior across bookmark, modal, and send surfaces.
 - Source: Rebuilt the raw source panel with the mock-aligned header/body layout while preserving copy, close, outside-click, and escape handling.
 
 ## [3.0.0] - 2026-02-18
@@ -303,9 +304,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Show real bookmark storage usage in settings with a live progress bar driven by background quota data.
 - Refactor injected UI styles to use shared tokens and remove inline overrides in
   bookmark dialogs.
+- Localize the rebuilt bookmarks, send, save, and source surfaces so language changes apply immediately without page reloads.
 
 ### Fixed
 - Dark mode rendering for duplicate bookmarks dialog and export confirm button.
+- Remove remaining hardcoded English strings from the rebuilt bookmarks panel and send popover, including import review copy and settings labels.
+- Restore native send-popover composer wiring for DeepSeek, Gemini, and Claude by completing their site-adapter send contracts without changing the shared sending infrastructure.
+- Close the send popover automatically when clicking outside the surface, while keeping in-popover interactions intact.
 
 ---
 

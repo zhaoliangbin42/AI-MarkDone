@@ -1,7 +1,35 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { SendPopover } from '@/ui/content/sending/SendPopover';
+import { setLocale } from '@/ui/content/components/i18n';
+
+function readLocaleJson(locale: 'en' | 'zh_CN'): any {
+    const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
 
 describe('SendPopover', () => {
+    beforeEach(() => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: any) => {
+                const target = String(url);
+                if (target.includes('_locales/zh_CN/messages.json')) {
+                    return { ok: true, json: async () => readLocaleJson('zh_CN') } as any;
+                }
+                if (target.includes('_locales/en/messages.json')) {
+                    return { ok: true, json: async () => readLocaleJson('en') } as any;
+                }
+                return { ok: false, json: async () => ({}) } as any;
+            }),
+        );
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
     it('opens with the mock send-popover structure and closes on outside click / ESC', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
@@ -33,6 +61,7 @@ describe('SendPopover', () => {
         expect(opened?.querySelector('.send-popover__resize-handle')).toBeTruthy();
         expect(opened?.querySelector('.send-popover__resize-grip')).toBeTruthy();
         expect(opened?.querySelector<HTMLTextAreaElement>('.send-popover__input')?.value).toBe('hi');
+        expect(opened?.querySelector<HTMLTextAreaElement>('.send-popover__input')?.classList.contains('aimd-field-control')).toBe(true);
         expect(opened?.querySelector('.send-popover__foot .status-line')).toBeTruthy();
         expect(opened?.querySelector('.send-popover__foot .button-row')).toBeTruthy();
         expect(opened?.querySelector('[data-tooltip]')).toBeNull();
@@ -58,6 +87,34 @@ describe('SendPopover', () => {
         shadow.appendChild(outside);
         outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
         expect(footerLeft.querySelector('.send-popover')).toBeNull();
+    });
+
+    it('closes when clicking outside the shadow surface on the page document', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
+
+        document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+        expect(footerLeft.querySelector('.send-popover')).toBeNull();
+        host.remove();
     });
 
     it('resizes upward and to the right from the top-right handle while clamping to the panel bounds', () => {
@@ -164,6 +221,39 @@ describe('SendPopover', () => {
 
         const status = footerLeft.querySelector<HTMLElement>('.send-popover [data-role="status"]');
         expect(status?.textContent).toBe('');
+
+        pop.close(shadow, { syncBack: false });
+    });
+
+    it('updates visible copy immediately when the locale changes', async () => {
+        await setLocale('en');
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+
+        expect(footerLeft.querySelector('.send-popover__head strong')?.textContent).toBe('Send');
+        expect(footerLeft.querySelector('.send-popover__resize-handle')?.getAttribute('aria-label')).toBe('Resize send popover');
+
+        await setLocale('zh_CN');
+        await Promise.resolve();
+
+        expect(footerLeft.querySelector('.send-popover__head strong')?.textContent).toBe('发送');
+        expect(footerLeft.querySelector('.send-popover__resize-handle')?.getAttribute('aria-label')).toBe('调整发送浮层大小');
 
         pop.close(shadow, { syncBack: false });
     });
