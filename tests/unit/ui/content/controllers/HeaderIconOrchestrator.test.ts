@@ -24,6 +24,7 @@ describe('HeaderIconOrchestrator', () => {
         expect(button?.getAttribute('data-aimd-role')).toBe('header-icon');
         expect(button?.getAttribute('role')).toBe('button');
         expect(button?.getAttribute('tabindex')).toBe('0');
+        expect(button?.getAttribute('title')).toBeTruthy();
         expect(style).toBeInstanceOf(HTMLStyleElement);
         expect(style?.textContent).toContain('[data-aimd-role="header-icon"]:focus-visible');
         expect(style?.textContent).not.toContain('[data-aimd-role="header-icon"]:hover');

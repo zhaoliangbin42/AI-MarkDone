@@ -108,6 +108,7 @@ describe('non-ChatGPT adapter contracts', () => {
         });
     });
 
+
     it('Claude exposes stable message, prompt, turn, and parser hooks on the latest layout', () => {
         const html = readFileSync('mocks/Claude/Claude-All.html', 'utf-8');
         withDom(html, 'https://claude.ai/chat/mock', () => {
@@ -132,7 +133,7 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(trailingGroup).toBeInstanceOf(HTMLElement);
             const anchor = adapter.getToolbarAnchorElement?.(message) ?? null;
             expect(anchor).toBeInstanceOf(HTMLElement);
-            expect(anchor).toBe(actionRow);
+            expect(anchor).toBe(trailingGroup);
 
             const host = document.createElement('div');
             host.id = 'aimd-test-claude-toolbar';
@@ -142,8 +143,7 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(anchor?.contains(host)).toBe(true);
             expect(host.parentElement).toBe(anchor);
             expect(host.dataset.aimdPlacement).toBe('actionbar');
-            expect(host.previousElementSibling).toBe(trailingGroup);
-            expect(host.style.marginLeft).toBe('auto');
+            expect(anchor?.lastElementChild).toBe(host);
         });
     });
 
@@ -226,8 +226,10 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(host.querySelector('.ds-icon-button__hover-bg')).toBeInstanceOf(HTMLElement);
             expect(host.querySelector('.ds-icon')).toBeInstanceOf(HTMLElement);
             expect(host.getAttribute('role')).toBe('button');
+            expect(host.style.marginLeft).toBe('12px');
         });
     });
+
 
     it('Deepseek resolves the conversation scroll container from the new full-page mock', () => {
         const html = readFileSync('mocks/DeepSeek/Deepseek-All.html', 'utf-8');

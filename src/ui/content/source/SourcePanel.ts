@@ -3,10 +3,10 @@ import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboar
 import { copyIcon, xIcon } from '../../../assets/icons';
 import { getTokenCss } from '../../../style/tokens';
 import overlayCssText from '../../../style/tailwind-overlay.css?inline';
-import { TooltipDelegate } from '../../../utils/tooltip';
+import { showEphemeralTooltip } from '../../../utils/tooltip';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { createIcon } from '../components/Icon';
-import { t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
 import { getSourcePanelCss } from './ui/styles/sourcePanelCss';
 
@@ -20,8 +20,9 @@ type State = {
 export class SourcePanel {
     private hostHandle: OverlaySurfaceHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
-    private tooltipDelegate: TooltipDelegate | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private state: State = { theme: 'light', title: '', content: '', visible: false };
+    private usesDefaultTitle = true;
 
     isVisible(): boolean {
         return this.state.visible;
@@ -35,6 +36,7 @@ export class SourcePanel {
 
     show(params: { theme: Theme; title?: string; content: string }): void {
         this.state.theme = params.theme;
+        this.usesDefaultTitle = !params.title;
         this.state.title = params.title || t('modalSourceTitle');
         this.state.content = params.content;
         this.state.visible = true;
@@ -62,7 +64,13 @@ export class SourcePanel {
         });
 
         this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+        this.unsubscribeLocale = subscribeLocaleChange(() => {
+            if (!this.hostHandle || !this.state.visible) return;
+            if (this.usesDefaultTitle) {
+                this.state.title = t('modalSourceTitle');
+            }
+            this.render();
+        });
 
         handle.backdropRoot.addEventListener('click', () => this.hide());
         handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
@@ -77,12 +85,13 @@ export class SourcePanel {
     }
 
     private unmount(): void {
-        this.tooltipDelegate?.disconnect();
-        this.tooltipDelegate = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
         this.hostHandle?.unmount();
         this.hostHandle = null;
+        this.usesDefaultTitle = true;
     }
 
     private async handleSurfaceClick(event: Event): Promise<void> {
@@ -107,7 +116,6 @@ export class SourcePanel {
         this.hostHandle.setSurfaceCss(this.getCss());
         this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
         this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
-        this.tooltipDelegate?.refresh(this.hostHandle.shadow);
     }
 
     private async copyCurrent(): Promise<void> {
@@ -117,14 +125,19 @@ export class SourcePanel {
 
         try {
             button.disabled = true;
-            await copyTextToClipboard(this.state.content || '');
+            const ok = await copyTextToClipboard(this.state.content || '');
+            showEphemeralTooltip({
+                root: this.hostHandle.shadow,
+                anchor: button,
+                text: ok ? this.getLabel('btnCopied', 'Copied') : this.getLabel('copyFailed', 'Copy failed'),
+            });
         } finally {
             button.disabled = false;
         }
     }
 
     private getHtml(): string {
-        const title = this.getLabel('modalSourceTitle', 'Source');
+        const title = this.state.title || this.getLabel('modalSourceTitle', 'Source');
         const copyLabel = this.getLabel('btnCopyText', 'Copy source');
         const closeLabel = this.getLabel('btnClose', 'Close panel');
         return `
@@ -134,8 +147,8 @@ export class SourcePanel {
       <h2>${escapeHtml(title)}</h2>
     </div>
     <div class="panel-header__actions">
-      <button class="icon-btn" data-action="source-copy" aria-label="${escapeHtml(copyLabel)}" data-tooltip="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>
-      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
+      <button class="icon-btn" data-action="source-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>
+      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
   <div class="source-body">

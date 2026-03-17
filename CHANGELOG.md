@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared confirm, prompt, alert, and custom modals now use a rebuilt mock-aligned dialog shell with dedicated shared styling instead of relying on bookmark-panel-local modal CSS.
 
 ### Fixed
+- Toolbar: Fixed shared tooltips for icon-only toolbar buttons so hover/focus on nested SVG nodes shows the expected tooltip again.
+- Gemini and DeepSeek: Restored the top-level header bookmark entry on current layouts by adding adapter fallbacks for the latest header structure.
 - Runtime: Fixed the content script entry so markdown enhancement experiments no longer emit module-split imports that break toolbar injection at runtime.
 - Markdown: Removed the experimental Mermaid runtime path so content-script stability and bundle size no longer depend on a heavy diagram renderer.
 - Markdown: Fixed renderer drift between reader, mock panels, and PDF export by removing the mixed `marked`/`MathJax`/post-highlight paths.
@@ -311,6 +313,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove remaining hardcoded English strings from the rebuilt bookmarks panel and send popover, including import review copy and settings labels.
 - Restore native send-popover composer wiring for DeepSeek, Gemini, and Claude by completing their site-adapter send contracts without changing the shared sending infrastructure.
 - Close the send popover automatically when clicking outside the surface, while keeping in-popover interactions intact.
+- Restore native title tooltips on message toolbar and header icon controls, while keeping preview-style tooltips only where they are actually needed.
+- Re-align Claude message toolbar injection to the trailing slot of the official action row and restore DeepSeek's top icon placement next to the title on current layouts.
+- Restore copy feedback in the source panel and unify Reader/Source copy confirmation with the shared ephemeral tooltip interaction.
 
 ---
 

@@ -3,7 +3,6 @@ import { getTokenCss } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 import { createIcon } from './components/Icon';
 import { t } from './components/i18n';
-import { TooltipDelegate } from '../../utils/tooltip';
 
 export type ToolbarActionResult = { ok: true; message?: string } | { ok: false; message: string };
 
@@ -33,7 +32,6 @@ export class MessageToolbar {
     private openMenuFor: string | null = null;
     private onDocPointerDown: ((e: Event) => void) | null = null;
     private showStats: boolean = false;
-    private tooltipDelegate: TooltipDelegate | null = null;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean }) {
         this.actions = actions;
@@ -44,7 +42,6 @@ export class MessageToolbar {
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-base', cache: 'shared' });
-        this.tooltipDelegate = new TooltipDelegate(this.shadow);
         this.mount();
     }
 
@@ -123,7 +120,7 @@ export class MessageToolbar {
             btn.className = `icon-btn ${action.kind === 'primary' ? 'primary' : ''}`.trim();
             btn.type = 'button';
             btn.dataset.action = action.id;
-            btn.dataset.tooltip = action.tooltip || action.label;
+            btn.title = action.tooltip || action.label;
             btn.setAttribute('aria-label', action.label);
             btn.appendChild(createIcon(action.icon));
             btn.addEventListener('click', (e) => void this.handleActionClick(action, e));
@@ -170,7 +167,6 @@ export class MessageToolbar {
 
         wrap.appendChild(bar);
         this.shadow.appendChild(wrap);
-        this.tooltipDelegate?.refresh(this.shadow);
     }
 
     private setStatus(kind: 'idle' | 'info' | 'success' | 'error', text: string): void {

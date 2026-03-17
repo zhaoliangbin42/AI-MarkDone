@@ -18,7 +18,7 @@ import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
-import { TooltipDelegate, upgradeTitleTooltips } from '../../../utils/tooltip';
+import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { getMarkdownThemeCss } from '../components/markdownTheme';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
 import overlayCssText from '../../../style/tailwind-overlay.css?inline';
@@ -179,7 +179,7 @@ export class ReaderPanel {
         this.host = handle.host;
         this.shadow = handle.shadow;
         this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+        this.tooltipDelegate = new TooltipDelegate(handle.shadow, { upgradeTitles: false });
 
         handle.backdropRoot.addEventListener('click', () => this.hide());
         handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
@@ -315,7 +315,11 @@ export class ReaderPanel {
             button.disabled = true;
             const markdown = await resolveContent(item.content);
             const ok = await copyTextToClipboard(markdown);
-            this.notify(ok ? t('btnCopied') : t('copyFailed'));
+            showEphemeralTooltip({
+                root: this.shadow ?? document,
+                anchor: button,
+                text: ok ? t('btnCopied') : t('copyFailed'),
+            });
         } finally {
             button.disabled = false;
         }
@@ -362,7 +366,6 @@ export class ReaderPanel {
 
         this.renderActions();
         this.renderDots();
-        upgradeTitleTooltips(this.hostHandle.surfaceRoot);
         this.tooltipDelegate?.refresh(this.shadow ?? undefined);
 
         const nextBody = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.reader-body');
@@ -554,11 +557,11 @@ export class ReaderPanel {
     </div>
     <div class="panel-header__actions">
       <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
-      ${this.state.options.showOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" data-tooltip="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
-      ${this.state.options.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" data-tooltip="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
-      ${this.state.options.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" data-tooltip="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
-      <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" data-tooltip="${escapeHtml(fullscreenLabel)}">${iconMarkup(this.state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
-      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
+      ${this.state.options.showOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
+      ${this.state.options.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
+      ${this.state.options.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" title="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
+      <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(this.state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
+      <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
   <div class="reader-body">
@@ -580,9 +583,9 @@ export class ReaderPanel {
       <div class="reader-footer__actions" data-role="footer-left-actions"></div>
     </div>
     <div class="reader-footer__center">
-      <button class="nav-btn nav-btn--reader" data-action="reader-prev" aria-label="${escapeHtml(previousLabel)}" data-tooltip="${escapeHtml(previousLabel)}" ${this.state.index <= 0 ? 'disabled' : ''}>${iconMarkup(chevronRightIcon)}</button>
+      <button class="nav-btn nav-btn--reader" data-action="reader-prev" aria-label="${escapeHtml(previousLabel)}" title="${escapeHtml(previousLabel)}" ${this.state.index <= 0 ? 'disabled' : ''}>${iconMarkup(chevronRightIcon)}</button>
       <div class="reader-dots" aria-label="${escapeHtml(this.getLabel('paginationLabel', 'Pagination'))}"></div>
-      <button class="nav-btn nav-btn--next nav-btn--reader" data-action="reader-next" aria-label="${escapeHtml(nextLabel)}" data-tooltip="${escapeHtml(nextLabel)}" ${this.state.index >= total - 1 ? 'disabled' : ''}>${iconMarkup(chevronRightIcon)}</button>
+      <button class="nav-btn nav-btn--next nav-btn--reader" data-action="reader-next" aria-label="${escapeHtml(nextLabel)}" title="${escapeHtml(nextLabel)}" ${this.state.index >= total - 1 ? 'disabled' : ''}>${iconMarkup(chevronRightIcon)}</button>
     </div>
     <div class="reader-footer__meta">
       <div class="hint">${escapeHtml(pagerHint)}</div>

@@ -21,6 +21,22 @@ const detector: ThemeDetector = {
 };
 
 export class DeepseekAdapter extends SiteAdapter {
+    private findCurrentConversationHeaderTitleAnchor(): HTMLElement | null {
+        for (const candidate of Array.from(document.querySelectorAll('div'))) {
+            if (!(candidate instanceof HTMLElement)) continue;
+            const directChildren = Array.from(candidate.children).filter(
+                (child): child is HTMLElement => child instanceof HTMLElement
+            );
+            if (directChildren.length < 2) continue;
+
+            const titleAnchor = directChildren.map((child) => this.findHeaderTitleAnchor(child)).find(Boolean) ?? null;
+            const trailingButton = directChildren.find((child) => child.matches('.ds-icon-button, .ds-icon-button--l'));
+            if (titleAnchor instanceof HTMLElement && trailingButton) return titleAnchor;
+        }
+
+        return null;
+    }
+
     private findHeaderBar(): HTMLElement | null {
         const firstMessage = document.querySelector(this.getMessageSelector());
         if (!(firstMessage instanceof HTMLElement)) return null;
@@ -250,7 +266,7 @@ export class DeepseekAdapter extends SiteAdapter {
     }
 
     getHeaderIconAnchorElement(): HTMLElement | null {
-        return this.findHeaderTitleAnchor(this.findHeaderBar());
+        return this.findHeaderTitleAnchor(this.findHeaderBar()) || this.findCurrentConversationHeaderTitleAnchor();
     }
 
     injectHeaderIcon(iconHost: HTMLElement): boolean {
@@ -262,7 +278,6 @@ export class DeepseekAdapter extends SiteAdapter {
             iconHost.setAttribute('role', 'button');
             iconHost.setAttribute('tabindex', '0');
             iconHost.setAttribute('aria-disabled', 'false');
-            iconHost.style.marginLeft = '12px';
             iconHost.style.height = '40px';
 
             if (iconHost.dataset.aimdDecorated !== 'deepseek') {
@@ -289,6 +304,7 @@ export class DeepseekAdapter extends SiteAdapter {
             }
         }
 
+        iconHost.style.marginLeft = '12px';
         anchor.appendChild(iconHost);
         return true;
     }

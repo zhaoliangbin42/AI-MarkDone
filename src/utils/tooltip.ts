@@ -181,7 +181,7 @@ function isOwnedTooltipNode(node: HTMLElement): boolean {
 }
 
 function findTooltipTarget(node: EventTarget | null, boundary: ShadowRoot | Document): TooltipTarget | null {
-    const el = node instanceof HTMLElement ? node : null;
+    const el = node instanceof Element ? node : null;
     if (!el) return null;
     const target = el.closest<HTMLElement>('[data-tooltip], [data-tooltip-title]');
     if (!target) return null;
@@ -208,6 +208,7 @@ export function upgradeTitleTooltips(root: ParentNode): void {
 export class TooltipDelegate {
     private root: ShadowRoot | Document;
     private delayMs: number;
+    private upgradeTitles: boolean;
     private timer: number | null = null;
     private activeTarget: TooltipTarget | null = null;
     private tooltipEl: HTMLElement | null = null;
@@ -218,9 +219,10 @@ export class TooltipDelegate {
     private onFocusOut: (e: Event) => void;
     private onPointerDown: () => void;
 
-    constructor(root: ShadowRoot | Document, opts?: { delayMs?: number }) {
+    constructor(root: ShadowRoot | Document, opts?: { delayMs?: number; upgradeTitles?: boolean }) {
         this.root = root;
         this.delayMs = opts?.delayMs ?? 150;
+        this.upgradeTitles = opts?.upgradeTitles ?? true;
         ensureTooltipStyle(root);
         this.onPointerOver = (e) => this.handlePointerOver(e);
         this.onPointerOut = (e) => this.handlePointerOut(e);
@@ -249,6 +251,7 @@ export class TooltipDelegate {
     }
 
     refresh(scope?: ParentNode): void {
+        if (!this.upgradeTitles) return;
         upgradeTitleTooltips(scope ?? (this.root instanceof ShadowRoot ? this.root : document.body));
     }
 

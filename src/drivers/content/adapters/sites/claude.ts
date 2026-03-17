@@ -51,6 +51,9 @@ export class ClaudeAdapter extends SiteAdapter {
         const actionBar = this.findActionBar(messageElement);
         if (!actionBar) return null;
 
+        const trailingGroup = actionBar.querySelector('.flex.items-stretch.justify-between > .flex.items-center:last-child');
+        if (trailingGroup instanceof HTMLElement) return trailingGroup;
+
         const innerRow = actionBar.querySelector('.flex.items-stretch.justify-between');
         if (innerRow instanceof HTMLElement) return innerRow;
 
@@ -128,7 +131,6 @@ export class ClaudeAdapter extends SiteAdapter {
             toolbarHost.dataset.aimdPlacement = 'actionbar';
             toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
             toolbarHost.style.pointerEvents = 'auto';
-            toolbarHost.style.marginLeft = 'auto';
             toolbarHost.style.flex = '0 0 auto';
             toolbarHost.style.alignSelf = 'center';
             actionRowTarget.appendChild(toolbarHost);

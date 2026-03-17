@@ -67,4 +67,26 @@ describe('TooltipDelegate', () => {
         document.body.innerHTML = '';
         vi.useRealTimers();
     });
+
+    it('resolves tooltip targets when hover starts from an inline svg child', async () => {
+        vi.useFakeTimers();
+        window.innerWidth = 1440;
+        window.innerHeight = 900;
+
+        const target = createTarget({ left: 200, top: 200, width: 40, height: 40 });
+        target.innerHTML = '<svg viewBox="0 0 16 16"><path d="M0 0h16v16H0z"></path></svg>';
+        const path = target.querySelector('path')!;
+        const delegate = new TooltipDelegate(document, { delayMs: 0 });
+
+        path.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        vi.runAllTimers();
+        await Promise.resolve();
+
+        const tooltip = document.querySelector<HTMLElement>('.aimd-tooltip');
+        expect(tooltip?.textContent).toContain('Sort by time');
+
+        delegate.disconnect();
+        document.body.innerHTML = '';
+        vi.useRealTimers();
+    });
 });
