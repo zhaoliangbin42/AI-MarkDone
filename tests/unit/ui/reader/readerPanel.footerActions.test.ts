@@ -196,6 +196,8 @@ describe('ReaderPanel actions placement', () => {
             const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
             expect(styles).toContain('.reader-footer__center {');
             expect(styles).toContain('.reader-footer__meta {');
+            expect(styles).toContain('grid-template-columns: auto minmax(0, 1fr) auto;');
+            expect(styles).not.toContain('grid-template-columns: 1fr;');
             expect(shadow.querySelector('[data-action="reader-prev"] svg')).toBeTruthy();
             expect(shadow.querySelector('[data-action="reader-next"] svg')).toBeTruthy();
         } finally {

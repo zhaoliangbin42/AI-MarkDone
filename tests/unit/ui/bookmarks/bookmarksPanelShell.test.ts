@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import { createBookmarksPanelShell } from '@/ui/content/bookmarks/ui/BookmarksPanelShell';
 
@@ -80,5 +82,15 @@ describe('BookmarksPanelShell', () => {
 
         expect(bookmarks.dataset.active).toBe('0');
         expect(settings.dataset.active).toBe('1');
+    });
+
+    it('keeps the mobile tab rail as a three-column strip instead of fixed-width overflow buttons', () => {
+        const css = fs.readFileSync(
+            path.join(process.cwd(), 'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts'),
+            'utf8',
+        );
+
+        expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
+        expect(css).not.toContain('grid-auto-columns: minmax(160px, 1fr);');
     });
 });

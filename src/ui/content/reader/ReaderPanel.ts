@@ -841,7 +841,7 @@ ${getMarkdownThemeCss('.reader-markdown')}
 
 .reader-footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
   padding: 12px 18px;
@@ -869,6 +869,7 @@ ${getMarkdownThemeCss('.reader-markdown')}
 .reader-footer__center {
   justify-content: center;
   min-width: 0;
+  overflow: hidden;
 }
 
 .reader-footer__meta {
@@ -908,7 +909,7 @@ ${getMarkdownThemeCss('.reader-markdown')}
   justify-content: center;
   align-content: flex-start;
   gap: 8px;
-  max-width: min(280px, 34vw);
+  max-width: 100%;
   max-height: calc((var(--aimd-dot-size, 10px) * 3) + 24px);
   overflow-x: hidden;
   overflow-y: auto;
@@ -981,18 +982,8 @@ ${getMarkdownThemeCss('.reader-markdown')}
   }
 
   .reader-footer {
-    grid-template-columns: 1fr;
-    justify-items: stretch;
-  }
-
-  .reader-footer__left,
-  .reader-footer__center {
-    justify-content: center;
-  }
-
-  .reader-footer__meta {
-    justify-self: center;
-    text-align: center;
+    gap: 10px;
+    padding: 12px 14px;
   }
 }
 `;

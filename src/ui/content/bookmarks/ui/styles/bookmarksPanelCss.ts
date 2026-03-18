@@ -1,3 +1,5 @@
+import { getInputFieldCss } from '../../../components/styles/inputFieldCss';
+
 export function getBookmarksPanelCss(): string {
     return `
 :host {
@@ -62,11 +64,14 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-sponsor-title-size: 19px;
   --_bookmarks-settings-title-size: 17px;
   --_bookmarks-modal-error-size: 13px;
+  --_bookmarks-mobile-tab-strip-gap: var(--aimd-space-1);
+  --_bookmarks-mobile-tab-strip-padding: var(--aimd-space-1);
+  --_bookmarks-mobile-tab-strip-surface: color-mix(in srgb, var(--aimd-bg-secondary) 68%, transparent);
 }
 * { box-sizing: border-box; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 button { cursor: pointer; }
-input::placeholder { opacity: 1; color: var(--aimd-text-secondary); }
+${getInputFieldCss()}
 
 .aimd-scroll {
   min-height: 0;
@@ -1333,11 +1338,42 @@ input::placeholder { opacity: 1; color: var(--aimd-text-secondary); }
   }
 
   .bookmarks-sidebar {
+    position: relative;
     border-right: none;
     border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(160px, 1fr);
-    overflow: auto hidden;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--_bookmarks-mobile-tab-strip-gap);
+    padding: var(--aimd-space-3) var(--aimd-space-4);
+    background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+    overflow: hidden;
+  }
+
+  .bookmarks-sidebar::before {
+    content: '';
+    position: absolute;
+    inset: var(--aimd-space-3) var(--aimd-space-4);
+    border-radius: var(--aimd-radius-2xl);
+    background: var(--_bookmarks-mobile-tab-strip-surface);
+    border: 1px solid color-mix(in srgb, var(--aimd-border-default) 58%, transparent);
+    pointer-events: none;
+  }
+
+  .tab-btn {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    min-height: 46px;
+    padding: var(--aimd-space-3) var(--aimd-space-2);
+    justify-content: center;
+    border-radius: var(--aimd-radius-xl);
+    text-align: center;
+  }
+
+  .tab-btn span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .toolbar-row--bookmarks {

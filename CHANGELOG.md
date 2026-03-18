@@ -316,6 +316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore native title tooltips on message toolbar and header icon controls, while keeping preview-style tooltips only where they are actually needed.
 - Re-align Claude message toolbar injection to the trailing slot of the official action row and restore DeepSeek's top icon placement next to the title on current layouts.
 - Restore copy feedback in the source panel and unify Reader/Source copy confirmation with the shared ephemeral tooltip interaction.
+- Tighten responsive footer behavior in the Reader so narrow widths compress the pager first instead of reflowing the surrounding controls.
+- Refine the mobile bookmarks tab rail into an even three-column strip so top tabs stay readable and do not overflow on narrow screens.
 
 ---
 
