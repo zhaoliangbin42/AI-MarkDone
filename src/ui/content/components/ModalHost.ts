@@ -120,7 +120,7 @@ export class ModalHost {
                 body: (body) => {
                     const input = document.createElement('input');
                     input.type = 'text';
-                    input.className = 'mock-modal__input';
+                    input.className = 'mock-modal__input aimd-field-control aimd-field-control--standalone';
                     input.placeholder = opts.placeholder ?? '';
                     input.value = opts.defaultValue ?? '';
 

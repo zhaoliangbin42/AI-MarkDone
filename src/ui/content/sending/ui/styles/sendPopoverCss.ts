@@ -1,5 +1,8 @@
+import { getInputFieldCss } from '../../../components/styles/inputFieldCss';
+
 export function getSendPopoverCss(): string {
     return `
+${getInputFieldCss()}
 .send-popover {
   position: absolute;
   left: 0;
@@ -80,10 +83,8 @@ export function getSendPopoverCss(): string {
   color: var(--aimd-text-secondary);
 }
 
-.send-popover__input:hover,
-.send-popover__input:focus-visible {
+.send-popover__input:hover {
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 34%, var(--aimd-border-default));
-  box-shadow: var(--aimd-shadow-focus);
 }
 
 .send-popover__foot {

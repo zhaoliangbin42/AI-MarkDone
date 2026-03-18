@@ -2,7 +2,7 @@ import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { getTokenCss } from '../../../style/tokens';
 import overlayCssText from '../../../style/tailwind-overlay.css?inline';
-import { t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
     collectConversationTurns,
@@ -31,6 +31,7 @@ export class SaveMessagesDialog {
     private turns: Array<{ user: string; assistant: string; index: number }> = [];
     private metadata: { url: string; exportedAt: string; title: string; count: number; platform: string } | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private exportT: TranslateFn = (key, args) => {
         if (args === undefined) return t(key);
         if (Array.isArray(args)) return t(key, args.map((x) => String(x)));
@@ -69,6 +70,8 @@ export class SaveMessagesDialog {
     close(): void {
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
         this.hostHandle?.unmount();
@@ -94,6 +97,9 @@ export class SaveMessagesDialog {
 
         this.hostHandle = handle;
         this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+        this.unsubscribeLocale = subscribeLocaleChange(() => {
+            if (this.hostHandle) this.render();
+        });
 
         handle.backdropRoot.addEventListener('click', () => this.close());
         handle.surfaceRoot.addEventListener('click', (event) => void this.handleClick(event));

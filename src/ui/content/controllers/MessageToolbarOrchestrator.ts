@@ -523,12 +523,6 @@ export class MessageToolbarOrchestrator {
         const container = this.adapter.getObserverContainer() || document.body;
         const nodes = discoverMessageElements(container, selector);
 
-        logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] scan', {
-            selector,
-            found: nodes.length,
-            containerTag: container.tagName,
-        });
-
         nodes.forEach((messageElement, index) => {
             const position = index + 1;
             messageElement.dataset.aimdMsgPosition = `${position}`;

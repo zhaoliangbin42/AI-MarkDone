@@ -120,9 +120,9 @@ export class MessageToolbar {
             btn.className = `icon-btn ${action.kind === 'primary' ? 'primary' : ''}`.trim();
             btn.type = 'button';
             btn.dataset.action = action.id;
-            btn.title = action.tooltip || action.label;
-            btn.setAttribute('aria-label', action.label);
+            btn.setAttribute('aria-label', action.tooltip || action.label);
             btn.appendChild(createIcon(action.icon));
+            this.attachHoverFeedback(btn, action.tooltip || action.label);
             btn.addEventListener('click', (e) => void this.handleActionClick(action, e));
             group.appendChild(btn);
             this.actionButtons.set(action.id, btn);
@@ -287,6 +287,35 @@ export class MessageToolbar {
         }
     }
 
+    private attachHoverFeedback(button: HTMLButtonElement, label: string): void {
+        let hoverTimeout: number | null = null;
+        let feedbackElement: HTMLElement | null = null;
+
+        const removeFeedback = () => {
+            if (hoverTimeout !== null) {
+                window.clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+            if (feedbackElement) {
+                feedbackElement.remove();
+                feedbackElement = null;
+            }
+        };
+
+        button.addEventListener('mouseenter', () => {
+            removeFeedback();
+            hoverTimeout = window.setTimeout(() => {
+                feedbackElement = document.createElement('div');
+                feedbackElement.className = 'toolbar-hover-feedback';
+                feedbackElement.dataset.role = 'toolbar-tooltip';
+                feedbackElement.textContent = button.getAttribute('aria-label') || label;
+                button.appendChild(feedbackElement);
+            }, 100);
+        });
+
+        button.addEventListener('mouseleave', removeFeedback);
+    }
+
     private getCss(): string {
         return `
 :host {
@@ -380,6 +409,8 @@ export class MessageToolbar {
 
 .icon-btn {
   all: unset;
+  position: relative;
+  overflow: visible;
   cursor: pointer;
   user-select: none;
   width: 30px;
@@ -404,6 +435,31 @@ export class MessageToolbar {
 .icon-btn[data-flash="1"] {
   /* Momentary feedback without looking like "active" state */
   background: color-mix(in srgb, var(--aimd-tb-hover) 70%, transparent);
+}
+
+.toolbar-hover-feedback {
+  position: absolute;
+  bottom: calc(100% + var(--aimd-space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  font-size: var(--aimd-font-size-xs);
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--aimd-radius-md);
+  opacity: 0;
+  pointer-events: none;
+  z-index: var(--aimd-z-tooltip);
+  animation: toolbarFeedbackFade 1.5s ease;
+}
+
+@keyframes toolbarFeedbackFade {
+  0% { opacity: 0; transform: translateX(-50%) translateY(0); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
 .icon-btn svg { width: 16px; height: 16px; display: block; }

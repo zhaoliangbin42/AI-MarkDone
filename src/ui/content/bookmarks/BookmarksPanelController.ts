@@ -10,6 +10,7 @@ import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboar
 import { isSamePageUrl, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
 import { scrollToConversationTargetWithRetry } from '../../../drivers/content/conversation/navigation';
 import { t } from '../components/i18n';
+import { logger } from '../../../core/logger';
 
 export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
 
@@ -58,7 +59,7 @@ function shouldLogBookmarksPerf(): boolean {
 
 function logBookmarksPerf(stage: string, payload: Record<string, unknown>): void {
     if (!shouldLogBookmarksPerf()) return;
-    console.log(`[aimd][bookmarks][perf] ${stage}`, payload);
+    logger.debug(`[AI-MarkDone][BookmarksPanelController][Perf] ${stage}`, payload);
 }
 
 export type BookmarksPanelSnapshot = {

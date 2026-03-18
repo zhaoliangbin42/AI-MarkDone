@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MessageToolbar } from '@/ui/content/MessageToolbar';
 
 describe('MessageToolbar tooltip integration', () => {
-    it('keeps native title tooltips on icon-only toolbar buttons', () => {
+    it('renders toolbar-local hover feedback instead of delegated or native title tooltips', () => {
+        vi.useFakeTimers();
         const toolbar = new MessageToolbar('light', [
             {
                 id: 'copy_markdown',
@@ -17,9 +18,23 @@ describe('MessageToolbar tooltip integration', () => {
 
         const shadow = toolbar.getElement().shadowRoot!;
         const button = shadow.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]');
-
-        expect(button?.getAttribute('title')).toBe('Copy markdown');
+        expect(button).toBeTruthy();
+        expect(button?.getAttribute('title')).toBeNull();
         expect(button?.dataset.tooltip).toBeUndefined();
+
+        button?.dispatchEvent(new Event('mouseenter', { bubbles: true }));
+        vi.advanceTimersByTime(99);
+        expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
+
+        vi.advanceTimersByTime(1);
+        const feedback = button?.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
+        expect(feedback?.textContent).toBe('Copy markdown');
+        expect(document.querySelector('.aimd-tooltip')).toBeNull();
+
+        button?.dispatchEvent(new Event('mouseleave', { bubbles: true }));
+        expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
+
         toolbar.getElement().remove();
+        vi.useRealTimers();
     });
 });

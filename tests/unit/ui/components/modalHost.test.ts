@@ -54,6 +54,7 @@ describe('ModalHost', () => {
         const input = dialog?.querySelector<HTMLInputElement>('.mock-modal__input');
         expect(dialog).toBeTruthy();
         expect(input?.value).toBe('Research/Archive');
+        expect(input?.classList.contains('aimd-field-control')).toBe(true);
 
         input!.value = '';
         dialog?.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')?.click();

@@ -950,6 +950,192 @@
     "readerPagerHint": {
         "message": "Arrow keys ready"
     },
+    "resizeSendPopover": {
+        "message": "Resize send popover"
+    },
+    "searchBookmarksPlaceholder": {
+        "message": "Search bookmarks"
+    },
+    "untitledLabel": {
+        "message": "(untitled)"
+    },
+    "emptyBookmarksHint": {
+        "message": "Create a folder or import bookmarks to start browsing saved messages."
+    },
+    "settingsPlatformChatgptDesc": {
+        "message": "Enable AI-MarkDone on ChatGPT."
+    },
+    "settingsPlatformGeminiDesc": {
+        "message": "Enable AI-MarkDone on Gemini."
+    },
+    "settingsPlatformClaudeDesc": {
+        "message": "Enable AI-MarkDone on Claude."
+    },
+    "settingsPlatformDeepseekDesc": {
+        "message": "Enable AI-MarkDone on DeepSeek."
+    },
+    "settingsFoldingModeLabel": {
+        "message": "Folding mode"
+    },
+    "settingsFoldingModeDesc": {
+        "message": "Controls how many messages stay expanded by default."
+    },
+    "settingsExpandedCountDesc": {
+        "message": "Used only when the folding mode keeps the latest N messages visible."
+    },
+    "increaseExpandedCount": {
+        "message": "Increase expanded count"
+    },
+    "decreaseExpandedCount": {
+        "message": "Decrease expanded count"
+    },
+    "settingsFoldDockLabel": {
+        "message": "Show fold dock"
+    },
+    "settingsFoldDockDesc": {
+        "message": "Keep the compact fold dock visible in supported threads."
+    },
+    "settingsShowViewSourceLabel": {
+        "message": "Show View Source"
+    },
+    "settingsShowViewSourceDesc": {
+        "message": "Show the View Source action in supported toolbars and panels."
+    },
+    "settingsShowSaveMessagesLabel": {
+        "message": "Show Save Messages"
+    },
+    "settingsShowSaveMessagesDesc": {
+        "message": "Show the Save Messages action where export is supported."
+    },
+    "settingsShowWordCountLabel": {
+        "message": "Show Word Count"
+    },
+    "settingsShowWordCountDesc": {
+        "message": "Display word count information for saved and rendered content."
+    },
+    "settingsEnableClickToCopyLabel": {
+        "message": "Enable click-to-copy"
+    },
+    "settingsEnableClickToCopyDesc": {
+        "message": "Copy message content directly when supported surfaces are clicked."
+    },
+    "settingsSaveContextOnlyLabel": {
+        "message": "Save context only"
+    },
+    "settingsSaveContextOnlyDesc": {
+        "message": "Only save the conversation context instead of the full thread when exporting or bookmarking."
+    },
+    "settingsRenderCodeInReaderLabel": {
+        "message": "Render code in Reader"
+    },
+    "settingsRenderCodeInReaderDesc": {
+        "message": "Render fenced code blocks with reader formatting instead of raw plain text."
+    },
+    "settingsInterfaceLanguageLabel": {
+        "message": "Interface language"
+    },
+    "settingsInterfaceLanguageDesc": {
+        "message": "Auto follows the browser, or pin the UI to a specific locale."
+    },
+    "backupBookmarksHint": {
+        "message": "Export everything before major refactors or browser reinstalls."
+    },
+    "sponsorOpenSourceTitle": {
+        "message": "Open source support"
+    },
+    "sponsorOpenSourceNote": {
+        "message": "Star the repository to help the project stay visible."
+    },
+    "sponsorOpenSourceBody": {
+        "message": "If the project is useful, starring the repository is the fastest way to help. It improves discoverability and makes continued maintenance easier to justify."
+    },
+    "sponsorDonateTitle": {
+        "message": "Donate"
+    },
+    "sponsorDonateNote": {
+        "message": "Support development directly with the existing sponsor channels."
+    },
+    "sponsorDonateBody": {
+        "message": "If AI-MarkDone saves you time, you can also support development directly through the same two channels used in the shipped sponsor tab."
+    },
+    "sponsorBmcNote": {
+        "message": "Quick international support"
+    },
+    "sponsorBmcAlt": {
+        "message": "Buy Me a Coffee QR code"
+    },
+    "sponsorWechatNote": {
+        "message": "Direct appreciation in WeChat"
+    },
+    "sponsorWechatAlt": {
+        "message": "WeChat appreciation code"
+    },
+    "exportAllBookmarksLabel": {
+        "message": "Export all bookmarks"
+    },
+    "moveBookmarkLabel": {
+        "message": "Move bookmark"
+    },
+    "expandFolderLabel": {
+        "message": "Expand folder"
+    },
+    "collapseFolderLabel": {
+        "message": "Collapse folder"
+    },
+    "deleteSelectedMessage": {
+        "message": "Delete selected bookmarks?"
+    },
+    "confirmAction": {
+        "message": "Confirm"
+    },
+    "importMergeReviewTitle": {
+        "message": "Import merge review"
+    },
+    "importMergeSummaryHeading": {
+        "message": "Summary"
+    },
+    "importMergeDetailsHeading": {
+        "message": "Details"
+    },
+    "importMergeSummaryImported": {
+        "message": "Imported"
+    },
+    "importMergeSummarySkippedDuplicates": {
+        "message": "Skipped duplicates"
+    },
+    "importMergeSummaryRenamedTitles": {
+        "message": "Renamed titles"
+    },
+    "importMergeSummaryFolderFallbacks": {
+        "message": "Folder fallbacks"
+    },
+    "importMergeImportedBookmarksTitle": {
+        "message": "Imported bookmarks"
+    },
+    "importMergeImportedBookmarksDetail": {
+        "message": "$1 bookmarks were added or updated."
+    },
+    "importMergeDuplicateBookmarksTitle": {
+        "message": "Duplicate bookmarks"
+    },
+    "importMergeDuplicateBookmarksDetail": {
+        "message": "$1 duplicates were skipped."
+    },
+    "importMergeRenamedTitlesTitle": {
+        "message": "Renamed titles"
+    },
+    "importMergeRenamedTitlesDetail": {
+        "message": "$1 titles were renamed to avoid conflicts."
+    },
+    "importMergeWarningTitle": {
+        "message": "Warning"
+    },
+    "importMergeStatusDuplicate": {
+        "message": "Duplicate"
+    },
+    "importMergeStatusInfo": {
+        "message": "Info"
+    },
     "streamingStatus": {
         "message": "Streaming..."
     }

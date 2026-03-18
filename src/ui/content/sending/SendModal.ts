@@ -7,6 +7,7 @@ import { xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
 import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { getInputFieldCss } from '../components/styles/inputFieldCss';
 import { TooltipDelegate } from '../../../utils/tooltip';
 
 export class SendModal {
@@ -150,7 +151,7 @@ export class SendModal {
     <div class="title">${t('send')}</div>
     <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
   </div>
-  <textarea class="input" data-role="text" rows="7" placeholder="${t('typeYourMessage')}"></textarea>
+  <textarea class="input aimd-field-control aimd-field-control--standalone" data-role="text" rows="7" placeholder="${t('typeYourMessage')}"></textarea>
   <div class="foot">
     <div class="status" data-role="status"></div>
     <div class="actions">
@@ -172,6 +173,8 @@ button, input, select, textarea {
   font: inherit;
   color: inherit;
 }
+
+${getInputFieldCss()}
 
 .overlay {
   position: fixed;
@@ -237,11 +240,6 @@ button, input, select, textarea {
   line-height: 1.45;
   outline: none;
 }
-.input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent);
-  outline-offset: 2px;
-}
-
 .foot {
   display: flex;
   align-items: center;

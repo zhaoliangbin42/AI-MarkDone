@@ -72,5 +72,40 @@ describe('governance: i18n key coverage', () => {
             `Missing i18n keys detected (en: ${missingEn.length}, zh_CN: ${missingZh.length}).`,
         ).toEqual({ missingEn: [], missingZh: [], keyCount: keys.size });
     });
-});
 
+    it('high-risk UI files do not keep shipped hardcoded English copy', () => {
+        const fileChecks = [
+            {
+                filePath: path.resolve(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'),
+                banned: [
+                    'Search bookmarks',
+                    'Import merge review',
+                    'Summary',
+                    'Details',
+                    'Storage used',
+                    'Open source support',
+                    'Create first folder',
+                    'All platforms',
+                ],
+            },
+            {
+                filePath: path.resolve(process.cwd(), 'src/ui/content/sending/SendPopover.ts'),
+                banned: [
+                    'Resize send popover',
+                ],
+            },
+        ];
+
+        const failures: Array<{ filePath: string; literal: string }> = [];
+
+        for (const check of fileChecks) {
+            const src = fs.readFileSync(check.filePath, 'utf8');
+            for (const literal of check.banned) {
+                const quotedLiteral = new RegExp(`['"\`]${literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`);
+                if (quotedLiteral.test(src)) failures.push({ filePath: check.filePath, literal });
+            }
+        }
+
+        expect(failures).toEqual([]);
+    });
+});

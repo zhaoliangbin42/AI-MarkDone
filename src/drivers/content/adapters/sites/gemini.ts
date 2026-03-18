@@ -19,6 +19,20 @@ const detector: ThemeDetector = {
 };
 
 export class GeminiAdapter extends SiteAdapter {
+    private findCurrentHeaderControlRow(): HTMLElement | null {
+        const mainMenuButton = document.querySelector('button[aria-label="Main menu"]');
+        if (mainMenuButton instanceof HTMLElement && mainMenuButton.parentElement instanceof HTMLElement) {
+            return mainMenuButton.parentElement;
+        }
+
+        const newChatButton = document.querySelector('button[aria-label="New chat"]');
+        if (newChatButton instanceof HTMLElement && newChatButton.parentElement instanceof HTMLElement) {
+            return newChatButton.parentElement;
+        }
+
+        return null;
+    }
+
     private getActionRow(messageElement: HTMLElement): HTMLElement | null {
         const actions = messageElement.querySelector('message-actions .actions-container-v2');
         return actions instanceof HTMLElement ? actions : null;
@@ -185,7 +199,7 @@ export class GeminiAdapter extends SiteAdapter {
             if (anchor instanceof HTMLElement) return anchor;
         }
 
-        return null;
+        return this.findCurrentHeaderControlRow();
     }
 
     injectHeaderIcon(iconHost: HTMLElement): boolean {

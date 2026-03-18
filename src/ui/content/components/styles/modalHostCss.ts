@@ -1,5 +1,8 @@
+import { getInputFieldCss } from './inputFieldCss';
+
 export function getModalHostCss(): string {
     return `
+${getInputFieldCss()}
 .mock-modal-host {
   position: fixed;
   inset: 0;
@@ -266,11 +269,6 @@ export function getModalHostCss(): string {
   background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
   color: var(--aimd-text-primary);
   outline: none;
-}
-
-.mock-modal__input:focus {
-  border-color: var(--aimd-border-focus);
-  box-shadow: var(--aimd-shadow-focus);
 }
 
 .mock-modal__error {

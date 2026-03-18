@@ -1,4 +1,5 @@
 import type { Theme } from '../../../../core/types/theme';
+import { getInputFieldCss } from '../../components/styles/inputFieldCss';
 
 export function getBookmarkSaveDialogCss(_theme: Theme): string {
     return `
@@ -14,6 +15,8 @@ button, input, select, textarea {
   font: inherit;
   color: inherit;
 }
+
+${getInputFieldCss()}
 
 .panel-stage__overlay {
   position: fixed;

@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 
 vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
     collectConversationTurns: vi.fn(() => ({
@@ -20,11 +22,45 @@ vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
 
 import { collectConversationTurns, exportTurnsMarkdown, exportTurnsPdf } from '../../../../src/services/export/saveMessagesFacade';
 import { SaveMessagesDialog } from '../../../../src/ui/content/export/SaveMessagesDialog';
-import fs from 'node:fs';
-import path from 'node:path';
+import { setLocale } from '../../../../src/ui/content/components/i18n';
+
+function readLocaleJson(locale: 'en' | 'zh_CN'): any {
+    const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+async function flushUi(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+}
 
 describe('SaveMessagesDialog', () => {
+    beforeEach(() => {
+        document.body.innerHTML = '';
+        document.documentElement.innerHTML = '';
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: any) => {
+                const target = String(url);
+                if (target.includes('_locales/zh_CN/messages.json')) {
+                    return { ok: true, json: async () => readLocaleJson('zh_CN') } as any;
+                }
+                if (target.includes('_locales/en/messages.json')) {
+                    return { ok: true, json: async () => readLocaleJson('en') } as any;
+                }
+                return { ok: false, json: async () => ({}) } as any;
+            }),
+        );
+    });
+
+    afterEach(async () => {
+        document.body.innerHTML = '';
+        await setLocale('en');
+        vi.unstubAllGlobals();
+    });
+
     it('opens with all messages selected and can export markdown/pdf', async () => {
+        await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
@@ -40,7 +76,7 @@ describe('SaveMessagesDialog', () => {
 
         expect(shadow.querySelector('[data-role="overlay-backdrop-root"] .panel-stage__overlay')).toBeTruthy();
         expect(shadow.querySelector('[data-role="overlay-surface-root"] .panel-window.panel-window--dialog.panel-window--save')).toBeTruthy();
-        expect(shadow.querySelector('.panel-window--save .panel-header__meta h2')?.textContent).toBe('Save Messages');
+        expect(shadow.querySelector('.panel-window--save .panel-header__meta h2')?.textContent).toBe('Save Messages As');
         expect(shadow.querySelector('.panel-window--save .panel-kicker')).toBeNull();
         expect(shadow.querySelectorAll('.panel-window--save .panel-footer')).toHaveLength(1);
         expect(source).toContain('tailwind-overlay.css?inline');
@@ -69,5 +105,44 @@ describe('SaveMessagesDialog', () => {
         shadow2.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
         await Promise.resolve();
         expect(exportTurnsPdf).toHaveBeenCalledTimes(1);
+    });
+
+    it('updates visible copy when the locale changes while open', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+
+        const dlg = new SaveMessagesDialog();
+        dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host');
+        expect(host).toBeTruthy();
+        const shadow = host!.shadowRoot!;
+
+        expect(shadow.querySelector('.panel-window--save .panel-header__meta h2')?.textContent).toBe('Save Messages As');
+        expect(shadow.textContent).toContain('Select All');
+
+        await setLocale('zh_CN');
+        await flushUi();
+
+        expect(shadow.querySelector('.panel-window--save .panel-header__meta h2')?.textContent).toBe('保存消息');
+        expect(shadow.textContent).toContain('全选');
+    });
+
+    it('stops reacting to locale changes after close', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+
+        const dlg = new SaveMessagesDialog();
+        dlg.open(adapter, 'light');
+
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
+
+        dlg.close();
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+
+        await setLocale('zh_CN');
+        await flushUi();
+
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });
 });

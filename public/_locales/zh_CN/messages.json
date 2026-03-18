@@ -666,13 +666,13 @@
         "message": "创建第一个文件夹"
     },
     "tabBookmarks": {
-        "message": "书签管理"
+        "message": "书签"
     },
     "tabSettings": {
-        "message": "设置选项"
+        "message": "设置"
     },
     "tabSponsor": {
-        "message": "支持一下"
+        "message": "赞助"
     },
     "allLabel": {
         "message": "全部"
@@ -753,7 +753,7 @@
         "message": "已选择 $1 项"
     },
     "storageUsedLabel": {
-        "message": "已用存储"
+        "message": "存储占用"
     },
     "storageCalculating": {
         "message": "计算中..."
@@ -949,6 +949,192 @@
     },
     "readerPagerHint": {
         "message": "也可用方向键"
+    },
+    "resizeSendPopover": {
+        "message": "调整发送浮层大小"
+    },
+    "searchBookmarksPlaceholder": {
+        "message": "搜索书签"
+    },
+    "untitledLabel": {
+        "message": "（未命名）"
+    },
+    "emptyBookmarksHint": {
+        "message": "创建一个文件夹，或导入书签后开始浏览已保存的消息。"
+    },
+    "settingsPlatformChatgptDesc": {
+        "message": "在 ChatGPT 上启用 AI-MarkDone。"
+    },
+    "settingsPlatformGeminiDesc": {
+        "message": "在 Gemini 上启用 AI-MarkDone。"
+    },
+    "settingsPlatformClaudeDesc": {
+        "message": "在 Claude 上启用 AI-MarkDone。"
+    },
+    "settingsPlatformDeepseekDesc": {
+        "message": "在 DeepSeek 上启用 AI-MarkDone。"
+    },
+    "settingsFoldingModeLabel": {
+        "message": "折叠模式"
+    },
+    "settingsFoldingModeDesc": {
+        "message": "控制默认保持展开的消息范围。"
+    },
+    "settingsExpandedCountDesc": {
+        "message": "仅在“保留最近 N 条展开”模式下生效。"
+    },
+    "increaseExpandedCount": {
+        "message": "增加展开数量"
+    },
+    "decreaseExpandedCount": {
+        "message": "减少展开数量"
+    },
+    "settingsFoldDockLabel": {
+        "message": "显示折叠侧边栏"
+    },
+    "settingsFoldDockDesc": {
+        "message": "在支持的对话页中保留紧凑的折叠侧边栏。"
+    },
+    "settingsShowViewSourceLabel": {
+        "message": "显示查看源码"
+    },
+    "settingsShowViewSourceDesc": {
+        "message": "在支持的工具栏和面板中显示“查看源码”操作。"
+    },
+    "settingsShowSaveMessagesLabel": {
+        "message": "显示保存消息"
+    },
+    "settingsShowSaveMessagesDesc": {
+        "message": "在支持导出的地方显示“保存消息”操作。"
+    },
+    "settingsShowWordCountLabel": {
+        "message": "显示字数统计"
+    },
+    "settingsShowWordCountDesc": {
+        "message": "为保存和渲染后的内容显示字数信息。"
+    },
+    "settingsEnableClickToCopyLabel": {
+        "message": "启用点击复制"
+    },
+    "settingsEnableClickToCopyDesc": {
+        "message": "在支持的区域中点击即可复制消息内容。"
+    },
+    "settingsSaveContextOnlyLabel": {
+        "message": "仅保存上下文"
+    },
+    "settingsSaveContextOnlyDesc": {
+        "message": "导出或收藏时只保存上下文摘要，而不是完整线程。"
+    },
+    "settingsRenderCodeInReaderLabel": {
+        "message": "在阅读器中渲染代码"
+    },
+    "settingsRenderCodeInReaderDesc": {
+        "message": "在阅读器中以格式化样式展示代码块，而不是原始纯文本。"
+    },
+    "settingsInterfaceLanguageLabel": {
+        "message": "界面语言"
+    },
+    "settingsInterfaceLanguageDesc": {
+        "message": "可跟随浏览器语言，也可以固定为指定语言。"
+    },
+    "backupBookmarksHint": {
+        "message": "在大改动或重装浏览器前，建议先导出全部书签做备份。"
+    },
+    "sponsorOpenSourceTitle": {
+        "message": "开源支持"
+    },
+    "sponsorOpenSourceNote": {
+        "message": "为仓库点个 Star，能让项目被更多人看到。"
+    },
+    "sponsorOpenSourceBody": {
+        "message": "如果这个项目对你有帮助，点亮 Star 是最直接的支持方式。它能提升项目曝光度，也让持续维护更有动力。"
+    },
+    "sponsorDonateTitle": {
+        "message": "请作者喝杯咖啡"
+    },
+    "sponsorDonateNote": {
+        "message": "也可以通过现有赞助渠道直接支持开发。"
+    },
+    "sponsorDonateBody": {
+        "message": "如果 AI-MarkDone 为你节省了时间，也欢迎通过现有赞助方式支持后续开发。"
+    },
+    "sponsorBmcNote": {
+        "message": "适合国际用户的快速支持方式"
+    },
+    "sponsorBmcAlt": {
+        "message": "Buy Me a Coffee 二维码"
+    },
+    "sponsorWechatNote": {
+        "message": "通过微信直接表达支持"
+    },
+    "sponsorWechatAlt": {
+        "message": "微信赞赏码"
+    },
+    "exportAllBookmarksLabel": {
+        "message": "导出全部书签"
+    },
+    "moveBookmarkLabel": {
+        "message": "移动书签"
+    },
+    "expandFolderLabel": {
+        "message": "展开文件夹"
+    },
+    "collapseFolderLabel": {
+        "message": "收起文件夹"
+    },
+    "deleteSelectedMessage": {
+        "message": "要删除已选中的书签吗？"
+    },
+    "confirmAction": {
+        "message": "确认"
+    },
+    "importMergeReviewTitle": {
+        "message": "导入结果概览"
+    },
+    "importMergeSummaryHeading": {
+        "message": "导入摘要"
+    },
+    "importMergeDetailsHeading": {
+        "message": "详细结果"
+    },
+    "importMergeSummaryImported": {
+        "message": "导入成功"
+    },
+    "importMergeSummarySkippedDuplicates": {
+        "message": "跳过重复"
+    },
+    "importMergeSummaryRenamedTitles": {
+        "message": "重命名标题"
+    },
+    "importMergeSummaryFolderFallbacks": {
+        "message": "文件夹回退"
+    },
+    "importMergeImportedBookmarksTitle": {
+        "message": "已导入书签"
+    },
+    "importMergeImportedBookmarksDetail": {
+        "message": "已新增或更新 $1 条书签。"
+    },
+    "importMergeDuplicateBookmarksTitle": {
+        "message": "重复书签"
+    },
+    "importMergeDuplicateBookmarksDetail": {
+        "message": "已跳过 $1 条重复书签。"
+    },
+    "importMergeRenamedTitlesTitle": {
+        "message": "已重命名标题"
+    },
+    "importMergeRenamedTitlesDetail": {
+        "message": "为避免冲突，已重命名 $1 个标题。"
+    },
+    "importMergeWarningTitle": {
+        "message": "提示"
+    },
+    "importMergeStatusDuplicate": {
+        "message": "重复"
+    },
+    "importMergeStatusInfo": {
+        "message": "信息"
     },
     "streamingStatus": {
         "message": "生成中..."

@@ -22,7 +22,7 @@ import {
 } from '../../../../services/bookmarks/saveDialog/draftModel';
 import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/folderPickerModel';
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
-import { t } from '../../components/i18n';
+import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../../overlay/OverlaySurfaceHost';
@@ -51,6 +51,7 @@ export class BookmarkSaveDialog {
     private hostHandle: OverlaySurfaceHostHandle | null = null;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private theme: Theme = 'light';
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
@@ -115,6 +116,8 @@ export class BookmarkSaveDialog {
         this.resolve = null;
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
         this.hostHandle?.unmount();
@@ -172,6 +175,9 @@ export class BookmarkSaveDialog {
 
         this.hostHandle = handle;
         this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+        this.unsubscribeLocale = subscribeLocaleChange(() => {
+            if (this.hostHandle && this.state) this.render();
+        });
 
         handle.backdropRoot.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
         handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
@@ -402,7 +408,7 @@ export class BookmarkSaveDialog {
         body.className = 'modal-body';
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'text-input';
+        input.className = 'text-input aimd-field-control aimd-field-control--standalone';
         input.value = this.rootFolderModal.value;
         input.placeholder = this.getLabel('enterFolderName', 'New folder');
         input.setAttribute('data-role', 'root_folder_input');
@@ -498,7 +504,7 @@ export class BookmarkSaveDialog {
         const inlineEditor = inlineState
             ? `
           <div class="inline-editor" style="padding-left:calc(10px + ${Math.max(0, node.depth)} * 22px);">
-                <input class="text-input text-input--inline" type="text" data-role="bookmark-save-inline-draft" data-parent="${escapeHtml(node.path)}" value="${escapeHtml(inlineState.value)}" placeholder="${escapeHtml(this.getLabel('enterFolderName', 'New subfolder'))}" />
+                <input class="text-input text-input--inline aimd-field-control aimd-field-control--standalone" type="text" data-role="bookmark-save-inline-draft" data-parent="${escapeHtml(node.path)}" value="${escapeHtml(inlineState.value)}" placeholder="${escapeHtml(this.getLabel('enterFolderName', 'New subfolder'))}" />
                 <button class="icon-btn" data-action="bookmark-save-inline-confirm" data-path="${escapeHtml(node.path)}" aria-label="${escapeHtml(this.getLabel('btnSave', 'Save'))}">${iconMarkup(checkIcon)}</button>
                 <button class="icon-btn" data-action="bookmark-save-inline-cancel" aria-label="${escapeHtml(this.getLabel('btnCancel', 'Cancel'))}">${iconMarkup(xIcon)}</button>
               </div>
@@ -559,7 +565,7 @@ export class BookmarkSaveDialog {
   <div class="dialog-body dialog-body--bookmark-save">
     ${isFolderSelect ? '' : `<div class="field-block">
       <label class="field-label">${escapeHtml(titleLabel)}</label>
-      <input class="text-input text-input--bookmark-save-title" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
+      <input class="text-input text-input--bookmark-save-title aimd-field-control aimd-field-control--standalone" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
       ${validation.titleError ? `<div class="error-text">${escapeHtml(titleValidationMessage(validation.titleError as any))}</div>` : ''}
     </div>`}
     <div class="field-block">
