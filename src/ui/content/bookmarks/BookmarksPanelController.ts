@@ -32,6 +32,20 @@ function bookmarkKey(id: BookmarkIdentityKey): string {
     return `bm:${id}`;
 }
 
+function expandPathChain(path: string | null | undefined, expandedPaths: Set<string>): Set<string> {
+    const next = new Set(expandedPaths);
+    if (!path) return next;
+
+    try {
+        for (const candidate of PathUtils.getPathChain(path)) {
+            next.add(candidate);
+        }
+    } catch {
+        return next;
+    }
+    return next;
+}
+
 function parseBookmarkIdentityKey(key: string): BookmarkIdentityKey | null {
     if (!key.startsWith('bm:')) return null;
     return key.slice(3);
@@ -200,6 +214,7 @@ export class BookmarksPanelController {
         const res = await bookmarksClient.uiStateGetLastSelectedFolderPath();
         if (!res.ok) return;
         this.state.selectedFolderPath = res.data.value ?? null;
+        this.state.expandedPaths = expandPathChain(this.state.selectedFolderPath, this.state.expandedPaths);
         this.emit();
     }
 
@@ -245,6 +260,7 @@ export class BookmarksPanelController {
 
     selectFolder(path: string | null): void {
         this.state.selectedFolderPath = path;
+        this.state.expandedPaths = expandPathChain(path, this.state.expandedPaths);
         this.emit();
         void bookmarksClient.uiStateSetLastSelectedFolderPath(path);
     }

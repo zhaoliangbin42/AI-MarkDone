@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 
@@ -38,14 +37,27 @@ function withDom(html: string, url: string, fn: () => void): void {
 
 describe('ChatGPTAdapter injection contract', () => {
     it('injectToolbar inserts host into the action bar row when available', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-Code.html', 'utf-8');
+        const html = `
+            <div data-testid="conversation-turn-1">
+              <article data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="a1">
+                  <div class="markdown prose">Hi</div>
+                </div>
+              </article>
+              <div class="z-0 flex justify-end">
+                <div class="official-actions">
+                  <button data-testid="copy-turn-action-button">copy</button>
+                </div>
+              </div>
+            </div>
+        `;
         withDom(html, 'https://chatgpt.com/c/mock', () => {
             const adapter = new ChatGPTAdapter();
             const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
             expect(message).toBeTruthy();
             if (!message) return;
 
-            const turn = message.closest('article') as HTMLElement | null;
+            const turn = adapter.getTurnRootElement(message);
             expect(turn).toBeTruthy();
             if (!turn) return;
 
@@ -73,4 +85,65 @@ describe('ChatGPTAdapter injection contract', () => {
             expect(document.getElementById('aimd-test-toolbar')).toBe(host);
         });
     });
+
+    it('fails closed when the official action bar is absent', () => {
+        const html = `
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Hi</div>
+              </div>
+            </article>
+        `;
+
+        withDom(html, 'https://chatgpt.com/c/mock', () => {
+            const adapter = new ChatGPTAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            const host = document.createElement('div');
+            const ok = adapter.injectToolbar(message, host);
+
+            expect(adapter.getToolbarAnchorElement?.(message) ?? null).toBeNull();
+            expect(ok).toBe(false);
+            expect(host.isConnected).toBe(false);
+        });
+    });
+
+    it('finds and injects into an official action row that is a sibling of the assistant message container', () => {
+        const html = `
+            <div data-testid="conversation-turn-1">
+              <article data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="a1">
+                  <div class="markdown prose">Hi</div>
+                </div>
+              </article>
+              <div class="z-0 flex justify-end">
+                <div class="official-actions">
+                  <button data-testid="copy-turn-action-button">copy</button>
+                </div>
+              </div>
+            </div>
+        `;
+
+        withDom(html, 'https://chatgpt.com/c/mock', () => {
+            const adapter = new ChatGPTAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            const anchor = adapter.getToolbarAnchorElement(message);
+            expect(anchor).toBeInstanceOf(HTMLElement);
+            expect(anchor?.className).toContain('z-0 flex');
+
+            const host = document.createElement('div');
+            host.id = 'aimd-test-toolbar-sibling-anchor';
+            const ok = adapter.injectToolbar(message, host);
+
+            expect(ok).toBe(true);
+            expect(anchor?.contains(host)).toBe(true);
+            expect(host.dataset.aimdPlacement).toBe('actionbar');
+        });
+    });
+
 });

@@ -79,6 +79,7 @@ const setLocale = vi.fn(async () => {});
 const scrollToAssistantPositionWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
 const addListener = vi.fn();
+let runtimeMessageListener: ((msg: unknown) => void) | null = null;
 
 let adapterPlatformId = 'gemini';
 
@@ -106,7 +107,10 @@ vi.mock('@/drivers/shared/browser', () => ({
     browser: {
         runtime: {
             onMessage: {
-                addListener,
+                addListener: (listener: (msg: unknown) => void) => {
+                    runtimeMessageListener = listener;
+                    addListener(listener);
+                },
             },
         },
     },
@@ -161,6 +165,7 @@ afterEach(() => {
     vi.clearAllMocks();
     adapterPlatformId = 'gemini';
     settingsSubscriber = null;
+    runtimeMessageListener = null;
     document.documentElement.removeAttribute('data-aimd-theme');
     document.body.innerHTML = '';
 });
@@ -221,7 +226,7 @@ describe('content runtime entry', () => {
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
-        expect(bookmarksHide).toHaveBeenCalledTimes(1);
+        expect(bookmarksHide).not.toHaveBeenCalled();
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
 
@@ -251,5 +256,38 @@ describe('content runtime entry', () => {
             showSaveMessages: true,
             showWordCount: true,
         });
+    });
+
+    it('keeps the extension-action bookmark panel entry working even when the current platform runtime is disabled', async () => {
+        adapterPlatformId = 'gemini';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(settingsSubscriber).toBeTypeOf('function');
+        expect(runtimeMessageListener).toBeTypeOf('function');
+
+        settingsSubscriber!({
+            settings: {
+                language: 'en',
+                platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
+                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                behavior: {
+                    showViewSource: true,
+                    showSaveMessages: true,
+                    showWordCount: true,
+                    enableClickToCopy: false,
+                    saveContextOnly: false,
+                    _contextOnlyConfirmed: true,
+                },
+                reader: { renderCodeInReader: true },
+            },
+        });
+
+        runtimeMessageListener!({ v: 1, id: 'toggle_1', type: 'ui:toggle_toolbar' });
+
+        expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
+        expect(headerIconDispose).toHaveBeenCalledTimes(1);
+        expect(bookmarksToggle).toHaveBeenCalledTimes(1);
+        expect(bookmarksHide).not.toHaveBeenCalled();
     });
 });

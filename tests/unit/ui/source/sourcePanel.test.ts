@@ -54,6 +54,7 @@ describe('SourcePanel', () => {
         expect(host).toBeTruthy();
 
         const shadow = host!.shadowRoot!;
+        const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
         expect(shadow.querySelector('[data-role="overlay-backdrop-root"] .panel-stage__overlay')).toBeTruthy();
         expect(shadow.querySelector('[data-role="overlay-surface-root"] .panel-window.panel-window--source')).toBeTruthy();
         expect(shadow.querySelector('.panel-window--source .panel-header__meta--reader h2')?.textContent).toBe('T');
@@ -61,6 +62,9 @@ describe('SourcePanel', () => {
         expect(shadow.querySelector('[data-action="close-panel"]')).toBeTruthy();
         expect(shadow.querySelector('.panel-window--source .source-pre')?.textContent).toBe('RAW');
         expect(shadow.querySelector('.panel-window--source .panel-footer')).toBeNull();
+        expect(styles).toContain('.panel-window--source {');
+        expect(styles).toContain('height: min(var(--aimd-panel-height), calc(100vh - var(--aimd-space-6)));');
+        expect(styles).toContain('max-height: calc(100vh - var(--aimd-space-6));');
 
         const sourceText = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/source/SourcePanel.ts'), 'utf8');
         expect(sourceText).toContain('tailwind-overlay.css?inline');

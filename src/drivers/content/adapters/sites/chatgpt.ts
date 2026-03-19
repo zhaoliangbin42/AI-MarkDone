@@ -22,6 +22,25 @@ const detector: ThemeDetector = {
 };
 
 export class ChatGPTAdapter extends SiteAdapter {
+    private findOfficialActionAnchor(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const assistantArticle = assistantMessageElement.closest('article') || assistantMessageElement;
+        const scopes: HTMLElement[] = [];
+        const turnRoot = this.getTurnRootElement(assistantMessageElement);
+        if (turnRoot) scopes.push(turnRoot);
+        if (assistantArticle.parentElement instanceof HTMLElement) scopes.push(assistantArticle.parentElement);
+        if (assistantArticle instanceof HTMLElement) scopes.push(assistantArticle);
+
+        for (const scope of scopes) {
+            const copyBtn = scope.querySelector(this.getActionBarSelector());
+            if (!(copyBtn instanceof HTMLElement)) continue;
+            const row = copyBtn.closest('div.z-0.flex');
+            if (row instanceof HTMLElement) return row;
+            if (copyBtn.parentElement instanceof HTMLElement) return copyBtn.parentElement;
+        }
+
+        return null;
+    }
+
     matches(url: string): boolean {
         return url.includes('chatgpt.com') || url.includes('chat.openai.com');
     }
@@ -106,11 +125,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getToolbarAnchorElement(assistantMessageElement: HTMLElement): HTMLElement | null {
-        const assistantArticle = assistantMessageElement.closest('article') || assistantMessageElement;
-        const turnWrapper = assistantArticle.closest('article') || assistantArticle;
-        const copyBtn = turnWrapper.querySelector(this.getActionBarSelector());
-        if (!(copyBtn instanceof HTMLElement)) return null;
-        return (copyBtn.closest('div.z-0.flex') as HTMLElement | null) || (copyBtn.parentElement as HTMLElement | null);
+        return this.findOfficialActionAnchor(assistantMessageElement);
     }
 
     getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
@@ -120,62 +135,33 @@ export class ChatGPTAdapter extends SiteAdapter {
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         try {
-            const contentElement = messageElement.querySelector(this.getMessageContentSelector());
-            const turnWrapper = messageElement.closest('article') as HTMLElement | null;
-            if (turnWrapper) {
-                const actionBarAnchor = turnWrapper.querySelector(this.getActionBarSelector());
-                if (actionBarAnchor instanceof HTMLElement) {
-                    // Prefer injecting into the stable official action bar row so we don't push the official toolbar down.
-                    // Why: inner action group often toggles `pointer-events: none` until hover.
-                    const row = (actionBarAnchor.closest('div.z-0.flex') as HTMLElement | null);
-                    const group = (actionBarAnchor.parentElement as HTMLElement | null);
-                    const targetRow = row || group;
-                    if (targetRow) {
-                        toolbarHost.dataset.aimdPlacement = 'actionbar';
-                        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-                        toolbarHost.style.pointerEvents = 'auto';
-                        toolbarHost.style.marginLeft = '0';
-                        toolbarHost.style.marginRight = '0';
+            const targetRow = this.findOfficialActionAnchor(messageElement);
+            if (!targetRow) return false;
+            const actionBarAnchor = targetRow.querySelector(this.getActionBarSelector());
+            const group = actionBarAnchor instanceof HTMLElement ? actionBarAnchor.parentElement as HTMLElement | null : null;
 
-                        // Keep our toolbar on the same row and right-aligned as part of the official action area.
-                        // ChatGPT action row uses `justify-end`; inserting *before* the official group keeps the whole
-                        // cluster aligned right, while ensuring the official buttons remain the rightmost items.
-                        if (row && group && group.parentElement === row) {
-                            // Place to the right of the official group (legacy expectation).
-                            row.insertBefore(toolbarHost, group.nextSibling);
-                        } else {
-                            targetRow.insertBefore(toolbarHost, actionBarAnchor);
-                        }
-                        return true;
-                    }
-                }
-            }
-
-            // Fallback: place after message content root (stable, always visible).
-            if (contentElement && contentElement.parentElement) {
-                toolbarHost.dataset.aimdPlacement = 'content';
-                toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-                contentElement.parentElement.insertBefore(toolbarHost, contentElement.nextSibling);
-                return true;
-            }
-
+            toolbarHost.dataset.aimdPlacement = 'actionbar';
             toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-            messageElement.appendChild(toolbarHost);
+            toolbarHost.style.pointerEvents = 'auto';
+            toolbarHost.style.marginLeft = '0';
+            toolbarHost.style.marginRight = '0';
+
+            if (actionBarAnchor instanceof HTMLElement && group && group.parentElement === targetRow) {
+                targetRow.insertBefore(toolbarHost, group.nextSibling);
+            } else if (actionBarAnchor instanceof HTMLElement) {
+                targetRow.insertBefore(toolbarHost, actionBarAnchor);
+            } else {
+                targetRow.appendChild(toolbarHost);
+            }
             return true;
         } catch (err) {
-            logger.warn('[AI-MarkDone][ChatGPTAdapter] injectToolbar failed, falling back to append', err);
-            try {
-                toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-                messageElement.appendChild(toolbarHost);
-                return true;
-            } catch {
-                return false;
-            }
+            logger.warn('[AI-MarkDone][ChatGPTAdapter] injectToolbar failed', err);
+            return false;
         }
     }
 
     isStreamingMessage(element: HTMLElement): boolean {
-        if (element.querySelector(this.getActionBarSelector())) {
+        if (this.findOfficialActionAnchor(element)) {
             return false;
         }
 

@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { MessageToolbar } from '@/ui/content/MessageToolbar';
 
 describe('MessageToolbar', () => {
+    it('uses 30px icon buttons in both content and actionbar placements', () => {
+        const toolbar = new MessageToolbar('light', [], { showStats: false });
+        const shadow = toolbar.getElement().shadowRoot;
+        const style = shadow?.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-base"]');
+
+        expect(style?.textContent).toContain('.icon-btn {');
+        expect(style?.textContent).toContain('width: var(--aimd-size-control-icon-toolbar);');
+        expect(style?.textContent).toContain('height: var(--aimd-size-control-icon-toolbar);');
+        expect(style?.textContent).toContain(':host([data-aimd-placement="actionbar"]) .icon-btn { width: var(--aimd-size-control-icon-toolbar); height: var(--aimd-size-control-icon-toolbar);');
+    });
+
     it('collapses the stats slot while pending so streaming toolbars stay compact', () => {
         const toolbar = new MessageToolbar('light', [], { showStats: true });
         toolbar.setPlacement('content');

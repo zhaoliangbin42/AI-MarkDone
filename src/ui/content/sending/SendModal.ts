@@ -202,15 +202,16 @@ ${getInputFieldCss()}
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--aimd-panel-header-gap);
 }
 .title {
   font-size: 16px;
   font-weight: 650;
+  line-height: var(--aimd-panel-title-line-height);
 }
 .icon {
-  width: 40px;
-  height: 40px;
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -244,7 +245,7 @@ ${getInputFieldCss()}
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--aimd-panel-footer-gap);
 }
 .status {
   min-height: 18px;
@@ -253,10 +254,10 @@ ${getInputFieldCss()}
 }
 .actions {
   display: flex;
-  gap: 10px;
+  gap: var(--aimd-panel-action-gap);
 }
 .btn {
-  height: 36px;
+  min-height: var(--aimd-size-control-action-panel);
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--aimd-border-default);

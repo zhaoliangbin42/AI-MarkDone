@@ -39,15 +39,7 @@ export function deriveDefaultTitle(params: { userPrompt: string; existingTitle?:
 }
 
 export function expandAncestors(path: string): Set<string> {
-    const expanded = new Set<string>();
-    const normalized = PathUtils.normalize(path);
-    const segments = normalized.split(PathUtils.SEPARATOR);
-    let current = '';
-    for (const seg of segments) {
-        current = current ? `${current}${PathUtils.SEPARATOR}${seg}` : seg;
-        expanded.add(current);
-    }
-    return expanded;
+    return new Set<string>(PathUtils.getPathChain(path));
 }
 
 export function deriveInitialSelection(params: DeriveInitialSelectionParams): string | null {
@@ -116,4 +108,3 @@ export function validateDraft(state: BookmarkSaveDraftState): BookmarkSaveDraftV
     if (!res.ok) return { canSubmit: false, titleError: res.reason };
     return { canSubmit: true };
 }
-

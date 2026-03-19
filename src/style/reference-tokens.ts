@@ -55,9 +55,18 @@ export function getReferenceTokenCss(theme: Theme): string {
 
   --aimd-ref-size-260: 26px;
   --aimd-ref-size-160: 16px;
+  --aimd-ref-size-240: 24px;
   --aimd-ref-size-280: 28px;
   --aimd-ref-size-300: 30px;
   --aimd-ref-size-320: 32px;
+  --aimd-ref-size-360: 36px;
+  --aimd-ref-size-400: 40px;
+  --aimd-ref-size-420: 42px;
+  --aimd-ref-size-440: 44px;
+  --aimd-ref-size-480: 48px;
+  --aimd-ref-size-560: 56px;
+  --aimd-ref-size-640: 64px;
+  --aimd-ref-size-720: 72px;
   --aimd-ref-size-220: 220px;
   --aimd-ref-size-900: 900px;
   --aimd-ref-size-fluid-viewport-92: 92vw;

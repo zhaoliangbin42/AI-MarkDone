@@ -60,8 +60,8 @@ ${getInputFieldCss()}
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--aimd-space-3);
-  padding: 18px 20px;
+  gap: var(--aimd-panel-header-gap);
+  padding: var(--aimd-panel-header-padding-block) var(--aimd-panel-header-padding-inline);
   border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 90%, transparent);
 }
@@ -108,8 +108,8 @@ ${getInputFieldCss()}
 .mock-modal__kind-icon .aimd-icon svg,
 .mock-modal__close .aimd-icon,
 .mock-modal__close .aimd-icon svg {
-  width: 16px;
-  height: 16px;
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
 }
 
 .mock-modal__close,
@@ -120,8 +120,8 @@ ${getInputFieldCss()}
 }
 
 .mock-modal__close {
-  width: 42px;
-  height: 42px;
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
   border-radius: var(--aimd-radius-full);
   display: inline-flex;
   align-items: center;
@@ -279,14 +279,14 @@ ${getInputFieldCss()}
 
 .mock-modal__footer {
   justify-content: flex-end;
-  gap: 10px;
-  padding: 18px 20px;
+  gap: var(--aimd-panel-footer-gap);
+  padding: var(--aimd-panel-footer-padding-block) var(--aimd-panel-footer-padding-inline);
   border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 86%, transparent);
 }
 
 .mock-modal__button {
-  min-height: 38px;
+  min-height: var(--aimd-size-control-action-panel);
   padding: 0 16px;
   border-radius: var(--aimd-radius-full);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);

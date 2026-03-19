@@ -288,11 +288,9 @@ export class BookmarksTabView {
     }
 
     private getEffectiveExpanded(nodePath: string, isExpanded: boolean, selectedPath: string | null): boolean {
-        if (!selectedPath) return isExpanded;
-        if (selectedPath === nodePath) return isExpanded;
-        if (selectedPath.startsWith(`${nodePath}/`)) return true; // ensure ancestors expand to reveal selection
-        if (nodePath.startsWith(`${selectedPath}/`)) return isExpanded; // descendants controlled by user
-        return false; // collapse non-selected branches (rows still visible)
+        void nodePath;
+        void selectedPath;
+        return isExpanded;
     }
 
     private countVisibleUnderFolder(node: FolderTreeNode, visibleKeys: Set<string>): number {

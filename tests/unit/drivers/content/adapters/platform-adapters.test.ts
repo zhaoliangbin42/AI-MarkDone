@@ -87,6 +87,28 @@ describe('non-ChatGPT adapter contracts', () => {
         });
     });
 
+    it('Gemini fails closed when the official toolbar row is absent', () => {
+        const html = `
+            <model-response>
+              <div class="model-response-text">Answer</div>
+            </model-response>
+        `;
+
+        withDom(html, 'https://gemini.google.com/app', () => {
+            const adapter = new GeminiAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            const host = document.createElement('div');
+            const ok = adapter.injectToolbar(message, host);
+
+            expect(adapter.getToolbarAnchorElement?.(message) ?? null).toBeNull();
+            expect(ok).toBe(false);
+            expect(host.isConnected).toBe(false);
+        });
+    });
+
     it('Gemini exposes a stable header icon anchor and injects next to the logo', () => {
         const html = readFileSync('mocks/Gemini/Gemini-All.html', 'utf-8');
         withDom(html, 'https://gemini.google.com/app', () => {
@@ -144,6 +166,28 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(host.parentElement).toBe(anchor);
             expect(host.dataset.aimdPlacement).toBe('actionbar');
             expect(anchor?.lastElementChild).toBe(host);
+        });
+    });
+
+    it('Claude fails closed when the official message actions row is absent', () => {
+        const html = `
+            <div class="group" style="height: auto;">
+              <div class="font-claude-response">Answer</div>
+            </div>
+        `;
+
+        withDom(html, 'https://claude.ai/chat/mock', () => {
+            const adapter = new ClaudeAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            const host = document.createElement('div');
+            const ok = adapter.injectToolbar(message, host);
+
+            expect(adapter.getToolbarAnchorElement?.(message) ?? null).toBeNull();
+            expect(ok).toBe(false);
+            expect(host.isConnected).toBe(false);
         });
     });
 
@@ -207,6 +251,28 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(ok).toBe(true);
             expect(host.isConnected).toBe(true);
             expect(anchor?.lastElementChild).toBe(host);
+        });
+    });
+
+    it('Deepseek fails closed when the official action row is absent', () => {
+        const html = `
+            <div class="ds-message">
+              <div class="ds-markdown">Answer</div>
+            </div>
+        `;
+
+        withDom(html, 'https://chat.deepseek.com/c/mock', () => {
+            const adapter = new DeepseekAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            const host = document.createElement('div');
+            const ok = adapter.injectToolbar(message, host);
+
+            expect(adapter.getToolbarAnchorElement?.(message) ?? null).toBeNull();
+            expect(ok).toBe(false);
+            expect(host.isConnected).toBe(false);
         });
     });
 

@@ -1,5 +1,6 @@
 import type { Theme } from '../../../../core/types/theme';
 import { getInputFieldCss } from '../../components/styles/inputFieldCss';
+import { getPanelChromeCss } from '../../components/styles/panelChromeCss';
 
 export function getBookmarkSaveDialogCss(_theme: Theme): string {
     return `
@@ -17,6 +18,7 @@ button, input, select, textarea {
 }
 
 ${getInputFieldCss()}
+${getPanelChromeCss()}
 
 .panel-stage__overlay {
   position: fixed;
@@ -24,38 +26,10 @@ ${getInputFieldCss()}
   background: color-mix(in srgb, var(--aimd-overlay-bg) 28%, transparent);
 }
 
-.panel-window {
-  position: fixed;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  background: var(--aimd-bg-primary);
-  color: var(--aimd-text-primary);
-  border: 1px solid var(--aimd-border-default);
-  border-radius: var(--aimd-radius-2xl);
-  box-shadow: var(--aimd-shadow-panel);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 .panel-window--dialog,
 .panel-window--bookmark-save {
   width: min(660px, calc(100vw - var(--aimd-space-6)));
   max-height: min(720px, calc(100vh - var(--aimd-space-6)));
-}
-
-.panel-header,
-.panel-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--aimd-space-3);
-}
-
-.panel-header {
-  min-height: 72px;
-  padding: var(--aimd-space-4) var(--aimd-space-5);
-  border-bottom: 1px solid var(--aimd-border-default);
 }
 
 .panel-header__meta,
@@ -66,30 +40,8 @@ ${getInputFieldCss()}
 }
 
 .panel-header__meta h2 {
-  margin: 0;
   font-size: var(--aimd-text-2xl);
-  line-height: 1.1;
   font-weight: var(--aimd-font-semibold);
-}
-
-.panel-header__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--aimd-space-2);
-}
-
-.icon-btn {
-  all: unset;
-  box-sizing: border-box;
-  width: 42px;
-  height: 42px;
-  border-radius: var(--aimd-radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--aimd-text-primary);
-  border: 1px solid transparent;
 }
 
 .icon-btn:hover,
@@ -107,8 +59,6 @@ ${getInputFieldCss()}
   outline-offset: 2px;
 }
 
-.icon-btn .aimd-icon,
-.icon-btn .aimd-icon svg,
 .tree-folder-icon .aimd-icon,
 .tree-folder-icon .aimd-icon svg,
 .picker-check .aimd-icon,
@@ -278,11 +228,6 @@ ${getInputFieldCss()}
   color: var(--aimd-interactive-danger);
 }
 
-.panel-footer {
-  padding: var(--aimd-space-4) var(--aimd-space-5);
-  border-top: 1px solid var(--aimd-border-default);
-}
-
 .panel-footer--bookmark-save {
   justify-content: flex-end;
 }
@@ -293,36 +238,8 @@ ${getInputFieldCss()}
   gap: var(--aimd-space-2);
 }
 
-.secondary-btn {
-  all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
-  user-select: none;
-  min-height: 36px;
-  padding: 0 var(--aimd-space-3);
-  border-radius: var(--aimd-radius-full);
-  border: 1px solid var(--aimd-border-default);
-  background: transparent;
-  color: var(--aimd-text-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .secondary-btn--primary {
-  background: var(--aimd-interactive-primary);
-  border-color: transparent;
-  color: var(--aimd-text-on-primary);
   font-weight: var(--aimd-font-semibold);
-}
-
-.secondary-btn--primary:hover {
-  background: var(--aimd-interactive-primary-hover);
-}
-
-.secondary-btn[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .modal-overlay {
@@ -379,8 +296,6 @@ ${getInputFieldCss()}
     max-height: calc(100vh - var(--aimd-space-4));
   }
 
-  .panel-header,
-  .panel-footer,
   .dialog-body {
     padding: var(--aimd-space-4);
   }

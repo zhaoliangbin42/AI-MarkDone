@@ -343,7 +343,7 @@ export class MessageToolbar {
   background: var(--aimd-tb-surface);
   border: 1px solid var(--aimd-tb-outline);
 }
-:host([data-aimd-placement="actionbar"]) .icon-btn { width: 32px; height: 32px; border-radius: 10px; }
+:host([data-aimd-placement="actionbar"]) .icon-btn { width: var(--aimd-size-control-icon-toolbar); height: var(--aimd-size-control-icon-toolbar); border-radius: 10px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
 :host([data-aimd-placement="actionbar"]) .note { display: none !important; }
 :host([data-aimd-pending="1"]) .note { display: none !important; }
@@ -413,8 +413,8 @@ export class MessageToolbar {
   overflow: visible;
   cursor: pointer;
   user-select: none;
-  width: 30px;
-  height: 30px;
+  width: var(--aimd-size-control-icon-toolbar);
+  height: var(--aimd-size-control-icon-toolbar);
   border-radius: 9px;
   background: transparent;
   color: color-mix(in srgb, var(--aimd-text-primary) 76%, transparent);

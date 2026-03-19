@@ -196,6 +196,8 @@ describe('ReaderPanel actions placement', () => {
             const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
             expect(styles).toContain('.reader-footer__center {');
             expect(styles).toContain('.reader-footer__meta {');
+            expect(styles).toContain('min-height: var(--aimd-panel-footer-min-height);');
+            expect(styles).toContain('padding: var(--aimd-panel-footer-padding-block) calc(var(--aimd-panel-footer-padding-inline) + var(--aimd-space-2));');
             expect(styles).toContain('grid-template-columns: auto minmax(0, 1fr) auto;');
             expect(styles).not.toContain('grid-template-columns: 1fr;');
             expect(shadow.querySelector('[data-action="reader-prev"] svg')).toBeTruthy();

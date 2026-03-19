@@ -77,7 +77,6 @@ if (adapter) {
         runtimeEnabled = false;
         messageToolbars.dispose();
         headerIcon.dispose();
-        bookmarksPanel.hide();
         folding?.dispose();
     };
 
@@ -113,7 +112,6 @@ if (adapter) {
     browser.runtime.onMessage.addListener((msg: unknown) => {
         if (!isExtRequest(msg)) return;
         if (msg.type === 'ui:toggle_toolbar') {
-            if (!runtimeEnabled) return;
             void bookmarksPanel.toggle();
         }
     });

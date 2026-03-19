@@ -43,7 +43,7 @@ ${getInputFieldCss()}
 .send-popover__foot .button-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--aimd-panel-footer-gap);
 }
 
 .send-popover__head {
@@ -57,7 +57,7 @@ ${getInputFieldCss()}
 }
 
 .send-popover__head-actions {
-  gap: 8px;
+  gap: var(--aimd-panel-action-gap);
   margin-left: auto;
   padding-right: 14px;
 }
@@ -118,8 +118,8 @@ ${getInputFieldCss()}
 }
 
 .send-popover .icon-btn {
-  width: 38px;
-  height: 38px;
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -147,7 +147,7 @@ ${getInputFieldCss()}
 }
 
 .send-popover .studio-btn {
-  height: 36px;
+  min-height: var(--aimd-size-control-action-panel);
   padding: 0 14px;
   display: inline-flex;
   align-items: center;
@@ -185,8 +185,8 @@ ${getInputFieldCss()}
 
 .send-popover .aimd-icon,
 .send-popover .aimd-icon svg {
-  width: 16px;
-  height: 16px;
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
   display: inline-flex;
   align-items: center;
   justify-content: center;

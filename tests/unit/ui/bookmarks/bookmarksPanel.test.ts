@@ -79,8 +79,12 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('--_bookmarks-shell-radius: var(--aimd-radius-2xl);');
         expect(css).toContain('--_bookmarks-control-height: 44px;');
         expect(css).toContain('--_bookmarks-pill-radius: var(--aimd-radius-full);');
+        expect(css).toContain('--_bookmarks-panel-title-size: var(--aimd-text-xl);');
         expect(css).toContain('border-radius: var(--_bookmarks-pill-radius);');
-        expect(css).toContain('min-height: var(--_bookmarks-action-height);');
+        expect(css).toContain('min-height: var(--aimd-size-control-action-panel);');
+        expect(css).toContain('width: var(--aimd-size-control-icon-panel);');
+        expect(css).not.toContain('--_bookmarks-icon-button-size:');
+        expect(css).not.toContain('--_bookmarks-action-height:');
         expect(css).toContain('width: min(var(--aimd-panel-wide-max-width), 100%);');
         expect(css).toContain('height: min(var(--aimd-panel-wide-max-height), calc(100vh - var(--_bookmarks-panel-edge-offset)));');
         expect(css).toContain('.platform-dropdown__option {');
@@ -771,6 +775,11 @@ describe('BookmarksPanel', () => {
 
         folderMain!.click();
 
+        expect(controller.selectFolder).toHaveBeenCalledWith('Import');
+        expect(toggleFolderExpanded).not.toHaveBeenCalled();
+
+        folderCaret!.click();
+
         const expandedChildren = shadow.querySelector<HTMLElement>('.tree-children');
         expect(toggleFolderExpanded).toHaveBeenCalledWith('Import');
         expect(expandedChildren?.dataset.expanded).toBe('1');
@@ -784,6 +793,73 @@ describe('BookmarksPanel', () => {
         const refreshedCheckbox = shadow.querySelector<HTMLInputElement>('.tree-item--folder .tree-check');
         expect(toggleFolderSelection).toHaveBeenCalledWith('Import');
         expect(refreshedCheckbox?.checked).toBe(true);
+
+        panel.hide();
+    });
+
+    it('clears the persisted folder scope when clicking empty tree space', async () => {
+        await setLocale('en');
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [{
+                    folder: { name: 'test', path: 'test' },
+                    bookmarks: [],
+                    children: [{
+                        folder: { name: 'child', path: 'test/child' },
+                        bookmarks: [],
+                        children: [],
+                        isExpanded: false,
+                    }],
+                    isExpanded: false,
+                }],
+                selectedFolderPath: 'test/child',
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['test', 'test/child'],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+            storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        const treePanel = shadow.querySelector<HTMLElement>('.tree-panel');
+        expect(treePanel).toBeTruthy();
+        expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="test"]')?.getAttribute('aria-expanded')).toBe('false');
+
+        treePanel!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(controller.selectFolder).toHaveBeenCalledWith(null);
 
         panel.hide();
     });
@@ -2154,7 +2230,7 @@ describe('BookmarksPanel', () => {
         panel.hide();
     });
 
-    it('preserves the selected folder state and ancestor expansion in both inline and virtualized tree rendering', async () => {
+    it('does not force ancestor folders open in either inline or virtualized tree rendering when node state is collapsed', async () => {
         const buildNestedTree = (totalRoots: number) => {
             const nestedBookmark = {
                 title: 'Nested item',
@@ -2241,9 +2317,8 @@ describe('BookmarksPanel', () => {
             const treePanel = shadow.querySelector<HTMLElement>('.tree-panel');
 
             expect(treePanel?.dataset.virtualized).toBe(totalRoots > 240 ? '1' : '0');
-            expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="Root 0"]')?.getAttribute('aria-expanded')).toBe('true');
-            expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="Root 0/Child"]')?.dataset.selected).toBe('1');
-            expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="Root 0/Child"]')).toBeTruthy();
+            expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="Root 0"]')?.getAttribute('aria-expanded')).toBe('false');
+            expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="Root 0/Child"]')).toBeNull();
 
             panel.hide();
         }

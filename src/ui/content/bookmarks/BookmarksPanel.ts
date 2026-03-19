@@ -292,11 +292,7 @@ function buildVisibleFolderCountMap(nodes: FolderTreeNode[], visibleKeys: Set<st
     return countMap;
 }
 
-function getEffectiveExpanded(nodePath: string, isExpanded: boolean, selectedPath: string | null): boolean {
-    if (!selectedPath) return isExpanded;
-    if (selectedPath === nodePath) return isExpanded;
-    if (selectedPath.startsWith(`${nodePath}/`)) return true;
-    if (nodePath.startsWith(`${selectedPath}/`)) return isExpanded;
+function getEffectiveExpanded(_nodePath: string, isExpanded: boolean, _selectedPath: string | null): boolean {
     return isExpanded;
 }
 
@@ -363,11 +359,11 @@ function renderFolderRow(
     const indent = 10 + depth * 18;
     const expandLabel = expanded ? tr('collapseFolderLabel', 'Collapse folder') : tr('expandFolderLabel', 'Expand folder');
     return `
-      <div class="tree-item tree-item--folder" style="padding-left:${indent}px" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" data-selected="${selectedPath === node.folder.path ? '1' : '0'}" role="treeitem" aria-level="${depth + 1}" aria-expanded="${expanded ? 'true' : 'false'}">
+      <div class="tree-item tree-item--folder" style="padding-left:${indent}px" data-path="${escapeHtml(node.folder.path)}" data-selected="${selectedPath === node.folder.path ? '1' : '0'}" role="treeitem" aria-level="${depth + 1}" aria-expanded="${expanded ? 'true' : 'false'}">
         <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" aria-label="${escapeHtml(expandLabel)}" ${tooltipAttr(expandLabel)} ${hasChildren ? '' : 'disabled'}>${icon(expanded ? chevronDownIcon : chevronRightIcon)}</button>
         <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="${escapeHtml(node.folder.path)}" ${folderCheckState.checked ? 'checked' : ''} data-indeterminate="${folderCheckState.indeterminate ? '1' : '0'}" />
         <div class="tree-folder-icon">${icon(expanded ? folderOpenIcon : folderIcon)}</div>
-        <button class="tree-main tree-main--folder" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}">
+        <button class="tree-main tree-main--folder" type="button" data-action="select-folder" data-path="${escapeHtml(node.folder.path)}">
           <div class="tree-label">${escapeHtml(node.folder.name)}</div>
         </button>
         <div class="tree-count">${count}</div>
@@ -1172,6 +1168,14 @@ export class BookmarksPanel {
 
     private async handleClick(event: Event): Promise<void> {
         const target = event.target as HTMLElement | null;
+        if (
+            this.uiState.bookmarksTab === 'bookmarks'
+            && target?.closest('.tree-panel')
+            && !target.closest('.tree-item')
+        ) {
+            this.controller.selectFolder(null);
+            return;
+        }
         if (this.uiState.bookmarksTab === 'sponsor' && target?.closest('.sponsor-panel')) {
             this.emitSponsorBurst(event as MouseEvent);
         }

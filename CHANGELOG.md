@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Platform adapters now own page-header icon anchors and injection rules, keeping runtime lifecycle logic platform-agnostic.
 - Unified the runtime style pipeline around shared reference tokens, semantic tokens, and stable UI exports.
+- Reader, source, bookmarks, export dialogs, and modal/popover controls now share one canonical panel chrome token contract for header/footer/button sizing.
 - Reader, bookmarks, toolbar, folding, and save dialogs now inherit the default UI font instead of shipping separate sans-serif stacks.
 - UI text surfaces now use a shared ChatGPT-aligned sans token inside Shadow DOM, while source/code views keep a dedicated mono token.
 - Reader and bookmark panels now use rebuilt mock-aligned shells, with the reader footer showing the current page and long pagination sets wrapping inside a capped scroll area.
@@ -39,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Fixed the panel empty state so existing folders no longer fall back to the misleading `No folders yet` message.
 - Bookmarks: Removed the repair and refresh toolbar icons from the panel surface without changing the underlying maintenance actions.
 - Bookmarks: Fixed folder selection, counts, expansion, and empty-folder checkbox behavior in the rebuilt bookmarks tree.
+- Bookmarks: Fixed restored folder scopes so tree expansion is driven by explicit state, allowing selected branches to collapse normally instead of being forced open on every render.
+- Runtime: Fixed disabled platform settings so page-level toolbar and header injection stop, while the extension action can still open the bookmarks panel.
 - Bookmarks: Restored bookmark row reader previews, added platform icons, added a move action, and updated hover/date layout to match the latest panel design.
 - Bookmarks: Fixed rebuilt row actions, outside-click dismiss behavior, and backdrop handling so the panel controls behave consistently with the new shell.
 - Bookmarks: Restored shared tooltips in the rebuilt panel and unified input focus/placeholder behavior across bookmark, modal, and send surfaces.

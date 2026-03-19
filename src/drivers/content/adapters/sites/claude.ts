@@ -136,19 +136,7 @@ export class ClaudeAdapter extends SiteAdapter {
             actionRowTarget.appendChild(toolbarHost);
             return true;
         }
-
-        const root = this.findMessageRoot(messageElement) ?? messageElement;
-        const content = root.querySelector(this.getMessageContentSelector());
-        if (content && content.parentElement) {
-            toolbarHost.dataset.aimdPlacement = 'content';
-            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-            content.parentElement.insertBefore(toolbarHost, content.nextSibling);
-            return true;
-        }
-
-        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-        root.appendChild(toolbarHost);
-        return true;
+        return false;
     }
 
     isStreamingMessage(element: HTMLElement): boolean {

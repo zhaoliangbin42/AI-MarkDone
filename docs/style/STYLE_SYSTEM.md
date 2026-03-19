@@ -22,6 +22,28 @@
 - 组件内部不得补一套 panel-scoped “伪系统 token”
 - Tailwind 如被采用，只能作为 overlay authoring 层；其 alias 必须映射回 `--aimd-*`
 
+当前 overlay / panel chrome 的 canonical token 范围至少包括：
+
+- `--aimd-size-control-icon-panel`
+- `--aimd-size-control-icon-panel-nav`
+- `--aimd-size-control-glyph-panel`
+- `--aimd-size-control-action-panel`
+- `--aimd-panel-header-height`
+- `--aimd-panel-header-height-compact`
+- `--aimd-panel-header-padding-block`
+- `--aimd-panel-header-padding-inline`
+- `--aimd-panel-header-padding-block-compact`
+- `--aimd-panel-header-padding-inline-compact`
+- `--aimd-panel-header-gap`
+- `--aimd-panel-action-gap`
+- `--aimd-panel-footer-min-height`
+- `--aimd-panel-footer-padding-block`
+- `--aimd-panel-footer-padding-inline`
+- `--aimd-panel-footer-padding-block-compact`
+- `--aimd-panel-footer-padding-inline-compact`
+- `--aimd-panel-footer-gap`
+- `--aimd-panel-title-line-height`
+
 ---
 
 ## 2. UI 隔离策略（Shadow DOM First）
@@ -170,6 +192,8 @@ Token 提升规则：
 - 如果某个视觉语义会被 2 个或以上 overlay 模块复用，必须提升到 canonical token 或共享 overlay primitive
 - 如果某个值只服务于单一模块的内部结构，可保留为组件私有变量
 - 不允许把 mock 中的裸颜色、裸阴影、裸圆角、裸间距长期留在 shipped UI 中而不收敛来源
+- panel/header/footer/icon-button/action-button 这类 chrome 结构一旦被 2 个以上 overlay 模块复用，必须下沉到共享 primitive，而不是复制一份近似 CSS
+- 模块私有变量只允许表达结构 personality；不允许继续承载跨模块共享的 chrome 尺寸
 
 禁止：
 

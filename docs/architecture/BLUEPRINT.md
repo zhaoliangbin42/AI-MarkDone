@@ -197,6 +197,7 @@
 - 组件样式必须使用 `--aimd-*` token
 - `--aimd-*` 是唯一 canonical design token source；Tailwind 只能通过语义 alias 消费这些 token
 - Tailwind 只允许用于 overlay-style singleton UI；toolbar 与高频注入 UI 保持轻量实现，不引入 Tailwind
+- overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
 - 若使用 Tailwind，必须使用 `tw` 前缀并禁用 Preflight，避免其成为第二套样式真源
 - 页面内 UI 必须使用 Shadow DOM（或等效隔离容器）避免样式冲突
 - 主题同步必须通过稳定机制（如 `data-aimd-theme`）驱动 token 切换

@@ -96,6 +96,12 @@ export class PathUtils {
         return ancestors;
     }
 
+    static getPathChain(path: string): string[] {
+        if (!path) return [];
+        const normalized = this.normalize(path);
+        return [...this.getAncestors(normalized), normalized];
+    }
+
     static updatePathPrefix(oldPrefix: string, newPrefix: string, path: string): string {
         if (!path) return path;
 
@@ -219,4 +225,3 @@ export class PathUtils {
         throw new PathValidationError('Unable to generate unique folder name', name);
     }
 }
-

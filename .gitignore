@@ -59,6 +59,7 @@ dist-firefox/
 .temp/
 tmp/
 tests/fixtures/
+mocks/
 
 # Tooling artifacts
 vite.config.ts.timestamp-*.mjs

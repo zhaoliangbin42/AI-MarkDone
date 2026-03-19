@@ -138,18 +138,7 @@ export class GeminiAdapter extends SiteAdapter {
             else actionRow.appendChild(toolbarHost);
             return true;
         }
-
-        const content = messageElement.querySelector(this.getMessageContentSelector());
-        if (content?.parentElement) {
-            toolbarHost.dataset.aimdPlacement = 'content';
-            toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-            content.parentElement.insertBefore(toolbarHost, content.nextSibling);
-            return true;
-        }
-
-        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
-        messageElement.appendChild(toolbarHost);
-        return true;
+        return false;
     }
 
     isStreamingMessage(element: HTMLElement): boolean {

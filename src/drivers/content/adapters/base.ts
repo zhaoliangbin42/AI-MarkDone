@@ -48,16 +48,12 @@ export abstract class SiteAdapter {
     abstract getActionBarSelector(): string;
 
     /**
-     * Optional stable anchor element for per-message toolbar identity and placement.
+     * Stable anchor element for the message's official bottom toolbar/action row.
      *
-     * Motivation:
-     * - Some SPAs (e.g. ChatGPT) may replace message DOM nodes during hydration/route changes.
-     * - The official action bar container tends to be more stable than message wrapper elements.
-     *
-     * If provided, this element is used to deduplicate injections ("never two toolbars for one official bar")
-     * and to re-attach toolbars after the action bar re-renders.
+     * This is the sole source of truth for per-message toolbar injection.
+     * If the official toolbar is absent, return `null` and callers must not inject.
      */
-    getToolbarAnchorElement?(_assistantMessageElement: HTMLElement): HTMLElement | null;
+    abstract getToolbarAnchorElement(_assistantMessageElement: HTMLElement): HTMLElement | null;
 
     /**
      * Optional: returns a stable DOM element that represents the "logical turn root"
@@ -72,13 +68,14 @@ export abstract class SiteAdapter {
 
     /**
      * Platform-specific injection strategy for a per-message toolbar host element.
+     *
+     * Implementations must inject only into the official toolbar/action row.
+     * If the official toolbar is absent, this must return `false` without fallback placement.
      */
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
-        const actionBar = messageElement.querySelector(this.getActionBarSelector());
-        if (!actionBar || !actionBar.parentElement) {
-            return false;
-        }
-        actionBar.parentElement.insertBefore(toolbarHost, actionBar);
+        const actionBar = this.getToolbarAnchorElement(messageElement);
+        if (!actionBar) return false;
+        actionBar.appendChild(toolbarHost);
         return true;
     }
 
@@ -88,7 +85,9 @@ export abstract class SiteAdapter {
     abstract isStreamingMessage(messageElement: HTMLElement): boolean;
 
     /**
-     * A stable-ish identifier for a message element (for deduping injections).
+     * A stable-ish identifier for a message element.
+     *
+     * Preferred use: logical message identity across rescans/re-renders.
      */
     abstract getMessageId(messageElement: HTMLElement): string | null;
 

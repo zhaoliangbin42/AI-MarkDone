@@ -23,7 +23,24 @@ import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 
-type ToolbarRecord = { message: HTMLElement; toolbar: MessageToolbar; pending: boolean; position: number };
+type ToolbarRecord = {
+    messageKey: string;
+    platformId: string;
+    message: HTMLElement;
+    anchor: HTMLElement;
+    toolbar: MessageToolbar;
+    pending: boolean;
+    position: number;
+    boundAtUrl: string;
+};
+
+type ScanSnapshotItem = {
+    messageKey: string;
+    message: HTMLElement;
+    anchor: HTMLElement | null;
+    position: number;
+    pending: boolean;
+};
 
 function stripHash(url: string): string {
     try {
@@ -35,13 +52,40 @@ function stripHash(url: string): string {
     }
 }
 
+function toStructuralToken(element: HTMLElement | null | undefined): string {
+    if (!element) return 'none';
+    const parts = [
+        element.id,
+        element.getAttribute('data-testid'),
+        element.getAttribute('data-message-id'),
+        element.getAttribute('data-turn'),
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    return parts[0] || element.tagName.toLowerCase();
+}
+
+function resolveMessageKey(adapter: SiteAdapter, messageElement: HTMLElement, position: number): string {
+    const platformId = adapter.getPlatformId();
+    try {
+        const raw = adapter.getMessageId(messageElement)?.trim();
+        if (raw) return `${platformId}:id:${raw}`;
+    } catch {
+        // fall through to structural key
+    }
+
+    const turnRoot = adapter.getTurnRootElement?.(messageElement) ?? null;
+    const turnToken = toStructuralToken(turnRoot instanceof HTMLElement ? turnRoot : null);
+    const selector = adapter.getMessageSelector();
+    const assistantSiblings = turnRoot
+        ? Array.from(turnRoot.querySelectorAll(selector)).filter((node): node is HTMLElement => node instanceof HTMLElement)
+        : [];
+    const segmentIndex = assistantSiblings.indexOf(messageElement);
+    return `${platformId}:fallback:${turnToken}:${position}:${segmentIndex >= 0 ? segmentIndex : 0}`;
+}
+
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
-    private recordsByAnchor = new WeakMap<HTMLElement, ToolbarRecord>();
-    private anchorKeys = new Set<HTMLElement>();
-    private recordsByMessage = new WeakMap<HTMLElement, ToolbarRecord>();
-    private pendingMessageKeys = new Set<HTMLElement>();
+    private recordsByMessageKey = new Map<string, ToolbarRecord>();
     private theme: Theme = 'light';
     private onMessageInjected: ((messageElement: HTMLElement) => void) | null = null;
     private scanScheduler: ScanScheduler | null = null;
@@ -251,26 +295,17 @@ export class MessageToolbarOrchestrator {
         return stripHash(getConversationUrl());
     }
 
-    private clearAllToolbars(): void {
-        // Anchor-keyed records
-        for (const anchor of Array.from(this.anchorKeys)) {
-            const record = this.recordsByAnchor.get(anchor);
-            if (record) {
-                record.toolbar.getElement().remove();
-            }
-        }
-        this.anchorKeys.clear();
-        this.recordsByAnchor = new WeakMap<HTMLElement, ToolbarRecord>();
+    private removeRecord(messageKey: string): void {
+        const record = this.recordsByMessageKey.get(messageKey);
+        if (!record) return;
+        record.toolbar.getElement().remove();
+        this.recordsByMessageKey.delete(messageKey);
+    }
 
-        // Message-keyed fallback records
-        for (const messageEl of Array.from(this.pendingMessageKeys)) {
-            const record = this.recordsByMessage.get(messageEl);
-            if (record) {
-                record.toolbar.getElement().remove();
-            }
+    private clearAllToolbars(): void {
+        for (const messageKey of Array.from(this.recordsByMessageKey.keys())) {
+            this.removeRecord(messageKey);
         }
-        this.pendingMessageKeys.clear();
-        this.recordsByMessage = new WeakMap<HTMLElement, ToolbarRecord>();
     }
 
     init(): void {
@@ -308,11 +343,8 @@ export class MessageToolbarOrchestrator {
         }, { intervalMs: 500 });
         this.routeWatcher.start();
 
-        // If locale changes, rebuild UI strings (labels/tooltips) by re-injecting toolbars.
-        // This is UI-only and avoids threading locale concerns into services/drivers.
         this.unsubscribeLocale = subscribeLocaleChange(() => {
-            this.clearAllToolbars();
-            this.scanScheduler?.schedule('manual');
+            this.refreshExistingToolbarsForLocale();
         });
     }
 
@@ -331,13 +363,8 @@ export class MessageToolbarOrchestrator {
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        for (const anchor of Array.from(this.anchorKeys)) {
-            const record = this.recordsByAnchor.get(anchor);
-            record?.toolbar.setTheme(theme);
-        }
-        for (const messageEl of Array.from(this.pendingMessageKeys)) {
-            const record = this.recordsByMessage.get(messageEl);
-            record?.toolbar.setTheme(theme);
+        for (const record of this.recordsByMessageKey.values()) {
+            record.toolbar.setTheme(theme);
         }
         this.readerPanel.setTheme(theme);
         bookmarkSaveDialog.setTheme(theme);
@@ -503,7 +530,7 @@ export class MessageToolbarOrchestrator {
 
     private getAnchorForMessage(messageElement: HTMLElement): HTMLElement | null {
         try {
-            return this.adapter.getToolbarAnchorElement?.(messageElement) ?? null;
+            return this.adapter.getToolbarAnchorElement(messageElement);
         } catch {
             return null;
         }
@@ -517,86 +544,155 @@ export class MessageToolbarOrchestrator {
         }
     }
 
-    private scanAndInject(): void {
+    private createToolbarRecord(params: {
+        messageKey: string;
+        message: HTMLElement;
+        anchor: HTMLElement;
+        position: number;
+        pending: boolean;
+    }): ToolbarRecord | null {
+        let recordRef: ToolbarRecord | null = null;
+        const getToolbar = () => recordRef?.toolbar ?? null;
+        const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(params.message, getToolbar), { showStats: this.behavior.showWordCount });
+        const host = toolbar.getElement();
+        host.setAttribute('data-aimd-role', 'message-toolbar');
+        host.setAttribute('data-aimd-message-key', params.messageKey);
+
+        this.removeExistingToolbarsInAnchor(params.anchor, host);
+        const injected = this.adapter.injectToolbar(params.message, host);
+        if (!injected) {
+            logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
+            host.remove();
+            return null;
+        }
+
+        this.updatePlacementHint(toolbar, params.message);
+        toolbar.setPending(params.pending);
+
+        const record: ToolbarRecord = {
+            messageKey: params.messageKey,
+            platformId: this.adapter.getPlatformId(),
+            message: params.message,
+            anchor: params.anchor,
+            toolbar,
+            pending: params.pending,
+            position: params.position,
+            boundAtUrl: this.getBookmarkPageUrl(),
+        };
+        recordRef = record;
+
+        this.refreshBookmarkStateForToolbar(toolbar, params.position);
+        this.refreshWordCountForToolbar(toolbar, params.message, params.pending);
+        this.onMessageInjected?.(params.message);
+        return record;
+    }
+
+    private rebuildToolbarRecord(record: ToolbarRecord): ToolbarRecord | null {
+        record.toolbar.getElement().remove();
+        return this.createToolbarRecord({
+            messageKey: record.messageKey,
+            message: record.message,
+            anchor: record.anchor,
+            position: record.position,
+            pending: record.pending,
+        });
+    }
+
+    private refreshExistingToolbarsForLocale(): void {
+        for (const [messageKey, record] of Array.from(this.recordsByMessageKey.entries())) {
+            if (!document.contains(record.message) || !document.contains(record.anchor)) {
+                this.removeRecord(messageKey);
+                continue;
+            }
+            const refreshed = this.rebuildToolbarRecord(record);
+            if (!refreshed) {
+                this.removeRecord(messageKey);
+                continue;
+            }
+            this.recordsByMessageKey.set(messageKey, refreshed);
+        }
+    }
+
+    private buildScanSnapshot(): Map<string, ScanSnapshotItem> {
         this.rebuildTurnIndex();
         const selector = this.adapter.getMessageSelector();
         const container = this.adapter.getObserverContainer() || document.body;
         const nodes = discoverMessageElements(container, selector);
+        const snapshot = new Map<string, ScanSnapshotItem>();
 
         nodes.forEach((messageElement, index) => {
             const position = index + 1;
             messageElement.dataset.aimdMsgPosition = `${position}`;
-
-            const anchor = this.getAnchorForMessage(messageElement);
-
-            // If we previously injected a fallback toolbar into the message content, migrate it to the official bar when ready.
-            if (anchor) {
-                const existingPending = this.recordsByMessage.get(messageElement) || null;
-                if (existingPending) {
-                    if (!this.recordsByAnchor.get(anchor)) {
-                        const host = existingPending.toolbar.getElement();
-                        host.setAttribute('data-aimd-role', 'message-toolbar');
-                        this.removeExistingToolbarsInAnchor(anchor, host);
-                        this.adapter.injectToolbar(messageElement, host);
-                        this.updatePlacementHint(existingPending.toolbar, messageElement);
-                        this.recordsByAnchor.set(anchor, existingPending);
-                        this.anchorKeys.add(anchor);
-                    }
-                    this.pendingMessageKeys.delete(messageElement);
-                    return;
-                }
-
-                if (this.recordsByAnchor.get(anchor)) {
-                    // Already injected for this official action bar container.
-                    return;
-                }
-
-                // If an orphaned toolbar exists (from prior hydration/container replacement), remove it before reinjecting.
-                this.removeExistingToolbarsInAnchor(anchor);
-            } else {
-                // Fallback (streaming/anchor not rendered yet): avoid duplicating within the message subtree.
-                if (this.recordsByMessage.get(messageElement)) return;
-                if (messageElement.dataset.aimdMsgInjected === '1') return;
-                const turn = messageElement.closest('article') || messageElement;
-                if ((turn as HTMLElement).querySelector?.('[data-aimd-role="message-toolbar"], .aimd-message-toolbar-host')) {
-                    return;
-                }
+            const messageKey = resolveMessageKey(this.adapter, messageElement, position);
+            const next: ScanSnapshotItem = {
+                messageKey,
+                message: messageElement,
+                anchor: this.getAnchorForMessage(messageElement),
+                position,
+                pending: this.adapter.isStreamingMessage(messageElement),
+            };
+            const prev = snapshot.get(messageKey);
+            if (!prev || (!prev.anchor && next.anchor)) {
+                snapshot.set(messageKey, next);
             }
-
-            let recordRef: ToolbarRecord | null = null;
-            const getToolbar = () => recordRef?.toolbar ?? null;
-            const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(messageElement, getToolbar), { showStats: this.behavior.showWordCount });
-            const host = toolbar.getElement();
-            host.setAttribute('data-aimd-role', 'message-toolbar');
-
-            const injected = this.adapter.injectToolbar(messageElement, host);
-            if (!injected) {
-                logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
-                host.remove();
-                return;
-            }
-
-            this.updatePlacementHint(toolbar, messageElement);
-
-            const pending = this.adapter.isStreamingMessage(messageElement);
-            toolbar.setPending(pending);
-
-            const record: ToolbarRecord = { message: messageElement, toolbar, pending, position };
-            recordRef = record;
-
-            if (anchor) {
-                this.recordsByAnchor.set(anchor, record);
-                this.anchorKeys.add(anchor);
-            } else {
-                this.recordsByMessage.set(messageElement, record);
-                this.pendingMessageKeys.add(messageElement);
-                messageElement.dataset.aimdMsgInjected = '1';
-            }
-
-            this.refreshBookmarkStateForToolbar(toolbar, position);
-            this.refreshWordCountForToolbar(toolbar, messageElement, pending);
-            this.onMessageInjected?.(messageElement);
         });
+
+        return snapshot;
+    }
+
+    private reconcileScanSnapshot(snapshot: Map<string, ScanSnapshotItem>): void {
+        for (const [messageKey, item] of snapshot.entries()) {
+            const existing = this.recordsByMessageKey.get(messageKey) || null;
+
+            if (!item.anchor) {
+                if (existing) this.removeRecord(messageKey);
+                continue;
+            }
+            const anchor = item.anchor;
+
+            if (!existing) {
+                const created = this.createToolbarRecord({
+                    ...item,
+                    anchor,
+                });
+                if (created) this.recordsByMessageKey.set(messageKey, created);
+                continue;
+            }
+
+            existing.message = item.message;
+            existing.position = item.position;
+            existing.boundAtUrl = this.getBookmarkPageUrl();
+
+            if (existing.anchor !== anchor || !existing.toolbar.getElement().isConnected) {
+                existing.anchor = anchor;
+                const refreshed = this.rebuildToolbarRecord({
+                    ...existing,
+                    pending: item.pending,
+                });
+                if (!refreshed) {
+                    this.removeRecord(messageKey);
+                    continue;
+                }
+                this.recordsByMessageKey.set(messageKey, refreshed);
+                continue;
+            }
+
+            existing.pending = item.pending;
+            existing.toolbar.setPending(item.pending);
+            this.refreshBookmarkStateForToolbar(existing.toolbar, item.position);
+            this.refreshWordCountForToolbar(existing.toolbar, item.message, item.pending);
+        }
+
+        for (const [messageKey] of Array.from(this.recordsByMessageKey.entries())) {
+            if (!snapshot.has(messageKey)) {
+                this.removeRecord(messageKey);
+            }
+        }
+    }
+
+    private scanAndInject(): void {
+        const snapshot = this.buildScanSnapshot();
+        this.reconcileScanSnapshot(snapshot);
     }
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, position: number): void {
@@ -609,89 +705,35 @@ export class MessageToolbarOrchestrator {
     private refreshBookmarkActionStates(): void {
         if (!this.bookmarksController) return;
         const url = this.getBookmarkPageUrl();
-        for (const anchor of Array.from(this.anchorKeys)) {
-            const record = this.recordsByAnchor.get(anchor);
-            if (!record) continue;
-            const active = this.bookmarksController!.isPositionBookmarked(url, record.position);
-            record.toolbar.setActionActive('bookmark_toggle', active);
-        }
-        for (const messageEl of Array.from(this.pendingMessageKeys)) {
-            const record = this.recordsByMessage.get(messageEl);
-            if (!record) continue;
+        for (const record of this.recordsByMessageKey.values()) {
             const active = this.bookmarksController!.isPositionBookmarked(url, record.position);
             record.toolbar.setActionActive('bookmark_toggle', active);
         }
     }
 
     private refreshPendingStates(): void {
-        // Keep the turn index reasonably fresh for stats/actions without rebuilding per-click.
         if (this.turnRefs.length === 0) this.rebuildTurnIndex();
-        // Anchor-keyed records
-        for (const anchor of Array.from(this.anchorKeys)) {
-            const record = this.recordsByAnchor.get(anchor);
-            if (!record) {
-                this.anchorKeys.delete(anchor);
-                continue;
-            }
-
+        for (const [messageKey, record] of Array.from(this.recordsByMessageKey.entries())) {
             const { message, toolbar } = record;
             if (!document.contains(message)) {
-                toolbar.getElement().remove();
-                this.anchorKeys.delete(anchor);
+                this.removeRecord(messageKey);
                 continue;
             }
 
-            // If anchor was replaced, re-key and reattach.
             const nextAnchor = this.getAnchorForMessage(message);
-            if (nextAnchor && nextAnchor !== anchor) {
-                this.removeExistingToolbarsInAnchor(nextAnchor, toolbar.getElement());
-                this.recordsByAnchor.set(nextAnchor, record);
-                this.anchorKeys.add(nextAnchor);
-                this.anchorKeys.delete(anchor);
-            }
-
-            const pending = this.adapter.isStreamingMessage(message);
-            toolbar.setPending(pending);
-
-            // Why: ChatGPT may only render the official action bar after streaming completes or after route subviews.
-            if (!toolbar.getElement().isConnected || (record.pending && !pending)) {
-                const a = this.getAnchorForMessage(message);
-                if (a) this.removeExistingToolbarsInAnchor(a, toolbar.getElement());
-                this.adapter.injectToolbar(message, toolbar.getElement());
-                this.updatePlacementHint(toolbar, message);
-            }
-
-            if (record.pending !== pending) {
-                this.refreshWordCountForToolbar(toolbar, message, pending);
-            }
-            record.pending = pending;
-        }
-
-        // Message-keyed fallback records (anchor not yet present). Try to migrate when possible.
-        for (const messageEl of Array.from(this.pendingMessageKeys)) {
-            const record = this.recordsByMessage.get(messageEl);
-            if (!record) {
-                this.pendingMessageKeys.delete(messageEl);
+            if (!nextAnchor) {
+                this.removeRecord(messageKey);
                 continue;
             }
 
-            const { message, toolbar } = record;
-            if (!document.contains(message)) {
-                toolbar.getElement().remove();
-                this.pendingMessageKeys.delete(messageEl);
-                continue;
-            }
-
-            const anchor = this.getAnchorForMessage(message);
-            if (anchor) {
-                if (!this.recordsByAnchor.get(anchor)) {
-                    this.removeExistingToolbarsInAnchor(anchor, toolbar.getElement());
-                    this.adapter.injectToolbar(message, toolbar.getElement());
-                    this.updatePlacementHint(toolbar, message);
-                    this.recordsByAnchor.set(anchor, record);
-                    this.anchorKeys.add(anchor);
+            if (nextAnchor !== record.anchor || !toolbar.getElement().isConnected) {
+                record.anchor = nextAnchor;
+                const refreshed = this.rebuildToolbarRecord(record);
+                if (!refreshed) {
+                    this.removeRecord(messageKey);
+                    continue;
                 }
-                this.pendingMessageKeys.delete(messageEl);
+                this.recordsByMessageKey.set(messageKey, refreshed);
                 continue;
             }
 

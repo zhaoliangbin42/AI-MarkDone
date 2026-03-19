@@ -1,4 +1,5 @@
 import { getInputFieldCss } from '../../../components/styles/inputFieldCss';
+import { getPanelChromeCss } from '../../../components/styles/panelChromeCss';
 
 export function getBookmarksPanelCss(): string {
     return `
@@ -17,9 +18,6 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-shell-border: color-mix(in srgb, var(--aimd-border-default) 72%, var(--aimd-bg-primary));
   --_bookmarks-shell-surface-top: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   --_bookmarks-shell-surface-bottom: color-mix(in srgb, var(--aimd-bg-secondary) 92%, transparent);
-  --_bookmarks-header-gap: var(--aimd-space-4);
-  --_bookmarks-header-padding-block: calc(var(--aimd-space-4) + var(--aimd-space-1) / 2);
-  --_bookmarks-header-padding-inline: calc(var(--aimd-space-5) + var(--aimd-space-2) / 4);
   --_bookmarks-sidebar-width: 220px;
   --_bookmarks-sidebar-gap: var(--aimd-space-2);
   --_bookmarks-sidebar-padding: var(--aimd-space-5);
@@ -28,10 +26,8 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-toolbar-padding-top: calc(var(--aimd-space-4) + var(--aimd-space-1));
   --_bookmarks-toolbar-padding-bottom: var(--aimd-space-2);
   --_bookmarks-control-height: 44px;
-  --_bookmarks-action-height: 42px;
-  --_bookmarks-icon-button-size: 38px;
-  --_bookmarks-tree-actions-width: calc(var(--_bookmarks-icon-button-size) * 4 + (calc(var(--aimd-space-1) + var(--aimd-space-1) / 2) * 3) + (var(--aimd-space-2) * 2));
-  --_bookmarks-panel-title-size: var(--aimd-text-2xl);
+  --_bookmarks-tree-actions-width: calc(var(--aimd-size-control-icon-panel) * 4 + (calc(var(--aimd-space-1) + var(--aimd-space-1) / 2) * 3) + (var(--aimd-space-2) * 2));
+  --_bookmarks-panel-title-size: var(--aimd-text-xl);
   --_bookmarks-tree-title-size: var(--aimd-text-lg);
   --_bookmarks-control-surface: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
   --_bookmarks-control-border: color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
@@ -72,6 +68,7 @@ export function getBookmarksPanelCss(): string {
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 button { cursor: pointer; }
 ${getInputFieldCss()}
+${getPanelChromeCss()}
 
 .aimd-scroll {
   min-height: 0;
@@ -147,8 +144,9 @@ ${getInputFieldCss()}
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--_bookmarks-header-gap);
-  padding: var(--_bookmarks-header-padding-block) var(--_bookmarks-header-padding-inline);
+  gap: var(--aimd-panel-header-gap);
+  min-height: var(--aimd-panel-header-height);
+  padding: var(--aimd-panel-header-padding-block) var(--aimd-panel-header-padding-inline);
   background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 58%, transparent);
 }
@@ -157,7 +155,7 @@ ${getInputFieldCss()}
 .panel-header__actions {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--aimd-panel-action-gap);
   min-width: 0;
 }
 
@@ -191,19 +189,9 @@ ${getInputFieldCss()}
 }
 
 .icon-btn {
-  all: unset;
-  box-sizing: border-box;
-  width: var(--_bookmarks-icon-button-size);
-  height: var(--_bookmarks-icon-button-size);
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--_bookmarks-pill-radius);
-  border: 1px solid transparent;
-  background: transparent;
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
   color: var(--aimd-text-secondary);
-  cursor: pointer;
 }
 
 .icon-btn:hover {
@@ -466,7 +454,7 @@ ${getInputFieldCss()}
   grid-template-columns: 20px 18px 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--aimd-space-2);
-  min-height: var(--_bookmarks-action-height);
+  min-height: var(--aimd-size-control-action-panel);
   padding: var(--aimd-space-1) var(--aimd-space-2);
   padding-right: var(--_bookmarks-tree-actions-width);
   border-radius: var(--_bookmarks-row-radius);
@@ -1143,7 +1131,7 @@ ${getInputFieldCss()}
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: var(--_bookmarks-action-height);
+  min-height: var(--aimd-size-control-action-panel);
   padding: 0 18px;
   border-radius: var(--_bookmarks-pill-radius);
   cursor: pointer;
@@ -1327,6 +1315,12 @@ ${getInputFieldCss()}
 }
 
 @media (max-width: 980px) {
+  .aimd-panel-header,
+  .panel-header {
+    min-height: var(--aimd-panel-header-height-compact);
+    padding: var(--aimd-panel-header-padding-block-compact) var(--aimd-panel-header-padding-inline-compact);
+  }
+
   .aimd-panel {
     width: min(var(--aimd-panel-wide-max-width), calc(100vw - var(--_bookmarks-panel-edge-offset-mobile)));
     height: min(var(--aimd-panel-wide-max-height), calc(100vh - var(--_bookmarks-panel-edge-offset-mobile)));

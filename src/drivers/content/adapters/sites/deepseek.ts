@@ -210,19 +210,7 @@ export class DeepseekAdapter extends SiteAdapter {
 
             return true;
         }
-
-        const content = messageElement.querySelector(this.getMessageContentSelector());
-        if (content?.parentElement) {
-            content.parentElement.insertBefore(toolbarHost, content.nextSibling);
-            return true;
-        }
-
-        const allMarkdowns = Array.from(messageElement.querySelectorAll('.ds-markdown'));
-        const hasMainMarkdown = allMarkdowns.some((md) => !md.closest('.ds-think-content'));
-        if (!hasMainMarkdown) return false;
-
-        messageElement.appendChild(toolbarHost);
-        return true;
+        return false;
     }
 
     isStreamingMessage(element: HTMLElement): boolean {
