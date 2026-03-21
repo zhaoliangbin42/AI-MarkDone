@@ -16,7 +16,6 @@ import { ChatGPTFoldDock } from '../chatgptFolding/ChatGPTFoldDock';
 const GROUP_ID_ATTR = 'data-aimd-fold-group-id';
 const FOLDED_ATTR = 'data-aimd-folded';
 const ROLE_ATTR = 'data-aimd-fold-role';
-const GUIDE_ATTR = 'data-aimd-fold-guide';
 const HOST_STYLE_ID = 'aimd-chatgpt-folding-host-style';
 
 const USER_SELECTOR = 'article[data-turn="user"], [data-message-author-role="user"]';
@@ -27,7 +26,6 @@ type FoldGroup = {
     id: string;
     userRootEl: HTMLElement | null;
     assistantRootEl: HTMLElement;
-    assistantGuideEl: HTMLElement | null;
     userTitle: string;
     bar: ChatGPTFoldBar;
     barEl: HTMLElement;
@@ -148,6 +146,17 @@ export class ChatGPTFoldingController {
         groups.forEach((g) => this.setGroupCollapsed(g, false));
     }
 
+    canCollapseMessage(messageElement: HTMLElement): boolean {
+        return this.getGroupForMessage(messageElement) !== null;
+    }
+
+    collapseGroupForMessage(messageElement: HTMLElement): boolean {
+        const group = this.getGroupForMessage(messageElement);
+        if (!group) return false;
+        this.setGroupCollapsed(group, true);
+        return true;
+    }
+
     private applyToExisting(): void {
         if (!this.adapter) return;
         this.ensureDockVisibility();
@@ -228,6 +237,10 @@ export class ChatGPTFoldingController {
     }
 
     private getTurnRoot(el: HTMLElement): HTMLElement {
+        const section = el.closest?.('section[data-turn][data-turn-id]');
+        if (section instanceof HTMLElement) return section;
+        const genericTurn = el.closest?.('[data-turn][data-turn-id]');
+        if (genericTurn instanceof HTMLElement) return genericTurn;
         const article = el.closest?.('article');
         return article instanceof HTMLElement ? article : el;
     }
@@ -259,12 +272,22 @@ export class ChatGPTFoldingController {
         return groups;
     }
 
+    private getGroupForMessage(messageElement: HTMLElement): FoldGroup | null {
+        if (!(messageElement instanceof HTMLElement)) return null;
+        const root = this.getTurnRoot(messageElement);
+        if (!root) return null;
+        const groups = this.syncGroupsFromDom();
+        const group = groups.find((item) => item.assistantRootEl === root) || null;
+        if (!group) return null;
+        const collapsed = group.assistantRootEl.getAttribute(FOLDED_ATTR) === '1';
+        return collapsed ? null : group;
+    }
+
     private createGroup(pendingUser: { rootEl: HTMLElement; sourceEl: HTMLElement } | null, assistantRootEl: HTMLElement): FoldGroup {
         const id = `g${Date.now().toString(36)}-${(this.groupCounter++).toString(36)}`;
 
         const userRootEl = pendingUser?.rootEl || null;
         const userTitle = this.extractUserTitle(pendingUser?.sourceEl || userRootEl);
-        const assistantGuideEl = this.findAssistantGuideEl(assistantRootEl);
 
         const bar = new ChatGPTFoldBar(this.theme, {
             onToggle: () => {
@@ -296,7 +319,6 @@ export class ChatGPTFoldingController {
             id,
             userRootEl,
             assistantRootEl,
-            assistantGuideEl,
             userTitle,
             bar,
             barEl,
@@ -320,7 +342,6 @@ export class ChatGPTFoldingController {
         const currentCollapsed = group.assistantRootEl.getAttribute(FOLDED_ATTR) === '1';
         if (currentCollapsed === collapsed) {
             group.bar.setCollapsed(collapsed);
-            this.setGuide(group.assistantGuideEl, !collapsed);
             this.constrainBarWidth(group.barEl);
             return;
         }
@@ -328,7 +349,6 @@ export class ChatGPTFoldingController {
         group.bar.setCollapsed(collapsed);
         this.setElementFolded(group.userRootEl, collapsed, 'user');
         this.setElementFolded(group.assistantRootEl, collapsed, 'assistant');
-        this.setGuide(group.assistantGuideEl, !collapsed);
         this.constrainBarWidth(group.barEl);
     }
 
@@ -337,12 +357,6 @@ export class ChatGPTFoldingController {
         el.setAttribute(ROLE_ATTR, role);
         if (folded) el.setAttribute(FOLDED_ATTR, '1');
         else el.removeAttribute(FOLDED_ATTR);
-    }
-
-    private setGuide(el: HTMLElement | null, enabled: boolean): void {
-        if (!el) return;
-        if (enabled) el.setAttribute(GUIDE_ATTR, '1');
-        else el.removeAttribute(GUIDE_ATTR);
     }
 
     private unfoldAll(): void {
@@ -356,9 +370,6 @@ export class ChatGPTFoldingController {
         });
         root.querySelectorAll?.(`[${GROUP_ID_ATTR}]`).forEach((el) => {
             if (el instanceof HTMLElement) el.removeAttribute(GROUP_ID_ATTR);
-        });
-        root.querySelectorAll?.(`[${GUIDE_ATTR}="1"]`).forEach((el) => {
-            if (el instanceof HTMLElement) el.removeAttribute(GUIDE_ATTR);
         });
 
         this.groups.forEach((g) => g.bar.dispose());
@@ -378,21 +389,6 @@ export class ChatGPTFoldingController {
             [${ROLE_ATTR}="user"][${FOLDED_ATTR}="1"],
             [${ROLE_ATTR}="assistant"][${FOLDED_ATTR}="1"] {
                 display: none;
-            }
-
-            [${GUIDE_ATTR}="1"] {
-                box-shadow: inset 4px 0 0 color-mix(in srgb, var(--aimd-border-default, #9ca3af) 65%, transparent);
-            }
-
-            @supports not (color-mix(in srgb, currentColor 10%, transparent)) {
-                [${GUIDE_ATTR}="1"] {
-                    box-shadow: inset 4px 0 0 rgba(156, 163, 175, 0.40);
-                }
-                @media (prefers-color-scheme: dark) {
-                    [${GUIDE_ATTR}="1"] {
-                        box-shadow: inset 4px 0 0 rgba(161, 161, 170, 0.45);
-                    }
-                }
             }
         `;
         (document.head || document.documentElement).appendChild(style);
@@ -503,24 +499,13 @@ export class ChatGPTFoldingController {
         let cursor: Element | null = fromEl.nextElementSibling;
         for (let i = 0; i < 8 && cursor; i += 1) {
             if (cursor instanceof HTMLElement) {
-                if (cursor.tagName.toLowerCase() === 'article' || cursor.matches('[data-message-author-role]') || cursor.hasAttribute(GROUP_ID_ATTR)) {
+                if (cursor.matches('section[data-turn][data-turn-id], article, [data-message-author-role], [data-turn][data-turn-id]') || cursor.hasAttribute(GROUP_ID_ATTR)) {
                     return cursor;
                 }
             }
             cursor = cursor.nextElementSibling;
         }
         return null;
-    }
-
-    private findAssistantGuideEl(assistantRootEl: HTMLElement): HTMLElement | null {
-        const preferred = assistantRootEl.querySelector('div.flex.max-w-full.flex-col.grow > div');
-        if (preferred instanceof HTMLElement) return preferred;
-        const container = assistantRootEl.querySelector('div.flex.max-w-full.flex-col.grow');
-        if (container instanceof HTMLElement && container.firstElementChild instanceof HTMLElement) {
-            return container.firstElementChild;
-        }
-        const prose = assistantRootEl.querySelector('.markdown.prose') || assistantRootEl.querySelector('.prose') || null;
-        return prose instanceof HTMLElement ? prose : null;
     }
 
     private getAssistantSelectors(): string[] {

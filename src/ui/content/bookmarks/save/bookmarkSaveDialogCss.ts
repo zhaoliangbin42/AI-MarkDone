@@ -1,5 +1,6 @@
 import type { Theme } from '../../../../core/types/theme';
 import { getInputFieldCss } from '../../components/styles/inputFieldCss';
+import { getModalHostCss } from '../../components/styles/modalHostCss';
 import { getPanelChromeCss } from '../../components/styles/panelChromeCss';
 
 export function getBookmarkSaveDialogCss(_theme: Theme): string {
@@ -19,6 +20,7 @@ button, input, select, textarea {
 
 ${getInputFieldCss()}
 ${getPanelChromeCss()}
+${getModalHostCss()}
 
 .panel-stage__overlay {
   position: fixed;
@@ -39,15 +41,8 @@ ${getPanelChromeCss()}
   min-width: 0;
 }
 
-.panel-header__meta h2 {
-  font-size: var(--aimd-text-2xl);
-  font-weight: var(--aimd-font-semibold);
-}
-
-.icon-btn:hover,
-.secondary-btn:hover,
 .tree-caret:hover {
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);
+  background: var(--aimd-button-icon-hover);
 }
 
 .icon-btn:focus-visible,
@@ -72,7 +67,7 @@ ${getPanelChromeCss()}
 .dialog-body {
   flex: 1;
   overflow: auto;
-  padding: 22px;
+  padding: calc(var(--aimd-space-5) + var(--aimd-space-2));
 }
 
 .dialog-body--bookmark-save {
@@ -146,6 +141,14 @@ ${getPanelChromeCss()}
 
 .picker-row[data-selected="1"] {
   background: color-mix(in srgb, var(--aimd-interactive-primary) 16%, transparent);
+}
+
+.picker-row:hover {
+  background: var(--aimd-button-secondary-hover);
+}
+
+.picker-row[data-selected="1"]:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 86%, var(--aimd-button-secondary-hover));
 }
 
 .tree-caret {
@@ -242,51 +245,30 @@ ${getPanelChromeCss()}
   font-weight: var(--aimd-font-semibold);
 }
 
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--aimd-space-5);
+.mock-modal-overlay {
   background: color-mix(in srgb, var(--aimd-overlay-bg) 48%, transparent);
 }
 
-.modal {
+.mock-modal {
   width: min(420px, calc(100vw - 48px));
-  background: var(--aimd-bg-primary);
-  border: 1px solid var(--aimd-border-default);
-  border-radius: var(--aimd-radius-xl);
-  box-shadow: var(--aimd-shadow-panel);
-  overflow: hidden;
 }
 
-.modal-head,
-.modal-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--aimd-space-2);
-  padding: var(--aimd-space-4);
+.mock-modal__title-copy strong {
+  font-size: var(--aimd-modal-title-size);
+  font-weight: var(--aimd-modal-title-weight);
 }
 
-.modal-head {
-  border-bottom: 1px solid var(--aimd-border-default);
+.mock-modal__title-wrap {
+  gap: var(--aimd-space-3);
 }
 
-.modal-title {
-  font-size: var(--aimd-text-sm);
-  font-weight: var(--aimd-font-semibold);
+.mock-modal__kind-icon {
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
 }
 
-.modal-body {
-  display: grid;
-  gap: var(--aimd-space-2);
-  padding: var(--aimd-space-4);
-}
-
-.modal-actions {
-  justify-content: flex-end;
+.mock-modal__content {
+  gap: var(--aimd-space-3);
 }
 
 @media (max-width: 900px) {

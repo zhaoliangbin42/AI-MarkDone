@@ -86,3 +86,17 @@ Verification:
 Verification:
 - `npm run test:core` (pass)
 - `npm run build` (pass; Chrome MV3 + Firefox MV2)
+
+## 2026-03-21 — Overlay chrome unification + ChatGPT folding polish + bookmarks interaction hardening
+
+- Unified overlay chrome/title contracts across panel and modal families, then aligned Reader/Source/Save dialogs/Bookmarks/Sending surfaces onto the shared tokenized control system.
+- Refined ChatGPT folding UX: full-turn folding boundary, flattened fold bar/dock styling, and a ChatGPT-only toolbar collapse action placed before the word-count stats.
+- Hardened bookmarks interactions on host pages by adding local/shared input-event boundaries for the bookmarks panel, shared modal host, and bookmark-save dialog flows.
+- Fixed bookmarks batch delete so checked folders are removed together with descendant folders and saved items; updated runtime protocol docs for the expanded `bookmarks:bulkRemove` semantics.
+- Hid the ChatGPT “folding count” setting unless folding mode is `keep_last_n`, and refreshed sponsor/settings surface details plus platform icons in bookmarks settings.
+
+Verification:
+- `npm test -- tests/unit/ui/components/modalHost.test.ts tests/unit/ui/bookmarks/save/bookmarkSaveDialog.test.ts tests/unit/ui/bookmarks/bookmarksPanel.test.ts tests/unit/ui/bookmarks/bookmarksPanel.overlay.test.ts tests/unit/ui/sending/sendPopover.test.ts` (pass)
+- `npm test -- tests/unit/ui/bookmarks/bookmarksPanelController.test.ts tests/unit/runtimes/background/bookmarks-handler.test.ts tests/unit/ui/bookmarks/bookmarksPanel.test.ts` (pass)
+- `npm test -- tests/unit/ui/bookmarks/bookmarksPanel.test.ts -t "activates the real settings and sponsor panels"` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2)

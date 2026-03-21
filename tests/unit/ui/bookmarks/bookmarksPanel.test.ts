@@ -79,7 +79,9 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('--_bookmarks-shell-radius: var(--aimd-radius-2xl);');
         expect(css).toContain('--_bookmarks-control-height: 44px;');
         expect(css).toContain('--_bookmarks-pill-radius: var(--aimd-radius-full);');
-        expect(css).toContain('--_bookmarks-panel-title-size: var(--aimd-text-xl);');
+        expect(css).toContain('--_bookmarks-panel-title-size: var(--aimd-panel-title-size-compact);');
+        expect(css).toContain('--_bookmarks-modal-title-size: var(--aimd-modal-title-size);');
+        expect(css).toContain('--_bookmarks-body-copy-size: var(--aimd-text-base);');
         expect(css).toContain('border-radius: var(--_bookmarks-pill-radius);');
         expect(css).toContain('min-height: var(--aimd-size-control-action-panel);');
         expect(css).toContain('width: var(--aimd-size-control-icon-panel);');
@@ -106,6 +108,16 @@ describe('BookmarksPanel', () => {
         expect(css).not.toContain('z-index: 4;');
         expect(css).not.toMatch(/font-size:\s*\d+px/);
         expect(css).not.toMatch(/border-radius:\s*\d+px/);
+        expect(css).toContain('background: var(--aimd-button-icon-hover);');
+        expect(css).toContain('background: var(--aimd-button-secondary-hover);');
+        expect(css).toContain('.icon-btn--danger:hover');
+        expect(css).toContain('.tab-btn:hover');
+        expect(css).toContain('.tree-item:hover');
+        expect(css).toContain('.settings-select-trigger:hover');
+        expect(css).toContain('.sponsor-brand-badge');
+        expect(css).toContain('text-align: center;');
+        expect(css).toContain('justify-items: center;');
+        expect(css).toContain('max-width: 34ch;');
     });
 
     it('activates the real settings and sponsor panels inside the formal bookmarks panel shell', async () => {
@@ -191,12 +203,26 @@ describe('BookmarksPanel', () => {
         expect(refreshedSettingsPanel?.textContent).toContain('50%');
         expect(refreshedSettingsPanel?.querySelectorAll('.settings-select-trigger').length).toBeGreaterThanOrEqual(2);
         expect(refreshedSettingsPanel?.querySelector('.settings-select')).toBeNull();
-        expect(refreshedSettingsPanel?.querySelector('.settings-number-field')).toBeTruthy();
+        expect(refreshedSettingsPanel?.querySelector('[data-role="settings-folding-count"]')).toBeNull();
         const platformLabels = Array.from(refreshedSettingsPanel?.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong') ?? []);
         const deepseekLabel = platformLabels.find((node) => node.textContent?.includes('Deep'));
         expect(deepseekLabel?.textContent).toContain('DeepSeek');
         expect(deepseekLabel?.textContent).not.toContain('Deepseek');
+        const platformIconHtml = platformLabels.map((node) => node.innerHTML).join('\n');
+        expect(platformIconHtml).toContain('ChatGPT');
+        expect(platformIconHtml).toContain('Gemini');
+        expect(platformIconHtml).toContain('Claude');
+        expect(platformIconHtml).toContain('DeepSeek');
+        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
         expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!.click();
+        shadow.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-mode"][data-value="keep_last_n"]')!.click();
+        await flushUi();
+
+        const keepLastNPanel = shadow.querySelector<HTMLElement>('.settings-panel');
+        expect(keepLastNPanel?.querySelector('[data-role="settings-folding-count"]')).toBeTruthy();
+        expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgpt', { foldingMode: 'keep_last_n' });
 
         sponsorTabButton!.click();
 
@@ -212,7 +238,13 @@ describe('BookmarksPanel', () => {
         expect(refreshedSponsorTab?.querySelector('.sponsor-qr-card')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-celebration')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-title-row')).toBeTruthy();
+        expect(refreshedSponsorTab?.querySelector('.sponsor-brand-badge')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-brand-mark')).toBeTruthy();
+        expect(refreshedSponsorTab?.textContent).toContain('Support Development');
+        expect(refreshedSponsorTab?.textContent).toContain('AI-MarkDone is open source. Star us on GitHub.');
+        expect(refreshedSponsorTab?.textContent).toContain('If this project helps you');
+        expect(refreshedSponsorTab?.textContent).toContain('Support the developer with a coffee');
+        expect(refreshedSponsorTab?.textContent).not.toContain('Donate');
 
         panel.hide();
     });
@@ -282,6 +314,103 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector<HTMLElement>('.settings-panel')?.textContent).toContain('存储占用');
 
         panel.hide();
+    });
+
+    it('keeps panel interactions local instead of bubbling search, tab, and settings events to the page', async () => {
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set<string>(),
+            previewId: null,
+            status: 'Ready',
+            storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const documentClick = vi.fn();
+        const documentInput = vi.fn();
+        const documentFocusIn = vi.fn();
+        const documentKeydown = vi.fn();
+        const documentChange = vi.fn();
+        document.addEventListener('click', documentClick);
+        document.addEventListener('input', documentInput);
+        document.addEventListener('focusin', documentFocusIn);
+        document.addEventListener('keydown', documentKeydown);
+        document.addEventListener('change', documentChange);
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+
+        try {
+            await panel.show();
+            documentClick.mockClear();
+            documentInput.mockClear();
+            documentFocusIn.mockClear();
+            documentKeydown.mockClear();
+            documentChange.mockClear();
+
+            const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+            const queryInput = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-query"]')!;
+            queryInput.value = 'vector db';
+            queryInput.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+            queryInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, composed: true }));
+            queryInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            expect(controller.setQuery).toHaveBeenCalledWith('vector db');
+            expect(documentFocusIn).not.toHaveBeenCalled();
+            expect(documentKeydown).not.toHaveBeenCalled();
+            expect(documentInput).not.toHaveBeenCalled();
+
+            shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+            expect(documentClick).not.toHaveBeenCalled();
+            expect(shadow.querySelector<HTMLElement>('.settings-panel')?.dataset.active).toBe('1');
+
+            const toggle = shadow.querySelector<HTMLInputElement>('[data-role="settings-platform-chatgpt"]')!;
+            toggle.checked = false;
+            toggle.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            await flushUi();
+
+            expect(documentChange).not.toHaveBeenCalled();
+            expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('platforms', { chatgpt: false });
+        } finally {
+            panel.hide();
+            document.removeEventListener('click', documentClick);
+            document.removeEventListener('input', documentInput);
+            document.removeEventListener('focusin', documentFocusIn);
+            document.removeEventListener('keydown', documentKeydown);
+            document.removeEventListener('change', documentChange);
+        }
     });
 
     it('wires bookmarks panel icon actions into the shared tooltip delegate', async () => {

@@ -47,4 +47,17 @@ describe('MessageToolbar', () => {
         expect(stats?.children).toHaveLength(2);
         expect(statsSeparator?.hidden).toBe(false);
     });
+
+    it('uses canonical hover and menu surface tokens instead of hardcoded black and white mixes', () => {
+        const toolbar = new MessageToolbar('light', [], { showStats: false });
+        const shadow = toolbar.getElement().shadowRoot;
+        const style = shadow?.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-base"]');
+        const css = style?.textContent ?? '';
+
+        expect(css).toContain('--aimd-button-icon-hover');
+        expect(css).toContain('--aimd-button-icon-active');
+        expect(css).toContain('--aimd-bg-surface');
+        expect(css).not.toContain('#000');
+        expect(css).not.toContain('#fff');
+    });
 });

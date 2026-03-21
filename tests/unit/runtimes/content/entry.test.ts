@@ -185,6 +185,7 @@ describe('content runtime entry', () => {
         expect(bookmarksPanelCtor).toHaveBeenCalledTimes(1);
         expect(addListener).toHaveBeenCalledTimes(1);
         expect(foldingInit).not.toHaveBeenCalled();
+        expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeUndefined();
     });
 
     it('keeps ChatGPT folding ChatGPT-only', async () => {
@@ -196,6 +197,7 @@ describe('content runtime entry', () => {
         expect(headerIconInit).toHaveBeenCalledTimes(1);
         expect(foldingCtor).toHaveBeenCalledTimes(1);
         expect(foldingInit).toHaveBeenCalledTimes(1);
+        expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeTruthy();
     });
 
     it('applies settings updates to runtime wiring and existing messages', async () => {

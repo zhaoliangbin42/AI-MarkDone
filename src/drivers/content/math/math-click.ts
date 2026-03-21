@@ -4,7 +4,6 @@ import { copyTextToClipboard } from '../clipboard/clipboard';
 import { getDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 
 const STYLE_ID = 'aimd-math-click-style';
-
 function ensureMathClickStyle(): void {
     if (typeof document === 'undefined') return;
     if (document.getElementById(STYLE_ID)) return;
@@ -215,12 +214,13 @@ export class MathClickHandler {
         const targetEl = element.classList.contains('katex-display')
             ? mathEl
             : (mathEl.querySelector('.katex') as HTMLElement) || mathEl;
+        const hoverBackground = this.getHoverBackground(element, targetEl);
 
         targetEl.style.cursor = 'pointer';
         targetEl.style.transition = 'background-color 0.2s';
 
         const mouseenterHandler = () => {
-            targetEl.style.backgroundColor = 'var(--aimd-interactive-highlight)';
+            targetEl.style.backgroundColor = hoverBackground;
         };
 
         const mouseleaveHandler = () => {
@@ -253,6 +253,23 @@ export class MathClickHandler {
         });
     }
 
+    private getHoverBackground(element: Element, targetEl?: HTMLElement): string {
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const fallback = 'rgba(37, 99, 235, 0.12)';
+        const highlight = computed.getPropertyValue('--aimd-interactive-highlight').trim() || fallback;
+
+        if (element.classList.contains('math-inline')) {
+            return highlight;
+        }
+
+        if (targetEl?.closest('.math-inline')) {
+            return highlight;
+        }
+
+        return highlight;
+    }
+
     private async handleClick(element: Element): Promise<void> {
         const latex = extractLatexSource(element);
         if (!latex) {
@@ -270,16 +287,20 @@ export class MathClickHandler {
     }
 
     private showCopyFeedback(element: HTMLElement): void {
-        element.style.backgroundColor = 'var(--aimd-interactive-flash)';
+        const targetEl = this.elementListeners.get(element)?.target ?? element;
+        const computed = getComputedStyle(document.documentElement);
+        const flash = computed.getPropertyValue('--aimd-interactive-flash').trim() || 'rgba(37, 99, 235, 0.24)';
+
+        targetEl.style.backgroundColor = flash;
         showEphemeralTooltip({
-            anchor: element,
+            anchor: targetEl,
             text: 'Copied',
         });
 
         setTimeout(() => {
-            element.style.backgroundColor = '';
-            if (element.matches(':hover')) {
-                element.style.backgroundColor = 'var(--aimd-interactive-highlight)';
+            targetEl.style.backgroundColor = '';
+            if (targetEl.matches(':hover')) {
+                targetEl.style.backgroundColor = this.getHoverBackground(element, targetEl);
             }
         }, 1500);
     }

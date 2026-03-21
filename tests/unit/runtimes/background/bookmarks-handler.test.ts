@@ -291,6 +291,55 @@ describe('background bookmarks handler', () => {
         expect(payload.bookmarks[0].position).toBe(2);
     });
 
+    it('bulkRemove also removes selected folders and their descendants when folder paths are provided', async () => {
+        const store: StorageMap = {
+            folderPaths: ['Import', 'Work', 'Work/Research'],
+            'folder:Import': { path: 'Import', name: 'Import', depth: 1, createdAt: 1, updatedAt: 1 },
+            'folder:Work': { path: 'Work', name: 'Work', depth: 1, createdAt: 1, updatedAt: 1 },
+            'folder:Work/Research': { path: 'Work/Research', name: 'Research', depth: 2, createdAt: 1, updatedAt: 1 },
+            'bookmark:chatgpt.com/c/1:1': {
+                url: 'https://chatgpt.com/c/1',
+                urlWithoutProtocol: 'chatgpt.com/c/1',
+                position: 1,
+                userMessage: 'u1',
+                aiResponse: 'a1',
+                timestamp: 1,
+                title: 'T1',
+                platform: 'ChatGPT',
+                folderPath: 'Work/Research',
+            },
+            'bookmark:chatgpt.com/c/1:2': {
+                url: 'https://chatgpt.com/c/1',
+                urlWithoutProtocol: 'chatgpt.com/c/1',
+                position: 2,
+                userMessage: 'u2',
+                aiResponse: 'a2',
+                timestamp: 2,
+                title: 'T2',
+                platform: 'ChatGPT',
+                folderPath: 'Import',
+            },
+            'aimd:bookmarks:index:v1': ['bookmark:chatgpt.com/c/1:1', 'bookmark:chatgpt.com/c/1:2'],
+        };
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        const bulk = await handleBookmarksRequest(req('bookmarks:bulkRemove', {
+            items: [],
+            folderPaths: ['Work'],
+        }));
+
+        expect(bulk?.response.ok).toBe(true);
+        expect(store['bookmark:chatgpt.com/c/1:1']).toBeUndefined();
+        expect(store['bookmark:chatgpt.com/c/1:2']).toBeTruthy();
+        expect(store['folder:Work']).toBeUndefined();
+        expect(store['folder:Work/Research']).toBeUndefined();
+        expect(store['folder:Import']).toBeTruthy();
+        expect(store['aimd:bookmarks:index:v1']).toEqual(['bookmark:chatgpt.com/c/1:2']);
+        expect(store.folderPaths).toEqual(['Import']);
+    });
+
     it('returns storage usage derived from real local storage bytes and quota', async () => {
         const store: StorageMap = {
             'bookmark:chatgpt.com/c/1:1': {

@@ -6,6 +6,7 @@ const positionsMock = vi.fn(async () => ({ ok: true, data: { positions: [] } }))
 const uiStateGetMock = vi.fn(async () => ({ ok: true, data: { value: 'Research/March' } }));
 const uiStateSetMock = vi.fn(async (_value: string | null) => ({ ok: true, data: { value: _value } }));
 const bulkMoveMock = vi.fn(async () => ({ ok: true, data: {} }));
+const bulkRemoveMock = vi.fn(async () => ({ ok: true, data: {} }));
 const storageUsageMock = vi.fn(async () => ({ ok: true, data: { usedBytes: 0, quotaBytes: 1024, usedPercentage: 0, warningLevel: 'none' } }));
 
 vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
         uiStateGetLastSelectedFolderPath: uiStateGetMock,
         uiStateSetLastSelectedFolderPath: uiStateSetMock,
         bulkMove: bulkMoveMock,
+        bulkRemove: bulkRemoveMock,
     },
 }));
 
@@ -131,6 +133,49 @@ describe('BookmarksPanelController', () => {
         expect(bulkMoveMock).toHaveBeenCalledWith({
             items: [{ url: 'https://chat.openai.com/c/123', position: 8 }],
             targetFolderPath: 'Archive',
+        });
+    });
+
+    it('includes checked folder paths when batch deleting a selected folder', async () => {
+        const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
+        const controller = new BookmarksPanelController({} as any);
+
+        foldersListMock.mockResolvedValueOnce({
+            ok: true,
+            data: {
+                folders: [
+                    { path: 'Work', name: 'Work', depth: 1, createdAt: 0, updatedAt: 0 },
+                    { path: 'Work/Research', name: 'Research', depth: 2, createdAt: 0, updatedAt: 0 },
+                ],
+                folderPaths: ['Work', 'Work/Research'],
+            },
+        });
+        listMock.mockResolvedValueOnce({
+            ok: true,
+            data: {
+                bookmarks: [
+                    {
+                        url: 'https://chat.openai.com/c/123',
+                        urlWithoutProtocol: 'chat.openai.com/c/123',
+                        position: 8,
+                        userMessage: 'Prompt',
+                        aiResponse: 'Answer',
+                        timestamp: Date.now(),
+                        title: 'Saved thread',
+                        platform: 'ChatGPT',
+                        folderPath: 'Work/Research',
+                    },
+                ],
+            },
+        });
+
+        await controller.refreshAll();
+        controller.toggleFolderSelection('Work');
+        await controller.batchDelete();
+
+        expect(bulkRemoveMock).toHaveBeenCalledWith({
+            items: [{ url: 'https://chat.openai.com/c/123', position: 8 }],
+            folderPaths: ['Work', 'Work/Research'],
         });
     });
 });

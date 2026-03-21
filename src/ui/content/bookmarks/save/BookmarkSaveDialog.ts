@@ -25,6 +25,7 @@ import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../service
 import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
+import { installInputEventBoundary } from '../../components/inputEventBoundary';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../../overlay/OverlaySurfaceHost';
 import { TooltipDelegate } from '../../../../utils/tooltip';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
@@ -52,6 +53,8 @@ export class BookmarkSaveDialog {
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private unsubscribeLocale: (() => void) | null = null;
+    private removeSurfaceBoundary: (() => void) | null = null;
+    private removeModalBoundary: (() => void) | null = null;
     private theme: Theme = 'light';
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
@@ -120,6 +123,10 @@ export class BookmarkSaveDialog {
         this.unsubscribeLocale = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
+        this.removeSurfaceBoundary?.();
+        this.removeSurfaceBoundary = null;
+        this.removeModalBoundary?.();
+        this.removeModalBoundary = null;
         this.hostHandle?.unmount();
         this.hostHandle = null;
         this.state = null;
@@ -174,6 +181,8 @@ export class BookmarkSaveDialog {
         });
 
         this.hostHandle = handle;
+        this.removeSurfaceBoundary = installInputEventBoundary(handle.surfaceRoot);
+        this.removeModalBoundary = installInputEventBoundary(handle.modalRoot);
         this.tooltipDelegate = new TooltipDelegate(handle.shadow);
         this.unsubscribeLocale = subscribeLocaleChange(() => {
             if (this.hostHandle && this.state) this.render();
@@ -374,7 +383,7 @@ export class BookmarkSaveDialog {
         if (!this.rootFolderModal) return;
 
         const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
+        overlay.className = 'mock-modal-overlay';
         overlay.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) {
                 this.rootFolderModal = null;
@@ -383,32 +392,41 @@ export class BookmarkSaveDialog {
         });
 
         const panel = document.createElement('div');
-        panel.className = 'modal';
+        panel.className = 'mock-modal';
+        panel.dataset.kind = 'info';
         panel.setAttribute('role', 'dialog');
         panel.setAttribute('aria-modal', 'true');
         panel.setAttribute('aria-label', this.getLabel('newFolder', 'New Folder'));
 
         const head = document.createElement('div');
-        head.className = 'modal-head';
-        const title = document.createElement('div');
-        title.className = 'modal-title';
+        head.className = 'mock-modal__head';
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'mock-modal__title-wrap';
+        const kindIcon = document.createElement('span');
+        kindIcon.className = 'mock-modal__kind-icon';
+        kindIcon.innerHTML = iconMarkup(folderOpenIcon);
+        const titleCopy = document.createElement('div');
+        titleCopy.className = 'mock-modal__title-copy';
+        const title = document.createElement('strong');
         title.textContent = this.getLabel('newFolder', 'New Folder');
+        titleCopy.appendChild(title);
         const close = document.createElement('button');
         close.type = 'button';
-        close.className = 'icon-btn';
+        close.className = 'mock-modal__close';
         close.setAttribute('aria-label', this.getLabel('btnClose', 'Close'));
         close.appendChild(createIcon(xIcon));
         close.addEventListener('click', () => {
             this.rootFolderModal = null;
             this.renderModalLayer();
         });
-        head.append(title, close);
+        titleWrap.append(kindIcon, titleCopy);
+        head.append(titleWrap, close);
 
         const body = document.createElement('div');
-        body.className = 'modal-body';
+        body.className = 'mock-modal__content';
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'text-input aimd-field-control aimd-field-control--standalone';
+        input.className = 'mock-modal__input text-input aimd-field-control aimd-field-control--standalone';
         input.value = this.rootFolderModal.value;
         input.placeholder = this.getLabel('enterFolderName', 'New folder');
         input.setAttribute('data-role', 'root_folder_input');
@@ -443,10 +461,10 @@ export class BookmarkSaveDialog {
         body.append(input, error, hint);
 
         const actions = document.createElement('div');
-        actions.className = 'modal-actions';
+        actions.className = 'mock-modal__footer';
         const cancel = document.createElement('button');
         cancel.type = 'button';
-        cancel.className = 'secondary-btn';
+        cancel.className = 'mock-modal__button mock-modal__button--secondary';
         cancel.textContent = this.getLabel('btnCancel', 'Cancel');
         cancel.addEventListener('click', () => {
             this.rootFolderModal = null;
@@ -455,7 +473,7 @@ export class BookmarkSaveDialog {
 
         const save = document.createElement('button');
         save.type = 'button';
-        save.className = 'secondary-btn secondary-btn--primary';
+        save.className = 'mock-modal__button mock-modal__button--primary';
         save.textContent = this.getLabel('btnSave', 'Save');
 
         const confirm = async () => {

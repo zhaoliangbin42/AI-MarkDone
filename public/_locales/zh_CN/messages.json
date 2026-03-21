@@ -1083,7 +1083,7 @@
         "message": "收起文件夹"
     },
     "deleteSelectedMessage": {
-        "message": "要删除已选中的书签吗？"
+        "message": "要删除已选中的项目吗？"
     },
     "confirmAction": {
         "message": "确认"

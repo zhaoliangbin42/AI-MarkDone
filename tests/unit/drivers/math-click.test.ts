@@ -11,8 +11,37 @@ function setClipboardMock() {
 }
 
 describe('MathClickHandler', () => {
+    it('uses the resolved interactive highlight token for inline formula hover', () => {
+        document.documentElement.style.setProperty('--aimd-interactive-highlight', 'rgba(37, 99, 235, 0.12)');
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="math-inline">
+            <span class="katex">
+              <annotation encoding="application/x-tex">x_1 + y</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler();
+        handler.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        expect(target).toBeTruthy();
+
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+        expect(target.style.backgroundColor).toBe('rgba(37, 99, 235, 0.12)');
+
+        handler.disable();
+        container.remove();
+        document.documentElement.style.removeProperty('--aimd-interactive-highlight');
+    });
+
     it('copies LaTeX from annotation on click', async () => {
         const { writeText } = setClipboardMock();
+        document.documentElement.style.setProperty('--aimd-interactive-highlight', 'rgba(37, 99, 235, 0.12)');
+        document.documentElement.style.setProperty('--aimd-interactive-flash', 'rgba(37, 99, 235, 0.24)');
 
         const container = document.createElement('div');
         container.innerHTML = `
@@ -28,9 +57,14 @@ describe('MathClickHandler', () => {
         const target = container.querySelector('.katex') as HTMLElement;
         expect(target).toBeTruthy();
 
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        expect(target.style.backgroundColor).toBe('rgba(37, 99, 235, 0.12)');
+
         target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await Promise.resolve();
         await Promise.resolve();
+
+        expect(target.style.backgroundColor).toBe('rgba(37, 99, 235, 0.24)');
 
         expect(writeText).toHaveBeenCalledWith('x_1 + y');
         const tooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip[data-variant="ephemeral"]');
@@ -38,6 +72,8 @@ describe('MathClickHandler', () => {
         expect(tooltip?.textContent).toContain('Copied');
         handler.disable();
         container.remove();
+        document.documentElement.style.removeProperty('--aimd-interactive-highlight');
+        document.documentElement.style.removeProperty('--aimd-interactive-flash');
     });
 
     it('observes streaming DOM updates and attaches to new math nodes', async () => {

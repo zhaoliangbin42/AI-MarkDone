@@ -14,6 +14,7 @@ export class ChatGPTFoldBar {
     private shadowRoot: ShadowRoot;
     private styleEl: HTMLStyleElement;
     private callbacks: ChatGPTFoldBarCallbacks;
+    private barEl: HTMLDivElement;
     private labelEl: HTMLDivElement;
     private buttonEl: HTMLButtonElement;
     private tooltipDelegate: TooltipDelegate;
@@ -31,12 +32,12 @@ export class ChatGPTFoldBar {
         this.shadowRoot.appendChild(this.styleEl);
         this.tooltipDelegate = new TooltipDelegate(this.shadowRoot);
 
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-        bar.setAttribute('role', 'button');
-        bar.tabIndex = 0;
-        bar.addEventListener('click', () => this.callbacks.onToggle());
-        bar.addEventListener('keydown', (e) => {
+        this.barEl = document.createElement('div');
+        this.barEl.className = 'bar';
+        this.barEl.setAttribute('role', 'button');
+        this.barEl.tabIndex = 0;
+        this.barEl.addEventListener('click', () => this.callbacks.onToggle());
+        this.barEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 this.callbacks.onToggle();
@@ -54,9 +55,9 @@ export class ChatGPTFoldBar {
         this.labelEl = document.createElement('div');
         this.labelEl.className = 'label';
 
-        bar.appendChild(this.buttonEl);
-        bar.appendChild(this.labelEl);
-        this.shadowRoot.appendChild(bar);
+        this.barEl.appendChild(this.buttonEl);
+        this.barEl.appendChild(this.labelEl);
+        this.shadowRoot.appendChild(this.barEl);
 
         this.setCollapsed(true);
     }
@@ -82,6 +83,7 @@ export class ChatGPTFoldBar {
     setCollapsed(collapsed: boolean): void {
         this.rootEl.dataset.collapsed = collapsed ? '1' : '0';
         this.rootEl.style.marginBottom = collapsed ? 'var(--aimd-space-2)' : '0';
+        this.barEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         this.buttonEl.replaceChildren(createIcon(collapsed ? chevronRightIcon : chevronDownIcon));
 
         const label = collapsed ? t('btnExpand') : t('btnCollapse');
@@ -93,6 +95,11 @@ export class ChatGPTFoldBar {
     private getCss(): string {
         return `
 :host {
+  --_foldbar-min-height: calc(var(--aimd-size-icon-md) + var(--aimd-space-2));
+  --_foldbar-padding-block: var(--aimd-space-2);
+  --_foldbar-padding-inline: var(--aimd-space-3);
+  --_foldbar-radius: var(--aimd-radius-xl);
+  --_foldbar-surface: var(--aimd-bg-primary);
   display: block;
   width: 100%;
   font-family: var(--aimd-font-family-sans);
@@ -100,59 +107,75 @@ export class ChatGPTFoldBar {
 .bar {
   display: flex;
   align-items: center;
-  gap: var(--aimd-space-2);
+  gap: var(--aimd-space-3);
   width: 100%;
+  min-height: var(--_foldbar-min-height);
   box-sizing: border-box;
-  padding: var(--aimd-space-1) var(--aimd-space-2);
-  border: 1px solid var(--aimd-border-default);
-  border-radius: calc(var(--aimd-radius-lg) * 2);
-  /* Simple, stable surfaces: base color comes from theme tokens. */
-  background: var(--aimd-bg-secondary);
+  padding: var(--_foldbar-padding-block) var(--_foldbar-padding-inline);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 76%, var(--aimd-interactive-primary));
+  border-radius: var(--_foldbar-radius);
+  background: var(--_foldbar-surface);
   color: var(--aimd-text-primary);
   cursor: pointer;
   user-select: none;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              border-color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .bar:hover {
-  /* Light mode: gets darker; dark mode: gets lighter (mixing with text color flips direction). */
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, var(--aimd-text-primary) 12%);
-  border-color: var(--aimd-border-default);
+  background: color-mix(in srgb, var(--_foldbar-surface) 82%, var(--aimd-interactive-hover));
+  border-color: color-mix(in srgb, var(--aimd-border-default) 62%, var(--aimd-interactive-primary));
 }
-.bar:active { background: color-mix(in srgb, var(--aimd-bg-secondary) 78%, var(--aimd-text-primary) 22%); }
+.bar:active {
+  background: color-mix(in srgb, var(--_foldbar-surface) 78%, var(--aimd-interactive-active));
+}
 .toggle {
   all: unset;
   cursor: pointer;
-  width: calc(var(--aimd-size-icon-md) - 8px);
-  height: calc(var(--aimd-size-icon-md) - 8px);
-  min-width: calc(var(--aimd-size-icon-md) - 8px);
-  max-width: calc(var(--aimd-size-icon-md) - 8px);
-  border-radius: var(--aimd-radius-md);
+  width: var(--aimd-size-icon-md);
+  height: var(--aimd-size-icon-md);
+  min-width: var(--aimd-size-icon-md);
+  max-width: var(--aimd-size-icon-md);
+  border-radius: var(--aimd-radius-lg);
   display: grid;
   place-items: center;
+  background: transparent;
   color: var(--aimd-text-secondary);
-  transition: background 160ms ease, color 160ms ease;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
-.toggle:hover { background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, var(--aimd-text-primary) 12%); color: var(--aimd-text-secondary); }
-.toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 80%, transparent); outline-offset: 2px; }
-.toggle svg { width: 14px; height: 14px; display: block; }
+.toggle:hover {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-text-primary);
+}
+.toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 72%, transparent);
+  outline-offset: 2px;
+}
+.toggle svg {
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
+  display: block;
+}
 .label {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: var(--aimd-font-size-sm);
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-semibold);
+  line-height: 1.3;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--aimd-text-primary);
 }
 
 @supports not (background: color-mix(in srgb, white 10%, transparent)) {
   .bar {
-    background: var(--aimd-bg-secondary);
+    background: var(--aimd-bg-primary);
+    border-color: var(--aimd-border-default);
   }
   .bar:hover {
     background: var(--aimd-bg-secondary);
+    border-color: var(--aimd-border-default);
   }
 }
 `;

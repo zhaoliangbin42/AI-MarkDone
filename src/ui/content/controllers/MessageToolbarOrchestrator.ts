@@ -18,10 +18,11 @@ import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, fileCodeIcon, locateIcon, sendIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, chevronUpIcon, fileCodeIcon, locateIcon, sendIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
+import type { ChatGPTFoldingController } from './ChatGPTFoldingController';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -95,6 +96,7 @@ export class MessageToolbarOrchestrator {
     private readerPanel: ReaderPanel;
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
+    private foldingController: ChatGPTFoldingController | null = null;
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
     private turnRefs: ConversationTurnRef[] = [];
@@ -280,6 +282,7 @@ export class MessageToolbarOrchestrator {
             readerPanel: ReaderPanel;
             sendController?: SendController;
             bookmarksController?: BookmarksPanelController;
+            foldingController?: ChatGPTFoldingController;
             onMessageInjected?: (messageElement: HTMLElement) => void;
         }
     ) {
@@ -287,6 +290,7 @@ export class MessageToolbarOrchestrator {
         this.readerPanel = opts.readerPanel;
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
+        this.foldingController = opts.foldingController ?? null;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
@@ -521,6 +525,21 @@ export class MessageToolbarOrchestrator {
                 disabledWhenPending: true,
                 onClick: async () => {
                     saveMessagesDialog.open(this.adapter, this.theme);
+                },
+            });
+        }
+
+        if (this.adapter.getPlatformId() === 'chatgpt' && this.foldingController?.canCollapseMessage(messageElement)) {
+            actions.push({
+                id: 'collapse_turn',
+                label: t('collapse'),
+                tooltip: t('collapse'),
+                icon: chevronUpIcon,
+                kind: 'secondary',
+                disabledWhenPending: true,
+                onClick: async () => {
+                    const collapsed = this.foldingController?.collapseGroupForMessage(messageElement) ?? false;
+                    return collapsed ? { ok: true, message: t('collapse') } : { ok: false, message: t('contentNotFound') };
                 },
             });
         }

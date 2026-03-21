@@ -32,5 +32,19 @@ describe('SendModal', () => {
         const hostAfter = document.querySelector('.aimd-send-modal-host');
         expect(hostAfter).toBeFalsy();
     });
-});
 
+    it('uses semantic primary and secondary button tokens in the modal css', () => {
+        const modal = new SendModal();
+        const css = (modal as any).getCss?.() ?? '';
+
+        expect(css).toContain('font-size: var(--aimd-modal-title-size);');
+        expect(css).toContain('font-weight: var(--aimd-modal-title-weight);');
+        expect(css).toContain('var(--aimd-button-secondary-hover)');
+        expect(css).toContain('var(--aimd-text-on-primary)');
+        expect(css).toContain('var(--aimd-interactive-primary-hover)');
+        expect(css).toContain('width: var(--aimd-size-control-icon-panel);');
+        expect(css).not.toContain('#fff');
+        expect(css).not.toContain('#000');
+        expect(css).not.toContain('font-size: 16px;');
+    });
+});

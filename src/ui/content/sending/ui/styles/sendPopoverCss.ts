@@ -10,8 +10,8 @@ ${getInputFieldCss()}
   padding: 14px;
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, rgba(255,255,255,0.72));
-  box-shadow: 0 24px 60px color-mix(in srgb, #0f172a 18%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
+  box-shadow: var(--aimd-shadow-lg);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -20,7 +20,7 @@ ${getInputFieldCss()}
   max-width: min(680px, calc(100vw - 80px));
   max-height: min(520px, calc(100vh - 120px));
   overflow: hidden;
-  z-index: calc(var(--aimd-z-base) + 2);
+  z-index: var(--aimd-z-tooltip);
   color: var(--aimd-text-primary);
 }
 
@@ -51,9 +51,9 @@ ${getInputFieldCss()}
 }
 
 .send-popover__head strong {
-  font-size: var(--aimd-text-base);
-  line-height: 1.3;
-  font-weight: var(--aimd-font-semibold);
+  font-size: var(--aimd-panel-title-size-compact);
+  line-height: var(--aimd-panel-title-line-height);
+  font-weight: var(--aimd-panel-title-weight);
 }
 
 .send-popover__head-actions {
@@ -69,14 +69,14 @@ ${getInputFieldCss()}
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 90%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
   font-size: var(--aimd-text-sm);
   line-height: 1.45;
   outline: none;
   overflow: auto;
   resize: none;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
 }
 
 .send-popover__input::placeholder {
@@ -138,6 +138,8 @@ ${getInputFieldCss()}
 
 .send-popover .icon-btn:hover {
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-button-icon-text-hover);
 }
 
 .send-popover .icon-btn:focus-visible,
@@ -155,8 +157,8 @@ ${getInputFieldCss()}
   gap: 8px;
   border-radius: 999px;
   border: 1px solid var(--aimd-border-default);
-  background: transparent;
-  color: var(--aimd-text-primary);
+  background: var(--aimd-button-secondary-bg);
+  color: var(--aimd-button-secondary-text);
   font-size: var(--aimd-text-sm);
   line-height: 1;
   font-weight: var(--aimd-font-medium);
@@ -167,14 +169,37 @@ ${getInputFieldCss()}
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
 }
 
+.send-popover .studio-btn:hover {
+  background: var(--aimd-button-secondary-hover);
+}
+
+.send-popover .studio-btn:active {
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 78%, var(--aimd-button-icon-active));
+}
+
 .send-popover .studio-btn--primary {
   background: var(--aimd-interactive-primary);
   color: var(--aimd-text-on-primary);
   border-color: transparent;
 }
 
+.send-popover .studio-btn--primary:hover {
+  background: var(--aimd-interactive-primary-hover);
+}
+
+.send-popover .studio-btn--primary:active {
+  background: var(--aimd-interactive-primary-hover);
+}
+
 .send-popover .studio-btn--ghost {
   background: transparent;
+  border-color: transparent;
+  color: var(--aimd-text-secondary);
+}
+
+.send-popover .studio-btn--ghost:hover {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-button-icon-text-hover);
 }
 
 .send-popover .studio-btn[disabled],

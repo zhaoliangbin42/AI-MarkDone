@@ -42,7 +42,12 @@
 - `--aimd-panel-footer-padding-block-compact`
 - `--aimd-panel-footer-padding-inline-compact`
 - `--aimd-panel-footer-gap`
+- `--aimd-panel-title-size`
+- `--aimd-panel-title-size-compact`
+- `--aimd-panel-title-weight`
 - `--aimd-panel-title-line-height`
+- `--aimd-modal-title-size`
+- `--aimd-modal-title-weight`
 
 ---
 
@@ -193,6 +198,7 @@ Token 提升规则：
 - 如果某个值只服务于单一模块的内部结构，可保留为组件私有变量
 - 不允许把 mock 中的裸颜色、裸阴影、裸圆角、裸间距长期留在 shipped UI 中而不收敛来源
 - panel/header/footer/icon-button/action-button 这类 chrome 结构一旦被 2 个以上 overlay 模块复用，必须下沉到共享 primitive，而不是复制一份近似 CSS
+- panel primitive 与 modal primitive 可以并存，但 modal primitive 必须被明确视为正式 subtype，并继续复用同一套 control state 语义
 - 模块私有变量只允许表达结构 personality；不允许继续承载跨模块共享的 chrome 尺寸
 
 禁止：

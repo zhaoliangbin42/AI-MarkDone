@@ -178,4 +178,81 @@ describe('BookmarkSaveDialog', () => {
 
         await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
     });
+
+    it('keeps primary save hover distinct from neutral secondary hover in the css contract', async () => {
+        const { getBookmarkSaveDialogCss } = await import('@/ui/content/bookmarks/save/bookmarkSaveDialogCss');
+        const css = getBookmarkSaveDialogCss('light');
+
+        expect(css).not.toContain('.secondary-btn:hover,');
+        expect(css).not.toContain('.icon-btn:hover,\n.secondary-btn:hover,');
+        expect(css).toContain('.tree-caret:hover');
+        expect(css).toContain('.picker-row:hover');
+        expect(css).toContain('.picker-row[data-selected="1"]');
+        expect(css).not.toContain('.modal-title');
+        expect(css).toContain('.mock-modal__title-copy strong');
+    });
+
+    it('keeps bookmark save inputs and nested new-folder modal interactions local to the dialog', async () => {
+        await setLocale('en');
+        const documentClick = vi.fn();
+        const documentInput = vi.fn();
+        const documentFocusIn = vi.fn();
+        const documentKeydown = vi.fn();
+        document.addEventListener('click', documentClick);
+        document.addEventListener('input', documentInput);
+        document.addEventListener('focusin', documentFocusIn);
+        document.addEventListener('keydown', documentKeydown);
+
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+            documentClick.mockClear();
+            documentInput.mockClear();
+            documentFocusIn.mockClear();
+            documentKeydown.mockClear();
+
+            const title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            title.value = 'Research Notes';
+            title.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+            title.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, composed: true }));
+            title.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            expect(documentFocusIn).not.toHaveBeenCalled();
+            expect(documentKeydown).not.toHaveBeenCalled();
+            expect(documentInput).not.toHaveBeenCalled();
+
+            shadow.querySelector<HTMLElement>('[data-action="bookmark-save-new-root-folder"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+            await flushUi();
+
+            expect(documentClick).not.toHaveBeenCalled();
+
+            const nestedInput = shadow.querySelector<HTMLInputElement>('[data-role="root_folder_input"]');
+            expect(nestedInput).toBeTruthy();
+            nestedInput!.value = 'Archive';
+            nestedInput!.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+            nestedInput!.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, composed: true }));
+            nestedInput!.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            expect(documentFocusIn).not.toHaveBeenCalled();
+            expect(documentKeydown).not.toHaveBeenCalled();
+            expect(documentInput).not.toHaveBeenCalled();
+        } finally {
+            document.removeEventListener('click', documentClick);
+            document.removeEventListener('input', documentInput);
+            document.removeEventListener('focusin', documentFocusIn);
+            document.removeEventListener('keydown', documentKeydown);
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
 });

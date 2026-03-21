@@ -34,6 +34,7 @@ import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from './BookmarksPanelController';
 import type { ReaderPanel } from '../reader/ReaderPanel';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { ModalHost } from '../components/ModalHost';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { bookmarkSaveDialog } from './save/bookmarkSaveDialogSingleton';
@@ -85,7 +86,6 @@ const TREE_VIRTUALIZE_THRESHOLD = 240;
 const TREE_FOLDER_ROW_HEIGHT = 52;
 const TREE_BOOKMARK_ROW_HEIGHT = 62;
 const TREE_OVERSCAN_PX = 320;
-
 function shouldLogBookmarksPerf(): boolean {
     try {
         if (typeof window !== 'undefined' && window.__AIMD_BOOKMARKS_PERF__) return true;
@@ -174,11 +174,14 @@ function mergeSettings(input: unknown): AppSettings {
     };
 }
 
-function renderToggle(role: string, label: string, checked: boolean, desc = ''): string {
+function renderToggle(role: string, label: string, checked: boolean, desc = '', iconSvg?: string): string {
     return `
       <label class="toggle-row">
         <div class="settings-label">
-          <strong>${escapeHtml(label)}</strong>
+          <strong>
+            ${iconSvg ? `<span class="settings-label__icon" aria-hidden="true">${icon(iconSvg)}</span>` : ''}
+            <span>${escapeHtml(label)}</span>
+          </strong>
           ${desc ? `<p>${escapeHtml(desc)}</p>` : ''}
         </div>
         <span class="toggle-switch" data-checked="${checked ? '1' : '0'}">
@@ -538,10 +541,10 @@ function getSettingsTabHtml(uiState: UiState, snapshot: BookmarksPanelSnapshot |
       <div class="settings-grid">
         <section class="settings-card">
           <div class="card-title">${icon(Icons.globe)} ${escapeHtml(tr('platforms', 'Platforms'))}</div>
-          ${renderToggle('settings-platform-chatgpt', 'ChatGPT', s.platforms.chatgpt, tr('settingsPlatformChatgptDesc', 'Enable AI-MarkDone on ChatGPT.'))}
-          ${renderToggle('settings-platform-gemini', 'Gemini', s.platforms.gemini, tr('settingsPlatformGeminiDesc', 'Enable AI-MarkDone on Gemini.'))}
-          ${renderToggle('settings-platform-claude', 'Claude', s.platforms.claude, tr('settingsPlatformClaudeDesc', 'Enable AI-MarkDone on Claude.'))}
-          ${renderToggle('settings-platform-deepseek', 'DeepSeek', s.platforms.deepseek, tr('settingsPlatformDeepseekDesc', 'Enable AI-MarkDone on DeepSeek.'))}
+          ${renderToggle('settings-platform-chatgpt', 'ChatGPT', s.platforms.chatgpt, tr('settingsPlatformChatgptDesc', 'Enable AI-MarkDone on ChatGPT.'), Icons.chatgpt)}
+          ${renderToggle('settings-platform-gemini', 'Gemini', s.platforms.gemini, tr('settingsPlatformGeminiDesc', 'Enable AI-MarkDone on Gemini.'), Icons.gemini)}
+          ${renderToggle('settings-platform-claude', 'Claude', s.platforms.claude, tr('settingsPlatformClaudeDesc', 'Enable AI-MarkDone on Claude.'), Icons.claude)}
+          ${renderToggle('settings-platform-deepseek', 'DeepSeek', s.platforms.deepseek, tr('settingsPlatformDeepseekDesc', 'Enable AI-MarkDone on DeepSeek.'), Icons.deepseek)}
         </section>
         <section class="settings-card">
           <div class="card-title">${icon(chatgptIcon)} ${escapeHtml(tr('chatgptSettings', 'ChatGPT'))}</div>
@@ -552,19 +555,21 @@ function getSettingsTabHtml(uiState: UiState, snapshot: BookmarksPanelSnapshot |
             </div>
             ${renderSettingsSelect('folding-mode', uiState)}
           </div>
-          <div class="settings-row" data-visible="${s.chatgpt.foldingMode === 'keep_last_n' ? '1' : '0'}">
-            <div class="settings-label">
-              <strong>${escapeHtml(tr('chatgptFoldingCountLabel', 'Expanded count'))}</strong>
-              <p>${escapeHtml(tr('settingsExpandedCountDesc', 'Used only when the folding mode keeps the latest N messages visible.'))}</p>
-            </div>
-            <div class="settings-number-field aimd-field-shell">
-              <input class="settings-number aimd-field-control" data-role="settings-folding-count" type="number" min="0" value="${s.chatgpt.defaultExpandedCount}" />
-              <div class="settings-number-stepper">
-                <button class="settings-number-step" type="button" data-action="settings-step-count" data-direction="up" aria-label="${escapeHtml(tr('increaseExpandedCount', 'Increase expanded count'))}" ${tooltipAttr(tr('increaseExpandedCount', 'Increase expanded count'))}>${icon(chevronDownIcon)}</button>
-                <button class="settings-number-step settings-number-step--down" type="button" data-action="settings-step-count" data-direction="down" aria-label="${escapeHtml(tr('decreaseExpandedCount', 'Decrease expanded count'))}" ${tooltipAttr(tr('decreaseExpandedCount', 'Decrease expanded count'))}>${icon(chevronDownIcon)}</button>
+          ${s.chatgpt.foldingMode === 'keep_last_n' ? `
+            <div class="settings-row" data-visible="1">
+              <div class="settings-label">
+                <strong>${escapeHtml(tr('chatgptFoldingCountLabel', 'Expanded count'))}</strong>
+                <p>${escapeHtml(tr('settingsExpandedCountDesc', 'Used only when the folding mode keeps the latest N messages visible.'))}</p>
+              </div>
+              <div class="settings-number-field aimd-field-shell">
+                <input class="settings-number aimd-field-control" data-role="settings-folding-count" type="number" min="0" value="${s.chatgpt.defaultExpandedCount}" />
+                <div class="settings-number-stepper">
+                  <button class="settings-number-step" type="button" data-action="settings-step-count" data-direction="up" aria-label="${escapeHtml(tr('increaseExpandedCount', 'Increase expanded count'))}" ${tooltipAttr(tr('increaseExpandedCount', 'Increase expanded count'))}>${icon(chevronDownIcon)}</button>
+                  <button class="settings-number-step settings-number-step--down" type="button" data-action="settings-step-count" data-direction="down" aria-label="${escapeHtml(tr('decreaseExpandedCount', 'Decrease expanded count'))}" ${tooltipAttr(tr('decreaseExpandedCount', 'Decrease expanded count'))}>${icon(chevronDownIcon)}</button>
+                </div>
               </div>
             </div>
-          </div>
+          ` : ''}
           ${renderToggle('settings-fold-dock', tr('settingsFoldDockLabel', 'Show fold dock'), s.chatgpt.showFoldDock, tr('settingsFoldDockDesc', 'Keep the compact fold dock visible in supported threads.'))}
         </section>
         <section class="settings-card">
@@ -610,35 +615,34 @@ function getSponsorTabHtml(bmcUrl: string, wechatUrl: string, logoUrl: string): 
       <div class="sponsor-celebration" aria-hidden="true"></div>
       <div class="sponsor-shell">
         <div class="sponsor-title-row">
-          <img class="sponsor-brand-mark" src="${logoUrl}" alt="AI-MarkDone" />
+          <div class="sponsor-brand-badge">
+            <img class="sponsor-brand-mark" src="${logoUrl}" alt="AI-MarkDone" />
+          </div>
         </div>
         <section class="sponsor-card sponsor-card--primary">
           <div class="sponsor-section-head">
             <div class="sponsor-section-icon">${icon(Icons.github)}</div>
             <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">${escapeHtml(t('sponsorOpenSourceTitle'))}</div>
-              <div class="sponsor-section-note">${escapeHtml(tr('sponsorOpenSourceNote', 'Star the repository to help the project stay visible.'))}</div>
+              <div class="sponsor-section-label">${escapeHtml(t('supportDevelopment'))}</div>
             </div>
           </div>
-          <p>${escapeHtml(tr('sponsorOpenSourceBody', 'If the project is useful, starring the repository is the fastest way to help. It improves discoverability and makes continued maintenance easier to justify.'))}</p>
+          <p class="sponsor-section-body">${escapeHtml(t('supportDevDesc'))}</p>
           <div class="sponsor-action-row">
             <button class="${buttonClass('primary')} sponsor-cta-button" type="button" data-action="sponsor-github">${icon(Icons.github)} ${escapeHtml(tr('starOnGitHub', 'Star on GitHub'))}</button>
           </div>
         </section>
         <section class="sponsor-card sponsor-card--secondary">
-          <div class="sponsor-section-head sponsor-section-head--centered">
+          <div class="sponsor-section-head">
             <div class="sponsor-section-icon sponsor-section-icon--warm">${icon(coffeeIcon)}</div>
             <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">${escapeHtml(tr('sponsorDonateTitle', 'Donate'))}</div>
-              <div class="sponsor-section-note">${escapeHtml(tr('sponsorDonateNote', 'Support development directly with the existing sponsor channels.'))}</div>
+              <div class="sponsor-section-label">${escapeHtml(t('ifProjectHelps'))}</div>
             </div>
           </div>
-          <p>${escapeHtml(tr('sponsorDonateBody', 'If AI-MarkDone saves you time, you can also support development directly through the same two channels used in the shipped sponsor tab.'))}</p>
+          <p class="sponsor-section-body">${escapeHtml(t('supportCoffeeDesc'))}</p>
           <div class="sponsor-qr-grid">
             <article class="sponsor-qr-card">
               <div class="sponsor-qr-meta">
                 <strong>${escapeHtml(tr('buyMeCoffee', 'Buy Me a Coffee'))}</strong>
-                <span>${escapeHtml(tr('sponsorBmcNote', 'Quick international support'))}</span>
               </div>
               <div class="sponsor-qr-frame">
                 <img class="sponsor-qr-image" src="${bmcUrl}" alt="${escapeHtml(tr('sponsorBmcAlt', 'Buy Me a Coffee QR code'))}" />
@@ -647,7 +651,6 @@ function getSponsorTabHtml(bmcUrl: string, wechatUrl: string, logoUrl: string): 
             <article class="sponsor-qr-card">
               <div class="sponsor-qr-meta">
                 <strong>${escapeHtml(tr('wechatAppreciationCode', 'WeChat reward'))}</strong>
-                <span>${escapeHtml(tr('sponsorWechatNote', 'Direct appreciation in WeChat'))}</span>
               </div>
               <div class="sponsor-qr-frame">
                 <img class="sponsor-qr-image" src="${wechatUrl}" alt="${escapeHtml(tr('sponsorWechatAlt', 'WeChat appreciation code'))}" />
@@ -764,6 +767,7 @@ export class BookmarksPanel {
     private treeRenderedRange: { startIndex: number; endIndex: number } | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
+    private panelEventBoundaryCleanup: (() => void) | null = null;
     private readonly onShadowPointerDown = (event: Event) => {
         if (!this.hostHandle) return;
 
@@ -876,6 +880,8 @@ export class BookmarksPanel {
         this.unsubscribeLocale = null;
         this.keyboardHandle?.detach();
         this.keyboardHandle = null;
+        this.panelEventBoundaryCleanup?.();
+        this.panelEventBoundaryCleanup = null;
         if (this.treeFrameHandle !== null) {
             window.cancelAnimationFrame(this.treeFrameHandle);
             this.treeFrameHandle = null;
@@ -925,8 +931,11 @@ export class BookmarksPanel {
         const panel = overlay?.querySelector<HTMLElement>('.panel-window');
         if (!overlay || !panel) return;
 
+        this.panelEventBoundaryCleanup?.();
+        this.panelEventBoundaryCleanup = null;
         this.hostHandle.backdropRoot.replaceChildren(overlay);
         this.hostHandle.surfaceRoot.appendChild(panel);
+        this.panelEventBoundaryCleanup = this.installPanelEventBoundary(panel);
         this.restoreScrollTop();
         this.bindTreePanel(panel.querySelector<HTMLElement>('.tree-panel'));
 
@@ -946,6 +955,10 @@ export class BookmarksPanel {
             virtualized: Boolean(this.treeVirtualModel),
             visibleBookmarks: this.snapshot?.vm.bookmarks.length ?? 0,
         });
+    }
+
+    private installPanelEventBoundary(panel: HTMLElement): () => void {
+        return installInputEventBoundary(panel);
     }
 
     private readonly onTreePanelScroll = (): void => {
@@ -1684,11 +1697,11 @@ export class BookmarksPanel {
     }
 
     private async batchDelete(): Promise<void> {
-        if (!await this.confirmDialog('warning', tr('deleteSelectedTitle', 'Delete selected bookmarks'), tr('deleteSelectedMessage', 'Delete selected bookmarks?'), true)) return;
+        if (!await this.confirmDialog('warning', tr('deleteSelectedTitle', 'Delete selected items'), tr('deleteSelectedMessage', 'Delete selected items?'), true)) return;
         const res = await this.controller.batchDelete();
         this.controller.setPanelStatus(res.ok ? tr('deletedStatus', 'Deleted') : res.message);
         if (!res.ok) {
-            await this.alertDialog('error', tr('deleteSelectedTitle', 'Delete selected bookmarks'), res.message);
+            await this.alertDialog('error', tr('deleteSelectedTitle', 'Delete selected items'), res.message);
         }
     }
 

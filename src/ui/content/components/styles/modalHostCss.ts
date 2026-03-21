@@ -87,8 +87,9 @@ ${getInputFieldCss()}
 }
 
 .mock-modal__title-copy strong {
-  font-size: var(--aimd-text-xl);
-  line-height: 1.2;
+  font-size: var(--aimd-modal-title-size);
+  font-weight: var(--aimd-modal-title-weight);
+  line-height: var(--aimd-panel-title-line-height);
   color: var(--_modal-accent);
 }
 
@@ -126,14 +127,27 @@ ${getInputFieldCss()}
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--aimd-text-primary);
+  color: var(--aimd-button-icon-text);
   border: 1px solid transparent;
   flex: 0 0 auto;
 }
 
-.mock-modal__close:hover,
+.mock-modal__close:hover {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-button-icon-text-hover);
+}
+
+.mock-modal__close:active {
+  background: var(--aimd-button-icon-active);
+  color: var(--aimd-button-icon-text-hover);
+}
+
 .mock-modal__button--secondary:hover {
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);
+  background: var(--aimd-button-secondary-hover);
+}
+
+.mock-modal__button--secondary:active {
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 78%, var(--aimd-button-icon-active));
 }
 
 .mock-modal__content {
@@ -289,12 +303,15 @@ ${getInputFieldCss()}
   min-height: var(--aimd-size-control-action-panel);
   padding: 0 16px;
   border-radius: var(--aimd-radius-full);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
-  color: var(--aimd-text-primary);
+  border: 1px solid var(--aimd-border-default);
+  background: var(--aimd-button-secondary-bg);
+  color: var(--aimd-button-secondary-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: var(--aimd-text-sm);
+  line-height: 1;
+  font-weight: var(--aimd-font-medium);
 }
 
 .mock-modal__button--primary {
@@ -307,13 +324,21 @@ ${getInputFieldCss()}
   background: var(--aimd-interactive-primary-hover);
 }
 
+.mock-modal__button--primary:active {
+  background: var(--aimd-interactive-primary-hover);
+}
+
 .mock-modal__button--danger {
   border-color: color-mix(in srgb, var(--aimd-color-danger) 34%, transparent);
   color: var(--aimd-color-danger);
 }
 
 .mock-modal__button--danger:hover {
-  background: color-mix(in srgb, var(--aimd-color-danger) 8%, transparent);
+  background: var(--aimd-feedback-danger-bg);
+}
+
+.mock-modal__button--danger:active {
+  background: color-mix(in srgb, var(--aimd-color-danger) 16%, transparent);
 }
 
 .mock-modal__close:focus-visible,

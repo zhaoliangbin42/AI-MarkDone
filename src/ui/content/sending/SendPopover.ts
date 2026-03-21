@@ -5,6 +5,7 @@ import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { sendIcon, xIcon } from '../../../assets/icons';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
 
 type State = {
@@ -30,7 +31,6 @@ const MIN_WIDTH = 320;
 const MIN_HEIGHT = 220;
 const MAX_WIDTH = 680;
 const MAX_HEIGHT = 520;
-
 function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')
@@ -57,7 +57,6 @@ export class SendPopover {
     private onWindowMouseMove: ((event: MouseEvent) => void) | null = null;
     private onWindowMouseUp: ((event: MouseEvent) => void) | null = null;
     private anchorPositionReset: (() => void) | null = null;
-    private draftSyncToken = 0;
     private unsubscribeLocale: (() => void) | null = null;
 
     setTheme(theme: Theme): void {
@@ -124,22 +123,12 @@ export class SendPopover {
         const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) {
             textarea.value = text;
-            textarea.addEventListener('input', () => {
-                void this.syncComposerDraft(textarea.value);
-            });
+            this.installDraftEventBoundary(textarea);
         }
         window.setTimeout(() => textarea?.focus(), 0);
 
         const resizeHandle = pop.querySelector<HTMLButtonElement>('[data-action="resize"]');
-        if (resizeHandle) {
-            resizeHandle.style.position = 'absolute';
-            resizeHandle.style.top = '6px';
-            resizeHandle.style.right = '6px';
-            resizeHandle.style.width = '20px';
-            resizeHandle.style.height = '20px';
-        }
-
-        void this.syncComposerDraft(text);
+        if (resizeHandle) resizeHandle.dataset.ready = '1';
 
         pop.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
         pop.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
@@ -243,22 +232,8 @@ export class SendPopover {
         return false;
     }
 
-    private async syncComposerDraft(text: string): Promise<void> {
-        const adapter = this.state.adapter;
-        if (!adapter) return;
-        try {
-            const input = adapter.getComposerInputElement?.() ?? null;
-            if (!input) return;
-        } catch {
-            return;
-        }
-        const token = ++this.draftSyncToken;
-        const result = await writeComposer(adapter, text, { focus: false, strategy: 'auto' });
-        if (token !== this.draftSyncToken) return;
-        if (!result.ok) {
-            this.setStatus(result.message);
-            window.setTimeout(() => this.setStatus(''), 1200);
-        }
+    private installDraftEventBoundary(textarea: HTMLTextAreaElement): void {
+        installInputEventBoundary(textarea);
     }
 
     private setStatus(text: string): void {

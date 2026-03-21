@@ -1,6 +1,7 @@
 import { Icons, xIcon } from '../../../assets/icons';
 import { ensureStyle } from '../../../style/shadow';
 import { t } from './i18n';
+import { installInputEventBoundary } from './inputEventBoundary';
 import { getModalHostCss } from './styles/modalHostCss';
 
 type ModalKind = 'info' | 'warning' | 'error';
@@ -45,6 +46,7 @@ export class ModalHost {
         this.container.className = 'mock-modal-host';
         this.ensureStyles();
         this.root.appendChild(this.container);
+        installInputEventBoundary(this.container);
     }
 
     isOpen(): boolean {

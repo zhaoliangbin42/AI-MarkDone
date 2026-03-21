@@ -95,10 +95,10 @@ export class ChatGPTFoldDock {
   overflow: hidden;
   /* Legacy parity: extremely narrow vertical pill. */
   width: 100%;
-  min-height: calc(var(--aimd-space-4) * 6);
+  min-height: calc(var(--aimd-space-3) * 6);
   border-radius: calc(var(--aimd-radius-lg) * 2);
   border: 1px solid var(--aimd-border-default);
-  background: var(--aimd-bg-secondary);
+  background: var(--aimd-bg-primary);
 }
 .btn {
   all: unset;
@@ -106,7 +106,7 @@ export class ChatGPTFoldDock {
   display: grid;
   place-items: center;
   width: 100%;
-  min-height: calc(var(--aimd-space-4) * 3);
+  min-height: calc(var(--aimd-space-3) * 3);
   color: var(--aimd-text-primary);
   font-size: var(--aimd-font-size-xs);
   font-weight: 700;
@@ -114,13 +114,13 @@ export class ChatGPTFoldDock {
   transition: background 160ms ease;
 }
 .btn + .btn { border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent); }
-.btn:hover { background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, var(--aimd-text-primary) 12%); }
-.btn:active { background: color-mix(in srgb, var(--aimd-bg-secondary) 78%, var(--aimd-text-primary) 22%); }
+.btn:hover { background: var(--aimd-interactive-hover); }
+.btn:active { background: var(--aimd-interactive-active); }
 .btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 80%, transparent); outline-offset: -2px; }
 
 @supports not (background: color-mix(in srgb, white 10%, transparent)) {
   .dock {
-    background: var(--aimd-bg-secondary);
+    background: var(--aimd-bg-primary);
   }
 }
 `;

@@ -74,6 +74,12 @@ describe('SendPopover', () => {
         expect(styleNode?.textContent).toContain('.send-popover__resize-handle:hover,');
         expect(styleNode?.textContent).toContain('border-color: transparent;');
         expect(styleNode?.textContent).toContain('transition: none;');
+        expect(styleNode?.textContent).not.toContain('rgba(255,255,255,0.72)');
+        expect(styleNode?.textContent).not.toContain('#0f172a');
+        expect(styleNode?.textContent).toContain('z-index: var(--aimd-z-tooltip);');
+        expect(styleNode?.textContent).toContain('background: var(--aimd-button-icon-hover);');
+        expect(styleNode?.textContent).toContain('background: var(--aimd-button-secondary-hover);');
+        expect(styleNode?.textContent).toContain('background: var(--aimd-interactive-primary-hover);');
 
         // ESC closes (bubble is mounted as child of footerLeft)
         const el = footerLeft.querySelector('.send-popover') as HTMLElement;
@@ -192,10 +198,139 @@ describe('SendPopover', () => {
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         await Promise.resolve();
 
+        expect(composer.value).toBe('seed');
+
+        pop.close(shadow, { syncBack: true });
+        await Promise.resolve();
+
         expect(composer.value).toBe('hello world');
+
+        composer.remove();
+    });
+
+    it('does not rewrite the official composer during open when reading an initial draft', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const composer = document.createElement('textarea');
+        composer.value = 'seed';
+        document.body.appendChild(composer);
+
+        const adapter = {
+            getComposerInputElement: () => composer,
+            getComposerSendButtonElement: () => null,
+            getComposerKind: () => 'textarea',
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        await Promise.resolve();
+
+        expect(composer.value).toBe('seed');
 
         pop.close(shadow, { syncBack: false });
         composer.remove();
+    });
+
+    it('keeps typing events inside the popover so host listeners cannot steal focus from the draft textarea', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const composer = document.createElement('textarea');
+        composer.value = 'seed';
+        document.body.appendChild(composer);
+
+        const adapter = {
+            getComposerInputElement: () => composer,
+            getComposerSendButtonElement: () => null,
+            getComposerKind: () => 'textarea',
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        await Promise.resolve();
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        const hostInputSpy = vi.fn(() => composer.focus());
+        document.addEventListener('input', hostInputSpy);
+
+        textarea.focus();
+        textarea.value = 'hello';
+        textarea.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: 'o', inputType: 'insertText' }));
+        await Promise.resolve();
+
+        expect(hostInputSpy).toHaveBeenCalledTimes(0);
+        expect(shadow.activeElement).toBe(textarea);
+
+        document.removeEventListener('input', hostInputSpy);
+        pop.close(shadow, { syncBack: false });
+        composer.remove();
+        host.remove();
+    });
+
+    it('keeps pointer and focus events inside the popover draft textarea so host listeners cannot hijack focus on click', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const composer = document.createElement('textarea');
+        composer.value = 'seed';
+        document.body.appendChild(composer);
+
+        const adapter = {
+            getComposerInputElement: () => composer,
+            getComposerSendButtonElement: () => null,
+            getComposerKind: () => 'textarea',
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        await Promise.resolve();
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        const hostMouseDownSpy = vi.fn(() => composer.focus());
+        const hostFocusSpy = vi.fn(() => composer.focus());
+        document.addEventListener('mousedown', hostMouseDownSpy);
+        document.addEventListener('focusin', hostFocusSpy);
+
+        textarea.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true }));
+        textarea.focus();
+        await Promise.resolve();
+
+        expect(hostMouseDownSpy).toHaveBeenCalledTimes(0);
+        expect(hostFocusSpy).toHaveBeenCalledTimes(0);
+        expect(shadow.activeElement).toBe(textarea);
+
+        document.removeEventListener('mousedown', hostMouseDownSpy);
+        document.removeEventListener('focusin', hostFocusSpy);
+        pop.close(shadow, { syncBack: false });
+        composer.remove();
+        host.remove();
     });
 
     it('does not surface a composer-not-found error when opened without an available composer input', async () => {

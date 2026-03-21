@@ -195,4 +195,28 @@ describe('ReaderPanel navigation', () => {
             panel.hide();
         }
     });
+
+    it('renders long-range pager gaps as a dedicated three-dot ellipsis unit instead of plain text', async () => {
+        const panel = new ReaderPanel();
+        const items = Array.from({ length: 80 }, (_, index) => ({
+            id: `item-${index}`,
+            userPrompt: `Q${index + 1}`,
+            content: `md${index + 1}`,
+        }));
+
+        try {
+            await panel.show(items, 40, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const ellipsis = shadow.querySelector<HTMLElement>('.reader-dots .reader-ellipsis');
+            const dots = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-dots .reader-ellipsis__dot'));
+
+            expect(ellipsis).toBeTruthy();
+            expect(ellipsis?.textContent).not.toContain('…');
+            expect(dots).toHaveLength(6);
+        } finally {
+            panel.hide();
+        }
+    });
 });

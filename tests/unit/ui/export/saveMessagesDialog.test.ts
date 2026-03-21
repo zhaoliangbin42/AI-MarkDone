@@ -145,4 +145,14 @@ describe('SaveMessagesDialog', () => {
 
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });
+
+    it('uses stronger semantic hover rules for chips and segmented buttons', async () => {
+        const { getSaveMessagesDialogCss } = await import('@/ui/content/export/saveMessagesDialogCss');
+        const css = getSaveMessagesDialogCss('light');
+
+        expect(css).not.toContain('background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);');
+        expect(css).toContain('.message-chip:hover');
+        expect(css).toContain('var(--aimd-button-secondary-hover)');
+        expect(css).toContain('.segmented button:hover');
+    });
 });

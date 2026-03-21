@@ -36,6 +36,7 @@ if (adapter) {
         readerPanel,
         sendController,
         bookmarksController,
+        foldingController: folding ?? undefined,
         onMessageInjected: (messageElement) => {
             const behavior = settingsClient.getCached()?.behavior ?? DEFAULT_SETTINGS.behavior;
             if (behavior.enableClickToCopy) {

@@ -122,6 +122,21 @@
 
 - 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
 
+关键语义：
+
+- `bookmarks:bulkRemove`
+  - payload 现在支持：
+    - `items`
+      - 需要删除的 bookmark 选中项
+    - `folderPaths?`
+      - 可选；需要一并删除的 folder path 列表
+  - 语义是“批量删除选中项”，而不再只是“批量删除书签”
+  - background handler 负责：
+    - 删除显式选中的书签
+    - 递归删除命中的 folder 与其后代
+    - 删除这些 folder 下的书签
+    - 修正相关 folder index 与 bookmarks UI state
+
 ---
 
 ## 6. Compatibility Rules

@@ -117,6 +117,11 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-space-panel-footer-padding-block-compact: var(--aimd-ref-space-200);
   --aimd-sys-space-panel-footer-padding-inline-compact: var(--aimd-ref-space-300);
   --aimd-sys-space-panel-footer-gap: var(--aimd-ref-space-300);
+  --aimd-sys-type-panel-title-size: var(--aimd-sys-type-title-large-size);
+  --aimd-sys-type-panel-title-size-compact: var(--aimd-sys-type-title-medium-size);
+  --aimd-sys-type-panel-title-weight: var(--aimd-sys-type-weight-semibold);
+  --aimd-sys-type-modal-title-size: var(--aimd-sys-type-title-large-size);
+  --aimd-sys-type-modal-title-weight: var(--aimd-sys-type-weight-semibold);
   --aimd-sys-type-panel-title-line-height: 1.1;
 
   --aimd-sys-motion-duration-fast: var(--aimd-ref-motion-duration-fast);
@@ -133,6 +138,7 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-bg-secondary: var(--aimd-sys-color-surface-subtle);
   --aimd-bg-tertiary: color-mix(in srgb, var(--aimd-bg-secondary) 82%, var(--aimd-bg-primary));
   --aimd-bg-surface: var(--aimd-sys-color-surface-elevated);
+  --aimd-color-white: var(--aimd-ref-color-neutral-white);
   --aimd-text-primary: var(--aimd-sys-color-text-primary);
   --aimd-text-secondary: var(--aimd-sys-color-text-secondary);
   --aimd-text-tertiary: color-mix(in srgb, var(--aimd-text-secondary) 72%, transparent);
@@ -150,6 +156,7 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-interactive-selected: var(--aimd-sys-color-accent-soft);
   --aimd-interactive-danger: var(--aimd-sys-color-danger);
   --aimd-state-success-border: var(--aimd-sys-color-state-success-border);
+  --aimd-state-success-text: color-mix(in srgb, var(--aimd-state-success-border) 72%, var(--aimd-text-primary));
   --aimd-state-error-border: var(--aimd-sys-color-state-error-border);
   --aimd-focus-ring: var(--aimd-sys-color-focus-ring);
   --aimd-overlay-bg: var(--aimd-sys-color-overlay);
@@ -216,6 +223,11 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-panel-footer-padding-block-compact: var(--aimd-sys-space-panel-footer-padding-block-compact);
   --aimd-panel-footer-padding-inline-compact: var(--aimd-sys-space-panel-footer-padding-inline-compact);
   --aimd-panel-footer-gap: var(--aimd-sys-space-panel-footer-gap);
+  --aimd-panel-title-size: var(--aimd-sys-type-panel-title-size);
+  --aimd-panel-title-size-compact: var(--aimd-sys-type-panel-title-size-compact);
+  --aimd-panel-title-weight: var(--aimd-sys-type-panel-title-weight);
+  --aimd-modal-title-size: var(--aimd-sys-type-modal-title-size);
+  --aimd-modal-title-weight: var(--aimd-sys-type-modal-title-weight);
   --aimd-panel-title-line-height: var(--aimd-sys-type-panel-title-line-height);
   --aimd-duration-fast: var(--aimd-sys-motion-duration-fast);
   --aimd-duration-base: var(--aimd-sys-motion-duration-enter);

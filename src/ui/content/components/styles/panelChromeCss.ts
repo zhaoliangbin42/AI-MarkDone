@@ -46,6 +46,9 @@ export function getPanelChromeCss(): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--aimd-panel-title-size);
+  font-weight: var(--aimd-panel-title-weight);
+  color: var(--aimd-text-primary);
   line-height: var(--aimd-panel-title-line-height);
 }
 
@@ -96,30 +99,30 @@ export function getPanelChromeCss(): string {
 .icon-btn {
   width: var(--aimd-size-control-icon-panel);
   height: var(--aimd-size-control-icon-panel);
-  color: var(--aimd-text-primary);
+  color: var(--aimd-button-icon-text);
 }
 
 .panel-nav-btn,
 .nav-btn {
   width: var(--aimd-size-control-icon-panel-nav);
   height: var(--aimd-size-control-icon-panel-nav);
-  color: var(--aimd-text-primary);
+  color: var(--aimd-button-icon-text);
 }
 
 .panel-icon-btn:hover,
 .icon-btn:hover,
 .panel-nav-btn:hover,
-.nav-btn:hover,
-.panel-secondary-btn:hover,
-.secondary-btn:hover {
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);
+.nav-btn:hover {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-button-icon-text-hover);
 }
 
 .panel-icon-btn:active,
 .icon-btn:active,
 .panel-nav-btn:active,
 .nav-btn:active {
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 92%, var(--aimd-interactive-hover));
+  background: var(--aimd-button-icon-active);
+  color: var(--aimd-button-icon-text-hover);
 }
 
 .panel-icon-btn:focus-visible,
@@ -164,8 +167,8 @@ export function getPanelChromeCss(): string {
   padding: 0 var(--aimd-space-3);
   border-radius: var(--aimd-radius-full);
   border: 1px solid var(--aimd-border-default);
-  background: transparent;
-  color: var(--aimd-text-primary);
+  background: var(--aimd-button-secondary-bg);
+  color: var(--aimd-button-secondary-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -173,6 +176,16 @@ export function getPanelChromeCss(): string {
   font-size: var(--aimd-text-sm);
   line-height: 1;
   font-weight: var(--aimd-font-medium);
+}
+
+.panel-secondary-btn:hover,
+.secondary-btn:hover {
+  background: var(--aimd-button-secondary-hover);
+}
+
+.panel-secondary-btn:active,
+.secondary-btn:active {
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 78%, var(--aimd-button-icon-active));
 }
 
 .panel-secondary-btn--primary,
@@ -188,9 +201,45 @@ export function getPanelChromeCss(): string {
   background: var(--aimd-interactive-primary-hover);
 }
 
+.panel-secondary-btn--primary:active,
+.secondary-btn--primary:active {
+  background: var(--aimd-interactive-primary-hover);
+}
+
+.panel-secondary-btn--ghost,
+.secondary-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--aimd-text-secondary);
+}
+
+.panel-secondary-btn--ghost:hover,
+.secondary-btn--ghost:hover {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-button-icon-text-hover);
+}
+
+.panel-secondary-btn--ghost:active,
+.secondary-btn--ghost:active {
+  background: var(--aimd-button-icon-active);
+}
+
 .panel-secondary-btn--danger,
 .secondary-btn--danger {
   color: var(--aimd-interactive-danger);
+}
+
+.panel-secondary-btn--danger:hover,
+.secondary-btn--danger:hover {
+  background: var(--aimd-feedback-danger-bg);
+  border-color: color-mix(in srgb, var(--aimd-color-danger) 28%, var(--aimd-border-default));
+  color: var(--aimd-interactive-danger);
+}
+
+.panel-secondary-btn--danger:active,
+.secondary-btn--danger:active {
+  background: color-mix(in srgb, var(--aimd-color-danger) 18%, transparent);
+  border-color: color-mix(in srgb, var(--aimd-color-danger) 34%, var(--aimd-border-default));
 }
 
 @media (max-width: 900px) {

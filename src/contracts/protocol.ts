@@ -60,7 +60,7 @@ export type BookmarksImportPayload = {
 export type BookmarksPositionsPayload = { url: string };
 
 export type BookmarksBulkItem = { url: string; position: number };
-export type BookmarksBulkRemovePayload = { items: BookmarksBulkItem[] };
+export type BookmarksBulkRemovePayload = { items: BookmarksBulkItem[]; folderPaths?: string[] };
 export type BookmarksBulkMovePayload = { items: BookmarksBulkItem[]; targetFolderPath: string };
 export type BookmarksExportSelectedPayload = { items: BookmarksBulkItem[]; preserveStructure?: boolean };
 

@@ -23,10 +23,24 @@ describe('panelChromeCss', () => {
         expect(css).toContain('width: var(--aimd-size-control-icon-panel-nav);');
         expect(css).toContain('min-height: var(--aimd-size-control-action-panel);');
         expect(css).toContain('width: var(--aimd-size-control-glyph-panel);');
+        expect(css).toContain('font-size: var(--aimd-panel-title-size);');
+        expect(css).toContain('font-weight: var(--aimd-panel-title-weight);');
+        expect(css).toContain('color: var(--aimd-text-primary);');
         expect(css).toContain('line-height: var(--aimd-panel-title-line-height);');
 
         expect(css).toContain('.icon-btn');
         expect(css).toContain('.nav-btn');
         expect(css).toContain('.secondary-btn');
+        expect(css).toContain('color: var(--aimd-button-icon-text);');
+        expect(css).toContain('background: var(--aimd-button-icon-hover);');
+        expect(css).toContain('background: var(--aimd-button-icon-active);');
+        expect(css).toContain('color: var(--aimd-button-icon-text-hover);');
+        expect(css).toContain('background: var(--aimd-button-secondary-bg);');
+        expect(css).toContain('background: var(--aimd-button-secondary-hover);');
+        expect(css).toContain('color: var(--aimd-button-secondary-text);');
+        expect(css).toContain('.panel-secondary-btn--ghost');
+        expect(css).toContain('.secondary-btn--ghost');
+        expect(css).toContain('.panel-secondary-btn--danger:hover');
+        expect(css).toContain('.secondary-btn--danger:hover');
     });
 });

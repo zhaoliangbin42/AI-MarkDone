@@ -24,6 +24,7 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-size-control-icon-panel-nav');
         expect(css).toContain('--aimd-size-control-glyph-panel');
         expect(css).toContain('--aimd-size-control-action-panel');
+        expect(css).toContain('--aimd-color-white');
         expect(css).toContain('--aimd-sys-size-control-icon-toolbar: var(--aimd-ref-size-300);');
         expect(css).toContain('--aimd-panel-header-height');
         expect(css).toContain('--aimd-panel-header-height-compact');
@@ -42,7 +43,15 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-panel-footer-padding-block-compact');
         expect(css).toContain('--aimd-panel-footer-padding-inline-compact');
         expect(css).toContain('--aimd-panel-footer-gap');
+        expect(css).toContain('--aimd-panel-title-size');
+        expect(css).toContain('--aimd-panel-title-size-compact');
+        expect(css).toContain('--aimd-panel-title-weight');
+        expect(css).toContain('--aimd-modal-title-size');
+        expect(css).toContain('--aimd-modal-title-weight');
         expect(css).toContain('--aimd-panel-title-line-height');
+        expect(css).toContain('--aimd-sys-type-panel-title-size: var(--aimd-sys-type-title-large-size);');
+        expect(css).toContain('--aimd-sys-type-panel-title-size-compact: var(--aimd-sys-type-title-medium-size);');
+        expect(css).toContain('--aimd-sys-type-modal-title-size: var(--aimd-sys-type-title-large-size);');
         expect(css).not.toContain('--aimd-bg-primary: #');
     });
 

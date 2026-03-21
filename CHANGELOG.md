@@ -9,31 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - ChatGPT and DeepSeek: Added an adapter-driven header bookmark icon entry backed by a shared runtime orchestrator.
+- ChatGPT: Added a toolbar collapse action so foldable assistant messages can collapse their current turn group directly from the official message toolbar.
 
 ### Changed
 - Platform adapters now own page-header icon anchors and injection rules, keeping runtime lifecycle logic platform-agnostic.
+- ChatGPT: Moved the toolbar collapse action to the far right of the official toolbar action row, keeping the word-count stats at the end of the surface.
 - Unified the runtime style pipeline around shared reference tokens, semantic tokens, and stable UI exports.
+- Overlay panels and modal surfaces now share a documented title typography contract, with Reader, bookmarks, save dialogs, and sending surfaces aligned to the same tokenized chrome/control system.
 - Reader, source, bookmarks, export dialogs, and modal/popover controls now share one canonical panel chrome token contract for header/footer/button sizing.
 - Reader, bookmarks, toolbar, folding, and save dialogs now inherit the default UI font instead of shipping separate sans-serif stacks.
 - UI text surfaces now use a shared ChatGPT-aligned sans token inside Shadow DOM, while source/code views keep a dedicated mono token.
 - Reader and bookmark panels now use rebuilt mock-aligned shells, with the reader footer showing the current page and long pagination sets wrapping inside a capped scroll area.
 - Source panels now use the rebuilt mock-aligned shell and shared overlay host pipeline while keeping raw markdown copy behavior intact.
 - Reader pagination now uses shared iconography and legacy-aligned preview cards for a cleaner, more consistent control bar.
+- Reader pagination now renders long-range gaps as a dedicated three-dot separator instead of a plain text ellipsis, keeping long conversation navigation cleaner.
 - Reader, bookmarks, export dialogs, folding controls, and math-copy feedback now share a single blue-on-white tooltip system instead of mixing browser titles and ad hoc popovers.
 - Interactive markdown styling now uses one shared GitHub-inspired theme layer across reader and bookmark detail surfaces.
 - Markdown rendering now runs through one shared unified pipeline for reader, bookmarks, mocks, and PDF export, with GFM, KaTeX math, syntax highlighting, and sanitization handled in one pass.
 - Reader send popovers now use the rebuilt mock-aligned surface and sync drafts through the shared composer bridge when the platform composer is available.
 - Shared confirm, prompt, alert, and custom modals now use a rebuilt mock-aligned dialog shell with dedicated shared styling instead of relying on bookmark-panel-local modal CSS.
+- Bookmarks: Refined the Sponsor tab into a calmer editorial card layout and realigned its copy with the simpler v3 support wording for GitHub stars and donation channels.
 
 ### Fixed
+- Bookmarks: Added a local input-event boundary to the management panel so internal search, settings, and tree interactions are less likely to leak to host-page or third-party page handlers.
+- UI: Fixed hover and active contrast drift across shared panel chrome, bookmark dialogs, bookmarks management, send surfaces, and the message toolbar so light and dark themes keep clearer interaction feedback.
 - Toolbar: Fixed shared tooltips for icon-only toolbar buttons so hover/focus on nested SVG nodes shows the expected tooltip again.
 - Gemini and DeepSeek: Restored the top-level header bookmark entry on current layouts by adding adapter fallbacks for the latest header structure.
 - Runtime: Fixed the content script entry so markdown enhancement experiments no longer emit module-split imports that break toolbar injection at runtime.
 - Markdown: Removed the experimental Mermaid runtime path so content-script stability and bundle size no longer depend on a heavy diagram renderer.
 - Markdown: Fixed renderer drift between reader, mock panels, and PDF export by removing the mixed `marked`/`MathJax`/post-highlight paths.
+- ChatGPT: Reworked conversation folding so collapsed groups hide the full user/assistant turn sections, removing leaked action rows, thought blocks, source chips, and the old expanded-state left guide.
+- ChatGPT: Fixed fold bars and the right-side fold dock so both now follow light/dark theme surfaces instead of staying pinned to a white UI.
 - Gemini: Fixed the message toolbar position so it stays aligned with the official action row on the latest layout.
 - Claude: Fixed the message toolbar and header bookmark icon injection after the latest layout update.
 - ChatGPT: Fixed the toolbar width jumping wider while a response is still streaming.
+- Sending: Fixed the send popover so typing now stays local to the popover draft until close or send, avoiding host-composer focus conflicts while editing.
+- Math: Restored inline formula hover feedback by resolving the shared interactive highlight token the same way as the legacy v3 path.
 - Reader: Fixed the header title truncation, restored larger hover previews, and added a footer shortcut back to the current conversation turn.
 - Reader: Fixed rebuilt panel positioning so zoomed or short viewports keep the reader surface inside the visible window.
 - Bookmarks: Fixed folder-path and folder-name prompts still using hardcoded placeholders instead of localized UI strings.
@@ -326,3 +337,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [2.0.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v2.0.0
 [0.5.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v0.5.0
+- Bookmarks/Modal: Added shared input-event isolation for rename, confirm, and save dialogs so host-page handlers are less likely to intercept modal interactions.
+- Bookmarks: Batch delete now removes checked folders themselves, along with their descendant folders and saved items.

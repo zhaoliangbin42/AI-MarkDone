@@ -322,17 +322,11 @@ export class MessageToolbar {
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--aimd-font-family-sans);
-  /* Material/Gmail-like state layers (scoped to this shadow root) */
-  --aimd-tb-hover: color-mix(in srgb, #000 6%, transparent);
-  --aimd-tb-pressed: color-mix(in srgb, #000 10%, transparent);
-  --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-primary) 82%, transparent);
-  --aimd-tb-outline: color-mix(in srgb, var(--aimd-text-primary) 14%, transparent);
-}
-:host([data-aimd-theme="dark"]) {
-  --aimd-tb-hover: color-mix(in srgb, #fff 10%, transparent);
-  --aimd-tb-pressed: color-mix(in srgb, #fff 16%, transparent);
-  --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-primary) 26%, transparent);
-  --aimd-tb-outline: color-mix(in srgb, var(--aimd-text-primary) 22%, transparent);
+  --aimd-tb-hover: var(--aimd-button-icon-hover);
+  --aimd-tb-pressed: var(--aimd-button-icon-active);
+  --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
+  --aimd-tb-outline: color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
+  --aimd-tb-menu-surface: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
 }
 :host([data-aimd-placement="actionbar"]) .wrap { margin-top: 0; justify-content: flex-start; }
 :host([data-aimd-placement="actionbar"]) .bar {
@@ -351,9 +345,9 @@ export class MessageToolbar {
   position: absolute;
   right: 6px;
   bottom: calc(100% + 8px);
-  background: var(--aimd-tb-surface);
+  background: var(--aimd-tb-menu-surface);
   border: 1px solid var(--aimd-tb-outline);
-  box-shadow: 0 10px 24px color-mix(in srgb, #000 20%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
   white-space: nowrap;
 }
 :host([data-aimd-placement="content"]) .wrap {
@@ -377,7 +371,8 @@ export class MessageToolbar {
   transition: background 150ms ease, border-color 150ms ease;
 }
 .bar:hover {
-  background: color-mix(in srgb, var(--aimd-tb-surface) 92%, var(--aimd-tb-hover) 8%);
+  background: color-mix(in srgb, var(--aimd-tb-surface) 90%, var(--aimd-tb-hover));
+  border-color: color-mix(in srgb, var(--aimd-border-default) 68%, var(--aimd-interactive-primary) 18%);
 }
 
 .group { display: inline-flex; align-items: center; gap: 2px; }
@@ -417,7 +412,7 @@ export class MessageToolbar {
   height: var(--aimd-size-control-icon-toolbar);
   border-radius: 9px;
   background: transparent;
-  color: color-mix(in srgb, var(--aimd-text-primary) 76%, transparent);
+  color: var(--aimd-button-icon-text);
   font-size: var(--aimd-font-size-xs);
   display: grid;
   place-items: center;
@@ -426,15 +421,18 @@ export class MessageToolbar {
 .icon-btn:hover {
   background: var(--aimd-tb-hover);
   box-shadow: none;
+  color: var(--aimd-button-icon-text-hover);
 }
 .icon-btn:active {
   transform: none;
   background: var(--aimd-tb-pressed);
+  color: var(--aimd-button-icon-text-hover);
 }
-.icon-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent); outline-offset: 2px; }
+.icon-btn:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
 .icon-btn[data-flash="1"] {
   /* Momentary feedback without looking like "active" state */
-  background: color-mix(in srgb, var(--aimd-tb-hover) 70%, transparent);
+  background: var(--aimd-interactive-flash);
+  color: var(--aimd-button-icon-text-hover);
 }
 
 .toolbar-hover-feedback {
@@ -487,9 +485,9 @@ export class MessageToolbar {
   min-width: 180px;
   padding: 6px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--aimd-bg-primary) 24%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 18%, var(--aimd-border-default) 82%);
-  box-shadow: 0 18px 50px color-mix(in srgb, #000 22%, transparent);
+  background: var(--aimd-tb-menu-surface);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
   display: none;
   z-index: var(--aimd-z-tooltip);
 }
@@ -506,8 +504,8 @@ export class MessageToolbar {
   background: transparent;
 }
 .menu-item:hover {
-  background: color-mix(in srgb, var(--aimd-bg-primary) 46%, transparent);
-  border-color: color-mix(in srgb, var(--aimd-border-default) 65%, transparent);
+  background: var(--aimd-button-secondary-hover);
+  border-color: color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

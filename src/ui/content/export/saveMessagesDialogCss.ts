@@ -39,11 +39,6 @@ ${getPanelChromeCss()}
   min-width: 0;
 }
 
-.panel-header__meta h2 {
-  font-size: var(--aimd-text-2xl);
-  font-weight: var(--aimd-font-semibold);
-}
-
 .icon-btn:focus-visible,
 .secondary-btn:focus-visible,
 .segmented button:focus-visible,
@@ -55,7 +50,7 @@ ${getPanelChromeCss()}
 .dialog-body {
   flex: 1;
   overflow: auto;
-  padding: 22px;
+  padding: calc(var(--aimd-space-5) + var(--aimd-space-2));
 }
 
 .section-label {
@@ -92,7 +87,7 @@ ${getPanelChromeCss()}
 }
 
 .message-chip:hover {
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);
+  background: var(--aimd-button-secondary-hover);
 }
 
 .message-chip[data-active="1"] {
@@ -135,7 +130,7 @@ ${getPanelChromeCss()}
 }
 
 .segmented button:hover {
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);
+  background: var(--aimd-button-secondary-hover);
   color: var(--aimd-text-primary);
 }
 

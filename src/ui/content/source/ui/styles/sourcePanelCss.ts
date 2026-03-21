@@ -38,12 +38,6 @@ ${getPanelChromeCss()}
   min-width: 0;
 }
 
-.panel-header__meta h2 {
-  font-size: var(--aimd-text-2xl);
-  font-weight: var(--aimd-font-semibold);
-  color: var(--aimd-text-primary);
-}
-
 .source-body {
   flex: 1;
   min-height: 0;

@@ -1083,7 +1083,7 @@
         "message": "Collapse folder"
     },
     "deleteSelectedMessage": {
-        "message": "Delete selected bookmarks?"
+        "message": "Delete selected items?"
     },
     "confirmAction": {
         "message": "Confirm"

@@ -18,11 +18,14 @@ export class SponsorTabView {
 
         const brandRow = document.createElement('div');
         brandRow.className = 'sponsor-title-row';
+        const brandBadge = document.createElement('div');
+        brandBadge.className = 'sponsor-brand-badge';
         const brandMark = document.createElement('img');
         brandMark.className = 'sponsor-brand-mark';
         brandMark.src = browser.runtime.getURL('icons/icon128.png');
         brandMark.alt = 'AI-MarkDone';
-        brandRow.appendChild(brandMark);
+        brandBadge.appendChild(brandMark);
+        brandRow.appendChild(brandBadge);
 
         const openSource = document.createElement('section');
         openSource.className = 'sponsor-card sponsor-card--primary';
@@ -31,10 +34,9 @@ export class SponsorTabView {
             <div class="sponsor-section-icon">${Icons.github}</div>
             <div class="sponsor-section-copy">
               <div class="sponsor-section-label">${t('supportDevelopment')}</div>
-              <div class="sponsor-section-note">${t('supportDevDesc')}</div>
             </div>
           </div>
-          <p>${t('ifProjectHelps')}</p>
+          <p class="sponsor-section-body">${t('supportDevDesc')}</p>
           <div class="sponsor-action-row">
             <button type="button" class="primary-btn sponsor-cta-button" data-action="sponsor-github">
               ${Icons.github}
@@ -51,19 +53,17 @@ export class SponsorTabView {
         const bmc = browser.runtime.getURL('icons/bmc_qr.png');
         const wechat = browser.runtime.getURL('icons/wechat_qr.png');
         donate.innerHTML = `
-          <div class="sponsor-section-head sponsor-section-head--centered">
+          <div class="sponsor-section-head">
             <div class="sponsor-section-icon sponsor-section-icon--warm">${Icons.coffee}</div>
             <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">Donate</div>
-              <div class="sponsor-section-note">${t('supportCoffeeDesc')}</div>
+              <div class="sponsor-section-label">${t('ifProjectHelps')}</div>
             </div>
           </div>
-          <p>${t('ifProjectHelps')}</p>
+          <p class="sponsor-section-body">${t('supportCoffeeDesc')}</p>
           <div class="sponsor-qr-grid">
             <article class="sponsor-qr-card">
               <div class="sponsor-qr-meta">
                 <strong>${t('buyMeCoffee')}</strong>
-                <span>${t('supportCoffeeDesc')}</span>
               </div>
               <div class="sponsor-qr-frame">
                 <img src="${bmc}" alt="Buy Me A Coffee QR code" class="sponsor-qr-image">
@@ -72,7 +72,6 @@ export class SponsorTabView {
             <article class="sponsor-qr-card">
               <div class="sponsor-qr-meta">
                 <strong>${t('wechatAppreciationCode')}</strong>
-                <span>${t('supportDevelopment')}</span>
               </div>
               <div class="sponsor-qr-frame">
                 <img src="${wechat}" alt="WeChat appreciation code" class="sponsor-qr-image">

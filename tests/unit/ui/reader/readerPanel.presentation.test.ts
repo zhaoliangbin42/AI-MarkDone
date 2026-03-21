@@ -45,9 +45,8 @@ describe('ReaderPanel presentation', () => {
             expect(hint?.textContent).toBe('');
             expect(footerPage?.textContent).toBe('1/1');
             expect(source).toContain("tailwind-overlay.css?inline");
-            expect(source).toContain('inset: 50% auto auto 50%;');
-            expect(source).toContain('transform: translate(-50%, -50%);');
-            expect(source).toContain('max-height: calc(100vh - var(--aimd-space-6));');
+            expect(source).toContain('getPanelChromeCss()');
+            expect(source).toContain('.panel-window--reader {');
             expect(source).not.toContain('top: var(--aimd-panel-top);');
             expect(katexLink?.rel).toBe('stylesheet');
         } finally {
@@ -104,5 +103,16 @@ describe('ReaderPanel presentation', () => {
         } finally {
             panel.hide();
         }
+    });
+
+    it('keeps active icon buttons visually selected on hover and gives pagination dots hover affordances', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
+
+        expect(source).toContain('.icon-btn--active:hover');
+        expect(source).toContain('.reader-dot:hover');
+        expect(source).toContain('.reader-dot:focus-visible');
+        expect(source).toContain('.reader-dot:active');
+        expect(source).toContain('.reader-ellipsis {');
+        expect(source).toContain('.reader-ellipsis__dot');
     });
 });

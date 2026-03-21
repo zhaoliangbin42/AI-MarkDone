@@ -499,8 +499,12 @@ export class ReaderPanel {
     private createEllipsis(): HTMLElement {
         const span = document.createElement('span');
         span.className = 'reader-ellipsis';
-        span.textContent = '…';
         span.setAttribute('aria-hidden', 'true');
+        for (let index = 0; index < 3; index += 1) {
+            const dot = document.createElement('span');
+            dot.className = 'reader-ellipsis__dot';
+            span.appendChild(dot);
+        }
         return span;
     }
 
@@ -579,7 +583,7 @@ export class ReaderPanel {
       </div>
     </article>
   </div>
-  <div class="reader-footer">
+  <div class="panel-footer reader-footer">
     <div class="reader-footer__left">
       <div class="reader-footer__actions" data-role="footer-left-actions"></div>
     </div>
@@ -620,6 +624,7 @@ ${getPanelChromeCss()}
 
 .panel-window--reader {
   min-height: min(720px, calc(100vh - var(--aimd-space-6)));
+  --aimd-panel-title-size: var(--aimd-panel-title-size-compact);
 }
 
 .panel-window--reader[data-fullscreen="1"] {
@@ -643,12 +648,6 @@ ${getPanelChromeCss()}
   gap: var(--aimd-panel-header-gap);
 }
 
-.panel-header__meta--reader h2 {
-  font-size: var(--aimd-text-xl);
-  line-height: var(--aimd-panel-title-line-height);
-  font-weight: var(--aimd-font-semibold);
-}
-
 .reader-header-page {
   display: inline-flex;
   align-items: center;
@@ -665,6 +664,12 @@ ${getPanelChromeCss()}
 }
 
 .icon-btn--active {
+  background: var(--aimd-interactive-selected);
+  color: var(--aimd-interactive-primary);
+}
+
+.icon-btn--active:hover,
+.icon-btn--active:active {
   background: var(--aimd-interactive-selected);
   color: var(--aimd-interactive-primary);
 }
@@ -739,10 +744,6 @@ ${getMarkdownThemeCss('.reader-markdown')}
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  min-height: var(--aimd-panel-footer-min-height);
-  gap: var(--aimd-panel-footer-gap);
-  padding: var(--aimd-panel-footer-padding-block) calc(var(--aimd-panel-footer-padding-inline) + var(--aimd-space-2));
-  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
   position: relative;
 }
 
@@ -778,7 +779,7 @@ ${getMarkdownThemeCss('.reader-markdown')}
 }
 
 .reader-footer__meta .hint {
-  font-size: 13px;
+  font-size: var(--aimd-text-sm);
   line-height: 1.45;
   color: var(--aimd-text-secondary);
 }
@@ -832,6 +833,19 @@ ${getMarkdownThemeCss('.reader-markdown')}
   background: color-mix(in srgb, var(--aimd-border-default) 90%, transparent);
 }
 
+.reader-dot:hover {
+  background: var(--aimd-button-icon-hover);
+}
+
+.reader-dot:active {
+  background: var(--aimd-button-icon-active);
+}
+
+.reader-dot:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: 2px;
+}
+
 .reader-dot--active {
   width: calc(var(--aimd-dot-size, 10px) * 2.2);
   background: var(--aimd-interactive-primary);
@@ -846,8 +860,20 @@ ${getMarkdownThemeCss('.reader-markdown')}
 }
 
 .reader-ellipsis {
-  color: var(--aimd-text-secondary);
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: calc((var(--aimd-dot-size, 10px) * 2.2) + (var(--aimd-dot-gap, 8px) * 0.8));
+  gap: calc(var(--aimd-dot-gap, 8px) * 0.4);
+}
+
+.reader-ellipsis__dot {
+  display: block;
+  width: calc(var(--aimd-dot-size, 10px) * 0.46);
+  height: calc(var(--aimd-dot-size, 10px) * 0.46);
+  border-radius: var(--aimd-radius-full);
+  background: color-mix(in srgb, var(--aimd-text-secondary) 58%, transparent);
 }
 
 .nav-btn--reader {
@@ -875,7 +901,6 @@ ${getMarkdownThemeCss('.reader-markdown')}
 
   .reader-footer {
     gap: var(--aimd-panel-action-gap);
-    padding: var(--aimd-panel-footer-padding-block-compact) calc(var(--aimd-panel-footer-padding-inline-compact) + var(--aimd-space-1));
   }
 }
 `;

@@ -389,7 +389,8 @@ export class BookmarksPanelController {
 
     async batchDelete(): Promise<Result<any>> {
         const items = this.getSelectedBookmarkItems();
-        const res = await bookmarksClient.bulkRemove({ items });
+        const folderPaths = this.getSelectedFolderPaths();
+        const res = await bookmarksClient.bulkRemove({ items, folderPaths });
         if (res.ok) {
             await this.refreshAll();
             this.clearSelection();
@@ -447,6 +448,24 @@ export class BookmarksPanelController {
             if (bm) items.push({ url: bm.url, position: bm.position });
         }
         return items;
+    }
+
+    getSelectedFolderPaths(): string[] {
+        const paths = new Set<string>();
+        for (const key of this.state.selectedKeys) {
+            if (!key.startsWith('folder:')) continue;
+            const rawPath = key.slice('folder:'.length).trim();
+            if (!rawPath) continue;
+            try {
+                paths.add(PathUtils.normalize(rawPath));
+            } catch {
+                // ignore malformed selection keys
+            }
+        }
+        return Array.from(paths).sort((a, b) => {
+            const depthDiff = PathUtils.getDepth(a) - PathUtils.getDepth(b);
+            return depthDiff !== 0 ? depthDiff : a.localeCompare(b);
+        });
     }
 
     getPlatforms(): string[] {

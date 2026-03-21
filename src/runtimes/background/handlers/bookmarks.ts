@@ -432,15 +432,80 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                     unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
                 }
                 const toRemove = Array.from(unique.values());
-                if (toRemove.length === 0) return { response: ok(request.id, request.type, { removed: 0 }) };
+                const requestedFolderPaths = Array.isArray(request.payload.folderPaths)
+                    ? request.payload.folderPaths
+                        .filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
+                        .map((path) => {
+                            try {
+                                return PathUtils.normalize(path);
+                            } catch {
+                                return null;
+                            }
+                        })
+                        .filter((path): path is string => Boolean(path))
+                    : [];
+                if (toRemove.length === 0 && requestedFolderPaths.length === 0) {
+                    return { response: ok(request.id, request.type, { removed: 0 }) };
+                }
 
                 const index = await bookmarksIndexStore.buildIndexIfMissing(now);
-                const removeKeys = toRemove.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`);
-                const removeSet = new Set(removeKeys);
+                const removeSet = new Set(
+                    toRemove.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`),
+                );
+                let nextFolderPaths: string[] | null = null;
+
+                if (requestedFolderPaths.length > 0) {
+                    const [{ folderPaths }, bookmarks, lastSelected] = await Promise.all([
+                        loadAllFolders(),
+                        loadAllBookmarks(now),
+                        readLastSelectedFolderPath(),
+                    ]);
+
+                    const affectedFolderPaths = folderPaths.filter((path) => (
+                        requestedFolderPaths.some((selectedPath) => (
+                            path === selectedPath || PathUtils.isDescendantOf(path, selectedPath)
+                        ))
+                    ));
+                    const affectedFolderPathSet = new Set(affectedFolderPaths);
+
+                    for (const bookmark of bookmarks) {
+                        if (requestedFolderPaths.some((selectedPath) => (
+                            bookmark.folderPath === selectedPath || PathUtils.isDescendantOf(bookmark.folderPath, selectedPath)
+                        ))) {
+                            removeSet.add(`${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}${bookmark.urlWithoutProtocol}:${bookmark.position}`);
+                        }
+                    }
+
+                    for (const path of affectedFolderPaths) {
+                        removeSet.add(`${LEGACY_STORAGE_KEYS.folderKeyPrefix}${path}`);
+                    }
+
+                    const remainingFolderPaths = folderPaths.filter((path) => !affectedFolderPathSet.has(path));
+                    nextFolderPaths = remainingFolderPaths;
+
+                    if (lastSelected && requestedFolderPaths.some((selectedPath) => (
+                        lastSelected === selectedPath || PathUtils.isDescendantOf(lastSelected, selectedPath)
+                    ))) {
+                        const nextSelected = PathUtils.getPathChain(lastSelected)
+                            .slice(0, -1)
+                            .reverse()
+                            .find((candidate) => remainingFolderPaths.includes(candidate)) ?? null;
+                        if (nextSelected) {
+                            await localStoragePort.set({ [LEGACY_STORAGE_KEYS.lastSelectedFolderPath]: nextSelected });
+                        } else {
+                            removeSet.add(LEGACY_STORAGE_KEYS.lastSelectedFolderPath);
+                        }
+                    }
+                }
+
+                const removeKeys = Array.from(removeSet);
                 const updatedIndex = index.filter((k) => !removeSet.has(k));
 
                 await localStoragePort.remove(removeKeys);
                 await bookmarksIndexStore.setIndex(updatedIndex);
+                if (nextFolderPaths) {
+                    await folderIndexStore.setFolderPaths(nextFolderPaths);
+                }
 
                 return { response: ok(request.id, request.type, { removed: removeKeys.length }) };
             });
