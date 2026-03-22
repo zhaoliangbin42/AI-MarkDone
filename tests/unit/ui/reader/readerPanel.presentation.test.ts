@@ -105,6 +105,21 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('does not render the open-conversation header control when no callback or conversation url is available', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1', meta: { url: '   ' } as any }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+
+            expect(shadow.querySelector('[data-action="reader-open-conversation"]')).toBeNull();
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('keeps active icon buttons visually selected on hover and gives pagination dots hover affordances', () => {
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
 
@@ -114,5 +129,15 @@ describe('ReaderPanel presentation', () => {
         expect(source).toContain('.reader-dot:active');
         expect(source).toContain('.reader-ellipsis {');
         expect(source).toContain('.reader-ellipsis__dot');
+    });
+
+    it('uses shared panel title and body typography tokens instead of local raw reader sizes', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
+
+        expect(source).not.toContain('--aimd-panel-title-size: var(--aimd-panel-title-size-compact);');
+        expect(source).toContain('.reader-message__body--prompt {');
+        expect(source).toContain('font-size: var(--aimd-text-base);');
+        expect(source).toContain('line-height: var(--aimd-leading-reading);');
+        expect(source).not.toContain('font-size: 17px;');
     });
 });

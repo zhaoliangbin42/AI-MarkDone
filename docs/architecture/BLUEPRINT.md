@@ -198,6 +198,8 @@
 - `--aimd-*` 是唯一 canonical design token source；Tailwind 只能通过语义 alias 消费这些 token
 - Tailwind 只允许用于 overlay-style singleton UI；toolbar 与高频注入 UI 保持轻量实现，不引入 Tailwind
 - overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
+- 一旦 overlay / transient dismiss contract 出现第二个明确消费者，就必须提升到共享 `components/*` 或 `overlay/*`；只有带明显业务假设的 primitive 才允许继续保持 family-scoped
+- toolbar component token 必须统一使用 `--aimd-toolbar-*`，禁止继续出现 `--aimd-tb-*` 这类未显式标明组件域的局部伪系统 token
 - 若使用 Tailwind，必须使用 `tw` 前缀并禁用 Preflight，避免其成为第二套样式真源
 - 页面内 UI 必须使用 Shadow DOM（或等效隔离容器）避免样式冲突
 - 主题同步必须通过稳定机制（如 `data-aimd-theme`）驱动 token 切换
@@ -218,6 +220,14 @@
 - `src/ui/content/bookmarks/*Controller*`：交互状态机（selection/tab/keyboard）
 - `src/services/bookmarks/*`：导入合并/判重/分析（Service）
 - `src/drivers/content/bookmarks/*` 与 `src/drivers/background/storage/*`：导航与存储基础设施（Driver）
+
+当前实现约束：
+
+- `BookmarksPanel` 应继续向 shell/orchestrator 收缩，只保留 overlay lifecycle、tab orchestration、snapshot wiring、scroll memory
+- `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 tab 内容唯一 owner
+- 树的 inline / virtualized 渲染必须通过 `BookmarksTreeViewport` 收口，避免 shell 与 tab view 双重拥有树
+- Bookmarks family 的 overlay / modal / input-boundary 交互栈必须通过共享 session 收口，避免 `BookmarkSaveDialog` 再维护第二套 nested modal host
+- 在尚未泛化到全项目前，Bookmarks family 可以保留 family-scoped select / stepper primitive，但 shell 只能通过 transient-ui contract 与其交互，不能依赖具体 selector
 
 ### 5.2 `ReaderPanel.ts` 拆分方向
 

@@ -29,10 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader send popovers now use the rebuilt mock-aligned surface and sync drafts through the shared composer bridge when the platform composer is available.
 - Shared confirm, prompt, alert, and custom modals now use a rebuilt mock-aligned dialog shell with dedicated shared styling instead of relying on bookmark-panel-local modal CSS.
 - Bookmarks: Refined the Sponsor tab into a calmer editorial card layout and realigned its copy with the simpler v3 support wording for GitHub stars and donation channels.
+- Bookmarks: Rebuilt the family around a shared shell/view/overlay stack so the panel shell, settings tab, sponsor tab, tree viewport, and save dialog now share one ownership model instead of mixing shell-local and dialog-local implementations.
+- Bookmarks: Consolidated settings dropdowns and steppers around family-scoped primitives so panel dismiss logic no longer depends on child-specific selectors.
 
 ### Fixed
 - Bookmarks: Added a local input-event boundary to the management panel so internal search, settings, and tree interactions are less likely to leak to host-page or third-party page handlers.
+- Bookmarks: Unified panel and save-dialog modal handling around the same shared overlay session so rename, move, folder-pick, and nested root-folder flows no longer drift between separate interaction stacks.
 - UI: Fixed hover and active contrast drift across shared panel chrome, bookmark dialogs, bookmarks management, send surfaces, and the message toolbar so light and dark themes keep clearer interaction feedback.
+- UI: Deepened dark-mode surfaces, borders, and hover layers across bookmarks, the reader pager, sending surfaces, folding controls, and the toolbar so controls separate more clearly from the background.
 - Toolbar: Fixed shared tooltips for icon-only toolbar buttons so hover/focus on nested SVG nodes shows the expected tooltip again.
 - Gemini and DeepSeek: Restored the top-level header bookmark entry on current layouts by adding adapter fallbacks for the latest header structure.
 - Runtime: Fixed the content script entry so markdown enhancement experiments no longer emit module-split imports that break toolbar injection at runtime.
@@ -339,3 +343,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.5.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v0.5.0
 - Bookmarks/Modal: Added shared input-event isolation for rename, confirm, and save dialogs so host-page handlers are less likely to intercept modal interactions.
 - Bookmarks: Batch delete now removes checked folders themselves, along with their descendant folders and saved items.
+- Bookmarks: Fixed the ChatGPT folding settings dropdown so clicking its trigger again closes it inside the shadow-hosted panel, and corrected the expanded-count stepper arrows to use the proper up/down affordances.
+- Bookmarks: Brightened dark-mode platform toggles and added clearer spacing between platform icons and labels in settings so the platform section reads more cleanly against the dark panel surface.
+- Bookmarks: Fixed the Sponsor GitHub star CTA to render as a real external link with the expected target and rel attributes instead of relying on a button-only click action.
+- Reader: Fixed external-open affordances so the header action now hides when no conversation target exists, and rendered markdown links open with explicit safe external-link attributes.
+- UI Contracts: Promoted transient-root outside-click handling into a shared UI contract and introduced a reusable overlay session wrapper, then moved Save Messages and shared modal flows onto the same overlay slot model.
+- Modal Stability: Mounted shared modals into explicit overlay modal roots and switched them onto the shared keyboard-scope stack so nested dialogs close and restore focus more reliably.
+- Sending/Toolbar: Moved Send Modal back onto the shared overlay-host route and renamed toolbar pseudo tokens to the formal `--aimd-toolbar-*` component contract without changing placement behavior.
+- UI: Rebalanced panel typography so settings groups, sponsor sections, bookmark folders, reader content, toolbar stats, send status, and folding controls follow a clearer shared size hierarchy.

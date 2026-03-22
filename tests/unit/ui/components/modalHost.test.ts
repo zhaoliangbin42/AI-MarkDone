@@ -17,9 +17,12 @@ describe('ModalHost', () => {
     it('renders the shared mock modal shell for confirm flows and resolves on confirm', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
+        const modalRoot = document.createElement('div');
+        modalRoot.dataset.role = 'overlay-modal-root';
+        shadow.appendChild(modalRoot);
         document.body.appendChild(host);
 
-        const modal = new ModalHost(shadow);
+        const modal = new ModalHost(modalRoot);
         const resultPromise = modal.confirm({
             kind: 'warning',
             title: 'Delete folder',
@@ -31,8 +34,9 @@ describe('ModalHost', () => {
 
         await Promise.resolve();
 
-        const dialog = shadow.querySelector<HTMLElement>('.mock-modal[data-kind="warning"]');
+        const dialog = modalRoot.querySelector<HTMLElement>('.mock-modal[data-kind="warning"]');
         expect(dialog).toBeTruthy();
+        expect(modalRoot.querySelector('.mock-modal-host')).toBeTruthy();
         expect(dialog?.querySelector('.mock-modal__kind-icon')).toBeTruthy();
         expect(dialog?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe('Delete folder');
         expect(dialog?.querySelector('.mock-modal__message')?.textContent).toContain('destructive actions');
@@ -46,9 +50,12 @@ describe('ModalHost', () => {
     it('renders prompt inputs inside the shared shell and keeps validation errors inline', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
+        const modalRoot = document.createElement('div');
+        modalRoot.dataset.role = 'overlay-modal-root';
+        shadow.appendChild(modalRoot);
         document.body.appendChild(host);
 
-        const modal = new ModalHost(shadow);
+        const modal = new ModalHost(modalRoot);
         const resultPromise = modal.prompt({
             kind: 'info',
             title: 'Create folder',
@@ -62,7 +69,7 @@ describe('ModalHost', () => {
 
         await Promise.resolve();
 
-        const dialog = shadow.querySelector<HTMLElement>('.mock-modal[data-kind="info"]');
+        const dialog = modalRoot.querySelector<HTMLElement>('.mock-modal[data-kind="info"]');
         const input = dialog?.querySelector<HTMLInputElement>('.mock-modal__input');
         expect(dialog).toBeTruthy();
         expect(input?.value).toBe('Research/Archive');
@@ -80,6 +87,9 @@ describe('ModalHost', () => {
     it('keeps prompt input, focus, and confirm interactions local to the shared modal host', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
+        const modalRoot = document.createElement('div');
+        modalRoot.dataset.role = 'overlay-modal-root';
+        shadow.appendChild(modalRoot);
         document.body.appendChild(host);
 
         const documentClick = vi.fn();
@@ -91,7 +101,7 @@ describe('ModalHost', () => {
         document.addEventListener('focusin', documentFocusIn);
         document.addEventListener('keydown', documentKeydown);
 
-        const modal = new ModalHost(shadow);
+        const modal = new ModalHost(modalRoot);
         const resultPromise = modal.prompt({
             kind: 'info',
             title: 'Rename folder',
@@ -109,7 +119,7 @@ describe('ModalHost', () => {
         documentKeydown.mockClear();
 
         try {
-            const dialog = shadow.querySelector<HTMLElement>('.mock-modal[data-kind="info"]');
+            const dialog = modalRoot.querySelector<HTMLElement>('.mock-modal[data-kind="info"]');
             const input = dialog?.querySelector<HTMLInputElement>('.mock-modal__input');
             expect(input).toBeTruthy();
 
@@ -133,5 +143,55 @@ describe('ModalHost', () => {
             document.removeEventListener('focusin', documentFocusIn);
             document.removeEventListener('keydown', documentKeydown);
         }
+    });
+
+    it('closes only the topmost modal on Escape and restores focus to the previously active element', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const modalRoot = document.createElement('div');
+        modalRoot.dataset.role = 'overlay-modal-root';
+        shadow.appendChild(modalRoot);
+        document.body.appendChild(host);
+
+        const trigger = document.createElement('button');
+        document.body.appendChild(trigger);
+        trigger.focus();
+
+        const modal = new ModalHost(modalRoot);
+        const outerPromise = modal.confirm({
+            kind: 'warning',
+            title: 'Outer',
+            message: 'Outer modal',
+            confirmText: 'Confirm',
+            cancelText: 'Cancel',
+        });
+        await Promise.resolve();
+
+        const innerPromise = modal.confirm({
+            kind: 'info',
+            title: 'Inner',
+            message: 'Inner modal',
+            confirmText: 'Close',
+            cancelText: 'Back',
+        });
+        await Promise.resolve();
+
+        const overlaysBefore = modalRoot.querySelectorAll('.mock-modal-overlay');
+        expect(overlaysBefore).toHaveLength(2);
+
+        const topDialog = modalRoot.querySelectorAll<HTMLElement>('.mock-modal')[1];
+        topDialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+        await Promise.resolve();
+
+        expect(modalRoot.querySelectorAll('.mock-modal-overlay')).toHaveLength(1);
+        await expect(innerPromise).resolves.toBe(false);
+
+        modalRoot.querySelector<HTMLElement>('.mock-modal')?.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+        );
+        await Promise.resolve();
+
+        await expect(outerPromise).resolves.toBe(false);
+        expect(document.activeElement).toBe(trigger);
     });
 });

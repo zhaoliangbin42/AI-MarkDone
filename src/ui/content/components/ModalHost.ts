@@ -1,5 +1,6 @@
 import { Icons, xIcon } from '../../../assets/icons';
 import { ensureStyle } from '../../../style/shadow';
+import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from './dialogKeyboardScope';
 import { t } from './i18n';
 import { installInputEventBoundary } from './inputEventBoundary';
 import { getModalHostCss } from './styles/modalHostCss';
@@ -37,8 +38,7 @@ type CustomOptions = {
 export class ModalHost {
     private root: ShadowRoot | HTMLElement;
     private container: HTMLElement;
-    private openCount: number = 0;
-    private lastActive: HTMLElement | null = null;
+    private focusStack: Array<HTMLElement | null> = [];
 
     constructor(root: ShadowRoot | HTMLElement) {
         this.root = root;
@@ -50,7 +50,7 @@ export class ModalHost {
     }
 
     isOpen(): boolean {
-        return this.openCount > 0;
+        return this.container.childElementCount > 0;
     }
 
     closeTop(): void {
@@ -211,8 +211,7 @@ export class ModalHost {
         footer: (footer: HTMLElement, close: () => void, ctx?: { input: HTMLInputElement; error: HTMLElement }) => void;
         onDismiss?: () => void;
     }): Promise<void> {
-        this.openCount += 1;
-        this.lastActive = (document.activeElement as HTMLElement | null) ?? null;
+        this.focusStack.push((document.activeElement as HTMLElement | null) ?? null);
 
         const overlay = document.createElement('div');
         overlay.className = 'mock-modal-overlay';
@@ -263,56 +262,46 @@ export class ModalHost {
         const footer = document.createElement('div');
         footer.className = 'mock-modal__footer';
 
+        let keyboardHandle: DialogKeyboardScopeHandle | null = null;
+
+        const restoreFocus = () => {
+            const previous = this.focusStack.pop() ?? null;
+            if (previous?.isConnected) {
+                previous.focus({ preventScroll: true } as any);
+                return;
+            }
+
+            const topOverlay = this.container.lastElementChild as HTMLElement | null;
+            const fallback = topOverlay?.querySelector<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            );
+            fallback?.focus?.({ preventScroll: true } as any);
+        };
+
+        const dismiss = () => {
+            params.onDismiss?.();
+            close();
+        };
+
         const close = () => {
+            if (!overlay.isConnected) return;
             cleanup();
             overlay.remove();
         };
 
         const cleanup = () => {
-            this.openCount = Math.max(0, this.openCount - 1);
-            window.removeEventListener('keydown', onKeyDown, { capture: true } as any);
-            if (!this.isOpen()) {
-                this.lastActive?.focus?.();
-                this.lastActive = null;
-            }
+            keyboardHandle?.detach();
+            keyboardHandle = null;
+            restoreFocus();
         };
-
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                params.onDismiss?.();
-                close();
-            }
-            if (e.key === 'Tab') {
-                // Minimal focus guard: keep focus inside modal.
-                const focusables = overlay.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                const list = Array.from(focusables).filter((el) => !el.hasAttribute('disabled'));
-                if (list.length === 0) return;
-                const first = list[0];
-                const last = list[list.length - 1];
-                const active = document.activeElement as HTMLElement | null;
-                if (e.shiftKey && active === first) {
-                    e.preventDefault();
-                    last.focus();
-                } else if (!e.shiftKey && active === last) {
-                    e.preventDefault();
-                    first.focus();
-                }
-            }
-        };
-
-        window.addEventListener('keydown', onKeyDown, { capture: true });
 
         overlay.addEventListener('click', (e) => {
             if (e.target !== overlay) return;
-            params.onDismiss?.();
-            close();
+            dismiss();
         });
 
         closeBtn.addEventListener('click', () => {
-            params.onDismiss?.();
-            close();
+            dismiss();
         });
 
         params.footer(footer, close, ctx);
@@ -320,6 +309,18 @@ export class ModalHost {
         dialog.append(header, content, footer);
         overlay.appendChild(dialog);
         this.container.appendChild(overlay);
+
+        keyboardHandle = attachDialogKeyboardScope({
+            root: overlay,
+            onEscape: dismiss,
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: dialog,
+            focusFallback: () =>
+                dialog.querySelector<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+                ) ?? closeBtn,
+        });
     }
 
     private ensureStyles(): void {

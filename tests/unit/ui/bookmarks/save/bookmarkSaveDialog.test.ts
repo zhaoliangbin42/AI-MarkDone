@@ -78,7 +78,8 @@ describe('BookmarkSaveDialog', () => {
         expect(shadow.querySelector('[data-role="overlay-surface-root"] .panel-window.panel-window--dialog.panel-window--bookmark-save')).toBeTruthy();
         expect(shadow.querySelector('.panel-window--bookmark-save .panel-header__meta--reader h2')?.textContent).toBe('Save Bookmark');
         expect(shadow.querySelector('.panel-window--bookmark-save .panel-footer')?.className).toContain('panel-footer--bookmark-save');
-        expect(source).toContain('tailwind-overlay.css?inline');
+        expect(source).toContain('BookmarksOverlaySession');
+        expect(source).not.toContain('overlayCssText');
 
         const title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
         title.value = 'My title';
@@ -232,6 +233,9 @@ describe('BookmarkSaveDialog', () => {
             await flushUi();
 
             expect(documentClick).not.toHaveBeenCalled();
+            documentFocusIn.mockClear();
+            documentKeydown.mockClear();
+            documentInput.mockClear();
 
             const nestedInput = shadow.querySelector<HTMLInputElement>('[data-role="root_folder_input"]');
             expect(nestedInput).toBeTruthy();
@@ -248,6 +252,36 @@ describe('BookmarkSaveDialog', () => {
             document.removeEventListener('input', documentInput);
             document.removeEventListener('focusin', documentFocusIn);
             document.removeEventListener('keydown', documentKeydown);
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
+
+    it('opens root-folder creation on the shared modal host stack instead of rendering a hand-built modal subtree', async () => {
+        await setLocale('en');
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+
+            shadow.querySelector<HTMLElement>('[data-action="bookmark-save-new-root-folder"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+            await flushUi();
+
+            const modalRoot = shadow.querySelector<HTMLElement>('[data-role="overlay-modal-root"]');
+            expect(modalRoot?.querySelector('.mock-modal-host .mock-modal-overlay')).toBeTruthy();
+            expect(modalRoot?.querySelector('.mock-modal-host .mock-modal')).toBeTruthy();
+            expect(modalRoot?.querySelector('.mock-modal-host [data-action="modal-cancel"]')).toBeTruthy();
+            expect(modalRoot?.childElementCount ?? 0).toBeGreaterThan(0);
+        } finally {
             document.getElementById('aimd-bookmark-save-dialog-host')
                 ?.shadowRoot
                 ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')

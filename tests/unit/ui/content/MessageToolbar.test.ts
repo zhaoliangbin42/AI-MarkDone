@@ -60,4 +60,17 @@ describe('MessageToolbar', () => {
         expect(css).not.toContain('#000');
         expect(css).not.toContain('#fff');
     });
+
+    it('keeps stats text and glyph sizing on toolbar tokens instead of raw pixel values', () => {
+        const toolbar = new MessageToolbar('light', [], { showStats: false });
+        const shadow = toolbar.getElement().shadowRoot;
+        const style = shadow?.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-base"]');
+        const css = style?.textContent ?? '';
+
+        expect(css).toContain('.stats {');
+        expect(css).toContain('font-size: var(--aimd-text-xs);');
+        expect(css).toContain('.icon-btn svg { width: var(--aimd-size-control-glyph-panel); height: var(--aimd-size-control-glyph-panel); display: block; }');
+        expect(css).not.toContain('font-size: 11px;');
+        expect(css).not.toContain('.icon-btn svg { width: 16px; height: 16px; display: block; }');
+    });
 });

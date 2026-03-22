@@ -1,6 +1,7 @@
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
 import { Icons, checkIcon, chevronDownIcon, chatgptIcon } from '../../../../../assets/icons';
+import { markTransientRoot } from '../../../components/transientUi';
 
 export type PlatformDropdownItem = {
     value: string;
@@ -47,8 +48,9 @@ export class PlatformDropdown {
     }) {
         this.onChange = params.onChange;
 
-        this.root = document.createElement('div');
+        this.root = markTransientRoot(document.createElement('div'));
         this.root.className = 'platform-dropdown';
+        this.root.dataset.open = '0';
 
         this.button = document.createElement('button');
         this.button.type = 'button';
@@ -75,6 +77,7 @@ export class PlatformDropdown {
 
         this.menu = document.createElement('div');
         this.menu.className = 'platform-dropdown__menu';
+        this.menu.dataset.open = '0';
         this.menu.setAttribute('role', 'listbox');
         this.menu.tabIndex = -1;
 

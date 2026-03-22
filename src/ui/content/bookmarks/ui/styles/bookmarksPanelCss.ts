@@ -15,7 +15,7 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-panel-shell-height-mobile: min(var(--aimd-panel-wide-max-height), calc(100vh - var(--_bookmarks-panel-edge-offset-mobile)));
   --_bookmarks-shell-shadow: var(--aimd-shadow-panel);
   --_bookmarks-backdrop-bg: color-mix(in srgb, var(--aimd-bg-primary) 74%, transparent);
-  --_bookmarks-shell-border: color-mix(in srgb, var(--aimd-border-default) 72%, var(--aimd-bg-primary));
+  --_bookmarks-shell-border: color-mix(in srgb, var(--aimd-border-strong) 78%, var(--aimd-bg-primary));
   --_bookmarks-shell-surface-top: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   --_bookmarks-shell-surface-bottom: color-mix(in srgb, var(--aimd-bg-secondary) 92%, transparent);
   --_bookmarks-sidebar-width: 220px;
@@ -28,10 +28,10 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-control-height: 44px;
   --_bookmarks-tree-actions-width: calc(var(--aimd-size-control-icon-panel) * 4 + (calc(var(--aimd-space-1) + var(--aimd-space-1) / 2) * 3) + (var(--aimd-space-2) * 2));
   --_bookmarks-panel-title-size: var(--aimd-panel-title-size-compact);
-  --_bookmarks-tree-title-size: var(--aimd-text-lg);
-  --_bookmarks-control-surface: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
-  --_bookmarks-control-border: color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  --_bookmarks-control-inset-shadow: inset 0 1px 0 var(--aimd-interactive-hover);
+  --_bookmarks-tree-title-size: var(--aimd-text-base);
+  --_bookmarks-control-surface: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
+  --_bookmarks-control-border: color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
+  --_bookmarks-control-inset-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-interactive-hover) 82%, transparent);
   --_bookmarks-control-inline-padding: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
   --_bookmarks-menu-radius: var(--aimd-radius-2xl);
   --_bookmarks-option-radius: var(--aimd-radius-lg);
@@ -53,12 +53,16 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-inline-menu-z: var(--aimd-z-tooltip);
   --_bookmarks-tree-actions-z: calc(var(--aimd-z-base) + 1);
   --_bookmarks-celebration-z: calc(var(--aimd-z-base) + 3);
+  --_bookmarks-section-title-size: var(--aimd-text-base);
+  --_bookmarks-section-title-weight: var(--aimd-font-medium);
+  --_bookmarks-item-title-size: var(--aimd-text-sm);
+  --_bookmarks-item-title-weight: var(--aimd-font-medium);
   --_bookmarks-label-meta-size: var(--aimd-text-xs);
   --_bookmarks-meta-size: var(--aimd-text-sm);
-  --_bookmarks-body-copy-size: var(--aimd-text-base);
+  --_bookmarks-body-copy-size: var(--aimd-text-sm);
   --_bookmarks-modal-title-size: var(--aimd-modal-title-size);
-  --_bookmarks-sponsor-title-size: var(--aimd-panel-title-size);
-  --_bookmarks-settings-title-size: var(--aimd-text-lg);
+  --_bookmarks-sponsor-title-size: var(--_bookmarks-section-title-size);
+  --_bookmarks-settings-title-size: var(--_bookmarks-item-title-size);
   --_bookmarks-modal-error-size: 13px;
   --_bookmarks-mobile-tab-strip-gap: var(--aimd-space-1);
   --_bookmarks-mobile-tab-strip-padding: var(--aimd-space-1);
@@ -323,6 +327,7 @@ ${getPanelChromeCss()}
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  font-size: var(--aimd-text-sm);
 }
 
 .search-field input {
@@ -378,7 +383,7 @@ ${getPanelChromeCss()}
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--aimd-text-base);
+  font-size: var(--aimd-text-sm);
 }
 
 .platform-dropdown__caret {
@@ -401,8 +406,8 @@ ${getPanelChromeCss()}
   display: none;
   gap: 4px;
   border-radius: var(--aimd-radius-2xl);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 78%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   box-shadow: var(--aimd-shadow-lg);
 }
 
@@ -421,15 +426,16 @@ ${getPanelChromeCss()}
   gap: var(--aimd-space-3);
   border-radius: var(--_bookmarks-option-radius);
   color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
   cursor: pointer;
 }
 
 .platform-dropdown__option:hover {
-  background: var(--aimd-button-secondary-hover);
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 88%, var(--aimd-sys-color-surface-hover));
 }
 
 .platform-dropdown__option[data-selected="1"] {
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 14%, transparent);
   color: var(--aimd-interactive-primary);
 }
 
@@ -473,12 +479,12 @@ ${getPanelChromeCss()}
 }
 
 .tree-item:hover {
-  background: var(--aimd-button-secondary-hover);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 16%, transparent);
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 20%, transparent);
 }
 
 .tree-item[data-selected="1"] {
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 16%, transparent);
 }
 
 .tree-caret,
@@ -618,10 +624,20 @@ ${getPanelChromeCss()}
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--aimd-text-lg);
-  font-weight: 400;
+  font-size: var(--_bookmarks-item-title-size);
+  font-weight: var(--_bookmarks-item-title-weight);
   line-height: 1.45;
   text-align: left;
+}
+
+.tree-label--folder {
+  font-size: var(--_bookmarks-tree-title-size);
+  font-weight: var(--_bookmarks-section-title-weight);
+}
+
+.tree-label--bookmark {
+  font-size: var(--_bookmarks-item-title-size);
+  font-weight: var(--_bookmarks-item-title-weight);
 }
 
 .tree-subtitle,
@@ -770,9 +786,9 @@ ${getPanelChromeCss()}
   justify-content: space-between;
   gap: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
   padding: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2) var(--aimd-space-4);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 58%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
   border-radius: var(--_bookmarks-batch-radius);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, var(--aimd-bg-surface));
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
   box-shadow: var(--_bookmarks-batch-shadow);
   opacity: 0;
   pointer-events: none;
@@ -833,8 +849,8 @@ ${getPanelChromeCss()}
   gap: 14px;
   padding: 18px;
   border-radius: var(--_bookmarks-card-radius);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
 }
 
 .card-title {
@@ -842,8 +858,8 @@ ${getPanelChromeCss()}
   align-items: center;
   gap: var(--_bookmarks-sidebar-gap);
   margin: 0;
-  font-size: var(--_bookmarks-body-copy-size);
-  font-weight: 400;
+  font-size: var(--_bookmarks-section-title-size);
+  font-weight: var(--_bookmarks-section-title-weight);
 }
 
 .toggle-row,
@@ -868,10 +884,10 @@ ${getPanelChromeCss()}
 .settings-label strong {
   display: inline-flex;
   align-items: center;
-  gap: var(--aimd-space-2);
+  gap: var(--aimd-space-1);
   font-size: var(--_bookmarks-settings-title-size);
   line-height: 1.45;
-  font-weight: 400;
+  font-weight: var(--_bookmarks-item-title-weight);
 }
 
 .settings-label__icon {
@@ -891,12 +907,18 @@ ${getPanelChromeCss()}
 }
 
 .settings-label p,
-.settings-item-warning-text,
+.settings-item-warning-text {
+  margin: 4px 0 0;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.6;
+}
+
 .sponsor-section-note,
 .qr-card-label,
 .qr-card-label-link {
   margin: 4px 0 0;
-  color: var(--aimd-text-secondary);
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
   font-size: var(--_bookmarks-body-copy-size);
   line-height: 1.6;
 }
@@ -909,6 +931,10 @@ ${getPanelChromeCss()}
   align-items: center;
   border-radius: var(--_bookmarks-pill-radius);
   background: color-mix(in srgb, var(--aimd-border-default) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--aimd-text-on-primary) 6%, transparent),
+    0 4px 10px color-mix(in srgb, var(--aimd-bg-primary) 22%, transparent);
   padding: 3px;
   flex: 0 0 auto;
 }
@@ -921,7 +947,11 @@ ${getPanelChromeCss()}
 }
 
 .toggle-switch[data-checked="1"] {
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 70%, transparent);
+  background: color-mix(in srgb, var(--aimd-interactive-primary-hover) 82%, var(--aimd-text-on-primary) 18%);
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary-hover) 76%, var(--aimd-text-on-primary) 16%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--aimd-text-on-primary) 24%, transparent),
+    0 8px 18px color-mix(in srgb, var(--aimd-interactive-primary) 26%, transparent);
 }
 
 .toggle-knob {
@@ -929,6 +959,7 @@ ${getPanelChromeCss()}
   height: 22px;
   border-radius: var(--_bookmarks-pill-radius);
   background: var(--_bookmarks-knob-surface);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
   box-shadow: var(--_bookmarks-raised-shadow);
   transform: translateX(0);
   transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
@@ -958,13 +989,14 @@ ${getPanelChromeCss()}
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
   color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
   box-shadow: var(--_bookmarks-control-inset-shadow);
 }
 
 .settings-select-trigger:hover,
 .settings-select-shell[data-open="1"] .settings-select-trigger {
-  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
-  background: var(--aimd-button-secondary-hover);
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 34%, var(--aimd-border-default));
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
 }
 
 .settings-select-trigger__label {
@@ -993,8 +1025,8 @@ ${getPanelChromeCss()}
   padding: 8px;
   gap: 4px;
   border-radius: var(--_bookmarks-menu-radius);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 78%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   box-shadow: var(--aimd-shadow-lg);
 }
 
@@ -1014,15 +1046,16 @@ ${getPanelChromeCss()}
   border-radius: var(--_bookmarks-option-radius);
   text-align: left;
   color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
   cursor: pointer;
 }
 
 .settings-select-option:hover {
-  background: var(--aimd-button-secondary-hover);
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 88%, var(--aimd-sys-color-surface-hover));
 }
 
 .settings-select-option[data-selected="1"] {
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 14%, transparent);
   color: var(--aimd-interactive-primary);
 }
 
@@ -1042,8 +1075,8 @@ ${getPanelChromeCss()}
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
   border-radius: var(--aimd-radius-xl);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   box-shadow: var(--_bookmarks-control-inset-shadow);
   overflow: hidden;
   flex: 0 0 auto;
@@ -1051,8 +1084,8 @@ ${getPanelChromeCss()}
 
 .settings-number-field:hover,
 .settings-number-field:focus-within {
-  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
-  background: var(--aimd-button-secondary-hover);
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 34%, var(--aimd-border-default));
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
 }
 
 .settings-number {
@@ -1062,6 +1095,7 @@ ${getPanelChromeCss()}
   min-width: 0;
   padding: 0 14px;
   color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
 }
 
 .settings-number::-webkit-outer-spin-button,
@@ -1092,15 +1126,7 @@ ${getPanelChromeCss()}
 }
 
 .settings-number-step:hover {
-  background: var(--aimd-button-icon-hover);
-}
-
-.settings-number-step .aimd-icon svg {
-  transform: rotate(180deg);
-}
-
-.settings-number-step--down .aimd-icon svg {
-  transform: none;
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-sys-color-surface-hover));
 }
 
 .settings-storage-info {
@@ -1168,8 +1194,8 @@ ${getPanelChromeCss()}
 .export-backup-btn {
   width: 100%;
   margin-top: 12px;
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
 }
 
@@ -1189,8 +1215,8 @@ ${getPanelChromeCss()}
 }
 
 .secondary-btn {
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
 }
 
@@ -1253,7 +1279,7 @@ ${getPanelChromeCss()}
   align-items: center;
   justify-content: center;
   border-radius: calc(var(--aimd-radius-2xl) + var(--aimd-space-1));
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background:
     radial-gradient(circle at top, color-mix(in srgb, var(--aimd-interactive-primary) 12%, transparent), transparent 72%),
     color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
@@ -1273,7 +1299,7 @@ ${getPanelChromeCss()}
   text-align: center;
   padding: var(--aimd-space-6);
   border-radius: var(--_bookmarks-card-radius-lg);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background:
     linear-gradient(
       180deg,
@@ -1296,8 +1322,8 @@ ${getPanelChromeCss()}
   width: calc(var(--aimd-size-control-icon-panel) + var(--aimd-space-4));
   height: calc(var(--aimd-size-control-icon-panel) + var(--aimd-space-4));
   border-radius: calc(var(--aimd-radius-2xl) + var(--aimd-space-1));
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
 }
 
 .sponsor-section-icon .aimd-icon,
@@ -1319,15 +1345,15 @@ ${getPanelChromeCss()}
 
 .sponsor-section-label {
   font-size: var(--_bookmarks-sponsor-title-size);
-  line-height: var(--aimd-panel-title-line-height);
-  font-weight: var(--aimd-panel-title-weight);
+  line-height: 1.35;
+  font-weight: var(--_bookmarks-section-title-weight);
   color: var(--aimd-text-primary);
 }
 
 .sponsor-section-body {
   margin: 0;
   max-width: 34ch;
-  color: var(--aimd-text-secondary);
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
   font-size: var(--_bookmarks-body-copy-size);
   line-height: 1.65;
 }
@@ -1357,8 +1383,8 @@ ${getPanelChromeCss()}
   text-align: center;
   padding: var(--aimd-space-4);
   border-radius: var(--_bookmarks-card-radius);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 68%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 95%, var(--aimd-bg-primary));
 }
 
 .sponsor-qr-meta {
@@ -1382,8 +1408,8 @@ ${getPanelChromeCss()}
   justify-self: center;
   overflow: hidden;
   border-radius: var(--_bookmarks-menu-radius);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 76%, transparent);
-  background: color-mix(in srgb, var(--_bookmarks-media-surface) 94%, var(--aimd-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--_bookmarks-media-surface) 96%, var(--aimd-bg-secondary));
 }
 
 .qr-image,

@@ -97,8 +97,8 @@ export class ChatGPTFoldDock {
   width: 100%;
   min-height: calc(var(--aimd-space-3) * 6);
   border-radius: calc(var(--aimd-radius-lg) * 2);
-  border: 1px solid var(--aimd-border-default);
-  background: var(--aimd-bg-primary);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
 }
 .btn {
   all: unset;
@@ -108,14 +108,14 @@ export class ChatGPTFoldDock {
   width: 100%;
   min-height: calc(var(--aimd-space-3) * 3);
   color: var(--aimd-text-primary);
-  font-size: var(--aimd-font-size-xs);
+  font-size: var(--aimd-text-sm);
   font-weight: 700;
   line-height: 1;
   transition: background 160ms ease;
 }
 .btn + .btn { border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 70%, transparent); }
-.btn:hover { background: var(--aimd-interactive-hover); }
-.btn:active { background: var(--aimd-interactive-active); }
+.btn:hover { background: color-mix(in srgb, var(--aimd-interactive-hover) 90%, var(--aimd-sys-color-surface-hover)); }
+.btn:active { background: color-mix(in srgb, var(--aimd-interactive-active) 90%, var(--aimd-sys-color-surface-pressed)); }
 .btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 80%, transparent); outline-offset: -2px; }
 
 @supports not (background: color-mix(in srgb, white 10%, transparent)) {

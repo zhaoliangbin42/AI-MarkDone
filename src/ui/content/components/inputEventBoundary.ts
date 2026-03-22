@@ -24,12 +24,14 @@ export function installInputEventBoundary(
     };
 
     for (const type of eventTypes) {
-        root.addEventListener(type, stopEvent);
+        const useCapture = type === 'focus' || type === 'focusin';
+        root.addEventListener(type, stopEvent, useCapture);
     }
 
     return () => {
         for (const type of eventTypes) {
-            root.removeEventListener(type, stopEvent);
+            const useCapture = type === 'focus' || type === 'focusin';
+            root.removeEventListener(type, stopEvent, useCapture);
         }
     };
 }

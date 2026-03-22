@@ -1,91 +1,41 @@
-import { browser } from '../../../drivers/shared/browser';
-import type { Bookmark, FolderTreeNode } from '../../../core/bookmarks/types';
-import { filterBookmarks, getAllBookmarks } from '../../../core/bookmarks/tree';
-import { PathUtils } from '../../../core/bookmarks/path';
-import { DEFAULT_SETTINGS, type AppSettings, type FoldingMode } from '../../../core/settings/types';
+import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
-import { getTokenCss } from '../../../style/tokens';
+import { browser } from '../../../drivers/shared/browser';
 import {
-    Icons,
     bookmarkIcon,
-    chatgptIcon,
-    chevronDownIcon,
-    chevronRightIcon,
     coffeeIcon,
-    copyIcon,
-    downloadIcon,
-    externalLinkIcon,
-    folderIcon,
-    folderOpenIcon,
-    folderPlusIcon,
-    moveIcon,
-    pencilIcon,
-    searchIcon,
     settingsIcon,
-    sortAZIcon,
-    sortAlphaAscIcon,
-    sortTimeAscIcon,
-    sortTimeIcon,
-    trashIcon,
-    uploadIcon,
     xIcon,
 } from '../../../assets/icons';
 import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from './BookmarksPanelController';
+import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
+import { SettingsTabView, type SettingsTabViewActions } from './ui/tabs/SettingsTabView';
+import { SponsorTabView } from './ui/tabs/SponsorTabView';
+import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
+import { BookmarksOverlaySession } from './ui/BookmarksOverlaySession';
 import type { ReaderPanel } from '../reader/ReaderPanel';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
-import { ModalHost } from '../components/ModalHost';
 import { TooltipDelegate } from '../../../utils/tooltip';
-import { bookmarkSaveDialog } from './save/bookmarkSaveDialogSingleton';
-import overlayCssText from '../../../style/tailwind-overlay.css?inline';
-import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
-import type { ReaderItem } from '../../../services/reader/types';
-import { setLocale, subscribeLocaleChange, t } from '../components/i18n';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import { logger } from '../../../core/logger';
+import { eventWithinTransientRoot } from '../components/transientUi';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'sponsor';
-type SettingsMenuId = 'folding-mode' | 'language' | null;
-type TreeRenderPlan =
-    | { mode: 'inline'; html: string }
-    | { mode: 'virtualized'; model: VirtualTreeModel };
-type VirtualTreeModel = {
-    rows: VirtualTreeRow[];
-    totalHeight: number;
-};
-type VirtualTreeRow =
-    | {
-        kind: 'folder';
-        top: number;
-        height: number;
-        node: FolderTreeNode;
-        depth: number;
-        selectedPath: string | null;
-        count: number;
-        expanded: boolean;
-        folderCheckState: { checked: boolean; indeterminate: boolean };
-    }
-    | {
-        kind: 'bookmark';
-        top: number;
-        height: number;
-        bookmark: Bookmark;
-        depth: number;
-        selectedKeys: Set<string>;
-        subtitle: string;
-    };
 
 type UiState = {
     bookmarksTab: PanelTabId;
-    platformMenuOpen: boolean;
-    settingsMenuOpen: SettingsMenuId;
     settings: AppSettings;
 };
 
-const TREE_VIRTUALIZE_THRESHOLD = 240;
-const TREE_FOLDER_ROW_HEIGHT = 52;
-const TREE_BOOKMARK_ROW_HEIGHT = 62;
-const TREE_OVERSCAN_PX = 320;
+type BookmarksPanelTabView = {
+    getElement(): HTMLElement;
+    update?(snapshot: BookmarksPanelSnapshot | null): void;
+    focusPrimaryInput?(): void;
+    dismissTransientUi?(): void;
+    destroy?(): void;
+};
+
 function shouldLogBookmarksPerf(): boolean {
     try {
         if (typeof window !== 'undefined' && window.__AIMD_BOOKMARKS_PERF__) return true;
@@ -103,48 +53,10 @@ function logBookmarksPerf(stage: string, payload: Record<string, unknown>): void
     logger.debug(`[AI-MarkDone][BookmarksPanel][Perf] ${stage}`, payload);
 }
 
-function icon(svg: string): string {
-    return `<span class="aimd-icon" aria-hidden="true">${svg}</span>`;
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function buttonClass(kind: 'primary' | 'secondary'): string {
-    return kind === 'primary' ? 'primary-btn' : 'secondary-btn';
-}
-
-function tooltipAttr(label: string): string {
-    return `data-tooltip="${escapeHtml(label)}"`;
-}
-
 function tr(key: string, fallback: string, substitutions?: string[]): string {
     const translated = substitutions ? t(key, substitutions) : t(key);
     if (!translated || translated === key) return fallback;
     return translated;
-}
-
-function bookmarkSelectionKey(bookmark: Bookmark): string {
-    return `bm:${bookmark.urlWithoutProtocol}:${bookmark.position}`;
-}
-
-function countSelectedBookmarks(keys: Set<string>): number {
-    let count = 0;
-    for (const key of keys) {
-        if (key.startsWith('bm:')) count += 1;
-    }
-    return count;
-}
-
-function getSelectedCountLabel(selectedCount: number): string {
-    if (selectedCount <= 0) return '';
-    return tr('selectedCount', `${selectedCount} selected`, [String(selectedCount)]);
 }
 
 function downloadJson(filename: string, data: unknown): void {
@@ -174,579 +86,11 @@ function mergeSettings(input: unknown): AppSettings {
     };
 }
 
-function renderToggle(role: string, label: string, checked: boolean, desc = '', iconSvg?: string): string {
-    return `
-      <label class="toggle-row">
-        <div class="settings-label">
-          <strong>
-            ${iconSvg ? `<span class="settings-label__icon" aria-hidden="true">${icon(iconSvg)}</span>` : ''}
-            <span>${escapeHtml(label)}</span>
-          </strong>
-          ${desc ? `<p>${escapeHtml(desc)}</p>` : ''}
-        </div>
-        <span class="toggle-switch" data-checked="${checked ? '1' : '0'}">
-          <input type="checkbox" data-role="${role}" ${checked ? 'checked' : ''} />
-          <span class="toggle-knob"></span>
-        </span>
-      </label>
-    `;
-}
-
-function renderSettingsSelect(type: 'folding-mode' | 'language', uiState: UiState): string {
-    const options = type === 'folding-mode'
-        ? [
-            { value: 'off', label: tr('chatgptFoldingModeOff', 'Off') },
-            { value: 'all', label: tr('chatgptFoldingModeAll', 'All') },
-            { value: 'keep_last_n', label: tr('chatgptFoldingModeKeepLastN', 'Keep last N') },
-        ]
-        : [
-            { value: 'auto', label: tr('languageAuto', 'Auto') },
-            { value: 'en', label: tr('languageEnglish', 'English') },
-            { value: 'zh_CN', label: tr('languageZhCN', '简体中文') },
-        ];
-    const menuId: SettingsMenuId = type;
-    const currentValue = type === 'folding-mode'
-        ? uiState.settings.chatgpt.foldingMode
-        : uiState.settings.language;
-    const currentLabel = options.find((option) => option.value === currentValue)?.label ?? options[0]!.label;
-    const isOpen = uiState.settingsMenuOpen === menuId;
-
-    return `
-      <div class="settings-select-shell" data-open="${isOpen ? '1' : '0'}">
-        <button class="settings-select-trigger" type="button" data-action="toggle-settings-menu" data-menu="${menuId}" aria-haspopup="listbox" aria-expanded="${isOpen ? 'true' : 'false'}">
-          <span class="settings-select-trigger__label">${currentLabel}</span>
-          <span class="settings-select-trigger__caret">${icon(chevronDownIcon)}</span>
-        </button>
-        <div class="settings-select-menu" data-open="${isOpen ? '1' : '0'}" role="listbox" tabindex="-1">
-          ${options.map((option) => `
-            <button class="settings-select-option" type="button" data-action="settings-select-option" data-menu="${menuId}" data-value="${option.value}" role="option" aria-selected="${option.value === currentValue ? 'true' : 'false'}" data-selected="${option.value === currentValue ? '1' : '0'}">
-              <span>${option.label}</span>
-              <span class="settings-option-check">${icon(Icons.check)}</span>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-}
-
-function getPlatformDropdownHtml(platform: string, platforms: string[], menuOpen: boolean): string {
-    const iconForPlatform = (value: string): string => {
-        const normalized = value.trim().toLowerCase();
-        if (normalized === 'all') return Icons.globe;
-        if (normalized.includes('chatgpt')) return Icons.chatgpt;
-        if (normalized.includes('gemini')) return Icons.gemini;
-        if (normalized.includes('claude')) return Icons.claude;
-        if (normalized.includes('deepseek')) return Icons.deepseek;
-        return Icons.globe;
-    };
-
-    const options = [
-        { value: 'All', label: t('allPlatforms'), iconSvg: Icons.globe },
-        ...platforms
-            .filter((value) => value !== 'All')
-            .map((value) => ({
-                value,
-                label: value,
-                iconSvg: iconForPlatform(value),
-            })),
-    ];
-    const selected = options.find((option) => option.value === platform) ?? options[0]!;
-
-    return `
-      <div class="platform-dropdown" data-open="${menuOpen ? '1' : '0'}">
-        <button class="platform-dropdown__trigger" type="button" data-action="toggle-platform-menu" aria-haspopup="listbox" aria-expanded="${menuOpen ? 'true' : 'false'}">
-          <span class="platform-dropdown__value">
-            <span class="platform-option-icon">${icon(selected.iconSvg)}</span>
-            <span class="platform-dropdown__label">${selected.label}</span>
-          </span>
-          <span class="platform-dropdown__caret">${icon(chevronDownIcon)}</span>
-        </button>
-        <div class="platform-dropdown__menu" data-open="${menuOpen ? '1' : '0'}" role="listbox">
-          ${options.map((option) => `
-            <button class="platform-dropdown__option" type="button" data-action="select-platform" data-value="${option.value}" role="option" data-selected="${option.value === platform ? '1' : '0'}">
-              <span class="platform-option-icon">${icon(option.iconSvg)}</span>
-              <span class="platform-dropdown__label">${option.label}</span>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-}
-
-function buildVisibleFolderCountMap(nodes: FolderTreeNode[], visibleKeys: Set<string>): Map<string, number> {
-    const countMap = new Map<string, number>();
-
-    const visit = (node: FolderTreeNode): number => {
-        let count = 0;
-        for (const bookmark of node.bookmarks) {
-            if (visibleKeys.has(bookmarkSelectionKey(bookmark))) count += 1;
-        }
-        for (const child of node.children) {
-            count += visit(child);
-        }
-        countMap.set(node.folder.path, count);
-        return count;
-    };
-
-    for (const node of nodes) {
-        visit(node);
-    }
-
-    return countMap;
-}
-
-function getEffectiveExpanded(_nodePath: string, isExpanded: boolean, _selectedPath: string | null): boolean {
-    return isExpanded;
-}
-
-function getBookmarkSubtitleForMock(bookmark: Bookmark, fallback: string): string {
-    if (typeof bookmark.timestamp !== 'number') return fallback;
-    return new Date(bookmark.timestamp).toLocaleDateString();
-}
-
-function getBookmarkPlatformIcon(platform: string): string {
-    const value = platform.trim().toLowerCase();
-    if (value.includes('chatgpt')) return chatgptIcon;
-    if (value.includes('gemini')) return Icons.gemini;
-    if (value.includes('claude')) return Icons.claude;
-    if (value.includes('deepseek')) return Icons.deepseek;
-    return Icons.globe;
-}
-
-function getTreeVisibleBookmarks(snapshot: BookmarksPanelSnapshot): Bookmark[] {
-    const allBookmarks = getAllBookmarks(snapshot.vm.folderTree);
-    return filterBookmarks({
-        bookmarks: allBookmarks,
-        query: snapshot.vm.query,
-        platform: snapshot.vm.platform,
-    });
-}
-
-function renderBookmarkRow(bookmark: Bookmark, depth: number, selectedKeys: Set<string>, subtitle: string): string {
-    const selected = selectedKeys.has(bookmarkSelectionKey(bookmark));
-    const indent = 10 + depth * 18;
-    const untitled = tr('untitledLabel', '(untitled)');
-    return `
-      <div class="tree-item tree-item--bookmark" style="padding-left:${indent}px" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" role="treeitem" aria-level="${depth + 1}">
-        <span class="tree-caret-slot" aria-hidden="true"></span>
-        <input class="tree-check" type="checkbox" data-action="toggle-bookmark-selection" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" ${selected ? 'checked' : ''} />
-        <span class="tree-icon-slot" aria-hidden="true">${icon(getBookmarkPlatformIcon(bookmark.platform))}</span>
-        <button class="tree-main tree-main--bookmark" type="button" data-action="open-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}">
-          <span class="tree-label-row">
-            <span class="tree-title-meta">
-              <div class="tree-label">${escapeHtml(bookmark.title || untitled)}</div>
-              <div class="tree-subtitle">${escapeHtml(subtitle)}</div>
-            </span>
-          </span>
-        </button>
-        <div class="tree-actions">
-          <button class="icon-btn" type="button" data-action="go-to-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(tr('openConversationLabel', 'Open conversation'))}" ${tooltipAttr(tr('openConversationLabel', 'Open conversation'))}>${icon(externalLinkIcon)}</button>
-          <button class="icon-btn" type="button" data-action="copy-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(tr('btnCopyText', 'Copy'))}" ${tooltipAttr(tr('btnCopyText', 'Copy'))}>${icon(copyIcon)}</button>
-          <button class="icon-btn" type="button" data-action="move-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(tr('moveBookmarkLabel', 'Move bookmark'))}" ${tooltipAttr(tr('moveBookmarkLabel', 'Move bookmark'))}>${icon(moveIcon)}</button>
-          <button class="icon-btn icon-btn--danger" type="button" data-action="delete-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(tr('btnDelete', 'Delete'))}" ${tooltipAttr(tr('btnDelete', 'Delete'))}>${icon(trashIcon)}</button>
-        </div>
-      </div>
-    `;
-}
-
-function renderFolderRow(
-    node: FolderTreeNode,
-    depth: number,
-    selectedPath: string | null,
-    count: number,
-    expanded: boolean,
-    folderCheckState: { checked: boolean; indeterminate: boolean },
-): string {
-    const hasDirectBookmarks = node.bookmarks.length > 0;
-    const hasChildren = hasDirectBookmarks || node.children.length > 0;
-    const indent = 10 + depth * 18;
-    const expandLabel = expanded ? tr('collapseFolderLabel', 'Collapse folder') : tr('expandFolderLabel', 'Expand folder');
-    return `
-      <div class="tree-item tree-item--folder" style="padding-left:${indent}px" data-path="${escapeHtml(node.folder.path)}" data-selected="${selectedPath === node.folder.path ? '1' : '0'}" role="treeitem" aria-level="${depth + 1}" aria-expanded="${expanded ? 'true' : 'false'}">
-        <button class="tree-caret" type="button" data-action="toggle-folder-expand" data-path="${escapeHtml(node.folder.path)}" aria-label="${escapeHtml(expandLabel)}" ${tooltipAttr(expandLabel)} ${hasChildren ? '' : 'disabled'}>${icon(expanded ? chevronDownIcon : chevronRightIcon)}</button>
-        <input class="tree-check" type="checkbox" data-action="toggle-folder-selection" data-path="${escapeHtml(node.folder.path)}" ${folderCheckState.checked ? 'checked' : ''} data-indeterminate="${folderCheckState.indeterminate ? '1' : '0'}" />
-        <div class="tree-folder-icon">${icon(expanded ? folderOpenIcon : folderIcon)}</div>
-        <button class="tree-main tree-main--folder" type="button" data-action="select-folder" data-path="${escapeHtml(node.folder.path)}">
-          <div class="tree-label">${escapeHtml(node.folder.name)}</div>
-        </button>
-        <div class="tree-count">${count}</div>
-        <div class="tree-actions">
-          <button class="icon-btn" type="button" data-action="create-subfolder" data-path="${escapeHtml(node.folder.path)}" aria-label="${escapeHtml(tr('createSubfolder', 'Create subfolder'))}" ${tooltipAttr(tr('createSubfolder', 'Create subfolder'))}>${icon(folderPlusIcon)}</button>
-          <button class="icon-btn" type="button" data-action="rename-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="${escapeHtml(tr('renameFolder', 'Rename folder'))}" ${tooltipAttr(tr('renameFolder', 'Rename folder'))}>${icon(pencilIcon)}</button>
-          <button class="icon-btn" type="button" data-action="move-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="${escapeHtml(tr('moveFolder', 'Move folder'))}" ${tooltipAttr(tr('moveFolder', 'Move folder'))}>${icon(moveIcon)}</button>
-          <button class="icon-btn icon-btn--danger" type="button" data-action="delete-folder" data-path="${escapeHtml(node.folder.path)}" aria-label="${escapeHtml(tr('deleteFolder', 'Delete folder'))}" ${tooltipAttr(tr('deleteFolder', 'Delete folder'))}>${icon(trashIcon)}</button>
-        </div>
-      </div>
-    `;
-}
-
-function renderFolderNode(
-    node: FolderTreeNode,
-    depth: number,
-    selectedPath: string | null,
-    visibleKeys: Set<string>,
-    visibleCountMap: Map<string, number>,
-    selectedKeys: Set<string>,
-    getFolderCheckboxState: (path: string) => { checked: boolean; indeterminate: boolean },
-    getSubtitle: (bookmark: Bookmark) => string,
-): string {
-    const expanded = getEffectiveExpanded(node.folder.path, node.isExpanded, selectedPath);
-    const count = visibleCountMap.get(node.folder.path) ?? 0;
-    const folderCheckState = getFolderCheckboxState(node.folder.path);
-    const childContentHtml = expanded
-        ? [
-            ...node.children.map((child) => renderFolderNode(
-                child,
-                depth + 1,
-                selectedPath,
-                visibleKeys,
-                visibleCountMap,
-                selectedKeys,
-                getFolderCheckboxState,
-                getSubtitle,
-            )),
-            ...node.bookmarks
-                .filter((bookmark) => visibleKeys.has(bookmarkSelectionKey(bookmark)))
-                .map((bookmark) => renderBookmarkRow(
-                    bookmark,
-                    depth + 1,
-                    selectedKeys,
-                    getBookmarkSubtitleForMock(bookmark, getSubtitle(bookmark)),
-                )),
-        ].join('')
-        : '';
-
-    return `
-      <div class="tree-node">
-        ${renderFolderRow(node, depth, selectedPath, count, expanded, folderCheckState)}
-        <div class="tree-children" data-expanded="${expanded ? '1' : '0'}">
-          ${childContentHtml}
-        </div>
-      </div>
-    `;
-}
-
-function buildVirtualTreeModel(snapshot: BookmarksPanelSnapshot, controller: BookmarksPanelController): VirtualTreeModel | null {
-    const visibleKeys = new Set(getTreeVisibleBookmarks(snapshot).map(bookmarkSelectionKey));
-    const visibleCountMap = buildVisibleFolderCountMap(snapshot.vm.folderTree, visibleKeys);
-    const selectedPath = snapshot.vm.selectedFolderPath;
-    const rows: VirtualTreeRow[] = [];
-    let top = 0;
-
-    const visit = (node: FolderTreeNode, depth: number, selectedPath: string | null): void => {
-        const expanded = getEffectiveExpanded(node.folder.path, node.isExpanded, selectedPath);
-        rows.push({
-            kind: 'folder',
-            top,
-            height: TREE_FOLDER_ROW_HEIGHT,
-            node,
-            depth,
-            selectedPath,
-            count: visibleCountMap.get(node.folder.path) ?? 0,
-            expanded,
-            folderCheckState: controller.getFolderCheckboxState(node.folder.path),
-        });
-        top += TREE_FOLDER_ROW_HEIGHT;
-
-        if (!expanded) return;
-
-        for (const child of node.children) {
-            visit(child, depth + 1, selectedPath);
-        }
-
-        for (const bookmark of node.bookmarks) {
-            if (!visibleKeys.has(bookmarkSelectionKey(bookmark))) continue;
-            rows.push({
-                kind: 'bookmark',
-                top,
-                height: TREE_BOOKMARK_ROW_HEIGHT,
-                bookmark,
-                depth: depth + 1,
-                selectedKeys: snapshot.selectedKeys,
-                subtitle: getBookmarkSubtitleForMock(bookmark, controller.getBookmarkRowSubtitle(bookmark)),
-            });
-            top += TREE_BOOKMARK_ROW_HEIGHT;
-        }
-    };
-
-    for (const node of snapshot.vm.folderTree) {
-        visit(node, 0, selectedPath);
-    }
-
-    if (rows.length <= TREE_VIRTUALIZE_THRESHOLD) return null;
-    return { rows, totalHeight: top };
-}
-
-function renderVirtualTreeRow(row: VirtualTreeRow): string {
-    if (row.kind === 'folder') {
-        return renderFolderRow(row.node, row.depth, row.selectedPath, row.count, row.expanded, row.folderCheckState);
-    }
-    return renderBookmarkRow(row.bookmark, row.depth, row.selectedKeys, row.subtitle);
-}
-
-function getTreeHtml(snapshot: BookmarksPanelSnapshot, controller: BookmarksPanelController): string {
-    const visibleKeys = new Set(getTreeVisibleBookmarks(snapshot).map(bookmarkSelectionKey));
-    const visibleCountMap = buildVisibleFolderCountMap(snapshot.vm.folderTree, visibleKeys);
-    const selectedPath = snapshot.vm.selectedFolderPath;
-    const folderTreeHtml = snapshot.vm.folderTree
-        .map((node) => renderFolderNode(
-            node,
-            0,
-            selectedPath,
-            visibleKeys,
-            visibleCountMap,
-            snapshot.selectedKeys,
-            (path) => controller.getFolderCheckboxState(path),
-            (bookmark) => controller.getBookmarkRowSubtitle(bookmark),
-        ))
-        .join('');
-
-    if (folderTreeHtml) return folderTreeHtml;
-
-    const emptyTitle = snapshot.vm.query || snapshot.vm.platform !== 'All'
-        ? tr('noResultsTitle', 'No bookmarks match the current filters')
-        : tr('noFoldersYet', 'No folders yet');
-    const emptyHint = snapshot.vm.query || snapshot.vm.platform !== 'All'
-        ? tr('noResultsHint', 'Clear the active filters or select a broader folder scope.')
-        : tr('emptyBookmarksHint', 'Create a folder or import bookmarks to start browsing saved messages.');
-
-    return `
-      <div class="empty-state">
-        <div class="empty-icon">${icon(folderIcon)}</div>
-        <strong>${escapeHtml(emptyTitle)}</strong>
-        <p>${escapeHtml(emptyHint)}</p>
-        <div class="empty-actions">
-          <button class="${buttonClass('primary')}" type="button" data-action="create-folder-empty">${escapeHtml(t('createFirstFolderBtn'))}</button>
-          <button class="${buttonClass('secondary')}" type="button" data-action="import-bookmarks-empty">${escapeHtml(tr('importBookmarks', 'Import bookmarks'))}</button>
-        </div>
-      </div>
-    `;
-}
-
-function formatPercent(value: number | null | undefined): string {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return '0%';
-    const normalized = Math.max(0, Math.min(100, value));
-    const rounded = Math.round(normalized * 10) / 10;
-    return Number.isInteger(rounded) ? `${rounded}%` : `${rounded.toFixed(1)}%`;
-}
-
-function getSettingsTabHtml(uiState: UiState, snapshot: BookmarksPanelSnapshot | null): string {
-    const s = uiState.settings;
-    const usage = snapshot?.storageUsage ?? null;
-    const usagePercent = formatPercent(usage?.usedPercentage);
-    const usageBarClass = usage?.warningLevel && usage.warningLevel !== 'none'
-        ? `storage-fill storage-progress-bar ${usage.warningLevel}`
-        : 'storage-fill storage-progress-bar';
-    return `
-      <div class="settings-grid">
-        <section class="settings-card">
-          <div class="card-title">${icon(Icons.globe)} ${escapeHtml(tr('platforms', 'Platforms'))}</div>
-          ${renderToggle('settings-platform-chatgpt', 'ChatGPT', s.platforms.chatgpt, tr('settingsPlatformChatgptDesc', 'Enable AI-MarkDone on ChatGPT.'), Icons.chatgpt)}
-          ${renderToggle('settings-platform-gemini', 'Gemini', s.platforms.gemini, tr('settingsPlatformGeminiDesc', 'Enable AI-MarkDone on Gemini.'), Icons.gemini)}
-          ${renderToggle('settings-platform-claude', 'Claude', s.platforms.claude, tr('settingsPlatformClaudeDesc', 'Enable AI-MarkDone on Claude.'), Icons.claude)}
-          ${renderToggle('settings-platform-deepseek', 'DeepSeek', s.platforms.deepseek, tr('settingsPlatformDeepseekDesc', 'Enable AI-MarkDone on DeepSeek.'), Icons.deepseek)}
-        </section>
-        <section class="settings-card">
-          <div class="card-title">${icon(chatgptIcon)} ${escapeHtml(tr('chatgptSettings', 'ChatGPT'))}</div>
-          <div class="settings-row">
-            <div class="settings-label">
-              <strong>${escapeHtml(tr('settingsFoldingModeLabel', 'Folding mode'))}</strong>
-              <p>${escapeHtml(tr('settingsFoldingModeDesc', 'Controls how many messages stay expanded by default.'))}</p>
-            </div>
-            ${renderSettingsSelect('folding-mode', uiState)}
-          </div>
-          ${s.chatgpt.foldingMode === 'keep_last_n' ? `
-            <div class="settings-row" data-visible="1">
-              <div class="settings-label">
-                <strong>${escapeHtml(tr('chatgptFoldingCountLabel', 'Expanded count'))}</strong>
-                <p>${escapeHtml(tr('settingsExpandedCountDesc', 'Used only when the folding mode keeps the latest N messages visible.'))}</p>
-              </div>
-              <div class="settings-number-field aimd-field-shell">
-                <input class="settings-number aimd-field-control" data-role="settings-folding-count" type="number" min="0" value="${s.chatgpt.defaultExpandedCount}" />
-                <div class="settings-number-stepper">
-                  <button class="settings-number-step" type="button" data-action="settings-step-count" data-direction="up" aria-label="${escapeHtml(tr('increaseExpandedCount', 'Increase expanded count'))}" ${tooltipAttr(tr('increaseExpandedCount', 'Increase expanded count'))}>${icon(chevronDownIcon)}</button>
-                  <button class="settings-number-step settings-number-step--down" type="button" data-action="settings-step-count" data-direction="down" aria-label="${escapeHtml(tr('decreaseExpandedCount', 'Decrease expanded count'))}" ${tooltipAttr(tr('decreaseExpandedCount', 'Decrease expanded count'))}>${icon(chevronDownIcon)}</button>
-                </div>
-              </div>
-            </div>
-          ` : ''}
-          ${renderToggle('settings-fold-dock', tr('settingsFoldDockLabel', 'Show fold dock'), s.chatgpt.showFoldDock, tr('settingsFoldDockDesc', 'Keep the compact fold dock visible in supported threads.'))}
-        </section>
-        <section class="settings-card">
-          <div class="card-title">${icon(settingsIcon)} ${escapeHtml(tr('behavior', 'Behavior'))}</div>
-          ${renderToggle('settings-show-view-source', tr('settingsShowViewSourceLabel', 'Show View Source'), s.behavior.showViewSource, tr('settingsShowViewSourceDesc', 'Show the View Source action in supported toolbars and panels.'))}
-          ${renderToggle('settings-show-save-messages', tr('settingsShowSaveMessagesLabel', 'Show Save Messages'), s.behavior.showSaveMessages, tr('settingsShowSaveMessagesDesc', 'Show the Save Messages action where export is supported.'))}
-          ${renderToggle('settings-show-word-count', tr('settingsShowWordCountLabel', 'Show Word Count'), s.behavior.showWordCount, tr('settingsShowWordCountDesc', 'Display word count information for saved and rendered content.'))}
-          ${renderToggle('settings-click-to-copy', tr('settingsEnableClickToCopyLabel', 'Enable click-to-copy'), s.behavior.enableClickToCopy, tr('settingsEnableClickToCopyDesc', 'Copy message content directly when supported surfaces are clicked.'))}
-          ${renderToggle('settings-save-context-only', tr('settingsSaveContextOnlyLabel', 'Save context only'), s.behavior.saveContextOnly, tr('settingsSaveContextOnlyDesc', 'Only save the conversation context instead of the full thread when exporting or bookmarking.'))}
-          ${renderToggle('settings-render-code-reader', tr('settingsRenderCodeInReaderLabel', 'Render code in Reader'), s.reader.renderCodeInReader, tr('settingsRenderCodeInReaderDesc', 'Render fenced code blocks with reader formatting instead of raw plain text.'))}
-        </section>
-        <section class="settings-card">
-          <div class="card-title">${icon(Icons.languages)} ${escapeHtml(tr('language', 'Language'))}</div>
-          <div class="settings-row">
-            <div class="settings-label">
-              <strong>${escapeHtml(tr('settingsInterfaceLanguageLabel', 'Interface language'))}</strong>
-              <p>${escapeHtml(tr('settingsInterfaceLanguageDesc', 'Auto follows the browser, or pin the UI to a specific locale.'))}</p>
-            </div>
-            ${renderSettingsSelect('language', uiState)}
-          </div>
-        </section>
-        <section class="settings-card">
-          <div class="card-title">${icon(Icons.database)} ${escapeHtml(tr('dataAndStorage', 'Data & storage'))}</div>
-          <div class="storage-header">
-            <strong>${escapeHtml(t('storageUsedLabel'))}</strong>
-            <span class="storage-value">${usagePercent}</span>
-          </div>
-          <div class="storage-track storage-progress-track"><div class="${usageBarClass}" style="width:${usagePercent}"></div></div>
-          <div class="backup-callout">
-            <div>
-              <strong>${escapeHtml(tr('backupTitle', 'Back up your bookmarks'))}</strong>
-              <p>${escapeHtml(tr('backupBookmarksHint', 'Export everything before major refactors or browser reinstalls.'))}</p>
-            </div>
-            <button class="${buttonClass('secondary')}" type="button" data-action="settings-export-backup">${icon(downloadIcon)} ${escapeHtml(tr('exportAllBtn', 'Export all'))}</button>
-          </div>
-        </section>
-      </div>
-    `;
-}
-
-function getSponsorTabHtml(bmcUrl: string, wechatUrl: string, logoUrl: string): string {
-    return `
-      <div class="sponsor-celebration" aria-hidden="true"></div>
-      <div class="sponsor-shell">
-        <div class="sponsor-title-row">
-          <div class="sponsor-brand-badge">
-            <img class="sponsor-brand-mark" src="${logoUrl}" alt="AI-MarkDone" />
-          </div>
-        </div>
-        <section class="sponsor-card sponsor-card--primary">
-          <div class="sponsor-section-head">
-            <div class="sponsor-section-icon">${icon(Icons.github)}</div>
-            <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">${escapeHtml(t('supportDevelopment'))}</div>
-            </div>
-          </div>
-          <p class="sponsor-section-body">${escapeHtml(t('supportDevDesc'))}</p>
-          <div class="sponsor-action-row">
-            <button class="${buttonClass('primary')} sponsor-cta-button" type="button" data-action="sponsor-github">${icon(Icons.github)} ${escapeHtml(tr('starOnGitHub', 'Star on GitHub'))}</button>
-          </div>
-        </section>
-        <section class="sponsor-card sponsor-card--secondary">
-          <div class="sponsor-section-head">
-            <div class="sponsor-section-icon sponsor-section-icon--warm">${icon(coffeeIcon)}</div>
-            <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">${escapeHtml(t('ifProjectHelps'))}</div>
-            </div>
-          </div>
-          <p class="sponsor-section-body">${escapeHtml(t('supportCoffeeDesc'))}</p>
-          <div class="sponsor-qr-grid">
-            <article class="sponsor-qr-card">
-              <div class="sponsor-qr-meta">
-                <strong>${escapeHtml(tr('buyMeCoffee', 'Buy Me a Coffee'))}</strong>
-              </div>
-              <div class="sponsor-qr-frame">
-                <img class="sponsor-qr-image" src="${bmcUrl}" alt="${escapeHtml(tr('sponsorBmcAlt', 'Buy Me a Coffee QR code'))}" />
-              </div>
-            </article>
-            <article class="sponsor-qr-card">
-              <div class="sponsor-qr-meta">
-                <strong>${escapeHtml(tr('wechatAppreciationCode', 'WeChat reward'))}</strong>
-              </div>
-              <div class="sponsor-qr-frame">
-                <img class="sponsor-qr-image" src="${wechatUrl}" alt="${escapeHtml(tr('sponsorWechatAlt', 'WeChat appreciation code'))}" />
-              </div>
-            </article>
-          </div>
-        </section>
-      </div>
-    `;
-}
-
-function getPanelHtml(
-    uiState: UiState,
-    snapshot: BookmarksPanelSnapshot | null,
-    controller: BookmarksPanelController,
-    bmcUrl: string,
-    wechatUrl: string,
-    logoUrl: string,
-    treeHtml: string,
-    treeMode: 'inline' | 'virtualized',
-): string {
-    const title = uiState.bookmarksTab === 'bookmarks'
-        ? tr('tabBookmarks', 'Bookmarks')
-        : uiState.bookmarksTab === 'settings'
-            ? tr('tabSettings', 'Settings')
-            : tr('tabSponsor', 'Sponsor');
-    const platform = snapshot?.vm.platform ?? 'All';
-    const sortMode = snapshot?.vm.sortMode ?? uiState.settings.bookmarks.sortMode;
-    const query = snapshot?.vm.query ?? '';
-    const selectedCount = snapshot ? countSelectedBookmarks(snapshot.selectedKeys) : 0;
-
-    return `
-        <div class="panel-stage__overlay aimd-panel-overlay">
-        <div class="panel-window panel-window--bookmarks aimd-panel" role="dialog" aria-modal="true" aria-label="${title}">
-          <div class="panel-header">
-            <div class="panel-header__meta">
-              <h2 class="aimd-panel-title">${title}</h2>
-            </div>
-            <div class="panel-header__actions">
-              <button class="icon-btn" type="button" data-action="close-panel" aria-label="${escapeHtml(tr('btnClose', 'Close panel'))}" ${tooltipAttr(tr('btnClose', 'Close panel'))}>${icon(xIcon)}</button>
-            </div>
-          </div>
-          <div class="bookmarks-shell">
-            <nav class="bookmarks-sidebar">
-              <button class="tab-btn" type="button" data-action="set-bookmarks-tab" data-tab="bookmarks" data-active="${uiState.bookmarksTab === 'bookmarks' ? '1' : '0'}">${icon(bookmarkIcon)}<span>${escapeHtml(tr('tabBookmarks', 'Bookmarks'))}</span></button>
-              <button class="tab-btn" type="button" data-action="set-bookmarks-tab" data-tab="settings" data-active="${uiState.bookmarksTab === 'settings' ? '1' : '0'}">${icon(settingsIcon)}<span>${escapeHtml(tr('tabSettings', 'Settings'))}</span></button>
-              <button class="tab-btn" type="button" data-action="set-bookmarks-tab" data-tab="sponsor" data-active="${uiState.bookmarksTab === 'sponsor' ? '1' : '0'}">${icon(coffeeIcon)}<span>${escapeHtml(tr('tabSponsor', 'Sponsor'))}</span></button>
-            </nav>
-            <div class="bookmarks-body">
-              <section class="tab-panel tab-panel--bookmarks" data-active="${uiState.bookmarksTab === 'bookmarks' ? '1' : '0'}">
-                <div class="toolbar-row toolbar-row--bookmarks">
-                  <div class="search-field aimd-field-shell">
-                    ${icon(searchIcon)}
-                    <input class="aimd-field-control" data-role="bookmark-query" value="${escapeHtml(query)}" placeholder="${escapeHtml(t('searchBookmarksPlaceholder'))}" />
-                  </div>
-                  ${getPlatformDropdownHtml(platform, controller.getPlatforms(), uiState.platformMenuOpen)}
-                  <div class="toolbar-actions">
-                    <button class="icon-btn" type="button" data-action="toggle-sort-time" data-active="${sortMode.startsWith('time') ? '1' : '0'}" aria-label="${escapeHtml(tr('sortByTimeLabel', 'Sort by time'))}" ${tooltipAttr(tr('sortByTimeLabel', 'Sort by time'))}>${icon(sortMode === 'time-asc' ? sortTimeAscIcon : sortTimeIcon)}</button>
-                    <button class="icon-btn" type="button" data-action="toggle-sort-alpha" data-active="${sortMode.startsWith('alpha') ? '1' : '0'}" aria-label="${escapeHtml(tr('sortAlphaLabel', 'Sort alphabetically'))}" ${tooltipAttr(tr('sortAlphaLabel', 'Sort alphabetically'))}>${icon(sortMode === 'alpha-asc' ? sortAlphaAscIcon : sortAZIcon)}</button>
-                    <button class="icon-btn" type="button" data-action="create-folder" aria-label="${escapeHtml(tr('createFolder', 'Create folder'))}" ${tooltipAttr(tr('createFolder', 'Create folder'))}>${icon(folderPlusIcon)}</button>
-                    <button class="icon-btn" type="button" data-action="import-bookmarks" aria-label="${escapeHtml(tr('importBookmarks', 'Import bookmarks'))}" ${tooltipAttr(tr('importBookmarks', 'Import bookmarks'))}>${icon(uploadIcon)}</button>
-                    <button class="icon-btn" type="button" data-action="export-all-bookmarks" aria-label="${escapeHtml(tr('exportAllBookmarksLabel', 'Export all bookmarks'))}" ${tooltipAttr(tr('exportAllBookmarksLabel', 'Export all bookmarks'))}>${icon(downloadIcon)}</button>
-                    <input data-role="import-file" type="file" accept="application/json" style="display:none" />
-                  </div>
-                </div>
-                <div class="tree-panel" data-virtualized="${treeMode === 'virtualized' ? '1' : '0'}">${treeHtml}</div>
-                <div class="batch-bar" data-active="${selectedCount > 0 ? '1' : '0'}" aria-hidden="${selectedCount > 0 ? 'false' : 'true'}">
-                  <div class="batch-label">${escapeHtml(getSelectedCountLabel(selectedCount))}</div>
-                  <div class="batch-actions">
-                    <button class="icon-btn" type="button" data-action="batch-move" aria-label="${escapeHtml(tr('moveSelected', 'Move selected'))}" ${tooltipAttr(tr('moveSelected', 'Move selected'))} ${selectedCount === 0 ? 'disabled' : ''}>${icon(moveIcon)}</button>
-                    <button class="icon-btn icon-btn--danger" type="button" data-action="batch-delete" aria-label="${escapeHtml(tr('deleteSelected', 'Delete selected'))}" ${tooltipAttr(tr('deleteSelected', 'Delete selected'))} ${selectedCount === 0 ? 'disabled' : ''}>${icon(trashIcon)}</button>
-                    <button class="icon-btn" type="button" data-action="batch-export" aria-label="${escapeHtml(tr('exportSelected', 'Export selected'))}" ${tooltipAttr(tr('exportSelected', 'Export selected'))} ${selectedCount === 0 ? 'disabled' : ''}>${icon(downloadIcon)}</button>
-                    <button class="icon-btn" type="button" data-action="batch-clear" aria-label="${escapeHtml(tr('clearSelection', 'Clear selection'))}" ${tooltipAttr(tr('clearSelection', 'Clear selection'))} ${selectedCount === 0 ? 'disabled' : ''}>${icon(xIcon)}</button>
-                  </div>
-                </div>
-              </section>
-              <section class="tab-panel settings-panel" data-active="${uiState.bookmarksTab === 'settings' ? '1' : '0'}">
-                ${getSettingsTabHtml(uiState, snapshot)}
-              </section>
-              <section class="tab-panel sponsor-panel" data-active="${uiState.bookmarksTab === 'sponsor' ? '1' : '0'}">
-                ${getSponsorTabHtml(bmcUrl, wechatUrl, logoUrl)}
-              </section>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-}
-
 export class BookmarksPanel {
     private readonly controller: BookmarksPanelController;
     private readonly readerPanel: ReaderPanel;
     private readonly uiState: UiState = {
         bookmarksTab: 'bookmarks',
-        platformMenuOpen: false,
-        settingsMenuOpen: null,
         settings: structuredClone(DEFAULT_SETTINGS),
     };
     private readonly panelScrollTops: Record<PanelTabId, number> = {
@@ -756,15 +100,12 @@ export class BookmarksPanel {
     };
 
     private visible = false;
-    private hostHandle: OverlaySurfaceHostHandle | null = null;
-    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
-    private modalHost: ModalHost | null = null;
+    private overlaySession: BookmarksOverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private snapshot: BookmarksPanelSnapshot | null = null;
-    private treeVirtualModel: VirtualTreeModel | null = null;
-    private treePanelEl: HTMLElement | null = null;
-    private treeFrameHandle: number | null = null;
-    private treeRenderedRange: { startIndex: number; endIndex: number } | null = null;
+    private bookmarksView: BookmarksPanelTabView | null = null;
+    private settingsView: BookmarksPanelTabView | null = null;
+    private sponsorView: BookmarksPanelTabView | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private panelEventBoundaryCleanup: (() => void) | null = null;
@@ -786,26 +127,23 @@ export class BookmarksPanel {
             return;
         }
 
-        let shouldRerender = false;
-
-        if (this.uiState.platformMenuOpen && !target.closest('.platform-dropdown')) {
-            this.uiState.platformMenuOpen = false;
-            shouldRerender = true;
-        }
-
-        if (this.uiState.settingsMenuOpen && !target.closest('.settings-select-shell')) {
-            this.uiState.settingsMenuOpen = null;
-            shouldRerender = true;
-        }
-
-        if (shouldRerender) {
-            this.render();
+        if (!eventWithinTransientRoot(event)) {
+            this.bookmarksView?.dismissTransientUi?.();
+            this.settingsView?.dismissTransientUi?.();
         }
     };
 
     constructor(controller: BookmarksPanelController, readerPanel: ReaderPanel) {
         this.controller = controller;
         this.readerPanel = readerPanel;
+    }
+
+    private get hostHandle() {
+        return this.overlaySession?.handle ?? null;
+    }
+
+    private get modalHost() {
+        return this.overlaySession?.modalHost ?? null;
     }
 
     isVisible(): boolean {
@@ -824,23 +162,29 @@ export class BookmarksPanel {
         if (this.visible) return;
 
         this.visible = true;
-        this.hostHandle = mountOverlaySurfaceHost({
+        this.overlaySession = new BookmarksOverlaySession({
             id: 'aimd-bookmarks-panel-host',
-            themeCss: getTokenCss(this.controller.getTheme()),
+            theme: this.controller.getTheme(),
             surfaceCss: getBookmarksPanelCss(),
-            overlayCss: overlayCssText,
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmarks-panel-structure',
             overlayStyleId: 'aimd-bookmarks-panel-tailwind',
         });
-        this.modalHost = new ModalHost(this.hostHandle.shadow);
-        this.tooltipDelegate = new TooltipDelegate(this.hostHandle.shadow);
+        this.recreateTabViews();
+        this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
         logBookmarksPerf('panel:perf-logging-enabled', {
             visible: true,
             tab: this.uiState.bookmarksTab,
         });
         this.unsubscribeLocale = subscribeLocaleChange(() => {
             if (!this.visible) return;
+            this.captureScrollTops();
+            this.bookmarksView?.destroy?.();
+            this.bookmarksView = null;
+            this.settingsView?.destroy?.();
+            this.settingsView = null;
+            this.sponsorView?.destroy?.();
+            this.sponsorView = null;
             this.render();
         });
 
@@ -860,14 +204,6 @@ export class BookmarksPanel {
         ]);
 
         this.render();
-
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: this.hostHandle.host,
-            onEscape: () => this.hide(),
-            stopPropagationAll: true,
-            ignoreEscapeWhileComposing: true,
-            trapTabWithin: this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.hostHandle.host,
-        });
     }
 
     hide(): void {
@@ -878,24 +214,19 @@ export class BookmarksPanel {
         this.unsubscribeSnapshot = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = null;
         this.panelEventBoundaryCleanup?.();
         this.panelEventBoundaryCleanup = null;
-        if (this.treeFrameHandle !== null) {
-            window.cancelAnimationFrame(this.treeFrameHandle);
-            this.treeFrameHandle = null;
-        }
-        this.treePanelEl?.removeEventListener('scroll', this.onTreePanelScroll);
-        this.treePanelEl = null;
-        this.hostHandle?.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
+        this.overlaySession?.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
-        this.hostHandle?.unmount();
-        this.hostHandle = null;
-        this.modalHost = null;
-        this.treeVirtualModel = null;
-        this.treeRenderedRange = null;
+        this.bookmarksView?.destroy?.();
+        this.bookmarksView = null;
+        this.settingsView?.destroy?.();
+        this.settingsView = null;
+        this.sponsorView?.destroy?.();
+        this.sponsorView = null;
+        this.overlaySession?.unmount();
+        this.overlaySession = null;
     }
 
     private async loadSettings(): Promise<void> {
@@ -904,40 +235,115 @@ export class BookmarksPanel {
         this.uiState.settings = mergeSettings(result.data.settings);
     }
 
+    private createSettingsActions(): SettingsTabViewActions {
+        return {
+            loadState: async () => ({
+                settings: this.uiState.settings,
+                storageUsage: this.snapshot?.storageUsage ?? null,
+            }),
+            setPlatforms: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    platforms: {
+                        ...this.uiState.settings.platforms,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('platforms', patch);
+            },
+            setChatGptSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    chatgpt: {
+                        ...this.uiState.settings.chatgpt,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('chatgpt', patch);
+            },
+            setBehaviorSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    behavior: {
+                        ...this.uiState.settings.behavior,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('behavior', patch);
+            },
+            setReaderSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    reader: {
+                        ...this.uiState.settings.reader,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('reader', patch);
+            },
+            setLanguage: async (value) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    language: value,
+                };
+                await settingsClientRpc.setCategory('language', value);
+            },
+            exportAllBookmarks: async () => {
+                await this.exportAll();
+            },
+        };
+    }
+
     private render(): void {
-        if (!this.hostHandle) return;
+        if (!this.overlaySession || !this.hostHandle) return;
         const startedAt = performance.now();
         this.captureScrollTops();
+        this.recreateTabViews();
 
-        const bmcUrl = browser.runtime.getURL('icons/bmc_qr.png');
-        const wechatUrl = browser.runtime.getURL('icons/wechat_qr.png');
-        const logoUrl = browser.runtime.getURL('icons/icon128.png');
-        const treePlan = this.getTreeRenderPlan();
-        this.treeVirtualModel = treePlan.mode === 'virtualized' ? treePlan.model : null;
+        const bookmarksPanel = this.bookmarksView?.getElement() ?? document.createElement('section');
+        bookmarksPanel.classList.add('tab-panel--bookmarks');
+        const settingsPanel = this.settingsView?.getElement() ?? document.createElement('section');
+        settingsPanel.classList.add('settings-panel');
+        const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
+        sponsorPanel.classList.add('sponsor-panel');
 
-        this.hostHandle.backdropRoot.innerHTML = getPanelHtml(
-            this.uiState,
-            this.snapshot,
-            this.controller,
-            bmcUrl,
-            wechatUrl,
-            logoUrl,
-            treePlan.mode === 'inline' ? treePlan.html : '',
-            treePlan.mode,
-        );
-        this.hostHandle.surfaceRoot.replaceChildren();
+        const titleText = this.uiState.bookmarksTab === 'bookmarks'
+            ? tr('tabBookmarks', 'Bookmarks')
+            : this.uiState.bookmarksTab === 'settings'
+                ? tr('tabSettings', 'Settings')
+                : tr('tabSponsor', 'Sponsor');
 
-        const overlay = this.hostHandle.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
-        const panel = overlay?.querySelector<HTMLElement>('.panel-window');
-        if (!overlay || !panel) return;
+        const shell = createBookmarksPanelShell({
+            titleText,
+            closeIcon: xIcon,
+            closeLabel: tr('btnClose', 'Close panel'),
+            defaultTabId: this.uiState.bookmarksTab,
+            tabs: [
+                { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
+                { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
+                { id: 'sponsor', label: tr('tabSponsor', 'Sponsor'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' },
+            ],
+        });
+        const panel = shell.panel;
 
         this.panelEventBoundaryCleanup?.();
         this.panelEventBoundaryCleanup = null;
-        this.hostHandle.backdropRoot.replaceChildren(overlay);
-        this.hostHandle.surfaceRoot.appendChild(panel);
+        this.overlaySession.replaceBackdrop(shell.overlay);
+        this.overlaySession.replaceSurface(panel);
+        shell.closeBtn.addEventListener('click', () => this.hide());
+        shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
+            const nextTab = (event as CustomEvent<{ id: string }>).detail.id;
+            if (nextTab === 'bookmarks' || nextTab === 'settings' || nextTab === 'sponsor') {
+                this.bookmarksView?.dismissTransientUi?.();
+                this.settingsView?.dismissTransientUi?.();
+                this.sponsorView?.dismissTransientUi?.();
+                this.uiState.bookmarksTab = nextTab;
+                this.render();
+            }
+        });
+        this.syncTabViews();
         this.panelEventBoundaryCleanup = this.installPanelEventBoundary(panel);
         this.restoreScrollTop();
-        this.bindTreePanel(panel.querySelector<HTMLElement>('.tree-panel'));
 
         for (const checkbox of panel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
             checkbox.indeterminate = true;
@@ -946,13 +352,20 @@ export class BookmarksPanel {
         panel.addEventListener('click', (event) => void this.handleClick(event));
         panel.addEventListener('input', (event) => void this.handleInput(event));
         panel.addEventListener('change', (event) => void this.handleChange(event));
-        this.hostHandle.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
-        this.hostHandle.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
-        this.tooltipDelegate?.refresh(this.hostHandle.shadow);
+        this.overlaySession.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
+        this.overlaySession.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
+        this.overlaySession.syncKeyboardScope({
+            root: this.overlaySession.host,
+            onEscape: () => this.hide(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: panel,
+        });
+        this.tooltipDelegate?.refresh(this.overlaySession.shadow);
         logBookmarksPerf('panel:full-render', {
             durationMs: Number((performance.now() - startedAt).toFixed(2)),
             tab: this.uiState.bookmarksTab,
-            virtualized: Boolean(this.treeVirtualModel),
+            virtualized: panel.querySelector('.tree-panel')?.getAttribute('data-virtualized') === '1',
             visibleBookmarks: this.snapshot?.vm.bookmarks.length ?? 0,
         });
     }
@@ -961,44 +374,16 @@ export class BookmarksPanel {
         return installInputEventBoundary(panel);
     }
 
-    private readonly onTreePanelScroll = (): void => {
-        if (!this.treePanelEl) return;
-        this.panelScrollTops.bookmarks = this.treePanelEl.scrollTop;
-        if (!this.treeVirtualModel) return;
-        if (this.treeFrameHandle !== null) return;
-
-        this.treeFrameHandle = window.requestAnimationFrame(() => {
-            this.treeFrameHandle = null;
-            if (!this.treePanelEl || !this.treeVirtualModel) return;
-            this.renderVirtualTreeWindow(this.treePanelEl, this.treeVirtualModel);
-        });
-    };
-
-    private clearTreeRenderState(): void {
-        if (this.treeFrameHandle !== null) {
-            window.cancelAnimationFrame(this.treeFrameHandle);
-            this.treeFrameHandle = null;
-        }
-        this.treeRenderedRange = null;
-    }
-
     private applySnapshotUpdate(previousSnapshot: BookmarksPanelSnapshot | null, nextSnapshot: BookmarksPanelSnapshot): boolean {
         if (!this.hostHandle || !previousSnapshot) return false;
         const startedAt = performance.now();
 
-        const panel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.panel-window.panel-window--bookmarks');
-        if (!panel) return false;
-
-        const bookmarksTab = panel.querySelector<HTMLElement>('.tab-panel--bookmarks');
-        if (!bookmarksTab) return false;
-
-        this.patchBookmarksToolbar(bookmarksTab, nextSnapshot);
-        this.patchTreePanel(bookmarksTab);
-        this.patchBatchBar(bookmarksTab, nextSnapshot);
+        this.bookmarksView?.update?.(nextSnapshot);
+        this.settingsView?.update?.(nextSnapshot);
         this.tooltipDelegate?.refresh(this.hostHandle.shadow);
         logBookmarksPerf('panel:patch-snapshot', {
             durationMs: Number((performance.now() - startedAt).toFixed(2)),
-            virtualized: Boolean(this.treeVirtualModel),
+            virtualized: this.bookmarksView?.getElement().querySelector('.tree-panel')?.getAttribute('data-virtualized') === '1',
             visibleBookmarks: nextSnapshot.vm.bookmarks.length,
             selectedKeys: nextSnapshot.selectedKeys.size,
             query: nextSnapshot.vm.query,
@@ -1007,190 +392,46 @@ export class BookmarksPanel {
         return true;
     }
 
-    private patchBookmarksToolbar(bookmarksTab: HTMLElement, snapshot: BookmarksPanelSnapshot): void {
-        const queryInput = bookmarksTab.querySelector<HTMLInputElement>('[data-role="bookmark-query"]');
-        if (queryInput && document.activeElement !== queryInput && queryInput.value !== snapshot.vm.query) {
-            queryInput.value = snapshot.vm.query;
-        }
+    private recreateTabViews(): void {
+        if (!this.modalHost) return;
+        if (this.bookmarksView && this.settingsView && this.sponsorView) return;
 
-        const platformDropdown = bookmarksTab.querySelector<HTMLElement>('.platform-dropdown');
-        const nextPlatformMarkup = getPlatformDropdownHtml(snapshot.vm.platform, this.controller.getPlatforms(), this.uiState.platformMenuOpen);
-        if (platformDropdown) {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = nextPlatformMarkup.trim();
-            const nextDropdown = wrapper.firstElementChild;
-            if (nextDropdown) platformDropdown.replaceWith(nextDropdown);
-        }
-
-        const timeButton = bookmarksTab.querySelector<HTMLElement>('[data-action="toggle-sort-time"]');
-        if (timeButton) {
-            timeButton.dataset.active = snapshot.vm.sortMode.startsWith('time') ? '1' : '0';
-            timeButton.innerHTML = icon(snapshot.vm.sortMode === 'time-asc' ? sortTimeAscIcon : sortTimeIcon);
-        }
-
-        const alphaButton = bookmarksTab.querySelector<HTMLElement>('[data-action="toggle-sort-alpha"]');
-        if (alphaButton) {
-            alphaButton.dataset.active = snapshot.vm.sortMode.startsWith('alpha') ? '1' : '0';
-            alphaButton.innerHTML = icon(snapshot.vm.sortMode === 'alpha-asc' ? sortAlphaAscIcon : sortAZIcon);
-        }
-    }
-
-    private patchTreePanel(bookmarksTab: HTMLElement): void {
-        const treePanel = bookmarksTab.querySelector<HTMLElement>('.tree-panel');
-        if (!treePanel) return;
-        const startedAt = performance.now();
-
-        const treePlan = this.getTreeRenderPlan();
-        this.treeVirtualModel = treePlan.mode === 'virtualized' ? treePlan.model : null;
-        treePanel.dataset.virtualized = treePlan.mode === 'virtualized' ? '1' : '0';
-
-        if (treePlan.mode === 'inline') {
-            if (this.treePanelEl) {
-                this.treePanelEl.removeEventListener('scroll', this.onTreePanelScroll);
-            }
-            this.clearTreeRenderState();
-            this.treePanelEl = treePanel;
-            treePanel.innerHTML = treePlan.html;
-            for (const checkbox of treePanel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
-                checkbox.indeterminate = true;
-            }
-            logBookmarksPerf('panel:patch-tree-inline', {
-                durationMs: Number((performance.now() - startedAt).toFixed(2)),
-                visibleBookmarks: this.snapshot?.vm.bookmarks.length ?? 0,
-            });
-            return;
-        }
-
-        this.bindTreePanel(treePanel);
-        logBookmarksPerf('panel:patch-tree-virtualized', {
-            durationMs: Number((performance.now() - startedAt).toFixed(2)),
-            rows: treePlan.model.rows.length,
-            totalHeight: treePlan.model.totalHeight,
+        this.bookmarksView = new BookmarksTabView({
+            controller: this.controller,
+            readerPanel: this.readerPanel,
+            modal: this.modalHost,
+            onRequestHidePanel: () => this.hide(),
+            getSaveContextOnly: () => Boolean(this.uiState.settings.behavior.saveContextOnly),
+        });
+        this.settingsView = new SettingsTabView({
+            modal: this.modalHost,
+            actions: this.createSettingsActions(),
+        });
+        this.sponsorView = new SponsorTabView({
+            actions: {
+                githubUrl: 'https://github.com/zhaoliangbin42/AI-MarkDone',
+                getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+            },
         });
     }
 
-    private patchBatchBar(bookmarksTab: HTMLElement, snapshot: BookmarksPanelSnapshot): void {
-        const selectedCount = countSelectedBookmarks(snapshot.selectedKeys);
-        const batchBar = bookmarksTab.querySelector<HTMLElement>('.batch-bar');
-        if (!batchBar) return;
-
-        batchBar.dataset.active = selectedCount > 0 ? '1' : '0';
-        batchBar.setAttribute('aria-hidden', selectedCount > 0 ? 'false' : 'true');
-        const label = batchBar.querySelector<HTMLElement>('.batch-label');
-        if (label) {
-            label.textContent = getSelectedCountLabel(selectedCount);
+    private syncTabViews(): void {
+        if (this.snapshot) {
+            this.bookmarksView?.update?.(this.snapshot);
         }
-
-        for (const button of batchBar.querySelectorAll<HTMLButtonElement>('.icon-btn')) {
-            button.disabled = selectedCount === 0;
-        }
-    }
-
-    private getTreeRenderPlan(): TreeRenderPlan {
-        if (!this.snapshot) {
-            return {
-                mode: 'inline',
-                html: `
-      <div class="empty-state">
-        <div class="empty-icon">${icon(folderIcon)}</div>
-        <strong>${escapeHtml(tr('noFoldersYet', 'No folders yet'))}</strong>
-        <p>${escapeHtml(tr('emptyBookmarksHint', 'Create a folder or import bookmarks to start browsing saved messages.'))}</p>
-        <div class="empty-actions">
-          <button class="${buttonClass('primary')}" type="button" data-action="create-folder-empty">${escapeHtml(t('createFirstFolderBtn'))}</button>
-          <button class="${buttonClass('secondary')}" type="button" data-action="import-bookmarks-empty">${escapeHtml(tr('importBookmarks', 'Import bookmarks'))}</button>
-        </div>
-      </div>
-    `,
-            };
-        }
-
-        const virtualModel = buildVirtualTreeModel(this.snapshot, this.controller);
-        if (virtualModel) {
-            return { mode: 'virtualized', model: virtualModel };
-        }
-
-        return {
-            mode: 'inline',
-            html: getTreeHtml(this.snapshot, this.controller),
-        };
-    }
-
-    private bindTreePanel(treePanel: HTMLElement | null): void {
-        this.treePanelEl?.removeEventListener('scroll', this.onTreePanelScroll);
-        this.clearTreeRenderState();
-        this.treePanelEl = treePanel;
-        if (!treePanel) return;
-
-        if (this.treeVirtualModel) {
-            treePanel.addEventListener('scroll', this.onTreePanelScroll, { passive: true });
-            this.renderVirtualTreeWindow(treePanel, this.treeVirtualModel);
-        }
-    }
-
-    private renderVirtualTreeWindow(treePanel: HTMLElement, model: VirtualTreeModel): void {
-        const startedAt = performance.now();
-        const viewportHeight = treePanel.clientHeight || 640;
-        const startPx = Math.max(0, treePanel.scrollTop - TREE_OVERSCAN_PX);
-        const endPx = treePanel.scrollTop + viewportHeight + TREE_OVERSCAN_PX;
-
-        let startIndex = 0;
-        while (startIndex < model.rows.length && model.rows[startIndex]!.top + model.rows[startIndex]!.height <= startPx) {
-            startIndex += 1;
-        }
-
-        let endIndex = startIndex;
-        while (endIndex < model.rows.length && model.rows[endIndex]!.top < endPx) {
-            endIndex += 1;
-        }
-
-        const nextRange = {
-            startIndex,
-            endIndex: Math.max(startIndex + 1, endIndex),
-        };
-        if (
-            this.treeRenderedRange
-            && this.treeRenderedRange.startIndex === nextRange.startIndex
-            && this.treeRenderedRange.endIndex === nextRange.endIndex
-        ) {
-            return;
-        }
-
-        this.treeRenderedRange = nextRange;
-        const visibleRows = model.rows.slice(startIndex, Math.max(startIndex + 1, endIndex));
-        const topSpacer = visibleRows[0]?.top ?? 0;
-        const lastRow = visibleRows[visibleRows.length - 1];
-        const bottomSpacer = lastRow ? Math.max(0, model.totalHeight - (lastRow.top + lastRow.height)) : model.totalHeight;
-
-        treePanel.innerHTML = `
-          <div class="tree-virtual-spacer" style="height:${topSpacer}px"></div>
-          ${visibleRows.map((row) => renderVirtualTreeRow(row)).join('')}
-          <div class="tree-virtual-spacer" style="height:${bottomSpacer}px"></div>
-        `;
-
-        for (const checkbox of treePanel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
-            checkbox.indeterminate = true;
-        }
-        logBookmarksPerf('panel:render-virtual-window', {
-            durationMs: Number((performance.now() - startedAt).toFixed(2)),
-            startIndex: nextRange.startIndex,
-            endIndex: nextRange.endIndex,
-            renderedRows: visibleRows.length,
-            scrollTop: treePanel.scrollTop,
+        (this.settingsView as SettingsTabView | null)?.setState({
+            settings: this.uiState.settings,
+            storageUsage: this.snapshot?.storageUsage ?? null,
         });
     }
 
     private async handleClick(event: Event): Promise<void> {
         const target = event.target as HTMLElement | null;
-        if (
-            this.uiState.bookmarksTab === 'bookmarks'
-            && target?.closest('.tree-panel')
-            && !target.closest('.tree-item')
-        ) {
-            this.controller.selectFolder(null);
-            return;
-        }
-        if (this.uiState.bookmarksTab === 'sponsor' && target?.closest('.sponsor-panel')) {
+        if (target?.closest('.aimd-settings')) return;
+        if (target?.closest('.bookmarks-tab-content')) return;
+        if (this.uiState.bookmarksTab === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
             this.emitSponsorBurst(event as MouseEvent);
+            return;
         }
         const actionEl = target?.closest<HTMLElement>('[data-action]');
         if (!actionEl) return;
@@ -1206,124 +447,6 @@ export class BookmarksPanel {
             case 'close-panel':
                 this.hide();
                 return;
-            case 'set-bookmarks-tab': {
-                const tab = actionEl.dataset.tab;
-                if (tab === 'bookmarks' || tab === 'settings' || tab === 'sponsor') {
-                    this.uiState.bookmarksTab = tab;
-                    this.uiState.platformMenuOpen = false;
-                    this.uiState.settingsMenuOpen = null;
-                    this.render();
-                }
-                return;
-            }
-            case 'toggle-platform-menu':
-                this.uiState.platformMenuOpen = !this.uiState.platformMenuOpen;
-                this.render();
-                return;
-            case 'select-platform':
-                if (actionEl.dataset.value) {
-                    this.uiState.platformMenuOpen = false;
-                    this.controller.setPlatform(actionEl.dataset.value);
-                }
-                return;
-            case 'toggle-sort-time':
-                this.controller.setSortMode(this.snapshot?.vm.sortMode === 'time-desc' ? 'time-asc' : 'time-desc');
-                return;
-            case 'toggle-sort-alpha':
-                this.controller.setSortMode(this.snapshot?.vm.sortMode === 'alpha-asc' ? 'alpha-desc' : 'alpha-asc');
-                return;
-            case 'create-folder':
-            case 'create-folder-empty':
-                await this.createFolder();
-                return;
-            case 'import-bookmarks':
-            case 'import-bookmarks-empty':
-                this.findImportInput()?.click();
-                return;
-            case 'export-all-bookmarks':
-            case 'settings-export-backup':
-                await this.exportAll();
-                return;
-            case 'batch-clear':
-                this.controller.clearSelection();
-                return;
-            case 'batch-move':
-                await this.batchMove();
-                return;
-            case 'batch-delete':
-                await this.batchDelete();
-                return;
-            case 'batch-export':
-                await this.exportSelected();
-                return;
-            case 'toggle-folder-expand':
-                if (actionEl.dataset.path) this.controller.toggleFolderExpanded(actionEl.dataset.path);
-                return;
-            case 'select-folder':
-                this.controller.selectFolder(actionEl.dataset.path ?? null);
-                return;
-            case 'toggle-folder-selection':
-                return;
-            case 'create-subfolder':
-                if (actionEl.dataset.path) await this.createSubfolder(actionEl.dataset.path);
-                return;
-            case 'rename-folder':
-                if (actionEl.dataset.path) await this.renameFolder(actionEl.dataset.path);
-                return;
-            case 'move-folder':
-                if (actionEl.dataset.path) await this.moveFolder(actionEl.dataset.path);
-                return;
-            case 'delete-folder':
-                if (actionEl.dataset.path) await this.deleteFolder(actionEl.dataset.path);
-                return;
-            case 'open-bookmark':
-            case 'go-to-bookmark': {
-                const bookmark = this.findBookmarkBySelectionKey(actionEl.dataset.bookmarkId);
-                if (!bookmark) return;
-                if (action === 'open-bookmark') {
-                    await this.openPreviewInReader(bookmark);
-                    return;
-                }
-                await this.controller.goToBookmark(bookmark);
-                return;
-            }
-            case 'copy-bookmark': {
-                const bookmark = this.findBookmarkBySelectionKey(actionEl.dataset.bookmarkId);
-                if (bookmark) await this.controller.copyBookmarkMarkdown(bookmark);
-                return;
-            }
-            case 'move-bookmark': {
-                const bookmark = this.findBookmarkBySelectionKey(actionEl.dataset.bookmarkId);
-                if (bookmark) await this.moveBookmark(bookmark);
-                return;
-            }
-            case 'delete-bookmark': {
-                const bookmark = this.findBookmarkBySelectionKey(actionEl.dataset.bookmarkId);
-                if (bookmark && await this.confirmDialog(
-                    'warning',
-                    tr('deleteBookmarkTitle', 'Delete bookmark'),
-                    tr('deleteBookmarkMessage', 'Delete this bookmark?'),
-                    true,
-                )) {
-                    await this.controller.deleteBookmark(bookmark);
-                }
-                return;
-            }
-            case 'toggle-settings-menu': {
-                const menu = actionEl.dataset.menu;
-                this.uiState.settingsMenuOpen = this.uiState.settingsMenuOpen === menu ? null : (menu as SettingsMenuId);
-                this.render();
-                return;
-            }
-            case 'settings-select-option':
-                await this.handleSettingsSelectOption(actionEl);
-                return;
-            case 'settings-step-count':
-                await this.handleSettingsStep(actionEl.dataset.direction === 'up' ? 1 : -1);
-                return;
-            case 'sponsor-github':
-                window.open('https://github.com/zhaoliangbin42/AI-MarkDone', '_blank', 'noopener,noreferrer');
-                return;
             default:
                 return;
         }
@@ -1332,127 +455,26 @@ export class BookmarksPanel {
     private async handleInput(event: Event): Promise<void> {
         const target = event.target as HTMLInputElement | null;
         if (!target) return;
-
-        if (target.dataset.role === 'bookmark-query') {
-            this.controller.setQuery(target.value);
-            return;
-        }
-
-        if (target.dataset.role === 'settings-folding-count') {
-            const next = Math.max(0, Math.floor(Number(target.value) || 0));
-            this.uiState.settings.chatgpt.defaultExpandedCount = next;
-            await settingsClientRpc.setCategory('chatgpt', { defaultExpandedCount: next });
-        }
+        if (target.closest('.aimd-settings')) return;
+        if (target.closest('.bookmarks-tab-content')) return;
     }
 
     private async handleChange(event: Event): Promise<void> {
         const target = event.target as HTMLInputElement | null;
         if (!target) return;
-
-        if (target.dataset.action === 'toggle-folder-selection' && target.dataset.path) {
-            this.controller.toggleFolderSelection(target.dataset.path);
-            return;
-        }
-
-        if (target.dataset.action === 'toggle-bookmark-selection' && target.dataset.bookmarkId) {
-            const bookmark = this.findBookmarkBySelectionKey(target.dataset.bookmarkId);
-            if (bookmark) this.controller.toggleBookmarkSelection(bookmark);
-            return;
-        }
-
-        if (target.dataset.role === 'import-file') {
-            await this.importFromFile(target);
-            return;
-        }
-
-        if (target.dataset.role?.startsWith('settings-')) {
-            await this.handleSettingsToggle(target);
-        }
-    }
-
-    private async handleSettingsSelectOption(element: HTMLElement): Promise<void> {
-        const menu = element.dataset.menu;
-        const value = element.dataset.value;
-        if (!menu || !value) return;
-
-        if (menu === 'folding-mode') {
-            this.uiState.settings.chatgpt.foldingMode = value as FoldingMode;
-            await settingsClientRpc.setCategory('chatgpt', { foldingMode: value });
-        } else if (menu === 'language') {
-            this.uiState.settings.language = value as AppSettings['language'];
-            await settingsClientRpc.setCategory('language', value);
-            await setLocale(value as AppSettings['language']);
-        }
-        this.uiState.settingsMenuOpen = null;
-        this.render();
-    }
-
-    private async handleSettingsStep(delta: number): Promise<void> {
-        const next = Math.max(0, this.uiState.settings.chatgpt.defaultExpandedCount + delta);
-        this.uiState.settings.chatgpt.defaultExpandedCount = next;
-        await settingsClientRpc.setCategory('chatgpt', { defaultExpandedCount: next });
-        this.render();
-    }
-
-    private async handleSettingsToggle(input: HTMLInputElement): Promise<void> {
-        switch (input.dataset.role) {
-            case 'settings-platform-chatgpt':
-                this.uiState.settings.platforms.chatgpt = input.checked;
-                await settingsClientRpc.setCategory('platforms', { chatgpt: input.checked });
-                break;
-            case 'settings-platform-gemini':
-                this.uiState.settings.platforms.gemini = input.checked;
-                await settingsClientRpc.setCategory('platforms', { gemini: input.checked });
-                break;
-            case 'settings-platform-claude':
-                this.uiState.settings.platforms.claude = input.checked;
-                await settingsClientRpc.setCategory('platforms', { claude: input.checked });
-                break;
-            case 'settings-platform-deepseek':
-                this.uiState.settings.platforms.deepseek = input.checked;
-                await settingsClientRpc.setCategory('platforms', { deepseek: input.checked });
-                break;
-            case 'settings-fold-dock':
-                this.uiState.settings.chatgpt.showFoldDock = input.checked;
-                await settingsClientRpc.setCategory('chatgpt', { showFoldDock: input.checked });
-                break;
-            case 'settings-show-view-source':
-                this.uiState.settings.behavior.showViewSource = input.checked;
-                await settingsClientRpc.setCategory('behavior', { showViewSource: input.checked });
-                break;
-            case 'settings-show-save-messages':
-                this.uiState.settings.behavior.showSaveMessages = input.checked;
-                await settingsClientRpc.setCategory('behavior', { showSaveMessages: input.checked });
-                break;
-            case 'settings-show-word-count':
-                this.uiState.settings.behavior.showWordCount = input.checked;
-                await settingsClientRpc.setCategory('behavior', { showWordCount: input.checked });
-                break;
-            case 'settings-click-to-copy':
-                this.uiState.settings.behavior.enableClickToCopy = input.checked;
-                await settingsClientRpc.setCategory('behavior', { enableClickToCopy: input.checked });
-                break;
-            case 'settings-save-context-only':
-                this.uiState.settings.behavior.saveContextOnly = input.checked;
-                await settingsClientRpc.setCategory('behavior', { saveContextOnly: input.checked });
-                break;
-            case 'settings-render-code-reader':
-                this.uiState.settings.reader.renderCodeInReader = input.checked;
-                await settingsClientRpc.setCategory('reader', { renderCodeInReader: input.checked });
-                break;
-            default:
-                return;
-        }
-        this.render();
+        if (target.closest('.aimd-settings')) return;
+        if (target.closest('.bookmarks-tab-content')) return;
     }
 
     private captureScrollTops(): void {
         if (!this.hostHandle) return;
-        const bookmarksPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.tree-panel');
+        const bookmarksPanel = this.bookmarksView && 'getTreeScrollTop' in this.bookmarksView
+            ? (this.bookmarksView as BookmarksTabView).getTreeScrollTop()
+            : null;
         const settingsPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.settings-panel');
         const sponsorPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.sponsor-panel');
 
-        if (bookmarksPanel) this.panelScrollTops.bookmarks = bookmarksPanel.scrollTop;
+        if (typeof bookmarksPanel === 'number') this.panelScrollTops.bookmarks = bookmarksPanel;
         if (settingsPanel) this.panelScrollTops.settings = settingsPanel.scrollTop;
         if (sponsorPanel) this.panelScrollTops.sponsor = sponsorPanel.scrollTop;
     }
@@ -1461,8 +483,9 @@ export class BookmarksPanel {
         if (!this.hostHandle) return;
 
         if (this.uiState.bookmarksTab === 'bookmarks') {
-            const bookmarksPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.tree-panel');
-            if (bookmarksPanel) bookmarksPanel.scrollTop = this.panelScrollTops.bookmarks;
+            if (this.bookmarksView && 'restoreTreeScroll' in this.bookmarksView) {
+                (this.bookmarksView as BookmarksTabView).restoreTreeScroll(this.panelScrollTops.bookmarks);
+            }
             return;
         }
 
@@ -1509,383 +532,10 @@ export class BookmarksPanel {
         }
     }
 
-    private async openPreviewInReader(bookmark: Bookmark): Promise<void> {
-        const snapshot = this.snapshot;
-        if (!snapshot) return;
-
-        const visibleKeys = new Set<string>(getTreeVisibleBookmarks(snapshot).map(bookmarkSelectionKey));
-        const queryActive = Boolean(snapshot.vm.query.trim());
-        const { list, startIndex } = this.buildReaderScopeList({
-            bookmark,
-            folderTree: snapshot.vm.folderTree,
-            visibleKeys,
-            queryActive,
-        });
-        if (list.length === 0) return;
-
-        const items: ReaderItem[] = list.map((item) => ({
-            id: bookmarkSelectionKey(item),
-            userPrompt: item.userMessage || item.title || '',
-            content: item.aiResponse ?? '',
-        }));
-
-        await this.readerPanel.show(items, startIndex, this.controller.getTheme(), {
-            showOpenConversation: true,
-            dotStyle: 'plain',
-            onOpenConversation: async (ctx) => {
-                const current = list[ctx.index] ?? null;
-                if (!current) return;
-                this.readerPanel.hide();
-                await this.controller.goToBookmark(current);
-            },
-        });
-    }
-
-    private buildReaderScopeList(params: {
-        bookmark: Bookmark;
-        folderTree: FolderTreeNode[];
-        visibleKeys: Set<string>;
-        queryActive: boolean;
-    }): { list: Bookmark[]; startIndex: number } {
-        const key = bookmarkSelectionKey(params.bookmark);
-        const list = params.queryActive
-            ? this.flattenVisibleBookmarksInTreeOrder(params.folderTree, params.visibleKeys)
-            : this.getVisibleBookmarksInSameFolder(params.folderTree, params.visibleKeys, params.bookmark);
-        const startIndex = list.findIndex((item) => bookmarkSelectionKey(item) === key);
-        if (startIndex >= 0) return { list, startIndex };
-        return { list: [params.bookmark], startIndex: 0 };
-    }
-
-    private flattenVisibleBookmarksInTreeOrder(nodes: FolderTreeNode[], visibleKeys: Set<string>): Bookmark[] {
-        const result: Bookmark[] = [];
-        for (const node of nodes) {
-            if (node.children.length > 0) {
-                result.push(...this.flattenVisibleBookmarksInTreeOrder(node.children, visibleKeys));
-            }
-            for (const bookmark of node.bookmarks) {
-                if (visibleKeys.has(bookmarkSelectionKey(bookmark))) result.push(bookmark);
-            }
-        }
-        return result;
-    }
-
-    private getVisibleBookmarksInSameFolder(nodes: FolderTreeNode[], visibleKeys: Set<string>, bookmark: Bookmark): Bookmark[] {
-        const node = this.findFolderNode(nodes, bookmark.folderPath);
-        if (node) {
-            return node.bookmarks.filter((item) => visibleKeys.has(bookmarkSelectionKey(item)));
-        }
-
-        const snapshot = this.snapshot;
-        if (!snapshot) return [bookmark];
-        const list = snapshot.vm.bookmarks.filter((item) => item.folderPath === bookmark.folderPath);
-        return list.length > 0 ? list : [bookmark];
-    }
-
-    private findFolderNode(nodes: FolderTreeNode[], path: string): FolderTreeNode | null {
-        for (const node of nodes) {
-            if (node.folder.path === path) return node;
-            if (node.children.length === 0) continue;
-            const found = this.findFolderNode(node.children, path);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    private findImportInput(): HTMLInputElement | null {
-        return this.hostHandle?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="import-file"]') ?? null;
-    }
-
-    private getResolvableBookmarks(): Bookmark[] {
-        if (!this.snapshot) return [];
-
-        const merged = new Map<string, Bookmark>();
-        for (const bookmark of getAllBookmarks(this.snapshot.vm.folderTree)) {
-            merged.set(bookmarkSelectionKey(bookmark), bookmark);
-        }
-        for (const bookmark of this.snapshot.vm.bookmarks) {
-            if (!merged.has(bookmarkSelectionKey(bookmark))) {
-                merged.set(bookmarkSelectionKey(bookmark), bookmark);
-            }
-        }
-        return [...merged.values()];
-    }
-
-    private findBookmarkBySelectionKey(key?: string): Bookmark | null {
-        if (!key || !this.snapshot) return null;
-        return this.getResolvableBookmarks().find((bookmark) => bookmarkSelectionKey(bookmark) === key) ?? null;
-    }
-
-    private async createFolder(): Promise<void> {
-        const path = await this.promptDialog('info', tr('createFolder', 'Create folder'), tr('promptNewFolderPath', 'New folder path'), '');
-        if (!path?.trim()) return;
-        const res = await this.controller.createFolder(path);
-        this.controller.setPanelStatus(res.ok ? tr('folderCreatedStatus', 'Folder created') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('createFolder', 'Create folder'), res.message);
-        }
-    }
-
-    private async createSubfolder(parentPath: string): Promise<void> {
-        const name = await this.promptDialog('info', tr('createSubfolder', 'Create subfolder'), tr('enterFolderName', 'Subfolder name'), '');
-        if (!name?.trim()) return;
-        const res = await this.controller.createFolder(`${parentPath}/${name}`);
-        this.controller.setPanelStatus(res.ok ? tr('folderCreatedStatus', 'Folder created') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('createSubfolder', 'Create subfolder'), res.message);
-            return;
-        }
-        this.controller.toggleFolderExpanded(parentPath);
-    }
-
-    private async renameFolder(path: string): Promise<void> {
-        const name = await this.promptDialog('info', tr('renameFolder', 'Rename folder'), tr('enterFolderName', 'New folder name'), '');
-        if (!name?.trim()) return;
-        const res = await this.controller.renameFolder(path, name);
-        this.controller.setPanelStatus(res.ok ? tr('renamedStatus', 'Renamed') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('renameFolder', 'Rename folder'), res.message);
-        }
-    }
-
-    private async moveFolder(path: string): Promise<void> {
-        const parent = await this.pickFolder({
-            title: tr('moveFolder', 'Move folder'),
-            currentFolderPath: PathUtils.getParentPath(path),
-        });
-        if (parent === null) return;
-        const res = await this.controller.moveFolder(path, parent);
-        this.controller.setPanelStatus(res.ok ? tr('movedStatus', 'Moved') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('moveFolder', 'Move folder'), res.message);
-        }
-    }
-
-    private async deleteFolder(path: string): Promise<void> {
-        if (!await this.confirmDialog('warning', tr('deleteFolder', 'Delete folder'), tr('deleteFolderConfirm', `Delete "${path}" and its subfolders?`, [path]), true)) return;
-        const res = await this.controller.deleteFolder(path);
-        this.controller.setPanelStatus(res.ok ? tr('deletedStatus', 'Deleted') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('deleteFolder', 'Delete folder'), res.message);
-        }
-    }
-
     private async exportAll(): Promise<void> {
         const result = await this.controller.exportAll(true);
         if (result.ok) {
             downloadJson('ai-markdone-bookmarks.json', result.data.payload);
         }
-    }
-
-    private async exportSelected(): Promise<void> {
-        const result = await this.controller.exportSelected(true);
-        if (result.ok) {
-            downloadJson('ai-markdone-bookmarks-selected.json', result.data.payload);
-        }
-    }
-
-    private async batchMove(): Promise<void> {
-        const target = await this.pickFolder({
-            title: tr('moveBookmarksToFolder', 'Move selected bookmarks'),
-            currentFolderPath: this.controller.getDefaultFolderPath(),
-        });
-        if (target === null) return;
-        const res = await this.controller.batchMove(target);
-        this.controller.setPanelStatus(res.ok ? tr('movedStatus', 'Moved') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('moveBookmarksToFolder', 'Move selected bookmarks'), res.message);
-        }
-    }
-
-    private async batchDelete(): Promise<void> {
-        if (!await this.confirmDialog('warning', tr('deleteSelectedTitle', 'Delete selected items'), tr('deleteSelectedMessage', 'Delete selected items?'), true)) return;
-        const res = await this.controller.batchDelete();
-        this.controller.setPanelStatus(res.ok ? tr('deletedStatus', 'Deleted') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('deleteSelectedTitle', 'Delete selected items'), res.message);
-        }
-    }
-
-    private async moveBookmark(bookmark: Bookmark): Promise<void> {
-        const target = await this.pickFolder({
-            title: tr('moveBookmarkLabel', 'Move bookmark'),
-            currentFolderPath: bookmark.folderPath || this.controller.getDefaultFolderPath(),
-        });
-        if (target === null) return;
-        const res = await this.controller.moveBookmark(bookmark, target);
-        this.controller.setPanelStatus(res.ok ? tr('movedStatus', 'Moved') : res.message);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('moveBookmarkLabel', 'Move bookmark'), res.message);
-        }
-    }
-
-    private async importFromFile(input: HTMLInputElement): Promise<void> {
-        const file = input.files?.[0] ?? null;
-        input.value = '';
-        if (!file) return;
-        const jsonText = await file.text();
-        const res = await this.controller.importJsonText(jsonText, this.uiState.settings.behavior.saveContextOnly);
-        if (!res.ok) {
-            await this.alertDialog('error', tr('importBookmarks', 'Import bookmarks'), res.message);
-            return;
-        }
-        this.controller.setPanelStatus(tr('importedStatus', 'Imported'));
-        await this.showImportMergeSummary(res.data);
-    }
-
-    private async promptDialog(kind: 'info' | 'warning' | 'error', title: string, message: string, defaultValue = ''): Promise<string | null> {
-        if (!this.modalHost) {
-            return window.prompt(message, defaultValue);
-        }
-        return this.modalHost.prompt({
-            kind,
-            title,
-            message,
-            defaultValue,
-            confirmText: tr('confirmAction', 'Confirm'),
-            cancelText: tr('btnCancel', 'Cancel'),
-        });
-    }
-
-    private async confirmDialog(
-        kind: 'info' | 'warning' | 'error',
-        title: string,
-        message: string,
-        danger = false,
-        confirmText?: string,
-    ): Promise<boolean> {
-        if (!this.modalHost) {
-            return window.confirm(message);
-        }
-        return this.modalHost.confirm({
-            kind,
-            title,
-            message,
-            danger,
-            confirmText: confirmText ?? (danger ? tr('btnDelete', 'Delete') : tr('confirmAction', 'Confirm')),
-            cancelText: tr('btnCancel', 'Cancel'),
-        });
-    }
-
-    private async alertDialog(kind: 'info' | 'warning' | 'error', title: string, message: string): Promise<void> {
-        if (!this.modalHost) {
-            window.alert(message);
-            return;
-        }
-        await this.modalHost.alert({
-            kind,
-            title,
-            message,
-            confirmText: tr('btnOk', 'OK'),
-        });
-    }
-
-    private async pickFolder(params: { title: string; currentFolderPath: string | null }): Promise<string | null> {
-        const result = await bookmarkSaveDialog.open({
-            theme: this.controller.getTheme(),
-            userPrompt: '',
-            existingTitle: '',
-            currentFolderPath: params.currentFolderPath,
-            mode: 'folder-select',
-        });
-        if (!result.ok) return null;
-        return result.folderPath;
-    }
-
-    private async showImportMergeSummary(result: {
-        imported?: number;
-        skippedDuplicates?: number;
-        renamed?: number;
-        warnings?: string[];
-        folderCreateFailures?: number;
-    }): Promise<void> {
-        if (!this.modalHost) return;
-
-        const body = document.createElement('div');
-        const summarySection = document.createElement('section');
-        summarySection.className = 'merge-section merge-section--summary';
-        const summaryHeading = document.createElement('div');
-        summaryHeading.className = 'merge-section__heading';
-        summaryHeading.textContent = t('importMergeSummaryHeading');
-        const summary = document.createElement('div');
-        summary.className = 'merge-summary';
-
-        const items = [
-            { label: tr('importMergeSummaryImported', 'Imported'), value: String(result.imported ?? 0) },
-            { label: tr('importMergeSummarySkippedDuplicates', 'Skipped duplicates'), value: String(result.skippedDuplicates ?? 0) },
-            { label: tr('importMergeSummaryRenamedTitles', 'Renamed titles'), value: String(result.renamed ?? 0) },
-            { label: tr('importMergeSummaryFolderFallbacks', 'Folder fallbacks'), value: String(result.folderCreateFailures ?? 0) },
-        ];
-
-        for (const item of items) {
-            const article = document.createElement('article');
-            article.className = 'merge-summary-item';
-            const label = document.createElement('span');
-            label.className = 'merge-summary-item__label';
-            label.textContent = item.label;
-            const value = document.createElement('strong');
-            value.textContent = item.value;
-            article.append(label, value);
-            summary.appendChild(article);
-        }
-
-        summarySection.append(summaryHeading, summary);
-        body.appendChild(summarySection);
-
-        const detailSection = document.createElement('section');
-        detailSection.className = 'merge-section merge-section--detail';
-        const detailHeading = document.createElement('div');
-        detailHeading.className = 'merge-section__heading';
-        detailHeading.textContent = t('importMergeDetailsHeading');
-        const entries = document.createElement('div');
-        entries.className = 'merge-entry-list';
-        const warningMessages = Array.isArray(result.warnings) ? result.warnings : [];
-        const rows = [
-            {
-                title: tr('importMergeImportedBookmarksTitle', 'Imported bookmarks'),
-                detail: tr('importMergeImportedBookmarksDetail', `${result.imported ?? 0} bookmarks were added or updated.`, [String(result.imported ?? 0)]),
-                status: 'import',
-            },
-            {
-                title: tr('importMergeDuplicateBookmarksTitle', 'Duplicate bookmarks'),
-                detail: tr('importMergeDuplicateBookmarksDetail', `${result.skippedDuplicates ?? 0} duplicates were skipped.`, [String(result.skippedDuplicates ?? 0)]),
-                status: 'duplicate',
-            },
-            {
-                title: tr('importMergeRenamedTitlesTitle', 'Renamed titles'),
-                detail: tr('importMergeRenamedTitlesDetail', `${result.renamed ?? 0} titles were renamed to avoid conflicts.`, [String(result.renamed ?? 0)]),
-                status: 'rename',
-            },
-            ...warningMessages.map((warning) => ({ title: tr('importMergeWarningTitle', 'Warning'), detail: warning, status: 'normal' as const })),
-        ];
-
-        for (const row of rows) {
-            const article = document.createElement('article');
-            article.className = 'merge-entry';
-            const top = document.createElement('div');
-            top.className = 'merge-entry__top';
-            const title = document.createElement('strong');
-            title.textContent = row.title;
-            const status = document.createElement('span');
-            status.className = 'merge-entry-status';
-            status.dataset.status = row.status;
-            status.textContent = row.status === 'import' ? tr('importedStatus', 'Imported')
-                : row.status === 'duplicate' ? tr('importMergeStatusDuplicate', 'Duplicate')
-                    : row.status === 'rename' ? tr('renamedStatus', 'Renamed')
-                        : tr('importMergeStatusInfo', 'Info');
-            top.append(title, status);
-            const detail = document.createElement('p');
-            detail.textContent = row.detail;
-            article.append(top, detail);
-            entries.appendChild(article);
-        }
-
-        detailSection.append(detailHeading, entries);
-        body.appendChild(detailSection);
-
-        await this.modalHost.showCustom({
-            kind: warningMessages.length > 0 || (result.folderCreateFailures ?? 0) > 0 ? 'warning' : 'info',
-            title: t('importMergeReviewTitle'),
-            body,
-        });
     }
 }

@@ -12,6 +12,14 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(html).not.toContain('javascript:');
     });
 
+    it('renders safe links with explicit external target and rel attributes', () => {
+        const html = renderMarkdownToSanitizedHtml('[repo](https://example.com/repo)');
+
+        expect(html).toContain('href="https://example.com/repo"');
+        expect(html).toContain('target="_blank"');
+        expect(html).toContain('rel="noopener noreferrer"');
+    });
+
     it('renders inline math via katex extension', () => {
         const html = renderMarkdownToSanitizedHtml('Inline: $x_1 + y$');
         expect(html).toContain('katex');

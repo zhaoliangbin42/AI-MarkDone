@@ -1,7 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { getTokenCss } from '../../../style/tokens';
-import overlayCssText from '../../../style/tailwind-overlay.css?inline';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
@@ -11,8 +10,7 @@ import {
 } from '../../../services/export/saveMessagesFacade';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon } from '../../../assets/icons';
-import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
+import { OverlaySession } from '../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from '../components/Icon';
 
@@ -25,8 +23,7 @@ type State = {
 };
 
 export class SaveMessagesDialog {
-    private hostHandle: OverlaySurfaceHostHandle | null = null;
-    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private overlaySession: OverlaySession | null = null;
     private adapter: SiteAdapter | null = null;
     private turns: Array<{ user: string; assistant: string; index: number }> = [];
     private metadata: { url: string; exportedAt: string; title: string; count: number; platform: string } | null = null;
@@ -47,11 +44,11 @@ export class SaveMessagesDialog {
     };
 
     isOpen(): boolean {
-        return Boolean(this.hostHandle);
+        return Boolean(this.overlaySession);
     }
 
     open(adapter: SiteAdapter, theme: Theme): void {
-        if (this.hostHandle) this.close();
+        if (this.overlaySession) this.close();
         this.adapter = adapter;
         this.state.theme = theme;
 
@@ -72,10 +69,8 @@ export class SaveMessagesDialog {
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = null;
-        this.hostHandle?.unmount();
-        this.hostHandle = null;
+        this.overlaySession?.unmount();
+        this.overlaySession = null;
         this.adapter = null;
         this.turns = [];
         this.metadata = null;
@@ -83,43 +78,41 @@ export class SaveMessagesDialog {
     }
 
     private mount(): void {
-        if (this.hostHandle) return;
+        if (this.overlaySession) return;
 
-        const handle = mountOverlaySurfaceHost({
+        const session = new OverlaySession({
             id: 'aimd-save-messages-dialog-host',
-            themeCss: getTokenCss(this.state.theme),
+            theme: this.state.theme,
             surfaceCss: this.getCss(),
-            overlayCss: overlayCssText,
             lockScroll: true,
             surfaceStyleId: 'aimd-save-messages-dialog-structure',
             overlayStyleId: 'aimd-save-messages-dialog-tailwind',
         });
 
-        this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+        this.overlaySession = session;
+        this.tooltipDelegate = new TooltipDelegate(session.shadow);
         this.unsubscribeLocale = subscribeLocaleChange(() => {
-            if (this.hostHandle) this.render();
+            if (this.overlaySession) this.render();
         });
 
-        handle.backdropRoot.addEventListener('click', () => this.close());
-        handle.surfaceRoot.addEventListener('click', (event) => void this.handleClick(event));
-
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: handle.host,
+        session.backdropRoot.addEventListener('click', () => this.close());
+        session.surfaceRoot.addEventListener('click', (event) => void this.handleClick(event));
+        session.syncKeyboardScope({
+            root: session.host,
             onEscape: () => this.close(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: handle.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? handle.host,
+            trapTabWithin: session.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? session.host,
         });
     }
 
     private render(): void {
-        if (!this.hostHandle) return;
+        if (!this.overlaySession) return;
 
-        this.hostHandle.setSurfaceCss(this.getCss());
-        this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
-        this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
-        this.tooltipDelegate?.refresh(this.hostHandle.shadow);
+        this.overlaySession.setSurfaceCss(this.getCss());
+        this.overlaySession.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
+        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
+        this.tooltipDelegate?.refresh(this.overlaySession.shadow);
     }
 
     private async handleClick(event: Event): Promise<void> {
@@ -198,7 +191,7 @@ export class SaveMessagesDialog {
             this.close();
         } finally {
             this.state.saving = false;
-            if (this.hostHandle) this.render();
+            if (this.overlaySession) this.render();
         }
     }
 

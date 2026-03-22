@@ -68,6 +68,22 @@ function annotateCodeBlocks() {
     };
 }
 
+function annotateLinks() {
+    return (tree: HastNode) => {
+        visitTree(tree, (node) => {
+            if (node.tagName !== 'a') return;
+            const href = typeof node.properties?.href === 'string' ? node.properties.href.trim() : '';
+            if (!href) return;
+
+            node.properties = {
+                ...(node.properties || {}),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+            };
+        });
+    };
+}
+
 function visitTree(node: HastNode, visitor: (node: HastNode) => void): void {
     visitor(node);
     node.children?.forEach((child) => visitTree(child, visitor));
@@ -99,6 +115,7 @@ function createProcessor(options?: MarkdownRenderOptions) {
 
     return pipeline
         .use(annotateCodeBlocks)
+        .use(annotateLinks)
         .use(rehypeStringify);
 }
 

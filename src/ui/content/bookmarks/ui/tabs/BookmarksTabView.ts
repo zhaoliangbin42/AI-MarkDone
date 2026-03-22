@@ -1,4 +1,5 @@
 import type { Bookmark, FolderTreeNode } from '../../../../../core/bookmarks/types';
+import { PathUtils } from '../../../../../core/bookmarks/path';
 import type { ReaderItem } from '../../../../../services/reader/types';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
 import { createIcon } from '../../../components/Icon';
@@ -6,17 +7,12 @@ import { t } from '../../../components/i18n';
 import type { ModalHost } from '../../../components/ModalHost';
 import type { ReaderPanel, ReaderPanelActionContext } from '../../../reader/ReaderPanel';
 import { PlatformDropdown } from '../components/PlatformDropdown';
+import { BookmarksTreeViewport } from '../BookmarksTreeViewport';
+import { bookmarkSaveDialog } from '../../save/bookmarkSaveDialogSingleton';
 import {
-    chevronDownIcon,
-    chevronRightIcon,
-    copyIcon,
     downloadIcon,
-    externalLinkIcon,
-    folderIcon,
-    folderOpenIcon,
     folderPlusIcon,
     moveIcon,
-    pencilIcon,
     searchIcon,
     sortAlphaAscIcon,
     sortAZIcon,
@@ -34,7 +30,6 @@ type Refs = {
     sortAlphaBtn: HTMLButtonElement;
     importFile: HTMLInputElement;
     batch: HTMLElement;
-    tree: HTMLElement;
 };
 
 function downloadJson(filename: string, data: unknown): void {
@@ -55,10 +50,6 @@ function bookmarkSelectionKey(b: Bookmark): string {
     return `bm:${b.urlWithoutProtocol}:${b.position}`;
 }
 
-function getBookmarkDisplayTitle(b: Bookmark): string {
-    return b.title || '(untitled)';
-}
-
 export class BookmarksTabView {
     private controller: BookmarksPanelController;
     private readerPanel: ReaderPanel;
@@ -67,33 +58,60 @@ export class BookmarksTabView {
     private refs: Refs;
     private snapshot: BookmarksPanelSnapshot | null = null;
     private onRequestHidePanel: (() => void) | null = null;
-    private indentBasePx: number | null = null;
-    private indentStepPx: number | null = null;
+    private treeViewport: BookmarksTreeViewport;
+    private getSaveContextOnly: () => boolean;
 
     constructor(params: {
         controller: BookmarksPanelController;
         readerPanel: ReaderPanel;
         modal: ModalHost;
         onRequestHidePanel?: () => void;
+        getSaveContextOnly?: () => boolean;
     }) {
         this.controller = params.controller;
         this.readerPanel = params.readerPanel;
         this.modal = params.modal;
         this.onRequestHidePanel = params.onRequestHidePanel ?? null;
+        this.getSaveContextOnly = params.getSaveContextOnly ?? (() => false);
 
         this.root = document.createElement('div');
         this.root.className = 'bookmarks-tab-content';
+        this.treeViewport = new BookmarksTreeViewport({
+            controller: this.controller,
+            actions: {
+                selectFolder: (path) => this.controller.selectFolder(path),
+                toggleFolderExpanded: (path) => this.controller.toggleFolderExpanded(path),
+                toggleFolderSelection: (path) => this.controller.toggleFolderSelection(path),
+                toggleBookmarkSelection: (bookmark) => this.controller.toggleBookmarkSelection(bookmark),
+                openBookmark: async (bookmark) => await this.openPreviewInReader(bookmark),
+                goToBookmark: async (bookmark) => await this.goTo(bookmark),
+                copyBookmark: async (bookmark) => await this.controller.copyBookmarkMarkdown(bookmark),
+                moveBookmark: async (bookmark) => await this.moveBookmark(bookmark),
+                deleteBookmark: async (bookmark) => await this.deleteBookmark(bookmark),
+                createFolder: async () => await this.createFolder(),
+                importBookmarks: async () => this.refs.importFile.click(),
+                createSubfolder: async (path) => await this.createSubfolder(path),
+                renameFolder: async (path) => await this.renameFolder(path),
+                moveFolder: async (path) => await this.moveFolder(path),
+                deleteFolder: async (path) => await this.deleteFolder(path),
+            },
+        });
 
         const toolbar = document.createElement('div');
         toolbar.className = 'toolbar-row toolbar-row--bookmarks';
 
         const search = document.createElement('div');
-        search.className = 'search-field';
+        search.className = 'search-field aimd-field-shell';
         search.appendChild(createIcon(searchIcon));
         const query = document.createElement('input');
         query.type = 'text';
-        query.placeholder = t('search');
-        query.addEventListener('input', () => this.controller.setQuery(query.value));
+        query.className = 'aimd-field-control';
+        query.dataset.role = 'bookmark-query';
+        query.placeholder = t('searchBookmarksPlaceholder');
+        query.addEventListener('input', (event) => {
+            event.stopPropagation();
+            this.controller.setQuery(query.value);
+        });
         search.appendChild(query);
 
         const platform = new PlatformDropdown({
@@ -103,36 +121,42 @@ export class BookmarksTabView {
         const sortTimeBtn = this.makeIconButton({
             icon: sortTimeIcon,
             label: t('sortByTimeLabel'),
+            action: 'toggle-sort-time',
             onClick: () => this.toggleTimeSort(),
         });
         const sortAlphaBtn = this.makeIconButton({
             icon: sortAZIcon,
             label: t('sortAlphaLabel'),
+            action: 'toggle-sort-alpha',
             onClick: () => this.toggleAlphaSort(),
         });
 
         const folderCreateBtn = this.makeIconButton({
             icon: folderPlusIcon,
             label: t('createFolder'),
+            action: 'create-folder',
             onClick: () => void this.createFolder(),
         });
 
         const importBtn = this.makeIconButton({
             icon: uploadIcon,
             label: t('importBookmarks'),
+            action: 'import-bookmarks',
             onClick: () => this.refs.importFile.click(),
         });
         const importFile = document.createElement('input');
         importFile.type = 'file';
         importFile.accept = 'application/json';
         importFile.style.display = 'none';
-        importFile.addEventListener('change', () => void this.importFromFile());
+        importFile.dataset.role = 'import-file';
 
         const exportBtn = this.makeIconButton({
             icon: downloadIcon,
-            label: t('exportBookmarks'),
+            label: t('exportAllBookmarksLabel'),
+            action: 'export-all-bookmarks',
             onClick: () => void this.exportAll(),
         });
+        importFile.addEventListener('change', (event) => void this.importFromFile(event));
 
         const sortGroup = document.createElement('div');
         sortGroup.className = 'toolbar-actions';
@@ -155,18 +179,7 @@ export class BookmarksTabView {
         const batch = document.createElement('div');
         batch.className = 'batch-bar';
 
-        const tree = document.createElement('div');
-        tree.className = 'tree-panel';
-        tree.setAttribute('role', 'tree');
-
-        this.root.append(toolbar, batch, tree);
-
-        tree.addEventListener('click', (e) => {
-            const target = e.target as HTMLElement | null;
-            if (!target) return;
-            if (target.closest('.tree-item')) return;
-            this.controller.selectFolder(null);
-        });
+        this.root.append(toolbar, batch, this.treeViewport.getElement());
 
         this.refs = {
             query,
@@ -175,7 +188,6 @@ export class BookmarksTabView {
             sortAlphaBtn,
             importFile,
             batch,
-            tree,
         };
     }
 
@@ -188,13 +200,27 @@ export class BookmarksTabView {
         this.refs.query.select();
     }
 
+    getTreeScrollTop(): number {
+        return this.treeViewport.getScrollTop();
+    }
+
+    restoreTreeScroll(top: number): void {
+        this.treeViewport.restoreScroll(top);
+    }
+
     dismissTransientUi(): void {
         this.refs.platform.close();
+        this.treeViewport.dismissTransientUi();
+    }
+
+    destroy(): void {
+        this.refs.platform.close();
+        this.treeViewport.destroy();
     }
 
     update(snap: BookmarksPanelSnapshot): void {
         this.snapshot = snap;
-        this.ensureIndentMetrics();
+        this.refs.query.placeholder = t('searchBookmarksPlaceholder');
 
         if (document.activeElement !== this.refs.query) {
             this.refs.query.value = snap.vm.query;
@@ -209,299 +235,8 @@ export class BookmarksTabView {
 
         const selectedBookmarkCount = this.countSelectedBookmarks(snap.selectedKeys);
         this.renderBatchBar(this.refs.batch, selectedBookmarkCount);
-        this.renderTree(this.refs.tree, snap);
+        this.treeViewport.update(snap);
         this.updateSortButtons(snap.vm.sortMode);
-    }
-
-    private renderTree(container: HTMLElement, snap: BookmarksPanelSnapshot): void {
-        const visibleKeys = new Set<string>(snap.vm.bookmarks.map(bookmarkSelectionKey));
-        const selectedPath = snap.vm.selectedFolderPath;
-        const hasActiveFilters = Boolean(snap.vm.query.trim())
-            || snap.vm.platform !== 'All'
-            || selectedPath !== null;
-        const hasLibraryContent = snap.vm.bookmarks.length > 0
-            || snap.vm.folderTree.some((node) => this.hasRealFolderContent(node));
-
-        const frag = document.createDocumentFragment();
-        let renderedNodeCount = 0;
-
-        for (const node of snap.vm.folderTree) {
-            const rendered = this.renderFolderNode(node, 0, visibleKeys, selectedPath);
-            if (!rendered) continue;
-            renderedNodeCount += 1;
-            frag.appendChild(rendered);
-        }
-
-        if (renderedNodeCount === 0) {
-            frag.appendChild(this.renderEmptyState({
-                kind: hasActiveFilters || hasLibraryContent ? 'no_results' : 'empty',
-            }));
-        }
-
-        container.replaceChildren(frag);
-    }
-
-    private renderFolderNode(
-        node: FolderTreeNode,
-        depth: number,
-        visibleKeys: Set<string>,
-        selectedPath: string | null
-    ): HTMLElement | null {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'tree-node';
-
-        const totalVisible = this.countVisibleUnderFolder(node, visibleKeys);
-        const nodePath = node.folder.path;
-
-        const hasDirectBookmarks = node.bookmarks.length > 0;
-        const hasChildren = hasDirectBookmarks || node.children.length > 0;
-        const effectiveExpanded = this.getEffectiveExpanded(nodePath, node.isExpanded, selectedPath);
-
-        const row = this.renderFolderRow({
-            label: node.folder.name,
-            path: node.folder.path,
-            depth,
-            isSelected: selectedPath === node.folder.path,
-            isExpanded: effectiveExpanded,
-            hasChildren,
-            count: totalVisible,
-        });
-
-        wrapper.appendChild(row);
-
-        const children = document.createElement('div');
-        children.className = 'tree-children';
-        children.dataset.expanded = effectiveExpanded ? '1' : '0';
-
-        for (const child of node.children) {
-            const rendered = this.renderFolderNode(child, depth + 1, visibleKeys, selectedPath);
-            if (!rendered) continue;
-            children.appendChild(rendered);
-        }
-        for (const b of node.bookmarks) {
-            if (!visibleKeys.has(bookmarkSelectionKey(b))) continue;
-            children.appendChild(this.renderBookmarkRow(b, depth + 1));
-        }
-
-        wrapper.appendChild(children);
-        return wrapper;
-    }
-
-    private getEffectiveExpanded(nodePath: string, isExpanded: boolean, selectedPath: string | null): boolean {
-        void nodePath;
-        void selectedPath;
-        return isExpanded;
-    }
-
-    private countVisibleUnderFolder(node: FolderTreeNode, visibleKeys: Set<string>): number {
-        let count = 0;
-        for (const b of node.bookmarks) if (visibleKeys.has(bookmarkSelectionKey(b))) count += 1;
-        for (const child of node.children) count += this.countVisibleUnderFolder(child, visibleKeys);
-        return count;
-    }
-
-    private hasRealFolderContent(node: FolderTreeNode): boolean {
-        if (node.bookmarks.length > 0) return true;
-        return node.children.some((child) => this.hasRealFolderContent(child));
-    }
-
-    private renderFolderRow(params: {
-        label: string;
-        path: string | null;
-        depth: number;
-        isSelected: boolean;
-        isExpanded: boolean;
-        hasChildren: boolean;
-        count: number;
-    }): HTMLElement {
-        const row = document.createElement('div');
-        row.className = 'tree-item tree-item--folder';
-        row.dataset.selected = '0';
-        row.dataset.path = params.path ?? '';
-        row.setAttribute('role', 'treeitem');
-        row.setAttribute('aria-level', String(params.depth + 1));
-        if (params.path) row.setAttribute('aria-expanded', params.isExpanded ? 'true' : 'false');
-        row.tabIndex = 0;
-
-        const base = this.indentBasePx ?? 10;
-        const step = this.indentStepPx ?? 18;
-        row.style.paddingLeft = `${base + params.depth * step}px`;
-
-        const caret = document.createElement('button');
-        caret.type = 'button';
-        caret.className = 'tree-caret';
-        caret.disabled = !params.hasChildren;
-        caret.innerHTML = params.hasChildren ? (params.isExpanded ? chevronDownIcon : chevronRightIcon) : '';
-        caret.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!params.path) return;
-            this.controller.toggleFolderExpanded(params.path);
-        });
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'tree-check';
-        checkbox.disabled = !params.path;
-        if (params.path) {
-            const state = this.controller.getFolderCheckboxState(params.path);
-            checkbox.checked = state.checked;
-            checkbox.indeterminate = state.indeterminate;
-            checkbox.dataset.indeterminate = state.indeterminate ? '1' : '0';
-        }
-        checkbox.addEventListener('click', (e) => e.stopPropagation());
-        checkbox.addEventListener('change', (e) => {
-            e.stopPropagation();
-            if (!params.path) return;
-            this.controller.toggleFolderSelection(params.path);
-        });
-
-        const main = document.createElement('button');
-        main.type = 'button';
-        main.className = 'tree-main tree-main--folder';
-        main.dataset.path = params.path ?? '';
-        const label = document.createElement('div');
-        label.className = 'tree-label';
-        label.textContent = params.label;
-        main.appendChild(label);
-        main.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.selectFolder(params.path);
-        });
-        main.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.selectFolder(params.path);
-        });
-
-        const icon = document.createElement('div');
-        icon.className = 'tree-folder-icon';
-        if (params.path) {
-            icon.appendChild(createIcon(params.isExpanded ? folderOpenIcon : folderIcon));
-        }
-
-        const count = document.createElement('div');
-        count.className = 'tree-count';
-        count.textContent = params.path ? String(params.count) : '';
-
-        const actions = document.createElement('div');
-        actions.className = 'tree-actions';
-
-        if (params.path) {
-            actions.append(
-                this.makeRowAction({
-                    icon: folderPlusIcon,
-                    label: t('newSubfolder'),
-                    kind: 'default',
-                    onClick: () => void this.createSubfolder(params.path!),
-                }),
-                this.makeRowAction({
-                    icon: pencilIcon,
-                    label: t('renameFolder'),
-                    kind: 'default',
-                    onClick: () => void this.renameFolder(params.path!),
-                }),
-                this.makeRowAction({
-                    icon: moveIcon,
-                    label: t('moveFolder'),
-                    kind: 'default',
-                    onClick: () => void this.moveFolder(params.path!),
-                }),
-                this.makeRowAction({
-                    icon: trashIcon,
-                    label: t('deleteFolder'),
-                    kind: 'danger',
-                    onClick: () => void this.deleteFolder(params.path!),
-                })
-            );
-        }
-
-        row.append(caret, checkbox, icon, main, count, actions);
-
-        return row;
-    }
-
-    private renderBookmarkRow(b: Bookmark, depth: number): HTMLElement {
-        const row = document.createElement('div');
-        row.className = 'tree-item tree-item--bookmark';
-        row.setAttribute('role', 'treeitem');
-        row.setAttribute('aria-level', String(depth + 1));
-        row.tabIndex = 0;
-
-        const base = this.indentBasePx ?? 10;
-        const step = this.indentStepPx ?? 18;
-        row.style.paddingLeft = `${base + depth * step}px`;
-
-        const caretSlot = document.createElement('span');
-        caretSlot.className = 'tree-caret-slot';
-        caretSlot.setAttribute('aria-hidden', 'true');
-
-        const iconSlot = document.createElement('span');
-        iconSlot.className = 'tree-icon-slot';
-        iconSlot.setAttribute('aria-hidden', 'true');
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'tree-check';
-        checkbox.checked = this.snapshot?.selectedKeys?.has(bookmarkSelectionKey(b)) ?? false;
-        checkbox.addEventListener('click', (e) => e.stopPropagation());
-        checkbox.addEventListener('change', (e) => {
-            e.stopPropagation();
-            this.controller.toggleBookmarkSelection(b);
-        });
-
-        const main = document.createElement('button');
-        main.type = 'button';
-        main.className = 'tree-main tree-main--bookmark';
-        main.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            void this.openPreviewInReader(b);
-        });
-        main.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            e.stopPropagation();
-            void this.openPreviewInReader(b);
-        });
-        const labelRow = document.createElement('span');
-        labelRow.className = 'tree-label-row';
-        const title = document.createElement('div');
-        title.className = 'tree-label';
-        title.textContent = getBookmarkDisplayTitle(b);
-        const subtitle = document.createElement('div');
-        subtitle.className = 'tree-subtitle';
-        subtitle.textContent = this.controller.getBookmarkRowSubtitle(b);
-        labelRow.append(title, subtitle);
-        main.appendChild(labelRow);
-
-        const actions = document.createElement('div');
-        actions.className = 'tree-actions';
-        actions.append(
-            this.makeRowAction({
-                icon: externalLinkIcon,
-                label: t('openConversation'),
-                kind: 'default',
-                onClick: () => void this.goTo(b),
-            }),
-            this.makeRowAction({
-                icon: copyIcon,
-                label: t('btnCopy'),
-                kind: 'default',
-                onClick: () => void this.controller.copyBookmarkMarkdown(b),
-            }),
-            this.makeRowAction({
-                icon: trashIcon,
-                label: t('delete'),
-                kind: 'danger',
-                onClick: () => void this.deleteBookmark(b),
-            })
-        );
-
-        row.append(caretSlot, checkbox, iconSlot, main, actions);
-        return row;
     }
 
     private renderBatchBar(container: HTMLElement, selectedBookmarkCount: number): void {
@@ -510,7 +245,7 @@ export class BookmarksTabView {
 
         const label = document.createElement('div');
         label.className = 'batch-label';
-        label.textContent = selectedBookmarkCount > 0 ? t('selectedCount', String(selectedBookmarkCount)) : t('noSelectionLabel');
+        label.textContent = selectedBookmarkCount > 0 ? t('selectedCount', String(selectedBookmarkCount)) : '';
 
         const actions = document.createElement('div');
         actions.className = 'batch-actions';
@@ -518,6 +253,7 @@ export class BookmarksTabView {
         const clearBtn = this.makeIconButton({
             icon: xIcon,
             label: t('clearSelection'),
+            action: 'batch-clear',
             onClick: () => this.controller.clearSelection(),
         });
         clearBtn.disabled = selectedBookmarkCount === 0;
@@ -525,17 +261,9 @@ export class BookmarksTabView {
         const moveBtn = this.makeIconButton({
             icon: moveIcon,
             label: t('moveSelected'),
+            action: 'batch-move',
             onClick: async () => {
-                const target = await this.modal.prompt({
-                    kind: 'info',
-                    title: t('moveSelected'),
-                    message: t('promptTargetFolderPath'),
-                    placeholder: t('folderPathPlaceholder'),
-                    defaultValue: this.controller.getDefaultFolderPath(),
-                    confirmText: t('btnSave'),
-                    cancelText: t('btnCancel'),
-                    validate: (v) => ({ ok: Boolean(v.trim()), message: t('folderNameEmpty') }),
-                });
+                const target = await this.pickFolder(this.controller.getDefaultFolderPath());
                 if (target === null) return;
                 const res = await this.controller.batchMove(target);
                 this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
@@ -547,6 +275,7 @@ export class BookmarksTabView {
             icon: trashIcon,
             label: t('deleteSelected'),
             kind: 'danger',
+            action: 'batch-delete',
             onClick: async () => {
                 const ok = await this.modal.confirm({
                     kind: 'warning',
@@ -566,11 +295,12 @@ export class BookmarksTabView {
         const exportBtn = this.makeIconButton({
             icon: downloadIcon,
             label: t('exportSelected'),
+            action: 'batch-export',
             onClick: async () => void this.exportSelected(),
         });
         exportBtn.disabled = selectedBookmarkCount === 0;
 
-        actions.append(clearBtn, moveBtn, delBtn, exportBtn);
+        actions.append(moveBtn, delBtn, exportBtn, clearBtn);
         container.append(label, actions);
     }
 
@@ -617,28 +347,6 @@ export class BookmarksTabView {
         }
         downloadJson('ai-markdone-bookmarks-selected.json', res.data.payload);
         this.controller.setPanelStatus(t('exportedStatus'));
-    }
-
-    private async importFromFile(): Promise<void> {
-        const input = this.refs.importFile;
-        const file = input.files?.[0] || null;
-        input.value = '';
-        if (!file) return;
-        const text = await file.text();
-
-        const saveContextOnly = await this.modal.confirm({
-            kind: 'info',
-            title: t('importBookmarks'),
-            message: t('saveContextOnlyConfirm'),
-            confirmText: t('btnOk'),
-            cancelText: t('btnCancel'),
-        });
-        const res = await this.controller.importJsonText(text, saveContextOnly);
-        if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('importBookmarks'), message: res.message, confirmText: t('btnOk') });
-            return;
-        }
-        this.controller.setPanelStatus(t('importedStatus'));
     }
 
     private async createFolder(): Promise<void> {
@@ -700,18 +408,18 @@ export class BookmarksTabView {
     }
 
     private async moveFolder(path: string): Promise<void> {
-        const parent = await this.modal.prompt({
-            kind: 'info',
-            title: t('moveFolder'),
-            message: t('promptTargetParentFolder'),
-            placeholder: '',
-            defaultValue: '',
-            confirmText: t('btnSave'),
-            cancelText: t('btnCancel'),
-        });
+        const parent = await this.pickFolder(PathUtils.getParentPath(path));
         if (parent === null) return;
         const res = await this.controller.moveFolder(path, parent);
         if (!res.ok) await this.modal.alert({ kind: 'error', title: t('moveFolder'), message: res.message, confirmText: t('btnOk') });
+        this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
+    }
+
+    private async moveBookmark(bookmark: Bookmark): Promise<void> {
+        const target = await this.pickFolder(bookmark.folderPath || this.controller.getDefaultFolderPath());
+        if (target === null) return;
+        const res = await this.controller.moveBookmark(bookmark, target);
+        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('moveBookmarkLabel'), message: res.message, confirmText: t('btnOk') });
         this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
     }
 
@@ -835,9 +543,136 @@ export class BookmarksTabView {
         return null;
     }
 
+    private async importFromFile(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement | null;
+        const file = input?.files?.[0] ?? null;
+        if (input) input.value = '';
+        if (!file) return;
+
+        const jsonText = await file.text();
+        const saveContextOnly = this.getSaveContextOnly();
+        const res = await this.controller.importJsonText(jsonText, saveContextOnly);
+        if (!res.ok) {
+            await this.modal.alert({ kind: 'error', title: t('importBookmarks'), message: res.message, confirmText: t('btnOk') });
+            return;
+        }
+
+        this.controller.setPanelStatus(t('importedStatus'));
+        await this.showImportMergeSummary(res.data);
+    }
+
+    private async pickFolder(currentFolderPath: string | null): Promise<string | null> {
+        const result = await bookmarkSaveDialog.open({
+            theme: this.controller.getTheme(),
+            userPrompt: '',
+            existingTitle: '',
+            currentFolderPath,
+            mode: 'folder-select',
+        });
+        if (!result.ok) return null;
+        return result.folderPath;
+    }
+
+    private async showImportMergeSummary(result: {
+        imported?: number;
+        skippedDuplicates?: number;
+        renamed?: number;
+        warnings?: string[];
+        folderCreateFailures?: number;
+    }): Promise<void> {
+        const body = document.createElement('div');
+        const summarySection = document.createElement('section');
+        summarySection.className = 'merge-section merge-section--summary';
+        const summaryHeading = document.createElement('div');
+        summaryHeading.className = 'merge-section__heading';
+        summaryHeading.textContent = t('importMergeSummaryHeading');
+        const summary = document.createElement('div');
+        summary.className = 'merge-summary';
+
+        const items = [
+            { label: t('importMergeSummaryImported'), value: String(result.imported ?? 0) },
+            { label: t('importMergeSummarySkippedDuplicates'), value: String(result.skippedDuplicates ?? 0) },
+            { label: t('importMergeSummaryRenamedTitles'), value: String(result.renamed ?? 0) },
+            { label: t('importMergeSummaryFolderFallbacks'), value: String(result.folderCreateFailures ?? 0) },
+        ];
+
+        for (const item of items) {
+            const article = document.createElement('article');
+            article.className = 'merge-summary-item';
+            const label = document.createElement('span');
+            label.className = 'merge-summary-item__label';
+            label.textContent = item.label;
+            const value = document.createElement('strong');
+            value.textContent = item.value;
+            article.append(label, value);
+            summary.appendChild(article);
+        }
+
+        summarySection.append(summaryHeading, summary);
+        body.appendChild(summarySection);
+
+        const detailSection = document.createElement('section');
+        detailSection.className = 'merge-section merge-section--detail';
+        const detailHeading = document.createElement('div');
+        detailHeading.className = 'merge-section__heading';
+        detailHeading.textContent = t('importMergeDetailsHeading');
+        const entries = document.createElement('div');
+        entries.className = 'merge-entry-list';
+        const warningMessages = Array.isArray(result.warnings) ? result.warnings : [];
+        const rows = [
+            {
+                title: t('importMergeImportedBookmarksTitle'),
+                detail: t('importMergeImportedBookmarksDetail', String(result.imported ?? 0)),
+                status: 'import',
+            },
+            {
+                title: t('importMergeDuplicateBookmarksTitle'),
+                detail: t('importMergeDuplicateBookmarksDetail', String(result.skippedDuplicates ?? 0)),
+                status: 'duplicate',
+            },
+            {
+                title: t('importMergeRenamedTitlesTitle'),
+                detail: t('importMergeRenamedTitlesDetail', String(result.renamed ?? 0)),
+                status: 'rename',
+            },
+            ...warningMessages.map((warning) => ({ title: t('importMergeWarningTitle'), detail: warning, status: 'normal' as const })),
+        ];
+
+        for (const row of rows) {
+            const article = document.createElement('article');
+            article.className = 'merge-entry';
+            const top = document.createElement('div');
+            top.className = 'merge-entry__top';
+            const title = document.createElement('strong');
+            title.textContent = row.title;
+            const status = document.createElement('span');
+            status.className = 'merge-entry-status';
+            status.dataset.status = row.status;
+            status.textContent = row.status === 'import' ? t('importedStatus')
+                : row.status === 'duplicate' ? t('importMergeStatusDuplicate')
+                    : row.status === 'rename' ? t('renamedStatus')
+                        : t('importMergeStatusInfo');
+            top.append(title, status);
+            const detail = document.createElement('p');
+            detail.textContent = row.detail;
+            article.append(top, detail);
+            entries.appendChild(article);
+        }
+
+        detailSection.append(detailHeading, entries);
+        body.appendChild(detailSection);
+
+        await this.modal.showCustom({
+            kind: warningMessages.length > 0 || (result.folderCreateFailures ?? 0) > 0 ? 'warning' : 'info',
+            title: t('importMergeReviewTitle'),
+            body,
+        });
+    }
+
     private makeIconButton(params: {
         icon: string;
         label: string;
+        action?: string;
         kind?: 'default' | 'primary' | 'danger';
         onClick: () => void | Promise<void>;
     }): HTMLButtonElement {
@@ -845,94 +680,23 @@ export class BookmarksTabView {
         btn.type = 'button';
         btn.className = `icon-btn${params.kind === 'danger' ? ' icon-btn--danger' : ''}`;
         btn.title = params.label;
+        btn.dataset.tooltip = params.label;
         btn.setAttribute('aria-label', params.label);
+        if (params.action) {
+            btn.dataset.action = params.action;
+        }
         btn.appendChild(createIcon(params.icon));
         btn.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             void params.onClick();
         });
         return btn;
-    }
-
-    private makeRowAction(params: {
-        icon: string;
-        label: string;
-        kind?: 'default' | 'danger';
-        onClick: () => void | Promise<void>;
-    }): HTMLButtonElement {
-        const btn = this.makeIconButton({
-            icon: params.icon,
-            label: params.label,
-            kind: params.kind ?? 'default',
-            onClick: params.onClick,
-        });
-        btn.addEventListener('click', (e) => e.stopPropagation());
-        return btn;
-    }
-
-    private ensureIndentMetrics(): void {
-        if (this.indentBasePx !== null && this.indentStepPx !== null) return;
-        const style = window.getComputedStyle(this.root);
-        const base = this.parsePx(style.getPropertyValue('--aimd-tree-indent-base')) ?? this.parsePx(style.getPropertyValue('--aimd-space-2'));
-        const step = this.parsePx(style.getPropertyValue('--aimd-tree-indent-step')) ?? this.parsePx(style.getPropertyValue('--aimd-space-3'));
-        if (base !== null) this.indentBasePx = base;
-        if (step !== null) this.indentStepPx = step;
-    }
-
-    private parsePx(value: string): number | null {
-        const v = value.trim();
-        if (!v.endsWith('px')) return null;
-        const n = Number(v.slice(0, -2));
-        return Number.isFinite(n) ? n : null;
     }
 
     private countSelectedBookmarks(keys: Set<string>): number {
         let count = 0;
         for (const key of keys) if (key.startsWith('bm:')) count += 1;
         return count;
-    }
-
-    private renderEmptyState(params?: { kind?: 'empty' | 'no_results' }): HTMLElement {
-        const kind = params?.kind ?? 'empty';
-        const root = document.createElement('div');
-        root.className = 'empty-state';
-
-        const icon = document.createElement('div');
-        icon.className = 'empty-icon';
-        icon.appendChild(createIcon(folderIcon));
-
-        const title = document.createElement('strong');
-        title.textContent = kind === 'no_results' ? t('noResultsTitle') : t('noFoldersYet');
-
-        const desc = document.createElement('p');
-        desc.textContent = kind === 'no_results' ? t('noResultsHint') : t('createFirstFolder');
-
-        const actions = document.createElement('div');
-        actions.className = 'empty-actions';
-
-        const createBtn = document.createElement('button');
-        createBtn.type = 'button';
-        createBtn.className = 'studio-btn studio-btn--primary';
-        createBtn.textContent = kind === 'no_results' ? t('clearFiltersBtn') : t('createFirstFolderBtn');
-        createBtn.addEventListener('click', () => {
-            if (kind === 'no_results') {
-                this.controller.setQuery('');
-                this.controller.setPlatform('All');
-                this.controller.selectFolder(null);
-                return;
-            }
-            void this.createFolder();
-        });
-
-        const importBtn = document.createElement('button');
-        importBtn.type = 'button';
-        importBtn.className = 'studio-btn studio-btn--secondary';
-        importBtn.textContent = t('importBookmarks');
-        importBtn.addEventListener('click', () => this.refs.importFile.click());
-
-        actions.append(createBtn, importBtn);
-
-        root.append(icon, title, desc, actions);
-        return root;
     }
 }

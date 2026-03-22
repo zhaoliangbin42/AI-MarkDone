@@ -3,7 +3,6 @@ import { PathUtils } from '../../../../core/bookmarks/path';
 import type { ProtocolErrorCode } from '../../../../contracts/protocol';
 import { bookmarksClient } from '../../../../drivers/shared/clients/bookmarksClient';
 import { getTokenCss } from '../../../../style/tokens';
-import overlayCssText from '../../../../style/tailwind-overlay.css?inline';
 import {
     checkIcon,
     chevronDownIcon,
@@ -24,12 +23,10 @@ import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/f
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
 import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../../components/dialogKeyboardScope';
-import { installInputEventBoundary } from '../../components/inputEventBoundary';
-import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../../overlay/OverlaySurfaceHost';
 import { TooltipDelegate } from '../../../../utils/tooltip';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
 import { getBookmarkSaveDialogCss } from './bookmarkSaveDialogCss';
+import { BookmarksOverlaySession } from '../ui/BookmarksOverlaySession';
 
 type FolderLite = { path: string; name: string; depth: number };
 
@@ -49,12 +46,9 @@ type RootFolderModalState = { value: string; error: string; note: string };
 type InlineSubfolderState = { parentPath: string; value: string; error: string; note: string };
 
 export class BookmarkSaveDialog {
-    private hostHandle: OverlaySurfaceHostHandle | null = null;
-    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private overlaySession: BookmarksOverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private unsubscribeLocale: (() => void) | null = null;
-    private removeSurfaceBoundary: (() => void) | null = null;
-    private removeModalBoundary: (() => void) | null = null;
     private theme: Theme = 'light';
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
@@ -67,11 +61,11 @@ export class BookmarkSaveDialog {
     private lastSelectedFolderPathCache: string | null = null;
 
     isOpen(): boolean {
-        return Boolean(this.hostHandle);
+        return Boolean(this.overlaySession);
     }
 
     async open(params: OpenParams): Promise<BookmarkSaveDialogResult> {
-        if (this.hostHandle) this.close({ ok: false, reason: 'cancel' });
+        if (this.overlaySession) this.close({ ok: false, reason: 'cancel' });
         this.theme = params.theme;
         this.status = '';
         this.pending = false;
@@ -101,7 +95,7 @@ export class BookmarkSaveDialog {
             currentFolderPath: params.currentFolderPath ?? null,
         });
 
-        window.setTimeout(() => this.hostHandle?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')?.focus(), 0);
+        window.setTimeout(() => this.overlaySession?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')?.focus(), 0);
 
         return await new Promise<BookmarkSaveDialogResult>((resolve) => {
             this.resolve = resolve;
@@ -110,8 +104,8 @@ export class BookmarkSaveDialog {
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.hostHandle?.setThemeCss(getTokenCss(theme));
-        this.hostHandle?.setSurfaceCss(this.getCss());
+        this.overlaySession?.setTheme(theme);
+        this.overlaySession?.setSurfaceCss(this.getCss());
     }
 
     private close(result: BookmarkSaveDialogResult): void {
@@ -121,14 +115,8 @@ export class BookmarkSaveDialog {
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = null;
-        this.removeSurfaceBoundary?.();
-        this.removeSurfaceBoundary = null;
-        this.removeModalBoundary?.();
-        this.removeModalBoundary = null;
-        this.hostHandle?.unmount();
-        this.hostHandle = null;
+        this.overlaySession?.unmount();
+        this.overlaySession = null;
         this.state = null;
         this.status = '';
         this.pending = false;
@@ -143,7 +131,7 @@ export class BookmarkSaveDialog {
             bookmarksClient.uiStateGetLastSelectedFolderPath(),
         ]);
 
-        if (!this.hostHandle) return;
+        if (!this.overlaySession) return;
 
         if (foldersRes.ok) {
             this.folders = foldersRes.data.folders.map((f) => ({ path: f.path, name: f.name, depth: f.depth }));
@@ -169,38 +157,37 @@ export class BookmarkSaveDialog {
     }
 
     private mount(): void {
-        if (this.hostHandle) return;
-        const handle = mountOverlaySurfaceHost({
+        if (this.overlaySession) return;
+        this.overlaySession = new BookmarksOverlaySession({
             id: 'aimd-bookmark-save-dialog-host',
-            themeCss: getTokenCss(this.theme),
+            theme: this.theme,
             surfaceCss: this.getCss(),
-            overlayCss: overlayCssText,
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmark-save-dialog-structure',
             overlayStyleId: 'aimd-bookmark-save-dialog-tailwind',
         });
-
-        this.hostHandle = handle;
-        this.removeSurfaceBoundary = installInputEventBoundary(handle.surfaceRoot);
-        this.removeModalBoundary = installInputEventBoundary(handle.modalRoot);
-        this.tooltipDelegate = new TooltipDelegate(handle.shadow);
+        this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
         this.unsubscribeLocale = subscribeLocaleChange(() => {
-            if (this.hostHandle && this.state) this.render();
+            if (this.overlaySession && this.state) this.render();
         });
 
-        handle.backdropRoot.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
-        handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
-        handle.surfaceRoot.addEventListener('input', (event) => this.handleSurfaceInput(event));
-        handle.surfaceRoot.addEventListener('keydown', (event) => void this.handleSurfaceKeyDown(event));
+        this.overlaySession.backdropRoot.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
+        this.overlaySession.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
+        this.overlaySession.surfaceRoot.addEventListener('input', (event) => this.handleSurfaceInput(event));
+        this.overlaySession.surfaceRoot.addEventListener('keydown', (event) => void this.handleSurfaceKeyDown(event));
+    }
 
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: handle.host,
+    private render(): void {
+        if (!this.overlaySession || !this.state) return;
+        this.overlaySession.setSurfaceCss(this.getCss());
+        const backdrop = document.createElement('div');
+        backdrop.className = 'panel-stage__overlay';
+        this.overlaySession.replaceBackdrop(backdrop);
+        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
+        const panel = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        this.overlaySession.syncKeyboardScope({
+            root: this.overlaySession.host,
             onEscape: () => {
-                if (this.rootFolderModal) {
-                    this.rootFolderModal = null;
-                    this.renderModalLayer();
-                    return;
-                }
                 if (this.subfolderInline) {
                     this.subfolderInline = null;
                     this.render();
@@ -210,17 +197,9 @@ export class BookmarkSaveDialog {
             },
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: handle.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? handle.host,
+            trapTabWithin: panel ?? this.overlaySession.host,
         });
-    }
-
-    private render(): void {
-        if (!this.hostHandle || !this.state) return;
-        this.hostHandle.setSurfaceCss(this.getCss());
-        this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
-        this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
-        this.renderModalLayer();
-        this.tooltipDelegate?.refresh(this.hostHandle.shadow);
+        this.tooltipDelegate?.refresh(this.overlaySession.shadow);
     }
 
     private handleSurfaceInput(event: Event): void {
@@ -319,7 +298,7 @@ export class BookmarkSaveDialog {
         this.state = reduceDraft(this.state, { type: 'expandToPath', path: parentPath });
         this.render();
         window.setTimeout(() => {
-            this.hostHandle?.surfaceRoot.querySelector<HTMLInputElement>(`[data-role="bookmark-save-inline-draft"][data-parent="${CSS.escape(parentPath)}"]`)?.focus();
+            this.overlaySession?.surfaceRoot.querySelector<HTMLInputElement>(`[data-role="bookmark-save-inline-draft"][data-parent="${CSS.escape(parentPath)}"]`)?.focus();
         }, 0);
     }
 
@@ -377,127 +356,92 @@ export class BookmarkSaveDialog {
     }
 
     private renderModalLayer(): void {
-        if (!this.hostHandle) return;
-        const layer = this.hostHandle.modalRoot;
-        layer.replaceChildren();
-        if (!this.rootFolderModal) return;
-
-        const overlay = document.createElement('div');
-        overlay.className = 'mock-modal-overlay';
-        overlay.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                this.rootFolderModal = null;
-                this.renderModalLayer();
-            }
-        });
-
-        const panel = document.createElement('div');
-        panel.className = 'mock-modal';
-        panel.dataset.kind = 'info';
-        panel.setAttribute('role', 'dialog');
-        panel.setAttribute('aria-modal', 'true');
-        panel.setAttribute('aria-label', this.getLabel('newFolder', 'New Folder'));
-
-        const head = document.createElement('div');
-        head.className = 'mock-modal__head';
-        const titleWrap = document.createElement('div');
-        titleWrap.className = 'mock-modal__title-wrap';
-        const kindIcon = document.createElement('span');
-        kindIcon.className = 'mock-modal__kind-icon';
-        kindIcon.innerHTML = iconMarkup(folderOpenIcon);
-        const titleCopy = document.createElement('div');
-        titleCopy.className = 'mock-modal__title-copy';
-        const title = document.createElement('strong');
-        title.textContent = this.getLabel('newFolder', 'New Folder');
-        titleCopy.appendChild(title);
-        const close = document.createElement('button');
-        close.type = 'button';
-        close.className = 'mock-modal__close';
-        close.setAttribute('aria-label', this.getLabel('btnClose', 'Close'));
-        close.appendChild(createIcon(xIcon));
-        close.addEventListener('click', () => {
-            this.rootFolderModal = null;
-            this.renderModalLayer();
-        });
-        titleWrap.append(kindIcon, titleCopy);
-        head.append(titleWrap, close);
+        if (!this.overlaySession || !this.rootFolderModal) return;
 
         const body = document.createElement('div');
-        body.className = 'mock-modal__content';
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'mock-modal__input text-input aimd-field-control aimd-field-control--standalone';
         input.value = this.rootFolderModal.value;
         input.placeholder = this.getLabel('enterFolderName', 'New folder');
         input.setAttribute('data-role', 'root_folder_input');
+
+        const error = document.createElement('div');
+        error.className = 'error-text';
+        const hint = document.createElement('div');
+        hint.className = 'help-text';
+
+        const syncModalState = () => {
+            if (!this.rootFolderModal) return;
+            input.value = this.rootFolderModal.value;
+            error.textContent = this.rootFolderModal.error || '';
+            error.style.display = this.rootFolderModal.error ? 'block' : 'none';
+            hint.textContent = this.rootFolderModal.note || '';
+            hint.style.display = this.rootFolderModal.note ? 'block' : 'none';
+        };
+
         input.addEventListener('input', () => {
             if (!this.rootFolderModal) return;
             this.rootFolderModal.value = input.value;
             this.rootFolderModal.error = '';
             this.rootFolderModal.note = '';
-            this.renderModalLayer();
+            syncModalState();
         });
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                void confirm();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                this.rootFolderModal = null;
-                this.renderModalLayer();
-            }
-            e.stopPropagation();
-        });
-
-        const error = document.createElement('div');
-        error.className = 'error-text';
-        error.textContent = this.rootFolderModal.error || '';
-        error.style.display = this.rootFolderModal.error ? 'block' : 'none';
-
-        const hint = document.createElement('div');
-        hint.className = 'help-text';
-        hint.textContent = this.rootFolderModal.note || '';
-        hint.style.display = this.rootFolderModal.note ? 'block' : 'none';
         body.append(input, error, hint);
+        syncModalState();
 
-        const actions = document.createElement('div');
-        actions.className = 'mock-modal__footer';
-        const cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.className = 'mock-modal__button mock-modal__button--secondary';
-        cancel.textContent = this.getLabel('btnCancel', 'Cancel');
-        cancel.addEventListener('click', () => {
-            this.rootFolderModal = null;
-            this.renderModalLayer();
+        void this.overlaySession.modalHost.showCustom({
+            kind: 'info',
+            title: this.getLabel('newFolder', 'New Folder'),
+            body,
+            onDismiss: () => {
+                this.rootFolderModal = null;
+            },
+            footer: (footer, close) => {
+                const cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.className = 'mock-modal__button mock-modal__button--secondary';
+                cancel.textContent = this.getLabel('btnCancel', 'Cancel');
+                cancel.dataset.action = 'modal-cancel';
+                cancel.addEventListener('click', () => {
+                    this.rootFolderModal = null;
+                    close();
+                });
+
+                const save = document.createElement('button');
+                save.type = 'button';
+                save.className = 'mock-modal__button mock-modal__button--primary';
+                save.textContent = this.getLabel('btnSave', 'Save');
+                save.dataset.action = 'modal-confirm';
+
+                const confirm = async () => {
+                    if (!this.rootFolderModal || this.pending) return;
+                    const res = await this.createFolderOnBackend({ parentPath: null, rawName: this.rootFolderModal.value });
+                    if (!res.ok) {
+                        this.rootFolderModal.error = res.message;
+                        this.rootFolderModal.note = '';
+                        syncModalState();
+                        return;
+                    }
+
+                    if (this.state) this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: res.path });
+                    this.rootFolderModal = null;
+                    close();
+                    this.render();
+                };
+
+                save.addEventListener('click', () => void confirm());
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void confirm();
+                    }
+                });
+
+                footer.append(cancel, save);
+                window.setTimeout(() => input.focus(), 0);
+            },
         });
-
-        const save = document.createElement('button');
-        save.type = 'button';
-        save.className = 'mock-modal__button mock-modal__button--primary';
-        save.textContent = this.getLabel('btnSave', 'Save');
-
-        const confirm = async () => {
-            if (!this.rootFolderModal || this.pending) return;
-            const res = await this.createFolderOnBackend({ parentPath: null, rawName: this.rootFolderModal.value });
-            if (!res.ok) {
-                this.rootFolderModal.error = res.message;
-                this.rootFolderModal.note = '';
-                this.renderModalLayer();
-                return;
-            }
-
-            if (this.state) this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: res.path });
-            this.rootFolderModal = null;
-            this.render();
-        };
-
-        save.addEventListener('click', () => void confirm());
-        actions.append(cancel, save);
-
-        panel.append(head, body, actions);
-        overlay.appendChild(panel);
-        layer.appendChild(overlay);
-        window.setTimeout(() => input.focus(), 0);
     }
 
     private async submit(): Promise<void> {

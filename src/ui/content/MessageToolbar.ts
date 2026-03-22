@@ -322,11 +322,11 @@ export class MessageToolbar {
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--aimd-font-family-sans);
-  --aimd-tb-hover: var(--aimd-button-icon-hover);
-  --aimd-tb-pressed: var(--aimd-button-icon-active);
-  --aimd-tb-surface: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
-  --aimd-tb-outline: color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
-  --aimd-tb-menu-surface: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
+  --aimd-toolbar-hover: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-sys-color-surface-hover));
+  --aimd-toolbar-pressed: color-mix(in srgb, var(--aimd-button-icon-active) 90%, var(--aimd-sys-color-surface-pressed));
+  --aimd-toolbar-surface: color-mix(in srgb, var(--aimd-bg-surface) 97%, var(--aimd-bg-primary));
+  --aimd-toolbar-outline: color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  --aimd-toolbar-menu-surface: color-mix(in srgb, var(--aimd-bg-surface) 99%, var(--aimd-bg-primary));
 }
 :host([data-aimd-placement="actionbar"]) .wrap { margin-top: 0; justify-content: flex-start; }
 :host([data-aimd-placement="actionbar"]) .bar {
@@ -334,8 +334,8 @@ export class MessageToolbar {
   padding: 3px;
   gap: 4px;
   box-shadow: none;
-  background: var(--aimd-tb-surface);
-  border: 1px solid var(--aimd-tb-outline);
+  background: var(--aimd-toolbar-surface);
+  border: 1px solid var(--aimd-toolbar-outline);
 }
 :host([data-aimd-placement="actionbar"]) .icon-btn { width: var(--aimd-size-control-icon-toolbar); height: var(--aimd-size-control-icon-toolbar); border-radius: 10px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
@@ -345,8 +345,8 @@ export class MessageToolbar {
   position: absolute;
   right: 6px;
   bottom: calc(100% + 8px);
-  background: var(--aimd-tb-menu-surface);
-  border: 1px solid var(--aimd-tb-outline);
+  background: var(--aimd-toolbar-menu-surface);
+  border: 1px solid var(--aimd-toolbar-outline);
   box-shadow: var(--aimd-shadow-lg);
   white-space: nowrap;
 }
@@ -364,15 +364,15 @@ export class MessageToolbar {
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: var(--aimd-tb-surface);
-  border: 1px solid var(--aimd-tb-outline);
+  background: var(--aimd-toolbar-surface);
+  border: 1px solid var(--aimd-toolbar-outline);
   color: var(--aimd-text-primary);
   position: relative;
   transition: background 150ms ease, border-color 150ms ease;
 }
 .bar:hover {
-  background: color-mix(in srgb, var(--aimd-tb-surface) 90%, var(--aimd-tb-hover));
-  border-color: color-mix(in srgb, var(--aimd-border-default) 68%, var(--aimd-interactive-primary) 18%);
+  background: color-mix(in srgb, var(--aimd-toolbar-surface) 88%, var(--aimd-toolbar-hover));
+  border-color: color-mix(in srgb, var(--aimd-border-strong) 72%, var(--aimd-interactive-primary) 20%);
 }
 
 .group { display: inline-flex; align-items: center; gap: 2px; }
@@ -388,9 +388,9 @@ export class MessageToolbar {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--aimd-text-xs);
   line-height: 1.25;
-  color: color-mix(in srgb, var(--aimd-text-secondary) 90%, transparent);
+  color: color-mix(in srgb, var(--aimd-text-secondary) 94%, transparent);
   white-space: nowrap;
   padding: 0 6px;
   min-width: 76px;
@@ -419,13 +419,13 @@ export class MessageToolbar {
   transition: background 150ms ease, transform 120ms ease, box-shadow 150ms ease;
 }
 .icon-btn:hover {
-  background: var(--aimd-tb-hover);
+  background: var(--aimd-toolbar-hover);
   box-shadow: none;
   color: var(--aimd-button-icon-text-hover);
 }
 .icon-btn:active {
   transform: none;
-  background: var(--aimd-tb-pressed);
+  background: var(--aimd-toolbar-pressed);
   color: var(--aimd-button-icon-text-hover);
 }
 .icon-btn:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
@@ -460,7 +460,7 @@ export class MessageToolbar {
   100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
-.icon-btn svg { width: 16px; height: 16px; display: block; }
+.icon-btn svg { width: var(--aimd-size-control-glyph-panel); height: var(--aimd-size-control-glyph-panel); display: block; }
 
 .icon-btn.primary {
   background: var(--aimd-interactive-primary);
@@ -469,9 +469,9 @@ export class MessageToolbar {
 }
 .icon-btn.primary:hover { background: var(--aimd-interactive-primary-hover); }
 .icon-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.note { font-size: var(--aimd-font-size-xs); color: var(--aimd-text-secondary); }
+.note { font-size: var(--aimd-text-xs); color: var(--aimd-text-secondary); }
 .status {
-  font-size: var(--aimd-font-size-xs);
+  font-size: var(--aimd-text-xs);
   padding: calc(var(--aimd-space-1) / 2) var(--aimd-space-1);
   border-radius: var(--aimd-radius-lg);
   border: 1px solid var(--aimd-border-default);
@@ -485,8 +485,8 @@ export class MessageToolbar {
   min-width: 180px;
   padding: 6px;
   border-radius: 14px;
-  background: var(--aimd-tb-menu-surface);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: var(--aimd-toolbar-menu-surface);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   box-shadow: var(--aimd-shadow-lg);
   display: none;
   z-index: var(--aimd-z-tooltip);
@@ -500,12 +500,12 @@ export class MessageToolbar {
   border-radius: 12px;
   border: 1px solid transparent;
   color: var(--aimd-text-primary);
-  font-size: var(--aimd-font-size-sm);
+  font-size: var(--aimd-text-sm);
   background: transparent;
 }
 .menu-item:hover {
-  background: var(--aimd-button-secondary-hover);
-  border-color: color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+  border-color: color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

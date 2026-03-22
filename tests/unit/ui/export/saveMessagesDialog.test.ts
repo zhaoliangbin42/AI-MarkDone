@@ -79,7 +79,7 @@ describe('SaveMessagesDialog', () => {
         expect(shadow.querySelector('.panel-window--save .panel-header__meta h2')?.textContent).toBe('Save Messages As');
         expect(shadow.querySelector('.panel-window--save .panel-kicker')).toBeNull();
         expect(shadow.querySelectorAll('.panel-window--save .panel-footer')).toHaveLength(1);
-        expect(source).toContain('tailwind-overlay.css?inline');
+        expect(source).toContain('OverlaySession');
         expect(getGridButtons()).toHaveLength(2);
         expect(getGridButtons().every((b) => b.dataset.active === '1')).toBe(true);
 

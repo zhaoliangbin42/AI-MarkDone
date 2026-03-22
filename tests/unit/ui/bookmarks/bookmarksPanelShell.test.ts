@@ -93,4 +93,15 @@ describe('BookmarksPanelShell', () => {
         expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
         expect(css).not.toContain('grid-auto-columns: minmax(160px, 1fr);');
     });
+
+    it('is the only shell source of truth used by BookmarksPanel', () => {
+        const source = fs.readFileSync(
+            path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'),
+            'utf8',
+        );
+
+        expect(source).toContain('createBookmarksPanelShell');
+        expect(source).not.toContain('function getPanelHtml(');
+        expect(source).not.toContain('getPanelHtml(');
+    });
 });

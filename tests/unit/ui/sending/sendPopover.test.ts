@@ -77,9 +77,13 @@ describe('SendPopover', () => {
         expect(styleNode?.textContent).not.toContain('rgba(255,255,255,0.72)');
         expect(styleNode?.textContent).not.toContain('#0f172a');
         expect(styleNode?.textContent).toContain('z-index: var(--aimd-z-tooltip);');
-        expect(styleNode?.textContent).toContain('background: var(--aimd-button-icon-hover);');
-        expect(styleNode?.textContent).toContain('background: var(--aimd-button-secondary-hover);');
+        expect(styleNode?.textContent).toContain('background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-sys-color-surface-hover));');
+        expect(styleNode?.textContent).toContain('background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));');
         expect(styleNode?.textContent).toContain('background: var(--aimd-interactive-primary-hover);');
+        expect(styleNode?.textContent).toContain('.send-popover__foot .status-line {');
+        expect(styleNode?.textContent).toContain('font-size: var(--aimd-text-xs);');
+        expect(styleNode?.textContent).toContain('line-height: 1.4;');
+        expect(styleNode?.textContent).toContain('color: var(--aimd-text-secondary);');
 
         // ESC closes (bubble is mounted as child of footerLeft)
         const el = footerLeft.querySelector('.send-popover') as HTMLElement;

@@ -95,11 +95,11 @@ export class ChatGPTFoldBar {
     private getCss(): string {
         return `
 :host {
-  --_foldbar-min-height: calc(var(--aimd-size-icon-md) + var(--aimd-space-2));
+  --_foldbar-min-height: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-2));
   --_foldbar-padding-block: var(--aimd-space-2);
   --_foldbar-padding-inline: var(--aimd-space-3);
   --_foldbar-radius: var(--aimd-radius-xl);
-  --_foldbar-surface: var(--aimd-bg-primary);
+  --_foldbar-surface: color-mix(in srgb, var(--aimd-bg-surface) 95%, var(--aimd-bg-primary));
   display: block;
   width: 100%;
   font-family: var(--aimd-font-family-sans);
@@ -112,7 +112,7 @@ export class ChatGPTFoldBar {
   min-height: var(--_foldbar-min-height);
   box-sizing: border-box;
   padding: var(--_foldbar-padding-block) var(--_foldbar-padding-inline);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 76%, var(--aimd-interactive-primary));
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, var(--aimd-interactive-primary));
   border-radius: var(--_foldbar-radius);
   background: var(--_foldbar-surface);
   color: var(--aimd-text-primary);
@@ -122,19 +122,19 @@ export class ChatGPTFoldBar {
               border-color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .bar:hover {
-  background: color-mix(in srgb, var(--_foldbar-surface) 82%, var(--aimd-interactive-hover));
-  border-color: color-mix(in srgb, var(--aimd-border-default) 62%, var(--aimd-interactive-primary));
+  background: color-mix(in srgb, var(--_foldbar-surface) 84%, var(--aimd-interactive-hover));
+  border-color: color-mix(in srgb, var(--aimd-border-strong) 70%, var(--aimd-interactive-primary));
 }
 .bar:active {
-  background: color-mix(in srgb, var(--_foldbar-surface) 78%, var(--aimd-interactive-active));
+  background: color-mix(in srgb, var(--_foldbar-surface) 80%, var(--aimd-interactive-active));
 }
 .toggle {
   all: unset;
   cursor: pointer;
-  width: var(--aimd-size-icon-md);
-  height: var(--aimd-size-icon-md);
-  min-width: var(--aimd-size-icon-md);
-  max-width: var(--aimd-size-icon-md);
+  width: var(--aimd-size-control-icon-toolbar);
+  height: var(--aimd-size-control-icon-toolbar);
+  min-width: var(--aimd-size-control-icon-toolbar);
+  max-width: var(--aimd-size-control-icon-toolbar);
   border-radius: var(--aimd-radius-lg);
   display: grid;
   place-items: center;
@@ -144,7 +144,7 @@ export class ChatGPTFoldBar {
               color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .toggle:hover {
-  background: var(--aimd-button-icon-hover);
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-sys-color-surface-hover));
   color: var(--aimd-text-primary);
 }
 .toggle:focus-visible {
@@ -159,8 +159,8 @@ export class ChatGPTFoldBar {
 .label {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: var(--aimd-text-sm);
-  font-weight: var(--aimd-font-semibold);
+  font-size: var(--aimd-text-xs);
+  font-weight: var(--aimd-font-medium);
   line-height: 1.3;
   overflow: hidden;
   white-space: nowrap;

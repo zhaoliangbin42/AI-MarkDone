@@ -63,4 +63,17 @@ describe('tokens', () => {
         expect(css).toContain(':root[data-aimd-theme="dark"]');
         expect(css).toContain('--aimd-sys-color-surface');
     });
+
+    it('increases dark-mode depth separation for surfaces, borders, and interactive layers', () => {
+        const css = getTokenCss('dark');
+
+        expect(css).toContain('--aimd-sys-color-surface-frosted: color-mix(in srgb, var(--aimd-sys-color-surface) 34%, transparent);');
+        expect(css).toContain('--aimd-sys-color-surface-hover: var(--aimd-ref-color-neutral-alpha-16);');
+        expect(css).toContain('--aimd-sys-color-surface-pressed: rgba(255,255,255,0.22);');
+        expect(css).toContain('--aimd-sys-color-border-default: var(--aimd-ref-color-neutral-alpha-16);');
+        expect(css).toContain('--aimd-sys-color-border-strong: rgba(255,255,255,0.22);');
+        expect(css).toContain('--aimd-sys-color-interactive-hover-layer: var(--aimd-ref-color-white-alpha-16);');
+        expect(css).toContain('--aimd-sys-color-interactive-pressed-layer: rgba(255,255,255,0.22);');
+        expect(css).toContain('--aimd-sys-shadow-lg: 0 14px 34px rgba(0,0,0,0.68);');
+    });
 });

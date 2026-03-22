@@ -425,7 +425,7 @@ describe('BookmarksTabView', () => {
         expect(root.textContent).not.toContain('noFoldersYet');
     });
 
-    it('keeps ancestor folder rows visible for a selected empty descendant path', () => {
+    it('does not auto-expand ancestor folders for a selected empty descendant path', () => {
         const controller = {
             setQuery: vi.fn(),
             setPlatform: vi.fn(),
@@ -480,7 +480,7 @@ describe('BookmarksTabView', () => {
 
         const root = view.getElement();
         expect(root.querySelector('.tree-item--folder[data-path="Product"]')).toBeTruthy();
-        expect(root.querySelector('.tree-item--folder[data-path="Product/UX"]')).toBeTruthy();
+        expect(root.querySelector('.tree-item--folder[data-path="Product/UX"]')).toBeNull();
         expect(root.textContent).not.toContain('noFoldersYet');
     });
 
@@ -872,6 +872,7 @@ describe('BookmarksTabView', () => {
         expect(bookmarkRow?.querySelector('.tree-icon-slot')).toBeTruthy();
         expect(bookmarkRow?.querySelector('.tree-label-row')).toBeTruthy();
         expect(bookmarkRow?.querySelector('button.tree-main--bookmark')).toBeTruthy();
+        expect(bookmarkRow?.querySelector('.tree-label--bookmark')).toBeTruthy();
     });
 
     it('renders folder rows with a button-based main target like the mock panel', () => {
@@ -917,5 +918,6 @@ describe('BookmarksTabView', () => {
 
         const folderRow = view.getElement().querySelector<HTMLElement>('.tree-item--folder');
         expect(folderRow?.querySelector('button.tree-main--folder')).toBeTruthy();
+        expect(folderRow?.querySelector('.tree-label--folder')).toBeTruthy();
     });
 });

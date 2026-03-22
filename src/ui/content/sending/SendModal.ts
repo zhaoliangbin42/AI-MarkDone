@@ -2,31 +2,27 @@ import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { readComposer, writeComposer } from '../../../drivers/content/sending/composerPort';
 import { sendText } from '../../../services/sending/sendService';
-import { getTokenCss } from '../../../style/tokens';
 import { xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
-import { mountShadowDialogHost, type ShadowDialogHostHandle } from '../components/shadowDialogHost';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { getInputFieldCss } from '../components/styles/inputFieldCss';
 import { TooltipDelegate } from '../../../utils/tooltip';
+import { OverlaySession } from '../overlay/OverlaySession';
 
 export class SendModal {
-    private host: HTMLElement | null = null;
-    private shadow: ShadowRoot | null = null;
-    private hostHandle: ShadowDialogHostHandle | null = null;
-    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private overlaySession: OverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private adapter: SiteAdapter | null = null;
     private theme: Theme = 'light';
     private pending: boolean = false;
 
     isOpen(): boolean {
-        return !!this.host;
+        return !!this.overlaySession;
     }
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.hostHandle?.setCss(getTokenCss(theme) + this.getCss());
+        this.overlaySession?.setTheme(theme);
+        this.overlaySession?.setSurfaceCss(this.getCss());
     }
 
     open(params: { adapter: SiteAdapter; theme: Theme; initialText?: string }): void {
@@ -39,15 +35,14 @@ export class SendModal {
             return snap.ok ? snap.text : '';
         })();
 
-        const textarea = this.shadow?.querySelector<HTMLTextAreaElement>('[data-role="text"]');
+        const textarea = this.overlaySession?.surfaceRoot.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) textarea.value = text;
         window.setTimeout(() => textarea?.focus(), 0);
     }
 
     close(opts?: { syncBack?: boolean }): void {
         const adapter = this.adapter;
-        const shadow = this.shadow;
-        const text = shadow?.querySelector<HTMLTextAreaElement>('[data-role="text"]')?.value ?? '';
+        const text = this.overlaySession?.surfaceRoot.querySelector<HTMLTextAreaElement>('[data-role="text"]')?.value ?? '';
 
         if (opts?.syncBack && adapter) {
             void writeComposer(adapter, text, { focus: false, strategy: 'auto' });
@@ -58,58 +53,66 @@ export class SendModal {
     }
 
     private mount(): void {
-        if (this.host) return;
-        const handle = mountShadowDialogHost({
+        if (this.overlaySession) return;
+        this.overlaySession = new OverlaySession({
             id: 'aimd-send-modal-host',
-            html: this.getHtml(),
-            cssText: getTokenCss(this.theme) + this.getCss(),
+            theme: this.theme,
+            surfaceCss: this.getCss(),
             lockScroll: true,
+            surfaceStyleId: 'aimd-send-modal-structure',
+            overlayStyleId: 'aimd-send-modal-tailwind',
         });
-        const host = handle.host;
-        const shadow = handle.shadow;
 
-        shadow.querySelector<HTMLElement>('[data-role="overlay"]')?.addEventListener('click', () => this.close({ syncBack: true }));
-        shadow.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close({ syncBack: true }));
-        shadow.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close({ syncBack: true }));
-        shadow.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit());
+        const backdrop = document.createElement('div');
+        backdrop.className = 'panel-stage__overlay';
+        this.overlaySession.replaceBackdrop(backdrop);
+        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
 
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: host,
+        this.overlaySession.backdropRoot.addEventListener('click', () => this.close({ syncBack: true }));
+        this.overlaySession.surfaceRoot.addEventListener('click', (event) => {
+            const target = event.target as HTMLElement | null;
+            const action = target?.closest<HTMLElement>('[data-action]')?.dataset.action;
+            if (action === 'close' || action === 'cancel') {
+                this.close({ syncBack: true });
+                return;
+            }
+            if (action === 'send') {
+                void this.submit();
+            }
+        });
+
+        const dialog = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.dialog');
+        this.overlaySession.syncKeyboardScope({
+            root: this.overlaySession.host,
             onEscape: () => this.close({ syncBack: true }),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: shadow.querySelector<HTMLElement>('.dialog') ?? undefined,
+            trapTabWithin: dialog ?? this.overlaySession.host,
+            focusFallback: () =>
+                this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('[data-role="text"], [data-action="send"], [data-action="close"]') ??
+                null,
         });
 
-        this.host = host;
-        this.shadow = shadow;
-        this.hostHandle = handle;
-        this.tooltipDelegate = new TooltipDelegate(shadow);
-        this.tooltipDelegate.refresh(shadow);
+        this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
+        this.tooltipDelegate.refresh(this.overlaySession.shadow);
     }
 
     private unmount(): void {
-        this.shadow = null;
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = null;
-
-        this.hostHandle?.unmount();
-        this.hostHandle = null;
-
-        this.host = null;
+        this.overlaySession?.unmount();
+        this.overlaySession = null;
         this.pending = false;
     }
 
     private setStatus(text: string): void {
-        const el = this.shadow?.querySelector<HTMLElement>('[data-role="status"]');
+        const el = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('[data-role="status"]');
         if (el) el.textContent = text;
     }
 
     private setPending(pending: boolean): void {
         this.pending = pending;
-        const btn = this.shadow?.querySelector<HTMLButtonElement>('[data-action="send"]');
+        const btn = this.overlaySession?.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="send"]');
         if (btn) btn.disabled = pending;
     }
 
@@ -117,7 +120,7 @@ export class SendModal {
         if (this.pending) return;
         const adapter = this.adapter;
         if (!adapter) return;
-        const textarea = this.shadow?.querySelector<HTMLTextAreaElement>('[data-role="text"]');
+        const textarea = this.overlaySession?.surfaceRoot.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (!textarea) return;
 
         const text = textarea.value;
@@ -145,18 +148,19 @@ export class SendModal {
 
     private getHtml(): string {
         return `
-<div class="overlay" data-role="overlay"></div>
-<div class="dialog" role="dialog" aria-modal="true" aria-label="${t('sendMessage')}">
-  <div class="head">
-    <div class="title">${t('send')}</div>
-    <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
-  </div>
-  <textarea class="input aimd-field-control aimd-field-control--standalone" data-role="text" rows="7" placeholder="${t('typeYourMessage')}"></textarea>
-  <div class="foot">
-    <div class="status" data-role="status"></div>
-    <div class="actions">
-      <button class="btn" type="button" data-action="cancel" aria-label="${t('btnCancel')}">${t('btnCancel')}</button>
-      <button class="btn btn--primary" type="button" data-action="send" aria-label="${t('send')}">${t('send')}</button>
+<div class="send-modal-stage">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="${t('sendMessage')}">
+    <div class="head">
+      <div class="title">${t('send')}</div>
+      <button class="icon" type="button" data-action="close" aria-label="${t('btnClose')}" data-tooltip="${t('btnClose')}">${xIcon}</button>
+    </div>
+    <textarea class="input aimd-field-control aimd-field-control--standalone" data-role="text" rows="7" placeholder="${t('typeYourMessage')}"></textarea>
+    <div class="foot">
+      <div class="status" data-role="status"></div>
+      <div class="actions">
+        <button class="btn" type="button" data-action="cancel" aria-label="${t('btnCancel')}">${t('btnCancel')}</button>
+        <button class="btn btn--primary" type="button" data-action="send" aria-label="${t('send')}">${t('send')}</button>
+      </div>
     </div>
   </div>
 </div>
@@ -176,26 +180,26 @@ button, input, select, textarea {
 
 ${getInputFieldCss()}
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: color-mix(in srgb, var(--aimd-overlay-bg) 72%, transparent);
+.send-modal-stage {
+  min-height: 100vh;
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding: 12vh 24px 24px;
+  pointer-events: none;
 }
 
 .dialog {
-  position: fixed;
-  left: 50%;
-  top: 12vh;
-  transform: translateX(-50%);
   width: min(720px, calc(100vw - 48px));
-  background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   border-radius: var(--aimd-radius-2xl);
   box-shadow: var(--aimd-shadow-lg);
   display: grid;
   gap: 0;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .head {
@@ -205,8 +209,8 @@ ${getInputFieldCss()}
   gap: var(--aimd-panel-header-gap);
   min-height: var(--aimd-panel-header-height);
   padding: var(--aimd-panel-header-padding-block) var(--aimd-panel-header-padding-inline);
-  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 90%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-strong) 68%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-secondary));
 }
 .title {
   font-size: var(--aimd-modal-title-size);
@@ -225,11 +229,11 @@ ${getInputFieldCss()}
   cursor: pointer;
 }
 .icon:hover {
-  background: var(--aimd-button-icon-hover);
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-sys-color-surface-hover));
   color: var(--aimd-button-icon-text-hover);
 }
 .icon:active {
-  background: var(--aimd-button-icon-active);
+  background: color-mix(in srgb, var(--aimd-button-icon-active) 90%, var(--aimd-sys-color-surface-pressed));
   color: var(--aimd-button-icon-text-hover);
 }
 .icon:focus-visible {
@@ -244,8 +248,8 @@ ${getInputFieldCss()}
   margin: var(--aimd-space-4);
   padding: 10px 12px;
   border-radius: var(--aimd-radius-xl);
-  border: 1px solid var(--aimd-border-default);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
   font-size: var(--aimd-font-size-sm);
   line-height: 1.45;
@@ -257,8 +261,8 @@ ${getInputFieldCss()}
   justify-content: space-between;
   gap: var(--aimd-panel-footer-gap);
   padding: var(--aimd-panel-footer-padding-block) var(--aimd-panel-footer-padding-inline);
-  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 86%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-strong) 68%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 90%, var(--aimd-bg-secondary));
 }
 .status {
   min-height: 18px;
@@ -273,7 +277,7 @@ ${getInputFieldCss()}
   min-height: var(--aimd-size-control-action-panel);
   padding: 0 14px;
   border-radius: var(--aimd-radius-full);
-  border: 1px solid var(--aimd-border-default);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
   background: var(--aimd-button-secondary-bg);
   color: var(--aimd-button-secondary-text);
   font-size: var(--aimd-font-size-sm);
@@ -281,7 +285,7 @@ ${getInputFieldCss()}
   cursor: pointer;
 }
 .btn:hover {
-  background: var(--aimd-button-secondary-hover);
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
 }
 .btn:active {
   background: color-mix(in srgb, var(--aimd-button-secondary-hover) 78%, var(--aimd-button-icon-active));

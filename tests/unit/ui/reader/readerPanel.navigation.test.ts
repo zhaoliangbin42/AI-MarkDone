@@ -187,9 +187,10 @@ describe('ReaderPanel navigation', () => {
             expect(footerPage?.textContent).toBe('31/50');
             expect(dots).toBeTruthy();
             expect(dotsRule).toContain('.reader-dots {');
-            expect(dotsRule).toContain('flex-wrap: wrap;');
-            expect(dotsRule).toContain('overflow-y: auto;');
-            expect(dotsRule).toContain('overflow-x: hidden;');
+            expect(dotsRule).toContain('flex-wrap: nowrap;');
+            expect(dotsRule).toContain('overflow-y: hidden;');
+            expect(dotsRule).toContain('overflow-x: auto;');
+            expect(dotsRule).toContain('white-space: nowrap;');
             expect(scrollIntoView).toHaveBeenCalled();
         } finally {
             panel.hide();

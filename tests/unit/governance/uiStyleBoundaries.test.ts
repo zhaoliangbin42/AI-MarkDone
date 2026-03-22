@@ -84,4 +84,11 @@ describe('UI style governance', () => {
         expect(source).not.toMatch(/\*\s*\{\s*font-family/i);
         expect(source).not.toContain('font-family');
     });
+
+    it('does not introduce toolbar-scoped pseudo tokens now that toolbar tokens are part of the shared contract', () => {
+        const source = fs.readFileSync(path.join(repoRoot, 'src/ui/content/MessageToolbar.ts'), 'utf8');
+        expect(source).not.toContain('--aimd-tb-');
+        expect(source).toContain('--aimd-toolbar-surface');
+        expect(source).toContain('--aimd-toolbar-menu-surface');
+    });
 });

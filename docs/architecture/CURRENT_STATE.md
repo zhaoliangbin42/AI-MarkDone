@@ -78,6 +78,13 @@
 
 - background 负责写入和恢复
 - content UI 负责意图触发与界面交互
+- `BookmarksPanel` 现在主要承担 shell / overlay lifecycle / tab orchestration
+- `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相
+- 书签树渲染与 virtualization 已收口到 `BookmarksTreeViewport`
+- `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot
+- `BookmarksPanel` 与 `BookmarkSaveDialog` 通过 Bookmarks family wrapper 复用同一条 overlay session contract；`SaveMessagesDialog` 已作为首个非-Bookmarks 试点切到通用 `OverlaySession`
+- `src/ui/content/components/transientUi.ts` 现在是共享 outside-click / transient-root contract；Bookmarks family 只保留对它的 family-level 组合，而不再拥有私有实现
+- Bookmarks family 内部的 inline select / number-stepper 目前仍保持为 family-scoped primitive，并通过统一 transient-ui contract 与 panel shell 协作
 
 ### Reader / Copy / Sending
 

@@ -1,11 +1,15 @@
-import { browser } from '../../../../../drivers/shared/browser';
 import { Icons } from '../../../../../assets/icons';
 import { t } from '../../../components/i18n';
+
+export type SponsorTabViewActions = {
+    githubUrl: string;
+    getAssetUrl: (assetPath: string) => string;
+};
 
 export class SponsorTabView {
     private root: HTMLElement;
 
-    constructor(params: { githubUrl: string }) {
+    constructor(params: { actions: SponsorTabViewActions }) {
         this.root = document.createElement('div');
         this.root.className = 'aimd-sponsor';
 
@@ -22,7 +26,7 @@ export class SponsorTabView {
         brandBadge.className = 'sponsor-brand-badge';
         const brandMark = document.createElement('img');
         brandMark.className = 'sponsor-brand-mark';
-        brandMark.src = browser.runtime.getURL('icons/icon128.png');
+        brandMark.src = params.actions.getAssetUrl('icons/icon128.png');
         brandMark.alt = 'AI-MarkDone';
         brandBadge.appendChild(brandMark);
         brandRow.appendChild(brandBadge);
@@ -38,20 +42,23 @@ export class SponsorTabView {
           </div>
           <p class="sponsor-section-body">${t('supportDevDesc')}</p>
           <div class="sponsor-action-row">
-            <button type="button" class="primary-btn sponsor-cta-button" data-action="sponsor-github">
+            <a
+              class="primary-btn sponsor-cta-button"
+              data-action="sponsor-github"
+              href="${params.actions.githubUrl}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               ${Icons.github}
               ${t('starOnGitHub')}
-            </button>
+            </a>
           </div>
         `;
-        openSource.querySelector<HTMLButtonElement>('[data-action="sponsor-github"]')?.addEventListener('click', () => {
-            window.open(params.githubUrl, '_blank', 'noopener,noreferrer');
-        });
 
         const donate = document.createElement('section');
         donate.className = 'sponsor-card sponsor-card--secondary';
-        const bmc = browser.runtime.getURL('icons/bmc_qr.png');
-        const wechat = browser.runtime.getURL('icons/wechat_qr.png');
+        const bmc = params.actions.getAssetUrl('icons/bmc_qr.png');
+        const wechat = params.actions.getAssetUrl('icons/wechat_qr.png');
         donate.innerHTML = `
           <div class="sponsor-section-head">
             <div class="sponsor-section-icon sponsor-section-icon--warm">${Icons.coffee}</div>

@@ -81,7 +81,12 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('--_bookmarks-pill-radius: var(--aimd-radius-full);');
         expect(css).toContain('--_bookmarks-panel-title-size: var(--aimd-panel-title-size-compact);');
         expect(css).toContain('--_bookmarks-modal-title-size: var(--aimd-modal-title-size);');
-        expect(css).toContain('--_bookmarks-body-copy-size: var(--aimd-text-base);');
+        expect(css).toContain('--_bookmarks-body-copy-size: var(--aimd-text-sm);');
+        expect(css).toContain('--_bookmarks-section-title-size: var(--aimd-text-base);');
+        expect(css).toContain('--_bookmarks-section-title-weight: var(--aimd-font-medium);');
+        expect(css).toContain('--_bookmarks-item-title-size: var(--aimd-text-sm);');
+        expect(css).toContain('--_bookmarks-item-title-weight: var(--aimd-font-medium);');
+        expect(css).toContain('--_bookmarks-meta-size: var(--aimd-text-sm);');
         expect(css).toContain('border-radius: var(--_bookmarks-pill-radius);');
         expect(css).toContain('min-height: var(--aimd-size-control-action-panel);');
         expect(css).toContain('width: var(--aimd-size-control-icon-panel);');
@@ -91,7 +96,11 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('height: min(var(--aimd-panel-wide-max-height), calc(100vh - var(--_bookmarks-panel-edge-offset)));');
         expect(css).toContain('.platform-dropdown__option {');
         expect(css).toContain('justify-content: flex-start;');
-        expect(css).toContain('font-size: var(--aimd-text-lg);');
+        expect(css).toContain('.search-field {');
+        expect(css).toContain('font-size: var(--aimd-text-sm);');
+        expect(css).toContain('.platform-dropdown__label {');
+        expect(css).toContain('.platform-dropdown__option {');
+        expect(css).toContain('font-size: var(--aimd-text-sm);');
         expect(css).toContain('.tree-title-meta');
         expect(css).toContain('.tree-item:hover .tree-main--bookmark .tree-subtitle');
         expect(css).toContain('--_bookmarks-tree-actions-width:');
@@ -114,10 +123,42 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('.tab-btn:hover');
         expect(css).toContain('.tree-item:hover');
         expect(css).toContain('.settings-select-trigger:hover');
+        expect(css).toContain('.toggle-switch[data-checked="1"]');
+        expect(css).toContain('var(--aimd-interactive-primary-hover)');
+        expect(css).toContain('var(--aimd-text-on-primary)');
+        expect(css).toContain('.settings-label strong {');
+        expect(css).toContain('font-size: var(--_bookmarks-item-title-size);');
+        expect(css).toContain('font-weight: var(--_bookmarks-item-title-weight);');
+        expect(css).toContain('.settings-label p,');
+        expect(css).toContain('font-size: var(--aimd-text-xs);');
+        expect(css).toContain('.settings-select-trigger {');
+        expect(css).toContain('.settings-number {');
+        expect(css).toContain('.card-title {');
+        expect(css).toContain('font-size: var(--_bookmarks-section-title-size);');
+        expect(css).toContain('font-weight: var(--_bookmarks-section-title-weight);');
+        expect(css).toContain('gap: var(--aimd-space-1);');
+        expect(css).not.toContain('grid-template-columns: auto minmax(0, 1fr);');
+        expect(css).toContain('.settings-label__icon {');
+        expect(css).toContain('.tree-label--folder {');
+        expect(css).toContain('.tree-label--bookmark {');
+        expect(css).toContain('font-size: var(--_bookmarks-tree-title-size);');
+        expect(css).toContain('.sponsor-section-label {');
+        expect(css).toContain('font-size: var(--_bookmarks-section-title-size);');
+        expect(css).toContain('font-weight: var(--_bookmarks-section-title-weight);');
         expect(css).toContain('.sponsor-brand-badge');
         expect(css).toContain('text-align: center;');
         expect(css).toContain('justify-items: center;');
         expect(css).toContain('max-width: 34ch;');
+        expect(css).toContain('color-mix(in srgb, var(--aimd-border-strong)');
+        expect(css).toContain('color-mix(in srgb, var(--aimd-bg-surface)');
+    });
+
+    it('keeps panel transient-ui dismissal generic instead of hard-coding child primitive selectors', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('eventWithinTransientRoot(event)');
+        expect(source).not.toContain("target.closest('.platform-dropdown')");
+        expect(source).not.toContain("target.closest('.settings-select-shell')");
     });
 
     it('activates the real settings and sponsor panels inside the formal bookmarks panel shell', async () => {
@@ -180,6 +221,9 @@ describe('BookmarksPanel', () => {
         expect(panelWindow).toBeTruthy();
         expect(settingsTabButton).toBeTruthy();
         expect(sponsorTabButton).toBeTruthy();
+        expect(bookmarksPanel?.querySelector('.bookmarks-tab-content')).toBeTruthy();
+        expect(bookmarksPanel?.querySelector('.toolbar-row--bookmarks')).toBeTruthy();
+        expect(bookmarksPanel?.querySelector('.batch-bar')).toBeTruthy();
         expect(bookmarksPanel?.dataset.active).toBe('1');
         expect(settingsPanel?.dataset.active).toBe('0');
         expect(sponsorPanel?.dataset.active).toBe('0');
@@ -198,6 +242,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedBookmarksPanel?.dataset.active).toBe('0');
         expect(refreshedSponsorPanel?.dataset.active).toBe('0');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Settings');
+        expect(refreshedSettingsPanel?.querySelector('.aimd-settings')).toBeTruthy();
         expect(refreshedSettingsPanel?.querySelector('.settings-card')).toBeTruthy();
         expect(refreshedSettingsPanel?.querySelector('.storage-fill')).toBeTruthy();
         expect(refreshedSettingsPanel?.textContent).toContain('50%');
@@ -234,12 +279,19 @@ describe('BookmarksPanel', () => {
         expect(refreshedBookmarksTab?.dataset.active).toBe('0');
         expect(refreshedSettingsTab?.dataset.active).toBe('0');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Sponsor');
+        expect(refreshedSponsorTab?.querySelector('.aimd-sponsor')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-card')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-qr-card')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-celebration')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-title-row')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-brand-badge')).toBeTruthy();
         expect(refreshedSponsorTab?.querySelector('.sponsor-brand-mark')).toBeTruthy();
+        const sponsorCta = refreshedSponsorTab?.querySelector<HTMLAnchorElement>('[data-action="sponsor-github"]');
+        expect(sponsorCta?.tagName).toBe('A');
+        expect(sponsorCta?.href).toBe('https://github.com/zhaoliangbin42/AI-MarkDone');
+        expect(sponsorCta?.target).toBe('_blank');
+        expect(sponsorCta?.rel).toContain('noopener');
+        expect(sponsorCta?.rel).toContain('noreferrer');
         expect(refreshedSponsorTab?.textContent).toContain('Support Development');
         expect(refreshedSponsorTab?.textContent).toContain('AI-MarkDone is open source. Star us on GitHub.');
         expect(refreshedSponsorTab?.textContent).toContain('If this project helps you');
@@ -523,6 +575,9 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector<HTMLInputElement>('[data-role="bookmark-query"]')?.classList.contains('aimd-field-control')).toBe(true);
 
         shadow.querySelector<HTMLButtonElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!.click();
+        shadow.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-mode"][data-value="keep_last_n"]')!.click();
+        await flushUi();
 
         expect(shadow.querySelector('.settings-number-field')?.classList.contains('aimd-field-shell')).toBe(true);
         expect(shadow.querySelector<HTMLInputElement>('.settings-number')?.classList.contains('aimd-field-control')).toBe(true);
@@ -695,6 +750,61 @@ describe('BookmarksPanel', () => {
             .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
 
         expect(shadow.querySelector('.settings-select-menu[data-open="1"]')).toBeNull();
+        panel.hide();
+    });
+
+    it('toggles the folding-mode select closed when clicking the same trigger again', async () => {
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
+        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
+        const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!;
+
+        trigger.click();
+        expect(shadow.querySelector('.settings-select-menu')?.getAttribute('data-open')).toBe('1');
+
+        trigger.click();
+        expect(shadow.querySelector('.settings-select-menu')?.getAttribute('data-open')).toBe('0');
         panel.hide();
     });
 
@@ -1915,7 +2025,7 @@ describe('BookmarksPanel', () => {
             value: 640,
         });
 
-        const renderSpy = vi.spyOn(panel as any, 'renderVirtualTreeWindow');
+        const renderSpy = vi.spyOn((panel as any).bookmarksView.treeViewport as any, 'renderVirtualTreeWindow');
         renderSpy.mockClear();
 
         for (let index = 0; index < 10; index += 1) {

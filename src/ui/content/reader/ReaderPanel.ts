@@ -538,6 +538,12 @@ export class ReaderPanel {
         };
     }
 
+    private canOpenConversation(): boolean {
+        if (this.state.options.onOpenConversation) return true;
+        const item = this.state.items[this.state.index];
+        return Boolean(item?.meta?.url?.trim());
+    }
+
     private getHtml(): string {
         const item = this.state.items[this.state.index];
         const total = this.state.items.length;
@@ -562,7 +568,7 @@ export class ReaderPanel {
     </div>
     <div class="panel-header__actions">
       <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
-      ${this.state.options.showOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
+      ${this.state.options.showOpenConversation && this.canOpenConversation() ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
       ${this.state.options.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
       ${this.state.options.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" title="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(this.state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
@@ -624,7 +630,6 @@ ${getPanelChromeCss()}
 
 .panel-window--reader {
   min-height: min(720px, calc(100vh - var(--aimd-space-6)));
-  --aimd-panel-title-size: var(--aimd-panel-title-size-compact);
 }
 
 .panel-window--reader[data-fullscreen="1"] {
@@ -724,8 +729,8 @@ ${getPanelChromeCss()}
 }
 
 .reader-message__body--prompt {
-  font-size: 17px;
-  line-height: 1.8;
+  font-size: var(--aimd-text-base);
+  line-height: var(--aimd-leading-reading);
   color: var(--aimd-text-primary);
 }
 
@@ -781,13 +786,13 @@ ${getMarkdownThemeCss('.reader-markdown')}
 .reader-footer__meta .hint {
   font-size: var(--aimd-text-sm);
   line-height: 1.45;
-  color: var(--aimd-text-secondary);
+  color: color-mix(in srgb, var(--aimd-text-secondary) 94%, transparent);
 }
 
 .reader-footer-page {
   font-size: var(--aimd-text-sm);
   line-height: 1.4;
-  color: var(--aimd-text-secondary);
+  color: color-mix(in srgb, var(--aimd-text-secondary) 94%, transparent);
 }
 
 .status-line {
@@ -803,16 +808,16 @@ ${getMarkdownThemeCss('.reader-markdown')}
 
 .reader-dots {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  align-content: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: var(--aimd-dot-gap, 8px);
   max-width: 100%;
-  max-height: calc((var(--aimd-dot-size, 10px) * 3) + 24px);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   padding: 2px 6px 2px 0;
+  white-space: nowrap;
 }
 
 .reader-dots::-webkit-scrollbar {
@@ -830,11 +835,11 @@ ${getMarkdownThemeCss('.reader-markdown')}
   width: var(--aimd-dot-size, 10px);
   height: var(--aimd-dot-size, 10px);
   border-radius: var(--aimd-radius-full);
-  background: color-mix(in srgb, var(--aimd-border-default) 90%, transparent);
+  background: color-mix(in srgb, var(--aimd-border-strong) 82%, transparent);
 }
 
 .reader-dot:hover {
-  background: var(--aimd-button-icon-hover);
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-sys-color-surface-hover));
 }
 
 .reader-dot:active {
@@ -873,7 +878,7 @@ ${getMarkdownThemeCss('.reader-markdown')}
   width: calc(var(--aimd-dot-size, 10px) * 0.46);
   height: calc(var(--aimd-dot-size, 10px) * 0.46);
   border-radius: var(--aimd-radius-full);
-  background: color-mix(in srgb, var(--aimd-text-secondary) 58%, transparent);
+  background: color-mix(in srgb, var(--aimd-text-secondary) 70%, transparent);
 }
 
 .nav-btn--reader {

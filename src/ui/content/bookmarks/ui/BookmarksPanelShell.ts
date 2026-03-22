@@ -98,13 +98,15 @@ export function createBookmarksPanelShell(params: {
         sidebar.appendChild(btn);
         buttons.set(tab.id, btn);
 
-        tab.content.classList.add('tab-panel');
-        tab.content.dataset.tabId = tab.id;
+        const panelWrap = document.createElement('section');
+        panelWrap.className = 'tab-panel';
+        panelWrap.dataset.tabId = tab.id;
         if (tab.panelClassName) {
-            tab.content.classList.add(tab.panelClassName);
+            panelWrap.classList.add(tab.panelClassName);
         }
-        body.appendChild(tab.content);
-        panels.set(tab.id, tab.content);
+        panelWrap.appendChild(tab.content);
+        body.appendChild(panelWrap);
+        panels.set(tab.id, panelWrap);
     }
 
     const setActive = (id: string): void => {
@@ -115,7 +117,12 @@ export function createBookmarksPanelShell(params: {
             btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
         panels.forEach((tabPanel, tabId) => {
-            tabPanel.dataset.active = tabId === id ? '1' : '0';
+            const isActive = tabId === id;
+            tabPanel.dataset.active = isActive ? '1' : '0';
+            const content = tabPanel.firstElementChild as HTMLElement | null;
+            if (content) {
+                content.dataset.active = isActive ? '1' : '0';
+            }
         });
         shell.dispatchEvent(new CustomEvent('aimd:tabs-change', { detail: { id } }));
     };
