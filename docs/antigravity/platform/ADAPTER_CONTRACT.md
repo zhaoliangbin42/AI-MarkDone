@@ -91,6 +91,7 @@ Adapter 不负责：
 
 - `shouldEnhanceUnrenderedMath()` 用于控制 Copy pipeline 的“未渲染 inline math 修复”步骤（默认 false）。
 - Deep Research 方法必须是纯读取：只负责探测与返回面板正文根节点，不得触发点击/滚动等副作用。
+- Deep Research hooks 仅保留为历史兼容型可选能力；当前产品不再继续推进新的 Deep Research 平台适配。
 
 ---
 

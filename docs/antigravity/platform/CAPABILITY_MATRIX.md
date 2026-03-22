@@ -55,7 +55,7 @@
 | URL 匹配 | `chatgpt.com`, `chat.openai.com` |
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
-| 特殊处理 | Deep Research 模式；消息折叠；右侧固定折叠/展开按钮 |
+| 特殊处理 | 消息折叠；右侧固定折叠/展开按钮 |
 | 设置分组 | `chatgpt`（`foldingMode`, `defaultExpandedCount`, `showFoldDock`） |
 
 ### Gemini

@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
-// Some legacy modules (under `archive/`) import `webextension-polyfill` which throws
-// when not running inside a real extension runtime. For parity tests we stub it.
+// Some extension-facing modules import `webextension-polyfill`, which throws
+// when not running inside a real extension runtime. For tests we stub it.
 vi.mock('webextension-polyfill', () => {
     const browserLike = {
         runtime: {
@@ -22,4 +22,3 @@ vi.mock('webextension-polyfill', () => {
 
     return { default: browserLike };
 });
-

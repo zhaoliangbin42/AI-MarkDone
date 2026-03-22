@@ -48,6 +48,7 @@ Checklist：
 验证：
 
 - [x] 新 `src/` 仍可独立构建（即便仅包含 skeleton）
+- [x] `archive/` 已从仓库移除；历史实现改由 git history 追溯
 
 ---
 
@@ -84,7 +85,7 @@ Checklist（每个域通用）：
 - [ ] 实现 UI（渲染与交互）
 - [ ] unit/integration/release tests 到位
 - [ ] 回归清单通过（E2E + 关键用例）
-- [ ] 删除 `archive/` 中对应旧实现
+- [x] 删除 `archive/` 中对应旧实现（已全局完成；保留为历史模板）
 
 验证（每次迭代）：
 

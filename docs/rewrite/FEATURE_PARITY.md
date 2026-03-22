@@ -47,7 +47,7 @@
 ## 4. 平台特性（按需）
 
 - [ ] ChatGPT Folding（折叠模式、dock、健康降级）
-- [ ] Gemini Deep Research 处理
+- [x] Gemini Deep Research：明确不纳入当前产品范围（不再继续适配）
 
 ---
 
