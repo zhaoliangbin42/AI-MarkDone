@@ -78,7 +78,8 @@ describe('BookmarkSaveDialog', () => {
         expect(shadow.querySelector('[data-role="overlay-surface-root"] .panel-window.panel-window--dialog.panel-window--bookmark-save')).toBeTruthy();
         expect(shadow.querySelector('.panel-window--bookmark-save .panel-header__meta--reader h2')?.textContent).toBe('Save Bookmark');
         expect(shadow.querySelector('.panel-window--bookmark-save .panel-footer')?.className).toContain('panel-footer--bookmark-save');
-        expect(source).toContain('BookmarksOverlaySession');
+        expect(source).toContain('OverlaySession');
+        expect(source).not.toContain('BookmarksOverlaySession');
         expect(source).not.toContain('overlayCssText');
 
         const title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;

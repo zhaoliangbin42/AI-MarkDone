@@ -920,4 +920,84 @@ describe('BookmarksTabView', () => {
         expect(folderRow?.querySelector('button.tree-main--folder')).toBeTruthy();
         expect(folderRow?.querySelector('.tree-label--folder')).toBeTruthy();
     });
+
+    it('opens bookmark preview through injected tab actions instead of a direct reader dependency', async () => {
+        const bookmark = {
+            id: 'bm-1',
+            folderPath: 'Product',
+            title: 'Bookmark title',
+            userMessage: 'Prompt',
+            aiResponse: 'Response',
+            platform: 'ChatGPT',
+            createdAt: 0,
+            updatedAt: 0,
+            urlWithoutProtocol: 'chat.openai.com/c/123',
+            position: 8,
+        };
+        const controller = {
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            getTheme: vi.fn(() => 'light'),
+        } as any;
+        const showPreview = vi.fn(async () => {});
+
+        const view = new BookmarksTabView({
+            controller,
+            actions: {
+                requestHidePanel: vi.fn(),
+                getSaveContextOnly: () => false,
+                showPreview,
+                alertError: vi.fn(async () => {}),
+                confirmDeleteSelected: vi.fn(async () => false),
+                confirmDeleteFolder: vi.fn(async () => false),
+                confirmDeleteBookmark: vi.fn(async () => false),
+                promptCreateFolderPath: vi.fn(async () => null),
+                promptFolderName: vi.fn(async () => null),
+                pickFolder: vi.fn(async () => null),
+                showImportMergeSummary: vi.fn(async () => {}),
+            },
+        });
+
+        view.update({
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [bookmark],
+                folderTree: [
+                    {
+                        folder: { path: 'Product', name: 'Product', depth: 1, createdAt: 0, updatedAt: 0 },
+                        children: [],
+                        bookmarks: [bookmark],
+                        isExpanded: true,
+                        isSelected: false,
+                    },
+                ],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: ['Product'],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: '',
+        } as any);
+
+        view.getElement().querySelector<HTMLButtonElement>('button.tree-main--bookmark')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        await Promise.resolve();
+
+        expect(showPreview).toHaveBeenCalledTimes(1);
+        expect(showPreview.mock.calls[0][0]).toMatchObject({
+            bookmark,
+            controller,
+        });
+    });
 });

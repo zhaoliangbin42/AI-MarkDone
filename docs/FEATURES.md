@@ -7,7 +7,7 @@
 术语：
 
 - **Driver**：站点适配 + DOM 采集/注入 + browser APIs（不得依赖 UI/Service）
-- **Service**：用例编排与纯逻辑（不得依赖 UI；避免直接触碰 browser APIs）
+- **Service**：分为 pure/domain service 与 content-facing feature service（都不得依赖 UI；前者避免直接触碰 DOM/browser APIs，后者允许处理 DOM clone / parser node / content fragment）
 - **UI**：Shadow DOM 组件渲染与交互（不得直写存储；不得包含平台差异选择器）
 
 ---
@@ -24,6 +24,7 @@
 | Per-message toolbar placement | Prefer the official action bar row (same line); fallback after message content, aligned right | 避免把官方工具栏挤到下方；同时保留无 action bar 场景的稳定可见兜底。 |
 | Injection algorithm | MO as signal + debounced scan + idempotent retry + route rebind | SPA/React 更稳定；允许短暂失败但最终一致。 |
 | LaTeX click-to-copy | Enabled by default (no UI toggle) | 功能性优先；后续再引入可审计的开关。 |
+| ChatGPT Folding | Treated as a shipped ChatGPT-only capability, not a rewrite backlog item | 当前实现、设置项与控制器均已进入主线，后续只做治理与回归，不再挂在“待实现”状态。 |
 
 ---
 
@@ -59,13 +60,21 @@
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
-| Open ReaderPanel from a message toolbar | MessageToolbar `Reader` → collect items → `ReaderPanel.show(items, startIndex, theme, options?)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/reader/collectReaderItems.ts` | `tests/integration/reader/reader-panel.test.ts` | 点击任意消息 Reader 能稳定打开。 |
+| Open ReaderPanel from a message toolbar | MessageToolbar `Reader` → collect items → `ReaderPanel.show(items, startIndex, theme, { profile, actions? })` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/reader/collectReaderItems.ts` | `tests/integration/reader/reader-panel.test.ts` | 点击任意消息 Reader 能稳定打开。 |
 | Pagination (Prev/Next + index/total) | ReaderPanel internal state | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可翻页且 index/total 正确。 |
 | Render Markdown + sanitize | `renderMarkdown(markdown)` | `src/services/renderer/renderMarkdown.ts` | `tests/unit/services/renderer/renderMarkdown.test.ts` | XSS 清洗门禁必须存在。 |
 | Copy current page markdown | ReaderPanel `Copy` | `src/ui/content/reader/ReaderPanel.ts`, `src/drivers/content/clipboard/clipboard.ts` | integration test | Reader 页内容与 Copy pipeline 对齐（同一条消息输出一致）。 |
 | View Source | ReaderPanel toggle | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可查看源文本、可复制。 |
-| Configurable actions (per module reuse) | `ReaderPanel.show(..., { showNav/showCopy/showSource, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration (covered by TypeScript + existing reader test) | 同一 ReaderPanel 可被不同模块复用（如 Bookmarks 预览注入 GoTo），避免重复维护“预览框”。 |
+| Surface-owned reader profiles | `ReaderPanel.show(..., { profile, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration + governance | 同一 ReaderPanel 在多个入口下保持稳定 baseline chrome；入口差异通过命名 profile 和批准的 action rail 表达。 |
 | Message sending (composer sync + send) | ReaderPanel `Send` → `sendText(adapter, text)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/sending/sendService.ts`, `src/drivers/content/sending/composerPort.ts`, `src/drivers/content/adapters/sites/chatgpt.ts`, `src/core/sending/contenteditable.ts` | `tests/unit/core/sending/*`, `tests/unit/drivers/content/sending/*`, `tests/integration/sending/*` | 多行文本换行保持一致；不会触发语音按钮；等待 send ready 后再点击发送。 |
+
+### B.2.C ChatGPT Folding（ChatGPT only）
+
+| Capability | Entry / API | Key files | Tests | Acceptance |
+|---|---|---|---|---|
+| Fold old assistant messages | ChatGPT settings `chatgpt.foldingMode/defaultExpandedCount` → `ChatGPTFoldingController` | `src/ui/content/controllers/ChatGPTFoldingController.ts`, `src/core/chatgptFolding/policy.ts` | `tests/unit/ui/content/controllers/ChatGPTFoldingController.test.ts`, `tests/unit/runtimes/content/entry.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts` | 在 ChatGPT 页面可按设置隐藏旧助手消息，`keep_last_n` 仅保留最近 N 条展开。 |
+| Fold dock toggle | ChatGPT settings `chatgpt.showFoldDock` | `src/ui/content/chatgptFolding/ChatGPTFoldDock.ts`, `src/ui/content/chatgptFolding/ChatGPTFoldBar.ts` | `tests/unit/ui/content/ChatGPTFoldBar.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanel.test.ts` | 右侧固定折叠按钮可随设置显示/隐藏，并与当前折叠策略保持一致。 |
+| Health degradation | Content runtime controller lifecycle | `src/runtimes/content/entry.ts`, `src/ui/content/controllers/ChatGPTFoldingController.ts` | `tests/unit/runtimes/content/entry.test.ts` | 若宿主 DOM 不满足折叠条件，应优雅退化，不影响工具栏、Reader、Bookmarks 等其它能力。 |
 
 ---
 
@@ -102,7 +111,7 @@
 | Toggle panel via extension icon | Background action click → `ui:toggle_toolbar` → Content toggles panel | `src/runtimes/background/entry.ts`, `src/runtimes/content/entry.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | manual | 在支持书签面板的平台页面点击扩展图标可打开/关闭面板。 |
 | List/search/sort/filter bookmarks | Panel controls → view model | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts`, `src/services/bookmarks/panelModel.ts` | `tests/unit/services/bookmarks/panelModel.test.ts` | 面板内可搜索、排序，列表可读且不污染宿主样式。 |
 | Folder tree + CRUD | Panel buttons → `bookmarks:folders:*` | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts` | manual | 文件夹可创建/重命名/移动/删除（删除需要空文件夹约束）。 |
-| Preview (reuse ReaderPanel) | Click bookmark row → `ReaderPanel.show(items, startIndex, theme, options)` | `src/ui/content/bookmarks/ui/tabs/BookmarksTabView.ts`, `src/ui/content/reader/ReaderPanel.ts` | manual | 分页范围沿用 legacy：有搜索词→按树顺序翻“全部可见书签”；无搜索词→仅在该 folder 内翻页。 |
+| Preview (reuse ReaderPanel) | Click bookmark row → `ReaderPanel.show(items, startIndex, theme, { profile: 'bookmark-preview' })` | `src/ui/content/bookmarks/ui/tabs/BookmarksTabView.ts`, `src/ui/content/reader/ReaderPanel.ts` | manual | 分页范围沿用 legacy：有搜索词→按树顺序翻“全部可见书签”；无搜索词→仅在该 folder 内翻页。 |
 | Row actions: Go / Copy / Delete | Panel row buttons → background intents | `src/ui/content/bookmarks/BookmarksPanelController.ts`, `src/drivers/content/bookmarks/navigation.ts` | manual | Go 能定位当前页 position（最佳努力重试）；Copy/删除可用。 |
 | Batch ops (delete/move/export) | Selection → bulk handlers | `src/contracts/protocol.ts`, `src/runtimes/background/handlers/bookmarks.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | `tests/unit/runtimes/background/bookmarks-handler.test.ts` | 批量删除/移动/导出一次落盘（非循环 sendMessage）。 |
 | Import/Export/Repair | Panel buttons → handler | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/runtimes/background/handlers/bookmarks.ts` | `tests/unit/core/bookmarks/stress.test.ts` | 导入 3000 级别 fixture 仍可用；repair 会 quarantine 再移除。 |
@@ -112,7 +121,7 @@
 
 ### B.5 Settings Core（storage.sync; legacy key `app_settings`; no UI）
 
-说明：本阶段只交付 **Settings Core**（通用逻辑 + background write authority + sync 存储），用于后续功能开关与行为配置。暂不交付 Settings UI。
+说明：Settings Core（通用逻辑 + background write authority + sync 存储）仍是权威写入边界；当前用户入口位于 BookmarksPanel 的 Settings tab。
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
@@ -154,19 +163,23 @@
 
 以下内容不作为本阶段验收目标：
 
-- i18n（语言选择/迁移/无 raw key）
-- Settings UI（当前仅 Core）
-- Save Messages UI entry（当前仅 Core）
+- 新增 i18n 能力扩展（例如更多 locale 或整站文案重写）
+- 独立 Settings 页面（当前沿用 BookmarksPanel Settings tab 入口）
 - 超出 `CAPABILITY_MATRIX.md` 当前支持范围的平台承诺
 
 ---
 
 ## D) Gates（门禁与验收）
 
-### D.1 工程门禁（每次变更必过）
+### D.1 工程门禁（每次变更按风险选择）
 
-- `npm run type-check`
+当前日常开发的可执行门禁权威，以 `docs/testing/CURRENT_TEST_GATES.md` 为准。
+
+发布前或高风险跨模块改动的推荐全量门禁为：
+
+- `npm run test:smoke`
 - `npm run test:core`
+- `npm run test:acceptance`（平台支持状态、release-level 文档/manifest 一致性）
 - `npm run build`（Chrome MV3 + Firefox MV2）
 
 ### D.2 手工验收清单（在支持的平台上）

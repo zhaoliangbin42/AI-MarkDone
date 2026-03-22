@@ -46,7 +46,6 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             ...stored.bookmarks,
             sortMode: migrateSortMode((stored.bookmarks as any)?.sortMode),
         },
-        performance: stored.performance,
         language: stored.language || 'auto',
     };
 }
@@ -142,4 +141,3 @@ export function migrateFromV2(v2: unknown): AppSettings {
         language: (rec as any).language || 'auto',
     };
 }
-

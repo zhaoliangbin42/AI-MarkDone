@@ -221,17 +221,6 @@ export class GeminiAdapter extends SiteAdapter {
         return true;
     }
 
-    isDeepResearchMessage(element: HTMLElement): boolean {
-        return element.querySelector('immersive-entry-chip') !== null;
-    }
-
-    getDeepResearchContent(): HTMLElement | null {
-        const panel = document.querySelector('deep-research-immersive-panel');
-        if (!panel) return null;
-        const content = panel.querySelector('#extended-response-markdown-content');
-        return content instanceof HTMLElement ? content : null;
-    }
-
     isNoiseNode(node: Node, _context: NoiseContext): boolean {
         if (!(node instanceof HTMLElement)) return false;
 

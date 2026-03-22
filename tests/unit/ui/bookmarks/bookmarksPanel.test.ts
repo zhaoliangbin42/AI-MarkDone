@@ -1241,8 +1241,7 @@ describe('BookmarksPanel', () => {
         expect(readerPanel.show).toHaveBeenCalledTimes(1);
         expect(controller.goToBookmark).not.toHaveBeenCalled();
         const options = readerPanel.show.mock.calls[0][3];
-        expect(options.showOpenConversation).toBe(true);
-        expect(options.dotStyle).toBe('plain');
+        expect(options.profile).toBe('bookmark-preview');
         expect(options.actions).toBeUndefined();
 
         panel.hide();

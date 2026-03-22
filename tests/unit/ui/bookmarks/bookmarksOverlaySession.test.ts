@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { BookmarksOverlaySession } from '@/ui/content/bookmarks/ui/BookmarksOverlaySession';
+import { OverlaySession } from '@/ui/content/overlay/OverlaySession';
 
-describe('BookmarksOverlaySession', () => {
+describe('OverlaySession via bookmarks surfaces', () => {
     afterEach(() => {
         document.body.innerHTML = '';
         document.getElementById('aimd-test-overlay-host')?.remove();
     });
 
     it('mounts the shared overlay surface slots and keeps panel/modal events local', async () => {
-        const session = new BookmarksOverlaySession({
+        const session = new OverlaySession({
             id: 'aimd-test-overlay-host',
             theme: 'light',
             surfaceCss: '.test-surface { display:block; }',

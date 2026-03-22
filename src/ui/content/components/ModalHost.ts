@@ -1,8 +1,6 @@
 import { Icons, xIcon } from '../../../assets/icons';
 import { ensureStyle } from '../../../style/shadow';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from './dialogKeyboardScope';
 import { t } from './i18n';
-import { installInputEventBoundary } from './inputEventBoundary';
 import { getModalHostCss } from './styles/modalHostCss';
 
 type ModalKind = 'info' | 'warning' | 'error';
@@ -46,7 +44,7 @@ export class ModalHost {
         this.container.className = 'mock-modal-host';
         this.ensureStyles();
         this.root.appendChild(this.container);
-        installInputEventBoundary(this.container);
+        this.installLocalEventBoundary();
     }
 
     isOpen(): boolean {
@@ -262,8 +260,6 @@ export class ModalHost {
         const footer = document.createElement('div');
         footer.className = 'mock-modal__footer';
 
-        let keyboardHandle: DialogKeyboardScopeHandle | null = null;
-
         const restoreFocus = () => {
             const previous = this.focusStack.pop() ?? null;
             if (previous?.isConnected) {
@@ -290,8 +286,6 @@ export class ModalHost {
         };
 
         const cleanup = () => {
-            keyboardHandle?.detach();
-            keyboardHandle = null;
             restoreFocus();
         };
 
@@ -304,23 +298,47 @@ export class ModalHost {
             dismiss();
         });
 
+        dialog.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                dismiss();
+                return;
+            }
+
+            if (event.key !== 'Tab') return;
+            const focusables = getFocusableElements(dialog);
+            if (focusables.length === 0) {
+                event.preventDefault();
+                closeBtn.focus({ preventScroll: true } as any);
+                return;
+            }
+
+            const current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            const first = focusables[0]!;
+            const last = focusables[focusables.length - 1]!;
+
+            if (!event.shiftKey && current === last) {
+                event.preventDefault();
+                first.focus({ preventScroll: true } as any);
+                return;
+            }
+
+            if (event.shiftKey && (current === first || current === dialog)) {
+                event.preventDefault();
+                last.focus({ preventScroll: true } as any);
+            }
+        });
+
         params.footer(footer, close, ctx);
 
         dialog.append(header, content, footer);
         overlay.appendChild(dialog);
         this.container.appendChild(overlay);
 
-        keyboardHandle = attachDialogKeyboardScope({
-            root: overlay,
-            onEscape: dismiss,
-            stopPropagationAll: true,
-            ignoreEscapeWhileComposing: true,
-            trapTabWithin: dialog,
-            focusFallback: () =>
-                dialog.querySelector<HTMLElement>(
-                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-                ) ?? closeBtn,
-        });
+        window.setTimeout(() => {
+            getFocusableElements(dialog)[0]?.focus?.({ preventScroll: true } as any);
+        }, 0);
     }
 
     private ensureStyles(): void {
@@ -341,6 +359,22 @@ export class ModalHost {
         style.textContent = cssText;
         this.root.appendChild(style);
     }
+
+    private installLocalEventBoundary(): void {
+        const stop = (event: Event) => event.stopPropagation();
+        this.container.addEventListener('click', stop);
+        this.container.addEventListener('input', stop);
+        this.container.addEventListener('focusin', stop);
+        this.container.addEventListener('keydown', stop);
+    }
+}
+
+function getFocusableElements(root: HTMLElement): HTMLElement[] {
+    return Array.from(
+        root.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+    ).filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true');
 }
 
 function getKindIcon(kind: ModalKind): string {

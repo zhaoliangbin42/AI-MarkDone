@@ -13,6 +13,13 @@
 
 约束：每个阶段结束必须满足验证门禁（测试/构建/人工回归）；并且不得把旧结构性债务（反向依赖、协议分散、UI 直写存储等）搬运到新实现。
 
+状态标签：
+
+- `historical`：历史迁移项
+- `manual`：仍需人工验收
+- `moved`：已转移到其它权威文档或自动化门禁
+- `pending`：仍待完成
+
 重写总纲与功能对齐清单：
 
 - `docs/rewrite/PROGRAM.md`
@@ -73,7 +80,7 @@ Checklist：
 
 ## Phase 3 — Rebuild by Domains（Feature Parity Iterations）
 
-目标：按功能域逐个重建闭环，完成一个删一个旧模块。
+目标：按功能域逐个重建闭环，完成一个删一个旧模块。当前代码主线已完成 archive 替换；本阶段清单保留为历史迁移记录与残余治理参考。
 
 执行顺序以 `docs/rewrite/FEATURE_PARITY.md` 为准。
 

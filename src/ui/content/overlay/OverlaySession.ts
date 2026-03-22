@@ -111,10 +111,6 @@ export class OverlaySession {
         this.keyboardHandle = null;
     }
 
-    installPanelBoundary(root: HTMLElement): () => void {
-        return installInputEventBoundary(root);
-    }
-
     unmount(): void {
         this.clearKeyboardScope();
         this.removeSurfaceBoundary();

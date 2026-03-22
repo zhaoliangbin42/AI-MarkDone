@@ -30,7 +30,8 @@ describe('ReaderPanel presentation', () => {
             const hint = shadow.querySelector<HTMLElement>('.reader-footer__meta .hint');
             const footerPage = shadow.querySelector<HTMLElement>('.reader-footer__meta .reader-footer-page');
             const katexLink = shadow.querySelector<HTMLLinkElement>('link[data-aimd-style-link="aimd-reader-panel-katex"]');
-            const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
+            const readerSource = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
+            const templateSource = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
 
             expect(backdropRoot?.querySelector('.panel-stage__overlay')).toBeTruthy();
             expect(surfaceRoot).toBeTruthy();
@@ -44,10 +45,11 @@ describe('ReaderPanel presentation', () => {
             expect(markdownRoot?.textContent).toContain('md1');
             expect(hint?.textContent).toBe('');
             expect(footerPage?.textContent).toBe('1/1');
-            expect(source).toContain("tailwind-overlay.css?inline");
-            expect(source).toContain('getPanelChromeCss()');
-            expect(source).toContain('.panel-window--reader {');
-            expect(source).not.toContain('top: var(--aimd-panel-top);');
+            expect(readerSource).toContain('OverlaySession');
+            expect(readerSource).not.toContain('mountOverlaySurfaceHost');
+            expect(templateSource).toContain('getPanelChromeCss()');
+            expect(templateSource).toContain('.panel-window--reader {');
+            expect(templateSource).not.toContain('top: var(--aimd-panel-top);');
             expect(katexLink?.rel).toBe('stylesheet');
         } finally {
             panel.hide();
@@ -88,13 +90,13 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
-    it('lets the caller hide the open-conversation header control for message-entry reader mode', async () => {
+    it('uses the conversation-reader profile to hide the open-conversation header control', async () => {
         const panel = new ReaderPanel();
 
         try {
             await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light', {
-                showOpenConversation: false,
-            } as any);
+                profile: 'conversation-reader',
+            });
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
@@ -120,8 +122,26 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('uses the bookmark-preview profile to keep the open-conversation header control available', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light', {
+                profile: 'bookmark-preview',
+                onOpenConversation: async () => undefined,
+            });
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+
+            expect(shadow.querySelector('[data-action="reader-open-conversation"]')).toBeTruthy();
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('keeps active icon buttons visually selected on hover and gives pagination dots hover affordances', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
 
         expect(source).toContain('.icon-btn--active:hover');
         expect(source).toContain('.reader-dot:hover');
@@ -132,7 +152,7 @@ describe('ReaderPanel presentation', () => {
     });
 
     it('uses shared panel title and body typography tokens instead of local raw reader sizes', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
 
         expect(source).not.toContain('--aimd-panel-title-size: var(--aimd-panel-title-size-compact);');
         expect(source).toContain('.reader-message__body--prompt {');

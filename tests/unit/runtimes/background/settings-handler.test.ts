@@ -72,6 +72,33 @@ describe('background settings handler', () => {
         expect((getRes?.response as any).data.value.showWordCount).toBe(false);
     });
 
+    it('rejects legacy performance category through the protocol', async () => {
+        const sync = mockSyncStorage();
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        (globalThis as any).chrome = undefined;
+
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const setRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_legacy_set',
+            type: 'settings:setCategory',
+            payload: { category: 'performance', value: { chatgptFoldingMode: 'all' } },
+        } as any);
+
+        expect(setRes?.response.ok).toBe(false);
+        expect((setRes?.response as any).error.code).toBe('INVALID_REQUEST');
+
+        const getRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_legacy_get',
+            type: 'settings:getCategory',
+            payload: { category: 'performance' },
+        } as any);
+
+        expect(getRes?.response.ok).toBe(false);
+        expect((getRes?.response as any).error.code).toBe('INVALID_REQUEST');
+    });
+
     it('resets settings', async () => {
         const sync = mockSyncStorage({
             [LEGACY_STORAGE_KEYS.appSettingsKey]: { version: 3, behavior: { showWordCount: false } },

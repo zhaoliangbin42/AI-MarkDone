@@ -10,12 +10,12 @@ import {
 import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from './BookmarksPanelController';
 import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
+import { createBookmarksTabActions } from './ui/tabs/bookmarksTabActions';
 import { SettingsTabView, type SettingsTabViewActions } from './ui/tabs/SettingsTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
 import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
-import { BookmarksOverlaySession } from './ui/BookmarksOverlaySession';
+import { OverlaySession } from '../overlay/OverlaySession';
 import type { ReaderPanel } from '../reader/ReaderPanel';
-import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { logger } from '../../../core/logger';
@@ -100,7 +100,7 @@ export class BookmarksPanel {
     };
 
     private visible = false;
-    private overlaySession: BookmarksOverlaySession | null = null;
+    private overlaySession: OverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private snapshot: BookmarksPanelSnapshot | null = null;
     private bookmarksView: BookmarksPanelTabView | null = null;
@@ -108,7 +108,6 @@ export class BookmarksPanel {
     private sponsorView: BookmarksPanelTabView | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
-    private panelEventBoundaryCleanup: (() => void) | null = null;
     private readonly onShadowPointerDown = (event: Event) => {
         if (!this.hostHandle) return;
 
@@ -162,7 +161,7 @@ export class BookmarksPanel {
         if (this.visible) return;
 
         this.visible = true;
-        this.overlaySession = new BookmarksOverlaySession({
+        this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
             theme: this.controller.getTheme(),
             surfaceCss: getBookmarksPanelCss(),
@@ -214,8 +213,6 @@ export class BookmarksPanel {
         this.unsubscribeSnapshot = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.panelEventBoundaryCleanup?.();
-        this.panelEventBoundaryCleanup = null;
         this.overlaySession?.shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
@@ -326,8 +323,6 @@ export class BookmarksPanel {
         });
         const panel = shell.panel;
 
-        this.panelEventBoundaryCleanup?.();
-        this.panelEventBoundaryCleanup = null;
         this.overlaySession.replaceBackdrop(shell.overlay);
         this.overlaySession.replaceSurface(panel);
         shell.closeBtn.addEventListener('click', () => this.hide());
@@ -342,7 +337,6 @@ export class BookmarksPanel {
             }
         });
         this.syncTabViews();
-        this.panelEventBoundaryCleanup = this.installPanelEventBoundary(panel);
         this.restoreScrollTop();
 
         for (const checkbox of panel.querySelectorAll<HTMLInputElement>('.tree-check[data-indeterminate="1"]')) {
@@ -370,10 +364,6 @@ export class BookmarksPanel {
         });
     }
 
-    private installPanelEventBoundary(panel: HTMLElement): () => void {
-        return installInputEventBoundary(panel);
-    }
-
     private applySnapshotUpdate(previousSnapshot: BookmarksPanelSnapshot | null, nextSnapshot: BookmarksPanelSnapshot): boolean {
         if (!this.hostHandle || !previousSnapshot) return false;
         const startedAt = performance.now();
@@ -398,10 +388,12 @@ export class BookmarksPanel {
 
         this.bookmarksView = new BookmarksTabView({
             controller: this.controller,
-            readerPanel: this.readerPanel,
-            modal: this.modalHost,
-            onRequestHidePanel: () => this.hide(),
-            getSaveContextOnly: () => Boolean(this.uiState.settings.behavior.saveContextOnly),
+            actions: createBookmarksTabActions({
+                readerPanel: this.readerPanel,
+                modal: this.modalHost,
+                onRequestHidePanel: () => this.hide(),
+                getSaveContextOnly: () => Boolean(this.uiState.settings.behavior.saveContextOnly),
+            }),
         });
         this.settingsView = new SettingsTabView({
             modal: this.modalHost,

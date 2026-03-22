@@ -23,7 +23,6 @@ export type SettingsCategory =
     | 'behavior'
     | 'reader'
     | 'bookmarks'
-    | 'performance'
     | 'language';
 
 export type BookmarksListPayload = {

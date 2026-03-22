@@ -197,10 +197,12 @@ describe('ReaderPanel actions placement', () => {
             const footer = shadow.querySelector<HTMLElement>('.reader-footer');
             expect(styles).toContain('.reader-footer__center {');
             expect(styles).toContain('.reader-footer__meta {');
+            expect(styles).toContain('.reader-footer__left {\n  position: relative;\n  min-width: 96px;');
+            expect(styles).toContain('.reader-footer__actions {\n  display: flex;\n  align-items: center;\n  min-height: 36px;');
             expect(footer?.className).toContain('panel-footer');
             expect(styles).not.toContain('padding: var(--aimd-panel-footer-padding-block) calc(var(--aimd-panel-footer-padding-inline) + var(--aimd-space-2));');
             expect(styles).toContain('grid-template-columns: auto minmax(0, 1fr) auto;');
-            expect(styles).not.toContain('grid-template-columns: 1fr;');
+            expect(styles).not.toContain('.reader-footer {\n  grid-template-columns: 1fr;');
             expect(shadow.querySelector('[data-action="reader-prev"] svg')).toBeTruthy();
             expect(shadow.querySelector('[data-action="reader-next"] svg')).toBeTruthy();
         } finally {

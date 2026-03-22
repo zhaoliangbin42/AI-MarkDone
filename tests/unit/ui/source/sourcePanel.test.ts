@@ -67,7 +67,8 @@ describe('SourcePanel', () => {
         expect(styles).toContain('max-height: calc(100vh - var(--aimd-space-6));');
 
         const sourceText = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/source/SourcePanel.ts'), 'utf8');
-        expect(sourceText).toContain('tailwind-overlay.css?inline');
+        expect(sourceText).toContain('OverlaySession');
+        expect(sourceText).not.toContain('mountOverlaySurfaceHost');
 
         // Should not include Reader navigation/dots/source toggle UI.
         expect(shadow.querySelector('[data-role="dots"]')).toBeNull();

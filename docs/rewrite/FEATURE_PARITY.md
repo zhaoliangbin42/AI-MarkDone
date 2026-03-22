@@ -6,6 +6,13 @@
 
 说明：具体平台覆盖与支持状态以 `docs/antigravity/platform/CAPABILITY_MATRIX.md` 为准；这里定义重写阶段的交付顺序与验收粒度。
 
+状态标签说明：
+
+- `historical`：历史迁移项，现已通过其它权威文档/测试替代
+- `manual`：仍需人工验收
+- `moved`：已迁移到其它权威文档或门禁
+- `pending`：仍待完成
+
 ---
 
 ## 1. 全局能力（跨平台）
@@ -18,7 +25,7 @@
 - [x] 字数统计 Core（CJK 感知；排除 code/math；纯逻辑）
 - [x] Settings Core（legacy `app_settings`；storage.sync；迁移 v1/v2→v3）
 - [x] Save Messages Export Core（Markdown+PDF；下载/打印；无 UI 入口）
-- [ ] i18n（语言选择/迁移/无 raw key）
+- [ ] i18n（语言选择/迁移/无 raw key） `manual`
 
 ---
 
@@ -46,14 +53,14 @@
 
 ## 4. 平台特性（按需）
 
-- [ ] ChatGPT Folding（折叠模式、dock、健康降级）
+- [x] ChatGPT Folding（折叠模式、dock、健康降级；当前作为正式 ChatGPT-only 能力治理）
 - [x] Gemini Deep Research：明确不纳入当前产品范围（不再继续适配）
 
 ---
 
 ## 5. Release & Compatibility
 
-- [ ] Chrome MV3 build 产物一致性
-- [ ] Firefox MV2 build 产物一致性
-- [ ] supported hosts 一致性（manifest / background / popup links）
+- [ ] Chrome MV3 build 产物一致性 `moved`
+- [ ] Firefox MV2 build 产物一致性 `moved`
+- [x] supported hosts 一致性（manifest / background / popup links）
 - [x] web_accessible_resources 完整性（KaTeX assets/locales/icons）

@@ -36,8 +36,30 @@
 
 - UI → Service → Driver 是默认依赖方向
 - Driver 禁止反向依赖 Service 或 UI
-- Service 禁止直接依赖 DOM API、host selectors 或 browser globals；这类能力必须通过 driver 提供
 - `src/core/*` 应尽量保持纯逻辑，可被 service、driver、runtime 复用
+
+### Service categories
+
+当前仓库中的 `src/services/*` 统一分为两类：
+
+- `pure/domain service`
+  - 纯逻辑、数据转换、规则编排
+  - 不允许依赖 DOM API、browser globals、host selector、UI shell/component
+- `content-facing feature service`
+  - 允许处理 DOM clone、parser node、HTML fragment、content fragment
+  - 仍不允许依赖 host selector、runtime wiring、adapter registry、UI shell/component
+
+当前典型归类：
+
+- `pure/domain service`
+  - `src/services/settings/*`
+  - `src/services/bookmarks/*`
+- `content-facing feature service`
+  - `src/services/copy/*`
+  - `src/services/reader/*`
+  - `src/services/markdown-parser/*`
+  - `src/services/export/*`
+  - `src/services/sending/*`
 
 ---
 
@@ -66,6 +88,7 @@
 - 站点选择器、主题探测、message root 识别只能位于 `src/drivers/content/adapters/sites/*`
 - UI 层不得持有平台专有选择器
 - Service 层不得按 platform id 分支选择 DOM 行为
+- `content-facing feature service` 可消费 adapter 暴露的抽象结果，但不得自行持有平台 selector 或注册 adapter
 
 ---
 

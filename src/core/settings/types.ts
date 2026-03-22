@@ -40,10 +40,6 @@ export type AppSettings = {
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
     };
-    performance?: {
-        chatgptFoldingMode?: FoldingMode;
-        chatgptDefaultExpandedCount?: number;
-    };
     language: 'auto' | 'en' | 'zh_CN';
 };
 
@@ -63,7 +59,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     reader: { renderCodeInReader: true },
     bookmarks: { sortMode: 'alpha-asc' },
-    performance: undefined,
     language: 'auto',
 };
 
@@ -74,8 +69,6 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         || value === 'behavior'
         || value === 'reader'
         || value === 'bookmarks'
-        || value === 'performance'
         || value === 'language'
     );
 }
-

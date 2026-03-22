@@ -29,9 +29,7 @@ export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationT
     const groups = new Map<HTMLElement, HTMLElement[]>();
     for (const messageEl of messages) {
         const adapterTurnRoot = adapter.getTurnRootElement?.(messageEl) ?? null;
-        const heuristicTurnRoot = messageEl.closest?.('[data-testid^="conversation-turn-"]');
-        const turnRoot = (adapterTurnRoot || (heuristicTurnRoot instanceof HTMLElement ? heuristicTurnRoot : null)) as HTMLElement | null;
-        const key = (turnRoot || messageEl) as HTMLElement;
+        const key = (adapterTurnRoot || messageEl) as HTMLElement;
         const group = groups.get(key);
         if (group) group.push(messageEl);
         else groups.set(key, [messageEl]);

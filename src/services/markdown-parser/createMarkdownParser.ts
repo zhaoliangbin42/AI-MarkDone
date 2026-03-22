@@ -31,7 +31,7 @@ function getDefaultMaxProcessingTimeMs(): number {
 
 export function createMarkdownParser(adapter: MarkdownParserAdapter, options: ParserOptions = {}): Parser {
     const parser = new Parser(adapter, {
-        // Why: large "Deep Research" style responses can exceed 5s in JSDOM and on slower machines.
+        // Why: very large responses can exceed 5s in JSDOM and on slower machines.
         // Keep a hard cap, but allow enough headroom to avoid falling back to raw textContent.
         maxProcessingTimeMs: getDefaultMaxProcessingTimeMs(),
         maxNodeCount: 50000,

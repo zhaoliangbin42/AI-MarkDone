@@ -2,12 +2,10 @@ import type { Theme } from '../../../core/types/theme';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { copyIcon, xIcon } from '../../../assets/icons';
 import { getTokenCss } from '../../../style/tokens';
-import overlayCssText from '../../../style/tailwind-overlay.css?inline';
 import { showEphemeralTooltip } from '../../../utils/tooltip';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { createIcon } from '../components/Icon';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from '../overlay/OverlaySurfaceHost';
+import { OverlaySession } from '../overlay/OverlaySession';
 import { getSourcePanelCss } from './ui/styles/sourcePanelCss';
 
 type State = {
@@ -18,8 +16,7 @@ type State = {
 };
 
 export class SourcePanel {
-    private hostHandle: OverlaySurfaceHostHandle | null = null;
-    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private overlaySession: OverlaySession | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private state: State = { theme: 'light', title: '', content: '', visible: false };
     private usesDefaultTitle = true;
@@ -30,8 +27,8 @@ export class SourcePanel {
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
-        this.hostHandle?.setThemeCss(getTokenCss(theme));
-        this.hostHandle?.setSurfaceCss(this.getCss());
+        this.overlaySession?.setTheme(theme);
+        this.overlaySession?.setSurfaceCss(this.getCss());
     }
 
     show(params: { theme: Theme; title?: string; content: string }): void {
@@ -51,46 +48,42 @@ export class SourcePanel {
     }
 
     private mount(): void {
-        if (this.hostHandle) return;
+        if (this.overlaySession) return;
 
-        const handle = mountOverlaySurfaceHost({
+        const session = new OverlaySession({
             id: 'aimd-source-panel-host',
-            themeCss: getTokenCss(this.state.theme),
+            theme: this.state.theme,
             surfaceCss: this.getCss(),
-            overlayCss: overlayCssText,
             lockScroll: true,
             surfaceStyleId: 'aimd-source-panel-structure',
             overlayStyleId: 'aimd-source-panel-tailwind',
         });
 
-        this.hostHandle = handle;
+        this.overlaySession = session;
         this.unsubscribeLocale = subscribeLocaleChange(() => {
-            if (!this.hostHandle || !this.state.visible) return;
+            if (!this.overlaySession || !this.state.visible) return;
             if (this.usesDefaultTitle) {
                 this.state.title = t('modalSourceTitle');
             }
             this.render();
         });
 
-        handle.backdropRoot.addEventListener('click', () => this.hide());
-        handle.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
-
-        this.keyboardHandle = attachDialogKeyboardScope({
-            root: handle.host,
+        session.backdropRoot.addEventListener('click', () => this.hide());
+        session.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
+        session.syncKeyboardScope({
+            root: session.host,
             onEscape: () => this.hide(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: handle.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? handle.host,
+            trapTabWithin: session.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? session.host,
         });
     }
 
     private unmount(): void {
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = null;
-        this.hostHandle?.unmount();
-        this.hostHandle = null;
+        this.overlaySession?.unmount();
+        this.overlaySession = null;
         this.usesDefaultTitle = true;
     }
 
@@ -111,23 +104,30 @@ export class SourcePanel {
     }
 
     private render(): void {
-        if (!this.hostHandle) return;
+        if (!this.overlaySession) return;
 
-        this.hostHandle.setSurfaceCss(this.getCss());
-        this.hostHandle.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
-        this.hostHandle.surfaceRoot.innerHTML = this.getHtml();
+        this.overlaySession.setSurfaceCss(this.getCss());
+        this.overlaySession.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
+        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
+        this.overlaySession.syncKeyboardScope({
+            root: this.overlaySession.host,
+            onEscape: () => this.hide(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession.host,
+        });
     }
 
     private async copyCurrent(): Promise<void> {
-        if (!this.hostHandle) return;
-        const button = this.hostHandle.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="source-copy"]');
+        if (!this.overlaySession) return;
+        const button = this.overlaySession.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="source-copy"]');
         if (!button) return;
 
         try {
             button.disabled = true;
             const ok = await copyTextToClipboard(this.state.content || '');
             showEphemeralTooltip({
-                root: this.hostHandle.shadow,
+                root: this.overlaySession.shadow,
                 anchor: button,
                 text: ok ? this.getLabel('btnCopied', 'Copied') : this.getLabel('copyFailed', 'Copy failed'),
             });

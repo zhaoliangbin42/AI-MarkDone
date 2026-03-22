@@ -23,10 +23,10 @@ This guide is the long-term, repeatable end-to-end (E2E) checklist for each rele
    - Chrome: `dist-chrome/`
    - Firefox: `dist-firefox/`
 3. Test fixtures available:
-   - `tests/bookmarks-200.json`
-   - `tests/bookmarks-3000.json`
-   - `tests/bookmarks-10mb.json`
-   - `tests/bookmarks-invalid.json`
+   - `tests/fixtures/bookmarks/bookmarks-200.json`
+   - `tests/fixtures/bookmarks/bookmarks-3000.json`
+   - `tests/fixtures/bookmarks/bookmarks-invalid.json`
+   - large-file capacity guard currently has no repo-tracked `10mb` fixture; validate with an ad-hoc oversized export only when that specific guard changes
 
 ## 4. Test Data Prompts (for LLM output generation)
 Use these prompts to generate deterministic stress conversations for reader/render testing.
@@ -94,11 +94,11 @@ TypeScript, JavaScript, Python, Bash, SQL, JSON, YAML, HTML, CSS
 - [ ] Verify context-only confirm dialog text
 
 ### 5.3 Bookmark Import/Export Lifecycle
-- [ ] Import `bookmarks-200.json` and verify counts/folders
+- [ ] Import `tests/fixtures/bookmarks/bookmarks-200.json` and verify counts/folders
 - [ ] Delete all imported bookmarks/folders then re-import same file (no hidden residue)
-- [ ] Import `bookmarks-3000.json` (completes without UI deadlock)
-- [ ] Import `bookmarks-10mb.json` (capacity guard behavior correct)
-- [ ] Import `bookmarks-invalid.json` (graceful fail, no data pollution)
+- [ ] Import `tests/fixtures/bookmarks/bookmarks-3000.json` (completes without UI deadlock)
+- [ ] Import an ad-hoc oversized export when validating capacity guards (only if import size guards changed)
+- [ ] Import `tests/fixtures/bookmarks/bookmarks-invalid.json` (graceful fail, no data pollution)
 - [ ] Export current state and re-import; verify structure/data
 
 ### 5.4 Bookmark Move/Delete Reliability

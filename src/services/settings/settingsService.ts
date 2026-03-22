@@ -72,13 +72,6 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
             };
             return { next };
         }
-        case 'performance': {
-            const next: AppSettings = {
-                ...cur,
-                performance: isRecord(value) ? ({ ...cur.performance, ...value } as any) : cur.performance,
-            };
-            return { next };
-        }
         case 'language': {
             const next: AppSettings = { ...cur, language: normalizeLanguage(value) };
             return { next };
@@ -103,4 +96,3 @@ export function planGetCategory(settings: AppSettings, category: unknown): { cat
 export function planGetAll(settings: AppSettings): { settings: AppSettings } {
     return { settings: loadAndNormalize(settings) };
 }
-

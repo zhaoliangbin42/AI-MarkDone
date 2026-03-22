@@ -63,7 +63,7 @@
 - type-based request/response
 - 统一错误码
 
-但协议的长期权威说明仍需要通过 `docs/architecture/RUNTIME_PROTOCOL.md` 统一收敛，避免知识散落在代码和多个文档之间。
+当前协议语义说明已经以 `docs/architecture/RUNTIME_PROTOCOL.md` 为权威；阅读时应以它和 `src/contracts/protocol.ts` 共同作为当前真相。
 
 ---
 
@@ -82,15 +82,30 @@
 - `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相
 - 书签树渲染与 virtualization 已收口到 `BookmarksTreeViewport`
 - `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot
-- `BookmarksPanel` 与 `BookmarkSaveDialog` 通过 Bookmarks family wrapper 复用同一条 overlay session contract；`SaveMessagesDialog` 已作为首个非-Bookmarks 试点切到通用 `OverlaySession`
+- `BookmarksPanel`、`BookmarkSaveDialog` 与 `SaveMessagesDialog` 已直接复用通用 `OverlaySession`；Bookmarks family 不再保留独立 overlay wrapper
+- `Deep Research` 已退出产品范围；当前 `src/` 中不再保留 active compatibility hook，仓库只保留文档与测试中的退场声明
 - `src/ui/content/components/transientUi.ts` 现在是共享 outside-click / transient-root contract；Bookmarks family 只保留对它的 family-level 组合，而不再拥有私有实现
 - Bookmarks family 内部的 inline select / number-stepper 目前仍保持为 family-scoped primitive，并通过统一 transient-ui contract 与 panel shell 协作
+- `ModalHost` 现在只承担 dialog render、topmost modal ownership 与 focus restore；shared host boundary 与 keyboard scope 由 `OverlaySession` 负责
 
 ### Reader / Copy / Sending
 
-- service 层负责数据准备和行为编排
+- `pure/domain service` 负责纯逻辑与规则
+- `content-facing feature service` 负责数据准备和行为编排
 - content driver 负责 DOM 采集、剪贴板、导出、发送桥接
 - UI 层负责 Shadow DOM / React UI 呈现
+- `ReaderPanel` 当前通过 surface-owned named profiles 收口多入口差异；消息工具栏与书签预览不再直接传 low-level chrome flags，而是分别选择 `conversation-reader` 与 `bookmark-preview`
+
+说明：
+
+- `src/services/copy/*`
+- `src/services/reader/*`
+- `src/services/markdown-parser/*`
+- `src/services/export/*`
+
+当前都属于 `content-facing feature service`，不是严格意义上的“纯 service”。
+- `src/services/export/saveMessagesPdf.ts` 属于明确例外：它负责构建最终导出文档，并消费样式 token 生成 PDF/打印用 CSS。
+- `SendPopover` 仍是 anchored popover，而不是 overlay surface；它保留 textarea-level `inputEventBoundary` 作为 intentional local boundary，不视为 shared overlay contract 的例外缺口
 
 ### Style system
 

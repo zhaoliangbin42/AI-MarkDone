@@ -35,6 +35,13 @@ class TestAdapter extends SiteAdapter {
     }
 }
 
+class TurnAwareAdapter extends TestAdapter {
+    getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
+        const turn = assistantMessageElement.closest('[data-turn-root]');
+        return turn instanceof HTMLElement ? turn : null;
+    }
+}
+
 describe('collectConversationMessageRefs', () => {
     it('collects assistant messages, removes nested duplicates, and extracts prompts', () => {
         document.body.innerHTML = `
@@ -70,6 +77,24 @@ describe('collectConversationMessageRefs', () => {
         `;
 
         const adapter = new TestAdapter();
+        const refs = collectConversationMessageRefs(adapter);
+
+        expect(refs).toHaveLength(2);
+        expect(refs[0]?.messageEls).toHaveLength(1);
+        expect(refs[1]?.messageEls).toHaveLength(1);
+    });
+
+    it('groups assistant segments only when the adapter exposes a turn root contract', () => {
+        document.body.innerHTML = `
+          <div id="container">
+            <div data-turn-root="1">
+              <div class="assistant" data-id="a1" data-prompt="p1"></div>
+              <div class="assistant" data-id="a2" data-prompt="p1"></div>
+            </div>
+          </div>
+        `;
+
+        const adapter = new TurnAwareAdapter();
         const refs = collectConversationMessageRefs(adapter);
 
         expect(refs).toHaveLength(1);

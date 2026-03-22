@@ -28,11 +28,14 @@ Default minimum gate:
 
 This is the repository-wide required proof for repo-tracked code changes unless the user explicitly waives it.
 
+`docs/FEATURES.md` 定义的是能力真相与 release-level acceptance；本文件定义的是当前实际要运行的命令门禁。若两者表述有差异，以本文件作为日常 gate 选择权威。
+
 ### Contract, Runtime, Or Boundary Changes
 
 If the change affects protocol, storage, adapter contracts, runtime boundaries, or release/build gates, run:
 
 - `npm run test:smoke`
+- `npm run test:acceptance`
 - `npm run build`
 
 ### Broad Behavior Changes Or Risky Refactors
@@ -43,6 +46,14 @@ If the change touches multiple modules, user-visible flows, or high-risk paths, 
 - `npm run build`
 
 Use targeted tests in addition when the failure mode is local and well defined.
+
+For large structural refactors, the minimum acceptable closing gate is:
+
+- affected feature family tests
+- `npm run test:acceptance`
+- `npm run build`
+
+If the change affects a shared surface with 2+ entrypoints, verification must also prove that production callers route through the surface-owned profile contract instead of directly shaping low-level chrome flags.
 
 ### Bug Fixes
 
@@ -97,7 +108,24 @@ For new UI modules or major UI refactors, manual regression now also includes th
 - High-risk or cross-module change
   - `npm run test:core` + `npm run build`
 - Release preparation
-  - `npm run test:smoke` + `npm run test:core` + `npm run build` + relevant manual regression
+  - `npm run test:smoke` + `npm run test:core` + `npm run test:acceptance` + `npm run build` + relevant manual regression
+
+### Acceptance / Release Governance
+
+Use `npm run test:acceptance` when the change affects:
+
+- supported hosts / platform coverage declarations
+- manifest/build artifact consistency
+- release-level compatibility statements in `docs/**`
+
+Current acceptance gate includes:
+
+- `tests/unit/governance/manifest-resource-consistency.test.ts`
+- `tests/unit/governance/supported-hosts-consistency.test.ts`
+- `tests/unit/governance/i18n-keys.test.ts`
+- `tests/unit/ui/i18n/i18n.test.ts`
+- `tests/unit/ui/content/controllers/ChatGPTFoldingController.test.ts`
+- `tests/unit/runtimes/content/entry.test.ts`
 
 ---
 

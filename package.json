@@ -17,6 +17,7 @@
         "test:ui": "vitest --ui",
         "test:smoke": "vitest run tests/unit/contracts/protocol.test.ts tests/unit/style/tokens.test.ts tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts",
         "test:release": "vitest run tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts",
+        "test:acceptance": "vitest run tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/governance/supported-hosts-consistency.test.ts tests/unit/governance/i18n-keys.test.ts tests/unit/ui/i18n/i18n.test.ts tests/unit/ui/content/controllers/ChatGPTFoldingController.test.ts tests/unit/runtimes/content/entry.test.ts",
         "test:core": "vitest run",
         "verify:entry-format:chrome": "bash scripts/verify-extension-entry-format.sh chrome",
         "verify:entry-format:firefox": "bash scripts/verify-extension-entry-format.sh firefox"

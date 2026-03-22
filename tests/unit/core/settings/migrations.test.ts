@@ -45,6 +45,20 @@ describe('settings migrations', () => {
         expect(next.chatgpt.defaultExpandedCount).toBe(6);
         expect(next.behavior.showWordCount).toBe(false);
         expect(next.bookmarks.sortMode).toBe('time-desc');
+        expect('performance' in next).toBe(false);
+    });
+
+    it('drops legacy performance payloads from v3 normalized settings', () => {
+        const stored: any = {
+            version: 3,
+            chatgpt: { foldingMode: 'all', defaultExpandedCount: 5 },
+            performance: { chatgptFoldingMode: 'keep_last_n', chatgptDefaultExpandedCount: 99 },
+        };
+
+        const next = loadAndNormalize(stored);
+        expect(next.chatgpt.foldingMode).toBe('all');
+        expect(next.chatgpt.defaultExpandedCount).toBe(5);
+        expect('performance' in next).toBe(false);
     });
 
     it('migrates v1 storage.saveContextOnly into behavior.saveContextOnly', () => {
@@ -61,4 +75,3 @@ describe('settings migrations', () => {
         expect(next.reader.renderCodeInReader).toBe(false);
     });
 });
-

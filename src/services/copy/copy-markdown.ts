@@ -42,16 +42,6 @@ function resolveContentRoot(adapter: SiteAdapter, messageElement: HTMLElement): 
         return messageElement;
     }
 
-    if (typeof adapter.isDeepResearchMessage === 'function' && adapter.isDeepResearchMessage(messageElement)) {
-        if (typeof adapter.getDeepResearchContent === 'function') {
-            const panelContent = adapter.getDeepResearchContent();
-            if (panelContent) {
-                logger.info('[AI-MarkDone][Copy] Deep Research panel content detected; using panel root');
-                return panelContent;
-            }
-        }
-    }
-
     const contentSelector = adapter.getMessageContentSelector();
     if (!contentSelector) return messageElement;
 

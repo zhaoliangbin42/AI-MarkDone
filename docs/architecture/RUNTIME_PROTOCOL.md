@@ -62,7 +62,8 @@
 
 规则：
 
-- background 必须返回稳定错误码
+- 对于已通过协议校验并进入 handler 的请求，background 必须返回稳定错误码
+- 对于非法或非扩展消息，当前 background entry 采用静默忽略，而不是回发结构化 `INVALID_REQUEST` / `UNTRUSTED_SENDER`
 - 调用方应基于错误码决定降级、提示或重试
 - 新增错误码时，必须同步更新本文档与代码契约
 

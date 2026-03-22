@@ -1,14 +1,10 @@
-import type { Bookmark, FolderTreeNode } from '../../../../../core/bookmarks/types';
-import { PathUtils } from '../../../../../core/bookmarks/path';
-import type { ReaderItem } from '../../../../../services/reader/types';
+import type { Bookmark } from '../../../../../core/bookmarks/types';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
-import type { ModalHost } from '../../../components/ModalHost';
-import type { ReaderPanel, ReaderPanelActionContext } from '../../../reader/ReaderPanel';
 import { PlatformDropdown } from '../components/PlatformDropdown';
 import { BookmarksTreeViewport } from '../BookmarksTreeViewport';
-import { bookmarkSaveDialog } from '../../save/bookmarkSaveDialogSingleton';
+import { createNoopBookmarksTabActions, type BookmarksTabActions, getMoveTargetParent } from './bookmarksTabActions';
 import {
     downloadIcon,
     folderPlusIcon,
@@ -46,33 +42,21 @@ function downloadJson(filename: string, data: unknown): void {
     }
 }
 
-function bookmarkSelectionKey(b: Bookmark): string {
-    return `bm:${b.urlWithoutProtocol}:${b.position}`;
-}
-
 export class BookmarksTabView {
     private controller: BookmarksPanelController;
-    private readerPanel: ReaderPanel;
-    private modal: ModalHost;
+    private actions: BookmarksTabActions;
     private root: HTMLElement;
     private refs: Refs;
     private snapshot: BookmarksPanelSnapshot | null = null;
-    private onRequestHidePanel: (() => void) | null = null;
     private treeViewport: BookmarksTreeViewport;
-    private getSaveContextOnly: () => boolean;
 
     constructor(params: {
         controller: BookmarksPanelController;
-        readerPanel: ReaderPanel;
-        modal: ModalHost;
-        onRequestHidePanel?: () => void;
-        getSaveContextOnly?: () => boolean;
+        actions?: BookmarksTabActions;
+        [key: string]: unknown;
     }) {
         this.controller = params.controller;
-        this.readerPanel = params.readerPanel;
-        this.modal = params.modal;
-        this.onRequestHidePanel = params.onRequestHidePanel ?? null;
-        this.getSaveContextOnly = params.getSaveContextOnly ?? (() => false);
+        this.actions = params.actions ?? createNoopBookmarksTabActions();
 
         this.root = document.createElement('div');
         this.root.className = 'bookmarks-tab-content';
@@ -263,7 +247,7 @@ export class BookmarksTabView {
             label: t('moveSelected'),
             action: 'batch-move',
             onClick: async () => {
-                const target = await this.pickFolder(this.controller.getDefaultFolderPath());
+                const target = await this.actions.pickFolder(this.controller.getDefaultFolderPath(), this.controller.getTheme());
                 if (target === null) return;
                 const res = await this.controller.batchMove(target);
                 this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
@@ -277,14 +261,7 @@ export class BookmarksTabView {
             kind: 'danger',
             action: 'batch-delete',
             onClick: async () => {
-                const ok = await this.modal.confirm({
-                    kind: 'warning',
-                    title: t('deleteSelectedTitle'),
-                    message: t('actionCannotBeUndone'),
-                    confirmText: t('btnDelete'),
-                    cancelText: t('btnCancel'),
-                    danger: true,
-                });
+                const ok = await this.actions.confirmDeleteSelected();
                 if (!ok) return;
                 const res = await this.controller.batchDelete();
                 this.controller.setPanelStatus(res.ok ? t('deletedStatus') : res.message);
@@ -332,7 +309,7 @@ export class BookmarksTabView {
     private async exportAll(): Promise<void> {
         const res = await this.controller.exportAll(true);
         if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('exportBookmarks'), message: res.message, confirmText: t('btnOk') });
+            await this.actions.alertError(t('exportBookmarks'), res.message);
             return;
         }
         downloadJson('ai-markdone-bookmarks.json', res.data.payload);
@@ -342,7 +319,7 @@ export class BookmarksTabView {
     private async exportSelected(): Promise<void> {
         const res = await this.controller.exportSelected(true);
         if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('exportSelected'), message: res.message, confirmText: t('btnOk') });
+            await this.actions.alertError(t('exportSelected'), res.message);
             return;
         }
         downloadJson('ai-markdone-bookmarks-selected.json', res.data.payload);
@@ -350,197 +327,82 @@ export class BookmarksTabView {
     }
 
     private async createFolder(): Promise<void> {
-        const path = await this.modal.prompt({
-            kind: 'info',
-            title: t('createFolder'),
-            message: t('promptNewFolderPath'),
-            placeholder: t('folderPathPlaceholder'),
-            defaultValue: '',
-            confirmText: t('btnSave'),
-            cancelText: t('btnCancel'),
-            validate: (v) => ({ ok: Boolean(v.trim()), message: t('folderNameEmpty') }),
-        });
+        const path = await this.actions.promptCreateFolderPath();
         if (path === null) return;
         const res = await this.controller.createFolder(path);
         this.controller.setPanelStatus(res.ok ? t('folderCreatedStatus') : res.message);
         if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('createFolder'), message: res.message, confirmText: t('btnOk') });
+            await this.actions.alertError(t('createFolder'), res.message);
         }
     }
 
     private async createSubfolder(parentPath: string): Promise<void> {
-        const name = await this.modal.prompt({
-            kind: 'info',
-            title: t('newSubfolder'),
-            message: t('promptNewFolderName'),
-            placeholder: t('folderNamePlaceholder'),
-            defaultValue: '',
-            confirmText: t('btnSave'),
-            cancelText: t('btnCancel'),
-            validate: (v) => ({ ok: Boolean(v.trim()), message: t('folderNameEmpty') }),
-        });
+        const name = await this.actions.promptFolderName(t('newSubfolder'));
         if (name === null) return;
         const path = `${parentPath}/${name}`;
         const res = await this.controller.createFolder(path);
         this.controller.setPanelStatus(res.ok ? t('folderCreatedStatus') : res.message);
         if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('createFolder'), message: res.message, confirmText: t('btnOk') });
+            await this.actions.alertError(t('createFolder'), res.message);
         } else {
             this.controller.toggleFolderExpanded(parentPath);
         }
     }
 
     private async renameFolder(path: string): Promise<void> {
-        const name = await this.modal.prompt({
-            kind: 'info',
-            title: t('renameFolder'),
-            message: t('promptNewFolderName'),
-            placeholder: t('folderNamePlaceholder'),
-            defaultValue: '',
-            confirmText: t('btnSave'),
-            cancelText: t('btnCancel'),
-            validate: (v) => ({ ok: Boolean(v.trim()), message: t('folderNameEmpty') }),
-        });
+        const name = await this.actions.promptFolderName(t('renameFolder'));
         if (name === null) return;
         const res = await this.controller.renameFolder(path, name);
-        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('renameFolder'), message: res.message, confirmText: t('btnOk') });
+        if (!res.ok) await this.actions.alertError(t('renameFolder'), res.message);
         this.controller.setPanelStatus(res.ok ? t('renamedStatus') : res.message);
     }
 
     private async moveFolder(path: string): Promise<void> {
-        const parent = await this.pickFolder(PathUtils.getParentPath(path));
+        const parent = await this.actions.pickFolder(getMoveTargetParent(path), this.controller.getTheme());
         if (parent === null) return;
         const res = await this.controller.moveFolder(path, parent);
-        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('moveFolder'), message: res.message, confirmText: t('btnOk') });
+        if (!res.ok) await this.actions.alertError(t('moveFolder'), res.message);
         this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
     }
 
     private async moveBookmark(bookmark: Bookmark): Promise<void> {
-        const target = await this.pickFolder(bookmark.folderPath || this.controller.getDefaultFolderPath());
+        const target = await this.actions.pickFolder(bookmark.folderPath || this.controller.getDefaultFolderPath(), this.controller.getTheme());
         if (target === null) return;
         const res = await this.controller.moveBookmark(bookmark, target);
-        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('moveBookmarkLabel'), message: res.message, confirmText: t('btnOk') });
+        if (!res.ok) await this.actions.alertError(t('moveBookmarkLabel'), res.message);
         this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
     }
 
     private async deleteFolder(path: string): Promise<void> {
-        const ok = await this.modal.confirm({
-            kind: 'warning',
-            title: t('deleteFolder'),
-            message: t('deleteFolderConfirm', path),
-            confirmText: t('btnDelete'),
-            cancelText: t('btnCancel'),
-            danger: true,
-        });
+        const ok = await this.actions.confirmDeleteFolder(path);
         if (!ok) return;
         const res = await this.controller.deleteFolder(path);
-        if (!res.ok) await this.modal.alert({ kind: 'error', title: t('deleteFolder'), message: res.message, confirmText: t('btnOk') });
+        if (!res.ok) await this.actions.alertError(t('deleteFolder'), res.message);
         this.controller.setPanelStatus(res.ok ? t('deletedStatus') : res.message);
     }
 
     private async deleteBookmark(b: Bookmark): Promise<void> {
-        const ok = await this.modal.confirm({
-            kind: 'warning',
-            title: t('delete'),
-            message: t('actionCannotBeUndone'),
-            confirmText: t('btnDelete'),
-            cancelText: t('btnCancel'),
-            danger: true,
-        });
+        const ok = await this.actions.confirmDeleteBookmark();
         if (!ok) return;
         await this.controller.deleteBookmark(b);
     }
 
     private async goTo(b: Bookmark): Promise<void> {
-        this.onRequestHidePanel?.();
+        this.actions.requestHidePanel();
         await this.controller.goToBookmark(b);
     }
 
     private async openPreviewInReader(b: Bookmark): Promise<void> {
         const snap = this.snapshot;
         if (!snap) return;
-
-        const visibleKeys = new Set<string>(snap.vm.bookmarks.map(bookmarkSelectionKey));
-        const queryActive = Boolean(snap.vm.query.trim());
-
-        const { list, startIndex } = this.buildReaderScopeList({
+        await this.actions.showPreview({
+            snapshot: snap,
             bookmark: b,
-            folderTree: snap.vm.folderTree,
-            visibleKeys,
-            queryActive,
-        });
-        if (list.length === 0) return;
-
-        const items: ReaderItem[] = list.map((bm) => ({
-            id: bookmarkSelectionKey(bm),
-            userPrompt: bm.userMessage || bm.title || '',
-            content: bm.aiResponse ?? '',
-        }));
-
-        await this.readerPanel.show(items, startIndex, this.controller.getTheme(), {
-            showOpenConversation: true,
-            dotStyle: 'plain',
-            onOpenConversation: async (ctx: ReaderPanelActionContext) => {
-                const current = list[ctx.index] ?? null;
-                if (!current) return;
-                this.readerPanel.hide();
-                await this.goTo(current);
+            controller: this.controller,
+            onOpenConversation: async (bookmark) => {
+                await this.goTo(bookmark);
             },
         });
-    }
-
-    private buildReaderScopeList(params: {
-        bookmark: Bookmark;
-        folderTree: FolderTreeNode[];
-        visibleKeys: Set<string>;
-        queryActive: boolean;
-    }): { list: Bookmark[]; startIndex: number } {
-        const key = bookmarkSelectionKey(params.bookmark);
-
-        const list = params.queryActive
-            ? this.flattenVisibleBookmarksInTreeOrder(params.folderTree, params.visibleKeys)
-            : this.getVisibleBookmarksInSameFolder(params.folderTree, params.visibleKeys, params.bookmark);
-
-        const idx = list.findIndex((b) => bookmarkSelectionKey(b) === key);
-        if (idx >= 0) return { list, startIndex: idx };
-        return { list: [params.bookmark], startIndex: 0 };
-    }
-
-    private flattenVisibleBookmarksInTreeOrder(nodes: FolderTreeNode[], visibleKeys: Set<string>): Bookmark[] {
-        const result: Bookmark[] = [];
-        for (const node of nodes) {
-            if (node.children.length > 0) {
-                result.push(...this.flattenVisibleBookmarksInTreeOrder(node.children, visibleKeys));
-            }
-            for (const b of node.bookmarks) {
-                if (visibleKeys.has(bookmarkSelectionKey(b))) result.push(b);
-            }
-        }
-        return result;
-    }
-
-    private getVisibleBookmarksInSameFolder(
-        nodes: FolderTreeNode[],
-        visibleKeys: Set<string>,
-        bookmark: Bookmark
-    ): Bookmark[] {
-        const node = this.findFolderNode(nodes, bookmark.folderPath);
-        if (node) return node.bookmarks.filter((b) => visibleKeys.has(bookmarkSelectionKey(b)));
-
-        const snap = this.snapshot;
-        if (!snap) return [bookmark];
-        const list = snap.vm.bookmarks.filter((b) => b.folderPath === bookmark.folderPath);
-        return list.length ? list : [bookmark];
-    }
-
-    private findFolderNode(nodes: FolderTreeNode[], path: string): FolderTreeNode | null {
-        for (const node of nodes) {
-            if (node.folder.path === path) return node;
-            if (node.children.length === 0) continue;
-            const found = this.findFolderNode(node.children, path);
-            if (found) return found;
-        }
-        return null;
     }
 
     private async importFromFile(event: Event): Promise<void> {
@@ -550,27 +412,15 @@ export class BookmarksTabView {
         if (!file) return;
 
         const jsonText = await file.text();
-        const saveContextOnly = this.getSaveContextOnly();
+        const saveContextOnly = this.actions.getSaveContextOnly();
         const res = await this.controller.importJsonText(jsonText, saveContextOnly);
         if (!res.ok) {
-            await this.modal.alert({ kind: 'error', title: t('importBookmarks'), message: res.message, confirmText: t('btnOk') });
+            await this.actions.alertError(t('importBookmarks'), res.message);
             return;
         }
 
         this.controller.setPanelStatus(t('importedStatus'));
         await this.showImportMergeSummary(res.data);
-    }
-
-    private async pickFolder(currentFolderPath: string | null): Promise<string | null> {
-        const result = await bookmarkSaveDialog.open({
-            theme: this.controller.getTheme(),
-            userPrompt: '',
-            existingTitle: '',
-            currentFolderPath,
-            mode: 'folder-select',
-        });
-        if (!result.ok) return null;
-        return result.folderPath;
     }
 
     private async showImportMergeSummary(result: {
@@ -662,7 +512,7 @@ export class BookmarksTabView {
         detailSection.append(detailHeading, entries);
         body.appendChild(detailSection);
 
-        await this.modal.showCustom({
+        await this.actions.showImportMergeSummary({
             kind: warningMessages.length > 0 || (result.folderCreateFailures ?? 0) > 0 ? 'warning' : 'info',
             title: t('importMergeReviewTitle'),
             body,

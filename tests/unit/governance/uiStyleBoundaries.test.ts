@@ -7,6 +7,7 @@ const repoRoot = path.resolve(__dirname, '../../..');
 const uiFiles = [
     'src/ui/content/MessageToolbar.ts',
     'src/ui/content/reader/ReaderPanel.ts',
+    'src/ui/content/reader/readerPanelTemplate.ts',
     'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts',
     'src/ui/content/bookmarks/save/bookmarkSaveDialogCss.ts',
     'src/ui/content/export/saveMessagesDialogCss.ts',
@@ -18,7 +19,7 @@ const uiFiles = [
 
 const sansFiles = [
     'src/ui/content/MessageToolbar.ts',
-    'src/ui/content/reader/ReaderPanel.ts',
+    'src/ui/content/reader/readerPanelTemplate.ts',
     'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts',
     'src/ui/content/bookmarks/save/bookmarkSaveDialogCss.ts',
     'src/ui/content/export/saveMessagesDialogCss.ts',
@@ -29,7 +30,7 @@ const sansFiles = [
 ];
 
 const monoWhitelist = [
-    'src/ui/content/reader/ReaderPanel.ts',
+    'src/ui/content/reader/readerPanelTemplate.ts',
     'src/ui/content/source/ui/styles/sourcePanelCss.ts',
     'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts',
 ];

@@ -11,51 +11,24 @@ import { isSamePageUrl, setPendingNavigation } from '../../../drivers/content/bo
 import { scrollToConversationTargetWithRetry } from '../../../drivers/content/conversation/navigation';
 import { t } from '../components/i18n';
 import { logger } from '../../../core/logger';
+import {
+    bookmarkKey,
+    expandPathChain,
+    folderKey,
+    formatBookmarkTimestamp,
+    getBookmarkIdentityKey,
+} from './bookmarksPanelControllerHelpers';
+import {
+    getDescendantKeysForFolder,
+    getSelectedBookmarkItems,
+    getSelectedFolderPaths,
+} from './bookmarksPanelControllerSelection';
 
 export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
 
 declare global {
     interface Window {
         __AIMD_BOOKMARKS_PERF__?: boolean;
-    }
-}
-
-function getBookmarkIdentityKey(b: Bookmark): BookmarkIdentityKey {
-    return `${b.urlWithoutProtocol}:${b.position}`;
-}
-
-function folderKey(path: string): string {
-    return `folder:${path}`;
-}
-
-function bookmarkKey(id: BookmarkIdentityKey): string {
-    return `bm:${id}`;
-}
-
-function expandPathChain(path: string | null | undefined, expandedPaths: Set<string>): Set<string> {
-    const next = new Set(expandedPaths);
-    if (!path) return next;
-
-    try {
-        for (const candidate of PathUtils.getPathChain(path)) {
-            next.add(candidate);
-        }
-    } catch {
-        return next;
-    }
-    return next;
-}
-
-function parseBookmarkIdentityKey(key: string): BookmarkIdentityKey | null {
-    if (!key.startsWith('bm:')) return null;
-    return key.slice(3);
-}
-
-function formatDate(ts: number): string {
-    try {
-        return new Date(ts).toLocaleString();
-    } catch {
-        return String(ts);
     }
 }
 
@@ -273,7 +246,11 @@ export class BookmarksPanelController {
     }
 
     getFolderCheckboxState(path: string): { checked: boolean; indeterminate: boolean } {
-        const keys = this.getDescendantKeysForFolder(path);
+        const keys = getDescendantKeysForFolder({
+            path,
+            folders: this.folders,
+            bookmarks: this.bookmarks,
+        });
         if (keys.length === 0) {
             return {
                 checked: this.state.selectedKeys.has(folderKey(path)),
@@ -289,7 +266,11 @@ export class BookmarksPanelController {
 
     toggleFolderSelection(path: string): void {
         const key = folderKey(path);
-        const descendants = this.getDescendantKeysForFolder(path);
+        const descendants = getDescendantKeysForFolder({
+            path,
+            folders: this.folders,
+            bookmarks: this.bookmarks,
+        });
         const allKeys = [key, ...descendants];
         const anySelected = allKeys.some((k) => this.state.selectedKeys.has(k));
         if (anySelected) {
@@ -346,7 +327,10 @@ export class BookmarksPanelController {
     }
 
     async exportSelected(preserveStructure: boolean): Promise<Result<{ payload: any }>> {
-        const items = this.getSelectedBookmarkItems();
+        const items = getSelectedBookmarkItems({
+            bookmarks: this.bookmarks,
+            selectedKeys: this.state.selectedKeys,
+        });
         return bookmarksClient.exportSelected({ items, preserveStructure });
     }
 
@@ -388,8 +372,11 @@ export class BookmarksPanelController {
     }
 
     async batchDelete(): Promise<Result<any>> {
-        const items = this.getSelectedBookmarkItems();
-        const folderPaths = this.getSelectedFolderPaths();
+        const items = getSelectedBookmarkItems({
+            bookmarks: this.bookmarks,
+            selectedKeys: this.state.selectedKeys,
+        });
+        const folderPaths = getSelectedFolderPaths(this.state.selectedKeys);
         const res = await bookmarksClient.bulkRemove({ items, folderPaths });
         if (res.ok) {
             await this.refreshAll();
@@ -399,7 +386,10 @@ export class BookmarksPanelController {
     }
 
     async batchMove(targetFolderPath: string): Promise<Result<any>> {
-        const items = this.getSelectedBookmarkItems();
+        const items = getSelectedBookmarkItems({
+            bookmarks: this.bookmarks,
+            selectedKeys: this.state.selectedKeys,
+        });
         const res = await bookmarksClient.bulkMove({ items, targetFolderPath });
         if (res.ok) {
             await this.refreshAll();
@@ -436,36 +426,14 @@ export class BookmarksPanelController {
     }
 
     getSelectedBookmarkItems(): Array<{ url: string; position: number }> {
-        const ids = new Set<BookmarkIdentityKey>();
-        for (const key of this.state.selectedKeys) {
-            const id = parseBookmarkIdentityKey(key);
-            if (id) ids.add(id);
-        }
-
-        const items: Array<{ url: string; position: number }> = [];
-        for (const id of ids) {
-            const bm = this.getBookmarkById(id);
-            if (bm) items.push({ url: bm.url, position: bm.position });
-        }
-        return items;
+        return getSelectedBookmarkItems({
+            bookmarks: this.bookmarks,
+            selectedKeys: this.state.selectedKeys,
+        });
     }
 
     getSelectedFolderPaths(): string[] {
-        const paths = new Set<string>();
-        for (const key of this.state.selectedKeys) {
-            if (!key.startsWith('folder:')) continue;
-            const rawPath = key.slice('folder:'.length).trim();
-            if (!rawPath) continue;
-            try {
-                paths.add(PathUtils.normalize(rawPath));
-            } catch {
-                // ignore malformed selection keys
-            }
-        }
-        return Array.from(paths).sort((a, b) => {
-            const depthDiff = PathUtils.getDepth(a) - PathUtils.getDepth(b);
-            return depthDiff !== 0 ? depthDiff : a.localeCompare(b);
-        });
+        return getSelectedFolderPaths(this.state.selectedKeys);
     }
 
     getPlatforms(): string[] {
@@ -484,25 +452,7 @@ export class BookmarksPanelController {
     }
 
     getBookmarkRowSubtitle(bookmark: Bookmark): string {
-        return `${bookmark.platform} · ${bookmark.folderPath} · ${formatDate(bookmark.timestamp)}`;
-    }
-
-    private getDescendantKeysForFolder(path: string): string[] {
-        const normalized = PathUtils.normalize(path);
-        const keys: string[] = [];
-
-        for (const f of this.folders) {
-            if (f.path === normalized) continue;
-            if (PathUtils.isDescendantOf(f.path, normalized)) keys.push(folderKey(f.path));
-        }
-
-        for (const b of this.bookmarks) {
-            if (b.folderPath === normalized || PathUtils.isDescendantOf(b.folderPath, normalized)) {
-                keys.push(bookmarkKey(getBookmarkIdentityKey(b)));
-            }
-        }
-
-        return keys;
+        return `${bookmark.platform} · ${bookmark.folderPath} · ${formatBookmarkTimestamp(bookmark.timestamp)}`;
     }
 
     async toggleBookmarkFromToolbar(params: {

@@ -1,6 +1,6 @@
 # Architecture Blueprint (To-Be)
 
-本文定义 AI-MarkDone 的目标架构蓝图，用于指导 **推倒重来（greenfield rewrite）**。蓝图的目标不是复刻旧实现，而是把边界做成可执行的契约，并让模块能并行演进、互不干扰，且更符合 MV3 的可审计/可恢复要求。
+本文定义 AI-MarkDone 的目标架构蓝图，用于指导当前主线代码的持续演进。蓝图的目标不是复刻旧实现，而是把边界做成可执行的契约，并让模块能并行演进、互不干扰，且更符合 MV3 的可审计/可恢复要求。
 
 重写总纲见：
 
@@ -46,7 +46,9 @@
 1) **UI 层**
    - 只负责：渲染、交互状态、事件绑定、把用户意图发给 Service
 2) **Service 层（用例编排）**
-   - 只负责：统一操作逻辑（跨站一致），不触碰 DOM/存储写入细节
+   - 分为：
+     - `pure/domain service`：统一操作逻辑（跨站一致），不触碰 DOM/存储写入细节
+     - `content-facing feature service`：允许处理 DOM clone、parser node、content fragment，但不得直接持有 host selector、runtime wiring、UI shell
 3) **Driver 层（适配/基础设施）**
    - 只负责：站点适配、DOM 采集与注入、Browser API、存储/网络/权限等基础设施
 
@@ -164,6 +166,12 @@
 - Markdown parser / renderer：`src/services/markdown-parser/*`, `src/services/renderer/*`
 - Settings use cases：`src/services/settings/*`
 
+补充说明：
+
+- `src/services/settings/*`、`src/services/bookmarks/*` 更接近 `pure/domain service`
+- `src/services/copy/*`、`src/services/reader/*`、`src/services/export/*`、`src/services/sending/*` 当前更接近 `content-facing feature service`
+- `saveMessagesPdf.ts` 属于明确允许的导出例外：service 生成最终文档并消费样式 token
+
 ### Driver 层（目标：站点差异与基础设施能力中心）
 
 当前主要落点：
@@ -198,7 +206,9 @@
 - `--aimd-*` 是唯一 canonical design token source；Tailwind 只能通过语义 alias 消费这些 token
 - Tailwind 只允许用于 overlay-style singleton UI；toolbar 与高频注入 UI 保持轻量实现，不引入 Tailwind
 - overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
+- 同一个 named surface 一旦拥有 2 个以上入口，baseline chrome 必须稳定；入口不得直接传 low-level layout/chrome flags，差异必须由 surface 自己声明 named profiles
 - 一旦 overlay / transient dismiss contract 出现第二个明确消费者，就必须提升到共享 `components/*` 或 `overlay/*`；只有带明显业务假设的 primitive 才允许继续保持 family-scoped
+- `OverlaySession` 只约束 overlay surfaces；anchored popover 可以保留 local interaction boundary，但必须在 `CURRENT_STATE.md` 中明确标记为 intentional local，而不是共享 contract 缺口
 - toolbar component token 必须统一使用 `--aimd-toolbar-*`，禁止继续出现 `--aimd-tb-*` 这类未显式标明组件域的局部伪系统 token
 - 若使用 Tailwind，必须使用 `tw` 前缀并禁用 Preflight，避免其成为第二套样式真源
 - 页面内 UI 必须使用 Shadow DOM（或等效隔离容器）避免样式冲突

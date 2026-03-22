@@ -101,7 +101,7 @@ describe('ReaderPanel navigation', () => {
         }
     });
 
-    it('can force plain round pager dots even when items carry bookmark metadata', async () => {
+    it('uses the bookmark-preview profile to force plain round pager dots even when items carry bookmark metadata', async () => {
         const panel = new ReaderPanel();
         try {
             await panel.show(
@@ -111,7 +111,7 @@ describe('ReaderPanel navigation', () => {
                 ],
                 0,
                 'light',
-                { dotStyle: 'plain' } as any
+                { profile: 'bookmark-preview' }
             );
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
@@ -192,6 +192,28 @@ describe('ReaderPanel navigation', () => {
             expect(dotsRule).toContain('overflow-x: auto;');
             expect(dotsRule).toContain('white-space: nowrap;');
             expect(scrollIntoView).toHaveBeenCalled();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('keeps one fixed pager dot size and gap even for very long conversations', async () => {
+        const panel = new ReaderPanel();
+        const items = Array.from({ length: 120 }, (_, index) => ({
+            id: `item-${index}`,
+            userPrompt: `Q${index + 1}`,
+            content: `md${index + 1}`,
+        }));
+
+        try {
+            await panel.show(items, 60, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const dots = shadow.querySelector<HTMLElement>('.reader-dots');
+
+            expect(dots?.style.getPropertyValue('--aimd-dot-size')).toBe('10px');
+            expect(dots?.style.getPropertyValue('--aimd-dot-gap')).toBe('10px');
         } finally {
             panel.hide();
         }

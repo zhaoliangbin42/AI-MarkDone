@@ -170,16 +170,6 @@ export abstract class SiteAdapter {
         return false;
     }
 
-    /**
-     * Deep Research message detection (optional).
-     */
-    isDeepResearchMessage?(_messageElement: HTMLElement): boolean;
-
-    /**
-     * If a Deep Research panel is open, return its content root for parsing.
-     */
-    getDeepResearchContent?(): HTMLElement | null;
-
     // =========================
     // Message sending (composer)
     // =========================

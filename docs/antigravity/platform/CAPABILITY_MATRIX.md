@@ -1,52 +1,39 @@
 # Platform Capability Matrix
 
-> **Version**: 2.9.0
-> **Last Updated**: 2026-02-06
-> **Purpose**: 各平台功能支持状态一览
+> **Purpose**: 只表达“当前支持哪些宿主平台、有哪些平台特有差异”。具体能力如何工作，请以 `docs/FEATURES.md` 为准。
 
 ---
 
-## 功能支持矩阵
+## 1. Supported Hosts
 
-| 功能 | ChatGPT | Gemini | Claude | Deepseek | 备注 |
-|:---|:---:|:---:|:---:|:---:|:---|
-| **基础功能** | | | | | |
-| Markdown 复制 | ✅ | ✅ | 🔲 | ✅ | |
-| LaTeX 公式复制 | ✅ | ✅ | 🔲 | ✅ | KaTeX 渲染 |
-| 代码块复制 | ✅ | ✅ | 🔲 | ✅ | |
-| 字数统计 | ✅ | ✅ | ✅ | ✅ | CJK 感知 |
-| 工具栏注入 | ✅ | ✅ | ✅ | ✅ | |
-| ChatGPT 消息折叠 + 右侧快捷按钮 | ✅ | ❌ | ❌ | ❌ | ChatGPT 专属设置 |
-| **阅读器功能** | | | | | |
-| ReaderPanel 打开 | ✅ | ✅ | 🔲 | ✅ | |
-| 分页导航 | ✅ | ✅ | 🔲 | ✅ | |
-| 流式输出检测 | ✅ | ✅ | ✅ | ✅ | Copy Button 机制 |
-| 用户提问提取 | ✅ | ✅ | ✅ | ✅ | Pagination Tooltip |
-| **书签功能** | | | | | |
-| 消息收藏 | ✅ | ✅ | 🔲 | ✅ | |
-| 书签管理面板 | ✅ | ✅ | 🔲 | ✅ | |
-| **消息发送** _(v2.4.0)_ | | | | | |
-| 输入框同步 | 🔲 | 🔲 | 🔲 | 🔲 | 待实现 |
-| 发送按钮模拟 | 🔲 | 🔲 | 🔲 | 🔲 | 待实现 |
-| 回复完成检测 | 🔲 | 🔲 | 🔲 | 🔲 | 待实现 |
-| **导出功能** _(v2.7.0)_ | | | | | |
-| Markdown 导出 | 🔲 | 🔲 | 🔲 | 🔲 | 计划中 |
-| PDF 导出 | 🔲 | 🔲 | 🔲 | 🔲 | 计划中 |
+| Platform | Status | Host patterns | Notable deltas |
+|:---|:---:|:---|:---|
+| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 ChatGPT Folding 与右侧 fold dock；保留 classic host 链接与权限一致性门禁。 |
+| Gemini | ✅ Active | `gemini.google.com` | 支持 Gemini-specific DOM 结构与 thought/noise 过滤。 |
+| Claude | ✅ Active | `claude.ai` | 支持 Claude action-row 缺席时的稳定注入与发送桥接。 |
+| DeepSeek | ✅ Active | `chat.deepseek.com` | 支持 DeepSeek DOM 结构、噪音过滤与消息入口。 |
+
+说明：
+
+- 以上 host 列表必须与 `manifest.chrome.json`、`manifest.firefox.json`、background host gating、`src/popup/popup.html` 保持一致。
+- 当前仓库通过 `tests/unit/governance/supported-hosts-consistency.test.ts` 对这四处的一致性做自动化门禁。
 
 ---
 
-## 图例
+## 2. Capability Scope By Platform
 
-| 符号 | 含义 |
-|:---:|:---|
-| ✅ | 已实现 |
-| 🔲 | 计划中 |
-| ⚠️ | 部分支持 |
-| ❌ | 不支持 |
+- 下列共享能力以“支持的平台页面上行为一致”为目标，能力定义与验收口径统一写在 `docs/FEATURES.md`：
+  - Message toolbar / Reader / Markdown copy / Word count
+  - Bookmarks panel / Settings tab / Sponsor tab
+  - Send modal / Reader send / Export actions
+- 当前唯一明确的**平台专属**能力是：
+  - ChatGPT Folding（仅 ChatGPT hosts）
+- 当前明确**不继续推进**的平台方向：
+  - Gemini Deep Research（不纳入产品支持范围）
 
 ---
 
-## 平台特有配置
+## 3. Platform-Specific Configuration
 
 ### ChatGPT
 
@@ -67,7 +54,7 @@
 | 发送按钮 | `.send-button.submit` |
 | 特殊处理 | `model-thoughts` 噪音过滤 |
 
-### Claude _(v2.6.0)_
+### Claude
 
 | 项目 | 值 |
 |:---|:---|
@@ -76,7 +63,7 @@
 | 发送按钮 | `button[type="submit"]` |
 | 特殊处理 | 工具栏注入在消息内容之后（非action bar之前）|
 
-### Deepseek _(v2.7.0)_
+### DeepSeek
 
 | 项目 | 值 |
 |:---|:---|
@@ -84,14 +71,3 @@
 | 输入框 | Textarea (`.d96f2d2a`, `._27c9245`) |
 | 发送按钮 | `.ds-floating-button` (via file input anchor) |
 | 特殊处理 | `.ds-think-content` 噪音过滤，代码块 banner 移除 |
-
----
-
-## 变更记录
-
-| 版本 | 日期 | 变更内容 |
-|:---|:---|:---|
-| 2.9.0 | 2026-02-06 | ChatGPT 新增消息折叠与右侧快捷按钮，设置迁移到 ChatGPT 专属分组 |
-| 2.7.0 | 2026-01-17 | 添加 Deepseek 平台支持，更新功能矩阵 |
-| 2.6.0 | 2026-01-12 | 添加 Claude.ai 平台支持，工具栏注入和流式检测 |
-| 2.3.0 | 2026-01-07 | 初始版本，列出已实现功能 |

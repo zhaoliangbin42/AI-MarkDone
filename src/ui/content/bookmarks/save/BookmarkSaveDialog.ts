@@ -23,10 +23,10 @@ import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/f
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
 import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
+import { OverlaySession } from '../../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../../utils/tooltip';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
 import { getBookmarkSaveDialogCss } from './bookmarkSaveDialogCss';
-import { BookmarksOverlaySession } from '../ui/BookmarksOverlaySession';
 
 type FolderLite = { path: string; name: string; depth: number };
 
@@ -46,7 +46,7 @@ type RootFolderModalState = { value: string; error: string; note: string };
 type InlineSubfolderState = { parentPath: string; value: string; error: string; note: string };
 
 export class BookmarkSaveDialog {
-    private overlaySession: BookmarksOverlaySession | null = null;
+    private overlaySession: OverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private theme: Theme = 'light';
@@ -158,7 +158,7 @@ export class BookmarkSaveDialog {
 
     private mount(): void {
         if (this.overlaySession) return;
-        this.overlaySession = new BookmarksOverlaySession({
+        this.overlaySession = new OverlaySession({
             id: 'aimd-bookmark-save-dialog-host',
             theme: this.theme,
             surfaceCss: this.getCss(),
