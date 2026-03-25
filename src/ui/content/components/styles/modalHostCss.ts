@@ -1,6 +1,8 @@
 import { getInputFieldCss } from './inputFieldCss';
+import { getSharedBackdropMotionCss } from './sharedBackdropMotionCss';
+import { getModalMotionCss } from './modalMotionCss';
 
-export function getModalHostCss(): string {
+export function getModalHostShellCss(): string {
     return `
 ${getInputFieldCss()}
 .mock-modal-host {
@@ -347,5 +349,13 @@ ${getInputFieldCss()}
   outline: 2px solid var(--aimd-focus-ring);
   outline-offset: 2px;
 }
+`;
+}
+
+export function getModalHostCss(): string {
+    return `
+${getSharedBackdropMotionCss()}
+${getModalMotionCss()}
+${getModalHostShellCss()}
 `;
 }

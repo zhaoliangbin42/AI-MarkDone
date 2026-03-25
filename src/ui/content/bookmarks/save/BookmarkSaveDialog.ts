@@ -23,6 +23,9 @@ import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/f
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
 import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
+import { beginSurfaceMotionClose, cancelSurfaceMotionClose, setSurfaceMotionOpening } from '../../components/motionLifecycle';
+import { ensureBackdropElement, ensureStableElementFromHtml } from '../../components/stableSurface';
+import { SurfaceFocusLifecycle } from '../../components/surfaceFocusLifecycle';
 import { OverlaySession } from '../../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../../utils/tooltip';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
@@ -59,18 +62,31 @@ export class BookmarkSaveDialog {
     private rootFolderModal: RootFolderModalState | null = null;
     private subfolderInline: InlineSubfolderState | null = null;
     private lastSelectedFolderPathCache: string | null = null;
+    private closing = false;
+    private motionNeedsOpen = false;
+    private readonly focusLifecycle = new SurfaceFocusLifecycle();
 
     isOpen(): boolean {
         return Boolean(this.overlaySession);
     }
 
     async open(params: OpenParams): Promise<BookmarkSaveDialogResult> {
-        if (this.overlaySession) this.close({ ok: false, reason: 'cancel' });
+        this.focusLifecycle.capture();
+        this.resolve?.({ ok: false, reason: 'cancel' });
+        this.resolve = null;
         this.theme = params.theme;
         this.status = '';
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
+        if (this.overlaySession && this.closing) {
+            cancelSurfaceMotionClose({
+                shell: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window'),
+                backdrop: this.overlaySession.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay'),
+            });
+        }
+        this.closing = false;
+        this.motionNeedsOpen = !this.overlaySession;
 
         const mode: SaveDialogMode = params.mode ?? 'create';
         const title = deriveDefaultTitle({ userPrompt: params.userPrompt, existingTitle: params.existingTitle ?? null });
@@ -95,8 +111,6 @@ export class BookmarkSaveDialog {
             currentFolderPath: params.currentFolderPath ?? null,
         });
 
-        window.setTimeout(() => this.overlaySession?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')?.focus(), 0);
-
         return await new Promise<BookmarkSaveDialogResult>((resolve) => {
             this.resolve = resolve;
         });
@@ -109,12 +123,30 @@ export class BookmarkSaveDialog {
     }
 
     private close(result: BookmarkSaveDialogResult): void {
+        if (this.closing) return;
+        const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
+        if (this.overlaySession && panel) {
+            this.closing = true;
+            beginSurfaceMotionClose({
+                shell: panel,
+                backdrop,
+                onClosed: () => this.finishClose(result),
+                fallbackMs: 560,
+            });
+            return;
+        }
+        this.finishClose(result);
+    }
+
+    private finishClose(result: BookmarkSaveDialogResult): void {
         const resolve = this.resolve;
         this.resolve = null;
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
         this.state = null;
@@ -122,6 +154,8 @@ export class BookmarkSaveDialog {
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
+        this.closing = false;
+        this.motionNeedsOpen = false;
         resolve?.(result);
     }
 
@@ -178,13 +212,26 @@ export class BookmarkSaveDialog {
     }
 
     private render(): void {
-        if (!this.overlaySession || !this.state) return;
+        if (!this.overlaySession || !this.state || this.closing) return;
         this.overlaySession.setSurfaceCss(this.getCss());
-        const backdrop = document.createElement('div');
-        backdrop.className = 'panel-stage__overlay';
-        this.overlaySession.replaceBackdrop(backdrop);
-        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
-        const panel = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
+        const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
+            this.overlaySession.surfaceRoot,
+            '.panel-window--bookmark-save',
+            this.getHtml(),
+        );
+        if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
+            setSurfaceMotionOpening([backdrop, panel]);
+            this.focusLifecycle.scheduleInitialFocus({
+                surface: panel,
+                selectors: [
+                    '[data-role="bookmark-save-title"]',
+                    '[data-action="bookmark-save-submit"]',
+                    '[data-action="close-panel"]',
+                ],
+            });
+            this.motionNeedsOpen = false;
+        }
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => {
@@ -439,7 +486,10 @@ export class BookmarkSaveDialog {
                 });
 
                 footer.append(cancel, save);
-                window.setTimeout(() => input.focus(), 0);
+                this.focusLifecycle.scheduleInitialFocus({
+                    surface: this.overlaySession?.modalRoot.querySelector<HTMLElement>('.mock-modal') ?? null,
+                    selectors: ['[data-role="root_folder_input"]', '[data-action="modal-confirm"]', '[data-action="modal-cancel"]'],
+                });
             },
         });
     }

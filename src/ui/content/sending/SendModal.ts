@@ -5,7 +5,10 @@ import { sendText } from '../../../services/sending/sendService';
 import { xIcon } from '../../../assets/icons';
 import { t } from '../components/i18n';
 import { getInputFieldCss } from '../components/styles/inputFieldCss';
+import { getModalMotionCss } from '../components/styles/modalMotionCss';
 import { TooltipDelegate } from '../../../utils/tooltip';
+import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
+import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { OverlaySession } from '../overlay/OverlaySession';
 
 export class SendModal {
@@ -14,6 +17,9 @@ export class SendModal {
     private adapter: SiteAdapter | null = null;
     private theme: Theme = 'light';
     private pending: boolean = false;
+    private closing = false;
+    private motionNeedsOpen = false;
+    private readonly focusLifecycle = new SurfaceFocusLifecycle();
 
     isOpen(): boolean {
         return !!this.overlaySession;
@@ -26,8 +32,11 @@ export class SendModal {
     }
 
     open(params: { adapter: SiteAdapter; theme: Theme; initialText?: string }): void {
+        this.focusLifecycle.capture();
         this.adapter = params.adapter;
         this.theme = params.theme;
+        this.closing = false;
+        this.motionNeedsOpen = true;
         this.mount();
 
         const text = params.initialText ?? (() => {
@@ -37,15 +46,31 @@ export class SendModal {
 
         const textarea = this.overlaySession?.surfaceRoot.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) textarea.value = text;
-        window.setTimeout(() => textarea?.focus(), 0);
     }
 
     close(opts?: { syncBack?: boolean }): void {
+        if (this.closing) return;
         const adapter = this.adapter;
         const text = this.overlaySession?.surfaceRoot.querySelector<HTMLTextAreaElement>('[data-role="text"]')?.value ?? '';
 
         if (opts?.syncBack && adapter) {
             void writeComposer(adapter, text, { focus: false, strategy: 'auto' });
+        }
+
+        const dialog = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.dialog');
+        const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
+        if (this.overlaySession && dialog) {
+            this.closing = true;
+            beginSurfaceMotionClose({
+                shell: dialog,
+                backdrop,
+                onClosed: () => {
+                    this.unmount();
+                    this.adapter = null;
+                },
+                fallbackMs: 600,
+            });
+            return;
         }
 
         this.unmount();
@@ -67,6 +92,15 @@ export class SendModal {
         backdrop.className = 'panel-stage__overlay';
         this.overlaySession.replaceBackdrop(backdrop);
         this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
+        const dialog = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.dialog');
+        if (this.motionNeedsOpen) {
+            setSurfaceMotionOpening([backdrop, dialog]);
+            this.focusLifecycle.scheduleInitialFocus({
+                surface: dialog,
+                selectors: ['[data-role="text"]', '[data-action="send"]', '[data-action="close"]'],
+            });
+            this.motionNeedsOpen = false;
+        }
 
         this.overlaySession.backdropRoot.addEventListener('click', () => this.close({ syncBack: true }));
         this.overlaySession.surfaceRoot.addEventListener('click', (event) => {
@@ -81,7 +115,6 @@ export class SendModal {
             }
         });
 
-        const dialog = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.dialog');
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => this.close({ syncBack: true }),
@@ -100,9 +133,12 @@ export class SendModal {
     private unmount(): void {
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
+        this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
         this.pending = false;
+        this.closing = false;
+        this.motionNeedsOpen = false;
     }
 
     private setStatus(text: string): void {
@@ -179,6 +215,7 @@ button, input, select, textarea {
 }
 
 ${getInputFieldCss()}
+${getModalMotionCss()}
 
 .send-modal-stage {
   min-height: 100vh;

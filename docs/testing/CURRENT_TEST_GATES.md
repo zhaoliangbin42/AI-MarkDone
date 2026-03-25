@@ -55,6 +55,20 @@ For large structural refactors, the minimum acceptable closing gate is:
 
 If the change affects a shared surface with 2+ entrypoints, verification must also prove that production callers route through the surface-owned profile contract instead of directly shaping low-level chrome flags.
 
+If the change affects shared overlay / modal motion, verification must also prove:
+
+- surfaces enter `opening/open/closing` in the expected order
+- close paths do not immediately unmount the surface before exit motion completes
+- ESC / outside-click dismiss still fire once
+- focus restore still happens after the close pipeline completes
+- reduced-motion fallback does not reintroduce geometry or lifecycle regressions
+
+Do not assume `npm run test:acceptance` covers this contract by itself. Shared motion changes require:
+
+- affected shared motion unit suite
+- affected surface-owner tests
+- manual browser verification of open/close feel on the touched surface families
+
 ### Bug Fixes
 
 For testable bugs:
@@ -91,6 +105,7 @@ For new UI modules or major UI refactors, manual regression now also includes th
   - backdrop / surface / modal layering
   - repeated open/close stability
   - modal stacking and ESC routing
+  - open/close motion state transitions and delayed unmount behavior
   - both Chromium-style shared stylesheet and Firefox-style fallback paths
 
 ---
@@ -105,6 +120,9 @@ For new UI modules or major UI refactors, manual regression now also includes th
   - targeted tests + `npm run build`
 - Shared contract or boundary change
   - `npm run test:smoke` + `npm run build`
+- Shared overlay / modal motion change
+  - affected motion unit suite + affected surface-owner tests + `npm run build`
+  - add `npm run test:acceptance` when the change also updates governance/docs about the active gate
 - High-risk or cross-module change
   - `npm run test:core` + `npm run build`
 - Release preparation

@@ -13,6 +13,10 @@ import { xIcon, fileCodeIcon, fileTextIcon } from '../../../assets/icons';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from '../components/Icon';
+import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
+import { cancelSurfaceMotionClose } from '../components/motionLifecycle';
+import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
+import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 
 type State = {
     theme: Theme;
@@ -42,13 +46,16 @@ export class SaveMessagesDialog {
         saving: false,
         turnsCount: 0,
     };
+    private closing = false;
+    private motionNeedsOpen = false;
+    private readonly focusLifecycle = new SurfaceFocusLifecycle();
 
     isOpen(): boolean {
         return Boolean(this.overlaySession);
     }
 
     open(adapter: SiteAdapter, theme: Theme): void {
-        if (this.overlaySession) this.close();
+        this.focusLifecycle.capture();
         this.adapter = adapter;
         this.state.theme = theme;
 
@@ -59,22 +66,50 @@ export class SaveMessagesDialog {
         this.state.selected = new Set(turns.map((_, i) => i));
         this.state.format = 'markdown';
         this.state.saving = false;
+        if (this.overlaySession && this.closing) {
+            cancelSurfaceMotionClose({
+                shell: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window'),
+                backdrop: this.overlaySession.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay'),
+            });
+        }
+        this.closing = false;
+        this.motionNeedsOpen = !this.overlaySession;
 
         this.mount();
         this.render();
     }
 
     close(): void {
+        if (this.closing) return;
+        const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
+        if (this.overlaySession && panel) {
+            this.closing = true;
+            beginSurfaceMotionClose({
+                shell: panel,
+                backdrop,
+                onClosed: () => this.finishClose(),
+                fallbackMs: 560,
+            });
+            return;
+        }
+        this.finishClose();
+    }
+
+    private finishClose(): void {
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
         this.adapter = null;
         this.turns = [];
         this.metadata = null;
         this.state.selected.clear();
+        this.closing = false;
+        this.motionNeedsOpen = false;
     }
 
     private mount(): void {
@@ -107,11 +142,30 @@ export class SaveMessagesDialog {
     }
 
     private render(): void {
-        if (!this.overlaySession) return;
+        if (!this.overlaySession || this.closing) return;
 
         this.overlaySession.setSurfaceCss(this.getCss());
-        this.overlaySession.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
-        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
+        const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
+        const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
+            this.overlaySession.surfaceRoot,
+            '.panel-window--save',
+            this.getHtml(),
+        );
+        this.overlaySession.syncKeyboardScope({
+            root: this.overlaySession.host,
+            onEscape: () => this.close(),
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            trapTabWithin: panel ?? this.overlaySession.host,
+        });
+        if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
+            setSurfaceMotionOpening([backdrop, panel]);
+            this.focusLifecycle.scheduleInitialFocus({
+                surface: panel,
+                selectors: ['[data-action="save-turns"]', '[data-action="close-panel"]'],
+            });
+            this.motionNeedsOpen = false;
+        }
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
     }
 
@@ -191,7 +245,7 @@ export class SaveMessagesDialog {
             this.close();
         } finally {
             this.state.saving = false;
-            if (this.overlaySession) this.render();
+            if (this.overlaySession && !this.closing) this.render();
         }
     }
 

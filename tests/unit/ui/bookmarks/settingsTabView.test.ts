@@ -231,5 +231,29 @@ describe('SettingsTabView', () => {
         expect(actions.setChatGptSettings).toHaveBeenCalledWith({ foldingMode: 'keep_last_n' });
         expect(actions.setChatGptSettings).toHaveBeenCalledWith({ defaultExpandedCount: 12 });
         expect(actions.setLanguage).toHaveBeenCalledWith('zh_CN');
+        expect(actions.setReaderSettings).not.toHaveBeenCalled();
+    });
+
+    it('does not render a reader markdown theme select once the feature is removed', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: {
+                    ...structuredClone(baseSettings),
+                    reader: { renderCodeInReader: true },
+                },
+                storageUsage: null,
+            })),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        const trigger = root.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="reader-markdown-theme"]');
+
+        expect(trigger).toBeNull();
     });
 });

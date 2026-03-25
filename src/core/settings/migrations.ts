@@ -38,8 +38,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             ...stored.behavior,
         },
         reader: {
-            ...DEFAULT_SETTINGS.reader,
-            ...stored.reader,
+            renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
         },
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -130,8 +129,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             ...behavior,
         } as any,
         reader: {
-            ...DEFAULT_SETTINGS.reader,
-            ...reader,
+            renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
         } as any,
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,

@@ -72,6 +72,36 @@ describe('background settings handler', () => {
         expect((getRes?.response as any).data.value.showWordCount).toBe(false);
     });
 
+    it('drops removed reader markdown theme settings and only persists the remaining reader fields', async () => {
+        const sync = mockSyncStorage();
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        (globalThis as any).chrome = undefined;
+
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const setRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_reader_theme_set',
+            type: 'settings:setCategory',
+            payload: { category: 'reader', value: { renderCodeInReader: false, markdownTheme: 'github-dark-high-contrast' } },
+        } as any);
+        expect(setRes?.response.ok).toBe(true);
+
+        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
+        expect(raw.reader.renderCodeInReader).toBe(false);
+        expect(raw.reader).not.toHaveProperty('markdownTheme');
+
+        const getRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_reader_theme_get',
+            type: 'settings:getCategory',
+            payload: { category: 'reader' },
+        } as any);
+
+        expect(getRes?.response.ok).toBe(true);
+        expect((getRes?.response as any).data.value.renderCodeInReader).toBe(false);
+        expect((getRes?.response as any).data.value).not.toHaveProperty('markdownTheme');
+    });
+
     it('rejects legacy performance category through the protocol', async () => {
         const sync = mockSyncStorage();
         (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };

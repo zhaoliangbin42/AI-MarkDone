@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { ModalHost } from '@/ui/content/components/ModalHost';
 import { getModalHostCss } from '@/ui/content/components/styles/modalHostCss';
 
+async function flushMotionFrames(): Promise<void> {
+    await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+}
+
 describe('ModalHost', () => {
     it('uses shared modal title and control tokens in the chrome contract', () => {
         const css = getModalHostCss();
@@ -183,15 +189,62 @@ describe('ModalHost', () => {
         topDialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
         await Promise.resolve();
 
+        const topOverlay = modalRoot.querySelectorAll<HTMLElement>('.mock-modal-overlay')[1];
+        expect(topOverlay?.dataset.motionState).toBe('closing');
+        topDialog.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await Promise.resolve();
+
         expect(modalRoot.querySelectorAll('.mock-modal-overlay')).toHaveLength(1);
         await expect(innerPromise).resolves.toBe(false);
 
-        modalRoot.querySelector<HTMLElement>('.mock-modal')?.dispatchEvent(
+        const outerDialog = modalRoot.querySelector<HTMLElement>('.mock-modal');
+        outerDialog?.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
         );
+        await Promise.resolve();
+        expect(modalRoot.querySelector<HTMLElement>('.mock-modal-overlay')?.dataset.motionState).toBe('closing');
+        outerDialog?.dispatchEvent(new Event('animationend', { bubbles: true }));
         await Promise.resolve();
 
         await expect(outerPromise).resolves.toBe(false);
         expect(document.activeElement).toBe(trigger);
+    });
+
+    it('marks modal overlays as closing before removing them after animation end', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const modalRoot = document.createElement('div');
+        shadow.appendChild(modalRoot);
+        document.body.appendChild(host);
+
+        const modal = new ModalHost(modalRoot);
+        const resultPromise = modal.confirm({
+            kind: 'info',
+            title: 'Close me',
+            message: 'Animate out',
+            confirmText: 'OK',
+            cancelText: 'Cancel',
+        });
+
+        await Promise.resolve();
+
+        const overlay = modalRoot.querySelector<HTMLElement>('.mock-modal-overlay');
+        const dialog = modalRoot.querySelector<HTMLElement>('.mock-modal');
+        expect(overlay?.dataset.motionState).toBe('opening');
+        expect(dialog?.dataset.motionState).toBe('opening');
+
+        await flushMotionFrames();
+
+        expect(overlay?.dataset.motionState).toBe('open');
+        expect(dialog?.dataset.motionState).toBe('open');
+
+        overlay?.querySelector<HTMLButtonElement>('[data-action="modal-cancel"]')?.click();
+        expect(overlay?.dataset.motionState).toBe('closing');
+        expect(dialog?.dataset.motionState).toBe('closing');
+        expect(modalRoot.querySelector('.mock-modal-overlay')).toBeTruthy();
+
+        dialog?.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await expect(resultPromise).resolves.toBe(false);
+        expect(modalRoot.querySelector('.mock-modal-overlay')).toBeNull();
     });
 });

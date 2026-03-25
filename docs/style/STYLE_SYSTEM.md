@@ -10,7 +10,6 @@
 - Token semantic layer：`src/style/system-tokens.ts`
 - Token export / compat layer：`src/style/tokens.ts`
 - 页面级 token 注入：`src/style/pageTokens.ts`
-- UI theme registry：`src/ui/foundation/themes/*`
 - 样式红线规则：`.codex/rules/critical-rules.md`
 
 说明：
@@ -18,7 +17,7 @@
 - `reference-tokens.ts` 只定义原始值，不直接面向组件消费
 - `system-tokens.ts` 负责语义 token 与稳定导出
 - `tokens.ts` 只负责组合与兼容出口，不再作为第二套独立视觉源
-- 页面内 UI 统一消费稳定的 `--aimd-*` 语义 token 或主题层导出的稳定语义值
+- 页面内 UI 统一消费稳定的 `--aimd-*` 语义 token
 - 组件内部不得补一套 panel-scoped “伪系统 token”
 - Tailwind 如被采用，只能作为 overlay authoring 层；其 alias 必须映射回 `--aimd-*`
 
@@ -48,6 +47,13 @@
 - `--aimd-panel-title-line-height`
 - `--aimd-modal-title-size`
 - `--aimd-modal-title-weight`
+
+当前共享 motion contract 的 canonical 范围包括：
+
+- shared overlay backdrop fade-in / fade-out
+- `panel-window` family 的 open / close pop motion
+- `modal-dialog` family 的 open / close pop motion
+- reduced-motion fallback
 
 ---
 
@@ -92,8 +98,8 @@
    - 视觉皮肤统一通过主题 preset 和 token 调整
 5. 不要绕过受控样式注入链路，自己往 `document.head` 注样式。
    - 每个 `ShadowRoot` 都需要独立样式上下文和唯一命名域
-6. 主题切换由 driver 和 theme provider 负责。
-   - 组件只消费 `themeMode` / `themePreset`
+6. 主题切换由 driver 和 token 注入链路负责。
+   - 组件消费稳定的 `setTheme(theme)` / `data-aimd-theme` / `--aimd-*`
    - 组件本身不判断宿主站点是 dark 还是 light
 7. Tailwind 只允许进入 overlay-style singleton UI。
    - toolbar、inline message UI、其他高频重复注入 surface 禁止使用 Tailwind
@@ -113,19 +119,17 @@
 
 - Theme detection：通过 adapter 提供 `ThemeDetector`（driver 层）：`src/drivers/content/adapters/sites/*`
 - Theme manager：`src/drivers/content/theme/theme-manager.ts`
-- UI 组件：通过 `themeMode + themePreset` 驱动重渲染；遗留 UI 继续通过 `setTheme(theme)` 或 `data-aimd-theme` 驱动 token 重算
+- UI 组件：通过 `setTheme(theme)`、`data-aimd-theme` 与 token 重算驱动主题切换
 
 主题入口：
 
 - mode：`light | dark`
-- preset：`native-default | material-like`（可扩展）
-- registry：`src/ui/foundation/themes/registry.ts`
-- provider：`src/ui/foundation/*`
+- runtime bridge：`setTheme(theme)` / `data-aimd-theme`
+- token source：`src/style/tokens.ts`
 
 Theme / Runtime 边界：
 
 - 主题对象负责组件视觉语义，不负责解决多 `ShadowRoot` 的样式注入问题
-- UI theme provider 必须同时负责 theme 选择与每个 `ShadowRoot` 的样式上下文隔离
 - 主题切换必须通过更新 `--aimd-*` token 值生效；不允许把 Tailwind utility/class 切换当作主题真相
 
 Overlay runtime ownership：
@@ -142,6 +146,14 @@ Overlay runtime ownership：
   - 局部交互
   - controller 订阅与状态编排
 - modal layer 必须有明确 slot；不要让 modal 任意追加到 overlay `ShadowRoot` 的未知位置
+- open / close motion lifecycle 由具体 surface owner 驱动，`OverlaySession` 不负责延迟卸载；surface 必须显式管理 `opening/open/closing` 并在动画结束后再卸载
+
+Reader markdown styling：
+
+- Reader 正文继续使用组件内的默认 tokenized Markdown 主题
+- 正文样式与 Reader shell 一样，仍以 `--aimd-*` token system 为唯一视觉真相
+- 入口方不能通过 preset、CSS text 或 theme object 改写 Reader 正文排版
+- 若未来再次评估外部 Markdown 主题，必须先完成 HTML contract、Shadow DOM layout ownership 与代码高亮 pairing 审查，不能直接把任意第三方主题包视为可替换样式源
 
 ---
 
@@ -200,6 +212,7 @@ Token 提升规则：
 - panel/header/footer/icon-button/action-button 这类 chrome 结构一旦被 2 个以上 overlay 模块复用，必须下沉到共享 primitive，而不是复制一份近似 CSS
 - panel primitive 与 modal primitive 可以并存，但 modal primitive 必须被明确视为正式 subtype，并继续复用同一套 control state 语义
 - 模块私有变量只允许表达结构 personality；不允许继续承载跨模块共享的 chrome 尺寸
+- enter/exit keyframes 一旦被 2 个或以上 overlay/modal surface 复用，必须收敛到共享 chrome contract；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似 motion
 
 禁止：
 
@@ -216,5 +229,5 @@ Token 提升规则：
 - 新增 UI 容器类型（例如 options 页面 UI、iframe 注入）
 - 主题同步机制变更（ThemeManager 或 token 切换方式）
 - z-index 体系调整
-- UI theme registry 新增或废弃 preset
+- token 注入链路、theme detection 或 Shadow DOM 主题同步机制发生变化
 - Tailwind alias 边界、overlay 范围或 mock-first 视觉流程发生变化

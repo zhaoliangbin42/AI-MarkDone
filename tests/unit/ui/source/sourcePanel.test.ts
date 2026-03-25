@@ -82,6 +82,9 @@ describe('SourcePanel', () => {
         expect(shadow.querySelector('.aimd-tooltip[data-variant="ephemeral"]')?.textContent).toContain('Copied');
 
         shadow.querySelector<HTMLButtonElement>('[data-action="close-panel"]')!.click();
+        const shell = shadow.querySelector<HTMLElement>('.panel-window--source');
+        expect(shell?.dataset.motionState).toBe('closing');
+        shell?.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.getElementById('aimd-source-panel-host')).toBeNull();
     });
 
@@ -144,11 +147,36 @@ describe('SourcePanel', () => {
         expect(document.getElementById('aimd-source-panel-host')).toBeTruthy();
 
         panel.hide();
+        const host = document.getElementById('aimd-source-panel-host');
+        const shell = host?.shadowRoot?.querySelector<HTMLElement>('.panel-window--source');
+        expect(host).toBeTruthy();
+        expect(shell?.dataset.motionState).toBe('closing');
+        shell?.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.getElementById('aimd-source-panel-host')).toBeNull();
 
         await setLocale('zh_CN');
         await flushUi();
 
+        expect(document.getElementById('aimd-source-panel-host')).toBeNull();
+    });
+
+    it('keeps the source panel mounted in a closing state until the animation ends', async () => {
+        await setLocale('en');
+        const panel = new SourcePanel();
+        panel.show({ theme: 'light', content: 'RAW' });
+
+        const host = document.getElementById('aimd-source-panel-host');
+        expect(host).toBeTruthy();
+        const shadow = host!.shadowRoot!;
+        const shell = shadow.querySelector<HTMLElement>('.panel-window--source')!;
+
+        panel.hide();
+
+        expect(document.getElementById('aimd-source-panel-host')).toBeTruthy();
+        expect(shell.dataset.motionState).toBe('closing');
+
+        shell.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await flushUi();
         expect(document.getElementById('aimd-source-panel-host')).toBeNull();
     });
 

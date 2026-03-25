@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SiteAdapter } from '../../../../src/drivers/content/adapters/base';
 import { SendModal } from '../../../../src/ui/content/sending/SendModal';
 
@@ -16,6 +16,36 @@ vi.mock('../../../../src/drivers/content/sending/composerPort', () => {
 });
 
 describe('SendModal', () => {
+    afterEach(() => {
+        document.querySelector('.aimd-send-modal-host')?.remove();
+    });
+
+    it('promotes the shared dialog shell to open after the entering frames', async () => {
+        const adapter = {
+            getComposerInputElement: () => document.createElement('textarea'),
+        } as any as SiteAdapter;
+
+        const modal = new SendModal();
+        modal.open({ adapter, theme: 'light' });
+
+        const host = document.querySelector('.aimd-send-modal-host') as HTMLElement;
+        const shadow = host.shadowRoot!;
+        const backdrop = shadow.querySelector<HTMLElement>('.panel-stage__overlay');
+        const dialog = shadow.querySelector<HTMLElement>('.dialog');
+
+        expect(backdrop?.dataset.motionState).toBe('opening');
+        expect(dialog?.dataset.motionState).toBe('opening');
+
+        await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+
+        expect(shadow.querySelector<HTMLElement>('.panel-stage__overlay')).toBe(backdrop);
+        expect(shadow.querySelector<HTMLElement>('.dialog')).toBe(dialog);
+        expect(backdrop?.dataset.motionState).toBe('open');
+        expect(dialog?.dataset.motionState).toBe('open');
+    });
+
     it('opens and pre-fills from composer, then closes with syncBack', async () => {
         const adapter = {
             getComposerInputElement: () => document.createElement('textarea'),
@@ -30,7 +60,11 @@ describe('SendModal', () => {
         // Close should sync the current text back.
         modal.close({ syncBack: true });
         const hostAfter = document.querySelector('.aimd-send-modal-host');
-        expect(hostAfter).toBeFalsy();
+        const dialog = (hostAfter as HTMLElement | null)?.shadowRoot?.querySelector<HTMLElement>('.dialog');
+        expect(hostAfter).toBeTruthy();
+        expect(dialog?.dataset.motionState).toBe('closing');
+        dialog?.dispatchEvent(new Event('animationend', { bubbles: true }));
+        expect(document.querySelector('.aimd-send-modal-host')).toBeFalsy();
     });
 
     it('uses semantic primary and secondary button tokens in the modal css', () => {
@@ -46,5 +80,26 @@ describe('SendModal', () => {
         expect(css).not.toContain('#fff');
         expect(css).not.toContain('#000');
         expect(css).not.toContain('font-size: 16px;');
+    });
+
+    it('keeps the send modal mounted in a closing state until the animation ends', async () => {
+        const adapter = {
+            getComposerInputElement: () => document.createElement('textarea'),
+        } as any as SiteAdapter;
+
+        const modal = new SendModal();
+        modal.open({ adapter, theme: 'light' });
+
+        const host = document.querySelector('.aimd-send-modal-host') as HTMLElement;
+        const shadow = host.shadowRoot!;
+        const dialog = shadow.querySelector<HTMLElement>('.dialog')!;
+
+        modal.close({ syncBack: true });
+
+        expect(document.querySelector('.aimd-send-modal-host')).toBeTruthy();
+        expect(dialog.dataset.motionState).toBe('closing');
+
+        dialog.dispatchEvent(new Event('animationend', { bubbles: true }));
+        expect(document.querySelector('.aimd-send-modal-host')).toBeNull();
     });
 });

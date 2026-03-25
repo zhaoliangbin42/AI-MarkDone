@@ -157,6 +157,19 @@
 - Bookmarks Panel UI：`src/ui/content/bookmarks/*`
 - React/Shadow foundation：`src/ui/foundation/*`
 
+Surface profile / motion ownership 规则补充：
+
+- 同一个 named surface 一旦被 2 个以上入口复用，baseline chrome 必须由 surface 自己持有
+- 入口只能选择 named `profile`，不能直接传 low-level chrome flags 或自定义 CSS
+- `ReaderPanel` 当前就是这条规则的首个正式落点：
+  - `profile` 负责 header/footer/action rail
+  - Markdown body 视觉继续由 Reader 自己持有的默认正文主题负责
+  - baseline chrome 与正文主题都属于 surface-owned contract，而不是 caller-owned override
+- shared overlay/modal surface 的 enter/exit motion 也必须由 surface 自己持有；caller 不得注入自定义 open/close motion
+- `panel-window` family 与 `modal-dialog` family 可以拥有不同的共享 motion contract，但都必须使用 tokenized shared chrome CSS，而不是每个 surface 各自定义 keyframes
+- 共享 surface 的 open-focus / restore-focus 也必须由 surface owner 持有并复用共享 lifecycle helper；不得只让 `ModalHost` 独占完整的焦点语义，而让其它 panel family 各自零散实现
+- 同一 surface 在首次打开后，外层 shell/backdrop 必须保持 stable ownership；后续异步数据刷新只能更新内部内容区，不能通过重建外层 DOM 重新消费 opening motion
+
 ### Service 层（目标：统一用例编排，跨站一致）
 
 当前主要落点（后续需“搬离 UI/driver 细节”）：
@@ -207,6 +220,7 @@
 - Tailwind 只允许用于 overlay-style singleton UI；toolbar 与高频注入 UI 保持轻量实现，不引入 Tailwind
 - overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
 - 同一个 named surface 一旦拥有 2 个以上入口，baseline chrome 必须稳定；入口不得直接传 low-level layout/chrome flags，差异必须由 surface 自己声明 named profiles
+- shared overlay / modal motion 必须由正式 shared contract 持有；不得由 caller 自己注入 enter/exit chrome 或在单个 surface 私下复制一套近似动画
 - 一旦 overlay / transient dismiss contract 出现第二个明确消费者，就必须提升到共享 `components/*` 或 `overlay/*`；只有带明显业务假设的 primitive 才允许继续保持 family-scoped
 - `OverlaySession` 只约束 overlay surfaces；anchored popover 可以保留 local interaction boundary，但必须在 `CURRENT_STATE.md` 中明确标记为 intentional local，而不是共享 contract 缺口
 - toolbar component token 必须统一使用 `--aimd-toolbar-*`，禁止继续出现 `--aimd-tb-*` 这类未显式标明组件域的局部伪系统 token

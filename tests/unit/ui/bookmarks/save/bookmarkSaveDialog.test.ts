@@ -170,6 +170,12 @@ describe('BookmarkSaveDialog', () => {
             .shadowRoot!
             .querySelector<HTMLButtonElement>('[data-action="close-panel"]')!
             .click();
+        const host = document.getElementById('aimd-bookmark-save-dialog-host');
+        const panel = host?.shadowRoot?.querySelector<HTMLElement>('.panel-window--bookmark-save');
+        expect(host).toBeTruthy();
+        expect(panel?.dataset.motionState).toBe('closing');
+        panel?.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await flushUi();
 
         expect(document.getElementById('aimd-bookmark-save-dialog-host')).toBeNull();
 
@@ -257,6 +263,10 @@ describe('BookmarkSaveDialog', () => {
                 ?.shadowRoot
                 ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
                 ?.click();
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLElement>('.panel-window--bookmark-save')
+                ?.dispatchEvent(new Event('animationend', { bubbles: true }));
             await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
         }
     });

@@ -63,9 +63,10 @@
 | Open ReaderPanel from a message toolbar | MessageToolbar `Reader` → collect items → `ReaderPanel.show(items, startIndex, theme, { profile, actions? })` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/reader/collectReaderItems.ts` | `tests/integration/reader/reader-panel.test.ts` | 点击任意消息 Reader 能稳定打开。 |
 | Pagination (Prev/Next + index/total) | ReaderPanel internal state | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可翻页且 index/total 正确。 |
 | Render Markdown + sanitize | `renderMarkdown(markdown)` | `src/services/renderer/renderMarkdown.ts` | `tests/unit/services/renderer/renderMarkdown.test.ts` | XSS 清洗门禁必须存在。 |
+| Tokenized Markdown rendering | Reader uses the shared markdown theme and sanitize pipeline | `src/ui/content/reader/ReaderPanel.ts`, `src/ui/content/reader/readerPanelTemplate.ts`, `src/services/renderer/renderMarkdown.ts` | unit + governance + acceptance | Reader 正文始终使用默认 tokenized Markdown 主题；主题只影响正文视觉，不改变 Reader shell chrome。 |
 | Copy current page markdown | ReaderPanel `Copy` | `src/ui/content/reader/ReaderPanel.ts`, `src/drivers/content/clipboard/clipboard.ts` | integration test | Reader 页内容与 Copy pipeline 对齐（同一条消息输出一致）。 |
 | View Source | ReaderPanel toggle | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可查看源文本、可复制。 |
-| Surface-owned reader profiles | `ReaderPanel.show(..., { profile, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration + governance | 同一 ReaderPanel 在多个入口下保持稳定 baseline chrome；入口差异通过命名 profile 和批准的 action rail 表达。 |
+| Surface-owned reader profiles | `ReaderPanel.show(..., { profile, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration + governance | 同一 ReaderPanel 在多个入口下保持稳定 baseline chrome；入口差异通过命名 profile 和批准的 action rail 表达，不允许入口直接传 CSS 或低层 chrome flags。 |
 | Message sending (composer sync + send) | ReaderPanel `Send` → `sendText(adapter, text)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/sending/sendService.ts`, `src/drivers/content/sending/composerPort.ts`, `src/drivers/content/adapters/sites/chatgpt.ts`, `src/core/sending/contenteditable.ts` | `tests/unit/core/sending/*`, `tests/unit/drivers/content/sending/*`, `tests/integration/sending/*` | 多行文本换行保持一致；不会触发语音按钮；等待 send ready 后再点击发送。 |
 
 ### B.2.C ChatGPT Folding（ChatGPT only）

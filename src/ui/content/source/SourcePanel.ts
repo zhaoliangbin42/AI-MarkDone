@@ -5,6 +5,9 @@ import { getTokenCss } from '../../../style/tokens';
 import { showEphemeralTooltip } from '../../../utils/tooltip';
 import { createIcon } from '../components/Icon';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
+import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
+import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { getSourcePanelCss } from './ui/styles/sourcePanelCss';
 
@@ -20,6 +23,9 @@ export class SourcePanel {
     private unsubscribeLocale: (() => void) | null = null;
     private state: State = { theme: 'light', title: '', content: '', visible: false };
     private usesDefaultTitle = true;
+    private closing = false;
+    private motionNeedsOpen = false;
+    private readonly focusLifecycle = new SurfaceFocusLifecycle();
 
     isVisible(): boolean {
         return this.state.visible;
@@ -32,18 +38,34 @@ export class SourcePanel {
     }
 
     show(params: { theme: Theme; title?: string; content: string }): void {
+        this.focusLifecycle.capture();
         this.state.theme = params.theme;
         this.usesDefaultTitle = !params.title;
         this.state.title = params.title || t('modalSourceTitle');
         this.state.content = params.content;
         this.state.visible = true;
+        this.closing = false;
+        this.motionNeedsOpen = true;
 
         this.mount();
         this.render();
     }
 
     hide(): void {
+        if (this.closing) return;
         this.state.visible = false;
+        const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
+        if (this.overlaySession && panel) {
+            this.closing = true;
+            beginSurfaceMotionClose({
+                shell: panel,
+                backdrop,
+                onClosed: () => this.unmount(),
+                fallbackMs: 560,
+            });
+            return;
+        }
         this.unmount();
     }
 
@@ -82,9 +104,12 @@ export class SourcePanel {
     private unmount(): void {
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
         this.usesDefaultTitle = true;
+        this.closing = false;
+        this.motionNeedsOpen = false;
     }
 
     private async handleSurfaceClick(event: Event): Promise<void> {
@@ -104,17 +129,29 @@ export class SourcePanel {
     }
 
     private render(): void {
-        if (!this.overlaySession) return;
+        if (!this.overlaySession || this.closing) return;
 
         this.overlaySession.setSurfaceCss(this.getCss());
-        this.overlaySession.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
-        this.overlaySession.surfaceRoot.innerHTML = this.getHtml();
+        const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
+        const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
+            this.overlaySession.surfaceRoot,
+            '.panel-window--source',
+            this.getHtml(),
+        );
+        if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
+            setSurfaceMotionOpening([backdrop, panel]);
+            this.focusLifecycle.scheduleInitialFocus({
+                surface: panel,
+                selectors: ['[data-action="source-copy"]', '[data-action="close-panel"]'],
+            });
+            this.motionNeedsOpen = false;
+        }
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => this.hide(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession.host,
+            trapTabWithin: panel ?? this.overlaySession.host,
         });
     }
 

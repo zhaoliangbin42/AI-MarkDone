@@ -3,6 +3,12 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 
+async function flushMotionFrames(): Promise<void> {
+    await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+}
+
 describe('ReaderPanel presentation', () => {
     afterEach(() => {
         vi.useRealTimers();
@@ -107,6 +113,26 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('keeps the reader panel mounted in a closing state until the panel animation ends', async () => {
+        const panel = new ReaderPanel();
+
+        await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const shell = shadow.querySelector<HTMLElement>('.panel-window--reader');
+
+        panel.hide();
+
+        expect(document.querySelector('#aimd-reader-panel-host')).toBeTruthy();
+        expect(shell?.dataset.motionState).toBe('closing');
+
+        shell?.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await Promise.resolve();
+
+        expect(document.querySelector('#aimd-reader-panel-host')).toBeNull();
+    });
+
     it('does not render the open-conversation header control when no callback or conversation url is available', async () => {
         const panel = new ReaderPanel();
 
@@ -135,6 +161,54 @@ describe('ReaderPanel presentation', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
 
             expect(shadow.querySelector('[data-action="reader-open-conversation"]')).toBeTruthy();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('keeps the tokenized markdown theme as the only shipped reader body styling', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: '# Title\\n\\n```ts\\nconst x = 1;\\n```' }], 0, 'dark', {
+                profile: 'conversation-reader',
+            });
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown.markdown-body');
+            const styleText = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent ?? '').join('\n');
+
+            expect(markdownRoot).toBeTruthy();
+            expect(styleText).toContain('var(--aimd-text-primary)');
+            expect(styleText).not.toContain('#478be6');
+            expect(styleText).not.toContain('github-markdown');
+            expect(shadow.querySelector('.reader-footer__left')).toBeTruthy();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('keeps the same shell mounted through async content rendering and promotes it to open after the entering frames', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const panelWindow = shadow.querySelector<HTMLElement>('.panel-window--reader');
+            const backdrop = shadow.querySelector<HTMLElement>('.panel-stage__overlay');
+
+            expect(panelWindow).toBeTruthy();
+            expect(backdrop).toBeTruthy();
+
+            await flushMotionFrames();
+
+            expect(shadow.querySelector<HTMLElement>('.panel-window--reader')).toBe(panelWindow);
+            expect(shadow.querySelector<HTMLElement>('.panel-stage__overlay')).toBe(backdrop);
+            expect(panelWindow?.dataset.motionState).toBe('open');
+            expect(backdrop?.dataset.motionState).toBe('open');
         } finally {
             panel.hide();
         }

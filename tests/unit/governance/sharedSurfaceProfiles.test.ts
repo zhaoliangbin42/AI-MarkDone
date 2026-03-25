@@ -23,4 +23,20 @@ describe('shared surface profile governance', () => {
         expect(bookmarksSource).not.toContain('showOpenConversation: true');
         expect(bookmarksSource).not.toContain("dotStyle: 'plain'");
     });
+
+    it('keeps ReaderPanel markdown body styling owned by the surface instead of custom css injection', () => {
+        const toolbarSource = fs.readFileSync(
+            path.join(repoRoot, 'src/ui/content/controllers/MessageToolbarOrchestrator.ts'),
+            'utf8'
+        );
+        const bookmarksSource = fs.readFileSync(
+            path.join(repoRoot, 'src/ui/content/bookmarks/ui/tabs/bookmarksTabActions.ts'),
+            'utf8'
+        );
+
+        expect(toolbarSource).not.toContain('markdownCss:');
+        expect(toolbarSource).not.toContain('themeCss:');
+        expect(bookmarksSource).not.toContain('markdownCss:');
+        expect(bookmarksSource).not.toContain('themeCss:');
+    });
 });

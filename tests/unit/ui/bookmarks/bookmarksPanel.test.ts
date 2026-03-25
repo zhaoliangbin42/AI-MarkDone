@@ -44,7 +44,11 @@ async function flushUi(): Promise<void> {
 }
 
 async function flushAnimationFrame(): Promise<void> {
-    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => resolve());
+        });
+    });
 }
 
 describe('BookmarksPanel', () => {
@@ -916,10 +920,13 @@ describe('BookmarksPanel', () => {
         const host = document.getElementById('aimd-bookmarks-panel-host')!;
         const shadow = host.shadowRoot!;
         const overlay = shadow.querySelector<HTMLElement>('.panel-stage__overlay');
+        const panelShell = shadow.querySelector<HTMLElement>('.panel-window--bookmarks');
         expect(overlay).toBeTruthy();
 
         overlay!.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
 
+        expect(panelShell?.dataset.motionState).toBe('closing');
+        panelShell?.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.getElementById('aimd-bookmarks-panel-host')).toBeNull();
     });
 
@@ -1650,6 +1657,7 @@ describe('BookmarksPanel', () => {
         expect(createInput).toBeTruthy();
         createInput!.value = 'Archive';
         shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
+        shadow.querySelector<HTMLElement>('.mock-modal')?.dispatchEvent(new Event('animationend', { bubbles: true }));
         await flushUi();
 
         expect(controller.createFolder).toHaveBeenCalledWith('Archive');
@@ -1659,6 +1667,7 @@ describe('BookmarksPanel', () => {
         deleteButton!.click();
         await flushUi();
         shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
+        shadow.querySelector<HTMLElement>('.mock-modal')?.dispatchEvent(new Event('animationend', { bubbles: true }));
         await flushUi();
 
         expect(controller.deleteBookmark).toHaveBeenCalledWith(bookmark);
@@ -2016,6 +2025,8 @@ describe('BookmarksPanel', () => {
 
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
         await panel.show();
+        rafQueue.length = 0;
+        (window.requestAnimationFrame as unknown as { mockClear?: () => void }).mockClear?.();
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         const treePanel = shadow.querySelector<HTMLElement>('.tree-panel')!;
@@ -2559,6 +2570,9 @@ describe('BookmarksPanel', () => {
             expect(shadow.querySelector<HTMLElement>('.tree-item--folder[data-path="Root 0/Child"]')).toBeNull();
 
             panel.hide();
+            shadow.querySelector<HTMLElement>('.panel-window--bookmarks')?.dispatchEvent(
+                new Event('animationend', { bubbles: true }),
+            );
         }
     });
 

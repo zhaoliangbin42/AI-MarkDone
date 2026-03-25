@@ -35,11 +35,11 @@
 对日常开发来说，样式体系可以简化理解成：
 
 - 要做页面内 UI：必须进 Shadow DOM
-- 要写视觉值：优先 theme preset 或 `--aimd-*` token
+- 要写视觉值：优先 `--aimd-*` token
 - 要写 overlay rich UI：允许用 Tailwind，但 Tailwind 只能通过语义 alias 消费 `--aimd-*`
 - 要写 toolbar / inline UI：保持轻量实现，不引入 Tailwind
 - 要写组件 CSS：只写结构和少量局部样式，不依赖第三方类名前缀去重画整套皮肤
-- 要处理主题：通过 `themeMode` / `themePreset`，不要在组件里直接读宿主页面主题细节
+- 要处理主题：通过 driver + token 注入链路，不要在组件里直接读宿主页面主题细节
 
 ---
 
@@ -93,7 +93,7 @@
 
 - 遗留组件默认只依赖 `--aimd-sys-*`
 - 主题驱动组件默认依赖主题对象和 component token
-- 新的视觉需求优先判断是否应进入 theme preset 或 system layer
+- 新的视觉需求优先判断是否应进入 system layer
 - light / dark 切换只允许改变视觉源的值，不得改组件结构
 
 ### 2.3 Component Layer
@@ -194,7 +194,7 @@
 主题同步原则：
 
 - Theme detection 仍由 driver 层提供
-- UI 通过 `themeMode + themePreset` 消费主题
+- UI 通过 `setTheme(theme)` / `data-aimd-theme` / `--aimd-*` 消费主题
 - 遗留 UI 通过 `data-aimd-theme` 或 `getTokenCss(theme)` 消费 token
 - dark mode 只换主题值，不改单元结构
 
@@ -241,7 +241,7 @@ Browser compatibility contract：
 - 浏览器验收必须留存截图或快照证据，并确认目标来自 live `shadowRoot`
 - mock 页面视觉效果未达到批准基线前，不允许把该模块实现迁入 `src/ui/**`
 - 获得显式批准后，才能合并进 `src/ui/**`
-- mock 与生产实现必须共享同一套组件选型和主题 preset 结论
+- mock 与生产实现必须共享同一套组件选型和 token/theme 结论
 - 若使用导出的 HTML 快照做验收，必须确认快照包含运行时样式节点；只有自定义 host style 的快照不能作为通过依据
 - 若快照来自浏览器导出的 declarative shadow DOM（`<template shadowrootmode="open">`），必须先重新挂载真实组件并生成 live `shadowRoot`，再做样式验收
 - 真实组件重扫前必须先清理所有没有 live `shadowRoot` 的旧 toolbar host，防止历史模板中的样式哈希污染新的运行时样式注入判断

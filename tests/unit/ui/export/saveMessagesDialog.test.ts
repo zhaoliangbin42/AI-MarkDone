@@ -138,12 +138,61 @@ describe('SaveMessagesDialog', () => {
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
 
         dlg.close();
+        const host = document.getElementById('aimd-save-messages-dialog-host');
+        const panel = host?.shadowRoot?.querySelector<HTMLElement>('.panel-window--save');
+        expect(host).toBeTruthy();
+        expect(panel?.dataset.motionState).toBe('closing');
+        panel?.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
 
         await setLocale('zh_CN');
         await flushUi();
 
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+    });
+
+    it('keeps the dialog mounted in a closing state until the panel animation ends', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+
+        const dlg = new SaveMessagesDialog();
+        dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host');
+        expect(host).toBeTruthy();
+        const shadow = host!.shadowRoot!;
+        const panel = shadow.querySelector<HTMLElement>('.panel-window--save')!;
+
+        dlg.close();
+
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
+        expect(panel.dataset.motionState).toBe('closing');
+
+        panel.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await flushUi();
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+    });
+
+    it('reuses the current overlay session when reopened instead of leaving the previous shell in closing state', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+
+        const dlg = new SaveMessagesDialog();
+        dlg.open(adapter, 'light');
+
+        const firstHost = document.getElementById('aimd-save-messages-dialog-host')!;
+        const firstPanel = firstHost.shadowRoot!.querySelector<HTMLElement>('.panel-window--save')!;
+
+        dlg.close();
+        expect(firstPanel.dataset.motionState).toBe('closing');
+
+        dlg.open(adapter, 'light');
+
+        const secondHost = document.getElementById('aimd-save-messages-dialog-host')!;
+        const secondPanel = secondHost.shadowRoot!.querySelector<HTMLElement>('.panel-window--save')!;
+
+        expect(secondHost).toBe(firstHost);
+        expect(secondPanel.dataset.motionState).not.toBe('closing');
     });
 
     it('uses stronger semantic hover rules for chips and segmented buttons', async () => {

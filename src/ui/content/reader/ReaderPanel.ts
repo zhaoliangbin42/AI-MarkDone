@@ -7,6 +7,9 @@ import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboar
 import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
+import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
+import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
@@ -71,6 +74,9 @@ export class ReaderPanel {
     private contentRenderToken = 0;
     private statusTimer: number | null = null;
     private renderCodeInReader = true;
+    private closing = false;
+    private motionNeedsOpen = false;
+    private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private state: ReaderPanelState = {
         theme: 'light',
         items: [],
@@ -106,6 +112,7 @@ export class ReaderPanel {
     }
 
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
+        this.focusLifecycle.capture();
         const resolvedProfile = this.resolveProfileState(options?.profile);
         this.state.items = items;
         this.state.index = Math.max(0, Math.min(startIndex, Math.max(0, items.length - 1)));
@@ -114,6 +121,8 @@ export class ReaderPanel {
         this.state.fullscreen = false;
         this.state.renderedHtml = '';
         this.state.statusText = '';
+        this.closing = false;
+        this.motionNeedsOpen = true;
         this.state.options = {
             ...resolvedProfile,
             onOpenConversation: options?.onOpenConversation,
@@ -138,7 +147,20 @@ export class ReaderPanel {
     }
 
     hide(): void {
+        if (this.closing) return;
         this.state.visible = false;
+        const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
+        if (this.overlaySession && panel) {
+            this.closing = true;
+            beginSurfaceMotionClose({
+                shell: panel,
+                backdrop,
+                onClosed: () => this.unmount(),
+                fallbackMs: 560,
+            });
+            return;
+        }
         this.unmount();
     }
 
@@ -204,8 +226,11 @@ export class ReaderPanel {
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
+        this.closing = false;
+        this.motionNeedsOpen = false;
     }
 
     private async handleSurfaceClick(event: Event): Promise<void> {
@@ -333,14 +358,17 @@ export class ReaderPanel {
     }
 
     private render(preserveScrollTop: boolean = true): void {
-        if (!this.overlaySession) return;
+        if (!this.overlaySession || this.closing) return;
 
         const currentBody = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-body');
         const scrollTop = preserveScrollTop ? currentBody?.scrollTop ?? 0 : 0;
 
         this.overlaySession.setSurfaceCss(getReaderPanelCss());
-        this.overlaySession.backdropRoot.innerHTML = '<div class="panel-stage__overlay"></div>';
-        this.overlaySession.surfaceRoot.innerHTML = getReaderPanelHtml({
+        const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
+        const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
+            this.overlaySession.surfaceRoot,
+            '.panel-window--reader',
+            getReaderPanelHtml({
             state: {
                 items: this.state.items,
                 index: this.state.index,
@@ -353,20 +381,35 @@ export class ReaderPanel {
             },
             canOpenConversation: this.canOpenConversation(),
             getLabel: (key, fallback, substitutions) => this.getLabel(key, fallback, substitutions),
-        });
+        }),
+        );
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => this.hide(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
-            trapTabWithin: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession.host,
+            trapTabWithin: panel ?? this.overlaySession.host,
         });
+        if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
+            setSurfaceMotionOpening([backdrop, panel]);
+            this.focusLifecycle.scheduleInitialFocus({
+                surface: panel,
+                selectors: [
+                    '[data-action="reader-open-conversation"]',
+                    '[data-action="reader-copy"]',
+                    '[data-action="reader-source"]',
+                    '[data-action="reader-fullscreen"]',
+                    '[data-action="close-panel"]',
+                ],
+            });
+            this.motionNeedsOpen = false;
+        }
 
         this.renderActions();
         this.renderDots();
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
 
-        const nextBody = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        const nextBody = panel.querySelector<HTMLElement>('.reader-body');
         if (nextBody && preserveScrollTop) {
             nextBody.scrollTop = scrollTop;
         }

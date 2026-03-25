@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader pagination now uses shared iconography and legacy-aligned preview cards for a cleaner, more consistent control bar.
 - Reader pagination now renders long-range gaps as a dedicated three-dot separator instead of a plain text ellipsis, keeping long conversation navigation cleaner.
 - Reader, bookmarks, export dialogs, folding controls, and math-copy feedback now share a single blue-on-white tooltip system instead of mixing browser titles and ad hoc popovers.
-- Interactive markdown styling now uses one shared GitHub-inspired theme layer across reader and bookmark detail surfaces.
+- Interactive markdown styling now uses one shared tokenized theme layer across reader and bookmark detail surfaces.
 - Markdown rendering now runs through one shared unified pipeline for reader, bookmarks, mocks, and PDF export, with GFM, KaTeX math, syntax highlighting, and sanitization handled in one pass.
 - Reader send popovers now use the rebuilt mock-aligned surface and sync drafts through the shared composer bridge when the platform composer is available.
 - Shared confirm, prompt, alert, and custom modals now use a rebuilt mock-aligned dialog shell with dedicated shared styling instead of relying on bookmark-panel-local modal CSS.
@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Fixed cross-entry reader drift by moving toolbar-reader and bookmark-preview entrypoints onto named surface-owned profiles, keeping footer chrome and action rails more consistent.
 - Bookmarks: Added a local input-event boundary to the management panel so internal search, settings, and tree interactions are less likely to leak to host-page or third-party page handlers.
 - Bookmarks: Unified panel and save-dialog modal handling around the same shared overlay session so rename, move, folder-pick, and nested root-folder flows no longer drift between separate interaction stacks.
+- Modal Motion: Shared dialogs and overlay panels now open and close through two shared motion families (`panel-window` and `modal-dialog`), including exit animations that complete before the surface unmounts.
 - UI: Fixed hover and active contrast drift across shared panel chrome, bookmark dialogs, bookmarks management, send surfaces, and the message toolbar so light and dark themes keep clearer interaction feedback.
 - UI: Deepened dark-mode surfaces, borders, and hover layers across bookmarks, the reader pager, sending surfaces, folding controls, and the toolbar so controls separate more clearly from the background.
 - Toolbar: Fixed shared tooltips for icon-only toolbar buttons so hover/focus on nested SVG nodes shows the expected tooltip again.

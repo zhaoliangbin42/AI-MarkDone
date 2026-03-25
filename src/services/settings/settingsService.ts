@@ -60,7 +60,13 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
         case 'reader': {
             const next: AppSettings = {
                 ...cur,
-                reader: mergeObject({ ...DEFAULT_SETTINGS.reader, ...cur.reader }, value),
+                reader: {
+                    renderCodeInReader: Boolean(
+                        (isRecord(value) ? value.renderCodeInReader : undefined)
+                        ?? cur.reader.renderCodeInReader
+                        ?? DEFAULT_SETTINGS.reader.renderCodeInReader
+                    ),
+                },
             };
             return { next };
         }

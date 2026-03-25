@@ -15,7 +15,7 @@ describe('settings migrations', () => {
             platforms: { chatgpt: false },
             chatgpt: { foldingMode: 'all' },
             behavior: { enableClickToCopy: false },
-            reader: { renderCodeInReader: false },
+            reader: { renderCodeInReader: false, markdownTheme: 'github-light-colorblind' },
             bookmarks: { sortMode: 'alphabetical' },
             language: 'zh_CN',
         };
@@ -27,6 +27,7 @@ describe('settings migrations', () => {
         expect(next.chatgpt.foldingMode).toBe('all');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.reader.renderCodeInReader).toBe(false);
+        expect(next.reader).not.toHaveProperty('markdownTheme');
         expect(next.bookmarks.sortMode).toBe('alpha-asc');
         expect(next.language).toBe('zh_CN');
     });
@@ -59,6 +60,7 @@ describe('settings migrations', () => {
         expect(next.chatgpt.foldingMode).toBe('all');
         expect(next.chatgpt.defaultExpandedCount).toBe(5);
         expect('performance' in next).toBe(false);
+        expect(next.reader).not.toHaveProperty('markdownTheme');
     });
 
     it('migrates v1 storage.saveContextOnly into behavior.saveContextOnly', () => {
@@ -73,5 +75,6 @@ describe('settings migrations', () => {
         expect(next.behavior.saveContextOnly).toBe(true);
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.reader.renderCodeInReader).toBe(false);
+        expect(next.reader).not.toHaveProperty('markdownTheme');
     });
 });

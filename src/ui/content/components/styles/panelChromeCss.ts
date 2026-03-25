@@ -1,5 +1,10 @@
+import { getSharedBackdropMotionCss } from './sharedBackdropMotionCss';
+import { getPanelMotionCss } from './panelMotionCss';
+
 export function getPanelChromeCss(): string {
     return `
+${getSharedBackdropMotionCss()}
+${getPanelMotionCss()}
 .panel-window {
   position: fixed;
   inset: 50% auto auto 50%;

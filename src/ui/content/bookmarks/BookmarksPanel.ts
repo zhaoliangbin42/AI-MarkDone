@@ -20,6 +20,8 @@ import { TooltipDelegate } from '../../../utils/tooltip';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { logger } from '../../../core/logger';
 import { eventWithinTransientRoot } from '../components/transientUi';
+import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
+import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'sponsor';
 
@@ -108,6 +110,9 @@ export class BookmarksPanel {
     private sponsorView: BookmarksPanelTabView | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
+    private closing = false;
+    private motionNeedsOpen = false;
+    private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private readonly onShadowPointerDown = (event: Event) => {
         if (!this.hostHandle) return;
 
@@ -160,7 +165,10 @@ export class BookmarksPanel {
     async show(): Promise<void> {
         if (this.visible) return;
 
+        this.focusLifecycle.capture();
         this.visible = true;
+        this.closing = false;
+        this.motionNeedsOpen = true;
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
             theme: this.controller.getTheme(),
@@ -206,8 +214,27 @@ export class BookmarksPanel {
     }
 
     hide(): void {
-        if (!this.visible) return;
+        if (!this.visible || this.closing) return;
 
+        const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
+        const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
+        if (this.overlaySession && panel) {
+            this.visible = false;
+            this.closing = true;
+            beginSurfaceMotionClose({
+                shell: panel,
+                backdrop,
+                onClosed: () => this.finishHide(),
+                fallbackMs: 560,
+            });
+            return;
+        }
+
+        this.visible = false;
+        this.finishHide();
+    }
+
+    private finishHide(): void {
         this.visible = false;
         this.unsubscribeSnapshot?.();
         this.unsubscribeSnapshot = null;
@@ -222,8 +249,11 @@ export class BookmarksPanel {
         this.settingsView = null;
         this.sponsorView?.destroy?.();
         this.sponsorView = null;
+        this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
+        this.closing = false;
+        this.motionNeedsOpen = false;
     }
 
     private async loadSettings(): Promise<void> {
@@ -292,7 +322,7 @@ export class BookmarksPanel {
     }
 
     private render(): void {
-        if (!this.overlaySession || !this.hostHandle) return;
+        if (!this.overlaySession || !this.hostHandle || this.closing) return;
         const startedAt = performance.now();
         this.captureScrollTops();
         this.recreateTabViews();
@@ -325,6 +355,14 @@ export class BookmarksPanel {
 
         this.overlaySession.replaceBackdrop(shell.overlay);
         this.overlaySession.replaceSurface(panel);
+        if (this.motionNeedsOpen) {
+            setSurfaceMotionOpening([shell.overlay, panel]);
+            this.focusLifecycle.scheduleInitialFocus({
+                surface: panel,
+                selectors: ['input', '.tab-btn', '[data-action="close"]'],
+            });
+            this.motionNeedsOpen = false;
+        }
         shell.closeBtn.addEventListener('click', () => this.hide());
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
             const nextTab = (event as CustomEvent<{ id: string }>).detail.id;

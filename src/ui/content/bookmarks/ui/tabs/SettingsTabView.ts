@@ -311,7 +311,6 @@ export class SettingsTabView {
             this.settings.reader.renderCodeInReader = next;
             void this.actions.setReaderSettings?.({ renderCodeInReader: next });
         });
-
         // Language
         this.refs.language.onChange((value) => {
             this.settings.language = value as any;

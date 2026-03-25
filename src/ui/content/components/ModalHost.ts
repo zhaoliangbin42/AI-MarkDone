@@ -1,6 +1,7 @@
 import { Icons, xIcon } from '../../../assets/icons';
 import { ensureStyle } from '../../../style/shadow';
 import { t } from './i18n';
+import { beginSurfaceMotionClose, setSurfaceMotionOpening } from './motionLifecycle';
 import { getModalHostCss } from './styles/modalHostCss';
 
 type ModalKind = 'info' | 'warning' | 'error';
@@ -275,14 +276,22 @@ export class ModalHost {
         };
 
         const dismiss = () => {
+            if (overlay.dataset.motionState === 'closing') return;
             params.onDismiss?.();
             close();
         };
 
         const close = () => {
-            if (!overlay.isConnected) return;
-            cleanup();
-            overlay.remove();
+            if (!overlay.isConnected || overlay.dataset.motionState === 'closing') return;
+            beginSurfaceMotionClose({
+                shell: dialog,
+                backdrop: overlay,
+                onClosed: () => {
+                    cleanup();
+                    overlay.remove();
+                },
+                fallbackMs: 600,
+            });
         };
 
         const cleanup = () => {
@@ -335,6 +344,7 @@ export class ModalHost {
         dialog.append(header, content, footer);
         overlay.appendChild(dialog);
         this.container.appendChild(overlay);
+        setSurfaceMotionOpening([overlay, dialog]);
 
         window.setTimeout(() => {
             getFocusableElements(dialog)[0]?.focus?.({ preventScroll: true } as any);

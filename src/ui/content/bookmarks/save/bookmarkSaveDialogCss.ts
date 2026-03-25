@@ -1,6 +1,6 @@
 import type { Theme } from '../../../../core/types/theme';
 import { getInputFieldCss } from '../../components/styles/inputFieldCss';
-import { getModalHostCss } from '../../components/styles/modalHostCss';
+import { getModalHostShellCss } from '../../components/styles/modalHostCss';
 import { getPanelChromeCss } from '../../components/styles/panelChromeCss';
 
 export function getBookmarkSaveDialogCss(_theme: Theme): string {
@@ -20,7 +20,7 @@ button, input, select, textarea {
 
 ${getInputFieldCss()}
 ${getPanelChromeCss()}
-${getModalHostCss()}
+${getModalHostShellCss()}
 
 .panel-stage__overlay {
   position: fixed;
