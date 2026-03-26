@@ -1,5 +1,9 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 
+type ResolveMessageKeyOptions = {
+    segmentIndexByElement?: WeakMap<HTMLElement, number>;
+};
+
 function toStructuralToken(element: HTMLElement | null | undefined): string {
     if (!element) return 'none';
     const parts = [
@@ -21,7 +25,12 @@ export function stripHash(url: string): string {
     }
 }
 
-export function resolveMessageKey(adapter: SiteAdapter, messageElement: HTMLElement, position: number): string {
+export function resolveMessageKey(
+    adapter: SiteAdapter,
+    messageElement: HTMLElement,
+    position: number,
+    options?: ResolveMessageKeyOptions
+): string {
     const platformId = adapter.getPlatformId();
     try {
         const raw = adapter.getMessageId(messageElement)?.trim();
@@ -32,10 +41,13 @@ export function resolveMessageKey(adapter: SiteAdapter, messageElement: HTMLElem
 
     const turnRoot = adapter.getTurnRootElement?.(messageElement) ?? null;
     const turnToken = toStructuralToken(turnRoot instanceof HTMLElement ? turnRoot : null);
-    const selector = adapter.getMessageSelector();
-    const assistantSiblings = turnRoot
-        ? Array.from(turnRoot.querySelectorAll(selector)).filter((node): node is HTMLElement => node instanceof HTMLElement)
-        : [];
-    const segmentIndex = assistantSiblings.indexOf(messageElement);
+    const cachedSegmentIndex = options?.segmentIndexByElement?.get(messageElement);
+    const segmentIndex = cachedSegmentIndex ?? (() => {
+        const selector = adapter.getMessageSelector();
+        const assistantSiblings = turnRoot
+            ? Array.from(turnRoot.querySelectorAll(selector)).filter((node): node is HTMLElement => node instanceof HTMLElement)
+            : [];
+        return assistantSiblings.indexOf(messageElement);
+    })();
     return `${platformId}:fallback:${turnToken}:${position}:${segmentIndex >= 0 ? segmentIndex : 0}`;
 }

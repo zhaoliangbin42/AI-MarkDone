@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 
@@ -9,6 +9,8 @@ const detector: ThemeDetector = {
 };
 
 class FakeOfficialToolbarAdapter extends SiteAdapter {
+    private streaming = false;
+
     matches(): boolean {
         return true;
     }
@@ -52,7 +54,7 @@ class FakeOfficialToolbarAdapter extends SiteAdapter {
     }
 
     isStreamingMessage(): boolean {
-        return false;
+        return this.streaming;
     }
 
     getMessageId(messageElement: HTMLElement): string | null {
@@ -61,6 +63,10 @@ class FakeOfficialToolbarAdapter extends SiteAdapter {
 
     getObserverContainer(): HTMLElement | null {
         return document.body;
+    }
+
+    setStreaming(streaming: boolean): void {
+        this.streaming = streaming;
     }
 }
 
@@ -156,5 +162,119 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         expect(firstActionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
         expect(document.querySelector('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toBeNull();
         expect(getToolbarCount()).toBe(1);
+    });
+
+    it('uses incremental mutation candidates for added messages instead of forcing a full rescan', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const adapter = new FakeOfficialToolbarAdapter();
+        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+
+        (orchestrator as any).scanAndInject(new Set(['init']));
+        expect(getToolbarCount()).toBe(1);
+
+        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+
+        const message = document.createElement('div');
+        message.className = 'assistant-message';
+        message.setAttribute('data-message-id', 'm2');
+        message.innerHTML = `
+          <div class="content">Second</div>
+          <div class="official-toolbar"><button>copy</button></div>
+        `;
+        document.body.appendChild(message);
+
+        (orchestrator as any).handleObservedMutations([
+            {
+                addedNodes: [message],
+                removedNodes: [],
+            },
+        ]);
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
+
+        expect(fullScanSpy).not.toHaveBeenCalled();
+        expect(getToolbarCount()).toBe(2);
+        expect(message.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
+    });
+
+    it('falls back to a full rescan when mutations remove nodes', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+          <div class="assistant-message" data-message-id="m2">
+            <div class="content">Second</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const adapter = new FakeOfficialToolbarAdapter();
+        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+
+        (orchestrator as any).scanAndInject(new Set(['init']));
+        expect(getToolbarCount()).toBe(2);
+
+        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+        const removed = document.querySelector('[data-message-id="m2"]') as HTMLElement;
+        removed.remove();
+
+        (orchestrator as any).handleObservedMutations([
+            {
+                addedNodes: [],
+                removedNodes: [removed],
+            },
+        ]);
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
+
+        expect(fullScanSpy).toHaveBeenCalledTimes(1);
+        expect(getToolbarCount()).toBe(1);
+        expect(document.querySelector('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toBeNull();
+    });
+
+    it('keeps toolbar actions enabled but guards reader while the message is still streaming', async () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const adapter = new FakeOfficialToolbarAdapter();
+        adapter.setStreaming(true);
+        const readerPanel = { setTheme() {}, show: vi.fn(async () => undefined) } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+
+        (orchestrator as any).scanAndInject(new Set(['init']));
+
+        const toolbarHost = document.querySelector('[data-aimd-role="message-toolbar"]') as HTMLElement;
+        const shadow = toolbarHost.shadowRoot as ShadowRoot;
+        const readerButton = shadow.querySelector<HTMLButtonElement>('[data-action="reader"]');
+
+        expect(readerButton).toBeTruthy();
+        expect(readerButton?.disabled).toBe(false);
+
+        readerButton?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(readerPanel.show).not.toHaveBeenCalled();
+
+        adapter.setStreaming(false);
+        readerButton?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(readerPanel.show).toHaveBeenCalledTimes(1);
     });
 });

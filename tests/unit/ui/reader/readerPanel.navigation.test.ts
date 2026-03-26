@@ -242,4 +242,38 @@ describe('ReaderPanel navigation', () => {
             panel.hide();
         }
     });
+
+    it('appends a new tail page without changing the current page selection', async () => {
+        const { writeText } = setClipboardMock();
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show(
+                [
+                    { id: 'a', userPrompt: 'Q1', content: 'md1' },
+                    { id: 'b', userPrompt: 'Q2', content: 'md2' },
+                ],
+                1,
+                'light'
+            );
+
+            await panel.appendItem({ id: 'c', userPrompt: 'Q3', content: 'md3' });
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const counter = shadow.querySelector<HTMLElement>('.reader-header-page');
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+
+            expect(counter?.textContent).toBe('2/3');
+            expect(dots).toHaveLength(3);
+            expect(dots[1]?.classList.contains('reader-dot--active')).toBe(true);
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy"]')?.click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(writeText).toHaveBeenCalledWith('md2');
+        } finally {
+            panel.hide();
+        }
+    });
 });

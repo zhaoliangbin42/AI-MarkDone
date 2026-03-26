@@ -10,7 +10,7 @@ import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
-import { collectReaderItems } from '../../../services/reader/collectReaderItems';
+import { buildReaderItemFromTurn, collectReaderItems, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
 import { resolveContent } from '../../../services/reader/types';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
@@ -48,6 +48,8 @@ export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
     private recordsByMessageKey = new Map<string, ToolbarRecord>();
+    private dirtyMessages = new Set<HTMLElement>();
+    private needsFullRescan = false;
     private theme: Theme = 'light';
     private onMessageInjected: ((messageElement: HTMLElement) => void) | null = null;
     private scanScheduler: ScanScheduler | null = null;
@@ -60,6 +62,9 @@ export class MessageToolbarOrchestrator {
     private foldingController: ChatGPTFoldingController | null = null;
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
+    private messageOrder: HTMLElement[] = [];
+    private messagePositionByElement = new WeakMap<HTMLElement, number>();
+    private messageSegmentIndexByElement = new WeakMap<HTMLElement, number>();
     private turnRefs: ConversationTurnRef[] = [];
     private turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
 
@@ -78,6 +83,9 @@ export class MessageToolbarOrchestrator {
     }
 
     private getTurnRefForElement(messageElement: HTMLElement): ConversationTurnRef | null {
+        if (this.turnRefs.length === 0) {
+            this.rebuildTurnIndex();
+        }
         const direct = this.turnRefBySegment.get(messageElement);
         if (direct) return direct;
         for (const turn of this.turnRefs) {
@@ -275,12 +283,12 @@ export class MessageToolbarOrchestrator {
 
     init(): void {
         this.scanScheduler = new ScanScheduler(
-            () => {
-                this.scanAndInject();
+            (reasons) => {
+                this.scanAndInject(reasons);
                 this.refreshPendingStates();
                 this.rebindObserverIfNeeded();
             },
-            { debounceMs: 120, minIntervalMs: 250, idleTimeoutMs: 200 }
+            { debounceMs: 120, minIntervalMs: 250, idleTimeoutMs: 200, maxWaitMs: 1000 }
         );
 
         // Why: SPA first render often re-parents nodes rapidly; a short delay reduces "inject too early" failures.
@@ -323,6 +331,8 @@ export class MessageToolbarOrchestrator {
         this.observer?.disconnect();
         this.observer = null;
         this.observedContainer = null;
+        this.dirtyMessages.clear();
+        this.needsFullRescan = false;
         this.clearAllToolbars();
     }
 
@@ -344,6 +354,14 @@ export class MessageToolbarOrchestrator {
         return Number.isFinite(fallback) ? fallback : 0;
     }
 
+    private guardMessageReady(_messageElement: HTMLElement): { ok: false; message: string } | null {
+        try {
+            return this.adapter.isStreamingMessage(_messageElement) ? { ok: false, message: t('streamingStatus') } : null;
+        } catch {
+            return null;
+        }
+    }
+
     private getActionsForMessage(messageElement: HTMLElement, getToolbar: () => MessageToolbar | null): MessageToolbarAction[] {
         const actions: MessageToolbarAction[] = [];
 
@@ -356,6 +374,8 @@ export class MessageToolbarOrchestrator {
                 kind: 'secondary',
                 disabledWhenPending: true,
                 onClick: async () => {
+                    const guard = this.guardMessageReady(messageElement);
+                    if (guard) return guard;
                     const toolbar = getToolbar();
                     const url = this.getBookmarkPageUrl();
                     const position = this.getPositionForMessage(messageElement);
@@ -435,6 +455,8 @@ export class MessageToolbarOrchestrator {
             kind: 'secondary',
             disabledWhenPending: true,
                 onClick: async () => {
+                    const guard = this.guardMessageReady(messageElement);
+                    if (guard) return guard;
                     const res = this.getMergedMarkdownForElement(messageElement);
                     if (!res.ok) return { ok: false, message: res.error.message };
                     const ok = await copyTextToClipboard(res.markdown);
@@ -451,6 +473,8 @@ export class MessageToolbarOrchestrator {
                 kind: 'secondary',
                 disabledWhenPending: true,
                 onClick: async () => {
+                    const guard = this.guardMessageReady(messageElement);
+                    if (guard) return guard;
                     const res = this.getMergedMarkdownForElement(messageElement);
                     if (!res.ok) return { ok: false, message: res.error.message };
                     sourcePanel.show({ theme: this.theme, title: t('modalSourceTitle'), content: res.markdown });
@@ -466,6 +490,8 @@ export class MessageToolbarOrchestrator {
             kind: 'secondary',
             disabledWhenPending: true,
             onClick: async () => {
+                const guard = this.guardMessageReady(messageElement);
+                if (guard) return guard;
                 const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 await this.readerPanel.show(items, startIndex, this.theme, {
@@ -484,6 +510,8 @@ export class MessageToolbarOrchestrator {
                 kind: 'secondary',
                 disabledWhenPending: true,
                 onClick: async () => {
+                    const guard = this.guardMessageReady(messageElement);
+                    if (guard) return guard;
                     saveMessagesDialog.open(this.adapter, this.theme);
                 },
             });
@@ -546,7 +574,6 @@ export class MessageToolbarOrchestrator {
         }
 
         this.updatePlacementHint(toolbar, params.message);
-        toolbar.setPending(params.pending);
 
         const record: ToolbarRecord = {
             messageKey: params.messageKey,
@@ -592,17 +619,37 @@ export class MessageToolbarOrchestrator {
         }
     }
 
-    private buildScanSnapshot(): Map<string, ScanSnapshotItem> {
-        this.rebuildTurnIndex();
-        const selector = this.adapter.getMessageSelector();
-        const container = this.adapter.getObserverContainer() || document.body;
-        const nodes = discoverMessageElements(container, selector);
+    private invalidateTurnIndex(): void {
+        this.turnRefs = [];
+        this.turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+    }
+
+    private rebuildMessageCaches(nodes: HTMLElement[]): void {
+        this.messageOrder = [...nodes];
+        this.messagePositionByElement = new WeakMap<HTMLElement, number>();
+        this.messageSegmentIndexByElement = new WeakMap<HTMLElement, number>();
+
+        const segmentCountByTurn = new Map<HTMLElement | null, number>();
+        nodes.forEach((messageElement, index) => {
+            const position = index + 1;
+            this.messagePositionByElement.set(messageElement, position);
+            messageElement.dataset.aimdMsgPosition = `${position}`;
+
+            const turnRoot = this.adapter.getTurnRootElement?.(messageElement) ?? null;
+            const currentSegmentIndex = segmentCountByTurn.get(turnRoot) ?? 0;
+            this.messageSegmentIndexByElement.set(messageElement, currentSegmentIndex);
+            segmentCountByTurn.set(turnRoot, currentSegmentIndex + 1);
+        });
+    }
+
+    private buildSnapshotFromNodes(nodes: HTMLElement[]): Map<string, ScanSnapshotItem> {
         const snapshot = new Map<string, ScanSnapshotItem>();
 
         nodes.forEach((messageElement, index) => {
-            const position = index + 1;
-            messageElement.dataset.aimdMsgPosition = `${position}`;
-            const messageKey = resolveMessageKey(this.adapter, messageElement, position);
+            const position = this.messagePositionByElement.get(messageElement) ?? index + 1;
+            const messageKey = resolveMessageKey(this.adapter, messageElement, position, {
+                segmentIndexByElement: this.messageSegmentIndexByElement,
+            });
             const next: ScanSnapshotItem = {
                 messageKey,
                 message: messageElement,
@@ -619,7 +666,69 @@ export class MessageToolbarOrchestrator {
         return snapshot;
     }
 
-    private reconcileScanSnapshot(snapshot: Map<string, ScanSnapshotItem>): void {
+    private buildFullScanSnapshot(): Map<string, ScanSnapshotItem> {
+        const selector = this.adapter.getMessageSelector();
+        const container = this.adapter.getObserverContainer() || document.body;
+        const nodes = discoverMessageElements(container, selector);
+        this.rebuildMessageCaches(nodes);
+        this.rebuildTurnIndex();
+        return this.buildSnapshotFromNodes(nodes);
+    }
+
+    private sortMessagesByDocumentOrder(nodes: HTMLElement[]): HTMLElement[] {
+        return [...nodes].sort((left, right) => {
+            if (left === right) return 0;
+            const position = left.compareDocumentPosition(right);
+            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+            if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            return 0;
+        });
+    }
+
+    private resolveIncrementalPosition(messageElement: HTMLElement): number | null {
+        const cached = this.messagePositionByElement.get(messageElement);
+        if (cached) return cached;
+        if (this.messageOrder.length === 0) return null;
+
+        const lastKnown = this.messageOrder[this.messageOrder.length - 1];
+        if (!lastKnown) return null;
+
+        const relation = lastKnown.compareDocumentPosition(messageElement);
+        if ((relation & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+            return null;
+        }
+
+        const position = this.messageOrder.length + 1;
+        this.messageOrder.push(messageElement);
+        this.messagePositionByElement.set(messageElement, position);
+        messageElement.dataset.aimdMsgPosition = `${position}`;
+
+        const turnRoot = this.adapter.getTurnRootElement?.(messageElement) ?? null;
+        const selector = this.adapter.getMessageSelector();
+        const segmentIndex = turnRoot
+            ? Array.from(turnRoot.querySelectorAll(selector)).filter((node): node is HTMLElement => node instanceof HTMLElement).indexOf(messageElement)
+            : 0;
+        this.messageSegmentIndexByElement.set(messageElement, segmentIndex >= 0 ? segmentIndex : 0);
+        this.invalidateTurnIndex();
+        return position;
+    }
+
+    private buildIncrementalSnapshot(candidates: HTMLElement[]): Map<string, ScanSnapshotItem> | null {
+        const sortedCandidates = this.sortMessagesByDocumentOrder(Array.from(new Set(candidates)).filter((node) => node.isConnected));
+        if (sortedCandidates.length === 0) return new Map<string, ScanSnapshotItem>();
+
+        for (const messageElement of sortedCandidates) {
+            const position = this.resolveIncrementalPosition(messageElement);
+            if (!position) {
+                this.needsFullRescan = true;
+                return null;
+            }
+        }
+
+        return this.buildSnapshotFromNodes(sortedCandidates);
+    }
+
+    private reconcileScanSnapshot(snapshot: Map<string, ScanSnapshotItem>, mode: 'full' | 'incremental'): void {
         for (const [messageKey, item] of snapshot.entries()) {
             const existing = this.recordsByMessageKey.get(messageKey) || null;
 
@@ -657,21 +766,48 @@ export class MessageToolbarOrchestrator {
             }
 
             existing.pending = item.pending;
-            existing.toolbar.setPending(item.pending);
             this.refreshBookmarkStateForToolbar(existing.toolbar, item.position);
             this.refreshWordCountForToolbar(existing.toolbar, item.message, item.pending);
         }
 
-        for (const [messageKey] of Array.from(this.recordsByMessageKey.entries())) {
-            if (!snapshot.has(messageKey)) {
-                this.removeRecord(messageKey);
+        if (mode === 'full') {
+            for (const [messageKey] of Array.from(this.recordsByMessageKey.entries())) {
+                if (!snapshot.has(messageKey)) {
+                    this.removeRecord(messageKey);
+                }
             }
         }
     }
 
-    private scanAndInject(): void {
-        const snapshot = this.buildScanSnapshot();
-        this.reconcileScanSnapshot(snapshot);
+    private scanAndInject(reasons: Set<string> = new Set(['manual'])): void {
+        const shouldRunFull =
+            reasons.has('init')
+            || reasons.has('route_change')
+            || reasons.has('manual')
+            || this.needsFullRescan
+            || this.messageOrder.length === 0;
+
+        if (shouldRunFull) {
+            const snapshot = this.buildFullScanSnapshot();
+            this.needsFullRescan = false;
+            this.dirtyMessages.clear();
+            this.reconcileScanSnapshot(snapshot, 'full');
+            void this.syncReaderTailPages();
+            return;
+        }
+
+        const snapshot = this.buildIncrementalSnapshot(Array.from(this.dirtyMessages));
+        this.dirtyMessages.clear();
+        if (snapshot === null) {
+            const fullSnapshot = this.buildFullScanSnapshot();
+            this.needsFullRescan = false;
+            this.reconcileScanSnapshot(fullSnapshot, 'full');
+            void this.syncReaderTailPages();
+            return;
+        }
+
+        this.reconcileScanSnapshot(snapshot, 'incremental');
+        void this.syncReaderTailPages();
     }
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, position: number): void {
@@ -717,12 +853,12 @@ export class MessageToolbarOrchestrator {
             }
 
             const pending = this.adapter.isStreamingMessage(message);
-            toolbar.setPending(pending);
             if (record.pending !== pending) {
                 this.refreshWordCountForToolbar(toolbar, message, pending);
             }
             record.pending = pending;
         }
+        void this.syncReaderTailPages();
     }
 
     private refreshWordCountForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, pending: boolean): void {
@@ -758,6 +894,28 @@ export class MessageToolbarOrchestrator {
         tryCompute(0);
     }
 
+    private async syncReaderTailPages(): Promise<void> {
+        if (typeof this.readerPanel.isShowingConversationReader !== 'function') return;
+        if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
+        if (typeof this.readerPanel.appendItem !== 'function') return;
+        if (!this.readerPanel.isShowingConversationReader()) return;
+
+        const currentItems = this.readerPanel.getItemsSnapshot();
+        const turns = collectConversationTurnRefs(this.adapter);
+        if (turns.length <= currentItems.length) return;
+
+        const pageUrl = stripReaderUrl(window.location.href);
+        for (let index = currentItems.length; index < turns.length; index += 1) {
+            const turn = turns[index];
+            if (!turn) break;
+            if (this.adapter.isStreamingMessage(turn.primaryMessageEl)) break;
+
+            const item = buildReaderItemFromTurn(this.adapter, turn, index, pageUrl);
+            this.decorateReaderItems([item as unknown as { meta?: Record<string, unknown> }]);
+            await this.readerPanel.appendItem(item);
+        }
+    }
+
     private updatePlacementHint(toolbar: MessageToolbar, messageElement: HTMLElement): void {
         const host = toolbar.getElement();
         try {
@@ -778,6 +936,47 @@ export class MessageToolbarOrchestrator {
         this.observedContainer = null;
     }
 
+    private isToolbarManagedHostNode(node: Node): boolean {
+        return node instanceof Element && node.matches('[data-aimd-role="message-toolbar"], .aimd-message-toolbar-host');
+    }
+
+    private collectMutationMessageCandidates(node: Node): HTMLElement[] {
+        if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return [];
+        if (node instanceof Element && this.isToolbarManagedHostNode(node)) return [];
+        try {
+            return discoverMessageElements(node, this.adapter.getMessageSelector());
+        } catch {
+            return [];
+        }
+    }
+
+    private handleObservedMutations(mutations: ArrayLike<MutationRecord | { addedNodes?: ArrayLike<Node>; removedNodes?: ArrayLike<Node> }>): void {
+        let shouldSchedule = false;
+
+        for (const mutation of Array.from(mutations)) {
+            const removedNodes = Array.from(mutation.removedNodes || []);
+            for (const node of removedNodes) {
+                if (this.isToolbarManagedHostNode(node)) continue;
+                this.needsFullRescan = true;
+                shouldSchedule = true;
+            }
+
+            const addedNodes = Array.from(mutation.addedNodes || []);
+            for (const node of addedNodes) {
+                const candidates = this.collectMutationMessageCandidates(node);
+                if (candidates.length === 0) continue;
+                for (const candidate of candidates) {
+                    this.dirtyMessages.add(candidate);
+                }
+                shouldSchedule = true;
+            }
+        }
+
+        if (shouldSchedule) {
+            this.scanScheduler?.schedule('mutation');
+        }
+    }
+
     private rebindObserverIfNeeded(force: boolean = false): void {
         const nextContainer = this.adapter.getObserverContainer() || document.body;
         if (!force && this.observedContainer === nextContainer && this.observer) return;
@@ -785,7 +984,8 @@ export class MessageToolbarOrchestrator {
         this.disposeObserversOnly();
 
         this.observedContainer = nextContainer;
-        this.observer = new MutationObserver(() => this.scanScheduler?.schedule('mutation'));
+        this.needsFullRescan = true;
+        this.observer = new MutationObserver((mutations) => this.handleObservedMutations(mutations));
         this.observer.observe(nextContainer, { childList: true, subtree: true });
     }
 }

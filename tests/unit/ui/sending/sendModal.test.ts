@@ -12,6 +12,7 @@ vi.mock('../../../../src/drivers/content/sending/composerPort', () => {
     return {
         readComposer: vi.fn(() => ({ ok: true, kind: 'textarea', text: 'from-composer' })),
         writeComposer: vi.fn(async () => ({ ok: true, kind: 'textarea' })),
+        waitForSendButtonRecovery: vi.fn(async () => true),
     };
 });
 

@@ -10,6 +10,7 @@ type SchedulerOptions = {
     debounceMs: number;
     minIntervalMs: number;
     idleTimeoutMs: number;
+    maxWaitMs: number;
 };
 
 /**
@@ -26,6 +27,7 @@ export class ScanScheduler {
     private lastRunAt = 0;
     private pendingReasons = new Set<ScanReason>();
     private scheduledAt = 0;
+    private firstPendingAt: number | null = null;
 
     constructor(scanFn: ScanFn, options: SchedulerOptions) {
         this.scanFn = scanFn;
@@ -35,12 +37,16 @@ export class ScanScheduler {
     schedule(reason: ScanReason): void {
         this.pendingReasons.add(reason);
         const now = Date.now();
+        if (this.firstPendingAt === null) {
+            this.firstPendingAt = now;
+        }
         const desiredAt = now + this.options.debounceMs;
         const earliestAt = this.lastRunAt + this.options.minIntervalMs;
-        const runAt = Math.max(desiredAt, earliestAt);
+        const latestAt = this.firstPendingAt + this.options.maxWaitMs;
+        const runAt = Math.min(Math.max(desiredAt, earliestAt), latestAt);
 
         if (this.timer !== null) {
-            if (runAt <= this.scheduledAt) return;
+            if (runAt === this.scheduledAt) return;
             window.clearTimeout(this.timer);
             this.timer = null;
         }
@@ -55,10 +61,14 @@ export class ScanScheduler {
             this.timer = null;
         }
         this.pendingReasons.clear();
+        this.scheduledAt = 0;
+        this.firstPendingAt = null;
     }
 
     private flush(): void {
         this.timer = null;
+        this.scheduledAt = 0;
+        this.firstPendingAt = null;
         const reasons = new Set(this.pendingReasons);
         this.pendingReasons.clear();
         this.lastRunAt = Date.now();
@@ -77,4 +87,3 @@ export class ScanScheduler {
         }
     }
 }
-

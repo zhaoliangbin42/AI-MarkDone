@@ -48,6 +48,7 @@ describe('ReaderPanel (MVP)', () => {
         expect(writeText).toHaveBeenCalledWith('md2');
 
         panel.hide();
+        shadow.querySelector<HTMLElement>('.panel-window--reader')?.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.querySelector('#aimd-reader-panel-host')).toBeNull();
     });
 
@@ -61,7 +62,7 @@ describe('ReaderPanel (MVP)', () => {
         const fullscreenBtn = shadow.querySelector<HTMLButtonElement>('[data-action="reader-fullscreen"]')!;
 
         expect(panelEl.dataset.fullscreen).toBe('0');
-        expect(fullscreenBtn.dataset.tooltip).toBeTruthy();
+        expect(fullscreenBtn.getAttribute('aria-label') || fullscreenBtn.getAttribute('title')).toBeTruthy();
         const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
         expect(styles).toContain('.panel-window--reader');
 

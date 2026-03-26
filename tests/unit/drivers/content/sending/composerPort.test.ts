@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SiteAdapter } from '../../../../../src/drivers/content/adapters/base';
-import { clickSend, readComposer, waitSendReady, writeComposer } from '../../../../../src/drivers/content/sending/composerPort';
+import {
+    clickSend,
+    readComposer,
+    waitForSendButtonRecovery,
+    waitSendReady,
+    watchSendButton,
+    writeComposer,
+} from '../../../../../src/drivers/content/sending/composerPort';
 import { parseContenteditableToPlainText } from '../../../../../src/core/sending/contenteditable';
 
 describe('composerPort', () => {
@@ -134,4 +141,49 @@ describe('composerPort', () => {
         const adapter2 = { getComposerInputElement: () => editable, getComposerKind: () => 'contenteditable' } as any as SiteAdapter;
         expect(readComposer(adapter2)).toEqual({ ok: true, kind: 'contenteditable', text: 'a\n\nb' });
     });
+
+    it('watchSendButton rebinds when the native send button node is replaced', () => {
+        vi.useFakeTimers();
+        let currentButton = document.createElement('button');
+        currentButton.setAttribute('disabled', 'true');
+
+        const adapter = {
+            getComposerSendButtonElement: () => currentButton,
+        } as any as SiteAdapter;
+
+        const onChange = vi.fn();
+        const stop = watchSendButton(adapter, onChange, { pollMs: 50 });
+
+        expect(onChange).toHaveBeenLastCalledWith(true);
+
+        const replacement = document.createElement('button');
+        currentButton = replacement;
+        vi.advanceTimersByTime(60);
+
+        expect(onChange).toHaveBeenLastCalledWith(false);
+        stop();
+        vi.useRealTimers();
+    });
+
+    it('waitForSendButtonRecovery waits for a pending signal and then for recovery', async () => {
+        vi.useFakeTimers();
+        let streaming = true;
+        const button = document.createElement('button');
+        button.setAttribute('disabled', 'true');
+
+        const adapter = {
+            getComposerSendButtonElement: () => button,
+            isComposerStreaming: () => streaming,
+        } as any as SiteAdapter;
+
+        const recovery = waitForSendButtonRecovery(adapter, { timeoutMs: 2000, pollMs: 50, settleGraceMs: 150 });
+        vi.advanceTimersByTime(100);
+        button.removeAttribute('disabled');
+        streaming = false;
+        vi.advanceTimersByTime(100);
+
+        await expect(recovery).resolves.toBe(true);
+        vi.useRealTimers();
+    });
+
 });

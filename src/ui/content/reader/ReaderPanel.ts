@@ -103,6 +103,18 @@ export class ReaderPanel {
         this.render();
     }
 
+    isVisible(): boolean {
+        return this.state.visible;
+    }
+
+    isShowingConversationReader(): boolean {
+        return this.state.visible && this.state.options.profile === 'conversation-reader';
+    }
+
+    getItemsSnapshot(): ReaderItem[] {
+        return [...this.state.items];
+    }
+
     setRenderCodeInReader(enabled: boolean): void {
         if (this.renderCodeInReader === enabled) return;
         this.renderCodeInReader = enabled;
@@ -144,6 +156,11 @@ export class ReaderPanel {
         }
 
         await this.renderCurrentContent();
+    }
+
+    async appendItem(item: ReaderItem): Promise<void> {
+        this.state.items = [...this.state.items, item];
+        this.render();
     }
 
     hide(): void {

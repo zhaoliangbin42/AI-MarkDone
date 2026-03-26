@@ -3,6 +3,9 @@ import { applyPlainTextToContenteditable, parseContenteditableToPlainText } from
 import type { SiteAdapter } from '../adapters/base';
 
 export type WriteStrategy = 'auto' | 'inputEvent' | 'execCommand' | 'dom';
+type SendButtonWatchOptions = {
+    pollMs?: number;
+};
 
 function getComposerInput(adapter: SiteAdapter): HTMLElement | HTMLTextAreaElement | HTMLInputElement | null {
     try {
@@ -295,14 +298,78 @@ export function clickSend(adapter: SiteAdapter): { ok: true } | { ok: false; mes
 
 export function watchSendButton(
     adapter: SiteAdapter,
-    onChange: (isDisabled: boolean) => void
+    onChange: (isDisabled: boolean) => void,
+    options?: SendButtonWatchOptions
 ): () => void {
-    const btn = getSendButton(adapter);
-    if (!btn) return () => {};
+    const pollMs = Math.max(25, options?.pollMs ?? 150);
+    let btn: HTMLElement | null = null;
+    let observer: MutationObserver | null = null;
 
-    const check = () => onChange(isButtonDisabled(btn));
-    const observer = new MutationObserver(() => check());
-    observer.observe(btn, { attributes: true, attributeFilter: ['disabled', 'aria-disabled', 'class'] });
-    check();
-    return () => observer.disconnect();
+    const check = () => onChange(btn ? isButtonDisabled(btn) : false);
+    const bind = (nextButton: HTMLElement | null) => {
+        if (btn === nextButton) return;
+        observer?.disconnect();
+        observer = null;
+        btn = nextButton;
+        if (btn) {
+            observer = new MutationObserver(() => check());
+            observer.observe(btn, { attributes: true, attributeFilter: ['disabled', 'aria-disabled', 'class'] });
+        }
+        check();
+    };
+
+    bind(getSendButton(adapter));
+    const rebindTimer = window.setInterval(() => bind(getSendButton(adapter)), pollMs);
+
+    return () => {
+        window.clearInterval(rebindTimer);
+        observer?.disconnect();
+    };
+}
+
+export async function waitForSendButtonRecovery(
+    adapter: SiteAdapter,
+    options?: { timeoutMs?: number; pollMs?: number; settleGraceMs?: number }
+): Promise<boolean> {
+    const timeoutMs = Math.max(500, options?.timeoutMs ?? 10000);
+    const pollMs = Math.max(25, options?.pollMs ?? 150);
+    const settleGraceMs = Math.max(50, options?.settleGraceMs ?? 500);
+
+    return await new Promise<boolean>((resolve) => {
+        let settled = false;
+        let sawPendingSignal = false;
+
+        const finish = (value: boolean) => {
+            if (settled) return;
+            settled = true;
+            stopWatch();
+            window.clearInterval(pollTimer);
+            window.clearTimeout(graceTimer);
+            window.clearTimeout(timeoutTimer);
+            resolve(value);
+        };
+
+        const evaluate = () => {
+            const button = getSendButton(adapter);
+            const disabled = button ? isButtonDisabled(button) : false;
+            const streaming = adapter.isComposerStreaming?.() ?? false;
+
+            if (disabled || streaming) {
+                sawPendingSignal = true;
+            }
+
+            if (sawPendingSignal && !disabled && !streaming) {
+                finish(true);
+            }
+        };
+
+        const stopWatch = watchSendButton(adapter, () => evaluate(), { pollMs });
+        const pollTimer = window.setInterval(() => evaluate(), pollMs);
+        const graceTimer = window.setTimeout(() => {
+            if (!sawPendingSignal) finish(true);
+        }, settleGraceMs);
+        const timeoutTimer = window.setTimeout(() => finish(false), timeoutMs);
+
+        evaluate();
+    });
 }
