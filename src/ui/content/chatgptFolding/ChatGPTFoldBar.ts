@@ -18,6 +18,9 @@ export class ChatGPTFoldBar {
     private labelEl: HTMLDivElement;
     private buttonEl: HTMLButtonElement;
     private tooltipDelegate: TooltipDelegate;
+    private title = '';
+    private collapsed = true;
+    private virtualized = false;
 
     constructor(theme: Theme, callbacks: ChatGPTFoldBarCallbacks) {
         this.callbacks = callbacks;
@@ -59,7 +62,7 @@ export class ChatGPTFoldBar {
         this.barEl.appendChild(this.labelEl);
         this.shadowRoot.appendChild(this.barEl);
 
-        this.setCollapsed(true);
+        this.render();
     }
 
     getElement(): HTMLElement {
@@ -77,18 +80,31 @@ export class ChatGPTFoldBar {
     }
 
     setTitle(title: string): void {
-        this.labelEl.textContent = title;
+        this.title = title;
+        this.render();
     }
 
     setCollapsed(collapsed: boolean): void {
-        this.rootEl.dataset.collapsed = collapsed ? '1' : '0';
-        this.rootEl.style.marginBottom = collapsed ? 'var(--aimd-space-2)' : '0';
-        this.barEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        this.buttonEl.replaceChildren(createIcon(collapsed ? chevronRightIcon : chevronDownIcon));
+        this.collapsed = collapsed;
+        this.render();
+    }
 
-        const label = collapsed ? t('btnExpand') : t('btnCollapse');
-        this.buttonEl.dataset.tooltip = label;
-        this.buttonEl.setAttribute('aria-label', label);
+    setVirtualized(virtualized: boolean): void {
+        this.virtualized = virtualized;
+        this.render();
+    }
+
+    private render(): void {
+        this.rootEl.dataset.collapsed = this.collapsed ? '1' : '0';
+        this.rootEl.dataset.virtualized = this.virtualized ? '1' : '0';
+        this.rootEl.style.marginBottom = this.collapsed ? 'var(--aimd-space-2)' : '0';
+        this.barEl.setAttribute('aria-expanded', this.collapsed ? 'false' : 'true');
+        this.buttonEl.replaceChildren(createIcon(this.collapsed ? chevronRightIcon : chevronDownIcon));
+
+        const actionLabel = this.virtualized ? t('chatgptFoldRestore') : (this.collapsed ? t('btnExpand') : t('btnCollapse'));
+        this.buttonEl.dataset.tooltip = actionLabel;
+        this.buttonEl.setAttribute('aria-label', actionLabel);
+        this.labelEl.textContent = this.virtualized ? `${this.title} · ${t('chatgptFoldVirtualized')}` : this.title;
         this.tooltipDelegate.refresh(this.shadowRoot);
     }
 

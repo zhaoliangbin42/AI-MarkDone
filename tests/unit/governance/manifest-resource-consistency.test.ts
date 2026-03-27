@@ -54,5 +54,19 @@ describe('manifest resource consistency', () => {
         expect(chromeIcons).toEqual(firefoxIcons);
         expect(chrome.icons).toEqual(firefox.icons);
     });
-});
 
+    it('default manifests should not expose ChatGPT early-prune entrypoints', () => {
+        const chrome = readJson<ChromeManifest & { content_scripts?: Array<{ js?: string[]; run_at?: string }> }>('manifest.chrome.json');
+        const firefox = readJson<FirefoxManifest & { content_scripts?: Array<{ js?: string[]; run_at?: string }> }>('manifest.firefox.json');
+
+        const chromeScripts = chrome.content_scripts?.flatMap((item) => item.js || []) || [];
+        const firefoxScripts = firefox.content_scripts?.flatMap((item) => item.js || []) || [];
+        const chromeResources = normalized(chrome.web_accessible_resources?.[0]?.resources);
+        const firefoxResources = normalized(firefox.web_accessible_resources);
+
+        expect(chromeScripts).not.toContain('content-early.js');
+        expect(firefoxScripts).not.toContain('content-early.js');
+        expect(chromeResources).not.toContain('content-early-main.js');
+        expect(firefoxResources).not.toContain('content-early-main.js');
+    });
+});

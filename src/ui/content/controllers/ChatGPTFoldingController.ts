@@ -1,5 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
-import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import type { ConversationGroupRef, SiteAdapter } from '../../../drivers/content/adapters/base';
 import { logger } from '../../../core/logger';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import { subscribeLocaleChange } from '../components/i18n';
@@ -12,23 +12,45 @@ import {
 } from '../../../core/chatgptFolding/policy';
 import { ChatGPTFoldBar } from '../chatgptFolding/ChatGPTFoldBar';
 import { ChatGPTFoldDock } from '../chatgptFolding/ChatGPTFoldDock';
+import type { ConversationGroupRegistryPort, ConversationRegistryGroupRef } from './ConversationGroupRegistryPort';
 
 const GROUP_ID_ATTR = 'data-aimd-fold-group-id';
 const FOLDED_ATTR = 'data-aimd-folded';
+const VIRTUALIZED_ATTR = 'data-aimd-virtualized';
 const ROLE_ATTR = 'data-aimd-fold-role';
 const HOST_STYLE_ID = 'aimd-chatgpt-folding-host-style';
 
-const USER_SELECTOR = 'article[data-turn="user"], [data-message-author-role="user"]';
-const ASSISTANT_SELECTOR = 'article[data-turn="assistant"], [data-message-author-role="assistant"]';
 const MAX_SELECTOR_MISS_STREAK = 3;
 
 type FoldGroup = {
     id: string;
     userRootEl: HTMLElement | null;
     assistantRootEl: HTMLElement;
+    assistantMessageEl: HTMLElement;
     userTitle: string;
     bar: ChatGPTFoldBar;
     barEl: HTMLElement;
+    collapsed: boolean;
+    virtualized: boolean;
+    mountedBodyEls: HTMLElement[];
+    placeholderEl: HTMLElement | null;
+    streaming: boolean;
+};
+
+type VirtualizationCallbacks = {
+    onRestoreVirtualizedGroup?: (groupId: string) => void;
+};
+
+export type ChatGPTVirtualizationGroupRef = {
+    id: string;
+    title: string;
+    barEl: HTMLElement;
+    bodyEls: HTMLElement[];
+    assistantRootEl: HTMLElement;
+    assistantIndex: number;
+    collapsed: boolean;
+    virtualized: boolean;
+    isStreaming: boolean;
 };
 
 function stripHash(url: string): string {
@@ -41,7 +63,7 @@ function stripHash(url: string): string {
     }
 }
 
-export class ChatGPTFoldingController {
+export class ChatGPTFoldingController implements ConversationGroupRegistryPort {
     private adapter: SiteAdapter | null = null;
     private theme: Theme = 'light';
     private mode: FoldingMode = 'off';
@@ -63,6 +85,7 @@ export class ChatGPTFoldingController {
     private selectorMissStreak = 0;
     private degradedMode = false;
     private hasLoggedDegrade = false;
+    private virtualizationCallbacks: VirtualizationCallbacks = {};
 
     init(adapter: SiteAdapter, initialTheme: Theme): void {
         this.adapter = adapter;
@@ -157,6 +180,72 @@ export class ChatGPTFoldingController {
         return true;
     }
 
+    onRestoreRequested(callbacks: VirtualizationCallbacks): void {
+        this.virtualizationCallbacks = callbacks;
+    }
+
+    setVirtualizationCallbacks(callbacks: VirtualizationCallbacks): void {
+        this.onRestoreRequested(callbacks);
+    }
+
+    getGroups(): ConversationRegistryGroupRef[] {
+        return this.getVirtualizationGroups();
+    }
+
+    markVirtualized(groupId: string, virtualized: boolean, placeholderEl?: HTMLElement | null): boolean {
+        return this.setGroupVirtualized(groupId, virtualized, placeholderEl);
+    }
+
+    completeRestore(groupId: string): boolean {
+        return this.completeGroupRestore(groupId);
+    }
+
+    getVirtualizationGroups(): ChatGPTVirtualizationGroupRef[] {
+        return this.syncGroupsFromDom().map((group, assistantIndex) => ({
+            id: group.id,
+            title: this.getGroupDisplayTitle(group, assistantIndex),
+            barEl: group.barEl,
+            bodyEls: [...group.mountedBodyEls],
+            assistantRootEl: group.assistantRootEl,
+            assistantIndex,
+            collapsed: group.collapsed,
+            virtualized: group.virtualized,
+            isStreaming: group.streaming,
+        }));
+    }
+
+    setGroupVirtualized(groupId: string, virtualized: boolean, placeholderEl?: HTMLElement | null): boolean {
+        const group = this.groups.find((item) => item.id === groupId) ?? this.syncGroupsFromDom().find((item) => item.id === groupId);
+        if (!group) return false;
+        group.virtualized = virtualized;
+        group.placeholderEl = virtualized ? (placeholderEl ?? group.placeholderEl) : null;
+        group.bar.setVirtualized(virtualized);
+        group.barEl.dataset.virtualized = virtualized ? '1' : '0';
+        if (virtualized) {
+            group.collapsed = true;
+            group.mountedBodyEls = [];
+            group.bar.setCollapsed(true);
+            this.ensureVirtualizedBarAnchor(group);
+        } else {
+            group.placeholderEl = null;
+            group.mountedBodyEls = this.collectMountedBodyEls(group.userRootEl, group.assistantRootEl);
+            this.setGroupCollapsed(group, group.collapsed);
+        }
+        return true;
+    }
+
+    completeGroupRestore(groupId: string): boolean {
+        const group = this.groups.find((item) => item.id === groupId) ?? this.syncGroupsFromDom().find((item) => item.id === groupId);
+        if (!group) return false;
+        group.virtualized = false;
+        group.placeholderEl = null;
+        group.bar.setVirtualized(false);
+        group.barEl.dataset.virtualized = '0';
+        group.mountedBodyEls = this.collectMountedBodyEls(group.userRootEl, group.assistantRootEl);
+        this.setGroupCollapsed(group, false);
+        return true;
+    }
+
     private applyToExisting(): void {
         if (!this.adapter) return;
         this.ensureDockVisibility();
@@ -179,24 +268,25 @@ export class ChatGPTFoldingController {
     }
 
     private syncGroupsFromDom(): FoldGroup[] {
+        const preservedVirtualized = this.groups.filter((group) => group.virtualized && group.barEl.isConnected);
         this.pruneDisconnectedGroups();
         this.rebuildAssistantMapFromGroups();
         this.cleanupOrphanBars();
 
-        const turns = this.queryOrderedTurns();
-        if (turns.length === 0) {
-            this.groups = [];
+        const refs = this.adapter?.getConversationGroupRefs?.() ?? [];
+        if (refs.length === 0) {
+            this.groups = preservedVirtualized;
             this.rebuildAssistantMapFromGroups();
             this.cleanupOrphanBars();
-            return [];
+            return preservedVirtualized;
         }
 
-        const groups = this.buildGroupsFromOrderedTurns(turns);
+        const groups = this.mergeWithPreservedVirtualized(this.buildGroupsFromRefs(refs), preservedVirtualized);
         if (groups.length === 0) {
-            this.groups = [];
+            this.groups = preservedVirtualized;
             this.rebuildAssistantMapFromGroups();
             this.cleanupOrphanBars();
-            return [];
+            return preservedVirtualized;
         }
 
         this.groups = groups;
@@ -204,97 +294,51 @@ export class ChatGPTFoldingController {
         this.cleanupOrphanBars();
 
         groups.forEach((g, idx) => {
-            const prefix = `${idx + 1}.`;
-            const title = g.userTitle ? `${prefix} ${g.userTitle}` : prefix;
-            g.bar.setTitle(title);
+            if (g.virtualized) this.ensureVirtualizedBarAnchor(g);
+            g.bar.setTitle(this.getGroupDisplayTitle(g, idx));
         });
 
         return groups;
     }
 
-    private queryOrderedTurns(): Array<{ role: 'user' | 'assistant'; rootEl: HTMLElement; sourceEl: HTMLElement }> {
-        const selectors = [USER_SELECTOR, ...this.getAssistantSelectors()];
-        const selector = selectors.join(', ');
-        const root = this.getConversationRoot();
-
-        const nodes = Array.from(root.querySelectorAll(selector)).filter((el): el is HTMLElement => el instanceof HTMLElement);
-        const seenRoots = new Set<HTMLElement>();
-        const turns: Array<{ role: 'user' | 'assistant'; rootEl: HTMLElement; sourceEl: HTMLElement }> = [];
-
-        for (const el of nodes) {
-            const role = el.getAttribute('data-message-author-role') || el.getAttribute('data-turn');
-            const isUser = role === 'user';
-            const isAssistant = role === 'assistant';
-            if (!isUser && !isAssistant) continue;
-
-            const rootEl = this.getTurnRoot(el);
-            if (seenRoots.has(rootEl)) continue;
-            seenRoots.add(rootEl);
-            turns.push({ role: isUser ? 'user' : 'assistant', rootEl, sourceEl: el });
-        }
-
-        return turns;
-    }
-
-    private getTurnRoot(el: HTMLElement): HTMLElement {
-        const section = el.closest?.('section[data-turn][data-turn-id]');
-        if (section instanceof HTMLElement) return section;
-        const genericTurn = el.closest?.('[data-turn][data-turn-id]');
-        if (genericTurn instanceof HTMLElement) return genericTurn;
-        const article = el.closest?.('article');
-        return article instanceof HTMLElement ? article : el;
-    }
-
-    private buildGroupsFromOrderedTurns(
-        turns: Array<{ role: 'user' | 'assistant'; rootEl: HTMLElement; sourceEl: HTMLElement }>
-    ): FoldGroup[] {
+    private buildGroupsFromRefs(refs: ConversationGroupRef[]): FoldGroup[] {
         const groups: FoldGroup[] = [];
-        let pendingUser: { rootEl: HTMLElement; sourceEl: HTMLElement } | null = null;
-
-        for (const turn of turns) {
-            if (turn.role === 'user') {
-                pendingUser = { rootEl: turn.rootEl, sourceEl: turn.sourceEl };
-                continue;
-            }
-
-            const assistantRootEl = turn.rootEl;
-            const existing = this.groupsByAssistant.get(assistantRootEl);
+        for (const ref of refs) {
+            const existing = this.findExistingGroup(ref.assistantRootEl, ref.userRootEl);
             if (existing) {
+                this.bindMountedGroupFromRef(existing, ref);
                 groups.push(existing);
-                pendingUser = null;
                 continue;
             }
-
-            groups.push(this.createGroup(pendingUser, assistantRootEl));
-            pendingUser = null;
+            groups.push(this.createGroupFromRef(ref));
         }
-
         return groups;
     }
 
     private getGroupForMessage(messageElement: HTMLElement): FoldGroup | null {
         if (!(messageElement instanceof HTMLElement)) return null;
-        const root = this.getTurnRoot(messageElement);
-        if (!root) return null;
         const groups = this.syncGroupsFromDom();
-        const group = groups.find((item) => item.assistantRootEl === root) || null;
+        const group = groups.find((item) => item.assistantMessageEl === messageElement || item.assistantRootEl.contains(messageElement)) || null;
         if (!group) return null;
-        const collapsed = group.assistantRootEl.getAttribute(FOLDED_ATTR) === '1';
-        return collapsed ? null : group;
+        return group.collapsed ? null : group;
     }
 
-    private createGroup(pendingUser: { rootEl: HTMLElement; sourceEl: HTMLElement } | null, assistantRootEl: HTMLElement): FoldGroup {
-        const id = `g${Date.now().toString(36)}-${(this.groupCounter++).toString(36)}`;
-
-        const userRootEl = pendingUser?.rootEl || null;
-        const userTitle = this.extractUserTitle(pendingUser?.sourceEl || userRootEl);
+    private createGroupFromRef(ref: ConversationGroupRef): FoldGroup {
+        const id = ref.id || `g${Date.now().toString(36)}-${(this.groupCounter++).toString(36)}`;
+        const userRootEl = ref.userRootEl;
+        const assistantRootEl = ref.assistantRootEl;
+        const assistantMessageEl = ref.assistantMessageEl;
+        const userTitle = this.adapter?.extractUserPrompt(assistantMessageEl) || '';
 
         const bar = new ChatGPTFoldBar(this.theme, {
             onToggle: () => {
-                const group = this.groupsByAssistant.get(assistantRootEl);
+                const group = this.groups.find((item) => item.id === id) ?? this.groupsByAssistant.get(assistantRootEl);
                 if (!group) return;
-                const collapsed = group.assistantRootEl.getAttribute(FOLDED_ATTR) === '1';
-                this.setGroupCollapsed(group, !collapsed);
+                if (group.virtualized) {
+                    this.virtualizationCallbacks.onRestoreVirtualizedGroup?.(group.id);
+                    return;
+                }
+                this.setGroupCollapsed(group, !group.collapsed);
             },
         });
 
@@ -319,9 +363,15 @@ export class ChatGPTFoldingController {
             id,
             userRootEl,
             assistantRootEl,
+            assistantMessageEl,
             userTitle,
             bar,
             barEl,
+            collapsed: false,
+            virtualized: false,
+            mountedBodyEls: this.collectMountedBodyEls(userRootEl, assistantRootEl),
+            placeholderEl: null,
+            streaming: ref.isStreaming,
         };
 
         this.groupsByAssistant.set(assistantRootEl, group);
@@ -329,17 +379,9 @@ export class ChatGPTFoldingController {
         return group;
     }
 
-    private extractUserTitle(userEl: HTMLElement | null): string {
-        if (!userEl) return '';
-        const titleSource =
-            userEl.querySelector?.('.whitespace-pre-wrap') ||
-            userEl.querySelector?.('[data-testid="user-message"]') ||
-            userEl;
-        return (titleSource.textContent || '').replace(/\s+/g, ' ').trim();
-    }
-
     private setGroupCollapsed(group: FoldGroup, collapsed: boolean): void {
-        const currentCollapsed = group.assistantRootEl.getAttribute(FOLDED_ATTR) === '1';
+        const currentCollapsed = group.collapsed;
+        group.collapsed = collapsed;
         if (currentCollapsed === collapsed) {
             group.bar.setCollapsed(collapsed);
             this.constrainBarWidth(group.barEl);
@@ -347,6 +389,7 @@ export class ChatGPTFoldingController {
         }
 
         group.bar.setCollapsed(collapsed);
+        group.bar.setVirtualized(group.virtualized);
         this.setElementFolded(group.userRootEl, collapsed, 'user');
         this.setElementFolded(group.assistantRootEl, collapsed, 'assistant');
         this.constrainBarWidth(group.barEl);
@@ -364,6 +407,9 @@ export class ChatGPTFoldingController {
 
         root.querySelectorAll?.(`[${FOLDED_ATTR}="1"]`).forEach((el) => {
             if (el instanceof HTMLElement) el.removeAttribute(FOLDED_ATTR);
+        });
+        root.querySelectorAll?.(`[${VIRTUALIZED_ATTR}="1"]`).forEach((el) => {
+            if (el instanceof HTMLElement) el.removeAttribute(VIRTUALIZED_ATTR);
         });
         root.querySelectorAll?.(`[${ROLE_ATTR}]`).forEach((el) => {
             if (el instanceof HTMLElement) el.removeAttribute(ROLE_ATTR);
@@ -463,7 +509,8 @@ export class ChatGPTFoldingController {
         if (this.groups.length === 0) return;
         const next: FoldGroup[] = [];
         for (const g of this.groups) {
-            if (!g.assistantRootEl.isConnected) {
+            const hasVirtualizedAnchor = g.virtualized && (g.barEl.isConnected || g.placeholderEl?.isConnected);
+            if (!g.assistantRootEl.isConnected && !hasVirtualizedAnchor) {
                 g.bar.dispose();
                 continue;
             }
@@ -472,14 +519,41 @@ export class ChatGPTFoldingController {
         this.groups = next;
     }
 
+    private mergeWithPreservedVirtualized(nextGroups: FoldGroup[], preservedVirtualized: FoldGroup[]): FoldGroup[] {
+        if (preservedVirtualized.length === 0) return nextGroups;
+        const merged = [...nextGroups];
+        const seen = new Set(nextGroups.map((group) => group.id));
+        for (const group of preservedVirtualized) {
+            if (seen.has(group.id)) continue;
+            merged.push(group);
+            seen.add(group.id);
+        }
+        merged.sort((a, b) => {
+            if (a.barEl === b.barEl) return 0;
+            const relation = a.barEl.compareDocumentPosition(b.barEl);
+            if (relation & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+            if (relation & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            return 0;
+        });
+        return merged;
+    }
+
     private rebuildAssistantMapFromGroups(): void {
         const next = new WeakMap<HTMLElement, FoldGroup>();
-        for (const g of this.groups) next.set(g.assistantRootEl, g);
+        for (const g of this.groups) {
+            if (g.assistantRootEl instanceof HTMLElement) next.set(g.assistantRootEl, g);
+        }
         this.groupsByAssistant = next;
+    }
+
+    private getGroupDisplayTitle(group: FoldGroup, idx: number): string {
+        const prefix = `${idx + 1}.`;
+        return group.userTitle ? `${prefix} ${group.userTitle}` : prefix;
     }
 
     private cleanupOrphanBars(): void {
         const root = this.getConversationRoot();
+        const ownedGroupIds = new Set(this.groups.map((group) => group.id));
         const bars = Array.from(root.querySelectorAll?.('.aimd-chatgpt-foldbar') || []).filter(
             (el): el is HTMLElement => el instanceof HTMLElement
         );
@@ -489,10 +563,77 @@ export class ChatGPTFoldingController {
                 barEl.remove();
                 continue;
             }
+            if (ownedGroupIds.has(id)) continue;
             const nextTurnEl = this.findNextTurnSibling(barEl);
             const nextId = nextTurnEl?.getAttribute(GROUP_ID_ATTR) || '';
             if (!nextTurnEl || nextId !== id) barEl.remove();
         }
+    }
+
+    private findExistingGroup(assistantRootEl: HTMLElement, userRootEl: HTMLElement | null): FoldGroup | null {
+        const assistantGroupId = assistantRootEl.getAttribute(GROUP_ID_ATTR);
+        if (assistantGroupId) {
+            const byId = this.groups.find((group) => group.id === assistantGroupId);
+            if (byId) return byId;
+        }
+        if (userRootEl) {
+            const userGroupId = userRootEl.getAttribute(GROUP_ID_ATTR);
+            if (userGroupId) {
+                const byId = this.groups.find((group) => group.id === userGroupId);
+                if (byId) return byId;
+            }
+        }
+        return this.groupsByAssistant.get(assistantRootEl) ?? null;
+    }
+
+    private bindMountedGroupFromRef(
+        group: FoldGroup,
+        ref: ConversationGroupRef
+    ): void {
+        const userRootEl = ref.userRootEl;
+        const assistantRootEl = ref.assistantRootEl;
+        const assistantMessageEl = ref.assistantMessageEl;
+        const insertionTarget = userRootEl || assistantRootEl;
+        const parent = insertionTarget.parentElement;
+        if (parent && group.barEl.previousElementSibling !== insertionTarget && group.barEl.nextElementSibling !== insertionTarget) {
+            parent.insertBefore(group.barEl, insertionTarget);
+        }
+        if (userRootEl) {
+            userRootEl.setAttribute(GROUP_ID_ATTR, group.id);
+            userRootEl.setAttribute(ROLE_ATTR, 'user');
+        }
+        assistantRootEl.setAttribute(GROUP_ID_ATTR, group.id);
+        assistantRootEl.setAttribute(ROLE_ATTR, 'assistant');
+
+        group.userRootEl = userRootEl;
+        group.assistantRootEl = assistantRootEl;
+        group.assistantMessageEl = assistantMessageEl;
+        group.userTitle = this.adapter?.extractUserPrompt(assistantMessageEl) || group.userTitle;
+        group.streaming = ref.isStreaming;
+        group.mountedBodyEls = this.collectMountedBodyEls(userRootEl, assistantRootEl);
+        this.setElementFolded(userRootEl, group.collapsed, 'user');
+        this.setElementFolded(assistantRootEl, group.collapsed, 'assistant');
+        group.bar.setCollapsed(group.collapsed);
+        group.bar.setVirtualized(group.virtualized);
+        group.barEl.dataset.virtualized = group.virtualized ? '1' : '0';
+        if (group.virtualized) this.ensureVirtualizedBarAnchor(group);
+    }
+
+    private collectMountedBodyEls(userRootEl: HTMLElement | null, assistantRootEl: HTMLElement): HTMLElement[] {
+        return [userRootEl, assistantRootEl].filter((el): el is HTMLElement => el instanceof HTMLElement && el.isConnected);
+    }
+
+    private ensureVirtualizedBarAnchor(group: FoldGroup): void {
+        if (!group.virtualized) return;
+        const anchor = group.placeholderEl?.isConnected
+            ? group.placeholderEl
+            : (document.querySelector(`.aimd-conversation-placeholder[${GROUP_ID_ATTR}="${group.id}"]`) as HTMLElement | null);
+        if (!anchor?.parentElement) return;
+        group.placeholderEl = anchor;
+        if (group.barEl.parentElement !== anchor.parentElement || group.barEl.nextElementSibling !== anchor) {
+            anchor.parentElement.insertBefore(group.barEl, anchor);
+        }
+        this.constrainBarWidth(group.barEl);
     }
 
     private findNextTurnSibling(fromEl: HTMLElement): HTMLElement | null {
@@ -506,13 +647,6 @@ export class ChatGPTFoldingController {
             cursor = cursor.nextElementSibling;
         }
         return null;
-    }
-
-    private getAssistantSelectors(): string[] {
-        const selectors = [this.adapter?.getMessageSelector(), ASSISTANT_SELECTOR]
-            .filter((selector): selector is string => typeof selector === 'string' && selector.trim().length > 0)
-            .map((selector) => selector.trim());
-        return Array.from(new Set(selectors));
     }
 
     private updateSelectorHealth(groupCount: number): void {
@@ -540,10 +674,8 @@ export class ChatGPTFoldingController {
     }
 
     private getConversationRoot(): ParentNode {
-        const threadRoot = document.querySelector('#thread');
-        if (threadRoot instanceof HTMLElement) return threadRoot;
-        const mainRoot = document.querySelector('main');
-        if (mainRoot instanceof HTMLElement) return mainRoot;
+        const root = this.adapter?.getObserverContainer?.();
+        if (root instanceof HTMLElement) return root;
         return document;
     }
 

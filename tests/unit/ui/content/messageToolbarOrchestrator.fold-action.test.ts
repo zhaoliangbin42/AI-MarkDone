@@ -136,4 +136,40 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
         expect(actions.some((action: any) => action.id === 'collapse_turn')).toBe(false);
         expect(foldingController.canCollapseMessage).not.toHaveBeenCalled();
     });
+
+    it('restores virtualized ChatGPT groups before opening Reader mode', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Hello from user</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Hi</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const virtualizationController = { restoreAll: vi.fn() } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, virtualizationController });
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        expect(readerAction).toBeTruthy();
+
+        await readerAction.onClick();
+
+        expect(virtualizationController.restoreAll).toHaveBeenCalledTimes(1);
+        expect(readerPanel.show).toHaveBeenCalledTimes(1);
+    });
 });

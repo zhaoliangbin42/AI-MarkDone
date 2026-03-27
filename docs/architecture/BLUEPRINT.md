@@ -114,6 +114,7 @@
 补充约束：
 
 - 页面级入口（例如 header bookmark icon）的 DOM 锚点与注入规则，同样属于 adapter 契约的一部分
+- ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI controller 只能消费已经抽象好的 group refs
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar/header icon orchestrator），不得在入口层写平台选择器
 
 契约位置：

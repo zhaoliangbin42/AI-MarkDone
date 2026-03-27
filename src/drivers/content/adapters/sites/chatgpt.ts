@@ -1,5 +1,5 @@
 import type { Theme } from '../../../../core/types/theme';
-import { SiteAdapter, type NoiseContext, type ThemeDetector } from '../base';
+import { SiteAdapter, type ConversationGroupRef, type NoiseContext, type ThemeDetector } from '../base';
 import { chatgptMarkdownParserAdapter } from '../parser/chatgpt';
 import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 import { logger } from '../../../../core/logger';
@@ -22,6 +22,40 @@ const detector: ThemeDetector = {
 };
 
 export class ChatGPTAdapter extends SiteAdapter {
+    private getUserTurnRootFromAssistantRoot(assistantRootEl: HTMLElement): HTMLElement | null {
+        let cursor: Element | null = assistantRootEl.previousElementSibling;
+        while (cursor) {
+            if (!(cursor instanceof HTMLElement)) {
+                cursor = cursor.previousElementSibling;
+                continue;
+            }
+            const isFoldBar = cursor.classList.contains('aimd-chatgpt-foldbar');
+            if (isFoldBar) {
+                cursor = cursor.previousElementSibling;
+                continue;
+            }
+            const userMessage = cursor.querySelector('[data-message-author-role="user"]');
+            return userMessage instanceof HTMLElement ? cursor : null;
+        }
+        return null;
+    }
+
+    private collectGroupEls(userRootEl: HTMLElement | null, assistantRootEl: HTMLElement): HTMLElement[] {
+        const groupId = assistantRootEl.getAttribute('data-aimd-fold-group-id');
+        const nodes: HTMLElement[] = [];
+        const push = (node: HTMLElement | null) => {
+            if (node && !nodes.includes(node)) nodes.push(node);
+        };
+
+        push(userRootEl);
+        if (groupId) {
+            const foldBar = document.querySelector(`.aimd-chatgpt-foldbar[data-aimd-fold-group-id="${groupId}"]`);
+            push(foldBar instanceof HTMLElement ? foldBar : null);
+        }
+        push(assistantRootEl);
+        return nodes;
+    }
+
     private findOfficialActionAnchor(assistantMessageElement: HTMLElement): HTMLElement | null {
         const assistantArticle = assistantMessageElement.closest('article') || assistantMessageElement;
         const scopes: HTMLElement[] = [];
@@ -200,6 +234,63 @@ export class ChatGPTAdapter extends SiteAdapter {
             if (container instanceof HTMLElement) return container;
         }
         return null;
+    }
+
+    getConversationScrollRoot(): HTMLElement | null {
+        const seed =
+            this.getLastMessageElement()
+            || this.getObserverContainer()
+            || document.querySelector('main');
+
+        let cursor: HTMLElement | null = seed instanceof HTMLElement ? seed : null;
+        while (cursor) {
+            const style = window.getComputedStyle(cursor);
+            const overflowY = style.overflowY;
+            const scrollable = (overflowY === 'auto' || overflowY === 'scroll') && cursor.scrollHeight > cursor.clientHeight;
+            if (scrollable) return cursor;
+            cursor = cursor.parentElement;
+        }
+        const main = document.querySelector('main');
+        if (main instanceof HTMLElement) return main;
+        return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+    }
+
+    getConversationGroupRefs(): ConversationGroupRef[] {
+        const messages = Array.from(document.querySelectorAll(this.getMessageSelector())).filter(
+            (node): node is HTMLElement => node instanceof HTMLElement
+        );
+        const refs: ConversationGroupRef[] = [];
+        let assistantIndex = 0;
+
+        for (const messageEl of messages) {
+            const assistantRootEl = this.getTurnRootElement(messageEl) ?? messageEl.closest('section[data-turn="assistant"]') as HTMLElement | null ?? messageEl;
+            if (!(assistantRootEl instanceof HTMLElement)) continue;
+            if (!this.isVirtualizationEligibleMessage(messageEl)) continue;
+            if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
+
+            const userRootEl = this.getUserTurnRootFromAssistantRoot(assistantRootEl);
+            const groupEls = this.collectGroupEls(userRootEl, assistantRootEl);
+            const id = assistantRootEl.getAttribute('data-aimd-fold-group-id')
+                || this.getMessageId(messageEl)
+                || `chatgpt-group-${assistantIndex}`;
+
+            refs.push({
+                id,
+                assistantRootEl,
+                assistantMessageEl: messageEl,
+                userRootEl,
+                groupEls,
+                assistantIndex,
+                isStreaming: this.isStreamingMessage(messageEl),
+            });
+            assistantIndex += 1;
+        }
+
+        return refs;
+    }
+
+    isVirtualizationEligibleMessage(messageElement: HTMLElement): boolean {
+        return !this.isStreamingMessage(messageElement);
     }
 
     getHeaderIconAnchorElement(): HTMLElement | null {

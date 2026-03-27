@@ -9,6 +9,16 @@ export interface ThemeDetector {
 
 export type NoiseContext = { nextSibling: Element | null };
 
+export type ConversationGroupRef = {
+    id: string;
+    assistantRootEl: HTMLElement;
+    assistantMessageEl: HTMLElement;
+    userRootEl: HTMLElement | null;
+    groupEls: HTMLElement[];
+    assistantIndex: number;
+    isStreaming: boolean;
+};
+
 export abstract class SiteAdapter {
     abstract matches(url: string): boolean;
     abstract getPlatformId(): string;
@@ -65,6 +75,21 @@ export abstract class SiteAdapter {
      * If omitted, turn grouping falls back to platform-agnostic best-effort heuristics.
      */
     getTurnRootElement?(_assistantMessageElement: HTMLElement): HTMLElement | null;
+
+    /**
+     * Optional stable scroll root for conversation virtualization.
+     */
+    getConversationScrollRoot?(): HTMLElement | null;
+
+    /**
+     * Optional platform-owned conversation grouping for virtualization.
+     */
+    getConversationGroupRefs?(): ConversationGroupRef[];
+
+    /**
+     * Optional gate for whether a message can be virtualized.
+     */
+    isVirtualizationEligibleMessage?(_assistantMessageElement: HTMLElement): boolean;
 
     /**
      * Platform-specific injection strategy for a per-message toolbar host element.

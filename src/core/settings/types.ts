@@ -12,6 +12,7 @@
 export type SettingsVersion = 3;
 
 export type FoldingMode = 'off' | 'all' | 'keep_last_n';
+export type FoldingPowerMode = 'off' | 'on';
 
 export type AppSettings = {
     version: SettingsVersion;
@@ -25,6 +26,7 @@ export type AppSettings = {
         foldingMode: FoldingMode;
         defaultExpandedCount: number;
         showFoldDock: boolean;
+        foldingPowerMode: FoldingPowerMode;
     };
     behavior: {
         showViewSource: boolean;
@@ -48,7 +50,12 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
 export const DEFAULT_SETTINGS: AppSettings = {
     version: 3,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-    chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+    chatgpt: {
+        foldingMode: 'off',
+        defaultExpandedCount: 8,
+        showFoldDock: true,
+        foldingPowerMode: 'on',
+    },
     behavior: {
         showViewSource: true,
         showSaveMessages: true,

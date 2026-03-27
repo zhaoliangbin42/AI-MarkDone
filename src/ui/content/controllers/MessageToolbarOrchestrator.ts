@@ -23,6 +23,7 @@ import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import type { ChatGPTFoldingController } from './ChatGPTFoldingController';
+import type { ConversationVirtualizationController } from './ConversationVirtualizationController';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 
 type ToolbarRecord = {
@@ -60,6 +61,7 @@ export class MessageToolbarOrchestrator {
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
     private foldingController: ChatGPTFoldingController | null = null;
+    private virtualizationController: Pick<ConversationVirtualizationController, 'restoreAll'> | null = null;
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
     private messageOrder: HTMLElement[] = [];
@@ -252,6 +254,7 @@ export class MessageToolbarOrchestrator {
             sendController?: SendController;
             bookmarksController?: BookmarksPanelController;
             foldingController?: ChatGPTFoldingController;
+            virtualizationController?: Pick<ConversationVirtualizationController, 'restoreAll'>;
             onMessageInjected?: (messageElement: HTMLElement) => void;
         }
     ) {
@@ -260,6 +263,7 @@ export class MessageToolbarOrchestrator {
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
         this.foldingController = opts.foldingController ?? null;
+        this.virtualizationController = opts.virtualizationController ?? null;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
@@ -347,6 +351,10 @@ export class MessageToolbarOrchestrator {
 
     setBehaviorFlags(flags: Partial<{ showViewSource: boolean; showSaveMessages: boolean; showWordCount: boolean }>): void {
         this.behavior = { ...this.behavior, ...flags };
+    }
+
+    setVirtualizationController(controller: Pick<ConversationVirtualizationController, 'restoreAll'> | null | undefined): void {
+        this.virtualizationController = controller ?? null;
     }
 
     private getPositionForMessage(messageElement: HTMLElement): number {
@@ -492,6 +500,8 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
+                this.virtualizationController?.restoreAll();
+                this.rebuildTurnIndex();
                 const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 await this.readerPanel.show(items, startIndex, this.theme, {
@@ -900,6 +910,7 @@ export class MessageToolbarOrchestrator {
         if (typeof this.readerPanel.appendItem !== 'function') return;
         if (!this.readerPanel.isShowingConversationReader()) return;
 
+        this.virtualizationController?.restoreAll();
         const currentItems = this.readerPanel.getItemsSnapshot();
         const turns = collectConversationTurnRefs(this.adapter);
         if (turns.length <= currentItems.length) return;

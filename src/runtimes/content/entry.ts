@@ -1,4 +1,5 @@
 import { getAdapter } from '../../drivers/content/adapters/registry';
+import type { Theme } from '../../core/types/theme';
 import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { MathClickHandler } from '../../drivers/content/math/math-click';
 import { consumePendingNavigation, scrollToAssistantPositionWithRetry } from '../../drivers/content/bookmarks/navigation';
@@ -10,9 +11,11 @@ import { MessageToolbarOrchestrator } from '../../ui/content/controllers/Message
 import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
-import { DEFAULT_SETTINGS } from '../../core/settings/types';
+import { DEFAULT_SETTINGS, type AppSettings } from '../../core/settings/types';
 import { setLocale } from '../../ui/content/components/i18n';
 import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
+import { ConversationVirtualizationController } from '../../ui/content/controllers/ConversationVirtualizationController';
+import { ChatGPTPageStabilityGate, type ChatGPTPageStabilityState } from '../../ui/content/controllers/ChatGPTPageStabilityGate';
 import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
@@ -29,6 +32,9 @@ if (adapter) {
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const folding = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTFoldingController() : null;
+    let virtualization: ConversationVirtualizationController | null = null;
+    let stabilityGate: ChatGPTPageStabilityGate | null = null;
+    let stabilityState: ChatGPTPageStabilityState = 'disabled';
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
     });
@@ -47,9 +53,11 @@ if (adapter) {
     });
 
     settingsClient.init();
+    let currentSettings: AppSettings = settingsClient.getCached() ?? DEFAULT_SETTINGS;
     let lastLocale = settingsClient.getCached()?.language ?? DEFAULT_SETTINGS.language;
     const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
     let runtimeEnabled = settingsClient.getCached()?.platforms?.[platformKey] ?? true;
+    let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
 
     const syncClickToCopy = (enabled: boolean) => {
         mathClick.disable();
@@ -61,16 +69,66 @@ if (adapter) {
 
     const initFoldingIfNeeded = () => {
         if (!folding) return;
-        const initialTheme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
-        folding.init(adapter, initialTheme);
+        folding.init(adapter, currentTheme);
+        syncPowerModeControllers();
+    };
+
+    const shouldEnablePowerMode = (settings: AppSettings): boolean => (
+        adapter.getPlatformId() === 'chatgpt'
+        && Boolean(settings.platforms?.chatgpt)
+        && settings.chatgpt.foldingMode !== 'off'
+        && settings.chatgpt.foldingPowerMode === 'on'
+        && Boolean(folding)
+    );
+
+    const syncVirtualizationController = () => {
+        const wantVirtualization = shouldEnablePowerMode(currentSettings) && stabilityState === 'stable';
+        if (!wantVirtualization) {
+            virtualization?.restoreAll();
+            virtualization?.dispose();
+            virtualization = null;
+            messageToolbars.setVirtualizationController(null);
+            return;
+        }
+
+        if (!virtualization && folding) {
+            virtualization = new ConversationVirtualizationController(adapter, folding);
+            virtualization.init(currentTheme);
+            messageToolbars.setVirtualizationController(virtualization);
+        }
+
+        virtualization?.setPolicy({ foldingPowerMode: 'on' });
+    };
+
+    const syncPowerModeControllers = () => {
+        const wantPowerMode = shouldEnablePowerMode(currentSettings);
+        if (!wantPowerMode) {
+            stabilityGate?.dispose();
+            stabilityGate = null;
+            stabilityState = 'disabled';
+            syncVirtualizationController();
+            return;
+        }
+
+        if (!stabilityGate && folding) {
+            stabilityGate = new ChatGPTPageStabilityGate(adapter, folding);
+            stabilityGate.subscribe((nextState) => {
+                stabilityState = nextState;
+                syncVirtualizationController();
+            });
+            stabilityGate.init();
+            return;
+        }
+
+        syncVirtualizationController();
     };
 
     const enableRuntime = () => {
         if (runtimeEnabled) return;
         runtimeEnabled = true;
+        initFoldingIfNeeded();
         messageToolbars.init();
         headerIcon.init();
-        initFoldingIfNeeded();
     };
 
     const disableRuntime = () => {
@@ -79,11 +137,19 @@ if (adapter) {
         messageToolbars.dispose();
         headerIcon.dispose();
         folding?.dispose();
+        stabilityGate?.dispose();
+        stabilityGate = null;
+        stabilityState = 'disabled';
+        virtualization?.restoreAll();
+        virtualization?.dispose();
+        virtualization = null;
+        messageToolbars.setVirtualizationController(null);
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
     settingsClient.subscribe((snap) => {
+        currentSettings = snap.settings;
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
@@ -94,6 +160,7 @@ if (adapter) {
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         folding?.setPolicy(snap.settings.chatgpt);
+        syncPowerModeControllers();
         messageToolbars.setBehaviorFlags({
             showViewSource: snap.settings.behavior.showViewSource,
             showSaveMessages: snap.settings.behavior.showSaveMessages,
@@ -103,11 +170,13 @@ if (adapter) {
 
     themeManager.init(adapter);
     themeManager.subscribe((theme) => {
+        currentTheme = theme;
         messageToolbars.setTheme(theme);
         readerPanel.setTheme(theme);
         sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
         folding?.setTheme(theme);
+        virtualization?.setTheme(theme);
     });
 
     browser.runtime.onMessage.addListener((msg: unknown) => {

@@ -365,8 +365,29 @@
     "chatgptFoldDockDesc": {
         "message": "Show fixed collapse/expand all buttons on the right side."
     },
+    "chatgptFoldingPowerModeLabel": {
+        "message": "Power mode (Experimental)"
+    },
+    "chatgptFoldingPowerModeDesc": {
+        "message": "Off keeps classic hidden folding. On applies earlier hidden folding during load, then unloads folded messages after the page stabilizes."
+    },
+    "chatgptFoldingPowerModeOff": {
+        "message": "Off"
+    },
+    "chatgptFoldingPowerModeOn": {
+        "message": "On"
+    },
+    "chatgptFoldingPowerModeHint": {
+        "message": "Recommended: On. If you notice loading or rendering issues, switch this to Off."
+    },
     "chatgptCollapseAll": {
         "message": "Collapse all"
+    },
+    "chatgptFoldRestore": {
+        "message": "Restore folded messages"
+    },
+    "chatgptFoldVirtualized": {
+        "message": "Unloaded while folded, click to restore"
     },
     "chatgptExpandAll": {
         "message": "Expand all"

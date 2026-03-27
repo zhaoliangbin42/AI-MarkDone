@@ -55,6 +55,7 @@ const messageToolbarCtor = vi.fn(function () {
         init: messageToolbarsInit,
         setTheme: messageToolbarsSetTheme,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
+        setVirtualizationController: vi.fn(),
         dispose: messageToolbarsDispose,
     };
 });
@@ -73,6 +74,39 @@ const foldingCtor = vi.fn(function () {
         registerMessage: foldingRegisterMessage,
         setPolicy: foldingSetPolicy,
         setTheme: foldingSetTheme,
+        dispose: vi.fn(),
+    };
+});
+const virtualizationInit = vi.fn();
+const virtualizationDispose = vi.fn();
+const virtualizationSetTheme = vi.fn();
+const virtualizationSetPolicy = vi.fn();
+const virtualizationRestoreAll = vi.fn();
+const virtualizationCtor = vi.fn(function () {
+    return {
+        init: virtualizationInit,
+        dispose: virtualizationDispose,
+        setTheme: virtualizationSetTheme,
+        setPolicy: virtualizationSetPolicy,
+        restoreAll: virtualizationRestoreAll,
+    };
+});
+const stabilityGateInit = vi.fn();
+const stabilityGateDispose = vi.fn();
+const stabilityGateGetState = vi.fn(() => 'pending');
+let stabilityGateSubscriber: ((state: 'pending' | 'stable' | 'disabled') => void) | null = null;
+const stabilityGateCtor = vi.fn(function () {
+    return {
+        init: stabilityGateInit,
+        dispose: stabilityGateDispose,
+        getState: stabilityGateGetState,
+        subscribe: vi.fn((fn: (state: 'pending' | 'stable' | 'disabled') => void) => {
+            stabilityGateSubscriber = fn;
+            fn('pending');
+            return () => {
+                if (stabilityGateSubscriber === fn) stabilityGateSubscriber = null;
+            };
+        }),
     };
 });
 const setLocale = vi.fn(async () => {});
@@ -151,6 +185,12 @@ vi.mock('@/ui/content/components/i18n', () => ({
 vi.mock('@/ui/content/controllers/ChatGPTFoldingController', () => ({
     ChatGPTFoldingController: foldingCtor,
 }));
+vi.mock('@/ui/content/controllers/ConversationVirtualizationController', () => ({
+    ConversationVirtualizationController: virtualizationCtor,
+}));
+vi.mock('@/ui/content/controllers/ChatGPTPageStabilityGate', () => ({
+    ChatGPTPageStabilityGate: stabilityGateCtor,
+}));
 
 vi.mock('@/ui/content/sending/SendController', () => ({
     SendController: sendControllerCtor,
@@ -163,9 +203,11 @@ vi.mock('@/contracts/protocol', async () => {
 
 afterEach(() => {
     vi.clearAllMocks();
+    settingsGetCached.mockReturnValue(null);
     adapterPlatformId = 'gemini';
     settingsSubscriber = null;
     runtimeMessageListener = null;
+    stabilityGateSubscriber = null;
     document.documentElement.removeAttribute('data-aimd-theme');
     document.body.innerHTML = '';
 });
@@ -197,11 +239,13 @@ describe('content runtime entry', () => {
         expect(headerIconInit).toHaveBeenCalledTimes(1);
         expect(foldingCtor).toHaveBeenCalledTimes(1);
         expect(foldingInit).toHaveBeenCalledTimes(1);
+        expect(virtualizationCtor).not.toHaveBeenCalled();
+        expect(stabilityGateCtor).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeTruthy();
     });
 
     it('applies settings updates to runtime wiring and existing messages', async () => {
-        adapterPlatformId = 'gemini';
+        adapterPlatformId = 'chatgpt';
         document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
         vi.resetModules();
         await import('@/runtimes/content/entry');
@@ -211,8 +255,8 @@ describe('content runtime entry', () => {
         settingsSubscriber!({
             settings: {
                 language: 'en',
-                platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
+                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true, foldingPowerMode: 'off' },
                 behavior: {
                     showViewSource: true,
                     showSaveMessages: true,
@@ -231,12 +275,13 @@ describe('content runtime entry', () => {
         expect(bookmarksHide).not.toHaveBeenCalled();
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
+        expect(virtualizationSetPolicy).not.toHaveBeenCalled();
 
         settingsSubscriber!({
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true, foldingPowerMode: 'on' },
                 behavior: {
                     showViewSource: true,
                     showSaveMessages: true,
@@ -253,6 +298,12 @@ describe('content runtime entry', () => {
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
+        expect(stabilityGateCtor).toHaveBeenCalledTimes(1);
+        expect(virtualizationCtor).not.toHaveBeenCalled();
+
+        stabilityGateSubscriber?.('stable');
+        expect(virtualizationCtor).toHaveBeenCalledTimes(1);
+        expect(virtualizationSetPolicy).toHaveBeenCalledWith({ foldingPowerMode: 'on' });
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
             showViewSource: true,
             showSaveMessages: true,
@@ -272,7 +323,7 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true, foldingPowerMode: 'on' },
                 behavior: {
                     showViewSource: true,
                     showSaveMessages: true,
@@ -291,5 +342,29 @@ describe('content runtime entry', () => {
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
         expect(bookmarksToggle).toHaveBeenCalledTimes(1);
         expect(bookmarksHide).not.toHaveBeenCalled();
+    });
+
+    it('does not instantiate ChatGPT virtualization when folding power mode is off', async () => {
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue({
+            language: 'auto',
+            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true, foldingPowerMode: 'off' },
+            behavior: {
+                showViewSource: true,
+                showSaveMessages: true,
+                showWordCount: true,
+                enableClickToCopy: true,
+                saveContextOnly: false,
+                _contextOnlyConfirmed: true,
+            },
+            reader: { renderCodeInReader: true },
+        });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(virtualizationCtor).not.toHaveBeenCalled();
+        expect(messageToolbarCtor.mock.calls[0]?.[1]?.virtualizationController).toBeUndefined();
     });
 });

@@ -86,6 +86,7 @@
 
 - Browser API 抽象优先经过 `src/drivers/shared/browser.ts`
 - 站点选择器、主题探测、message root 识别只能位于 `src/drivers/content/adapters/sites/*`
+- conversation group discovery、turn root、conversation root、streaming 判定同样只能位于 adapter/driver；UI controller 不得新增宿主专有 selector
 - UI 层不得持有平台专有选择器
 - Service 层不得按 platform id 分支选择 DOM 行为
 - `content-facing feature service` 可消费 adapter 暴露的抽象结果，但不得自行持有平台 selector 或注册 adapter

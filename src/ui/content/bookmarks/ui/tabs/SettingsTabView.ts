@@ -1,4 +1,4 @@
-import type { AppSettings, FoldingMode } from '../../../../../core/settings/types';
+import type { AppSettings, FoldingMode, FoldingPowerMode } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
 import type { BookmarksStorageUsageResponse } from '../../../../../contracts/protocol';
 import type { ModalHost } from '../../../components/ModalHost';
@@ -32,10 +32,13 @@ type SelectRef = {
 type Refs = {
     platforms: Record<'chatgpt' | 'gemini' | 'claude' | 'deepseek', HTMLInputElement>;
     foldingMode: SelectRef;
+    foldingPowerMode: SelectRef;
     foldingCountItem: HTMLElement;
     foldingCountParent: HTMLElement;
     foldingCount: HTMLInputElement;
+    showFoldDockItem: HTMLElement;
     showFoldDock: HTMLInputElement;
+    foldingPowerModeItem: HTMLElement;
     behavior: {
         showViewSource: HTMLInputElement;
         showSaveMessages: HTMLInputElement;
@@ -102,6 +105,17 @@ export class SettingsTabView {
         foldingCountItem.input.step = '1';
 
         const showFoldDock = this.createToggle(chatgptGroup.body, t('chatgptFoldDockLabel'), t('chatgptFoldDockDesc'));
+        const foldingPowerMode = this.createSelect(
+            chatgptGroup.body,
+            t('chatgptFoldingPowerModeLabel'),
+            `${t('chatgptFoldingPowerModeDesc')} ${t('chatgptFoldingPowerModeHint')}`,
+            [
+            { value: 'off', label: t('chatgptFoldingPowerModeOff') },
+            { value: 'on', label: t('chatgptFoldingPowerModeOn') },
+            ],
+            'folding-power-mode'
+        );
+        foldingPowerMode.trigger.id = 'aimd-chatgpt-folding-power-mode';
 
         // Behavior group (merged with reader per legacy)
         const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
@@ -171,10 +185,13 @@ export class SettingsTabView {
                 deepseek: platforms.deepseek.input,
             },
             foldingMode,
+            foldingPowerMode,
             foldingCountParent: chatgptGroup.body,
             foldingCountItem: foldingCountItem.root,
             foldingCount: foldingCountItem.input,
+            showFoldDockItem: showFoldDock.root,
             showFoldDock: showFoldDock.input,
+            foldingPowerModeItem: foldingPowerMode.root,
             behavior: {
                 showViewSource: showViewSource.input,
                 showSaveMessages: showSaveMessages.input,
@@ -262,6 +279,12 @@ export class SettingsTabView {
             this.settings.chatgpt.showFoldDock = next;
             void this.actions.setChatGptSettings?.({ showFoldDock: next });
         });
+        this.refs.foldingPowerMode.onChange((value) => {
+            const mode = value as FoldingPowerMode;
+            this.settings.chatgpt.foldingPowerMode = mode;
+            this.applySettingsToDom();
+            void this.actions.setChatGptSettings?.({ foldingPowerMode: mode });
+        });
 
         // Behavior + reader
         this.refs.behavior.showViewSource.addEventListener('change', () => {
@@ -331,6 +354,7 @@ export class SettingsTabView {
         this.refs.foldingCount.value = String(s.chatgpt.defaultExpandedCount);
         this.refs.foldingCount.dataset.role = 'settings-folding-count';
         this.refs.showFoldDock.checked = Boolean(s.chatgpt.showFoldDock);
+        this.refs.foldingPowerMode.setValue(s.chatgpt.foldingPowerMode);
 
         this.refs.behavior.showViewSource.checked = Boolean(s.behavior.showViewSource);
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
@@ -354,10 +378,22 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.renderCodeInReader);
 
         // Only show count input when keep_last_n.
+        const foldingEnabled = s.chatgpt.foldingMode !== 'off';
+        if (foldingEnabled) {
+            if (!this.refs.showFoldDockItem.isConnected) this.refs.foldingCountParent.appendChild(this.refs.showFoldDockItem);
+            if (!this.refs.foldingPowerModeItem.isConnected) this.refs.foldingCountParent.appendChild(this.refs.foldingPowerModeItem);
+        } else {
+            this.refs.showFoldDockItem.remove();
+            this.refs.foldingPowerModeItem.remove();
+        }
         const showCount = s.chatgpt.foldingMode === 'keep_last_n';
-        if (showCount) {
+        if (showCount && foldingEnabled) {
             if (!this.refs.foldingCountItem.isConnected) {
-                this.refs.foldingCountParent.insertBefore(this.refs.foldingCountItem, this.refs.showFoldDock.closest('.settings-item'));
+                if (this.refs.showFoldDockItem.isConnected) {
+                    this.refs.foldingCountParent.insertBefore(this.refs.foldingCountItem, this.refs.showFoldDockItem);
+                } else {
+                    this.refs.foldingCountParent.appendChild(this.refs.foldingCountItem);
+                }
             }
             this.refs.foldingCountItem.dataset.role = 'settings-folding-count-container';
         } else {

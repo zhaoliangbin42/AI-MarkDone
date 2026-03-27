@@ -13,7 +13,7 @@ describe('settings migrations', () => {
         const stored: any = {
             version: 3,
             platforms: { chatgpt: false },
-            chatgpt: { foldingMode: 'all' },
+            chatgpt: { foldingMode: 'all', enableVirtualization: false },
             behavior: { enableClickToCopy: false },
             reader: { renderCodeInReader: false, markdownTheme: 'github-light-colorblind' },
             bookmarks: { sortMode: 'alphabetical' },
@@ -25,6 +25,7 @@ describe('settings migrations', () => {
         expect(next.platforms.chatgpt).toBe(false);
         expect(next.platforms.gemini).toBe(true);
         expect(next.chatgpt.foldingMode).toBe('all');
+        expect(next.chatgpt.foldingPowerMode).toBe('off');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
@@ -44,6 +45,7 @@ describe('settings migrations', () => {
         expect(next.version).toBe(3);
         expect(next.chatgpt.foldingMode).toBe('keep_last_n');
         expect(next.chatgpt.defaultExpandedCount).toBe(6);
+        expect(next.chatgpt.foldingPowerMode).toBe('off');
         expect(next.behavior.showWordCount).toBe(false);
         expect(next.bookmarks.sortMode).toBe('time-desc');
         expect('performance' in next).toBe(false);
@@ -59,8 +61,23 @@ describe('settings migrations', () => {
         const next = loadAndNormalize(stored);
         expect(next.chatgpt.foldingMode).toBe('all');
         expect(next.chatgpt.defaultExpandedCount).toBe(5);
+        expect(next.chatgpt.foldingPowerMode).toBe('off');
         expect('performance' in next).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
+    });
+
+    it('keeps migrated legacy folding users on hidden behavior unless virtualization was explicitly enabled before', () => {
+        const storedV1: any = {
+            version: 1,
+            chatgpt: { foldingMode: 'all' },
+        };
+        const storedV3: any = {
+            version: 3,
+            chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 3 },
+        };
+
+        expect(loadAndNormalize(storedV1).chatgpt.foldingPowerMode).toBe('off');
+        expect(loadAndNormalize(storedV3).chatgpt.foldingPowerMode).toBe('off');
     });
 
     it('migrates v1 storage.saveContextOnly into behavior.saveContextOnly', () => {
@@ -76,5 +93,27 @@ describe('settings migrations', () => {
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
+    });
+
+    it('maps legacy virtualization toggles into folding power mode', () => {
+        const offStored: any = {
+            version: 3,
+            chatgpt: {
+                foldingMode: 'all',
+                enableVirtualization: false,
+                enableEarlyPrune: false,
+            },
+        };
+        const mediumStored: any = {
+            version: 3,
+            chatgpt: {
+                foldingMode: 'keep_last_n',
+                enableVirtualization: true,
+                enableEarlyPrune: false,
+            },
+        };
+
+        expect(loadAndNormalize(offStored).chatgpt.foldingPowerMode).toBe('off');
+        expect(loadAndNormalize(mediumStored).chatgpt.foldingPowerMode).toBe('on');
     });
 });
