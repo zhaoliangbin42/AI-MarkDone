@@ -49,12 +49,14 @@ const bookmarksPanelCtor = vi.fn(function () {
 const messageToolbarsInit = vi.fn();
 const messageToolbarsSetTheme = vi.fn();
 const messageToolbarsSetBehaviorFlags = vi.fn();
+const messageToolbarsSetConversationContentPreparer = vi.fn();
 const messageToolbarsDispose = vi.fn();
 const messageToolbarCtor = vi.fn(function () {
     return {
         init: messageToolbarsInit,
         setTheme: messageToolbarsSetTheme,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
+        setConversationContentPreparer: messageToolbarsSetConversationContentPreparer,
         setVirtualizationController: vi.fn(),
         dispose: messageToolbarsDispose,
     };
@@ -91,6 +93,18 @@ const virtualizationCtor = vi.fn(function () {
         restoreAll: virtualizationRestoreAll,
     };
 });
+const stablePerformanceInit = vi.fn();
+const stablePerformanceDispose = vi.fn();
+const stablePerformanceSetTheme = vi.fn();
+const stablePerformanceRestoreAll = vi.fn();
+const stablePerformanceCtor = vi.fn(function () {
+    return {
+        init: stablePerformanceInit,
+        dispose: stablePerformanceDispose,
+        setTheme: stablePerformanceSetTheme,
+        restoreAll: stablePerformanceRestoreAll,
+    };
+});
 const stabilityGateInit = vi.fn();
 const stabilityGateDispose = vi.fn();
 const stabilityGateGetState = vi.fn(() => 'pending');
@@ -107,6 +121,15 @@ const stabilityGateCtor = vi.fn(function () {
                 if (stabilityGateSubscriber === fn) stabilityGateSubscriber = null;
             };
         }),
+    };
+});
+const quarantineInit = vi.fn();
+const quarantineDispose = vi.fn();
+const quarantineCtor = vi.fn(function () {
+    return {
+        init: quarantineInit,
+        dispose: quarantineDispose,
+        subscribe: vi.fn(),
     };
 });
 const setLocale = vi.fn(async () => {});
@@ -191,6 +214,12 @@ vi.mock('@/ui/content/controllers/ConversationVirtualizationController', () => (
 vi.mock('@/ui/content/controllers/ChatGPTPageStabilityGate', () => ({
     ChatGPTPageStabilityGate: stabilityGateCtor,
 }));
+vi.mock('@/ui/content/controllers/ChatGPTStreamingQuarantineController', () => ({
+    ChatGPTStreamingQuarantineController: quarantineCtor,
+}));
+vi.mock('@/ui/content/controllers/ChatGPTStablePerformanceController', () => ({
+    ChatGPTStablePerformanceController: stablePerformanceCtor,
+}));
 
 vi.mock('@/ui/content/sending/SendController', () => ({
     SendController: sendControllerCtor,
@@ -239,6 +268,7 @@ describe('content runtime entry', () => {
         expect(headerIconInit).toHaveBeenCalledTimes(1);
         expect(foldingCtor).toHaveBeenCalledTimes(1);
         expect(foldingInit).toHaveBeenCalledTimes(1);
+        expect(quarantineCtor).not.toHaveBeenCalled();
         expect(virtualizationCtor).not.toHaveBeenCalled();
         expect(stabilityGateCtor).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeTruthy();
@@ -298,11 +328,13 @@ describe('content runtime entry', () => {
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
+        expect(quarantineCtor).toHaveBeenCalledTimes(1);
         expect(stabilityGateCtor).toHaveBeenCalledTimes(1);
         expect(virtualizationCtor).not.toHaveBeenCalled();
 
         stabilityGateSubscriber?.('stable');
         expect(virtualizationCtor).toHaveBeenCalledTimes(1);
+        expect(stablePerformanceCtor).toHaveBeenCalledTimes(1);
         expect(virtualizationSetPolicy).toHaveBeenCalledWith({ foldingPowerMode: 'on' });
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
             showViewSource: true,
@@ -365,6 +397,8 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         expect(virtualizationCtor).not.toHaveBeenCalled();
+        expect(stablePerformanceCtor).not.toHaveBeenCalled();
+        expect(quarantineCtor).toHaveBeenCalledTimes(1);
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.virtualizationController).toBeUndefined();
     });
 });

@@ -36,5 +36,31 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(html).toContain('class="markdown-body"');
         expect(html).toContain('中文用户');
         expect(html).toContain('中文内容');
+        expect(html).toContain('body > *:not(#aimd-pdf-export-container) { display: none !important; }');
+    });
+
+    it('keeps PDF markdown rendering free of syntax-highlight wrapper markup', () => {
+        const turns: ChatTurn[] = [
+            {
+                user: 'u1',
+                assistant: '```ts\nconst value = 1;\n```',
+                index: 0,
+            },
+        ];
+        const meta: ConversationMetadata = {
+            url: 'https://chatgpt.com/c/1',
+            exportedAt: new Date('2026-03-01T00:00:00.000Z').toISOString(),
+            title: 'T',
+            count: 1,
+            platform: 'ChatGPT',
+        };
+
+        const plan = buildPdfPrintPlan(turns, [0], meta, t);
+        expect(plan).not.toBeNull();
+
+        const html = plan!.html;
+        expect(html).not.toContain('hljs');
+        expect(html).toContain('<pre');
+        expect(html).toContain('<code');
     });
 });

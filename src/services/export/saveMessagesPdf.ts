@@ -155,7 +155,9 @@ function tokenCssAsRoot(theme: 'light' | 'dark'): string {
 }
 
 function renderMarkdownForPdf(markdown: string): string {
-    return renderMarkdownToSanitizedHtml(markdown, { softBreaks: true });
+    // PDF follows the legacy renderer semantics: soft line breaks, math support, and no syntax-highlighting
+    // DOM inflation. This keeps the print tree closer to the mature export path without reintroducing old deps.
+    return renderMarkdownToSanitizedHtml(markdown, { softBreaks: true, highlightCode: false });
 }
 
 export function buildPdfPrintPlan(

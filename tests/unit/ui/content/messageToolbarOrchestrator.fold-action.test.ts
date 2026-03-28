@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+vi.mock('@/ui/content/export/SaveMessagesDialog', () => ({
+    saveMessagesDialog: {
+        open: vi.fn(),
+    },
+}));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { saveMessagesDialog } from '@/ui/content/export/SaveMessagesDialog';
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -171,5 +177,63 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
 
         expect(virtualizationController.restoreAll).toHaveBeenCalledTimes(1);
         expect(readerPanel.show).toHaveBeenCalledTimes(1);
+    });
+
+    it('reduced budget mode skips full rescans outside route changes', () => {
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel }) as any;
+
+        orchestrator.buildFullScanSnapshot = vi.fn(() => new Map());
+        orchestrator.buildIncrementalSnapshot = vi.fn(() => new Map());
+        orchestrator.reconcileScanSnapshot = vi.fn();
+        orchestrator.syncReaderTailPages = vi.fn(async () => undefined);
+        orchestrator.needsFullRescan = true;
+        orchestrator.setStreamingBudgetMode('reduced');
+
+        orchestrator.scanAndInject(new Set(['mutation']));
+
+        expect(orchestrator.buildFullScanSnapshot).not.toHaveBeenCalled();
+        expect(orchestrator.buildIncrementalSnapshot).toHaveBeenCalled();
+
+        orchestrator.scanAndInject(new Set(['route_change']));
+        expect(orchestrator.buildFullScanSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('prepares full conversation content before opening save messages', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Hello from user</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Hi</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel }) as any;
+        const prepareConversationContent = vi.fn(async () => undefined);
+        orchestrator.setConversationContentPreparer(prepareConversationContent);
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const exportAction = actions.find((action: any) => action.id === 'export');
+
+        expect(exportAction).toBeTruthy();
+
+        await exportAction.onClick();
+
+        expect(prepareConversationContent).toHaveBeenCalledTimes(1);
+        expect(saveMessagesDialog.open).toHaveBeenCalledTimes(1);
     });
 });

@@ -92,6 +92,14 @@ export abstract class SiteAdapter {
     isVirtualizationEligibleMessage?(_assistantMessageElement: HTMLElement): boolean;
 
     /**
+     * Optional platform-owned heavy subtree hints for stable-state performance optimizations.
+     *
+     * Callers pass mounted body roots; adapters return candidate heavy subtree roots using
+     * structural selectors only.
+     */
+    getHeavySubtreeRefs?(_bodyEls: HTMLElement[]): HTMLElement[];
+
+    /**
      * Platform-specific injection strategy for a per-message toolbar host element.
      *
      * Implementations must inject only into the official toolbar/action row.

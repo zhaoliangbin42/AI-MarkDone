@@ -178,4 +178,45 @@ describe('ConversationVirtualizationController', () => {
         expect(main.contains(assistant)).toBe(true);
         expect(bridge.completeRestore).toHaveBeenCalledWith('g1');
     });
+
+    it('reduced budget mode does not trim the active streaming window', () => {
+        document.body.innerHTML = '<main></main>';
+        const main = document.querySelector('main') as HTMLElement;
+        Object.defineProperty(main, 'clientHeight', { configurable: true, get: () => 500 });
+        Object.defineProperty(main, 'scrollTop', { configurable: true, writable: true, value: 2500 });
+
+        const bar = document.createElement('div');
+        const assistant = document.createElement('section');
+        main.append(bar, assistant);
+        defineLayout(bar, 0, 40);
+        defineLayout(assistant, 40, 180);
+
+        const bridge = {
+            getGroups: () => [
+                {
+                    id: 'g1',
+                    title: '1. Prompt',
+                    barEl: bar,
+                    bodyEls: [assistant],
+                    assistantRootEl: assistant,
+                    assistantIndex: 5,
+                    collapsed: true,
+                    virtualized: false,
+                    isStreaming: true,
+                },
+            ],
+            markVirtualized: vi.fn(),
+            completeRestore: vi.fn(),
+            onRestoreRequested: vi.fn(),
+        };
+
+        const controller = new ConversationVirtualizationController(new FakeChatGPTAdapter(), bridge as any) as any;
+        controller.init('light');
+        controller.setPolicy({ foldingPowerMode: 'on' });
+        controller.setStreamingBudgetMode('reduced');
+        controller.sync();
+
+        expect(main.contains(assistant)).toBe(true);
+        expect(bridge.markVirtualized).not.toHaveBeenCalled();
+    });
 });

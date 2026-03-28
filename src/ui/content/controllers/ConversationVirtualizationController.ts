@@ -19,6 +19,7 @@ export class ConversationVirtualizationController {
     private scrollHandler: (() => void) | null = null;
     private syncScheduled = false;
     private disabledForPage = false;
+    private streamingBudgetMode: 'normal' | 'reduced' = 'normal';
 
     constructor(adapter: SiteAdapter, foldBridge: ConversationGroupRegistryPort) {
         this.adapter = adapter;
@@ -76,6 +77,13 @@ export class ConversationVirtualizationController {
         this.store.restoreAll();
         for (const group of this.foldBridge.getGroups()) {
             this.foldBridge.markVirtualized(group.id, false);
+        }
+    }
+
+    setStreamingBudgetMode(mode: 'normal' | 'reduced'): void {
+        this.streamingBudgetMode = mode;
+        if (mode === 'normal') {
+            this.scheduleSync();
         }
     }
 
@@ -137,13 +145,15 @@ export class ConversationVirtualizationController {
                 overscanPx: this.policy.viewportOverscanPx,
                 preserveRecentAssistantCount: this.policy.preserveRecentAssistantCount,
             });
+            const protectedStreamingIds = this.getProtectedStreamingGroupIds(groups);
 
             for (const group of groups) {
-                if ((group.virtualized || this.store.isTrimmed(group.id)) && mounted.has(group.id)) {
+                if ((group.virtualized || this.store.isTrimmed(group.id)) && this.shouldRestoreGroup(group, mounted.has(group.id), viewportTop, viewportBottom)) {
                     this.restoreGroup(group.id);
                     continue;
                 }
                 if (!group.collapsed || group.isStreaming) continue;
+                if (protectedStreamingIds.has(group.id)) continue;
                 if (mounted.has(group.id)) continue;
                 if (this.groupHasFocus(group)) continue;
                 if (group.virtualized || this.store.isTrimmed(group.id)) continue;
@@ -181,5 +191,37 @@ export class ConversationVirtualizationController {
         }
 
         return false;
+    }
+
+    private getProtectedStreamingGroupIds(groups: ReturnType<ConversationGroupRegistryPort['getGroups']>): Set<string> {
+        const protectedIds = new Set<string>();
+        if (this.streamingBudgetMode !== 'reduced') return protectedIds;
+
+        const streamingIndices = groups.filter((group) => group.isStreaming).map((group) => group.assistantIndex);
+        if (streamingIndices.length === 0) return protectedIds;
+        const latestStreamingIndex = Math.max(...streamingIndices);
+        const minProtectedIndex = latestStreamingIndex - 2;
+
+        for (const group of groups) {
+            if (group.assistantIndex >= minProtectedIndex || this.groupHasFocus(group)) {
+                protectedIds.add(group.id);
+            }
+        }
+
+        return protectedIds;
+    }
+
+    private shouldRestoreGroup(
+        group: ReturnType<ConversationGroupRegistryPort['getGroups']>[number],
+        mounted: boolean,
+        viewportTop: number,
+        viewportBottom: number
+    ): boolean {
+        if (!mounted) return false;
+        if (this.streamingBudgetMode !== 'reduced') return true;
+        if (this.groupHasFocus(group)) return true;
+        const top = group.barEl.offsetTop;
+        const bottom = top + group.barEl.offsetHeight;
+        return bottom >= viewportTop && top <= viewportBottom;
     }
 }

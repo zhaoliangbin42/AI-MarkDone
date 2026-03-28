@@ -73,9 +73,9 @@ ${getPanelChromeCss()}
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
-  min-width: 36px;
+  width: 42px;
+  min-width: 42px;
   height: 34px;
-  padding: 0 10px;
   border-radius: var(--aimd-radius-md);
   border: 1px solid var(--aimd-border-default);
   display: inline-flex;

@@ -231,18 +231,25 @@ export class SaveMessagesDialog {
         if (!this.adapter || !this.metadata) return;
         if (this.state.selected.size === 0 || this.state.saving) return;
 
+        const selectedIndices = Array.from(this.state.selected).sort((a, b) => a - b);
+        const turns = this.turns;
+        const metadata = this.metadata;
+        const format = this.state.format;
+
         this.state.saving = true;
         this.render();
 
         try {
-            const selectedIndices = Array.from(this.state.selected).sort((a, b) => a - b);
             const res =
-                this.state.format === 'pdf'
-                    ? await exportTurnsPdf(this.turns, selectedIndices, this.metadata, { t: this.exportT })
-                    : await exportTurnsMarkdown(this.turns, selectedIndices, this.metadata, { t: this.exportT });
+                format === 'pdf'
+                    ? await (async () => {
+                          this.finishClose();
+                          return exportTurnsPdf(turns, selectedIndices, metadata, { t: this.exportT });
+                      })()
+                    : await exportTurnsMarkdown(turns, selectedIndices, metadata, { t: this.exportT });
 
             if (!res.ok) return;
-            this.close();
+            if (format !== 'pdf') this.close();
         } finally {
             this.state.saving = false;
             if (this.overlaySession && !this.closing) this.render();

@@ -62,6 +62,8 @@ export class MessageToolbarOrchestrator {
     private bookmarksController: BookmarksPanelController | null = null;
     private foldingController: ChatGPTFoldingController | null = null;
     private virtualizationController: Pick<ConversationVirtualizationController, 'restoreAll'> | null = null;
+    private prepareConversationContent: (() => void | Promise<void>) | null = null;
+    private streamingBudgetMode: 'normal' | 'reduced' = 'normal';
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
     private messageOrder: HTMLElement[] = [];
@@ -357,6 +359,14 @@ export class MessageToolbarOrchestrator {
         this.virtualizationController = controller ?? null;
     }
 
+    setConversationContentPreparer(preparer: (() => void | Promise<void>) | null | undefined): void {
+        this.prepareConversationContent = preparer ?? null;
+    }
+
+    setStreamingBudgetMode(mode: 'normal' | 'reduced'): void {
+        this.streamingBudgetMode = mode;
+    }
+
     private getPositionForMessage(messageElement: HTMLElement): number {
         const fallback = Number(messageElement.dataset.aimdMsgPosition || 0);
         return Number.isFinite(fallback) ? fallback : 0;
@@ -500,7 +510,11 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                this.virtualizationController?.restoreAll();
+                if (this.prepareConversationContent) {
+                    await this.prepareConversationContent();
+                } else {
+                    this.virtualizationController?.restoreAll();
+                }
                 this.rebuildTurnIndex();
                 const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
@@ -522,6 +536,11 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
+                    if (this.prepareConversationContent) {
+                        await this.prepareConversationContent();
+                    } else {
+                        this.virtualizationController?.restoreAll();
+                    }
                     saveMessagesDialog.open(this.adapter, this.theme);
                 },
             });
@@ -790,19 +809,24 @@ export class MessageToolbarOrchestrator {
     }
 
     private scanAndInject(reasons: Set<string> = new Set(['manual'])): void {
+        if (this.streamingBudgetMode === 'reduced' && !reasons.has('route_change')) {
+            this.needsFullRescan = false;
+        }
         const shouldRunFull =
-            reasons.has('init')
+            (this.streamingBudgetMode === 'normal' && reasons.has('init'))
             || reasons.has('route_change')
-            || reasons.has('manual')
+            || (this.streamingBudgetMode === 'normal' && reasons.has('manual'))
             || this.needsFullRescan
-            || this.messageOrder.length === 0;
+            || (this.streamingBudgetMode === 'normal' && this.messageOrder.length === 0);
 
         if (shouldRunFull) {
             const snapshot = this.buildFullScanSnapshot();
             this.needsFullRescan = false;
             this.dirtyMessages.clear();
             this.reconcileScanSnapshot(snapshot, 'full');
-            void this.syncReaderTailPages();
+            if (this.streamingBudgetMode === 'normal') {
+                void this.syncReaderTailPages();
+            }
             return;
         }
 
@@ -812,12 +836,16 @@ export class MessageToolbarOrchestrator {
             const fullSnapshot = this.buildFullScanSnapshot();
             this.needsFullRescan = false;
             this.reconcileScanSnapshot(fullSnapshot, 'full');
-            void this.syncReaderTailPages();
+            if (this.streamingBudgetMode === 'normal') {
+                void this.syncReaderTailPages();
+            }
             return;
         }
 
         this.reconcileScanSnapshot(snapshot, 'incremental');
-        void this.syncReaderTailPages();
+        if (this.streamingBudgetMode === 'normal') {
+            void this.syncReaderTailPages();
+        }
     }
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, position: number): void {

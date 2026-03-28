@@ -469,7 +469,10 @@ Manual or E2E:
 
 - add heavy-message scoring and placeholder store
 - add runtime virtualization controller
-- trim only offscreen folded groups
+- stable state now layers three tactics in order:
+  - trim folded payloads
+  - apply `content-visibility` to expanded old groups
+  - compact only adapter-classified heavy KaTeX / code subtrees
 - no early-load logic yet
 
 Reason:

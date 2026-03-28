@@ -77,7 +77,8 @@
   - `ChatGPTFoldingController` 在 UI/controller 层拥有 fold bar、fold dock 与稳定 group registry，但当前已优先消费 adapter 提供的 conversation groups，而不是继续扩张 UI 自己的宿主 selector 发现逻辑
   - `ChatGPTPageStabilityGate` 在 UI/controller 层负责 ChatGPT 首刷的稳定门编排；它只决定何时允许从 hidden-only 切换到 trim/restore，不拥有组真相
   - `ConversationVirtualizationController` 当前仍在 UI/controller 层，职责已收窄为“正文 payload 的 trim/restore 管理”，并且只在稳定门通过后接管
-  - `drivers/content/virtualization/*` 当前只承载 placeholder store、window calculation 等可复用机制
+  - `ChatGPTStablePerformanceController` 当前在 UI/controller 层负责稳定态性能策略编排：对已折叠组继续使用 payload trim，对未折叠但远离视口的旧组启用 `content-visibility`，并只在 adapter 提供的结构提示下对子树做局部重内容降级
+  - `drivers/content/virtualization/*` 当前只承载 placeholder store、window calculation、`content-visibility` 协调器、重子树分类与局部 compaction store 等可复用机制
   - `early.ts` / `early-main.ts` / `earlyLoadGuard.ts` 目前属于未进入默认发布链路的实验草稿，不构成现行 shipping path
 
 ### Bookmarks

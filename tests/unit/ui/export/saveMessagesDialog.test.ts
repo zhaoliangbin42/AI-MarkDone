@@ -107,6 +107,27 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsPdf).toHaveBeenCalledTimes(1);
     });
 
+    it('closes the dialog before starting PDF export so the modal shell cannot leak into print', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        vi.mocked(exportTurnsPdf).mockImplementationOnce(async () => {
+            expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+            return { ok: true, noop: false };
+        });
+
+        const dlg = new SaveMessagesDialog();
+        dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLElement>('[data-action="set-format"][data-format="pdf"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await flushUi();
+
+        expect(exportTurnsPdf).toHaveBeenCalledTimes(1);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+    });
+
     it('updates visible copy when the locale changes while open', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
@@ -203,5 +224,14 @@ describe('SaveMessagesDialog', () => {
         expect(css).toContain('.message-chip:hover');
         expect(css).toContain('var(--aimd-button-secondary-hover)');
         expect(css).toContain('.segmented button:hover');
+    });
+
+    it('keeps save-message chips at a uniform width regardless of label digits', async () => {
+        const { getSaveMessagesDialogCss } = await import('@/ui/content/export/saveMessagesDialogCss');
+        const css = getSaveMessagesDialogCss('light');
+
+        expect(css).toContain('width: 42px;');
+        expect(css).toContain('min-width: 42px;');
+        expect(css).not.toContain('padding: 0 10px;');
     });
 });

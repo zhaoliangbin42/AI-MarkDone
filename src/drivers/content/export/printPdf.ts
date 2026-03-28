@@ -55,4 +55,3 @@ export async function printPdf(plan: PdfPrintPlan): Promise<void> {
         });
     });
 }
-

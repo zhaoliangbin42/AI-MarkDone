@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT and DeepSeek: Added an adapter-driven header bookmark icon entry backed by a shared runtime orchestrator.
 - ChatGPT: Added a toolbar collapse action so foldable assistant messages can collapse their current turn group directly from the official message toolbar.
 - ChatGPT: Added an experimental folding power mode with medium and ultra unloading behavior, while keeping a stable hidden-only fallback for folded threads.
+- ChatGPT: Added a stable-state performance controller that keeps folded payload trimming, applies `content-visibility` to older expanded groups, and compacts only adapter-classified heavy KaTeX/code subtrees after the page-stability gate passes.
 
 ### Changed
 - Platform adapters now own page-header icon anchors and injection rules, keeping runtime lifecycle logic platform-agnostic.
 - ChatGPT: Power mode now uses a simpler `Off / On` model; `On` applies earlier hidden folding during load and only upgrades folded groups to virtualization after a page-stability gate passes.
+- ChatGPT: Stable-state optimization now favors low-interruption reading by keeping fold bars as the sole recovery surface, only occluding older expanded groups, and limiting aggressive DOM removal to folded payloads and heavy subtrees.
 - ChatGPT: Moved the toolbar collapse action to the far right of the official toolbar action row, keeping the word-count stats at the end of the surface.
 - Unified the runtime style pipeline around shared reference tokens, semantic tokens, and stable UI exports.
 - Overlay panels and modal surfaces now share a documented title typography contract, with Reader, bookmarks, save dialogs, and sending surfaces aligned to the same tokenized chrome/control system.

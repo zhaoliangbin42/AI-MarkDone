@@ -57,4 +57,3 @@ describe('printPdf', () => {
         expect(document.getElementById('aimd-pdf-export-container')).toBeNull();
     });
 });
-

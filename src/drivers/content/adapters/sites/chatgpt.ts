@@ -289,6 +289,21 @@ export class ChatGPTAdapter extends SiteAdapter {
         return refs;
     }
 
+    getHeavySubtreeRefs(bodyEls: HTMLElement[]): HTMLElement[] {
+        const seen = new Set<HTMLElement>();
+        const refs: HTMLElement[] = [];
+        for (const bodyEl of bodyEls) {
+            const matches = bodyEl.querySelectorAll('.katex-display, .katex, math, pre');
+            matches.forEach((node) => {
+                if (!(node instanceof HTMLElement)) return;
+                if (seen.has(node)) return;
+                seen.add(node);
+                refs.push(node);
+            });
+        }
+        return refs;
+    }
+
     isVirtualizationEligibleMessage(messageElement: HTMLElement): boolean {
         return !this.isStreamingMessage(messageElement);
     }
