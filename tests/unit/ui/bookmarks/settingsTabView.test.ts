@@ -6,7 +6,7 @@ import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView'
 const baseSettings = {
     version: 3,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-    chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true, foldingPowerMode: 'on' },
+    chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
     behavior: {
         showViewSource: true,
         showSaveMessages: true,
@@ -39,13 +39,11 @@ describe('SettingsTabView', () => {
         const foldingModeTrigger = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-mode');
         const foldingMode = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-mode .settings-select-trigger__label');
         const showFoldDock = root.querySelector<HTMLInputElement>('[data-role="settings-fold-dock"]');
-        const powerModeTrigger = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-power-mode');
         const countContainer = root.querySelector<HTMLElement>('[data-role="settings-folding-count-container"]');
 
         expect(foldingModeTrigger).toBeTruthy();
         expect(foldingMode?.textContent).toBe('chatgptFoldingModeOff');
         expect(showFoldDock).toBeNull();
-        expect(powerModeTrigger).toBeNull();
         expect(countContainer).toBeNull();
     });
 
@@ -115,7 +113,7 @@ describe('SettingsTabView', () => {
             loadState: vi.fn(async () => ({
                 settings: {
                     ...structuredClone(baseSettings),
-                    chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 4, showFoldDock: true, foldingPowerMode: 'on' },
+                    chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 4, showFoldDock: true },
                 },
                 storageUsage: null,
             })),
@@ -146,7 +144,7 @@ describe('SettingsTabView', () => {
             settings: {
                 version: 3,
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 5, showFoldDock: true, foldingPowerMode: 'on' },
+                chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 5, showFoldDock: true },
                 behavior: {
                     showViewSource: true,
                     showSaveMessages: true,
@@ -225,21 +223,17 @@ describe('SettingsTabView', () => {
         root.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-mode"][data-value="keep_last_n"]')?.click();
         root.querySelector<HTMLInputElement>('[data-role="settings-folding-count"]')!.value = '12';
         root.querySelector<HTMLInputElement>('[data-role="settings-folding-count"]')!.dispatchEvent(new Event('input', { bubbles: true }));
-        root.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-power-mode"]')?.click();
-        root.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-power-mode"][data-value="off"]')?.click();
-
         root.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="language"]')?.click();
         root.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="language"][data-value="zh_CN"]')?.click();
 
         expect(actions.setPlatforms).toHaveBeenCalledWith({ chatgpt: false });
         expect(actions.setChatGptSettings).toHaveBeenCalledWith({ foldingMode: 'keep_last_n' });
         expect(actions.setChatGptSettings).toHaveBeenCalledWith({ defaultExpandedCount: 12 });
-        expect(actions.setChatGptSettings).toHaveBeenCalledWith({ foldingPowerMode: 'off' });
         expect(actions.setLanguage).toHaveBeenCalledWith('zh_CN');
         expect(actions.setReaderSettings).not.toHaveBeenCalled();
     });
 
-    it('shows fold dock and power mode controls once folding is enabled', async () => {
+    it('shows fold dock controls once folding is enabled', async () => {
         const modal = {
             confirm: vi.fn(async () => true),
         } as any;
@@ -258,14 +252,11 @@ describe('SettingsTabView', () => {
         root.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-mode"][data-value="all"]')?.click();
 
         const showFoldDock = root.querySelector<HTMLInputElement>('[data-role="settings-fold-dock"]');
-        const powerModeTrigger = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-power-mode');
-        const powerModeLabel = root.querySelector<HTMLElement>('#aimd-chatgpt-folding-power-mode .settings-select-trigger__label');
         const helperText = root.textContent ?? '';
 
         expect(showFoldDock?.checked).toBe(true);
-        expect(powerModeTrigger).toBeTruthy();
-        expect(powerModeLabel?.textContent).toBe('chatgptFoldingPowerModeOn');
-        expect(helperText).toContain('chatgptFoldingPowerModeHint');
+        expect(root.querySelector('#aimd-chatgpt-folding-power-mode')).toBeNull();
+        expect(helperText).not.toContain('chatgptFoldingPowerModeHint');
     });
 
     it('does not render a reader markdown theme select once the feature is removed', async () => {

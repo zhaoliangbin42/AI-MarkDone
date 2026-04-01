@@ -23,7 +23,6 @@ import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { sourcePanel } from '../source/sourcePanelSingleton';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import type { ChatGPTFoldingController } from './ChatGPTFoldingController';
-import type { ConversationVirtualizationController } from './ConversationVirtualizationController';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 
 type ToolbarRecord = {
@@ -45,6 +44,18 @@ type ScanSnapshotItem = {
     pending: boolean;
 };
 
+type BookmarkToggleParams = {
+    url: string;
+    position: number;
+    userPrompt: string;
+    markdown: string;
+    alreadyBookmarked: boolean;
+};
+
+type BookmarkToggleResult =
+    | { ok: true; saved: boolean; bookmarked: boolean; message: string; folderPath?: string }
+    | { ok: false; message?: string; cancelled?: boolean };
+
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
@@ -61,9 +72,6 @@ export class MessageToolbarOrchestrator {
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
     private foldingController: ChatGPTFoldingController | null = null;
-    private virtualizationController: Pick<ConversationVirtualizationController, 'restoreAll'> | null = null;
-    private prepareConversationContent: (() => void | Promise<void>) | null = null;
-    private streamingBudgetMode: 'normal' | 'reduced' = 'normal';
     private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
     private messageOrder: HTMLElement[] = [];
@@ -111,6 +119,73 @@ export class MessageToolbarOrchestrator {
         return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
     }
 
+    private getBookmarkPlatformLabel(): string {
+        const platformId = this.adapter.getPlatformId();
+        if (platformId === 'chatgpt') return 'ChatGPT';
+        if (platformId === 'claude') return 'Claude';
+        if (platformId === 'gemini') return 'Gemini';
+        if (platformId === 'deepseek') return 'DeepSeek';
+        return platformId;
+    }
+
+    private async runBookmarkToggle(params: BookmarkToggleParams): Promise<BookmarkToggleResult> {
+        if (!this.bookmarksController) return { ok: false, message: t('contentNotFound') };
+        if (!params.position) return { ok: false, message: t('positionNotAvailable') };
+
+        const userPrompt = params.userPrompt.trim();
+        if (!userPrompt) return { ok: false, message: t('failedToExtractUserMessage') };
+
+        if (!params.alreadyBookmarked) {
+            const currentFolderPath = this.bookmarksController.getDefaultFolderPath();
+            const dialogRes = await bookmarkSaveDialog.open({
+                theme: this.theme,
+                userPrompt,
+                existingTitle: userPrompt,
+                currentFolderPath,
+                mode: 'create',
+            });
+            if (!dialogRes.ok) return { ok: false, cancelled: true };
+
+            const saveRes = await this.bookmarksController.toggleBookmarkFromToolbar({
+                url: params.url,
+                position: params.position,
+                folderPath: dialogRes.folderPath,
+                userMessage: userPrompt,
+                aiResponse: params.markdown,
+                platform: this.getBookmarkPlatformLabel(),
+                title: dialogRes.title,
+            });
+            if (!saveRes.ok) return { ok: false, message: saveRes.message };
+
+            return {
+                ok: true,
+                saved: true,
+                bookmarked: true,
+                message: t('savedStatus'),
+                folderPath: dialogRes.folderPath,
+            };
+        }
+
+        const title = userPrompt.length > 50 ? `${userPrompt.slice(0, 50)}...` : userPrompt;
+        const removeRes = await this.bookmarksController.toggleBookmarkFromToolbar({
+            url: params.url,
+            position: params.position,
+            folderPath: this.bookmarksController.getDefaultFolderPath(),
+            userMessage: userPrompt,
+            aiResponse: params.markdown,
+            platform: this.getBookmarkPlatformLabel(),
+            title,
+        });
+        if (!removeRes.ok) return { ok: false, message: removeRes.message };
+
+        return {
+            ok: true,
+            saved: removeRes.data.saved,
+            bookmarked: removeRes.data.saved,
+            message: removeRes.data.saved ? t('savedStatus') : t('removedStatus'),
+        };
+    }
+
     private decorateReaderItems(items: Array<{ meta?: Record<string, unknown> }>): void {
         if (!this.bookmarksController) return;
         const url = this.getBookmarkPageUrl();
@@ -141,67 +216,21 @@ export class MessageToolbarOrchestrator {
                     const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
                     const url = typeof meta.url === 'string' ? meta.url : this.getBookmarkPageUrl();
                     const position = Number(meta.position ?? 0);
-                    if (!position) {
-                        ctx?.notify?.(t('positionNotAvailable'));
-                        return;
-                    }
-
                     const userPrompt = String(ctx?.item?.userPrompt || '').trim();
-                    if (!userPrompt) {
-                        ctx?.notify?.(t('failedToExtractUserMessage'));
-                        return;
-                    }
-
                     const markdown = await resolveContent(ctx.item.content);
-                    const already = this.bookmarksController!.isPositionBookmarked(url, position);
-
-                    if (!already) {
-                        const currentFolderPath = this.bookmarksController!.getDefaultFolderPath();
-                        const res = await bookmarkSaveDialog.open({
-                            theme: this.theme,
-                            userPrompt,
-                            existingTitle: userPrompt,
-                            currentFolderPath,
-                            mode: 'create',
-                        });
-                        if (!res.ok) return;
-
-                        const saveRes = await this.bookmarksController!.toggleBookmarkFromToolbar({
-                            url,
-                            position,
-                            folderPath: res.folderPath,
-                            userMessage: userPrompt,
-                            aiResponse: markdown,
-                            platform: 'ChatGPT',
-                            title: res.title,
-                        });
-                        if (!saveRes.ok) {
-                            ctx?.notify?.(saveRes.message);
-                            return;
-                        }
-                        ctx.item.meta = { ...(ctx.item.meta || {}), url, position, bookmarked: true, bookmarkable: true };
-                        ctx?.notify?.(t('savedStatus'));
-                        ctx?.rerender?.();
-                        return;
-                    }
-
-                    const folderPath = this.bookmarksController!.getDefaultFolderPath();
-                    const title = userPrompt.length > 50 ? `${userPrompt.slice(0, 50)}...` : userPrompt;
-                    const res = await this.bookmarksController!.toggleBookmarkFromToolbar({
+                    const result = await this.runBookmarkToggle({
                         url,
                         position,
-                        folderPath,
-                        userMessage: userPrompt,
-                        aiResponse: markdown,
-                        platform: 'ChatGPT',
-                        title,
+                        userPrompt,
+                        markdown,
+                        alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, position),
                     });
-                    if (!res.ok) {
-                        ctx?.notify?.(res.message);
+                    if (!result.ok) {
+                        if (!result.cancelled && result.message) ctx?.notify?.(result.message);
                         return;
                     }
-                    ctx.item.meta = { ...(ctx.item.meta || {}), url, position, bookmarked: res.data.saved, bookmarkable: true };
-                    ctx?.notify?.(res.data.saved ? t('savedStatus') : t('removedStatus'));
+                    ctx.item.meta = { ...(ctx.item.meta || {}), url, position, bookmarked: result.bookmarked, bookmarkable: true };
+                    ctx?.notify?.(result.message);
                     ctx?.rerender?.();
                 },
             });
@@ -256,7 +285,6 @@ export class MessageToolbarOrchestrator {
             sendController?: SendController;
             bookmarksController?: BookmarksPanelController;
             foldingController?: ChatGPTFoldingController;
-            virtualizationController?: Pick<ConversationVirtualizationController, 'restoreAll'>;
             onMessageInjected?: (messageElement: HTMLElement) => void;
         }
     ) {
@@ -265,7 +293,6 @@ export class MessageToolbarOrchestrator {
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
         this.foldingController = opts.foldingController ?? null;
-        this.virtualizationController = opts.virtualizationController ?? null;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
@@ -355,18 +382,6 @@ export class MessageToolbarOrchestrator {
         this.behavior = { ...this.behavior, ...flags };
     }
 
-    setVirtualizationController(controller: Pick<ConversationVirtualizationController, 'restoreAll'> | null | undefined): void {
-        this.virtualizationController = controller ?? null;
-    }
-
-    setConversationContentPreparer(preparer: (() => void | Promise<void>) | null | undefined): void {
-        this.prepareConversationContent = preparer ?? null;
-    }
-
-    setStreamingBudgetMode(mode: 'normal' | 'reduced'): void {
-        this.streamingBudgetMode = mode;
-    }
-
     private getPositionForMessage(messageElement: HTMLElement): number {
         const fallback = Number(messageElement.dataset.aimdMsgPosition || 0);
         return Number.isFinite(fallback) ? fallback : 0;
@@ -397,70 +412,27 @@ export class MessageToolbarOrchestrator {
                     const toolbar = getToolbar();
                     const url = this.getBookmarkPageUrl();
                     const position = this.getPositionForMessage(messageElement);
-
-                    if (!position) return { ok: false, message: t('positionNotAvailable') };
-
-                    const already = this.bookmarksController!.isPositionBookmarked(url, position);
-                    if (!already) {
-                        // Open a dedicated save dialog (Google/Material style) to pick title + folder.
-                        // Do not block the toolbar action handler while the dialog is open.
-                        void (async () => {
-                            const userMessage = this.getUserPromptForElement(messageElement);
-                            if (!userMessage.trim()) return;
-
-                            const md = this.getMergedMarkdownForElement(messageElement);
-                            if (!md.ok) return;
-
-                            const currentFolderPath = this.bookmarksController!.getDefaultFolderPath();
-                            const res = await bookmarkSaveDialog.open({
-                                theme: this.theme,
-                                userPrompt: userMessage,
-                                existingTitle: userMessage,
-                                currentFolderPath,
-                                mode: 'create',
-                            });
-                            if (!res.ok) return;
-
-                            const saveRes = await this.bookmarksController!.toggleBookmarkFromToolbar({
-                                url,
-                                position,
-                                folderPath: res.folderPath,
-                                userMessage,
-                                aiResponse: md.markdown,
-                                platform: 'ChatGPT',
-                                title: res.title,
-                            });
-                            if (!saveRes.ok) return;
-
-                            toolbar?.setActionActive('bookmark_toggle', true);
-                            this.bookmarksController!.selectFolder(res.folderPath);
-                        })();
-
-                        return;
-                    }
-
                     const userMessage = this.getUserPromptForElement(messageElement);
-                    if (!userMessage.trim()) return { ok: false, message: t('failedToExtractUserMessage') };
-
                     const md = this.getMergedMarkdownForElement(messageElement);
                     if (!md.ok) return { ok: false, message: md.error.message };
-
-                    const title = userMessage.length > 50 ? `${userMessage.slice(0, 50)}...` : userMessage;
-                    const folderPath = this.bookmarksController!.getDefaultFolderPath();
-
-                    const res = await this.bookmarksController!.toggleBookmarkFromToolbar({
+                    const result = await this.runBookmarkToggle({
                         url,
                         position,
-                        folderPath,
-                        userMessage,
-                        aiResponse: md.markdown,
-                        platform: 'ChatGPT',
-                        title,
+                        userPrompt: userMessage,
+                        markdown: md.markdown,
+                        alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, position),
                     });
-                    if (!res.ok) return { ok: false, message: res.message };
+                    if (!result.ok) {
+                        if (result.cancelled) return;
+                        return { ok: false, message: result.message ?? t('contentNotFound') };
+                    }
 
-                    toolbar?.setActionActive('bookmark_toggle', res.data.saved);
-                    return { ok: true, message: res.data.saved ? t('savedStatus') : t('removedStatus') };
+                    toolbar?.setActionActive('bookmark_toggle', result.bookmarked);
+                    if (result.saved && result.folderPath) {
+                        this.bookmarksController!.selectFolder(result.folderPath);
+                        return;
+                    }
+                    return { ok: true, message: result.message };
                 },
             });
         }
@@ -507,16 +479,11 @@ export class MessageToolbarOrchestrator {
             icon: bookOpenIcon,
             kind: 'secondary',
             disabledWhenPending: true,
-            onClick: async () => {
-                const guard = this.guardMessageReady(messageElement);
-                if (guard) return guard;
-                if (this.prepareConversationContent) {
-                    await this.prepareConversationContent();
-                } else {
-                    this.virtualizationController?.restoreAll();
-                }
-                this.rebuildTurnIndex();
-                const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
+                onClick: async () => {
+                    const guard = this.guardMessageReady(messageElement);
+                    if (guard) return guard;
+                    this.rebuildTurnIndex();
+                    const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 await this.readerPanel.show(items, startIndex, this.theme, {
                     profile: 'conversation-reader',
@@ -536,11 +503,6 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
-                    if (this.prepareConversationContent) {
-                        await this.prepareConversationContent();
-                    } else {
-                        this.virtualizationController?.restoreAll();
-                    }
                     saveMessagesDialog.open(this.adapter, this.theme);
                 },
             });
@@ -809,24 +771,19 @@ export class MessageToolbarOrchestrator {
     }
 
     private scanAndInject(reasons: Set<string> = new Set(['manual'])): void {
-        if (this.streamingBudgetMode === 'reduced' && !reasons.has('route_change')) {
-            this.needsFullRescan = false;
-        }
         const shouldRunFull =
-            (this.streamingBudgetMode === 'normal' && reasons.has('init'))
+            reasons.has('init')
             || reasons.has('route_change')
-            || (this.streamingBudgetMode === 'normal' && reasons.has('manual'))
+            || reasons.has('manual')
             || this.needsFullRescan
-            || (this.streamingBudgetMode === 'normal' && this.messageOrder.length === 0);
+            || this.messageOrder.length === 0;
 
         if (shouldRunFull) {
             const snapshot = this.buildFullScanSnapshot();
             this.needsFullRescan = false;
             this.dirtyMessages.clear();
             this.reconcileScanSnapshot(snapshot, 'full');
-            if (this.streamingBudgetMode === 'normal') {
-                void this.syncReaderTailPages();
-            }
+            void this.syncReaderTailPages();
             return;
         }
 
@@ -836,16 +793,12 @@ export class MessageToolbarOrchestrator {
             const fullSnapshot = this.buildFullScanSnapshot();
             this.needsFullRescan = false;
             this.reconcileScanSnapshot(fullSnapshot, 'full');
-            if (this.streamingBudgetMode === 'normal') {
-                void this.syncReaderTailPages();
-            }
+            void this.syncReaderTailPages();
             return;
         }
 
         this.reconcileScanSnapshot(snapshot, 'incremental');
-        if (this.streamingBudgetMode === 'normal') {
-            void this.syncReaderTailPages();
-        }
+        void this.syncReaderTailPages();
     }
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, position: number): void {
@@ -937,8 +890,6 @@ export class MessageToolbarOrchestrator {
         if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
         if (typeof this.readerPanel.appendItem !== 'function') return;
         if (!this.readerPanel.isShowingConversationReader()) return;
-
-        this.virtualizationController?.restoreAll();
         const currentItems = this.readerPanel.getItemsSnapshot();
         const turns = collectConversationTurnRefs(this.adapter);
         if (turns.length <= currentItems.length) return;

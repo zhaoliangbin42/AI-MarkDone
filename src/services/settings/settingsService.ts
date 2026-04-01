@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
-import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode } from '../../core/settings/migrations';
+import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode, normalizeChatGptSettings } from '../../core/settings/migrations';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -46,7 +46,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
         case 'chatgpt': {
             const next: AppSettings = {
                 ...cur,
-                chatgpt: mergeObject({ ...DEFAULT_SETTINGS.chatgpt, ...cur.chatgpt }, value),
+                chatgpt: normalizeChatGptSettings(mergeObject({ ...cur.chatgpt }, value)),
             };
             return { next };
         }

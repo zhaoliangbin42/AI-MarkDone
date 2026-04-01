@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
+    bookmarkSaveDialog: {
+        open: vi.fn(),
+        setTheme: vi.fn(),
+    },
+}));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
+import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
 describe('ReaderPanel bookmark action injection', () => {
     it('injects a header bookmark action for conversation reader entries', async () => {
@@ -91,5 +98,67 @@ describe('ReaderPanel bookmark action injection', () => {
 
         expect(sendController.togglePopover).toHaveBeenCalledTimes(1);
         expect(sendController.togglePopover.mock.calls[0][0].anchor).toBe(footerWrapper);
+    });
+
+    it('uses the shared bookmark flow for reader create and updates reader meta state', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Hello from user</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Hi</div>
+              </div>
+              <button data-testid="copy-turn-action-button">copy</button>
+            </article>
+          </div>
+        `;
+
+        vi.mocked(bookmarkSaveDialog.open).mockResolvedValueOnce({
+            ok: true,
+            folderPath: '/Inbox',
+            title: 'Hello from user',
+        } as any);
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            getDefaultFolderPath: vi.fn(() => '/Inbox'),
+            toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController });
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+
+        (orchestrator as any).rebuildTurnIndex();
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+
+        const options = readerPanel.show.mock.calls[0][3];
+        const bookmarkAction = options.actions.find((action: any) => action.id === 'bookmark_toggle');
+        const item = {
+            userPrompt: 'Hello from user',
+            content: 'Hi',
+            meta: { position: 1, url: 'https://example.com/chat', bookmarked: false, bookmarkable: true },
+        };
+        const notify = vi.fn();
+        const rerender = vi.fn();
+
+        await bookmarkAction.onClick({ item, notify, rerender });
+
+        expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
+            platform: 'ChatGPT',
+            position: 1,
+            folderPath: '/Inbox',
+            title: 'Hello from user',
+        }));
+        expect(item.meta.bookmarked).toBe(true);
+        expect(rerender).toHaveBeenCalledTimes(1);
+        expect(notify).toHaveBeenCalledWith('savedStatus');
     });
 });

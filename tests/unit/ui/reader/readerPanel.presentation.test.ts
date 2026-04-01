@@ -230,6 +230,8 @@ describe('ReaderPanel presentation', () => {
 
         expect(source).not.toContain('--aimd-panel-title-size: var(--aimd-panel-title-size-compact);');
         expect(source).toContain('.reader-message__body--prompt {');
+        expect(source).toContain('.reader-message__body--prompt-truncated {');
+        expect(source).toContain('.reader-message__ellipsis-line {');
         expect(source).toContain('font-size: var(--aimd-text-base);');
         expect(source).toContain('line-height: var(--aimd-leading-reading);');
         expect(source).not.toContain('font-size: 17px;');

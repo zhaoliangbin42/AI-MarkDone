@@ -2,6 +2,7 @@ import type { Theme } from '../../../core/types/theme';
 import { browser } from '../../../drivers/shared/browser';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
+import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
@@ -52,6 +53,7 @@ type ReaderPanelState = {
     visible: boolean;
     fullscreen: boolean;
     renderedHtml: string;
+    userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     options: {
         profile: ReaderPanelProfile;
@@ -84,6 +86,7 @@ export class ReaderPanel {
         visible: false,
         fullscreen: false,
         renderedHtml: '',
+        userPromptDisplay: formatReaderUserPromptDisplay(''),
         statusText: '',
         options: {
             profile: 'conversation-reader',
@@ -132,6 +135,7 @@ export class ReaderPanel {
         this.state.visible = true;
         this.state.fullscreen = false;
         this.state.renderedHtml = '';
+        this.state.userPromptDisplay = formatReaderUserPromptDisplay(items[this.state.index]?.userPrompt ?? '');
         this.state.statusText = '';
         this.closing = false;
         this.motionNeedsOpen = true;
@@ -307,11 +311,13 @@ export class ReaderPanel {
         const item = this.state.items[this.state.index];
         if (!item) {
             this.state.renderedHtml = '';
+            this.state.userPromptDisplay = formatReaderUserPromptDisplay('');
             this.render(false);
             return;
         }
 
         const token = ++this.contentRenderToken;
+        this.state.userPromptDisplay = formatReaderUserPromptDisplay(item.userPrompt);
         const markdown = await resolveContent(item.content);
         if (token !== this.contentRenderToken) return;
 
@@ -391,6 +397,7 @@ export class ReaderPanel {
                 index: this.state.index,
                 fullscreen: this.state.fullscreen,
                 renderedHtml: this.state.renderedHtml,
+                userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,
                 showCopy: this.state.options.showCopy,
                 showSource: this.state.options.showSource,

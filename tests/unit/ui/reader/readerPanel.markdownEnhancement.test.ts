@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 
 describe('ReaderPanel markdown enhancement', () => {
+    afterEach(() => {
+        document.querySelector('#aimd-reader-panel-host')?.remove();
+    });
+
     it('renders mermaid fences as regular code blocks and highlights fenced code during markdown rendering', async () => {
         const panel = new ReaderPanel();
         const markdown = '```mermaid\ngraph TD\nA-->B\n```\n\n```ts\nconst x = 1;\n```';

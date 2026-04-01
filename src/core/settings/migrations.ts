@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type AppSettings, type FoldingMode, type FoldingPowerMode } from './types';
+import { DEFAULT_SETTINGS, type AppSettings, type FoldingMode } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -8,20 +8,16 @@ function pickFoldingMode(value: unknown, fallback: FoldingMode): FoldingMode {
     return value === 'off' || value === 'all' || value === 'keep_last_n' ? value : fallback;
 }
 
-function pickFoldingPowerMode(value: unknown, fallback: FoldingPowerMode): FoldingPowerMode {
-    if (value === 'off') return 'off';
-    if (value === 'on' || value === 'medium' || value === 'ultra') return 'on';
-    return fallback;
-}
+export function normalizeChatGptSettings(chatgpt: unknown): AppSettings['chatgpt'] {
+    const record = isRecord(chatgpt) ? chatgpt : {};
+    const defaultExpandedCount = Number((record as any).defaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount);
 
-function migrateLegacyFoldingPowerMode(chatgpt: Record<string, unknown>, fallback: FoldingPowerMode): FoldingPowerMode {
-    if ('foldingPowerMode' in chatgpt) {
-        return pickFoldingPowerMode((chatgpt as any).foldingPowerMode, fallback);
-    }
-    if ('enableVirtualization' in chatgpt) {
-        return (chatgpt as any).enableVirtualization === false ? 'off' : 'on';
-    }
-    return fallback;
+    return {
+        ...DEFAULT_SETTINGS.chatgpt,
+        foldingMode: pickFoldingMode((record as any).foldingMode, DEFAULT_SETTINGS.chatgpt.foldingMode),
+        defaultExpandedCount: Number.isFinite(defaultExpandedCount) ? defaultExpandedCount : DEFAULT_SETTINGS.chatgpt.defaultExpandedCount,
+        showFoldDock: Boolean((record as any).showFoldDock ?? DEFAULT_SETTINGS.chatgpt.showFoldDock),
+    };
 }
 
 export function migrateSortMode(oldMode: unknown): AppSettings['bookmarks']['sortMode'] {
@@ -45,14 +41,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             ...DEFAULT_SETTINGS.platforms,
             ...stored.platforms,
         },
-        chatgpt: {
-            ...DEFAULT_SETTINGS.chatgpt,
-            ...stored.chatgpt,
-            foldingPowerMode: migrateLegacyFoldingPowerMode(
-                (stored.chatgpt as unknown as Record<string, unknown>) ?? {},
-                'off'
-            ),
-        },
+        chatgpt: normalizeChatGptSettings(stored.chatgpt),
         behavior: {
             ...DEFAULT_SETTINGS.behavior,
             ...stored.behavior,
@@ -98,7 +87,6 @@ export function migrateFromV1(v1: unknown): AppSettings {
             foldingMode: pickFoldingMode((chatgpt as any).foldingMode, DEFAULT_SETTINGS.chatgpt.foldingMode),
             defaultExpandedCount: Number((chatgpt as any).defaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount),
             showFoldDock: Boolean((chatgpt as any).showFoldDock ?? DEFAULT_SETTINGS.chatgpt.showFoldDock),
-            foldingPowerMode: migrateLegacyFoldingPowerMode(chatgpt, 'off'),
         },
         behavior: {
             ...DEFAULT_SETTINGS.behavior,
@@ -144,7 +132,6 @@ export function migrateFromV2(v2: unknown): AppSettings {
             ...DEFAULT_SETTINGS.chatgpt,
             foldingMode,
             defaultExpandedCount: Number.isFinite(defaultExpandedCount) ? defaultExpandedCount : DEFAULT_SETTINGS.chatgpt.defaultExpandedCount,
-            foldingPowerMode: 'off',
         },
         behavior: {
             ...DEFAULT_SETTINGS.behavior,

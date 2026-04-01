@@ -101,11 +101,11 @@ export class ChatGPTFoldingController implements ConversationGroupRegistryPort {
         this.routeWatcher = new RouteWatcher((nextUrl, prevUrl) => {
             const hardChange = stripHash(nextUrl) !== stripHash(prevUrl);
             if (!hardChange) return;
-            // Conversation switched: reset DOM state and re-apply policy.
+            // Conversation switched: clear the old DOM state only.
+            // Re-applying the initial fold policy here folds brand-new conversations,
+            // which should stay expanded after the user starts a new thread.
             this.resetSelectorHealth();
             this.unfoldAll();
-            this.initialPolicyApplied = false;
-            this.applyToExisting();
         }, { intervalMs: 500 });
         this.routeWatcher.start();
     }

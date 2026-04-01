@@ -11,13 +11,9 @@ import { MessageToolbarOrchestrator } from '../../ui/content/controllers/Message
 import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
-import { DEFAULT_SETTINGS, type AppSettings } from '../../core/settings/types';
+import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale } from '../../ui/content/components/i18n';
 import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
-import { ConversationVirtualizationController } from '../../ui/content/controllers/ConversationVirtualizationController';
-import { ChatGPTPageStabilityGate, type ChatGPTPageStabilityState } from '../../ui/content/controllers/ChatGPTPageStabilityGate';
-import { ChatGPTStablePerformanceController } from '../../ui/content/controllers/ChatGPTStablePerformanceController';
-import { ChatGPTStreamingQuarantineController } from '../../ui/content/controllers/ChatGPTStreamingQuarantineController';
 import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
@@ -34,11 +30,6 @@ if (adapter) {
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const folding = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTFoldingController() : null;
-    let virtualization: ConversationVirtualizationController | null = null;
-    let stabilityGate: ChatGPTPageStabilityGate | null = null;
-    let stablePerformance: ChatGPTStablePerformanceController | null = null;
-    let streamingQuarantine: ChatGPTStreamingQuarantineController | null = null;
-    let stabilityState: ChatGPTPageStabilityState = 'disabled';
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
     });
@@ -55,13 +46,8 @@ if (adapter) {
             folding?.registerMessage(messageElement);
         },
     });
-    messageToolbars.setConversationContentPreparer(() => {
-        virtualization?.restoreAll();
-        stablePerformance?.restoreAll();
-    });
 
     settingsClient.init();
-    let currentSettings: AppSettings = settingsClient.getCached() ?? DEFAULT_SETTINGS;
     let lastLocale = settingsClient.getCached()?.language ?? DEFAULT_SETTINGS.language;
     const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
     let runtimeEnabled = settingsClient.getCached()?.platforms?.[platformKey] ?? true;
@@ -78,97 +64,12 @@ if (adapter) {
     const initFoldingIfNeeded = () => {
         if (!folding) return;
         folding.init(adapter, currentTheme);
-        syncPowerModeControllers();
-    };
-
-    const shouldEnablePowerMode = (settings: AppSettings): boolean => (
-        adapter.getPlatformId() === 'chatgpt'
-        && Boolean(settings.platforms?.chatgpt)
-        && settings.chatgpt.foldingMode !== 'off'
-        && settings.chatgpt.foldingPowerMode === 'on'
-        && Boolean(folding)
-    );
-
-    const shouldEnableQuarantine = (settings: AppSettings): boolean => (
-        adapter.getPlatformId() === 'chatgpt'
-        && Boolean(settings.platforms?.chatgpt)
-        && settings.chatgpt.foldingMode !== 'off'
-        && Boolean(folding)
-    );
-
-    const syncVirtualizationController = () => {
-        const wantVirtualization = shouldEnablePowerMode(currentSettings) && stabilityState === 'stable';
-        if (!wantVirtualization) {
-            virtualization?.restoreAll();
-            virtualization?.dispose();
-            virtualization = null;
-            stablePerformance?.restoreAll();
-            stablePerformance?.dispose();
-            stablePerformance = null;
-            messageToolbars.setVirtualizationController(null);
-            return;
-        }
-
-        if (!virtualization && folding) {
-            virtualization = new ConversationVirtualizationController(adapter, folding);
-            virtualization.init(currentTheme);
-            messageToolbars.setVirtualizationController(virtualization);
-        }
-        if (!stablePerformance && folding) {
-            stablePerformance = new ChatGPTStablePerformanceController(adapter, folding);
-            stablePerformance.init();
-        }
-
-        virtualization?.setPolicy({ foldingPowerMode: 'on' });
-    };
-
-    const syncPowerModeControllers = () => {
-        const wantPowerMode = shouldEnablePowerMode(currentSettings);
-        if (!wantPowerMode) {
-            stabilityGate?.dispose();
-            stabilityGate = null;
-            stabilityState = 'disabled';
-            syncVirtualizationController();
-            return;
-        }
-
-        if (!stabilityGate && folding) {
-            stabilityGate = new ChatGPTPageStabilityGate(adapter, folding);
-            stabilityGate.subscribe((nextState) => {
-                stabilityState = nextState;
-                syncVirtualizationController();
-            });
-            stabilityGate.init();
-            return;
-        }
-
-        syncVirtualizationController();
-    };
-
-    const syncStreamingQuarantineController = () => {
-        const wantQuarantine = shouldEnableQuarantine(currentSettings);
-        if (!wantQuarantine) {
-            streamingQuarantine?.dispose();
-            streamingQuarantine = null;
-            return;
-        }
-
-        if (!streamingQuarantine && folding) {
-            streamingQuarantine = new ChatGPTStreamingQuarantineController({
-                groups: folding,
-                toolbarOrchestrator: messageToolbars,
-                getVirtualizationController: () => virtualization,
-                getStablePerformanceController: () => stablePerformance,
-            });
-            streamingQuarantine.init();
-        }
     };
 
     const enableRuntime = () => {
         if (runtimeEnabled) return;
         runtimeEnabled = true;
         initFoldingIfNeeded();
-        syncStreamingQuarantineController();
         messageToolbars.init();
         headerIcon.init();
     };
@@ -179,24 +80,11 @@ if (adapter) {
         messageToolbars.dispose();
         headerIcon.dispose();
         folding?.dispose();
-        stabilityGate?.dispose();
-        stabilityGate = null;
-        stabilityState = 'disabled';
-        virtualization?.restoreAll();
-        virtualization?.dispose();
-        virtualization = null;
-        stablePerformance?.restoreAll();
-        stablePerformance?.dispose();
-        stablePerformance = null;
-        streamingQuarantine?.dispose();
-        streamingQuarantine = null;
-        messageToolbars.setVirtualizationController(null);
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
     settingsClient.subscribe((snap) => {
-        currentSettings = snap.settings;
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
@@ -207,8 +95,6 @@ if (adapter) {
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         folding?.setPolicy(snap.settings.chatgpt);
-        syncStreamingQuarantineController();
-        syncPowerModeControllers();
         messageToolbars.setBehaviorFlags({
             showViewSource: snap.settings.behavior.showViewSource,
             showSaveMessages: snap.settings.behavior.showSaveMessages,
@@ -224,7 +110,6 @@ if (adapter) {
         sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
         folding?.setTheme(theme);
-        virtualization?.setTheme(theme);
     });
 
     browser.runtime.onMessage.addListener((msg: unknown) => {
@@ -238,7 +123,6 @@ if (adapter) {
         messageToolbars.init();
         headerIcon.init();
         initFoldingIfNeeded();
-        syncStreamingQuarantineController();
     }
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.

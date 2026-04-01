@@ -4,10 +4,17 @@ vi.mock('@/ui/content/export/SaveMessagesDialog', () => ({
         open: vi.fn(),
     },
 }));
+vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
+    bookmarkSaveDialog: {
+        open: vi.fn(),
+        setTheme: vi.fn(),
+    },
+}));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { saveMessagesDialog } from '@/ui/content/export/SaveMessagesDialog';
+import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -143,7 +150,7 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
         expect(foldingController.canCollapseMessage).not.toHaveBeenCalled();
     });
 
-    it('restores virtualized ChatGPT groups before opening Reader mode', async () => {
+    it('opens Reader mode directly from live DOM in hidden-only mode', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -164,8 +171,7 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
 
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
-        const virtualizationController = { restoreAll: vi.fn() } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, virtualizationController });
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
 
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
@@ -175,32 +181,10 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
 
         await readerAction.onClick();
 
-        expect(virtualizationController.restoreAll).toHaveBeenCalledTimes(1);
         expect(readerPanel.show).toHaveBeenCalledTimes(1);
     });
 
-    it('reduced budget mode skips full rescans outside route changes', () => {
-        const adapter = new ChatGPTAdapter();
-        const readerPanel = { show: vi.fn(async () => undefined) } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel }) as any;
-
-        orchestrator.buildFullScanSnapshot = vi.fn(() => new Map());
-        orchestrator.buildIncrementalSnapshot = vi.fn(() => new Map());
-        orchestrator.reconcileScanSnapshot = vi.fn();
-        orchestrator.syncReaderTailPages = vi.fn(async () => undefined);
-        orchestrator.needsFullRescan = true;
-        orchestrator.setStreamingBudgetMode('reduced');
-
-        orchestrator.scanAndInject(new Set(['mutation']));
-
-        expect(orchestrator.buildFullScanSnapshot).not.toHaveBeenCalled();
-        expect(orchestrator.buildIncrementalSnapshot).toHaveBeenCalled();
-
-        orchestrator.scanAndInject(new Set(['route_change']));
-        expect(orchestrator.buildFullScanSnapshot).toHaveBeenCalledTimes(1);
-    });
-
-    it('prepares full conversation content before opening save messages', async () => {
+    it('opens save messages directly from live DOM in hidden-only mode', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -222,8 +206,6 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel }) as any;
-        const prepareConversationContent = vi.fn(async () => undefined);
-        orchestrator.setConversationContentPreparer(prepareConversationContent);
 
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const actions = orchestrator.getActionsForMessage(assistant, () => null);
@@ -233,7 +215,52 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
 
         await exportAction.onClick();
 
-        expect(prepareConversationContent).toHaveBeenCalledTimes(1);
         expect(saveMessagesDialog.open).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the shared bookmark flow for toolbar create and derives platform from the adapter', async () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        vi.mocked(bookmarkSaveDialog.open).mockResolvedValueOnce({
+            ok: true,
+            folderPath: '/Research',
+            title: 'Prompt',
+        } as any);
+
+        const adapter = new NonChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            getDefaultFolderPath: vi.fn(() => '/Inbox'),
+            toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
+            selectFolder: vi.fn(),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController }) as any;
+        orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'First' }));
+        orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
+
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => ({
+            setActionActive: vi.fn(),
+        }));
+        const bookmarkAction = actions.find((action: any) => action.id === 'bookmark_toggle');
+
+        expect(bookmarkAction).toBeTruthy();
+
+        await bookmarkAction.onClick();
+        await Promise.resolve();
+
+        expect(bookmarkSaveDialog.open).toHaveBeenCalledTimes(1);
+        expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
+            platform: 'Gemini',
+            position: 7,
+            folderPath: '/Research',
+            title: 'Prompt',
+        }));
     });
 });

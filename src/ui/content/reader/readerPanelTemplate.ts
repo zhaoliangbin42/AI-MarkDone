@@ -10,12 +10,14 @@ import {
 import { getPanelChromeCss } from '../components/styles/panelChromeCss';
 import { getMarkdownThemeCss } from '../components/markdownTheme';
 import type { ReaderItem } from '../../../services/reader/types';
+import type { ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 
 type ReaderTemplateState = {
     items: ReaderItem[];
     index: number;
     fullscreen: boolean;
     renderedHtml: string;
+    userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     showCopy: boolean;
     showSource: boolean;
@@ -35,13 +37,25 @@ function escapeHtml(input: string): string {
         .split("'").join('&#39;');
 }
 
+function renderUserPromptMarkup(display: ReaderUserPromptDisplay): string {
+    if (!display.truncated) return escapeHtml(display.full);
+    return `
+      <div class="reader-message__body--prompt-truncated">
+        <div class="reader-message__prompt-segment" data-role="user-prompt-segment">${escapeHtml(display.head)}</div>
+        <div class="reader-message__ellipsis-line" data-role="user-prompt-ellipsis">...</div>
+        <div class="reader-message__prompt-segment" data-role="user-prompt-segment">${escapeHtml(display.middle)}</div>
+        <div class="reader-message__ellipsis-line" data-role="user-prompt-ellipsis">...</div>
+        <div class="reader-message__prompt-segment" data-role="user-prompt-segment">${escapeHtml(display.tail)}</div>
+      </div>
+    `;
+}
+
 export function getReaderPanelHtml(params: {
     state: ReaderTemplateState;
     canOpenConversation: boolean;
     getLabel: (key: string, fallback: string, substitutions?: string | string[]) => string;
 }): string {
     const { state, canOpenConversation, getLabel } = params;
-    const item = state.items[state.index];
     const total = state.items.length;
     const title = getLabel('btnReader', 'Reader panel');
     const openConversationLabel = getLabel('openConversationLabel', 'Open conversation');
@@ -76,7 +90,7 @@ export function getReaderPanelHtml(params: {
       <div class="reader-thread">
         <section class="reader-message reader-message--user">
           <div class="reader-message__label">User message</div>
-          <div class="reader-message__body reader-message__body--prompt">${escapeHtml(item?.userPrompt || '')}</div>
+          <div class="reader-message__body reader-message__body--prompt">${renderUserPromptMarkup(state.userPromptDisplay)}</div>
         </section>
         <section class="reader-message reader-message--assistant">
           <div class="reader-message__label">AI response</div>
@@ -228,6 +242,22 @@ ${getPanelChromeCss()}
   font-size: var(--aimd-text-base);
   line-height: var(--aimd-leading-reading);
   color: var(--aimd-text-primary);
+}
+
+.reader-message__body--prompt-truncated {
+  display: grid;
+  gap: var(--aimd-space-3);
+}
+
+.reader-message__prompt-segment {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reader-message__ellipsis-line {
+  text-align: center;
+  color: var(--aimd-text-secondary);
 }
 
 .reader-markdown {

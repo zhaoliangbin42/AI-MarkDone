@@ -1,5 +1,3 @@
-import type { AppSettings } from '../settings/types';
-
 export type ConversationVirtualizationPolicy = {
     enabled: boolean;
     mode: 'off' | 'on';
@@ -22,11 +20,14 @@ export const DEFAULT_CONVERSATION_VIRTUALIZATION_POLICY: ConversationVirtualizat
     maxHeavyRestorePerSlice: 1,
 };
 
+type ConversationVirtualizationSettings = {
+    foldingPowerMode?: 'off' | 'on';
+};
+
 export function buildConversationVirtualizationPolicy(
-    settings: Partial<Pick<AppSettings['chatgpt'], 'foldingPowerMode'>> | null | undefined
+    settings: ConversationVirtualizationSettings | null | undefined
 ): ConversationVirtualizationPolicy {
-    const rawMode = settings?.foldingPowerMode;
-    const mode = rawMode === 'off' ? 'off' : 'on';
+    const mode = settings?.foldingPowerMode === 'off' ? 'off' : 'on';
     return {
         ...DEFAULT_CONVERSATION_VIRTUALIZATION_POLICY,
         mode,

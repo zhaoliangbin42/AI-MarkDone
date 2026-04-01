@@ -365,21 +365,6 @@
     "chatgptFoldDockDesc": {
         "message": "在右侧显示固定的“全部折叠/全部展开”按钮。"
     },
-    "chatgptFoldingPowerModeLabel": {
-        "message": "强力模式（实验）"
-    },
-    "chatgptFoldingPowerModeDesc": {
-        "message": "关闭时沿用经典 hidden 折叠；开启时会在加载阶段更早折叠旧消息，并在页面稳定后卸载已折叠消息。"
-    },
-    "chatgptFoldingPowerModeOff": {
-        "message": "关"
-    },
-    "chatgptFoldingPowerModeOn": {
-        "message": "开"
-    },
-    "chatgptFoldingPowerModeHint": {
-        "message": "默认建议开启。如果遇到加载或显示问题，请切换到关闭。"
-    },
     "chatgptCollapseAll": {
         "message": "全部折叠"
     },

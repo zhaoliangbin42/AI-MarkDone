@@ -10,13 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - ChatGPT and DeepSeek: Added an adapter-driven header bookmark icon entry backed by a shared runtime orchestrator.
 - ChatGPT: Added a toolbar collapse action so foldable assistant messages can collapse their current turn group directly from the official message toolbar.
-- ChatGPT: Added an experimental folding power mode with medium and ultra unloading behavior, while keeping a stable hidden-only fallback for folded threads.
-- ChatGPT: Added a stable-state performance controller that keeps folded payload trimming, applies `content-visibility` to older expanded groups, and compacts only adapter-classified heavy KaTeX/code subtrees after the page-stability gate passes.
 
 ### Changed
 - Platform adapters now own page-header icon anchors and injection rules, keeping runtime lifecycle logic platform-agnostic.
-- ChatGPT: Power mode now uses a simpler `Off / On` model; `On` applies earlier hidden folding during load and only upgrades folded groups to virtualization after a page-stability gate passes.
-- ChatGPT: Stable-state optimization now favors low-interruption reading by keeping fold bars as the sole recovery surface, only occluding older expanded groups, and limiting aggressive DOM removal to folded payloads and heavy subtrees.
+- ChatGPT: Removed the experimental folding power mode and restored the folding runtime to a pure hidden-only path.
 - ChatGPT: Moved the toolbar collapse action to the far right of the official toolbar action row, keeping the word-count stats at the end of the surface.
 - Unified the runtime style pipeline around shared reference tokens, semantic tokens, and stable UI exports.
 - Overlay panels and modal surfaces now share a documented title typography contract, with Reader, bookmarks, save dialogs, and sending surfaces aligned to the same tokenized chrome/control system.
@@ -35,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Refined the Sponsor tab into a calmer editorial card layout and realigned its copy with the simpler v3 support wording for GitHub stars and donation channels.
 - Bookmarks: Rebuilt the family around a shared shell/view/overlay stack so the panel shell, settings tab, sponsor tab, tree viewport, and save dialog now share one ownership model instead of mixing shell-local and dialog-local implementations.
 - Bookmarks: Consolidated settings dropdowns and steppers around family-scoped primitives so panel dismiss logic no longer depends on child-specific selectors.
-- ChatGPT: Collapsed settings now map onto one ChatGPT-only folding model with a single power-mode selector instead of exposing internal virtualization toggles.
 
 ### Fixed
 - Reader: Fixed cross-entry reader drift by moving toolbar-reader and bookmark-preview entrypoints onto named surface-owned profiles, keeping footer chrome and action rails more consistent.
@@ -65,9 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Fixed restored folder scopes so tree expansion is driven by explicit state, allowing selected branches to collapse normally instead of being forced open on every render.
 - Runtime: Fixed disabled platform settings so page-level toolbar and header injection stop, while the extension action can still open the bookmarks panel.
 - ChatGPT: Folding group discovery now consumes adapter-owned conversation groups instead of expanding UI-owned host selector logic, keeping the shipping path aligned with the documented adapter boundary.
-- ChatGPT: Long conversations can now unload folded or heavy offscreen turn groups into restoreable placeholders, reducing DOM pressure during scrolling and revisits.
-- ChatGPT: Restored hidden-mode parity for folding, so turning experimental power mode off no longer leaves virtualization hooks active in stable folding flows.
-- ChatGPT: Fold bars now stay mounted as the stable restore anchor for virtualized groups, and migrated folding users keep the classic hidden path unless they had explicitly enabled virtualization before.
 - Bookmarks: Restored bookmark row reader previews, added platform icons, added a move action, and updated hover/date layout to match the latest panel design.
 - Bookmarks: Fixed rebuilt row actions, outside-click dismiss behavior, and backdrop handling so the panel controls behave consistently with the new shell.
 - Bookmarks: Restored shared tooltips in the rebuilt panel and unified input focus/placeholder behavior across bookmark, modal, and send surfaces.

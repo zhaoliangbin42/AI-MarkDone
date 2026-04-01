@@ -102,6 +102,50 @@ describe('background settings handler', () => {
         expect((getRes?.response as any).data.value).not.toHaveProperty('markdownTheme');
     });
 
+    it('drops removed chatgpt virtualization fields before persisting category updates', async () => {
+        const sync = mockSyncStorage({
+            [LEGACY_STORAGE_KEYS.appSettingsKey]: {
+                version: 3,
+                platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+                chatgpt: {
+                    foldingMode: 'all',
+                    defaultExpandedCount: 8,
+                    showFoldDock: true,
+                    foldingPowerMode: 'on',
+                    enableVirtualization: false,
+                },
+                behavior: {
+                    showViewSource: true,
+                    showSaveMessages: true,
+                    showWordCount: true,
+                    enableClickToCopy: true,
+                    saveContextOnly: false,
+                    _contextOnlyConfirmed: false,
+                },
+                reader: { renderCodeInReader: true },
+                bookmarks: { sortMode: 'time-desc' },
+                language: 'auto',
+            },
+        });
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        (globalThis as any).chrome = undefined;
+
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const setRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_chatgpt_cleanup',
+            type: 'settings:setCategory',
+            payload: { category: 'chatgpt', value: { showFoldDock: false } },
+        } as any);
+        expect(setRes?.response.ok).toBe(true);
+
+        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
+        expect(raw.chatgpt.showFoldDock).toBe(false);
+        expect(raw.chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(raw.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(raw.chatgpt).not.toHaveProperty('enableEarlyPrune');
+    });
+
     it('rejects legacy performance category through the protocol', async () => {
         const sync = mockSyncStorage();
         (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };

@@ -1,6 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChatGPTFoldingController } from '@/ui/content/controllers/ChatGPTFoldingController';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
+
+let routeChangeListener: ((nextUrl: string, prevUrl: string) => void) | null = null;
+
+vi.mock('@/drivers/content/injection/routeWatcher', () => ({
+    RouteWatcher: vi.fn(function (onChange: (nextUrl: string, prevUrl: string) => void) {
+        routeChangeListener = onChange;
+        return {
+            start: vi.fn(),
+            stop: vi.fn(),
+        };
+    }),
+}));
+
+import { ChatGPTFoldingController } from '@/ui/content/controllers/ChatGPTFoldingController';
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -21,9 +34,9 @@ class FakeChatGPTAdapter extends SiteAdapter {
     getMessageId(messageElement: HTMLElement): string | null { return messageElement.getAttribute('data-message-id'); }
     getObserverContainer(): HTMLElement | null { return document.body; }
     getConversationGroupRefs(): ConversationGroupRef[] {
-        const assistantRootEl = document.querySelector('section[data-turn="assistant"][data-turn-id="a1"]') as HTMLElement | null;
-        const userRootEl = document.querySelector('section[data-turn="user"][data-turn-id="u1"]') as HTMLElement | null;
-        const assistantMessageEl = document.querySelector('[data-message-author-role="assistant"][data-message-id="a1"]') as HTMLElement | null;
+        const assistantRootEl = document.querySelector('section[data-turn="assistant"]') as HTMLElement | null;
+        const userRootEl = document.querySelector('section[data-turn="user"]') as HTMLElement | null;
+        const assistantMessageEl = assistantRootEl?.querySelector('[data-message-author-role="assistant"]') as HTMLElement | null;
         if (!assistantRootEl || !assistantMessageEl) return [];
         return [{
             id: 'group-a1',
@@ -37,18 +50,20 @@ class FakeChatGPTAdapter extends SiteAdapter {
     }
 }
 
-function buildConversationDom(): void {
+function buildConversationDom(ids: { userId?: string; assistantId?: string } = {}): void {
+    const userId = ids.userId ?? 'u1';
+    const assistantId = ids.assistantId ?? 'a1';
     document.body.innerHTML = `
       <main>
-        <section data-turn="user" data-turn-id="u1">
+        <section data-turn="user" data-turn-id="${userId}">
           <div class="thread-shell">
-            <div data-message-author-role="user" data-message-id="u1">Prompt</div>
+            <div data-message-author-role="user" data-message-id="${userId}">Prompt</div>
           </div>
           <div aria-label="Your message actions">copy/edit</div>
         </section>
-        <section data-turn="assistant" data-turn-id="a1">
+        <section data-turn="assistant" data-turn-id="${assistantId}">
           <div class="thought">Thought for 28s</div>
-          <div data-message-author-role="assistant" data-message-id="a1">Answer</div>
+          <div data-message-author-role="assistant" data-message-id="${assistantId}">Answer</div>
           <div class="sources">Sources</div>
           <div aria-label="Response actions">copy/good/bad</div>
         </section>
@@ -59,6 +74,7 @@ function buildConversationDom(): void {
 describe('ChatGPTFoldingController', () => {
     beforeEach(() => {
         document.body.innerHTML = '';
+        routeChangeListener = null;
     });
 
     it('folds entire conversation turn sections instead of only inner message roots', () => {
@@ -243,5 +259,23 @@ describe('ChatGPTFoldingController', () => {
         expect(restoredBar).toBeTruthy();
         expect(restoredBar?.nextElementSibling).toBe(placeholder);
         expect(restoredBar?.dataset.virtualized).toBe('1');
+    });
+
+    it('keeps a new conversation expanded after route change instead of reapplying initial fold policy', () => {
+        buildConversationDom({ userId: 'u1', assistantId: 'a1' });
+
+        const controller = new ChatGPTFoldingController();
+        controller.init(new FakeChatGPTAdapter(), 'light');
+        controller.setPolicy({ foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true });
+
+        expect(document.querySelector('section[data-turn="assistant"]')?.getAttribute('data-aimd-folded')).toBe('1');
+
+        buildConversationDom({ userId: 'u2', assistantId: 'a2' });
+        routeChangeListener?.('https://chatgpt.com/c/new-thread', 'https://chatgpt.com/c/old-thread');
+
+        expect(document.querySelector('section[data-turn="user"]')?.hasAttribute('data-aimd-folded')).toBe(false);
+        expect(document.querySelector('section[data-turn="assistant"]')?.hasAttribute('data-aimd-folded')).toBe(false);
+
+        controller.dispose();
     });
 });

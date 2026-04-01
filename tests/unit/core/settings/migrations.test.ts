@@ -25,7 +25,9 @@ describe('settings migrations', () => {
         expect(next.platforms.chatgpt).toBe(false);
         expect(next.platforms.gemini).toBe(true);
         expect(next.chatgpt.foldingMode).toBe('all');
-        expect(next.chatgpt.foldingPowerMode).toBe('off');
+        expect(next.chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(next.chatgpt).not.toHaveProperty('enableEarlyPrune');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
@@ -45,7 +47,9 @@ describe('settings migrations', () => {
         expect(next.version).toBe(3);
         expect(next.chatgpt.foldingMode).toBe('keep_last_n');
         expect(next.chatgpt.defaultExpandedCount).toBe(6);
-        expect(next.chatgpt.foldingPowerMode).toBe('off');
+        expect(next.chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(next.chatgpt).not.toHaveProperty('enableEarlyPrune');
         expect(next.behavior.showWordCount).toBe(false);
         expect(next.bookmarks.sortMode).toBe('time-desc');
         expect('performance' in next).toBe(false);
@@ -61,12 +65,14 @@ describe('settings migrations', () => {
         const next = loadAndNormalize(stored);
         expect(next.chatgpt.foldingMode).toBe('all');
         expect(next.chatgpt.defaultExpandedCount).toBe(5);
-        expect(next.chatgpt.foldingPowerMode).toBe('off');
+        expect(next.chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(next.chatgpt).not.toHaveProperty('enableEarlyPrune');
         expect('performance' in next).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
     });
 
-    it('keeps migrated legacy folding users on hidden behavior unless virtualization was explicitly enabled before', () => {
+    it('drops legacy folding power settings during normalization', () => {
         const storedV1: any = {
             version: 1,
             chatgpt: { foldingMode: 'all' },
@@ -76,8 +82,12 @@ describe('settings migrations', () => {
             chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 3 },
         };
 
-        expect(loadAndNormalize(storedV1).chatgpt.foldingPowerMode).toBe('off');
-        expect(loadAndNormalize(storedV3).chatgpt.foldingPowerMode).toBe('off');
+        expect(loadAndNormalize(storedV1).chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(loadAndNormalize(storedV1).chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(loadAndNormalize(storedV1).chatgpt).not.toHaveProperty('enableEarlyPrune');
+        expect(loadAndNormalize(storedV3).chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(loadAndNormalize(storedV3).chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(loadAndNormalize(storedV3).chatgpt).not.toHaveProperty('enableEarlyPrune');
     });
 
     it('migrates v1 storage.saveContextOnly into behavior.saveContextOnly', () => {
@@ -95,7 +105,7 @@ describe('settings migrations', () => {
         expect(next.reader).not.toHaveProperty('markdownTheme');
     });
 
-    it('maps legacy virtualization toggles into folding power mode', () => {
+    it('ignores legacy virtualization toggles during normalization', () => {
         const offStored: any = {
             version: 3,
             chatgpt: {
@@ -113,7 +123,11 @@ describe('settings migrations', () => {
             },
         };
 
-        expect(loadAndNormalize(offStored).chatgpt.foldingPowerMode).toBe('off');
-        expect(loadAndNormalize(mediumStored).chatgpt.foldingPowerMode).toBe('on');
+        expect(loadAndNormalize(offStored).chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(loadAndNormalize(offStored).chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(loadAndNormalize(offStored).chatgpt).not.toHaveProperty('enableEarlyPrune');
+        expect(loadAndNormalize(mediumStored).chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(loadAndNormalize(mediumStored).chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(loadAndNormalize(mediumStored).chatgpt).not.toHaveProperty('enableEarlyPrune');
     });
 });

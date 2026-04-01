@@ -2,7 +2,11 @@
 
 Date: 2026-03-26
 
-Status: Proposed
+Status: Historical / Not shipped
+
+Note: This document is retained as design history only. The experimental ChatGPT virtualization / power-mode path has been removed from the shipping runtime, which now uses hidden-only folding again.
+
+Historical-reading note: the remaining sections below describe the removed experimental design as it was proposed at the time. They do not describe the current shipping architecture.
 
 Scope: ChatGPT only in the first rollout
 
