@@ -300,4 +300,137 @@ describe('BookmarkSaveDialog', () => {
             await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
         }
     });
+
+    it('keeps focus and selection on the title input across rerenders while typing', async () => {
+        await setLocale('en');
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+
+            let title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            title.focus();
+            title.value = 'Alpha';
+            title.setSelectionRange(2, 2);
+            title.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            expect(shadow.activeElement).toBe(title);
+            expect(title.value).toBe('Alpha');
+            expect(title.selectionStart).toBe(2);
+            expect(title.selectionEnd).toBe(2);
+
+            title.value = 'AlXpha';
+            title.setSelectionRange(3, 3);
+            title.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            expect(shadow.activeElement).toBe(title);
+            expect(title.value).toBe('AlXpha');
+            expect(title.selectionStart).toBe(3);
+            expect(title.selectionEnd).toBe(3);
+        } finally {
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLElement>('.panel-window--bookmark-save')
+                ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
+
+    it('keeps the same title input node while typing so composition is not interrupted', async () => {
+        await setLocale('en');
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+
+            const title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            title.focus();
+            title.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, composed: true, data: 'ni' }));
+            title.value = '你';
+            title.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            const nextTitle = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            expect(nextTitle).toBe(title);
+            expect(shadow.activeElement).toBe(title);
+
+            title.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, composed: true, data: '你' }));
+        } finally {
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLElement>('.panel-window--bookmark-save')
+                ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
+
+    it('keeps focus on the inline subfolder input after a failed submit rerender', async () => {
+        await setLocale('en');
+        const { bookmarksClient } = await import('@/drivers/shared/clients/bookmarksClient');
+        vi.mocked(bookmarksClient.foldersCreate).mockResolvedValueOnce({
+            ok: false,
+            errorCode: 'VALIDATION_FAILED' as any,
+            message: 'Already exists',
+        } as any);
+
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+
+            shadow.querySelector<HTMLElement>('[data-action="bookmark-save-inline-folder"][data-path="Work"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+            await new Promise((r) => setTimeout(r, 0));
+
+            let inline = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-inline-draft"][data-parent="Work"]')!;
+            inline.focus();
+            inline.value = 'Archive';
+            inline.setSelectionRange(7, 7);
+            inline.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            shadow.querySelector<HTMLElement>('[data-action="bookmark-save-inline-confirm"][data-path="Work"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+            await flushUi();
+
+            inline = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-inline-draft"][data-parent="Work"]')!;
+            expect(shadow.activeElement).toBe(inline);
+            expect(inline.value).toBe('Archive');
+            expect(inline.selectionStart).toBe(7);
+            expect(inline.selectionEnd).toBe(7);
+        } finally {
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLElement>('.panel-window--bookmark-save')
+                ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
 });

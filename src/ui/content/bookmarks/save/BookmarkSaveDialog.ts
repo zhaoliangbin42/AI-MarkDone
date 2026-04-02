@@ -47,6 +47,10 @@ type OpenParams = {
 
 type RootFolderModalState = { value: string; error: string; note: string };
 type InlineSubfolderState = { parentPath: string; value: string; error: string; note: string };
+type RetainedInputFocus =
+    | { role: 'bookmark-save-title'; selectionStart: number | null; selectionEnd: number | null }
+    | { role: 'bookmark-save-inline-draft'; parentPath: string; selectionStart: number | null; selectionEnd: number | null };
+type ComposingInputRole = 'bookmark-save-title' | 'bookmark-save-inline-draft';
 
 export class BookmarkSaveDialog {
     private overlaySession: OverlaySession | null = null;
@@ -64,6 +68,9 @@ export class BookmarkSaveDialog {
     private lastSelectedFolderPathCache: string | null = null;
     private closing = false;
     private motionNeedsOpen = false;
+    private retainedInputFocus: RetainedInputFocus | null = null;
+    private composingInputRole: ComposingInputRole | null = null;
+    private deferredRenderWhileComposing = false;
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
 
     isOpen(): boolean {
@@ -154,6 +161,9 @@ export class BookmarkSaveDialog {
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
+        this.retainedInputFocus = null;
+        this.composingInputRole = null;
+        this.deferredRenderWhileComposing = false;
         this.closing = false;
         this.motionNeedsOpen = false;
         resolve?.(result);
@@ -209,10 +219,17 @@ export class BookmarkSaveDialog {
         this.overlaySession.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
         this.overlaySession.surfaceRoot.addEventListener('input', (event) => this.handleSurfaceInput(event));
         this.overlaySession.surfaceRoot.addEventListener('keydown', (event) => void this.handleSurfaceKeyDown(event));
+        this.overlaySession.surfaceRoot.addEventListener('compositionstart', (event) => this.handleSurfaceCompositionStart(event));
+        this.overlaySession.surfaceRoot.addEventListener('compositionend', (event) => this.handleSurfaceCompositionEnd(event));
     }
 
     private render(): void {
         if (!this.overlaySession || !this.state || this.closing) return;
+        if (this.composingInputRole) {
+            this.deferredRenderWhileComposing = true;
+            return;
+        }
+        this.deferredRenderWhileComposing = false;
         this.overlaySession.setSurfaceCss(this.getCss());
         const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
         const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
@@ -232,10 +249,12 @@ export class BookmarkSaveDialog {
             });
             this.motionNeedsOpen = false;
         }
+        this.restoreRetainedInputFocus(panel);
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => {
                 if (this.subfolderInline) {
+                    this.clearRetainedInputFocus();
                     this.subfolderInline = null;
                     this.render();
                     return;
@@ -255,13 +274,15 @@ export class BookmarkSaveDialog {
 
         if (target.matches('[data-role="bookmark-save-title"]')) {
             const input = target as HTMLInputElement;
+            this.captureRetainedInputFocus(input);
             this.state = reduceDraft(this.state, { type: 'setTitle', title: input.value });
-            this.render();
+            this.syncTitleFieldState();
             return;
         }
 
         if (target.matches('[data-role="bookmark-save-inline-draft"]') && this.subfolderInline) {
             const input = target as HTMLInputElement;
+            this.captureRetainedInputFocus(input);
             this.subfolderInline.value = input.value;
             this.subfolderInline.error = '';
             this.subfolderInline.note = '';
@@ -276,29 +297,36 @@ export class BookmarkSaveDialog {
 
         switch (actionEl.dataset.action) {
             case 'close-panel':
+                this.clearRetainedInputFocus();
                 this.close({ ok: false, reason: 'cancel' });
                 return;
             case 'bookmark-save-submit':
+                this.clearRetainedInputFocus();
                 await this.submit();
                 return;
             case 'bookmark-save-select-folder':
+                this.clearRetainedInputFocus();
                 if (actionEl.dataset.path) this.selectFolder(actionEl.dataset.path);
                 return;
             case 'bookmark-save-toggle-folder':
+                this.clearRetainedInputFocus();
                 if (!this.state || !actionEl.dataset.path) return;
                 this.state = reduceDraft(this.state, { type: 'toggleExpanded', path: actionEl.dataset.path });
                 this.render();
                 return;
             case 'bookmark-save-new-root-folder':
+                this.clearRetainedInputFocus();
                 this.openRootFolderModal();
                 return;
             case 'bookmark-save-inline-folder':
+                this.clearRetainedInputFocus();
                 if (actionEl.dataset.path) await this.openInlineSubfolderEditor(actionEl.dataset.path);
                 return;
             case 'bookmark-save-inline-confirm':
                 if (actionEl.dataset.path) await this.confirmInlineSubfolder(actionEl.dataset.path);
                 return;
             case 'bookmark-save-inline-cancel':
+                this.clearRetainedInputFocus();
                 this.subfolderInline = null;
                 this.render();
                 return;
@@ -318,10 +346,37 @@ export class BookmarkSaveDialog {
                 if (path) await this.confirmInlineSubfolder(path);
             } else if (event.key === 'Escape') {
                 event.preventDefault();
+                this.clearRetainedInputFocus();
                 this.subfolderInline = null;
                 this.render();
             }
             event.stopPropagation();
+        }
+    }
+
+    private handleSurfaceCompositionStart(event: CompositionEvent): void {
+        const target = event.target as HTMLElement | null;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.matches('[data-role="bookmark-save-title"], [data-role="bookmark-save-inline-draft"]')) return;
+        this.composingInputRole = target.matches('[data-role="bookmark-save-title"]')
+            ? 'bookmark-save-title'
+            : 'bookmark-save-inline-draft';
+        this.captureRetainedInputFocus(target);
+    }
+
+    private handleSurfaceCompositionEnd(event: CompositionEvent): void {
+        const target = event.target as HTMLElement | null;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.matches('[data-role="bookmark-save-title"], [data-role="bookmark-save-inline-draft"]')) return;
+        if (!this.composingInputRole) return;
+        this.captureRetainedInputFocus(target);
+        this.composingInputRole = null;
+        if (this.deferredRenderWhileComposing) {
+            this.render();
+            return;
+        }
+        if (target.matches('[data-role="bookmark-save-title"]')) {
+            this.syncTitleFieldState();
         }
     }
 
@@ -345,12 +400,13 @@ export class BookmarkSaveDialog {
         this.state = reduceDraft(this.state, { type: 'expandToPath', path: parentPath });
         this.render();
         window.setTimeout(() => {
-            this.overlaySession?.surfaceRoot.querySelector<HTMLInputElement>(`[data-role="bookmark-save-inline-draft"][data-parent="${CSS.escape(parentPath)}"]`)?.focus();
+            this.findInlineDraftInput(parentPath)?.focus();
         }, 0);
     }
 
     private async confirmInlineSubfolder(parentPath: string): Promise<void> {
         if (!this.subfolderInline || this.pending) return;
+        this.captureRetainedInputFocus(this.findInlineDraftInput(parentPath));
         const result = await this.createFolderOnBackend({ parentPath, rawName: this.subfolderInline.value });
         if (!result.ok) {
             this.subfolderInline.error = result.message;
@@ -359,6 +415,7 @@ export class BookmarkSaveDialog {
             return;
         }
 
+        this.clearRetainedInputFocus();
         this.subfolderInline = null;
         if (this.state) this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: result.path });
         this.render();
@@ -578,7 +635,7 @@ export class BookmarkSaveDialog {
     ${isFolderSelect ? '' : `<div class="field-block">
       <label class="field-label">${escapeHtml(titleLabel)}</label>
       <input class="text-input text-input--bookmark-save-title aimd-field-control aimd-field-control--standalone" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
-      ${validation.titleError ? `<div class="error-text">${escapeHtml(titleValidationMessage(validation.titleError as any))}</div>` : ''}
+      <div class="error-text" data-role="bookmark-save-title-error" ${validation.titleError ? '' : 'hidden'}>${validation.titleError ? escapeHtml(titleValidationMessage(validation.titleError as any)) : ''}</div>
     </div>`}
     <div class="field-block">
       <div class="field-head">
@@ -601,6 +658,91 @@ export class BookmarkSaveDialog {
 
     private getCss(): string {
         return `${getTokenCss(this.theme)}\n${getBookmarkSaveDialogCss(this.theme)}`;
+    }
+
+    private captureRetainedInputFocus(target: HTMLElement | null | undefined): void {
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.isConnected) return;
+
+        if (target.matches('[data-role="bookmark-save-title"]')) {
+            this.retainedInputFocus = {
+                role: 'bookmark-save-title',
+                selectionStart: target.selectionStart,
+                selectionEnd: target.selectionEnd,
+            };
+            return;
+        }
+
+        if (target.matches('[data-role="bookmark-save-inline-draft"]')) {
+            const parentPath = target.dataset.parent;
+            if (!parentPath) return;
+            this.retainedInputFocus = {
+                role: 'bookmark-save-inline-draft',
+                parentPath,
+                selectionStart: target.selectionStart,
+                selectionEnd: target.selectionEnd,
+            };
+        }
+    }
+
+    private clearRetainedInputFocus(): void {
+        this.retainedInputFocus = null;
+    }
+
+    private syncTitleFieldState(): void {
+        if (!this.overlaySession || !this.state) return;
+
+        const input = this.overlaySession.surfaceRoot.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]');
+        const error = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-role="bookmark-save-title-error"]');
+        const submit = this.overlaySession.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="bookmark-save-submit"]');
+        const validation = validateDraft(this.state);
+
+        if (input) {
+            input.setAttribute('aria-invalid', validation.titleError ? 'true' : 'false');
+        }
+
+        if (error) {
+            if (validation.titleError) {
+                error.hidden = false;
+                error.textContent = titleValidationMessage(validation.titleError as any);
+            } else {
+                error.hidden = true;
+                error.textContent = '';
+            }
+        }
+
+        if (submit) {
+            submit.disabled = this.pending || !validation.canSubmit;
+        }
+    }
+
+    private restoreRetainedInputFocus(panel: HTMLElement): void {
+        const retained = this.retainedInputFocus;
+        if (!retained) return;
+
+        const input =
+            retained.role === 'bookmark-save-title'
+                ? panel.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')
+                : this.findInlineDraftInput(retained.parentPath);
+        if (!input) {
+            this.clearRetainedInputFocus();
+            return;
+        }
+
+        input.focus({ preventScroll: true } as FocusOptions);
+        if (retained.selectionStart !== null && retained.selectionEnd !== null) {
+            input.setSelectionRange(retained.selectionStart, retained.selectionEnd);
+        }
+    }
+
+    private findInlineDraftInput(parentPath: string): HTMLInputElement | null {
+        const escapedParentPath =
+            typeof globalThis.CSS?.escape === 'function'
+                ? globalThis.CSS.escape(parentPath)
+                : parentPath.replace(/["\\]/g, '\\$&');
+        return this.overlaySession?.surfaceRoot.querySelector<HTMLInputElement>(
+            `[data-role="bookmark-save-inline-draft"][data-parent="${escapedParentPath}"]`,
+        ) ?? null;
     }
 
     private getLabel(key: string, fallback: string): string {

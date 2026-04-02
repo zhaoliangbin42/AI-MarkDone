@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Reader: Fixed cross-entry reader drift by moving toolbar-reader and bookmark-preview entrypoints onto named surface-owned profiles, keeping footer chrome and action rails more consistent.
+- Bookmarks: Fixed the save dialog title field so IME composition no longer collapses while typing, keeping focus local to the bookmark save panel instead of rebuilding the active input on each keystroke.
 - Bookmarks: Added a local input-event boundary to the management panel so internal search, settings, and tree interactions are less likely to leak to host-page or third-party page handlers.
 - Bookmarks: Unified panel and save-dialog modal handling around the same shared overlay session so rename, move, folder-pick, and nested root-folder flows no longer drift between separate interaction stacks.
 - Modal Motion: Shared dialogs and overlay panels now open and close through two shared motion families (`panel-window` and `modal-dialog`), including exit animations that complete before the surface unmounts.
