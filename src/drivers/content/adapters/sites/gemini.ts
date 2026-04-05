@@ -7,14 +7,28 @@ const detector: ThemeDetector = {
     detect(): Theme | null {
         const htmlTheme = document.documentElement.getAttribute('data-theme');
         if (htmlTheme === 'dark' || htmlTheme === 'light') return htmlTheme;
+        if (document.documentElement.classList.contains('dark')) return 'dark';
+        if (document.documentElement.classList.contains('light')) return 'light';
+        if (document.body?.classList.contains('dark-theme')) return 'dark';
+        if (document.body?.classList.contains('light-theme')) return 'light';
         return null;
     },
     getObserveTargets() {
-        return [{ element: 'html', attributes: ['class', 'data-theme', 'style'] }];
+        return [
+            { element: 'html', attributes: ['class', 'data-theme', 'style'] },
+            { element: 'body', attributes: ['class'] },
+        ];
     },
     hasExplicitTheme(): boolean {
         const htmlTheme = document.documentElement.getAttribute('data-theme');
-        return htmlTheme === 'dark' || htmlTheme === 'light';
+        return (
+            htmlTheme === 'dark' ||
+            htmlTheme === 'light' ||
+            document.documentElement.classList.contains('dark') ||
+            document.documentElement.classList.contains('light') ||
+            document.body?.classList.contains('dark-theme') === true ||
+            document.body?.classList.contains('light-theme') === true
+        );
     },
 };
 
