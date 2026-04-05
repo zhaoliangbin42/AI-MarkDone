@@ -5,16 +5,19 @@ import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
+        const htmlMode = document.documentElement.getAttribute('data-mode');
+        if (htmlMode === 'dark' || htmlMode === 'light') return htmlMode;
         const htmlTheme = document.documentElement.getAttribute('data-theme');
         if (htmlTheme === 'dark' || htmlTheme === 'light') return htmlTheme;
         return null;
     },
     getObserveTargets() {
-        return [{ element: 'html', attributes: ['class', 'data-theme', 'style'] }];
+        return [{ element: 'html', attributes: ['class', 'data-theme', 'data-mode', 'style'] }];
     },
     hasExplicitTheme(): boolean {
+        const htmlMode = document.documentElement.getAttribute('data-mode');
         const htmlTheme = document.documentElement.getAttribute('data-theme');
-        return htmlTheme === 'dark' || htmlTheme === 'light';
+        return htmlMode === 'dark' || htmlMode === 'light' || htmlTheme === 'dark' || htmlTheme === 'light';
     },
 };
 
@@ -49,18 +52,7 @@ export class ClaudeAdapter extends SiteAdapter {
 
     private findActionRowTarget(messageElement: HTMLElement): HTMLElement | null {
         const actionBar = this.findActionBar(messageElement);
-        if (!actionBar) return null;
-
-        const trailingGroup = actionBar.querySelector('.flex.items-stretch.justify-between > .flex.items-center:last-child');
-        if (trailingGroup instanceof HTMLElement) return trailingGroup;
-
-        const innerRow = actionBar.querySelector('.flex.items-stretch.justify-between');
-        if (innerRow instanceof HTMLElement) return innerRow;
-
-        const firstChild = actionBar.firstElementChild;
-        if (firstChild instanceof HTMLElement) return firstChild;
-
-        return actionBar;
+        return actionBar instanceof HTMLElement ? actionBar : null;
     }
 
     matches(url: string): boolean {
@@ -126,14 +118,15 @@ export class ClaudeAdapter extends SiteAdapter {
     }
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
-        const actionRowTarget = this.findActionRowTarget(messageElement);
-        if (actionRowTarget) {
+        const actionBar = this.findActionBar(messageElement);
+        if (actionBar) {
             toolbarHost.dataset.aimdPlacement = 'actionbar';
             toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
             toolbarHost.style.pointerEvents = 'auto';
             toolbarHost.style.flex = '0 0 auto';
             toolbarHost.style.alignSelf = 'center';
-            actionRowTarget.appendChild(toolbarHost);
+            toolbarHost.style.marginLeft = 'auto';
+            actionBar.appendChild(toolbarHost);
             return true;
         }
         return false;

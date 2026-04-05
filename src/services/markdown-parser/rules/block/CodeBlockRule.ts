@@ -1,5 +1,9 @@
 import type { Rule } from '../../core/Rule';
 
+type AdapterWithCustomCodeExtraction = {
+    extractCodeBlockText?: (blockElem: HTMLElement) => string | null;
+};
+
 function normalizeCodeBlockText(raw: string): string {
     let code = raw.replace(/\r\n?/g, '\n');
     code = code.replace(/^\n/, '').replace(/\n$/, '');
@@ -24,10 +28,18 @@ export function createCodeBlockRule(): Rule {
         priority: 3,
         replacement: (_content, node, context) => {
             const blockElem = node as HTMLElement;
+            const adapter = context.adapter as typeof context.adapter & AdapterWithCustomCodeExtraction;
+            const customCode = adapter.extractCodeBlockText?.(blockElem);
             const codeElem =
                 blockElem.tagName === 'CODE'
                     ? blockElem
                     : ((blockElem.querySelector('code') as HTMLElement | null) || (blockElem.matches('pre') ? blockElem : null));
+            if (customCode !== undefined && customCode !== null) {
+                const language = context.adapter.getCodeLanguage(blockElem);
+                const code = normalizeCodeBlockText(customCode);
+                if (language) return `\`\`\`${language}\n${code}\n\`\`\`\n\n`;
+                return `\`\`\`\n${code}\n\`\`\`\n\n`;
+            }
             if (!codeElem) {
                 return `\`\`\`\n${blockElem.textContent || ''}\n\`\`\`\n\n`;
             }

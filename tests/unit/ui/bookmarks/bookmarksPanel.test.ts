@@ -109,9 +109,12 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('.tree-item:hover .tree-main--bookmark .tree-subtitle');
         expect(css).toContain('--_bookmarks-tree-actions-width:');
         expect(css).toContain('--_bookmarks-tree-actions-z: calc(var(--aimd-z-base) + 1);');
+        expect(css).toContain('--_bookmarks-batch-z: calc(var(--_bookmarks-tree-actions-z) + 1);');
         expect(css).toContain('padding-right: var(--_bookmarks-tree-actions-width);');
         expect(css).toContain('.tree-actions {');
         expect(css).toContain('z-index: var(--_bookmarks-tree-actions-z);');
+        expect(css).toContain('.batch-bar {');
+        expect(css).toContain('z-index: var(--_bookmarks-batch-z);');
         expect(css).toContain('.aimd-field-shell:focus-within');
         expect(css).toContain('.aimd-field-control:focus::placeholder');
         expect(css).not.toContain('rgba(');

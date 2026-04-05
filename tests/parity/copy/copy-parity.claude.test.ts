@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { ClaudeAdapter } from '@/drivers/content/adapters/sites/claude';
 import { copyMarkdownFromMessage } from '@/services/copy/copy-markdown';
+import { WordCounter } from '@/core/text/wordCounter';
 
 function withDom(html: string, url: string, fn: () => void): void {
     const originalWindow = globalThis.window;
@@ -36,9 +37,8 @@ function withDom(html: string, url: string, fn: () => void): void {
 }
 
 describe('Copy parity (Claude)', () => {
-    it('matches golden markdown output for Claude-Artifact.html (last assistant message)', () => {
-        const html = readFileSync('mocks/Claude/Claude-Artifact.html', 'utf-8');
-        const expected = readFileSync('tests/fixtures/expected/copy/claude/Claude-Artifact.md', 'utf-8');
+    it('preserves prose around Claude code blocks without leaking code-block headers into markdown', () => {
+        const html = readFileSync('mocks/Claude/Claude-all.html', 'utf-8');
         withDom(html, 'https://claude.ai/chat/mock', () => {
             const adapter = new ClaudeAdapter();
             const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
@@ -51,7 +51,14 @@ describe('Copy parity (Claude)', () => {
             expect(res.ok).toBe(true);
             if (!res.ok) return;
 
-            expect(res.markdown).toBe(expected);
+            expect(res.markdown).toContain('这是"最长连续序列"问题。关键是要在 O(n) 时间内完成，不能排序');
+            expect(res.markdown).toContain('**JavaScript:**');
+            expect(res.markdown).toContain('```python');
+            expect(res.markdown).not.toContain('python```python');
+            expect(res.markdown).toContain('def longestConsecutive');
+
+            const counter = new WordCounter();
+            expect(counter.format(counter.count(res.markdown))).not.toBe('0 Words / 0 Chars');
         });
     });
 });

@@ -52,6 +52,7 @@ export function getBookmarksPanelCss(): string {
   --_bookmarks-media-surface: var(--aimd-bg-primary);
   --_bookmarks-inline-menu-z: var(--aimd-z-tooltip);
   --_bookmarks-tree-actions-z: calc(var(--aimd-z-base) + 1);
+  --_bookmarks-batch-z: calc(var(--_bookmarks-tree-actions-z) + 1);
   --_bookmarks-celebration-z: calc(var(--aimd-z-base) + 3);
   --_bookmarks-section-title-size: var(--aimd-text-base);
   --_bookmarks-section-title-weight: var(--aimd-font-medium);
@@ -781,6 +782,7 @@ ${getPanelChromeCss()}
   left: 20px;
   right: 20px;
   bottom: 18px;
+  z-index: var(--_bookmarks-batch-z);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1435,9 +1437,12 @@ ${getPanelChromeCss()}
 
   .bookmarks-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .bookmarks-sidebar {
+    display: grid;
+    width: 100%;
     position: relative;
     border-right: none;
     border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);

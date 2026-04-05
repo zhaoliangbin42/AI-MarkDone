@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-04-02
+
 ### Added
 - ChatGPT and DeepSeek: Added an adapter-driven header bookmark icon entry backed by a shared runtime orchestrator.
 - ChatGPT: Added a toolbar collapse action so foldable assistant messages can collapse their current turn group directly from the official message toolbar.

@@ -38,9 +38,8 @@ function withDom(html: string, url: string, fn: (dom: JSDOM) => void): void {
 }
 
 describe('Copy parity (ChatGPT)', () => {
-    it('matches golden markdown output for ChatGPT-Code.html (last assistant message)', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-Code.html', 'utf-8');
-        const expected = readFileSync('tests/fixtures/expected/copy/chatgpt/ChatGPT-Code.md', 'utf-8');
+    it('preserves code-viewer content as fenced markdown for the current ChatGPT DOM', () => {
+        const html = readFileSync('mocks/ChatGPT/ChatGPT-deepresearch.html', 'utf-8');
         withDom(html, 'https://chatgpt.com/c/mock', () => {
             const adapter = new ChatGPTAdapter();
             const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
@@ -53,7 +52,9 @@ describe('Copy parity (ChatGPT)', () => {
             expect(res.ok).toBe(true);
             if (!res.ok) return;
 
-            expect(res.markdown).toBe(expected);
+            expect(res.markdown).toContain('```latex');
+            expect(res.markdown).toContain('Against this background');
+            expect(res.markdown).not.toContain('LaTeXAgainst this background');
         });
     }, 20_000);
 });

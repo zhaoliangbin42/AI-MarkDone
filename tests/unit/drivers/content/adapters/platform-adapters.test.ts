@@ -147,25 +147,22 @@ describe('non-ChatGPT adapter contracts', () => {
             expect(adapter.extractUserPrompt(message)).toBeTruthy();
             expect(adapter.isStreamingMessage(message)).toBe(false);
             expect(adapter.getTurnRootElement?.(message)).toBeInstanceOf(HTMLElement);
-            const actionBar = message.querySelector('div[role="group"][aria-label="Message actions"]') as HTMLElement | null;
-            expect(actionBar).toBeInstanceOf(HTMLElement);
-            const actionRow = actionBar?.querySelector('.flex.items-stretch.justify-between') as HTMLElement | null;
-            expect(actionRow).toBeInstanceOf(HTMLElement);
-            const trailingGroup = actionRow?.querySelector(':scope > .flex.items-center:last-child') as HTMLElement | null;
-            expect(trailingGroup).toBeInstanceOf(HTMLElement);
             const anchor = adapter.getToolbarAnchorElement?.(message) ?? null;
             expect(anchor).toBeInstanceOf(HTMLElement);
-            expect(anchor).toBe(trailingGroup);
+            const actionContent = anchor?.querySelector(':scope > .text-text-300') as HTMLElement | null;
+            expect(actionContent).toBeInstanceOf(HTMLElement);
 
             const host = document.createElement('div');
             host.id = 'aimd-test-claude-toolbar';
             const ok = adapter.injectToolbar(message, host);
             expect(ok).toBe(true);
             expect(host.isConnected).toBe(true);
-            expect(anchor?.contains(host)).toBe(true);
             expect(host.parentElement).toBe(anchor);
-            expect(host.dataset.aimdPlacement).toBe('actionbar');
+            expect(host.previousElementSibling).toBe(actionContent);
             expect(anchor?.lastElementChild).toBe(host);
+            expect(host.style.marginLeft).toBe('auto');
+            expect(host.style.flex).toBe('0 0 auto');
+            expect(host.dataset.aimdPlacement).toBe('actionbar');
         });
     });
 

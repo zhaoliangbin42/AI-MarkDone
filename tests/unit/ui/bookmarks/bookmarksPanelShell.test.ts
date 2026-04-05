@@ -84,14 +84,18 @@ describe('BookmarksPanelShell', () => {
         expect(settings.dataset.active).toBe('1');
     });
 
-    it('keeps the mobile tab rail as a three-column strip instead of fixed-width overflow buttons', () => {
+    it('keeps the mobile tab rail as three equal columns without stretching the whole rail vertically', () => {
         const css = fs.readFileSync(
             path.join(process.cwd(), 'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts'),
             'utf8',
         );
 
+        expect(css).toContain('.bookmarks-sidebar {');
+        expect(css).toContain('display: grid;');
+        expect(css).toContain('width: 100%;');
         expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
-        expect(css).not.toContain('grid-auto-columns: minmax(160px, 1fr);');
+        expect(css).toContain('grid-template-rows: auto minmax(0, 1fr);');
+        expect(css).not.toContain('width: auto;');
     });
 
     it('is the only shell source of truth used by BookmarksPanel', () => {

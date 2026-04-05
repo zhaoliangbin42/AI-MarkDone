@@ -14,6 +14,7 @@ import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
+import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -278,6 +279,9 @@ export class ReaderPanel {
             case 'reader-copy':
                 await this.copyCurrent();
                 return;
+            case 'reader-copy-code':
+                await this.copyCodeBlock(actionEl);
+                return;
             case 'reader-source':
                 await this.openSourcePanel();
                 return;
@@ -321,8 +325,11 @@ export class ReaderPanel {
         const markdown = await resolveContent(item.content);
         if (token !== this.contentRenderToken) return;
 
-        this.state.renderedHtml = renderMarkdownToSanitizedHtml(markdown, {
+        const renderedHtml = renderMarkdownToSanitizedHtml(markdown, {
             highlightCode: this.renderCodeInReader,
+        });
+        this.state.renderedHtml = decorateReaderCodeBlocksHtml(renderedHtml, {
+            copyLabel: this.getLabel('btnCopyText', 'Copy code'),
         });
         this.render(false);
 
@@ -356,6 +363,25 @@ export class ReaderPanel {
         if (!item) return;
         const markdown = await resolveContent(item.content);
         sourcePanel.show({ theme: this.state.theme, title: t('modalSourceTitle'), content: markdown });
+    }
+
+    private async copyCodeBlock(button: HTMLElement): Promise<void> {
+        const code = button.closest('.reader-code-block')?.querySelector<HTMLElement>('pre code');
+        if (!code) return;
+
+        const copyButton = button as HTMLButtonElement;
+        try {
+            copyButton.disabled = true;
+            const codeText = (code.textContent ?? '').replace(/\s+$/, '');
+            const ok = await copyTextToClipboard(codeText);
+            showEphemeralTooltip({
+                root: this.overlaySession?.shadow ?? document,
+                anchor: copyButton,
+                text: ok ? t('btnCopied') : t('copyFailed'),
+            });
+        } finally {
+            copyButton.disabled = false;
+        }
     }
 
     private openConversation(): void {

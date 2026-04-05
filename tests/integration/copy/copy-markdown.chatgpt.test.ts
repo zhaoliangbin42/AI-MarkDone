@@ -4,8 +4,8 @@ import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { copyMarkdownFromPage } from '@/services/copy/copy-markdown';
 
 describe('copyMarkdownFromPage (ChatGPT)', () => {
-    it('converts a real fixture to markdown (baseline signals)', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-Code.html', 'utf-8');
+    it('extracts current code-viewer blocks as fenced markdown without leaking header chrome', () => {
+        const html = readFileSync('mocks/ChatGPT/ChatGPT-deepresearch.html', 'utf-8');
         document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
         const adapter = new ChatGPTAdapter();
@@ -13,8 +13,9 @@ describe('copyMarkdownFromPage (ChatGPT)', () => {
         expect(res.ok).toBe(true);
         if (!res.ok) return;
 
-        expect(res.markdown).toContain('```ts');
-        expect(res.markdown).toContain('TypeScript');
-        expect(res.markdown).toContain('---');
+        expect(res.markdown).toContain('```latex');
+        expect(res.markdown).toContain('Against this background');
+        expect(res.markdown).not.toContain('LaTeXAgainst this background');
+        expect(res.markdown).not.toContain('CopyAgainst this background');
     }, 20_000);
 });

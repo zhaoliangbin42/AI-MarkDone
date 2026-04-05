@@ -143,9 +143,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v3.0.0
-- **✨ New**: ChatGPT Conversation Folding — collapse old messages to speed up the page, with a quick dock for one-click control.
-- **🐛 Fix**: Gemini Deep Research embedded reader button not extracting content correctly.
+### v4.0.0
+- **✨ New**: Shared overlay panels, save dialogs, and bookmarks surfaces now use one unified shell and motion contract.
+- **🧭 Improved**: ChatGPT folding, reader, bookmarks, source view, and send surfaces now align around a shared tokenized UI system.
+- **🐛 Fix**: Bookmark save dialog typing now stays stable during IME composition instead of dropping focus mid-input.
 
 [Full Changelog](./CHANGELOG.md)
 

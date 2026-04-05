@@ -34,19 +34,23 @@ function withDom(html: string, url: string, fn: () => void): void {
 }
 
 describe('current toolbar adapter fallbacks', () => {
-    it('Claude injects into the trailing action slot of the official toolbar row', () => {
+    it('Claude injects as a direct child of the outer message actions flex group', () => {
         const html = `
-            <div class="group" style="height: auto;">
-              <div class="font-claude-response">Answer</div>
-            </div>
-            <div role="group" aria-label="Message actions">
-              <div class="flex items-stretch justify-between">
-                <div class="flex items-center">
-                  <button data-testid="action-bar-copy"></button>
-                  <button data-testid="action-bar-rate-up"></button>
-                </div>
-                <div class="flex items-center">
-                  <button data-testid="official-right-slot"></button>
+            <div class="message-actions-shell" style="display:flex;align-items:center;">
+              <div class="group" style="height: auto;">
+                <div class="font-claude-response">Answer</div>
+              </div>
+              <div role="group" aria-label="Message actions" class="flex justify-start">
+                <div class="text-text-300">
+                  <div class="text-text-300 flex items-stretch justify-between">
+                    <div class="flex items-center">
+                      <button data-testid="action-bar-copy"></button>
+                      <button data-testid="action-bar-rate-up"></button>
+                    </div>
+                    <div class="flex items-center">
+                      <button data-testid="official-right-slot"></button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -56,16 +60,22 @@ describe('current toolbar adapter fallbacks', () => {
             const adapter = new ClaudeAdapter();
             const message = document.querySelector('div.group[style*="height: auto"]') as HTMLElement;
             const anchor = adapter.getToolbarAnchorElement(message);
+            const actionBar = document.querySelector('div[role="group"][aria-label="Message actions"]') as HTMLElement;
+            const contentWrap = actionBar.querySelector(':scope > .text-text-300') as HTMLElement;
 
             expect(anchor).toBeInstanceOf(HTMLElement);
-            expect(anchor?.className).toContain('flex items-center');
+            expect(anchor).toBe(actionBar);
 
             const host = document.createElement('div');
             host.id = 'aimd-test-claude-toolbar';
             const ok = adapter.injectToolbar(message, host);
 
             expect(ok).toBe(true);
-            expect(anchor?.lastElementChild).toBe(host);
+            expect(host.parentElement).toBe(actionBar);
+            expect(host.previousElementSibling).toBe(contentWrap);
+            expect(actionBar.lastElementChild).toBe(host);
+            expect(host.style.marginLeft).toBe('auto');
+            expect(host.style.flex).toBe('0 0 auto');
             expect(host.dataset.aimdPlacement).toBe('actionbar');
         });
     });
