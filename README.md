@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — Supercharge ChatGPT, Gemini & More</h1>
+  <h1>AI-MarkDone — Enhancement Extension for ChatGPT, Gemini & More</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -15,7 +15,7 @@
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>Reading Mode, one-click Markdown copy, bookmarks, and beautiful PDF export.</em></p>
+  <p><em>ChatGPT Message Folding, Reading Mode, one-click Markdown copy, bookmarks, and beautiful PDF export.</em></p>
 
   [中文文档](./README.zh.md) | English
 </div>
@@ -112,7 +112,7 @@ Secure, verified, and auto-updated.
 1. Download the latest ZIP file from [GitHub Releases](https://github.com/zhaoliangbin42/AI-MarkDone/releases).
 2. Unzip the file.
 3. Open Chrome and go to `chrome://extensions/`.
-4. Enable **Developer mode** in the top right corner.
+4. Enable **Developer Mode** in the top right corner.
 5. Click **Load unpacked** and select the unzipped `dist/` folder.
 6. Refresh your ChatGPT or Gemini page and enjoy! 🎉
 
@@ -144,9 +144,7 @@ npm run build
 ## 📅 Changelog (Latest)
 
 ### v4.0.0
-- **✨ New**: Shared overlay panels, save dialogs, and bookmarks surfaces now use one unified shell and motion contract.
-- **🧭 Improved**: ChatGPT folding, reader, bookmarks, source view, and send surfaces now align around a shared tokenized UI system.
-- **🐛 Fix**: Bookmark save dialog typing now stays stable during IME composition instead of dropping focus mid-input.
+- **Refactor**: The codebase and UI have been thoroughly rebuilt.
 
 [Full Changelog](./CHANGELOG.md)
 
@@ -157,7 +155,7 @@ If this extension saves you time, consider buying me a coffee to support future 
 <div align="center">
   <div style="display: flex; justify-content: center; gap: 20px;">
     <div style="display: flex; flex-direction: column; align-items: center;">
-      <p><strong>Buy me a coffee</strong></p>
+      <p><strong>Buy Me a Coffee</strong></p>
       <img src="imgs/bmc_qr.png" alt="Buy Me A Coffee" width="200" style="border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
     <div style="display: flex; flex-direction: column; align-items: center;">
@@ -167,11 +165,9 @@ If this extension saves you time, consider buying me a coffee to support future 
   </div>
 </div>
 
-## ✅ TODO
+## 🙏 Acknowledgements
 
-- Full-text bookmarks
-- Message comments
-- More...
+Built with [Tailwind CSS](https://tailwindcss.com/). Thanks to the Tailwind team.
 
 ## 📜 License & Contact
 

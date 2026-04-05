@@ -15,7 +15,7 @@
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>阅读模式、一键 Markdown 复制、书签管理与精美 PDF 导出。</em></p>
+  <p><em>ChatGPT 消息折叠、阅读模式、一键 Markdown 复制、书签管理与精美 PDF 导出。</em></p>
 
   中文文档 | [English](./README.md)
 </div>
@@ -144,9 +144,7 @@ npm run build
 ## 📅 最新更新
 
 ### v4.0.0
-- **✨ 新增**：共享 overlay 面板、保存弹窗与书签界面现在统一到同一套 shell 与动效契约。
-- **🧭 改进**：ChatGPT 折叠、阅读器、书签、源码视图与发送界面现在围绕统一的 token 化 UI 系统对齐。
-- **🐛 修复**：书签保存弹窗在输入法 composition 期间不再中途丢失焦点。
+- **重构**：对代码和 UI 进行了彻底重构。
 
 [完整更新日志](./CHANGELOG.md)
 
@@ -157,7 +155,7 @@ npm run build
 <div align="center">
   <div style="display: flex; justify-content: center; gap: 20px;">
     <div style="display: flex; flex-direction: column; align-items: center;">
-      <p><strong>Buy me a coffee</strong></p>
+      <p><strong>Buy Me a Coffee</strong></p>
       <img src="imgs/bmc_qr.png" alt="Buy Me A Coffee" width="200" style="border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
     <div style="display: flex; flex-direction: column; align-items: center;">
@@ -167,11 +165,10 @@ npm run build
   </div>
 </div>
 
-## ✅ TODO
+## 🙏 Acknowledgements
 
-- 书签全文搜索
-- 消息评论
-- 更多功能...
+本项目使用了 [Tailwind CSS](https://tailwindcss.com/)，感谢 Tailwind 团队。
+
 
 ## 📜 许可与联系
 
