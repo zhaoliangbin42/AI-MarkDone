@@ -170,4 +170,59 @@ describe('ReaderPanel (MVP)', () => {
         expect(styles).toContain('.reader-code-block__copy');
         expect(styles).toContain('margin-left: auto;');
     });
+
+    it('intercepts copy inside the reader and writes markdown source for selected atomic units', async () => {
+        setClipboardMock();
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [{
+                id: 'a',
+                userPrompt: 'Q1',
+                content: 'Before `code` and $x+y$ after',
+            }],
+            0,
+            'light'
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = await waitFor(() => shadow.querySelector<HTMLElement>('.reader-markdown'));
+        const paragraph = markdownRoot.querySelector('p')!;
+        const firstText = paragraph.firstChild as Text;
+        const lastText = paragraph.lastChild as Text;
+        const range = document.createRange();
+        range.setStart(firstText, 0);
+        range.setEnd(lastText, lastText.textContent!.length);
+
+        const selection = {
+            rangeCount: 1,
+            getRangeAt: () => range,
+            getComposedRanges: () => [{
+                startContainer: firstText,
+                startOffset: 0,
+                endContainer: lastText,
+                endOffset: lastText.textContent!.length,
+            }],
+            toString: () => range.toString(),
+        } as unknown as Selection;
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(selection);
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        const clipboardData = {
+            values: new Map<string, string>(),
+            setData(type: string, value: string) {
+                this.values.set(type, value);
+            },
+        };
+        const copyEvent = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent;
+        Object.defineProperty(copyEvent, 'clipboardData', { value: clipboardData });
+        shadow.dispatchEvent(copyEvent);
+
+        expect(clipboardData.values.get('text/plain')).toContain('`code`');
+        expect(clipboardData.values.get('text/plain')).toContain('$x+y$');
+        getSelectionSpy.mockRestore();
+    });
 });

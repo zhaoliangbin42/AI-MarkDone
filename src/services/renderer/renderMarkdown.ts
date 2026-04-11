@@ -14,11 +14,42 @@ export type MarkdownRenderOptions = {
     highlightCode?: boolean;
 };
 
+export type ReaderAtomicUnitKind =
+    | 'inline-math'
+    | 'display-math'
+    | 'inline-code'
+    | 'code-block'
+    | 'table'
+    | 'image';
+
+export type ReaderAtomicUnit = {
+    id: string;
+    kind: ReaderAtomicUnitKind;
+    start: number;
+    end: number;
+    source: string;
+};
+
+export type ReaderRenderedMarkdown = {
+    html: string;
+    markdownSource: string;
+    atomicUnits: ReaderAtomicUnit[];
+};
+
 type HastNode = {
     type?: string;
     tagName?: string;
     properties?: Record<string, unknown>;
     children?: HastNode[];
+};
+
+type MdastNode = {
+    type?: string;
+    position?: {
+        start?: { offset?: number };
+        end?: { offset?: number };
+    };
+    children?: MdastNode[];
 };
 
 const markdownSanitizeSchema: any = {
@@ -89,6 +120,11 @@ function visitTree(node: HastNode, visitor: (node: HastNode) => void): void {
     node.children?.forEach((child) => visitTree(child, visitor));
 }
 
+function visitMdast(node: MdastNode, visitor: (node: MdastNode) => void): void {
+    visitor(node);
+    node.children?.forEach((child) => visitMdast(child, visitor));
+}
+
 function createProcessor(options?: MarkdownRenderOptions) {
     const processor = unified()
         .use(remarkParse)
@@ -146,4 +182,59 @@ function getProcessor(options?: MarkdownRenderOptions) {
 
 export function renderMarkdownToSanitizedHtml(markdown: string, options?: MarkdownRenderOptions): string {
     return String(getProcessor(options).processSync(markdown || ''));
+}
+
+function collectReaderAtomicUnits(markdown: string): ReaderAtomicUnit[] {
+    const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown || '') as MdastNode;
+    const units: ReaderAtomicUnit[] = [];
+
+    visitMdast(tree, (node) => {
+        const start = node.position?.start?.offset;
+        const end = node.position?.end?.offset;
+        if (typeof start !== 'number' || typeof end !== 'number' || end <= start) return;
+
+        let kind: ReaderAtomicUnitKind | null = null;
+        switch (node.type) {
+            case 'inlineMath':
+                kind = 'inline-math';
+                break;
+            case 'math':
+                kind = 'display-math';
+                break;
+            case 'inlineCode':
+                kind = 'inline-code';
+                break;
+            case 'code':
+                kind = 'code-block';
+                break;
+            case 'table':
+                kind = 'table';
+                break;
+            case 'image':
+                kind = 'image';
+                break;
+            default:
+                break;
+        }
+
+        if (!kind) return;
+        units.push({
+            id: `aimd-reader-unit-${units.length + 1}`,
+            kind,
+            start,
+            end,
+            source: markdown.slice(start, end),
+        });
+    });
+
+    return units;
+}
+
+export function renderMarkdownForReader(markdown: string, options?: MarkdownRenderOptions): ReaderRenderedMarkdown {
+    const markdownSource = markdown || '';
+    return {
+        html: renderMarkdownToSanitizedHtml(markdownSource, options),
+        markdownSource,
+        atomicUnits: collectReaderAtomicUnits(markdownSource),
+    };
 }

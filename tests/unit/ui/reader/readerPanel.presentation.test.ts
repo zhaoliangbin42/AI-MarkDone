@@ -236,4 +236,14 @@ describe('ReaderPanel presentation', () => {
         expect(source).toContain('line-height: var(--aimd-leading-reading);');
         expect(source).not.toContain('font-size: 17px;');
     });
+
+    it('keeps atomic reader selection styles local, token-driven, and square-edged', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
+
+        expect(source).toContain('[data-aimd-unit-state="selected"]');
+        expect(source).toContain('--_reader-atomic-selected-bg');
+        expect(source).toContain('var(--aimd-interactive-selected)');
+        expect(source).toContain('border-radius: 0;');
+        expect(source).not.toContain('border-radius: var(--aimd-radius-md);');
+    });
 });

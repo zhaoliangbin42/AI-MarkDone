@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Reader: Added atomic closed-unit selection handling for inline math, display math, inline code, code blocks, tables, and images so these units can be copied as source without changing normal text-selection behavior.
+
+### Fixed
+- Reader: Fixed keyboard copy inside the reader so `Ctrl/Cmd+C` now exports markdown source for selected reader content instead of the rendered visible text.
+- Reader: Strengthened atomic closed-unit selection feedback with clearer square-edged highlights that stay visually noticeable without shifting Reader layout or markdown spacing.
+
 ## [4.0.0] - 2026-04-02
 
 ### Added

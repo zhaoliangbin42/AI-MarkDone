@@ -3,7 +3,16 @@ import { browser } from '../../../drivers/shared/browser';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
-import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
+import { renderMarkdownForReader, type ReaderAtomicUnit } from '../../../services/renderer/renderMarkdown';
+import {
+    annotateRenderedAtomicUnits,
+    applyRenderedAtomicSelection,
+    clearRenderedAtomicSelection,
+    resolveReaderSelectionRange,
+    resolveSelectedAtomicUnits,
+    type SelectedAtomicUnit,
+} from '../../../services/reader/atomicSelection';
+import { buildAtomicSelectionExport } from '../../../services/reader/atomicExport';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
 import { sourcePanel } from '../source/sourcePanelSingleton';
@@ -54,6 +63,11 @@ type ReaderPanelState = {
     visible: boolean;
     fullscreen: boolean;
     renderedHtml: string;
+    renderedMarkdownSource: string;
+    renderedAtomicUnits: ReaderAtomicUnit[];
+    selectedAtomicUnitIds: string[];
+    selectionSourceText: string;
+    selectionExport: string;
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     options: {
@@ -79,6 +93,10 @@ export class ReaderPanel {
     private renderCodeInReader = true;
     private closing = false;
     private motionNeedsOpen = false;
+    private onSelectionChange: (() => void) | null = null;
+    private onPointerUp: (() => void) | null = null;
+    private onShadowCopy: EventListener | null = null;
+    private renderedAtomicElements: SelectedAtomicUnit[] = [];
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private state: ReaderPanelState = {
         theme: 'light',
@@ -87,6 +105,11 @@ export class ReaderPanel {
         visible: false,
         fullscreen: false,
         renderedHtml: '',
+        renderedMarkdownSource: '',
+        renderedAtomicUnits: [],
+        selectedAtomicUnitIds: [],
+        selectionSourceText: '',
+        selectionExport: '',
         userPromptDisplay: formatReaderUserPromptDisplay(''),
         statusText: '',
         options: {
@@ -136,6 +159,11 @@ export class ReaderPanel {
         this.state.visible = true;
         this.state.fullscreen = false;
         this.state.renderedHtml = '';
+        this.state.renderedMarkdownSource = '';
+        this.state.renderedAtomicUnits = [];
+        this.state.selectedAtomicUnitIds = [];
+        this.state.selectionSourceText = '';
+        this.state.selectionExport = '';
         this.state.userPromptDisplay = formatReaderUserPromptDisplay(items[this.state.index]?.userPrompt ?? '');
         this.state.statusText = '';
         this.closing = false;
@@ -224,6 +252,13 @@ export class ReaderPanel {
         };
         session.host.addEventListener('keydown', this.onKeyDown);
 
+        this.onSelectionChange = () => this.syncAtomicSelection();
+        this.onPointerUp = () => this.syncAtomicSelection();
+        this.onShadowCopy = (event: Event) => this.handleAtomicCopy(event as ClipboardEvent);
+        document.addEventListener('selectionchange', this.onSelectionChange);
+        document.addEventListener('pointerup', this.onPointerUp);
+        session.shadow.addEventListener('copy', this.onShadowCopy, true);
+
         const katexUrl = this.getKatexUrl();
         if (katexUrl) ensureShadowStylesheetLink(session.shadow, katexUrl, 'aimd-reader-panel-katex');
 
@@ -237,6 +272,15 @@ export class ReaderPanel {
             this.overlaySession.host.removeEventListener('keydown', this.onKeyDown);
         }
         this.onKeyDown = null;
+        if (this.onSelectionChange) document.removeEventListener('selectionchange', this.onSelectionChange);
+        if (this.onPointerUp) document.removeEventListener('pointerup', this.onPointerUp);
+        if (this.overlaySession?.shadow && this.onShadowCopy) {
+            this.overlaySession.shadow.removeEventListener('copy', this.onShadowCopy, true);
+        }
+        this.onSelectionChange = null;
+        this.onPointerUp = null;
+        this.onShadowCopy = null;
+        this.renderedAtomicElements = [];
 
         if (this.statusTimer) {
             window.clearTimeout(this.statusTimer);
@@ -315,6 +359,11 @@ export class ReaderPanel {
         const item = this.state.items[this.state.index];
         if (!item) {
             this.state.renderedHtml = '';
+            this.state.renderedMarkdownSource = '';
+            this.state.renderedAtomicUnits = [];
+            this.state.selectedAtomicUnitIds = [];
+            this.state.selectionSourceText = '';
+            this.state.selectionExport = '';
             this.state.userPromptDisplay = formatReaderUserPromptDisplay('');
             this.render(false);
             return;
@@ -325,13 +374,16 @@ export class ReaderPanel {
         const markdown = await resolveContent(item.content);
         if (token !== this.contentRenderToken) return;
 
-        const renderedHtml = renderMarkdownToSanitizedHtml(markdown, {
+        const rendered = renderMarkdownForReader(markdown, {
             highlightCode: this.renderCodeInReader,
         });
-        this.state.renderedHtml = decorateReaderCodeBlocksHtml(renderedHtml, {
+        this.state.renderedMarkdownSource = rendered.markdownSource;
+        this.state.renderedAtomicUnits = rendered.atomicUnits;
+        this.state.renderedHtml = decorateReaderCodeBlocksHtml(rendered.html, {
             copyLabel: this.getLabel('btnCopyText', 'Copy code'),
         });
         this.render(false);
+        this.syncAtomicSelection();
 
         const body = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
         if (body) body.scrollTop = 0;
@@ -458,6 +510,8 @@ export class ReaderPanel {
         this.renderActions();
         this.renderDots();
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
+        this.syncAtomicMarkup();
+        this.applyAtomicSelectionState();
 
         const nextBody = panel.querySelector<HTMLElement>('.reader-body');
         if (nextBody && preserveScrollTop) {
@@ -663,5 +717,85 @@ export class ReaderPanel {
         } catch {
             return '';
         }
+    }
+
+    private getMarkdownRoot(): HTMLElement | null {
+        return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-markdown') ?? null;
+    }
+
+    private syncAtomicMarkup(): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot) {
+            this.renderedAtomicElements = [];
+            return;
+        }
+
+        if (this.state.renderedAtomicUnits.length < 1) {
+            this.renderedAtomicElements = [];
+            clearRenderedAtomicSelection(markdownRoot);
+            return;
+        }
+
+        this.renderedAtomicElements = annotateRenderedAtomicUnits(markdownRoot, this.state.renderedAtomicUnits);
+    }
+
+    private applyAtomicSelectionState(): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot) return;
+        applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
+    }
+
+    private syncAtomicSelection(): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot || !this.overlaySession) return;
+
+        const selection = window.getSelection();
+        const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
+        if (!range) {
+            this.state.selectionSourceText = '';
+            this.state.selectionExport = '';
+            this.state.selectedAtomicUnitIds = [];
+            clearRenderedAtomicSelection(markdownRoot);
+            return;
+        }
+
+        const selectedText = range.toString().trim();
+        const selectedUnits = resolveSelectedAtomicUnits(range, markdownRoot).map((selected) => {
+            const rendered = this.renderedAtomicElements.find((unit) => unit.id === selected.id);
+            return rendered ?? selected;
+        });
+
+        this.state.selectionSourceText = selectedText;
+        this.state.selectedAtomicUnitIds = selectedUnits.map((unit) => unit.id);
+        this.state.selectionExport = buildAtomicSelectionExport({
+            range,
+            root: markdownRoot,
+            selectedUnits,
+        });
+        applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
+    }
+
+    private handleAtomicCopy(event: ClipboardEvent): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot || !this.overlaySession) return;
+
+        this.syncAtomicSelection();
+        const selection = window.getSelection();
+        const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
+        if (!range || !this.state.selectionExport) return;
+
+        const hasSelection = Boolean(range.toString().trim()) || this.state.selectedAtomicUnitIds.length > 0;
+        if (!hasSelection) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.clipboardData?.setData('text/plain', this.state.selectionExport);
+
+        const anchor = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy"]') ?? markdownRoot;
+        showEphemeralTooltip({
+            root: this.overlaySession.shadow,
+            anchor,
+            text: t('btnCopied'),
+        });
     }
 }
