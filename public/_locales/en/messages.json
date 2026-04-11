@@ -146,6 +146,42 @@
     "btnCopyText": {
         "message": "Copy"
     },
+    "readerCommentAction": {
+        "message": "Comment"
+    },
+    "readerCommentAddTitle": {
+        "message": "Add comment"
+    },
+    "readerCommentEditTitle": {
+        "message": "Edit comment"
+    },
+    "readerCommentPlaceholder": {
+        "message": "Write your comment..."
+    },
+    "readerCommentSave": {
+        "message": "Save comment"
+    },
+    "readerCommentSaved": {
+        "message": "Comment saved"
+    },
+    "readerCommentCopyComments": {
+        "message": "Copy comments"
+    },
+    "readerCommentCopyEmpty": {
+        "message": "No comments to copy yet."
+    },
+    "readerCommentUserPrompt": {
+        "message": "User prompt"
+    },
+    "readerCommentPrompt1": {
+        "message": "Prompt 1"
+    },
+    "readerCommentPrompt2": {
+        "message": "Prompt 2"
+    },
+    "readerCommentPrompt3": {
+        "message": "Prompt 3"
+    },
     "modalSourceTitle": {
         "message": "Markdown Source Code"
     },

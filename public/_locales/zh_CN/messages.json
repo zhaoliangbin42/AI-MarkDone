@@ -146,6 +146,42 @@
     "btnCopyText": {
         "message": "复制"
     },
+    "readerCommentAction": {
+        "message": "评论"
+    },
+    "readerCommentAddTitle": {
+        "message": "添加评论"
+    },
+    "readerCommentEditTitle": {
+        "message": "编辑评论"
+    },
+    "readerCommentPlaceholder": {
+        "message": "输入你的评论..."
+    },
+    "readerCommentSave": {
+        "message": "保存评论"
+    },
+    "readerCommentSaved": {
+        "message": "评论已保存"
+    },
+    "readerCommentCopyComments": {
+        "message": "复制评论"
+    },
+    "readerCommentCopyEmpty": {
+        "message": "当前还没有可复制的评论。"
+    },
+    "readerCommentUserPrompt": {
+        "message": "用户提示词"
+    },
+    "readerCommentPrompt1": {
+        "message": "提示词 1"
+    },
+    "readerCommentPrompt2": {
+        "message": "提示词 2"
+    },
+    "readerCommentPrompt3": {
+        "message": "提示词 3"
+    },
     "modalSourceTitle": {
         "message": "Markdown 源码"
     },

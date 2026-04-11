@@ -4,6 +4,7 @@ import {
     externalLinkIcon,
     fileCodeIcon,
     maximizeIcon,
+    messageSquareTextIcon,
     minimizeIcon,
     xIcon,
 } from '../../../assets/icons';
@@ -79,6 +80,7 @@ export function getReaderPanelHtml(params: {
     <div class="panel-header__actions">
       <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
       ${state.showOpenConversation && canOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
+      <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy comments'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy comments'))}">${iconMarkup(messageSquareTextIcon)}</button>
       ${state.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
       ${state.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" title="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
@@ -94,7 +96,10 @@ export function getReaderPanelHtml(params: {
         </section>
         <section class="reader-message reader-message--assistant">
           <div class="reader-message__label">AI response</div>
-          <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
+          <div class="reader-markdown-shell" data-role="reader-markdown-shell">
+            <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
+            <div class="reader-comment-overlay" data-role="comment-overlay"></div>
+          </div>
         </section>
       </div>
     </article>
@@ -266,6 +271,69 @@ ${getPanelChromeCss()}
   --_reader-atomic-selected-bg-strong: color-mix(in srgb, var(--aimd-interactive-selected) 96%, var(--aimd-bg-primary));
   --_reader-atomic-selected-border: color-mix(in srgb, var(--aimd-interactive-primary) 28%, transparent);
   --_reader-atomic-selected-border-strong: color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
+}
+
+.reader-markdown-shell {
+  position: relative;
+  min-width: 0;
+  padding-right: calc(var(--aimd-space-5) + var(--aimd-size-control-icon-panel));
+}
+
+.reader-comment-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reader-comment-highlight {
+  position: absolute;
+  background: color-mix(in srgb, var(--aimd-interactive-selected) 92%, var(--aimd-bg-primary));
+}
+
+.reader-comment-action,
+.reader-comment-anchor {
+  position: absolute;
+  min-height: var(--aimd-size-control-icon-panel);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aimd-space-2);
+  padding: 0 var(--aimd-space-3);
+  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
+  background: color-mix(in srgb, var(--aimd-interactive-selected) 94%, var(--aimd-bg-primary));
+  color: var(--aimd-text-primary);
+  font: inherit;
+  font-size: var(--aimd-text-sm);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.reader-comment-action .aimd-icon,
+.reader-comment-anchor .aimd-icon {
+  color: var(--aimd-interactive-primary);
+}
+
+.reader-comment-anchor {
+  width: var(--aimd-size-control-icon-panel);
+  padding: 0;
+}
+
+.reader-comment-anchor[data-count]::after {
+  content: attr(data-count);
+  position: absolute;
+  top: calc(var(--aimd-space-1) * -1);
+  right: calc(var(--aimd-space-1) * -1);
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--aimd-radius-full);
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  font-size: 11px;
+  line-height: 1;
 }
 
 ${getMarkdownThemeCss('.reader-markdown')}
