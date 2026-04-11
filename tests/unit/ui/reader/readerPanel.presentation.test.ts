@@ -237,13 +237,36 @@ describe('ReaderPanel presentation', () => {
         expect(source).not.toContain('font-size: 17px;');
     });
 
-    it('keeps atomic reader selection styles local, token-driven, and square-edged', () => {
+    it('keeps atomic reader selection styles local, token-driven, and lightly rounded', () => {
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
 
         expect(source).toContain('[data-aimd-unit-state="selected"]');
         expect(source).toContain('--_reader-atomic-selected-bg');
         expect(source).toContain('var(--aimd-interactive-selected)');
-        expect(source).toContain('border-radius: 0;');
-        expect(source).not.toContain('border-radius: var(--aimd-radius-md);');
+        expect(source).toContain('.reader-markdown :where([data-aimd-unit-state="selected"]) {');
+        expect(source).toContain('border-radius: var(--aimd-radius-sm);');
+        expect(source).not.toContain('.reader-markdown :where([data-aimd-unit-state="selected"]) {\n  border-radius: 0;');
+    });
+
+    it('keeps floating reader comment controls shadow-free and on their own hover token path', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
+
+        expect(source).toContain('--_reader-comment-floating-hover-bg');
+        expect(source).toContain('--_reader-comment-floating-active-bg');
+        expect(source).toContain('.reader-comment-action {');
+        expect(source).toContain('.reader-comment-anchor {');
+        expect(source).not.toContain('box-shadow: var(--aimd-shadow-sm);');
+        expect(source).toContain('.reader-comment-action__button:hover,');
+        expect(source).toContain('.reader-comment-anchor:hover {');
+        expect(source).not.toContain('.reader-comment-action__button:hover,\n.reader-comment-action__button:active {\n  color: var(--aimd-interactive-primary);\n}');
+    });
+
+    it('renders selection actions as floating controls instead of clipping them inside the markdown shell', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
+
+        expect(source).toContain('.reader-comment-action {');
+        expect(source).toContain('position: absolute;');
+        expect(source).toContain('.reader-comment-anchor {');
+        expect(source).toContain('position: absolute;');
     });
 });

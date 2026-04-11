@@ -258,6 +258,10 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-button-icon-hover: var(--aimd-interactive-hover);
   --aimd-button-icon-text-hover: var(--aimd-text-primary);
   --aimd-button-icon-active: var(--aimd-interactive-selected);
+  --aimd-button-floating-bg: var(--aimd-bg-surface);
+  --aimd-button-floating-border: color-mix(in srgb, var(--aimd-border-default) 84%, transparent);
+  --aimd-button-floating-hover: var(--aimd-bg-secondary);
+  --aimd-button-floating-active: color-mix(in srgb, var(--aimd-bg-secondary) 72%, var(--aimd-interactive-selected));
   --aimd-scrollbar-thumb: var(--aimd-sys-color-scrollbar-thumb);
   --aimd-scrollbar-thumb-hover: var(--aimd-sys-color-scrollbar-thumb-hover);
 }

@@ -277,6 +277,10 @@ ${getPanelChromeCss()}
   position: relative;
   min-width: 0;
   padding-right: calc(var(--aimd-space-5) + var(--aimd-size-control-icon-panel));
+  --_reader-comment-floating-bg: var(--aimd-button-floating-bg);
+  --_reader-comment-floating-border: var(--aimd-button-floating-border);
+  --_reader-comment-floating-hover-bg: var(--aimd-button-floating-hover);
+  --_reader-comment-floating-active-bg: var(--aimd-button-floating-active);
 }
 
 .reader-comment-overlay {
@@ -288,25 +292,25 @@ ${getPanelChromeCss()}
 .reader-comment-highlight {
   position: absolute;
   background: color-mix(in srgb, var(--aimd-interactive-selected) 92%, var(--aimd-bg-primary));
+  border-radius: var(--aimd-radius-sm);
 }
 
-.reader-comment-action,
-.reader-comment-anchor {
+.reader-comment-highlight--active {
+  background: color-mix(in srgb, var(--aimd-interactive-selected) 98%, var(--aimd-interactive-primary) 12%);
+}
+
+.reader-comment-action {
   position: absolute;
-  min-height: var(--aimd-size-control-icon-panel);
+  pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: var(--aimd-space-2);
-  padding: 0 var(--aimd-space-3);
-  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
-  background: color-mix(in srgb, var(--aimd-interactive-selected) 94%, var(--aimd-bg-primary));
-  color: var(--aimd-text-primary);
-  font: inherit;
-  font-size: var(--aimd-text-sm);
   white-space: nowrap;
+}
+
+.reader-comment-anchor {
+  position: absolute;
   pointer-events: auto;
-  cursor: pointer;
 }
 
 .reader-comment-action .aimd-icon,
@@ -314,37 +318,43 @@ ${getPanelChromeCss()}
   color: var(--aimd-interactive-primary);
 }
 
-.reader-comment-anchor {
-  width: var(--aimd-size-control-icon-panel);
-  padding: 0;
+.reader-comment-action__button {
+  color: var(--aimd-text-secondary);
+  background: var(--_reader-comment-floating-bg);
+  border-color: var(--_reader-comment-floating-border);
 }
 
-.reader-comment-anchor[data-count]::after {
-  content: attr(data-count);
-  position: absolute;
-  top: calc(var(--aimd-space-1) * -1);
-  right: calc(var(--aimd-space-1) * -1);
-  min-width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--aimd-radius-full);
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  font-size: 11px;
-  line-height: 1;
+.reader-comment-action__button:hover,
+.reader-comment-action__button:focus-visible,
+.reader-comment-anchor:hover {
+  color: var(--aimd-interactive-primary);
+  background: var(--_reader-comment-floating-hover-bg);
+  border-color: var(--_reader-comment-floating-border);
+}
+
+.reader-comment-action__button:active,
+.reader-comment-action__button:focus,
+.reader-comment-anchor:active {
+  color: var(--aimd-interactive-primary);
+  background: var(--_reader-comment-floating-active-bg);
+  border-color: var(--_reader-comment-floating-border);
+}
+
+.reader-comment-anchor {
+  border-color: var(--_reader-comment-floating-border);
+  background: var(--_reader-comment-floating-bg);
 }
 
 ${getMarkdownThemeCss('.reader-markdown')}
 
 .reader-markdown :where([data-aimd-unit-state="selected"]) {
-  border-radius: 0;
+  border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg);
   box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border);
 }
 
 .reader-markdown :where(.katex[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
   box-shadow:
     inset 0 -0.22em 0 var(--_reader-atomic-selected-bg-strong),
@@ -352,16 +362,19 @@ ${getMarkdownThemeCss('.reader-markdown')}
 }
 
 .reader-markdown :where(code[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
   box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
 }
 
 .reader-markdown :where(.katex-display[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
   box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
 }
 
 .reader-markdown :where(pre[data-aimd-unit-state="selected"], table[data-aimd-unit-state="selected"], img[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
   box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
 }

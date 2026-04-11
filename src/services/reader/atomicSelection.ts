@@ -68,9 +68,12 @@ export function applyRenderedAtomicSelection(root: HTMLElement, ids: string[]): 
 export function resolveReaderSelectionRange(selection: Selection | null, shadow: ShadowRoot, root: HTMLElement): Range | null {
     if (!selection || selection.rangeCount < 1) return null;
 
+    const endpointsInsideRoot = (startContainer: Node, endContainer: Node): boolean =>
+        root.contains(startContainer) && root.contains(endContainer);
+
     if (typeof selection.getComposedRanges === 'function') {
         const composed = selection.getComposedRanges({ shadowRoots: [shadow] })[0];
-        if (composed) {
+        if (composed && endpointsInsideRoot(composed.startContainer, composed.endContainer)) {
             const range = document.createRange();
             range.setStart(composed.startContainer, composed.startOffset);
             range.setEnd(composed.endContainer, composed.endOffset);
@@ -80,6 +83,7 @@ export function resolveReaderSelectionRange(selection: Selection | null, shadow:
 
     const fallback = selection.getRangeAt(0);
     if (!root.contains(fallback.commonAncestorContainer)) return null;
+    if (!endpointsInsideRoot(fallback.startContainer, fallback.endContainer)) return null;
     return fallback;
 }
 

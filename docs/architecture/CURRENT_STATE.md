@@ -120,6 +120,9 @@
 当前都属于 `content-facing feature service`，不是严格意义上的“纯 service”。
 - `src/services/export/saveMessagesPdf.ts` 属于明确例外：它负责构建最终导出文档，并消费样式 token 生成 PDF/打印用 CSS。
 - `SendPopover` 仍是 anchored popover，而不是 overlay surface；它保留 textarea-level `inputEventBoundary` 作为 intentional local boundary，不视为 shared overlay contract 的例外缺口
+- Reader 当前已经拥有两条稳定的“只在 Reader 内部生效”的扩展链路：
+  - atomic closed-unit source selection：普通文本保留原生选区，closed unit 按整单元高亮与源码复制
+  - inline comments：comment session、highlight overlay、右侧 gutter anchor 与 comment export 均局限在 Reader overlay 内，不依赖 background/storage
 - Reader shell chrome 与正文排版都继续由 tokenized panel/template contract 持有，不再额外接入开源 Markdown 主题 preset
 - fullscreen Reader 切换仍属于 surface state change，不复用 centered panel 的 open/close transform；fullscreen Reader 只保留更轻的 fade-style motion
 

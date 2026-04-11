@@ -1,6 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import { browser } from '../../../drivers/shared/browser';
-import { messageSquareTextIcon } from '../../../assets/icons';
+import { copyIcon, messageSquareTextIcon } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
@@ -98,6 +98,7 @@ type ReaderCommentSelectionSnapshot = {
     range: Range;
     selectedUnits: SelectedAtomicUnit[];
     selectedText: string;
+    sourceMarkdown: string;
 };
 
 const READER_COMMENT_SCOPE_ID = 'reader-panel-comments-v1';
@@ -119,6 +120,7 @@ export class ReaderPanel {
     private onShadowCopy: EventListener | null = null;
     private renderedAtomicElements: SelectedAtomicUnit[] = [];
     private commentSelectionSnapshot: ReaderCommentSelectionSnapshot | null = null;
+    private activeCommentId: string | null = null;
     private commentExportPrompts: ReaderCommentExportPrompts = {
         userPrompt: 'Please review the following comments:',
         prompt1: 'Regarding ',
@@ -310,6 +312,7 @@ export class ReaderPanel {
         this.onShadowCopy = null;
         this.renderedAtomicElements = [];
         this.commentSelectionSnapshot = null;
+        this.activeCommentId = null;
         if (this.overlaySession?.shadow) {
             this.commentPopover.close(this.overlaySession.shadow, false);
             this.commentExportPopover.close(this.overlaySession.shadow);
@@ -793,7 +796,8 @@ export class ReaderPanel {
         const occupiedAnchorTops: number[] = [];
         for (const record of comments) {
             const resolved = resolveReaderCommentAnchor(markdownRoot, record);
-            resolved.rects.forEach((rect) => overlayRoot.appendChild(this.createCommentHighlight(rect)));
+            const active = record.id === this.activeCommentId;
+            resolved.rects.forEach((rect) => overlayRoot.appendChild(this.createCommentHighlight(rect, active)));
             if (resolved.unionRect) {
                 overlayRoot.appendChild(this.createCommentAnchor(record, resolved.unionRect, resolved.rects, occupiedAnchorTops));
             }
@@ -814,9 +818,9 @@ export class ReaderPanel {
         }
     }
 
-    private createCommentHighlight(rect: ReaderCommentRect): HTMLElement {
+    private createCommentHighlight(rect: ReaderCommentRect, active: boolean): HTMLElement {
         const element = document.createElement('div');
-        element.className = 'reader-comment-highlight';
+        element.className = `reader-comment-highlight${active ? ' reader-comment-highlight--active' : ''}`;
         element.style.left = `${rect.left}px`;
         element.style.top = `${rect.top}px`;
         element.style.width = `${rect.width}px`;
@@ -825,22 +829,51 @@ export class ReaderPanel {
     }
 
     private createCommentAction(unionRect: ReaderCommentRect, selection: ReaderCommentSelectionSnapshot): HTMLElement {
-        const button = document.createElement('button');
-        button.className = 'reader-comment-action';
-        button.type = 'button';
-        button.dataset.action = 'reader-comment-add';
-        button.innerHTML = `${createIcon(messageSquareTextIcon).outerHTML}<span>${this.getLabel('readerCommentAction', 'Comment')}</span>`;
+        const group = document.createElement('div');
+        group.className = 'reader-comment-action';
         const overlay = this.getCommentOverlay();
-        const actionWidth = 108;
-        const topOffset = this.getTokenSize('--aimd-space-5', 20) + this.getTokenSize('--aimd-size-control-icon-panel', 32) / 2;
+        const buttonSize = this.getTokenSize('--aimd-size-control-icon-panel', 32);
+        const gap = this.getTokenSize('--aimd-space-2', 8);
+        const actionWidth = (buttonSize * 2) + gap;
+        const clampPadding = this.getTokenSize('--aimd-space-3', 12);
+        const verticalGap = this.getTokenSize('--aimd-space-2', 8);
         const left = Math.max(0, Math.min(
-            Math.max(0, (overlay?.clientWidth ?? 0) - actionWidth),
+            Math.max(0, (overlay?.clientWidth ?? 0) - actionWidth - clampPadding),
             unionRect.left + unionRect.width / 2 - actionWidth / 2,
         ));
-        button.style.left = `${left}px`;
-        button.style.top = `${Math.max(0, unionRect.top - topOffset)}px`;
-        this.installTransientButtonBoundary(button);
-        button.addEventListener('click', () => {
+        const preferredTop = unionRect.top - buttonSize - verticalGap;
+        const fallbackTop = unionRect.top + unionRect.height + verticalGap;
+        const top = preferredTop >= -(buttonSize + verticalGap) ? preferredTop : fallbackTop;
+
+        group.style.left = `${left}px`;
+        group.style.top = `${top}px`;
+        this.installTransientButtonBoundary(group);
+
+        const copyButton = document.createElement('button');
+        copyButton.className = 'icon-btn reader-comment-action__button';
+        copyButton.type = 'button';
+        copyButton.dataset.action = 'reader-selection-copy';
+        copyButton.setAttribute('aria-label', this.getLabel('btnCopyText', 'Copy markdown'));
+        copyButton.setAttribute('title', this.getLabel('btnCopyText', 'Copy markdown'));
+        copyButton.innerHTML = createIcon(copyIcon).outerHTML;
+        copyButton.addEventListener('click', async () => {
+            if (!selection.sourceMarkdown.trim()) return;
+            const ok = await copyTextToClipboard(selection.sourceMarkdown);
+            showEphemeralTooltip({
+                root: this.overlaySession?.shadow ?? document,
+                anchor: copyButton,
+                text: this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'),
+            });
+        });
+
+        const commentButton = document.createElement('button');
+        commentButton.className = 'icon-btn reader-comment-action__button';
+        commentButton.type = 'button';
+        commentButton.dataset.action = 'reader-comment-add';
+        commentButton.setAttribute('aria-label', this.getLabel('readerCommentAction', 'Comment'));
+        commentButton.setAttribute('title', this.getLabel('readerCommentAction', 'Comment'));
+        commentButton.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
+        commentButton.addEventListener('click', () => {
             const markdownRoot = this.getMarkdownRoot();
             const shell = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
             if (!markdownRoot || !shell || !this.overlaySession) return;
@@ -848,10 +881,13 @@ export class ReaderPanel {
                 range: selection.range.cloneRange(),
                 selectedUnits: [...selection.selectedUnits],
                 selectedText: selection.selectedText,
+                sourceMarkdown: selection.sourceMarkdown,
             };
             this.openCommentPopover({
                 mode: 'create',
+                anchorRect: commentButton.getBoundingClientRect(),
                 initialText: '',
+                selectedSource: frozenSelection.sourceMarkdown,
                 onSave: (value) => {
                     const item = this.getCurrentItem();
                     if (!item) return;
@@ -864,25 +900,30 @@ export class ReaderPanel {
                         selectedUnits: frozenSelection.selectedUnits,
                     });
                     saveReaderComment(READER_COMMENT_SCOPE_ID, record);
+                    this.activeCommentId = record.id;
                     this.syncCommentUi();
                     this.syncCommentControls();
                 },
+                onCancel: () => {
+                    this.activeCommentId = null;
+                    this.syncCommentUi();
+                },
             });
         });
-        return button;
+        group.append(copyButton, commentButton);
+        return group;
     }
 
     private createCommentAnchor(
         record: ReaderCommentRecord,
         unionRect: ReaderCommentRect,
-        rects: ReaderCommentRect[],
+        _rects: ReaderCommentRect[],
         occupiedAnchorTops: number[],
     ): HTMLElement {
         const button = document.createElement('button');
-        button.className = 'reader-comment-anchor';
+        button.className = 'icon-btn reader-comment-anchor';
         button.type = 'button';
         button.dataset.action = 'reader-comment-open';
-        button.dataset.count = '1';
         button.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
 
         const buttonSize = this.getTokenSize('--aimd-size-control-icon-panel', 32);
@@ -901,31 +942,27 @@ export class ReaderPanel {
             Math.min(this.getCommentOverlay()!.clientWidth - buttonSize, gutterLeft),
         );
 
-        const centerY = top + buttonSize / 2;
-        const anchorRect = rects.find((rect) => centerY >= rect.top && centerY <= rect.top + rect.height)
-            ?? rects.reduce<ReaderCommentRect | null>((closest, rect) => {
-                if (!closest) return rect;
-                const closestDistance = Math.abs((closest.top + closest.height / 2) - centerY);
-                const nextDistance = Math.abs((rect.top + rect.height / 2) - centerY);
-                return nextDistance < closestDistance ? rect : closest;
-            }, null)
-            ?? unionRect;
-
         button.style.left = `${anchorLeft}px`;
-        button.style.top = `${Math.max(0, anchorRect.top + anchorRect.height / 2 - buttonSize / 2)}px`;
+        button.style.top = `${Math.max(0, top)}px`;
         this.installTransientButtonBoundary(button);
         button.addEventListener('click', () => {
+            this.activeCommentId = record.id;
+            this.syncCommentUi();
             this.openCommentPopover({
                 mode: 'edit',
+                anchorRect: button.getBoundingClientRect(),
                 initialText: record.comment,
+                selectedSource: record.sourceMarkdown,
                 onSave: (value) => {
                     saveReaderComment(READER_COMMENT_SCOPE_ID, {
                         ...record,
                         comment: value,
                         updatedAt: Date.now(),
                     });
+                    this.activeCommentId = record.id;
                     this.syncCommentUi();
                 },
+                onCancel: () => this.syncCommentUi(),
             });
         });
         return button;
@@ -933,8 +970,11 @@ export class ReaderPanel {
 
     private openCommentPopover(params: {
         mode: 'create' | 'edit';
+        anchorRect: DOMRect;
         initialText: string;
+        selectedSource: string;
         onSave: (value: string) => void;
+        onCancel?: () => void;
     }): void {
         if (!this.overlaySession) return;
         const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
@@ -943,12 +983,15 @@ export class ReaderPanel {
             shadow: this.overlaySession.shadow,
             container,
             theme: this.state.theme,
+            selectedSource: params.selectedSource,
+            anchorRect: params.anchorRect,
             initialText: params.initialText,
             mode: params.mode,
             labels: {
                 addTitle: this.getLabel('readerCommentAddTitle', 'Add comment'),
                 editTitle: this.getLabel('readerCommentEditTitle', 'Edit comment'),
                 close: this.getLabel('btnClose', 'Close'),
+                selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
                 placeholder: this.getLabel('readerCommentPlaceholder', 'Write your comment...'),
                 cancel: this.getLabel('btnCancel', 'Cancel'),
                 save: this.getLabel('readerCommentSave', 'Save comment'),
@@ -957,7 +1000,10 @@ export class ReaderPanel {
                 params.onSave(value);
                 this.notify(this.getLabel('readerCommentSaved', 'Comment saved'));
             },
-            onCancel: () => this.syncCommentUi(),
+            onCancel: () => {
+                params.onCancel?.();
+                this.syncCommentUi();
+            },
         });
     }
 
@@ -1013,7 +1059,7 @@ export class ReaderPanel {
         });
     }
 
-    private installTransientButtonBoundary(button: HTMLButtonElement): void {
+    private installTransientButtonBoundary(button: HTMLElement): void {
         const swallow = (event: Event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -1087,6 +1133,7 @@ export class ReaderPanel {
             range: range.cloneRange(),
             selectedUnits: [...selectedUnits],
             selectedText,
+            sourceMarkdown: this.state.selectionExport,
         };
         applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
         this.syncCommentUi();

@@ -61,4 +61,29 @@ describe('atomicSelection', () => {
         expect(selected.map((unit) => unit.kind)).toEqual(['inline-code', 'inline-math']);
         expect(selected.map((unit) => unit.id)).toEqual(['u1', 'u2']);
     });
+
+    it('rejects selections whose endpoints are not both inside the reader markdown root', () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const outside = document.createElement('div');
+        outside.textContent = 'Outside';
+        const root = document.createElement('div');
+        root.innerHTML = '<div class="reader-markdown"><p>Inside</p></div>';
+        shadow.append(outside, root);
+
+        const outsideText = outside.firstChild as Text;
+        const insideText = root.querySelector('p')!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(outsideText, 0);
+        range.setEnd(insideText, insideText.textContent!.length);
+
+        const selection = buildSelectionStub(range, {
+            startContainer: outsideText,
+            startOffset: 0,
+            endContainer: insideText,
+            endOffset: insideText.textContent!.length,
+        } as StaticRange);
+
+        expect(resolveReaderSelectionRange(selection, shadow, root)).toBeNull();
+    });
 });

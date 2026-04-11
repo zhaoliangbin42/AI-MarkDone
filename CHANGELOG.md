@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Reader: Fixed keyboard copy inside the reader so `Ctrl/Cmd+C` now exports markdown source for selected reader content instead of the rendered visible text.
 - Reader: Strengthened atomic closed-unit selection feedback with clearer square-edged highlights that stay visually noticeable without shifting Reader layout or markdown spacing.
+- Reader: Refined comment selection controls so only assistant markdown body selections trigger floating actions, top-edge selections no longer cover the first line, and floating copy/comment buttons keep an opaque hover surface above content.
 
 ## [4.0.0] - 2026-04-02
 

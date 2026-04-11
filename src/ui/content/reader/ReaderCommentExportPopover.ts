@@ -120,6 +120,12 @@ function getExportPopoverCss(): string {
   resize: vertical;
 }
 
+.reader-comment-export__field textarea[data-role="prompt1"],
+.reader-comment-export__field textarea[data-role="prompt2"],
+.reader-comment-export__field textarea[data-role="prompt3"] {
+  min-height: 64px;
+}
+
 .reader-comment-export__field input:focus-visible,
 .reader-comment-export__field textarea:focus-visible {
   outline: none;
@@ -220,15 +226,15 @@ export class ReaderCommentExportPopover {
             </label>
             <label class="reader-comment-export__field">
               <span>${labels.prompt1}</span>
-              <input data-role="prompt1" type="text" />
+              <textarea data-role="prompt1" rows="2"></textarea>
             </label>
             <label class="reader-comment-export__field">
               <span>${labels.prompt2}</span>
-              <input data-role="prompt2" type="text" />
+              <textarea data-role="prompt2" rows="2"></textarea>
             </label>
             <label class="reader-comment-export__field">
               <span>${labels.prompt3}</span>
-              <input data-role="prompt3" type="text" />
+              <textarea data-role="prompt3" rows="2"></textarea>
             </label>
           </div>
           <pre class="reader-comment-export__preview" data-role="preview"></pre>
@@ -242,9 +248,9 @@ export class ReaderCommentExportPopover {
         this.rootEl = layer;
 
         const userPrompt = popover.querySelector<HTMLTextAreaElement>('[data-role="userPrompt"]')!;
-        const prompt1 = popover.querySelector<HTMLInputElement>('[data-role="prompt1"]')!;
-        const prompt2 = popover.querySelector<HTMLInputElement>('[data-role="prompt2"]')!;
-        const prompt3 = popover.querySelector<HTMLInputElement>('[data-role="prompt3"]')!;
+        const prompt1 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt1"]')!;
+        const prompt2 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt2"]')!;
+        const prompt3 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt3"]')!;
         const preview = popover.querySelector<HTMLElement>('[data-role="preview"]')!;
         const copyButton = popover.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
 
@@ -302,9 +308,9 @@ export class ReaderCommentExportPopover {
         const popover = this.rootEl.querySelector<HTMLElement>('.reader-comment-export');
         if (!popover) return;
         const userPrompt = popover.querySelector<HTMLTextAreaElement>('[data-role="userPrompt"]');
-        const prompt1 = popover.querySelector<HTMLInputElement>('[data-role="prompt1"]');
-        const prompt2 = popover.querySelector<HTMLInputElement>('[data-role="prompt2"]');
-        const prompt3 = popover.querySelector<HTMLInputElement>('[data-role="prompt3"]');
+        const prompt1 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt1"]');
+        const prompt2 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt2"]');
+        const prompt3 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt3"]');
         const preview = popover.querySelector<HTMLElement>('[data-role="preview"]');
         const copyButton = popover.querySelector<HTMLButtonElement>('[data-action="copy"]');
         if (userPrompt) userPrompt.value = params.prompts.userPrompt;
