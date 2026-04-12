@@ -770,6 +770,18 @@ export class ReaderPanel {
         return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('[data-role="comment-overlay"]') ?? null;
     }
 
+    private toViewportRect(rect: ReaderCommentRect): DOMRect | null {
+        const overlay = this.getCommentOverlay();
+        if (!overlay) return null;
+        const overlayRect = overlay.getBoundingClientRect();
+        return new DOMRect(
+            overlayRect.left + rect.left,
+            overlayRect.top + rect.top,
+            rect.width,
+            rect.height,
+        );
+    }
+
     private getCurrentItem(): ReaderItem | null {
         return this.state.items[this.state.index] ?? null;
     }
@@ -948,9 +960,12 @@ export class ReaderPanel {
         button.addEventListener('click', () => {
             this.activeCommentId = record.id;
             this.syncCommentUi();
+            const markdownRoot = this.getMarkdownRoot();
+            const resolved = markdownRoot ? resolveReaderCommentAnchor(markdownRoot, record) : null;
+            const contentAnchorRect = resolved?.unionRect ? this.toViewportRect(resolved.unionRect) : null;
             this.openCommentPopover({
                 mode: 'edit',
-                anchorRect: button.getBoundingClientRect(),
+                anchorRect: contentAnchorRect ?? button.getBoundingClientRect(),
                 initialText: record.comment,
                 selectedSource: record.sourceMarkdown,
                 onSave: (value) => {

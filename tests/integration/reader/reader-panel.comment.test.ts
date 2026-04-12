@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearReaderCommentScope } from '@/services/reader/commentSession';
+import { resolveReaderCommentAnchor } from '@/services/reader/commentAnchoring';
+import { clearReaderCommentScope, listReaderComments } from '@/services/reader/commentSession';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 
 const scopeId = 'reader-panel-comments-v1';
@@ -230,6 +231,68 @@ describe('ReaderPanel comments', () => {
         anchors[0]?.click();
         await Promise.resolve();
         expect(shadow.querySelectorAll('.reader-comment-highlight--active').length).toBeGreaterThan(0);
+        getSelectionSpy.mockRestore();
+    });
+
+    it('anchors edit popovers to the commented content instead of the gutter button', async () => {
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+        const overlayRoot = shadow.querySelector<HTMLElement>('[data-role="comment-overlay"]')!;
+        const paragraph = markdownRoot.querySelector('p')!;
+        const firstText = paragraph.firstChild as Text;
+        const lastText = paragraph.lastChild as Text;
+        const range = document.createRange();
+        range.setStart(firstText, 0);
+        range.setEnd(lastText, lastText.textContent!.length);
+        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
+        Object.assign(overlayRoot, {
+            getBoundingClientRect: () => ({
+                left: 120, top: 80, width: 840, height: 320, right: 960, bottom: 400, x: 120, y: 80, toJSON: () => ({}),
+            }),
+        });
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
+        await Promise.resolve();
+        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        textarea.value = 'Needs clarification';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
+        await Promise.resolve();
+
+        const record = listReaderComments(scopeId, 'a')[0]!;
+        const resolved = resolveReaderCommentAnchor(markdownRoot, record);
+        expect(resolved.unionRect).toBeTruthy();
+
+        const anchor = shadow.querySelector<HTMLElement>('.reader-comment-anchor')!;
+        Object.assign(anchor, {
+            getBoundingClientRect: () => ({
+                left: 720, top: 260, width: 32, height: 32, right: 752, bottom: 292, x: 720, y: 260, toJSON: () => ({}),
+            }),
+        });
+
+        const openSpy = vi.spyOn((panel as any).commentPopover, 'open');
+        anchor.click();
+        await Promise.resolve();
+
+        expect(openSpy).toHaveBeenCalled();
+        const params = openSpy.mock.calls.at(-1)?.[0];
+        expect(params.anchorRect.left).toBeCloseTo(120 + resolved.unionRect!.left, 4);
+        expect(params.anchorRect.top).toBeCloseTo(80 + resolved.unionRect!.top, 4);
+        expect(params.anchorRect.width).toBeCloseTo(resolved.unionRect!.width, 4);
+        expect(params.anchorRect.height).toBeCloseTo(resolved.unionRect!.height, 4);
         getSelectionSpy.mockRestore();
     });
 
