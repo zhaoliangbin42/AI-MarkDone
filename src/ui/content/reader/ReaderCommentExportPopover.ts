@@ -4,7 +4,8 @@ import { createIcon } from '../components/Icon';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { markTransientRoot } from '../components/transientUi';
 import { ensureStyle } from '../../../style/shadow';
-import type { ReaderCommentExportPrompts } from '../../../services/reader/commentExport';
+import type { CommentTemplateTokenKey, ReaderCommentExportPrompts } from '../../../services/reader/commentExport';
+import { ReaderCommentTemplateEditor } from './ReaderCommentTemplateEditor';
 
 type OpenParams = {
     shadow: ShadowRoot;
@@ -17,9 +18,13 @@ type OpenParams = {
         title?: string;
         close?: string;
         userPrompt?: string;
-        prompt1?: string;
-        prompt2?: string;
-        prompt3?: string;
+        template?: string;
+        templateHint?: string;
+        templatePlaceholder?: string;
+        insertSelectedSource?: string;
+        insertUserComment?: string;
+        tokenSelectedSource?: string;
+        tokenUserComment?: string;
         copy?: string;
         copied?: string;
         empty?: string;
@@ -45,10 +50,10 @@ function getExportPopoverCss(): string {
   display: grid;
   gap: var(--aimd-space-4);
   padding: var(--aimd-space-4);
-  border-radius: var(--aimd-radius-xl);
+  border-radius: var(--aimd-radius-2xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
-  box-shadow: 0 24px 64px color-mix(in srgb, var(--aimd-overlay-bg) 22%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
+  box-shadow: var(--aimd-shadow-lg);
 }
 
 .reader-comment-export__head,
@@ -64,9 +69,9 @@ function getExportPopoverCss(): string {
   align-items: center;
   gap: var(--aimd-space-2);
   margin: 0;
-  font-size: var(--aimd-text-base);
+  font-size: var(--aimd-text-sm);
   line-height: 1.4;
-  font-weight: var(--aimd-font-semibold);
+  font-weight: var(--aimd-font-medium);
   color: var(--aimd-text-primary);
 }
 
@@ -75,15 +80,7 @@ function getExportPopoverCss(): string {
 }
 
 .reader-comment-export__close {
-  width: var(--aimd-size-control-icon-panel);
-  height: var(--aimd-size-control-icon-panel);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 84%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-secondary) 78%, transparent);
   color: var(--aimd-text-secondary);
-  cursor: pointer;
 }
 
 .reader-comment-export__grid {
@@ -98,7 +95,7 @@ function getExportPopoverCss(): string {
   font-size: var(--aimd-text-sm);
 }
 
-.reader-comment-export__field > span {
+.reader-comment-export__field-label {
   color: var(--aimd-text-primary);
   font-weight: var(--aimd-font-medium);
 }
@@ -107,12 +104,13 @@ function getExportPopoverCss(): string {
 .reader-comment-export__field textarea {
   width: 100%;
   padding: var(--aimd-space-3);
-  border-radius: var(--aimd-radius-lg);
+  border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
   color: var(--aimd-text-primary);
   font: inherit;
   line-height: 1.5;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
 }
 
 .reader-comment-export__field textarea {
@@ -120,10 +118,68 @@ function getExportPopoverCss(): string {
   resize: vertical;
 }
 
-.reader-comment-export__field textarea[data-role="prompt1"],
-.reader-comment-export__field textarea[data-role="prompt2"],
-.reader-comment-export__field textarea[data-role="prompt3"] {
-  min-height: 64px;
+.reader-comment-export__field textarea[data-role="commentTemplate"] {
+  min-height: 164px;
+}
+
+.reader-comment-export__hint {
+  margin: 0;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.reader-comment-export__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aimd-space-2);
+}
+
+.reader-comment-export__insert-btn {
+  gap: var(--aimd-space-2);
+  padding-inline: var(--aimd-space-3);
+}
+
+.reader-comment-export__editor {
+  min-height: 164px;
+  padding: var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+  color: var(--aimd-text-primary);
+  line-height: 1.6;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.reader-comment-export__editor:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 58%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+}
+
+.reader-comment-export__editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--aimd-text-secondary);
+}
+
+.reader-comment-template-editor__token {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.2em;
+  padding: 0 var(--aimd-space-2);
+  min-height: 1.75em;
+  border-radius: var(--aimd-radius-xl);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 12%, var(--aimd-bg-surface));
+  color: var(--aimd-interactive-primary);
+  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 24%, transparent);
+  font-size: 0.95em;
+  font-weight: var(--aimd-font-medium);
+  vertical-align: baseline;
+  user-select: none;
 }
 
 .reader-comment-export__field input:focus-visible,
@@ -139,7 +195,7 @@ function getExportPopoverCss(): string {
   max-height: 240px;
   overflow: auto;
   padding: var(--aimd-space-3);
-  border-radius: var(--aimd-radius-lg);
+  border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
   color: var(--aimd-text-primary);
@@ -151,17 +207,8 @@ function getExportPopoverCss(): string {
 }
 
 .reader-comment-export__btn {
-  min-height: var(--aimd-size-control-action-panel);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   gap: var(--aimd-space-2);
-  padding: 0 var(--aimd-space-4);
-  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
-  background: color-mix(in srgb, var(--aimd-interactive-selected) 92%, var(--aimd-bg-primary));
-  color: var(--aimd-text-primary);
-  font: inherit;
-  cursor: pointer;
+  padding-inline: var(--aimd-space-4);
 }
 
 .reader-comment-export__btn:disabled {
@@ -175,6 +222,7 @@ export class ReaderCommentExportPopover {
     private rootEl: HTMLElement | null = null;
     private onShadowPointerDown: ((event: Event) => void) | null = null;
     private onDocumentPointerDown: ((event: Event) => void) | null = null;
+    private templateEditor: ReaderCommentTemplateEditor | null = null;
 
     isOpen(): boolean {
         return Boolean(this.rootEl);
@@ -190,6 +238,7 @@ export class ReaderCommentExportPopover {
             document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
             this.onDocumentPointerDown = null;
         }
+        this.templateEditor = null;
         this.rootEl.remove();
         this.rootEl = null;
     }
@@ -201,9 +250,13 @@ export class ReaderCommentExportPopover {
             title: params.labels?.title ?? 'Copy comments',
             close: params.labels?.close ?? 'Close',
             userPrompt: params.labels?.userPrompt ?? 'User prompt',
-            prompt1: params.labels?.prompt1 ?? 'Prompt 1',
-            prompt2: params.labels?.prompt2 ?? 'Prompt 2',
-            prompt3: params.labels?.prompt3 ?? 'Prompt 3',
+            template: params.labels?.template ?? 'Comment template',
+            templateHint: params.labels?.templateHint ?? 'Use 【选中文字】 and 【用户评论】.',
+            templatePlaceholder: params.labels?.templatePlaceholder ?? 'Write your template here...',
+            insertSelectedSource: params.labels?.insertSelectedSource ?? 'Insert selected source',
+            insertUserComment: params.labels?.insertUserComment ?? 'Insert user comment',
+            tokenSelectedSource: params.labels?.tokenSelectedSource ?? 'Selected source',
+            tokenUserComment: params.labels?.tokenUserComment ?? 'User comment',
             copy: params.labels?.copy ?? 'Copy comments',
             copied: params.labels?.copied ?? 'Copied!',
             empty: params.labels?.empty ?? 'No comments yet.',
@@ -217,29 +270,26 @@ export class ReaderCommentExportPopover {
         popover.innerHTML = `
           <div class="reader-comment-export__head">
             <h3 class="reader-comment-export__title">${createIcon(messageSquareTextIcon).outerHTML}<span>${labels.title}</span></h3>
-            <button class="reader-comment-export__close" type="button" data-action="close" aria-label="${labels.close}">${createIcon(xIcon).outerHTML}</button>
+            <button class="icon-btn reader-comment-export__close" type="button" data-action="close" aria-label="${labels.close}">${createIcon(xIcon).outerHTML}</button>
           </div>
           <div class="reader-comment-export__grid">
             <label class="reader-comment-export__field">
-              <span>${labels.userPrompt}</span>
+              <span class="reader-comment-export__field-label">${labels.userPrompt}</span>
               <textarea data-role="userPrompt" rows="3"></textarea>
             </label>
-            <label class="reader-comment-export__field">
-              <span>${labels.prompt1}</span>
-              <textarea data-role="prompt1" rows="2"></textarea>
-            </label>
-            <label class="reader-comment-export__field">
-              <span>${labels.prompt2}</span>
-              <textarea data-role="prompt2" rows="2"></textarea>
-            </label>
-            <label class="reader-comment-export__field">
-              <span>${labels.prompt3}</span>
-              <textarea data-role="prompt3" rows="2"></textarea>
-            </label>
+            <div class="reader-comment-export__field">
+              <span class="reader-comment-export__field-label">${labels.template}</span>
+              <div class="reader-comment-export__toolbar">
+                <button class="secondary-btn secondary-btn--compact reader-comment-export__insert-btn" type="button" data-action="insert-selected-source">${labels.insertSelectedSource}</button>
+                <button class="secondary-btn secondary-btn--compact reader-comment-export__insert-btn" type="button" data-action="insert-user-comment">${labels.insertUserComment}</button>
+              </div>
+              <div class="reader-comment-export__editor" data-role="commentTemplate" tabindex="0"></div>
+            </div>
+            <p class="reader-comment-export__hint">${labels.templateHint}</p>
           </div>
           <pre class="reader-comment-export__preview" data-role="preview"></pre>
           <div class="reader-comment-export__actions">
-            <button class="reader-comment-export__btn" type="button" data-action="copy">${createIcon(copyIcon).outerHTML}<span>${labels.copy}</span></button>
+            <button class="secondary-btn secondary-btn--primary reader-comment-export__btn" type="button" data-action="copy">${createIcon(copyIcon).outerHTML}<span>${labels.copy}</span></button>
           </div>
         `;
 
@@ -248,31 +298,54 @@ export class ReaderCommentExportPopover {
         this.rootEl = layer;
 
         const userPrompt = popover.querySelector<HTMLTextAreaElement>('[data-role="userPrompt"]')!;
-        const prompt1 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt1"]')!;
-        const prompt2 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt2"]')!;
-        const prompt3 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt3"]')!;
+        const commentTemplate = popover.querySelector<HTMLElement>('[data-role="commentTemplate"]')!;
         const preview = popover.querySelector<HTMLElement>('[data-role="preview"]')!;
         const copyButton = popover.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+        const insertSelectedSourceButton = popover.querySelector<HTMLButtonElement>('[data-action="insert-selected-source"]')!;
+        const insertUserCommentButton = popover.querySelector<HTMLButtonElement>('[data-action="insert-user-comment"]')!;
 
         userPrompt.value = params.prompts.userPrompt;
-        prompt1.value = params.prompts.prompt1;
-        prompt2.value = params.prompts.prompt2;
-        prompt3.value = params.prompts.prompt3;
         preview.textContent = params.preview || labels.empty;
         copyButton.disabled = !params.canCopy;
 
-        [userPrompt, prompt1, prompt2, prompt3].forEach((element) => {
-            installInputEventBoundary(element);
-            element.addEventListener('input', () => {
-                const next = {
+        installInputEventBoundary(userPrompt);
+        userPrompt.addEventListener('input', () => {
+            const next = {
+                userPrompt: userPrompt.value,
+                commentTemplate: this.templateEditor?.getValue() ?? params.prompts.commentTemplate,
+            };
+            params.onChange(next);
+        });
+
+        this.templateEditor = new ReaderCommentTemplateEditor({
+            root: commentTemplate,
+            value: params.prompts.commentTemplate,
+            labels: {
+                selected_source: labels.tokenSelectedSource,
+                user_comment: labels.tokenUserComment,
+            },
+            placeholder: labels.templatePlaceholder,
+            onChange: (nextTemplate) => {
+                params.onChange({
                     userPrompt: userPrompt.value,
-                    prompt1: prompt1.value,
-                    prompt2: prompt2.value,
-                    prompt3: prompt3.value,
-                };
-                params.onChange(next);
+                    commentTemplate: nextTemplate,
+                });
+            },
+        });
+
+        const insertToken = (key: CommentTemplateTokenKey) => {
+            this.templateEditor?.insertToken(key);
+        };
+
+        [insertSelectedSourceButton, insertUserCommentButton].forEach((button) => {
+            button.addEventListener('pointerdown', (event) => {
+                this.templateEditor?.rememberSelection();
+                event.preventDefault();
+                event.stopPropagation();
             });
         });
+        insertSelectedSourceButton.addEventListener('click', () => insertToken('selected_source'));
+        insertUserCommentButton.addEventListener('click', () => insertToken('user_comment'));
 
         popover.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => {
             params.onClose?.();
@@ -308,15 +381,12 @@ export class ReaderCommentExportPopover {
         const popover = this.rootEl.querySelector<HTMLElement>('.reader-comment-export');
         if (!popover) return;
         const userPrompt = popover.querySelector<HTMLTextAreaElement>('[data-role="userPrompt"]');
-        const prompt1 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt1"]');
-        const prompt2 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt2"]');
-        const prompt3 = popover.querySelector<HTMLTextAreaElement>('[data-role="prompt3"]');
         const preview = popover.querySelector<HTMLElement>('[data-role="preview"]');
         const copyButton = popover.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        if (userPrompt) userPrompt.value = params.prompts.userPrompt;
-        if (prompt1) prompt1.value = params.prompts.prompt1;
-        if (prompt2) prompt2.value = params.prompts.prompt2;
-        if (prompt3) prompt3.value = params.prompts.prompt3;
+        if (userPrompt && userPrompt.value !== params.prompts.userPrompt) {
+            userPrompt.value = params.prompts.userPrompt;
+        }
+        this.templateEditor?.update(params.prompts.commentTemplate);
         if (preview) preview.textContent = params.preview || 'No comments yet.';
         if (copyButton) copyButton.disabled = !params.canCopy;
     }

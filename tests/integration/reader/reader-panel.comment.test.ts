@@ -166,23 +166,30 @@ describe('ReaderPanel comments', () => {
 
         const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export');
         expect(exportRoot).toBeTruthy();
-        const prompt1 = exportRoot!.querySelector<HTMLTextAreaElement>('[data-role="prompt1"]')!;
-        const prompt2 = exportRoot!.querySelector<HTMLTextAreaElement>('[data-role="prompt2"]')!;
-        const prompt3 = exportRoot!.querySelector<HTMLTextAreaElement>('[data-role="prompt3"]')!;
-        prompt1.value = 'Regarding ';
-        prompt2.value = ', my comment is: ';
-        prompt3.value = '.';
-        prompt1.dispatchEvent(new Event('input', { bubbles: true }));
-        prompt2.dispatchEvent(new Event('input', { bubbles: true }));
-        prompt3.dispatchEvent(new Event('input', { bubbles: true }));
+        const userPrompt = exportRoot!.querySelector<HTMLTextAreaElement>('[data-role="userPrompt"]')!;
+        const templateEditor = exportRoot!.querySelector<HTMLElement>('[data-role="commentTemplate"]')!;
+        const insertSelectedSource = exportRoot!.querySelector<HTMLButtonElement>('[data-action="insert-selected-source"]')!;
+        const insertUserComment = exportRoot!.querySelector<HTMLButtonElement>('[data-action="insert-user-comment"]')!;
+        userPrompt.value = 'Please review the following comments:';
+        userPrompt.dispatchEvent(new Event('input', { bubbles: true }));
         await Promise.resolve();
 
+        expect(templateEditor.querySelectorAll('[data-token-key]').length).toBe(2);
+        expect(insertSelectedSource).toBeTruthy();
+        expect(insertUserComment).toBeTruthy();
         exportRoot.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
         await Promise.resolve();
         await Promise.resolve();
 
         expect(writeText).toHaveBeenCalledWith(
-            expect.stringContaining('1. Regarding Before `code` and $x+y$ after, my comment is: Needs clarification.'),
+            [
+                'Please review the following comments:',
+                '',
+                '1. Regarding',
+                '   Before `code` and $x+y$ after',
+                '   My comment is:',
+                '   Needs clarification',
+            ].join('\n'),
         );
         getSelectionSpy.mockRestore();
     });
