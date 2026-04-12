@@ -173,14 +173,26 @@
     "readerCommentUserPrompt": {
         "message": "用户提示词"
     },
-    "readerCommentPrompt1": {
-        "message": "提示词 1"
+    "readerCommentTemplate": {
+        "message": "评论模板"
     },
-    "readerCommentPrompt2": {
-        "message": "提示词 2"
+    "readerCommentTemplateHint": {
+        "message": "使用上方按钮插入占位标签。标签文案可本地化，导出时会使用稳定的内部占位符。"
     },
-    "readerCommentPrompt3": {
-        "message": "提示词 3"
+    "readerCommentTemplatePlaceholder": {
+        "message": "在这里编写评论模板..."
+    },
+    "readerCommentTemplateInsertSelectedSource": {
+        "message": "插入选中文字"
+    },
+    "readerCommentTemplateInsertUserComment": {
+        "message": "插入用户评论"
+    },
+    "readerCommentTemplateTokenSelectedSource": {
+        "message": "选中文字"
+    },
+    "readerCommentTemplateTokenUserComment": {
+        "message": "用户评论"
     },
     "modalSourceTitle": {
         "message": "Markdown 源码"

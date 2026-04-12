@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Reader: Added atomic closed-unit selection handling for inline math, display math, inline code, code blocks, tables, and images so these units can be copied as source without changing normal text-selection behavior.
-- Reader: Added page-lifetime inline comments with selection-linked highlights, right-gutter comment anchors, editable comment popovers, and source-based comment export templates inside Reader.
+- Reader: Added page-lifetime inline comments with selection-linked highlights, right-gutter comment anchors, editable comment popovers, and source-based comment export with token-based template editing inside Reader.
 
 ### Fixed
 - Reader: Fixed keyboard copy inside the reader so `Ctrl/Cmd+C` now exports markdown source for selected reader content instead of the rendered visible text.
@@ -367,3 +367,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modal Stability: Mounted shared modals into explicit overlay modal roots and switched them onto the shared keyboard-scope stack so nested dialogs close and restore focus more reliably.
 - Sending/Toolbar: Moved Send Modal back onto the shared overlay-host route and renamed toolbar pseudo tokens to the formal `--aimd-toolbar-*` component contract without changing placement behavior.
 - UI: Rebalanced panel typography so settings groups, sponsor sections, bookmark folders, reader content, toolbar stats, send status, and folding controls follow a clearer shared size hierarchy.
+## Unreleased
+
+### Changed
+- Reader comment export now uses a multiline template with explicit `【选中文字】` and `【用户评论】` placeholders instead of separate prompt-1/2/3 fields, while keeping a separate user prompt header for LLM-ready output.

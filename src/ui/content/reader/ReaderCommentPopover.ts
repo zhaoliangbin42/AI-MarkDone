@@ -163,32 +163,7 @@ function getCommentPopoverCss(): string {
 
 .reader-comment-popover__btn {
   min-width: 88px;
-  min-height: var(--aimd-size-control-action-panel);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--aimd-space-3);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: var(--aimd-button-secondary-bg);
-  color: var(--aimd-button-secondary-text);
-  font: inherit;
-  font-size: var(--aimd-text-sm);
-  font-weight: var(--aimd-font-medium);
-  cursor: pointer;
-}
-
-.reader-comment-popover__btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
-}
-
-.reader-comment-popover__btn--primary {
-  border-color: transparent;
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-}
-
-.reader-comment-popover__btn--primary:hover:not(:disabled) {
-  background: var(--aimd-interactive-primary-hover);
+  padding-inline: var(--aimd-space-4);
 }
 
 .reader-comment-popover__btn:disabled {
@@ -242,8 +217,8 @@ export class ReaderCommentPopover {
           </div>
           <textarea class="reader-comment-popover__input" data-role="input" placeholder="${labels.placeholder}"></textarea>
           <div class="reader-comment-popover__actions">
-            <button class="reader-comment-popover__btn" type="button" data-action="cancel">${labels.cancel}</button>
-            <button class="reader-comment-popover__btn reader-comment-popover__btn--primary" type="button" data-action="save">${labels.save}</button>
+            <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="cancel">${labels.cancel}</button>
+            <button class="secondary-btn secondary-btn--primary reader-comment-popover__btn" type="button" data-action="save">${labels.save}</button>
           </div>
         `;
 

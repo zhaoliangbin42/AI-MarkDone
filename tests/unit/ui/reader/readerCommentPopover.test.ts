@@ -58,6 +58,8 @@ describe('ReaderCommentPopover', () => {
         expect(root?.style.left).not.toBe('');
         expect(root?.dataset.side).toBe('top');
         expect(shadow.querySelector('.reader-comment-popover__close')?.className).toContain('icon-btn');
+        expect(shadow.querySelector('[data-action="cancel"]')?.className).toContain('secondary-btn');
+        expect(shadow.querySelector('[data-action="save"]')?.className).toContain('secondary-btn--primary');
         expect(shadow.querySelector<HTMLElement>('.reader-comment-popover__selection-value')?.textContent).toContain('Before `code` and $x+y$ after');
     });
 

@@ -173,14 +173,26 @@
     "readerCommentUserPrompt": {
         "message": "User prompt"
     },
-    "readerCommentPrompt1": {
-        "message": "Prompt 1"
+    "readerCommentTemplate": {
+        "message": "Comment template"
     },
-    "readerCommentPrompt2": {
-        "message": "Prompt 2"
+    "readerCommentTemplateHint": {
+        "message": "Insert tokens with the buttons above. Token labels are localized; export uses stable internal placeholders."
     },
-    "readerCommentPrompt3": {
-        "message": "Prompt 3"
+    "readerCommentTemplatePlaceholder": {
+        "message": "Write your template here..."
+    },
+    "readerCommentTemplateInsertSelectedSource": {
+        "message": "Insert selected source"
+    },
+    "readerCommentTemplateInsertUserComment": {
+        "message": "Insert user comment"
+    },
+    "readerCommentTemplateTokenSelectedSource": {
+        "message": "Selected source"
+    },
+    "readerCommentTemplateTokenUserComment": {
+        "message": "User comment"
     },
     "modalSourceTitle": {
         "message": "Markdown Source Code"

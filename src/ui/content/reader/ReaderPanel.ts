@@ -20,7 +20,7 @@ import {
     resolveSelectionLayout,
     type ReaderCommentRect,
 } from '../../../services/reader/commentAnchoring';
-import { buildCommentsExport, type ReaderCommentExportPrompts } from '../../../services/reader/commentExport';
+import { buildCommentsExport, createDefaultCommentTemplate, type ReaderCommentExportPrompts } from '../../../services/reader/commentExport';
 import { listReaderComments, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
@@ -123,9 +123,7 @@ export class ReaderPanel {
     private activeCommentId: string | null = null;
     private commentExportPrompts: ReaderCommentExportPrompts = {
         userPrompt: 'Please review the following comments:',
-        prompt1: 'Regarding ',
-        prompt2: ', my comment is: ',
-        prompt3: '',
+        commentTemplate: createDefaultCommentTemplate(),
     };
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private state: ReaderPanelState = {
@@ -1044,9 +1042,13 @@ export class ReaderPanel {
                 title: this.getLabel('readerCommentCopyComments', 'Copy comments'),
                 close: this.getLabel('btnClose', 'Close'),
                 userPrompt: this.getLabel('readerCommentUserPrompt', 'User prompt'),
-                prompt1: this.getLabel('readerCommentPrompt1', 'Prompt 1'),
-                prompt2: this.getLabel('readerCommentPrompt2', 'Prompt 2'),
-                prompt3: this.getLabel('readerCommentPrompt3', 'Prompt 3'),
+                template: this.getLabel('readerCommentTemplate', 'Comment template'),
+                templateHint: this.getLabel('readerCommentTemplateHint', 'Use 【选中文字】 and 【用户评论】.'),
+                templatePlaceholder: this.getLabel('readerCommentTemplatePlaceholder', 'Write your template here...'),
+                insertSelectedSource: this.getLabel('readerCommentTemplateInsertSelectedSource', 'Insert selected source'),
+                insertUserComment: this.getLabel('readerCommentTemplateInsertUserComment', 'Insert user comment'),
+                tokenSelectedSource: this.getLabel('readerCommentTemplateTokenSelectedSource', 'Selected source'),
+                tokenUserComment: this.getLabel('readerCommentTemplateTokenUserComment', 'User comment'),
                 copy: this.getLabel('readerCommentCopyComments', 'Copy comments'),
                 copied: this.getLabel('btnCopied', 'Copied!'),
                 empty: this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'),
