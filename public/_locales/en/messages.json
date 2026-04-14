@@ -38,6 +38,15 @@
     "btnDelete": {
         "message": "Delete"
     },
+    "btnEdit": {
+        "message": "Edit"
+    },
+    "btnConfigure": {
+        "message": "Configure"
+    },
+    "btnBack": {
+        "message": "Back"
+    },
     "btnCancel": {
         "message": "Cancel"
     },
@@ -193,6 +202,60 @@
     },
     "readerCommentTemplateTokenUserComment": {
         "message": "User comment"
+    },
+    "readerSettingsLabel": {
+        "message": "Reader"
+    },
+    "readerCommentPromptListLabel": {
+        "message": "User prompts"
+    },
+    "readerCommentPromptListDesc": {
+        "message": "Manage reusable prompt headers for comment export."
+    },
+    "readerCommentTemplateSettingsLabel": {
+        "message": "Comments copy template"
+    },
+    "readerCommentTemplateSettingsDesc": {
+        "message": "Configure the reusable template for copied comments."
+    },
+    "readerCommentTemplatePreviewLabel": {
+        "message": "Preview"
+    },
+    "readerCommentPromptAdd": {
+        "message": "Add prompt"
+    },
+    "readerCommentPromptEdit": {
+        "message": "Edit prompt"
+    },
+    "readerCommentPromptActive": {
+        "message": "Active"
+    },
+    "readerCommentPromptSelect": {
+        "message": "Use"
+    },
+    "readerCommentPromptUntitled": {
+        "message": "Untitled prompt"
+    },
+    "readerCommentPromptEmpty": {
+        "message": "No prompt text yet."
+    },
+    "readerCommentPromptTitleLabel": {
+        "message": "Prompt title"
+    },
+    "readerCommentPromptContentLabel": {
+        "message": "Prompt content"
+    },
+    "readerCommentPromptTitlePlaceholder": {
+        "message": "Name this prompt"
+    },
+    "readerCommentPromptContentPlaceholder": {
+        "message": "Write the prompt header shown above copied comments..."
+    },
+    "readerCommentPromptDeleteTitle": {
+        "message": "Delete prompt"
+    },
+    "readerCommentPromptDeleteMessage": {
+        "message": "Delete this prompt from Reader settings?"
     },
     "modalSourceTitle": {
         "message": "Markdown Source Code"

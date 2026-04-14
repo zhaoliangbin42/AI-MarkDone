@@ -760,6 +760,89 @@ describe('BookmarksPanel', () => {
         panel.hide();
     });
 
+    it('lets settings reader popovers consume Escape before the bookmarks panel closes', async () => {
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host')!;
+        const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')!.click();
+        expect(shadow.querySelector('.reader-settings-popover--template')).toBeTruthy();
+
+        shadow.querySelector<HTMLElement>('[data-role="commentTemplate"]')!
+            .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        shadow.querySelector<HTMLElement>('.settings-panel')!
+            .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        expect(shadow.querySelector('.reader-settings-popover--template')).toBeTruthy();
+
+        shadow.querySelector<HTMLElement>('.settings-panel')!
+            .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        shadow.querySelector<HTMLElement>('.settings-panel')!
+            .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        expect(shadow.querySelector('.reader-settings-popover--template')).toBeNull();
+
+        shadow.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')!.click();
+        expect(shadow.querySelector('.reader-settings-popover--template')).toBeTruthy();
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+
+        expect(shadow.querySelector('.reader-settings-popover--template')).toBeNull();
+        expect(panel.isVisible()).toBe(true);
+        expect(host.isConnected).toBe(true);
+
+        shadow.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')!.click();
+        expect(shadow.querySelector('.reader-prompt-settings')).toBeTruthy();
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+
+        expect(shadow.querySelector('.reader-prompt-settings')).toBeNull();
+        expect(panel.isVisible()).toBe(true);
+        expect(host.isConnected).toBe(true);
+
+        host.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+        expect(panel.isVisible()).toBe(false);
+    });
+
     it('toggles the folding-mode select closed when clicking the same trigger again', async () => {
         const snapshot = {
             vm: {

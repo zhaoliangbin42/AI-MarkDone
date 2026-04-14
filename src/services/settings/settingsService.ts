@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
 import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode, normalizeChatGptSettings } from '../../core/settings/migrations';
+import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -58,14 +59,19 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
             return { next };
         }
         case 'reader': {
+            const patch = isRecord(value) ? value : {};
             const next: AppSettings = {
                 ...cur,
                 reader: {
                     renderCodeInReader: Boolean(
-                        (isRecord(value) ? value.renderCodeInReader : undefined)
+                        patch.renderCodeInReader
                         ?? cur.reader.renderCodeInReader
                         ?? DEFAULT_SETTINGS.reader.renderCodeInReader
                     ),
+                    commentExport: normalizeReaderCommentExportSettings({
+                        ...cur.reader.commentExport,
+                        ...(isRecord(patch.commentExport) ? patch.commentExport : {}),
+                    }),
                 },
             };
             return { next };

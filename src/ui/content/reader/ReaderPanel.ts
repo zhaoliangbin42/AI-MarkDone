@@ -4,6 +4,7 @@ import { copyIcon, messageSquareTextIcon } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
+import type { AppSettings } from '../../../core/settings/types';
 import { renderMarkdownForReader, type ReaderAtomicUnit } from '../../../services/renderer/renderMarkdown';
 import {
     annotateRenderedAtomicUnits,
@@ -20,7 +21,12 @@ import {
     resolveSelectionLayout,
     type ReaderCommentRect,
 } from '../../../services/reader/commentAnchoring';
-import { buildCommentsExport, createDefaultCommentTemplate, type ReaderCommentExportPrompts } from '../../../services/reader/commentExport';
+import {
+    buildCommentsExport,
+    createDefaultReaderCommentExportSettings,
+    resolveReaderCommentExportPrompts,
+    type ReaderCommentExportSettings,
+} from '../../../services/reader/commentExport';
 import { listReaderComments, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
@@ -121,10 +127,7 @@ export class ReaderPanel {
     private renderedAtomicElements: SelectedAtomicUnit[] = [];
     private commentSelectionSnapshot: ReaderCommentSelectionSnapshot | null = null;
     private activeCommentId: string | null = null;
-    private commentExportPrompts: ReaderCommentExportPrompts = {
-        userPrompt: 'Please review the following comments:',
-        commentTemplate: createDefaultCommentTemplate(),
-    };
+    private commentExportSettings: ReaderCommentExportSettings = createDefaultReaderCommentExportSettings();
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private state: ReaderPanelState = {
         theme: 'light',
@@ -176,6 +179,10 @@ export class ReaderPanel {
         if (this.state.visible) {
             void this.renderCurrentContent();
         }
+    }
+
+    setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
+        this.commentExportSettings = settings;
     }
 
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
@@ -263,7 +270,7 @@ export class ReaderPanel {
         this.overlaySession = session;
         this.tooltipDelegate = new TooltipDelegate(session.shadow, { upgradeTitles: false });
 
-        session.backdropRoot.addEventListener('click', () => this.hide());
+        session.syncBackdropDismiss(() => this.hide());
         session.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
 
         this.onKeyDown = (event: KeyboardEvent) => {
@@ -1030,45 +1037,27 @@ export class ReaderPanel {
 
         const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
         if (!container) return;
-        const preview = buildCommentsExport(comments, this.commentExportPrompts);
+        const prompts = resolveReaderCommentExportPrompts(this.commentExportSettings);
+        const compiledExport = buildCommentsExport(comments, prompts);
         this.commentExportPopover.open({
             shadow: this.overlaySession.shadow,
             container,
             theme: this.state.theme,
-            prompts: this.commentExportPrompts,
-            preview,
-            canCopy: Boolean(preview.trim()),
+            preview: compiledExport,
+            canCopy: Boolean(compiledExport.trim()),
             labels: {
                 title: this.getLabel('readerCommentCopyComments', 'Copy comments'),
                 close: this.getLabel('btnClose', 'Close'),
-                userPrompt: this.getLabel('readerCommentUserPrompt', 'User prompt'),
-                template: this.getLabel('readerCommentTemplate', 'Comment template'),
-                templateHint: this.getLabel('readerCommentTemplateHint', 'Use 【选中文字】 and 【用户评论】.'),
-                templatePlaceholder: this.getLabel('readerCommentTemplatePlaceholder', 'Write your template here...'),
-                insertSelectedSource: this.getLabel('readerCommentTemplateInsertSelectedSource', 'Insert selected source'),
-                insertUserComment: this.getLabel('readerCommentTemplateInsertUserComment', 'Insert user comment'),
-                tokenSelectedSource: this.getLabel('readerCommentTemplateTokenSelectedSource', 'Selected source'),
-                tokenUserComment: this.getLabel('readerCommentTemplateTokenUserComment', 'User comment'),
                 copy: this.getLabel('readerCommentCopyComments', 'Copy comments'),
                 copied: this.getLabel('btnCopied', 'Copied!'),
                 empty: this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'),
             },
-            onChange: (next) => {
-                this.commentExportPrompts = next;
-                const nextPreview = buildCommentsExport(this.getCurrentComments(), next);
-                this.commentExportPopover.update({
-                    prompts: next,
-                    preview: nextPreview,
-                    canCopy: Boolean(nextPreview.trim()),
-                });
-            },
             onCopy: async () => {
-                const compiled = buildCommentsExport(this.getCurrentComments(), this.commentExportPrompts);
-                if (!compiled.trim()) {
+                if (!compiledExport.trim()) {
                     this.notify(this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'));
                     return false;
                 }
-                const ok = await copyTextToClipboard(compiled);
+                const ok = await copyTextToClipboard(compiledExport);
                 this.notify(this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'));
                 return ok;
             },

@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type AppSettings, type FoldingMode } from './types';
+import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -48,6 +49,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         },
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
+            commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -97,6 +99,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
         reader: {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
+            commentExport: normalizeReaderCommentExportSettings(undefined),
         },
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -139,6 +142,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         } as any,
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
+            commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,

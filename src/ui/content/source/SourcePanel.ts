@@ -90,7 +90,7 @@ export class SourcePanel {
             this.render();
         });
 
-        session.backdropRoot.addEventListener('click', () => this.hide());
+        session.syncBackdropDismiss(() => this.hide());
         session.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
         session.syncKeyboardScope({
             root: session.host,

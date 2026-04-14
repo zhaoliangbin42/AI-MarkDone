@@ -180,4 +180,26 @@ describe('SourcePanel', () => {
         expect(document.getElementById('aimd-source-panel-host')).toBeNull();
     });
 
+    it('does not close when text selection starts inside the panel and releases on the backdrop', async () => {
+        await setLocale('en');
+        const panel = new SourcePanel();
+        panel.show({ theme: 'light', content: 'RAW' });
+
+        const host = document.getElementById('aimd-source-panel-host')!;
+        const shadow = host.shadowRoot!;
+        const shell = shadow.querySelector<HTMLElement>('.panel-window--source')!;
+        const backdrop = shadow.querySelector<HTMLElement>('[data-role="overlay-backdrop-root"] .panel-stage__overlay')!;
+
+        shell.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(document.getElementById('aimd-source-panel-host')).toBeTruthy();
+        expect(shell.dataset.motionState).not.toBe('closing');
+
+        backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(shell.dataset.motionState).toBe('closing');
+    });
+
 });

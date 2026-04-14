@@ -215,7 +215,7 @@ export class BookmarkSaveDialog {
             if (this.overlaySession && this.state) this.render();
         });
 
-        this.overlaySession.backdropRoot.addEventListener('click', () => this.close({ ok: false, reason: 'cancel' }));
+        this.overlaySession.syncBackdropDismiss(() => this.close({ ok: false, reason: 'cancel' }));
         this.overlaySession.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
         this.overlaySession.surfaceRoot.addEventListener('input', (event) => this.handleSurfaceInput(event));
         this.overlaySession.surfaceRoot.addEventListener('keydown', (event) => void this.handleSurfaceKeyDown(event));

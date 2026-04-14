@@ -3,6 +3,10 @@ import { ensureStyle } from '../../../style/shadow';
 import { t } from './i18n';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from './motionLifecycle';
 import { getModalHostCss } from './styles/modalHostCss';
+import {
+    installTransientOutsideDismissBoundary,
+    type TransientOutsideDismissBoundaryHandle,
+} from './transientUi';
 
 type ModalKind = 'info' | 'warning' | 'error';
 
@@ -260,6 +264,7 @@ export class ModalHost {
 
         const footer = document.createElement('div');
         footer.className = 'mock-modal__footer';
+        let outsideDismissBoundary: TransientOutsideDismissBoundaryHandle | null = null;
 
         const restoreFocus = () => {
             const previous = this.focusStack.pop() ?? null;
@@ -295,12 +300,15 @@ export class ModalHost {
         };
 
         const cleanup = () => {
+            outsideDismissBoundary?.detach();
+            outsideDismissBoundary = null;
             restoreFocus();
         };
 
-        overlay.addEventListener('click', (e) => {
-            if (e.target !== overlay) return;
-            dismiss();
+        outsideDismissBoundary = installTransientOutsideDismissBoundary({
+            eventTarget: overlay,
+            roots: [dialog],
+            onDismiss: dismiss,
         });
 
         closeBtn.addEventListener('click', () => {

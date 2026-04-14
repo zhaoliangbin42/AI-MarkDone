@@ -225,4 +225,25 @@ describe('ReaderPanel (MVP)', () => {
         expect(clipboardData.values.get('text/plain')).toContain('$x+y$');
         getSelectionSpy.mockRestore();
     });
+
+    it('does not close when text selection starts inside the reader and releases on the backdrop', async () => {
+        const panel = new ReaderPanel();
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Reader body' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const reader = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+        const backdrop = shadow.querySelector<HTMLElement>('[data-role="overlay-backdrop-root"] .panel-stage__overlay')!;
+
+        reader.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(document.querySelector('#aimd-reader-panel-host')).toBeTruthy();
+        expect(reader.dataset.motionState).not.toBe('closing');
+
+        backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(reader.dataset.motionState).toBe('closing');
+    });
 });

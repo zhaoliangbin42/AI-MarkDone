@@ -128,9 +128,22 @@ describe('ReaderPanel comments', () => {
         getSelectionSpy.mockRestore();
     });
 
-    it('copies compiled comments from source markdown with the configurable prompts', async () => {
+    it('copies compiled comments from source markdown using settings-backed prompts and a read-only export popover', async () => {
         const { writeText } = setClipboardMock();
         const panel = new ReaderPanel();
+        panel.setCommentExportSettings({
+            activePromptId: 'research-review',
+            prompts: [
+                { id: 'default', title: 'Default', content: 'Please review the following comments:', builtIn: true },
+                { id: 'research-review', title: 'Research review', content: 'Summarize these comments:' },
+            ],
+            template: [
+                { type: 'text', value: 'Regarding\n' },
+                { type: 'token', key: 'selected_source' },
+                { type: 'text', value: '\nMy comment is:\n' },
+                { type: 'token', key: 'user_comment' },
+            ],
+        });
 
         await panel.show(
             [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
@@ -166,24 +179,17 @@ describe('ReaderPanel comments', () => {
 
         const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export');
         expect(exportRoot).toBeTruthy();
-        const userPrompt = exportRoot!.querySelector<HTMLTextAreaElement>('[data-role="userPrompt"]')!;
-        const templateEditor = exportRoot!.querySelector<HTMLElement>('[data-role="commentTemplate"]')!;
-        const insertSelectedSource = exportRoot!.querySelector<HTMLButtonElement>('[data-action="insert-selected-source"]')!;
-        const insertUserComment = exportRoot!.querySelector<HTMLButtonElement>('[data-action="insert-user-comment"]')!;
-        userPrompt.value = 'Please review the following comments:';
-        userPrompt.dispatchEvent(new Event('input', { bubbles: true }));
-        await Promise.resolve();
-
-        expect(templateEditor.querySelectorAll('[data-token-key]').length).toBe(2);
-        expect(insertSelectedSource).toBeTruthy();
-        expect(insertUserComment).toBeTruthy();
+        expect(exportRoot!.querySelector('[data-role="userPrompt"]')).toBeNull();
+        expect(exportRoot!.querySelector('[data-role="commentTemplate"]')).toBeNull();
+        expect(exportRoot!.querySelector('[data-action="insert-selected-source"]')).toBeNull();
+        expect(exportRoot!.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('Summarize these comments:');
         exportRoot.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
         await Promise.resolve();
         await Promise.resolve();
 
         expect(writeText).toHaveBeenCalledWith(
             [
-                'Please review the following comments:',
+                'Summarize these comments:',
                 '',
                 '1. Regarding',
                 '   Before `code` and $x+y$ after',
@@ -191,6 +197,77 @@ describe('ReaderPanel comments', () => {
                 '   Needs clarification',
             ].join('\n'),
         );
+        getSelectionSpy.mockRestore();
+    });
+
+    it('copies the same compiled text shown in the export popover even if settings change while it is open', async () => {
+        const { writeText } = setClipboardMock();
+        const panel = new ReaderPanel();
+        panel.setCommentExportSettings({
+            activePromptId: 'first',
+            prompts: [
+                { id: 'first', title: 'First', content: 'First prompt:' },
+                { id: 'second', title: 'Second', content: 'Second prompt:' },
+            ],
+            template: [
+                { type: 'token', key: 'selected_source' },
+                { type: 'text', value: '\n' },
+                { type: 'token', key: 'user_comment' },
+            ],
+        });
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+        const paragraph = markdownRoot.querySelector('p')!;
+        const range = document.createRange();
+        range.setStart(paragraph.firstChild as Text, 0);
+        range.setEnd(paragraph.lastChild as Text, paragraph.lastChild?.textContent?.length ?? 0);
+        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
+        await Promise.resolve();
+        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        textarea.value = 'Snapshot comment';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
+        await Promise.resolve();
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+        await Promise.resolve();
+
+        const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
+        const previewText = exportRoot.querySelector<HTMLElement>('[data-role="preview"]')?.textContent ?? '';
+        expect(previewText).toContain('First prompt:');
+
+        panel.setCommentExportSettings({
+            activePromptId: 'second',
+            prompts: [
+                { id: 'first', title: 'First', content: 'First prompt:' },
+                { id: 'second', title: 'Second', content: 'Second prompt:' },
+            ],
+            template: [
+                { type: 'text', value: 'Changed: ' },
+                { type: 'token', key: 'user_comment' },
+            ],
+        });
+
+        exportRoot.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledWith(previewText);
+        expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('Second prompt:'));
         getSelectionSpy.mockRestore();
     });
 

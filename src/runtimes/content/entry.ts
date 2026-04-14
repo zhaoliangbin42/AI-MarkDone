@@ -48,9 +48,10 @@ if (adapter) {
     });
 
     settingsClient.init();
-    let lastLocale = settingsClient.getCached()?.language ?? DEFAULT_SETTINGS.language;
+    const cachedSettings = settingsClient.getCached();
+    let lastLocale = cachedSettings?.language ?? DEFAULT_SETTINGS.language;
     const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
-    let runtimeEnabled = settingsClient.getCached()?.platforms?.[platformKey] ?? true;
+    let runtimeEnabled = cachedSettings?.platforms?.[platformKey] ?? true;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
 
     const syncClickToCopy = (enabled: boolean) => {
@@ -84,6 +85,10 @@ if (adapter) {
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
+    if (cachedSettings?.reader) {
+        readerPanel.setRenderCodeInReader(Boolean(cachedSettings.reader.renderCodeInReader));
+        readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
+    }
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
@@ -94,6 +99,7 @@ if (adapter) {
         else disableRuntime();
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
+        readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
         folding?.setPolicy(snap.settings.chatgpt);
         messageToolbars.setBehaviorFlags({
             showViewSource: snap.settings.behavior.showViewSource,

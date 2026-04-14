@@ -15,7 +15,21 @@ const baseSettings = {
         saveContextOnly: true,
         _contextOnlyConfirmed: true,
     },
-    reader: { renderCodeInReader: true },
+    reader: {
+        renderCodeInReader: true,
+        commentExport: {
+            activePromptId: 'default',
+            prompts: [
+                { id: 'default', title: 'Default', content: 'Please review the following comments:', builtIn: true },
+            ],
+            template: [
+                { type: 'text', value: 'Regarding\n' },
+                { type: 'token', key: 'selected_source' },
+                { type: 'text', value: '\nMy comment is:\n' },
+                { type: 'token', key: 'user_comment' },
+            ],
+        },
+    },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
 } as any;
@@ -280,5 +294,323 @@ describe('SettingsTabView', () => {
         const trigger = root.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="reader-markdown-theme"]');
 
         expect(trigger).toBeNull();
+    });
+
+    it('renders reader comment export settings entries as configure actions', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        const promptsButton = root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]');
+        const templateButton = root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]');
+
+        expect(promptsButton).toBeTruthy();
+        expect(templateButton).toBeTruthy();
+        expect(promptsButton?.textContent).toContain('btnConfigure');
+        expect(templateButton?.textContent).toContain('btnConfigure');
+        expect(promptsButton?.classList.contains('settings-select-trigger')).toBe(false);
+        expect(templateButton?.classList.contains('settings-select-trigger')).toBe(false);
+        expect(promptsButton?.querySelector('.settings-select-trigger__caret')).toBeNull();
+        expect(templateButton?.querySelector('.settings-select-trigger__caret')).toBeNull();
+    });
+
+    it('lets the user select a different reader prompt from the settings configuration popover', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: {
+                    ...structuredClone(baseSettings),
+                    reader: {
+                        renderCodeInReader: true,
+                        commentExport: {
+                            activePromptId: 'default',
+                            prompts: [
+                                { id: 'default', title: 'Default', content: 'Please review.', builtIn: true },
+                                { id: 'strict', title: 'Strict', content: 'Be very strict.' },
+                            ],
+                            template: structuredClone(baseSettings.reader.commentExport.template),
+                        },
+                    },
+                },
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        root.querySelector<HTMLButtonElement>('.reader-prompt-settings__row[data-active="0"] [data-action="select-prompt"]')?.click();
+
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                activePromptId: 'strict',
+                prompts: expect.arrayContaining([
+                    expect.objectContaining({ id: 'default' }),
+                    expect.objectContaining({ id: 'strict' }),
+                ]),
+            }),
+        });
+    });
+
+    it('does not offer delete for the built-in reader prompt', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        const builtInRow = root.querySelector<HTMLElement>('.reader-prompt-settings__row[data-active="1"]');
+
+        expect(builtInRow?.querySelector('[data-action="delete-prompt"]')).toBeNull();
+        expect(builtInRow?.querySelector('[data-action="open-prompt"]')).toBeTruthy();
+        expect(builtInRow?.querySelector('.reader-prompt-settings__active')).toBeTruthy();
+    });
+
+    it('uses the same dialog size for prompt and template settings popovers', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        const promptPopover = root.querySelector<HTMLElement>('.reader-prompt-settings');
+        expect(promptPopover?.classList.contains('reader-settings-popover--wide')).toBe(true);
+
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
+        const templatePopover = root.querySelector<HTMLElement>('.reader-settings-popover--template');
+        expect(templatePopover?.classList.contains('reader-settings-popover--wide')).toBe(true);
+    });
+
+    it('keeps the prompt settings popover open while navigating, typing, and saving inside it', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        expect(root.querySelector('.reader-prompt-settings')).toBeTruthy();
+
+        root.querySelector<HTMLButtonElement>('[data-action="add-prompt"]')?.click();
+        expect(root.querySelector('.reader-prompt-settings[data-view="edit"]')).toBeTruthy();
+
+        const titleInput = root.querySelector<HTMLInputElement>('[data-role="prompt-title"]')!;
+        titleInput.value = 'My prompt';
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        titleInput.click();
+        expect(root.querySelector('.reader-prompt-settings[data-view="edit"]')).toBeTruthy();
+
+        const contentInput = root.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]')!;
+        contentInput.value = 'Use this prompt.';
+        contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+        root.querySelector<HTMLButtonElement>('[data-action="back-to-prompts"]')?.click();
+        expect(root.querySelector('.reader-prompt-settings[data-view="list"]')).toBeTruthy();
+
+        root.querySelector<HTMLButtonElement>('[data-action="add-prompt"]')?.click();
+        root.querySelector<HTMLInputElement>('[data-role="prompt-title"]')!.value = 'Saved prompt';
+        root.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]')!.value = 'Saved content';
+        root.querySelector<HTMLButtonElement>('[data-action="save-prompt"]')?.click();
+
+        expect(root.querySelector('.reader-prompt-settings[data-view="list"]')).toBeTruthy();
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                activePromptId: expect.stringMatching(/^prompt_/),
+                prompts: expect.arrayContaining([
+                    expect.objectContaining({ title: 'Saved prompt', content: 'Saved content' }),
+                ]),
+            }),
+        });
+    });
+
+    it('opens an existing prompt in the prompt settings edit view', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        root.querySelector<HTMLButtonElement>('[data-action="open-prompt"]')?.click();
+
+        expect(root.querySelector('.reader-prompt-settings[data-view="edit"]')).toBeTruthy();
+        expect(root.querySelector<HTMLInputElement>('[data-role="prompt-title"]')?.value).toBe('Default');
+    });
+
+    it('closes only the active reader settings popover on Escape', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+        };
+        const outerEscape = vi.fn();
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') outerEscape();
+        });
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        const popover = root.querySelector<HTMLElement>('.reader-prompt-settings')!;
+
+        popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+        expect(root.querySelector('.reader-prompt-settings')).toBeNull();
+        expect(outerEscape).not.toHaveBeenCalled();
+    });
+
+    it('keeps template settings Escape scoped to the template popover', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+        };
+        const outerEscape = vi.fn();
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') outerEscape();
+        });
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
+        const editor = root.querySelector<HTMLElement>('[data-role="commentTemplate"]')!;
+
+        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+        expect(root.querySelector('.reader-settings-popover--template')).toBeNull();
+        expect(outerEscape).not.toHaveBeenCalled();
+    });
+
+    it('lets the settings tab consume Escape for open reader settings popovers and select menus', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+        const root = view.getElement();
+        document.body.appendChild(root);
+
+        expect(view.consumeEscape()).toBe(false);
+
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
+        expect(root.querySelector('.reader-settings-popover--template')).toBeTruthy();
+        expect(view.consumeEscape()).toBe(true);
+        expect(root.querySelector('.reader-settings-popover--template')).toBeNull();
+
+        root.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="language"]')?.click();
+        expect(root.querySelector('.settings-select-menu[data-open="1"]')).toBeTruthy();
+        expect(view.consumeEscape()).toBe(true);
+        expect(root.querySelector('.settings-select-menu[data-open="1"]')).toBeNull();
+    });
+
+    it('opens the larger comment template settings popover without closing on internal actions', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
+
+        expect(root.querySelector('.reader-settings-popover--wide')).toBeTruthy();
+        expect(root.textContent).toContain('readerCommentTemplatePreviewLabel');
+        expect(root.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('2.');
+        root.querySelector<HTMLButtonElement>('[data-action="insert-selected-source"]')?.click();
+        expect(root.querySelector('.reader-settings-popover--wide')).toBeTruthy();
+
+        root.querySelector<HTMLButtonElement>('.reader-settings-popover--wide [data-action="save"]')?.click();
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                template: expect.arrayContaining([
+                    expect.objectContaining({ type: 'token', key: 'selected_source' }),
+                ]),
+            }),
+        });
     });
 });

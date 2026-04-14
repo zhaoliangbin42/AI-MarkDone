@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types';
+import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
 import { browser } from '../../../drivers/shared/browser';
 import {
@@ -35,6 +36,7 @@ type BookmarksPanelTabView = {
     update?(snapshot: BookmarksPanelSnapshot | null): void;
     focusPrimaryInput?(): void;
     dismissTransientUi?(): void;
+    consumeEscape?(): boolean;
     destroy?(): void;
 };
 
@@ -76,16 +78,7 @@ function downloadJson(filename: string, data: unknown): void {
 }
 
 function mergeSettings(input: unknown): AppSettings {
-    const next = input && typeof input === 'object' ? input as Partial<AppSettings> : {};
-    return {
-        ...DEFAULT_SETTINGS,
-        ...next,
-        platforms: { ...DEFAULT_SETTINGS.platforms, ...(next.platforms ?? {}) },
-        chatgpt: { ...DEFAULT_SETTINGS.chatgpt, ...(next.chatgpt ?? {}) },
-        behavior: { ...DEFAULT_SETTINGS.behavior, ...(next.behavior ?? {}) },
-        reader: { ...DEFAULT_SETTINGS.reader, ...(next.reader ?? {}) },
-        bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...(next.bookmarks ?? {}) },
-    };
+    return loadAndNormalize(input);
 }
 
 export class BookmarksPanel {
@@ -388,7 +381,12 @@ export class BookmarksPanel {
         this.overlaySession.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
-            onEscape: () => this.hide(),
+            onEscape: () => {
+                if (this.bookmarksView?.consumeEscape?.()) return;
+                if (this.settingsView?.consumeEscape?.()) return;
+                if (this.sponsorView?.consumeEscape?.()) return;
+                this.hide();
+            },
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
             trapTabWithin: panel,
