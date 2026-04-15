@@ -8,11 +8,9 @@ export type ReaderCommentPrompt = {
     id: string;
     title: string;
     content: string;
-    builtIn?: boolean;
 };
 
 export type ReaderCommentExportSettings = {
-    activePromptId: string;
     prompts: ReaderCommentPrompt[];
     template: CommentTemplateSegment[];
 };
@@ -45,18 +43,15 @@ export function createDefaultCommentTemplate(): CommentTemplateSegment[] {
 
 export function createDefaultReaderCommentPrompt(): ReaderCommentPrompt {
     return {
-        id: 'default',
-        title: 'Default prompt',
+        id: 'prompt-1',
+        title: 'Prompt 1',
         content: 'Please review the following comments:',
-        builtIn: true,
     };
 }
 
 export function createDefaultReaderCommentExportSettings(): ReaderCommentExportSettings {
-    const prompt = createDefaultReaderCommentPrompt();
     return {
-        activePromptId: prompt.id,
-        prompts: [prompt],
+        prompts: [createDefaultReaderCommentPrompt()],
         template: createDefaultCommentTemplate(),
     };
 }
@@ -119,36 +114,25 @@ export function normalizeReaderCommentPrompts(value: unknown): ReaderCommentProm
         const id = typeof entry.id === 'string' && entry.id.trim() ? entry.id : `prompt-${index + 1}`;
         const title = typeof entry.title === 'string' && entry.title.trim()
             ? entry.title
-            : index === 0 ? createDefaultReaderCommentPrompt().title : `Prompt ${index + 1}`;
+            : `Prompt ${index + 1}`;
         const content = typeof entry.content === 'string' ? entry.content : '';
         prompts.push({
             id,
             title,
             content,
-            builtIn: entry.builtIn === true ? true : undefined,
         });
     });
 
     if (prompts.length < 1) return [createDefaultReaderCommentPrompt()];
-    if (!prompts.some((prompt) => prompt.builtIn)) {
-        const [firstPrompt, ...restPrompts] = prompts;
-        if (!firstPrompt) return [createDefaultReaderCommentPrompt()];
-        return [{ ...firstPrompt, builtIn: true }, ...restPrompts];
-    }
     return prompts;
 }
 
 export function normalizeReaderCommentExportSettings(value: unknown): ReaderCommentExportSettings {
     if (!isRecord(value)) return createDefaultReaderCommentExportSettings();
     const prompts = normalizeReaderCommentPrompts(value.prompts);
-    const fallbackPromptId = prompts[0]?.id ?? createDefaultReaderCommentPrompt().id;
-    const activePromptId = typeof value.activePromptId === 'string' && prompts.some((prompt) => prompt.id === value.activePromptId)
-        ? value.activePromptId
-        : fallbackPromptId;
     const template = normalizeCommentTemplate(value.template as CommentTemplateSegment[] | string | undefined);
 
     return {
-        activePromptId,
         prompts,
         template: template.length > 0 ? template : createDefaultCommentTemplate(),
     };

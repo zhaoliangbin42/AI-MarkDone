@@ -4,7 +4,7 @@ import {
     externalLinkIcon,
     fileCodeIcon,
     maximizeIcon,
-    messageSquareTextIcon,
+    messageSquareShareIcon,
     minimizeIcon,
     xIcon,
 } from '../../../assets/icons';
@@ -80,7 +80,7 @@ export function getReaderPanelHtml(params: {
     <div class="panel-header__actions">
       <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
       ${state.showOpenConversation && canOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
-      <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy comments'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy comments'))}">${iconMarkup(messageSquareTextIcon)}</button>
+      <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy comments'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy comments'))}">${iconMarkup(messageSquareShareIcon)}</button>
       ${state.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
       ${state.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" title="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
@@ -199,8 +199,8 @@ ${getPanelChromeCss()}
 }
 
 .secondary-btn--compact {
-  min-height: 36px;
-  padding: 0 var(--aimd-space-3);
+  min-height: var(--aimd-size-control-compact);
+  padding: 0 var(--aimd-space-2);
 }
 
 .secondary-btn--primary {

@@ -194,6 +194,9 @@
     "readerCommentTemplateInsertSelectedSource": {
         "message": "Insert selected source"
     },
+    "readerCommentTemplateInsertPlaceholder": {
+        "message": "Insert placeholder"
+    },
     "readerCommentTemplateInsertUserComment": {
         "message": "Insert user comment"
     },
@@ -256,6 +259,15 @@
     },
     "readerCommentPromptDeleteMessage": {
         "message": "Delete this prompt from Reader settings?"
+    },
+    "readerCommentPromptPickerTitle": {
+        "message": "Choose prompt"
+    },
+    "readerCommentPromptPickerEmpty": {
+        "message": "No prompts available."
+    },
+    "readerCommentInsertIntoSend": {
+        "message": "Insert comments"
     },
     "modalSourceTitle": {
         "message": "Markdown Source Code"

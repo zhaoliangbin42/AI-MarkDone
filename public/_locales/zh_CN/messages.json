@@ -194,6 +194,9 @@
     "readerCommentTemplateInsertSelectedSource": {
         "message": "插入选中文字"
     },
+    "readerCommentTemplateInsertPlaceholder": {
+        "message": "插入占位符"
+    },
     "readerCommentTemplateInsertUserComment": {
         "message": "插入用户评论"
     },
@@ -256,6 +259,15 @@
     },
     "readerCommentPromptDeleteMessage": {
         "message": "要从阅读器设置中删除这条提示词吗？"
+    },
+    "readerCommentPromptPickerTitle": {
+        "message": "选择提示词"
+    },
+    "readerCommentPromptPickerEmpty": {
+        "message": "当前还没有可用的提示词。"
+    },
+    "readerCommentInsertIntoSend": {
+        "message": "插入评论"
     },
     "modalSourceTitle": {
         "message": "Markdown 源码"

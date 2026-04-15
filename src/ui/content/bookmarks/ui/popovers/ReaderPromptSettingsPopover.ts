@@ -1,8 +1,8 @@
-import { chevronRightIcon, messageSquareTextIcon, trashIcon, xIcon } from '../../../../../assets/icons';
+import { chevronRightIcon, gripHorizontalIcon, messageSquareTextIcon, plusIcon, trashIcon, xIcon } from '../../../../../assets/icons';
 import type { ReaderCommentExportSettings, ReaderCommentPrompt } from '../../../../../core/settings/readerCommentExport';
 import { createIcon } from '../../../components/Icon';
 import { installInputEventBoundary } from '../../../components/inputEventBoundary';
-import { markTransientRoot } from '../../../components/transientUi';
+import { createReaderSettingsDialogLayer } from './ReaderSettingsDialogShell';
 
 type OpenParams = {
     parent: HTMLElement;
@@ -13,8 +13,6 @@ type OpenParams = {
         addPrompt: string;
         editPrompt: string;
         untitledPrompt: string;
-        active: string;
-        select: string;
         back: string;
         titleLabel: string;
         contentLabel: string;
@@ -43,6 +41,9 @@ export class ReaderPromptSettingsPopover {
     private view: 'list' | 'edit' = 'list';
     private editState: EditState | null = null;
     private onWindowKeyDown: ((event: KeyboardEvent) => void) | null = null;
+    private dragState: { promptId: string; pointerId: number } | null = null;
+    private onDocumentPointerMove: ((event: PointerEvent) => void) | null = null;
+    private onDocumentPointerUp: ((event: PointerEvent) => void) | null = null;
 
     isOpen(): boolean {
         return Boolean(this.rootEl);
@@ -57,6 +58,7 @@ export class ReaderPromptSettingsPopover {
         this.settings = null;
         this.view = 'list';
         this.editState = null;
+        this.stopDrag();
     }
 
     open(params: OpenParams): void {
@@ -64,16 +66,15 @@ export class ReaderPromptSettingsPopover {
         this.params = params;
         this.settings = this.cloneSettings(params.settings);
 
-        const layer = markTransientRoot(document.createElement('div'));
-        layer.className = 'reader-settings-popover-layer';
-        const popover = document.createElement('div');
-        popover.className = 'reader-settings-popover reader-settings-popover--wide reader-prompt-settings';
+        const shell = createReaderSettingsDialogLayer({
+            parent: params.parent,
+            panelClassNames: ['reader-prompt-settings'],
+        });
+        const popover = shell.panel;
         popover.dataset.view = 'list';
         popover.addEventListener('keydown', (event) => this.handleKeyDownCapture(event), { capture: true });
         popover.addEventListener('keydown', (event) => event.stopPropagation());
-        layer.appendChild(popover);
-        params.parent.appendChild(layer);
-        this.rootEl = layer;
+        this.rootEl = shell.layer;
         this.onWindowKeyDown = (event: KeyboardEvent) => this.handleKeyDownCapture(event);
         window.addEventListener('keydown', this.onWindowKeyDown, { capture: true });
         this.render();
@@ -101,7 +102,15 @@ export class ReaderPromptSettingsPopover {
         for (const prompt of this.settings.prompts) {
             const row = document.createElement('div');
             row.className = 'reader-prompt-settings__row';
-            row.dataset.active = prompt.id === this.settings.activePromptId ? '1' : '0';
+            row.dataset.promptId = prompt.id;
+            const dragHandle = document.createElement('button');
+            dragHandle.type = 'button';
+            dragHandle.className = 'icon-btn reader-prompt-settings__drag';
+            dragHandle.dataset.action = 'drag-prompt';
+            dragHandle.setAttribute('aria-label', prompt.title);
+            dragHandle.setAttribute('title', prompt.title);
+            dragHandle.appendChild(createIcon(gripHorizontalIcon));
+            dragHandle.addEventListener('pointerdown', (event) => this.startDrag(event, prompt.id));
 
             const main = document.createElement('button');
             main.type = 'button';
@@ -118,25 +127,8 @@ export class ReaderPromptSettingsPopover {
 
             const actions = document.createElement('div');
             actions.className = 'reader-prompt-settings__row-actions';
-            if (prompt.id === this.settings.activePromptId) {
-                const active = document.createElement('span');
-                active.className = 'reader-prompt-settings__active';
-                active.textContent = this.params.labels.active;
-                actions.appendChild(active);
-            } else {
-                const select = document.createElement('button');
-                select.type = 'button';
-                select.className = 'secondary-btn secondary-btn--compact';
-                select.dataset.action = 'select-prompt';
-                select.textContent = this.params.labels.select;
-                select.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    this.updateSettings({ ...this.settings!, activePromptId: prompt.id });
-                });
-                actions.appendChild(select);
-            }
 
-            if (!prompt.builtIn) {
+            if (this.settings.prompts.length > 1) {
                 const deleteButton = document.createElement('button');
                 deleteButton.type = 'button';
                 deleteButton.className = 'icon-btn icon-btn--danger';
@@ -151,24 +143,21 @@ export class ReaderPromptSettingsPopover {
                     const prompts = this.settings.prompts.filter((entry) => entry.id !== prompt.id);
                     this.updateSettings({
                         ...this.settings,
-                        activePromptId: this.settings.activePromptId === prompt.id ? prompts[0]?.id ?? '' : this.settings.activePromptId,
                         prompts,
                     });
                 });
                 actions.appendChild(deleteButton);
             }
 
-            row.append(main, actions);
+            row.append(dragHandle, main, actions);
             list.appendChild(row);
         }
 
-        const footer = document.createElement('div');
-        footer.className = 'reader-prompt-settings__footer';
         const addButton = document.createElement('button');
         addButton.type = 'button';
         addButton.className = 'secondary-btn secondary-btn--compact';
         addButton.dataset.action = 'add-prompt';
-        addButton.textContent = this.params.labels.addPrompt;
+        addButton.append(createIcon(plusIcon), document.createTextNode(this.params.labels.addPrompt));
         addButton.addEventListener('click', () => {
             this.openEditor({
                 id: this.params!.createPromptId(),
@@ -176,14 +165,23 @@ export class ReaderPromptSettingsPopover {
                 content: '',
             }, true);
         });
+        const body = document.createElement('div');
+        body.className = 'dialog-body dialog-body--reader-settings';
+        body.append(list);
+        const footer = document.createElement('div');
+        footer.className = 'panel-footer panel-footer--reader-settings';
         footer.appendChild(addButton);
-
-        popover.append(header, list, footer);
+        popover.append(header, body, footer);
     }
 
     private renderEdit(popover: HTMLElement): void {
         if (!this.params || !this.editState) return;
+        this.stopDrag();
         const header = this.createHeader(this.editState.isNew ? this.params.labels.addPrompt : this.params.labels.editPrompt, true);
+        const body = document.createElement('div');
+        body.className = 'dialog-body dialog-body--reader-settings';
+        const footer = document.createElement('div');
+        footer.className = 'panel-footer panel-footer--reader-settings';
         const titleField = document.createElement('label');
         titleField.className = 'reader-settings-popover__field';
         const titleLabel = document.createElement('span');
@@ -236,22 +234,25 @@ export class ReaderPromptSettingsPopover {
                 : this.settings.prompts.map((entry) => entry.id === prompt.id ? prompt : entry);
             this.updateSettings({
                 ...this.settings,
-                activePromptId: this.editState.isNew ? prompt.id : this.settings.activePromptId,
                 prompts,
             });
             this.showList();
         });
         actions.append(cancel, save);
 
-        popover.append(header, titleField, contentField, actions);
+        body.append(titleField, contentField);
+        footer.append(actions);
+        popover.append(header, body, footer);
         titleInput.focus({ preventScroll: true } as FocusOptions);
     }
 
     private createHeader(titleText: string, withBack = false): HTMLElement {
         const header = document.createElement('div');
-        header.className = 'reader-settings-popover__head';
-        const title = document.createElement('h3');
-        title.className = 'reader-settings-popover__title';
+        header.className = 'panel-header';
+        const meta = document.createElement('div');
+        meta.className = 'panel-header__meta';
+        const title = document.createElement('h2');
+        title.className = 'reader-settings-dialog__title';
         if (withBack && this.params) {
             const back = document.createElement('button');
             back.type = 'button';
@@ -262,14 +263,19 @@ export class ReaderPromptSettingsPopover {
             back.addEventListener('click', () => this.showList());
             title.appendChild(back);
         } else {
-            title.appendChild(createIcon(messageSquareTextIcon));
+            const icon = document.createElement('span');
+            icon.className = 'reader-settings-dialog__title-icon';
+            icon.appendChild(createIcon(messageSquareTextIcon));
+            title.appendChild(icon);
         }
         const text = document.createElement('span');
         text.textContent = titleText;
         title.appendChild(text);
+        const actions = document.createElement('div');
+        actions.className = 'panel-header__actions';
         const close = document.createElement('button');
         close.type = 'button';
-        close.className = 'icon-btn reader-settings-popover__close';
+        close.className = 'icon-btn reader-settings-dialog__close';
         close.dataset.action = 'close';
         close.setAttribute('aria-label', this.params?.labels.close ?? 'Close');
         close.appendChild(createIcon(xIcon));
@@ -278,7 +284,9 @@ export class ReaderPromptSettingsPopover {
             this.close();
             onClose?.();
         });
-        header.append(title, close);
+        meta.appendChild(title);
+        actions.appendChild(close);
+        header.append(meta, actions);
         return header;
     }
 
@@ -289,9 +297,112 @@ export class ReaderPromptSettingsPopover {
     }
 
     private showList(): void {
+        this.stopDrag();
         this.view = 'list';
         this.editState = null;
         this.render();
+    }
+
+    private startDrag(event: PointerEvent, promptId: string): void {
+        if (!this.settings || this.settings.prompts.length < 2) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.stopDrag();
+        this.dragState = {
+            promptId,
+            pointerId: event.pointerId,
+        };
+        this.findPromptRow(promptId)?.setAttribute('data-dragging', '1');
+        this.onDocumentPointerMove = (moveEvent) => this.handleDragMove(moveEvent);
+        this.onDocumentPointerUp = (upEvent) => {
+            if (upEvent.pointerId !== this.dragState?.pointerId) return;
+            this.stopDrag();
+        };
+        document.addEventListener('pointermove', this.onDocumentPointerMove);
+        document.addEventListener('pointerup', this.onDocumentPointerUp);
+        document.addEventListener('pointercancel', this.onDocumentPointerUp);
+    }
+
+    private handleDragMove(event: PointerEvent): void {
+        if (!this.settings || !this.dragState || event.pointerId !== this.dragState.pointerId) return;
+        event.preventDefault();
+        const rows = Array.from(this.rootEl?.querySelectorAll<HTMLElement>('.reader-prompt-settings__row') ?? []);
+        if (rows.length < 2) return;
+        const current = this.settings.prompts;
+        const draggedId = this.dragState.promptId;
+        const nextOrder = current.filter((prompt) => prompt.id !== draggedId);
+        let insertIndex = nextOrder.length;
+        const candidateRows = rows.filter((row) => row.dataset.promptId !== draggedId);
+        for (let index = 0; index < candidateRows.length; index += 1) {
+            const rect = candidateRows[index]!.getBoundingClientRect();
+            if (event.clientY < rect.top + rect.height / 2) {
+                insertIndex = index;
+                break;
+            }
+        }
+        const reordered = [...nextOrder];
+        const moved = current.find((prompt) => prompt.id === draggedId);
+        if (!moved) return;
+        reordered.splice(insertIndex, 0, moved);
+        if (reordered.every((prompt, index) => prompt.id === current[index]?.id)) return;
+        const beforeRects = this.captureRowRects();
+        this.updateSettings({
+            ...this.settings,
+            prompts: reordered,
+        });
+        this.animateRowLayout(beforeRects);
+        this.findPromptRow(draggedId)?.setAttribute('data-dragging', '1');
+    }
+
+    private captureRowRects(): Map<string, DOMRect> {
+        const rects = new Map<string, DOMRect>();
+        this.rootEl?.querySelectorAll<HTMLElement>('.reader-prompt-settings__row').forEach((row) => {
+            const id = row.dataset.promptId;
+            if (!id) return;
+            rects.set(id, row.getBoundingClientRect());
+        });
+        return rects;
+    }
+
+    private animateRowLayout(beforeRects: Map<string, DOMRect>): void {
+        window.requestAnimationFrame(() => {
+            this.rootEl?.querySelectorAll<HTMLElement>('.reader-prompt-settings__row').forEach((row) => {
+                const id = row.dataset.promptId;
+                if (!id) return;
+                const before = beforeRects.get(id);
+                if (!before) return;
+                const after = row.getBoundingClientRect();
+                const dy = before.top - after.top;
+                if (!dy) return;
+                row.style.transition = 'none';
+                row.style.transform = `translateY(${dy}px)`;
+                window.requestAnimationFrame(() => {
+                    row.style.transition = '';
+                    row.style.transform = '';
+                });
+            });
+        });
+    }
+
+    private stopDrag(): void {
+        this.rootEl?.querySelectorAll<HTMLElement>('.reader-prompt-settings__row[data-dragging="1"]').forEach((row) => {
+            delete row.dataset.dragging;
+        });
+        this.dragState = null;
+        if (this.onDocumentPointerMove) {
+            document.removeEventListener('pointermove', this.onDocumentPointerMove);
+            this.onDocumentPointerMove = null;
+        }
+        if (this.onDocumentPointerUp) {
+            document.removeEventListener('pointerup', this.onDocumentPointerUp);
+            document.removeEventListener('pointercancel', this.onDocumentPointerUp);
+            this.onDocumentPointerUp = null;
+        }
+    }
+
+    private findPromptRow(promptId: string): HTMLElement | null {
+        return Array.from(this.rootEl?.querySelectorAll<HTMLElement>('.reader-prompt-settings__row') ?? [])
+            .find((row) => row.dataset.promptId === promptId) ?? null;
     }
 
     private handleKeyDownCapture(event: KeyboardEvent): void {
@@ -317,7 +428,6 @@ export class ReaderPromptSettingsPopover {
 
     private cloneSettings(settings: ReaderCommentExportSettings): ReaderCommentExportSettings {
         return {
-            activePromptId: settings.activePromptId,
             prompts: settings.prompts.map((prompt) => ({ ...prompt })),
             template: settings.template.map((segment) => ({ ...segment })),
         };

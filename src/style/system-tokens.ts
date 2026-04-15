@@ -198,6 +198,9 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-space-6: var(--aimd-sys-space-6);
   --aimd-size-icon-md: var(--aimd-sys-size-icon-md);
   --aimd-size-control-icon-toolbar: var(--aimd-sys-size-control-icon-toolbar);
+  --aimd-size-control-compact-tight: var(--aimd-sys-size-control-compact-tight);
+  --aimd-size-control-compact: var(--aimd-sys-size-control-compact);
+  --aimd-size-control-compact-relaxed: var(--aimd-sys-size-control-compact-relaxed);
   --aimd-size-control-icon-panel: var(--aimd-sys-size-control-icon-panel);
   --aimd-size-control-icon-panel-nav: var(--aimd-sys-size-control-icon-panel-nav);
   --aimd-size-control-glyph-panel: var(--aimd-sys-size-control-glyph-panel);
@@ -247,6 +250,8 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-button-primary-bg: var(--aimd-interactive-primary);
   --aimd-button-primary-hover: var(--aimd-interactive-primary-hover);
   --aimd-button-primary-text: var(--aimd-text-on-primary);
+  --aimd-button-label-size: var(--aimd-text-sm);
+  --aimd-button-label-size-compact: var(--aimd-text-xs);
   --aimd-button-secondary-bg: var(--aimd-bg-secondary);
   --aimd-button-secondary-hover: color-mix(in srgb, var(--aimd-bg-secondary) 70%, var(--aimd-interactive-hover));
   --aimd-button-secondary-text: var(--aimd-text-primary);

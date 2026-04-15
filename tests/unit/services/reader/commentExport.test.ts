@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildCommentsExport } from '@/services/reader/commentExport';
+import {
+    buildCommentsExport,
+    resolvePromptById,
+    resolveReaderCommentExportPrompts,
+} from '@/services/reader/commentExport';
 import type { ReaderCommentRecord } from '@/services/reader/commentSession';
 
 function makeComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentRecord {
@@ -22,6 +26,26 @@ function makeComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentReco
 }
 
 describe('commentExport', () => {
+    it('resolves prompts by id without relying on an active prompt field', () => {
+        const settings = {
+            prompts: [
+                { id: 'p1', title: 'First', content: 'First prompt' },
+                { id: 'p2', title: 'Second', content: 'Second prompt' },
+            ],
+            template: [
+                { type: 'text', value: 'Regarding\n' },
+                { type: 'token', key: 'selected_source' as const },
+            ],
+        };
+
+        expect(resolvePromptById(settings as any, 'p2')?.content).toBe('Second prompt');
+        expect(resolvePromptById(settings as any, 'missing')?.content).toBe('First prompt');
+        expect(resolveReaderCommentExportPrompts(settings as any, 'p2')).toEqual({
+            userPrompt: 'Second prompt',
+            commentTemplate: settings.template,
+        });
+    });
+
     it('returns an empty string when there are no comments', () => {
         expect(buildCommentsExport([], {
             userPrompt: 'Top line',
@@ -75,6 +99,31 @@ describe('commentExport', () => {
                 '   再次引用：',
                 '   alpha',
                 '   评论：',
+                '   beta',
+            ].join('\n'),
+        );
+    });
+
+    it('keeps prompt order external to export building and supports plain multiline prompt text', () => {
+        const result = buildCommentsExport(
+            [makeComment({ sourceMarkdown: 'alpha', comment: 'beta' })],
+            {
+                userPrompt: 'Line 1\nLine 2',
+                commentTemplate: [
+                    { type: 'token', key: 'selected_source' },
+                    { type: 'text', value: '\n--\n' },
+                    { type: 'token', key: 'user_comment' },
+                ],
+            },
+        );
+
+        expect(result).toBe(
+            [
+                'Line 1',
+                'Line 2',
+                '',
+                '1. alpha',
+                '   --',
                 '   beta',
             ].join('\n'),
         );

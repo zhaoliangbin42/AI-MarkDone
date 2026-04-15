@@ -16,15 +16,22 @@ export type ReaderCommentExportPrompts = {
 
 export { createDefaultCommentTemplate, createDefaultReaderCommentExportSettings, normalizeCommentTemplate };
 
-export function resolveActiveReaderCommentPrompt(settings: ReaderCommentExportSettings): ReaderCommentPrompt {
-    return settings.prompts.find((prompt) => prompt.id === settings.activePromptId)
+export function resolvePromptById(settings: ReaderCommentExportSettings, promptId?: string | null): ReaderCommentPrompt | null {
+    if (settings.prompts.length < 1) return null;
+    if (!promptId) return settings.prompts[0] ?? null;
+    return settings.prompts.find((prompt) => prompt.id === promptId)
         ?? settings.prompts[0]
-        ?? createDefaultReaderCommentExportSettings().prompts[0]!;
+        ?? null;
 }
 
-export function resolveReaderCommentExportPrompts(settings: ReaderCommentExportSettings): ReaderCommentExportPrompts {
+export function resolveActiveReaderCommentPrompt(settings: ReaderCommentExportSettings): ReaderCommentPrompt {
+    return resolvePromptById(settings) ?? createDefaultReaderCommentExportSettings().prompts[0]!;
+}
+
+export function resolveReaderCommentExportPrompts(settings: ReaderCommentExportSettings, promptId?: string | null): ReaderCommentExportPrompts {
+    const prompt = resolvePromptById(settings, promptId) ?? createDefaultReaderCommentExportSettings().prompts[0]!;
     return {
-        userPrompt: resolveActiveReaderCommentPrompt(settings).content,
+        userPrompt: prompt.content,
         commentTemplate: settings.template,
     };
 }

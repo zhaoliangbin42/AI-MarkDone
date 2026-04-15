@@ -41,6 +41,7 @@ import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
 import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
+import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -113,6 +114,7 @@ export class ReaderPanel {
     private overlaySession: OverlaySession | null = null;
     private readonly commentPopover = new ReaderCommentPopover();
     private readonly commentExportPopover = new ReaderCommentExportPopover();
+    private readonly commentPromptPicker = new CommentPromptPickerPopover();
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
@@ -183,6 +185,16 @@ export class ReaderPanel {
 
     setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
         this.commentExportSettings = settings;
+    }
+
+    getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template'] } | null {
+        const comments = this.getCurrentComments();
+        if (comments.length < 1) return null;
+        return {
+            comments: comments.map((record) => ({ ...record })),
+            prompts: this.commentExportSettings.prompts.map((prompt) => ({ ...prompt })),
+            template: this.commentExportSettings.template.map((segment) => ({ ...segment })),
+        };
     }
 
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
@@ -321,6 +333,7 @@ export class ReaderPanel {
         if (this.overlaySession?.shadow) {
             this.commentPopover.close(this.overlaySession.shadow, false);
             this.commentExportPopover.close(this.overlaySession.shadow);
+            this.commentPromptPicker.close(this.overlaySession.shadow);
         }
 
         if (this.statusTimer) {
@@ -820,7 +833,7 @@ export class ReaderPanel {
             }
         }
 
-        if (this.commentPopover.isOpen() || this.commentExportPopover.isOpen()) return;
+        if (this.commentPopover.isOpen() || this.commentExportPopover.isOpen() || this.commentPromptPicker.isOpen()) return;
         const selection = this.commentSelectionSnapshot;
         if (!selection) return;
         if (!selection.selectedText.trim() && selection.selectedUnits.length < 1) return;
@@ -1036,30 +1049,47 @@ export class ReaderPanel {
         }
 
         const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
-        if (!container) return;
-        const prompts = resolveReaderCommentExportPrompts(this.commentExportSettings);
-        const compiledExport = buildCommentsExport(comments, prompts);
-        this.commentExportPopover.open({
-            shadow: this.overlaySession.shadow,
+        const anchorButton = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy-comments"]');
+        const shadow = this.overlaySession.shadow;
+        if (!container || !anchorButton) return;
+        this.commentPromptPicker.open({
+            shadow,
             container,
+            anchorEl: anchorButton,
             theme: this.state.theme,
-            preview: compiledExport,
-            canCopy: Boolean(compiledExport.trim()),
+            prompts: this.commentExportSettings.prompts,
             labels: {
-                title: this.getLabel('readerCommentCopyComments', 'Copy comments'),
+                title: this.getLabel('readerCommentPromptPickerTitle', 'Choose prompt'),
                 close: this.getLabel('btnClose', 'Close'),
-                copy: this.getLabel('readerCommentCopyComments', 'Copy comments'),
-                copied: this.getLabel('btnCopied', 'Copied!'),
-                empty: this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'),
+                empty: this.getLabel('readerCommentPromptPickerEmpty', 'No prompts available.'),
             },
-            onCopy: async () => {
-                if (!compiledExport.trim()) {
-                    this.notify(this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'));
-                    return false;
-                }
-                const ok = await copyTextToClipboard(compiledExport);
-                this.notify(this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'));
-                return ok;
+            onSelect: (promptId) => {
+                const prompts = resolveReaderCommentExportPrompts(this.commentExportSettings, promptId);
+                const compiledExport = buildCommentsExport(comments, prompts);
+                this.commentExportPopover.open({
+                    shadow,
+                    container,
+                    theme: this.state.theme,
+                    preview: compiledExport,
+                    canCopy: Boolean(compiledExport.trim()),
+                    labels: {
+                        title: this.getLabel('readerCommentCopyComments', 'Copy comments'),
+                        close: this.getLabel('btnClose', 'Close'),
+                        copy: this.getLabel('readerCommentCopyComments', 'Copy comments'),
+                        copied: this.getLabel('btnCopied', 'Copied!'),
+                        empty: this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'),
+                    },
+                    onCopy: async () => {
+                        if (!compiledExport.trim()) {
+                            this.notify(this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'));
+                            return false;
+                        }
+                        const ok = await copyTextToClipboard(compiledExport);
+                        this.notify(this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'));
+                        return ok;
+                    },
+                    onClose: () => this.syncCommentUi(),
+                });
             },
             onClose: () => this.syncCommentUi(),
         });

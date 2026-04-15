@@ -18,9 +18,8 @@ const baseSettings = {
     reader: {
         renderCodeInReader: true,
         commentExport: {
-            activePromptId: 'default',
             prompts: [
-                { id: 'default', title: 'Default', content: 'Please review the following comments:', builtIn: true },
+                { id: 'prompt-1', title: 'Prompt 1', content: 'Please review the following comments:' },
             ],
             template: [
                 { type: 'text', value: 'Regarding\n' },
@@ -207,6 +206,10 @@ describe('SettingsTabView', () => {
         expect(css).toContain('font-size: var(--aimd-text-sm);');
         expect(css).toContain('.settings-label p,');
         expect(css).toContain('font-size: var(--aimd-text-xs);');
+        expect(css).toContain('.secondary-btn--primary {');
+        expect(css).toContain('background: var(--aimd-interactive-primary);');
+        expect(css).toContain('color: var(--aimd-text-on-primary);');
+        expect(css).toContain('background: var(--aimd-interactive-primary-hover);');
     });
 
     it('routes settings updates through injected actions instead of directly depending on the rpc client', async () => {
@@ -317,15 +320,21 @@ describe('SettingsTabView', () => {
 
         expect(promptsButton).toBeTruthy();
         expect(templateButton).toBeTruthy();
-        expect(promptsButton?.textContent).toContain('btnConfigure');
-        expect(templateButton?.textContent).toContain('btnConfigure');
+        expect(promptsButton?.classList.contains('icon-btn')).toBe(true);
+        expect(templateButton?.classList.contains('icon-btn')).toBe(true);
+        expect(promptsButton?.textContent?.trim()).toBe('');
+        expect(templateButton?.textContent?.trim()).toBe('');
+        expect(promptsButton?.querySelector('.aimd-icon')).toBeTruthy();
+        expect(templateButton?.querySelector('.aimd-icon')).toBeTruthy();
+        expect(promptsButton?.getAttribute('aria-label')).toContain('btnConfigure');
+        expect(templateButton?.getAttribute('aria-label')).toContain('btnConfigure');
         expect(promptsButton?.classList.contains('settings-select-trigger')).toBe(false);
         expect(templateButton?.classList.contains('settings-select-trigger')).toBe(false);
         expect(promptsButton?.querySelector('.settings-select-trigger__caret')).toBeNull();
         expect(templateButton?.querySelector('.settings-select-trigger__caret')).toBeNull();
     });
 
-    it('lets the user select a different reader prompt from the settings configuration popover', async () => {
+    it('deletes a non-last prompt from the prompt library and persists the new ordered list', async () => {
         const modal = {
             confirm: vi.fn(async () => true),
         } as any;
@@ -336,9 +345,8 @@ describe('SettingsTabView', () => {
                     reader: {
                         renderCodeInReader: true,
                         commentExport: {
-                            activePromptId: 'default',
                             prompts: [
-                                { id: 'default', title: 'Default', content: 'Please review.', builtIn: true },
+                                { id: 'prompt-a', title: 'Prompt A', content: 'Please review.' },
                                 { id: 'strict', title: 'Strict', content: 'Be very strict.' },
                             ],
                             template: structuredClone(baseSettings.reader.commentExport.template),
@@ -356,20 +364,17 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         document.body.appendChild(root);
         root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
-        root.querySelector<HTMLButtonElement>('.reader-prompt-settings__row[data-active="0"] [data-action="select-prompt"]')?.click();
+        root.querySelector<HTMLButtonElement>('.reader-prompt-settings__row [data-action="delete-prompt"]')?.click();
+        await Promise.resolve();
 
         expect(actions.setReaderSettings).toHaveBeenCalledWith({
             commentExport: expect.objectContaining({
-                activePromptId: 'strict',
-                prompts: expect.arrayContaining([
-                    expect.objectContaining({ id: 'default' }),
-                    expect.objectContaining({ id: 'strict' }),
-                ]),
+                prompts: [expect.objectContaining({ id: 'strict' })],
             }),
         });
     });
 
-    it('does not offer delete for the built-in reader prompt', async () => {
+    it('prevents deleting the last remaining prompt from the prompt library', async () => {
         const modal = {
             confirm: vi.fn(async () => true),
         } as any;
@@ -386,11 +391,75 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         document.body.appendChild(root);
         root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
-        const builtInRow = root.querySelector<HTMLElement>('.reader-prompt-settings__row[data-active="1"]');
+        const rows = root.querySelectorAll<HTMLElement>('.reader-prompt-settings__row');
 
-        expect(builtInRow?.querySelector('[data-action="delete-prompt"]')).toBeNull();
-        expect(builtInRow?.querySelector('[data-action="open-prompt"]')).toBeTruthy();
-        expect(builtInRow?.querySelector('.reader-prompt-settings__active')).toBeTruthy();
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.querySelector('[data-action="delete-prompt"]')).toBeNull();
+        expect(rows[0]?.querySelector('[data-action="open-prompt"]')).toBeTruthy();
+        expect(root.querySelector('[data-action="add-prompt"] .aimd-icon')).toBeTruthy();
+    });
+
+    it('reorders prompts via drag and drop and persists the new order', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: {
+                    ...structuredClone(baseSettings),
+                    reader: {
+                        renderCodeInReader: true,
+                        commentExport: {
+                            prompts: [
+                                { id: 'prompt-a', title: 'Prompt A', content: 'Please review.' },
+                                { id: 'prompt-b', title: 'Prompt B', content: 'Be strict.' },
+                            ],
+                            template: structuredClone(baseSettings.reader.commentExport.template),
+                        },
+                    },
+                },
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        const rows = root.querySelectorAll<HTMLElement>('.reader-prompt-settings__row');
+        const dragged = rows[0]!;
+        const target = rows[1]!;
+        const handle = dragged.querySelector<HTMLElement>('[data-action="drag-prompt"]')!;
+        expect(dragged.firstElementChild).toBe(handle);
+        expect(handle.querySelectorAll('line')).toHaveLength(3);
+        Object.assign(dragged, {
+            getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 56, right: 400, bottom: 56, x: 0, y: 0, toJSON: () => ({}) }),
+        });
+        Object.assign(target, {
+            getBoundingClientRect: () => ({ left: 0, top: 64, width: 400, height: 56, right: 400, bottom: 120, x: 0, y: 64, toJSON: () => ({}) }),
+        });
+
+        const pointerDown = new MouseEvent('pointerdown', { bubbles: true, clientY: 28 });
+        const pointerMove = new MouseEvent('pointermove', { bubbles: true, clientY: 110 });
+        const pointerUp = new MouseEvent('pointerup', { bubbles: true, clientY: 110 });
+        Object.defineProperty(pointerDown, 'pointerId', { value: 1 });
+        Object.defineProperty(pointerMove, 'pointerId', { value: 1 });
+        Object.defineProperty(pointerUp, 'pointerId', { value: 1 });
+        handle.dispatchEvent(pointerDown);
+        document.dispatchEvent(pointerMove);
+        document.dispatchEvent(pointerUp);
+
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                prompts: [
+                    expect.objectContaining({ id: 'prompt-b' }),
+                    expect.objectContaining({ id: 'prompt-a' }),
+                ],
+            }),
+        });
     });
 
     it('uses the same dialog size for prompt and template settings popovers', async () => {
@@ -411,11 +480,21 @@ describe('SettingsTabView', () => {
         document.body.appendChild(root);
         root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
         const promptPopover = root.querySelector<HTMLElement>('.reader-prompt-settings');
-        expect(promptPopover?.classList.contains('reader-settings-popover--wide')).toBe(true);
+        expect(promptPopover?.classList.contains('panel-window')).toBe(true);
+        expect(promptPopover?.classList.contains('panel-window--dialog')).toBe(true);
+        expect(promptPopover?.classList.contains('panel-window--reader-settings')).toBe(true);
+        expect(promptPopover?.querySelector(':scope > .panel-header')).toBeTruthy();
+        expect(promptPopover?.querySelector(':scope > .dialog-body')).toBeTruthy();
+        expect(promptPopover?.querySelector(':scope > .panel-footer')).toBeTruthy();
 
         root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
         const templatePopover = root.querySelector<HTMLElement>('.reader-settings-popover--template');
-        expect(templatePopover?.classList.contains('reader-settings-popover--wide')).toBe(true);
+        expect(templatePopover?.classList.contains('panel-window')).toBe(true);
+        expect(templatePopover?.classList.contains('panel-window--dialog')).toBe(true);
+        expect(templatePopover?.classList.contains('panel-window--reader-settings')).toBe(true);
+        expect(templatePopover?.querySelector(':scope > .panel-header')).toBeTruthy();
+        expect(templatePopover?.querySelector(':scope > .dialog-body')).toBeTruthy();
+        expect(templatePopover?.querySelector(':scope > .panel-footer')).toBeTruthy();
     });
 
     it('keeps the prompt settings popover open while navigating, typing, and saving inside it', async () => {
@@ -461,7 +540,6 @@ describe('SettingsTabView', () => {
         expect(root.querySelector('.reader-prompt-settings[data-view="list"]')).toBeTruthy();
         expect(actions.setReaderSettings).toHaveBeenCalledWith({
             commentExport: expect.objectContaining({
-                activePromptId: expect.stringMatching(/^prompt_/),
                 prompts: expect.arrayContaining([
                     expect.objectContaining({ title: 'Saved prompt', content: 'Saved content' }),
                 ]),
@@ -489,7 +567,7 @@ describe('SettingsTabView', () => {
         root.querySelector<HTMLButtonElement>('[data-action="open-prompt"]')?.click();
 
         expect(root.querySelector('.reader-prompt-settings[data-view="edit"]')).toBeTruthy();
-        expect(root.querySelector<HTMLInputElement>('[data-role="prompt-title"]')?.value).toBe('Default');
+        expect(root.querySelector<HTMLInputElement>('[data-role="prompt-title"]')?.value).toBe('Prompt 1');
     });
 
     it('closes only the active reader settings popover on Escape', async () => {
@@ -550,6 +628,42 @@ describe('SettingsTabView', () => {
         expect(outerEscape).not.toHaveBeenCalled();
     });
 
+    it('inserts template placeholders through the placeholder menu instead of direct top-level token buttons', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: structuredClone(baseSettings),
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
+
+        expect(root.querySelector('[data-action="toggle-placeholder-menu"]')).toBeTruthy();
+        expect(root.querySelector('[data-action="insert-selected-source"]')).toBeTruthy();
+        expect(root.querySelector('[data-action="insert-user-comment"]')).toBeTruthy();
+
+        root.querySelector<HTMLButtonElement>('[data-action="toggle-placeholder-menu"]')?.click();
+        root.querySelector<HTMLButtonElement>('[data-action="insert-user-comment"]')?.click();
+        root.querySelector<HTMLButtonElement>('[data-action="save"]')?.click();
+
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                template: expect.arrayContaining([
+                    expect.objectContaining({ type: 'token', key: 'user_comment' }),
+                ]),
+            }),
+        });
+    });
+
     it('lets the settings tab consume Escape for open reader settings popovers and select menus', async () => {
         const modal = {
             confirm: vi.fn(async () => true),
@@ -598,13 +712,22 @@ describe('SettingsTabView', () => {
         document.body.appendChild(root);
         root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
 
-        expect(root.querySelector('.reader-settings-popover--wide')).toBeTruthy();
+        expect(root.querySelector('.panel-window--reader-settings.reader-settings-popover--template')).toBeTruthy();
         expect(root.textContent).toContain('readerCommentTemplatePreviewLabel');
         expect(root.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('2.');
-        root.querySelector<HTMLButtonElement>('[data-action="insert-selected-source"]')?.click();
-        expect(root.querySelector('.reader-settings-popover--wide')).toBeTruthy();
+        const toggleMenu = root.querySelector<HTMLButtonElement>('[data-action="toggle-placeholder-menu"]');
+        expect(toggleMenu).toBeTruthy();
+        toggleMenu?.click();
+        const insertSelected = root.querySelector<HTMLButtonElement>('[data-action="insert-selected-source"]');
+        const insertComment = root.querySelector<HTMLButtonElement>('[data-action="insert-user-comment"]');
+        expect(insertSelected?.textContent).toContain('readerCommentTemplateInsertSelectedSource');
+        expect(insertComment?.textContent).toContain('readerCommentTemplateInsertUserComment');
+        expect(insertSelected?.querySelector('.aimd-icon')).toBeTruthy();
+        expect(insertComment?.querySelector('.aimd-icon')).toBeTruthy();
+        insertSelected?.click();
+        expect(root.querySelector('.panel-window--reader-settings.reader-settings-popover--template')).toBeTruthy();
 
-        root.querySelector<HTMLButtonElement>('.reader-settings-popover--wide [data-action="save"]')?.click();
+        root.querySelector<HTMLButtonElement>('.panel-window--reader-settings.reader-settings-popover--template [data-action="save"]')?.click();
         expect(actions.setReaderSettings).toHaveBeenCalledWith({
             commentExport: expect.objectContaining({
                 template: expect.arrayContaining([

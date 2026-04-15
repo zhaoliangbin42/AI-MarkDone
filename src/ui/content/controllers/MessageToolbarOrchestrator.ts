@@ -250,7 +250,12 @@ export class MessageToolbarOrchestrator {
                     const anchorBtn = ctx?.anchorEl as HTMLElement | undefined;
                     if (!shadow || !anchorBtn) return;
                     const anchorWrap = anchorBtn.closest?.('[data-role="footer-left-actions"]') as HTMLElement | null;
-                    this.sendController?.togglePopover({ adapter: this.adapter, shadow, anchor: anchorWrap || anchorBtn });
+                    this.sendController?.togglePopover({
+                        adapter: this.adapter,
+                        shadow,
+                        anchor: anchorWrap || anchorBtn,
+                        commentInsert: this.readerPanel.getCommentExportContext(),
+                    });
                 },
             });
         }

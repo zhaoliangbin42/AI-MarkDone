@@ -157,6 +157,17 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Grip horizontal icon
+     * Usage: Drag handle for reordering lists
+     * Source: Lucide Icons style (ISC License)
+     */
+    gripHorizontal: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="8" x2="21" y1="6" y2="6"/>
+    <line x1="8" x2="21" y1="12" y2="12"/>
+    <line x1="8" x2="21" y1="18" y2="18"/>
+  </svg>`,
+
+    /**
      * X icon
      * Usage: Close buttons
      */
@@ -510,6 +521,28 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Message square plus icon
+     * Usage: Insert comments into the send draft
+     * Source: Lucide Icons (ISC License)
+     */
+    messageSquarePlus: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <path d="M12 7v6"/>
+    <path d="M9 10h6"/>
+  </svg>`,
+
+    /**
+     * Message square share icon
+     * Usage: Export/copy reader comments
+     * Source: Lucide Icons (ISC License)
+     */
+    messageSquareShare: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h7"/>
+    <path d="M16 3h5v5"/>
+    <path d="m21 3-7 7"/>
+  </svg>`,
+
+    /**
      * Hourglass icon
      * Usage: Waiting/loading state for message sending
      * Source: Lucide Icons (ISC License)
@@ -770,6 +803,8 @@ export const uploadIcon = Icons.upload;
 export const refreshCwIcon = Icons.refreshCw;
 export const wrenchIcon = Icons.wrench;
 export const folderPlusIcon = Icons.folderPlus;
+export const plusIcon = Icons.plus;
+export const gripHorizontalIcon = Icons.gripHorizontal;
 export const folderIcon = Icons.folder;
 export const folderOpenIcon = Icons.folderOpen;
 export const trashIcon = Icons.trash;
@@ -797,6 +832,8 @@ export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
 export const locateIcon = Icons.locate;
 export const messageSquareTextIcon = Icons.messageSquareText;
+export const messageSquarePlusIcon = Icons.messageSquarePlus;
+export const messageSquareShareIcon = Icons.messageSquareShare;
 export const checkIcon = Icons.check;
 
 // Platform

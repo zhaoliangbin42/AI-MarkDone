@@ -80,6 +80,8 @@ describe('ReaderPanel comments', () => {
 
         const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
         const shadow = host.shadowRoot as ShadowRoot;
+        const copyCommentsButton = shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!;
+        expect(copyCommentsButton.querySelector('path[d="M16 3h5v5"]')).toBeTruthy();
         const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
         const paragraph = markdownRoot.querySelector('p')!;
         const firstText = paragraph.firstChild as Text;
@@ -132,9 +134,8 @@ describe('ReaderPanel comments', () => {
         const { writeText } = setClipboardMock();
         const panel = new ReaderPanel();
         panel.setCommentExportSettings({
-            activePromptId: 'research-review',
             prompts: [
-                { id: 'default', title: 'Default', content: 'Please review the following comments:', builtIn: true },
+                { id: 'default', title: 'Default', content: 'Please review the following comments:' },
                 { id: 'research-review', title: 'Research review', content: 'Summarize these comments:' },
             ],
             template: [
@@ -176,6 +177,8 @@ describe('ReaderPanel comments', () => {
 
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
         await Promise.resolve();
+        shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="research-review"]')!.click();
+        await Promise.resolve();
 
         const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export');
         expect(exportRoot).toBeTruthy();
@@ -204,7 +207,6 @@ describe('ReaderPanel comments', () => {
         const { writeText } = setClipboardMock();
         const panel = new ReaderPanel();
         panel.setCommentExportSettings({
-            activePromptId: 'first',
             prompts: [
                 { id: 'first', title: 'First', content: 'First prompt:' },
                 { id: 'second', title: 'Second', content: 'Second prompt:' },
@@ -245,13 +247,14 @@ describe('ReaderPanel comments', () => {
 
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
         await Promise.resolve();
+        shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="first"]')!.click();
+        await Promise.resolve();
 
         const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
         const previewText = exportRoot.querySelector<HTMLElement>('[data-role="preview"]')?.textContent ?? '';
         expect(previewText).toContain('First prompt:');
 
         panel.setCommentExportSettings({
-            activePromptId: 'second',
             prompts: [
                 { id: 'first', title: 'First', content: 'First prompt:' },
                 { id: 'second', title: 'Second', content: 'Second prompt:' },

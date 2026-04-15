@@ -231,8 +231,7 @@ describe('content runtime entry', () => {
                 reader: {
                     renderCodeInReader: false,
                     commentExport: {
-                        activePromptId: 'default',
-                        prompts: [{ id: 'default', title: 'Default', content: 'Please review.', builtIn: true }],
+                        prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                         template: [],
                     },
                 },
@@ -263,8 +262,7 @@ describe('content runtime entry', () => {
                 reader: {
                     renderCodeInReader: true,
                     commentExport: {
-                        activePromptId: 'default',
-                        prompts: [{ id: 'default', title: 'Default', content: 'Please review.', builtIn: true }],
+                        prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                         template: [],
                     },
                 },
@@ -307,8 +305,7 @@ describe('content runtime entry', () => {
                 reader: {
                     renderCodeInReader: true,
                     commentExport: {
-                        activePromptId: 'default',
-                        prompts: [{ id: 'default', title: 'Default', content: 'Please review.', builtIn: true }],
+                        prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                         template: [],
                     },
                 },
@@ -340,8 +337,7 @@ describe('content runtime entry', () => {
             reader: {
                 renderCodeInReader: true,
                 commentExport: {
-                    activePromptId: 'default',
-                    prompts: [{ id: 'default', title: 'Default', content: 'Please review.', builtIn: true }],
+                    prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                     template: [],
                 },
             },
@@ -357,7 +353,6 @@ describe('content runtime entry', () => {
 
     it('applies cached reader comment export settings before the first subscription snapshot', async () => {
         const cachedCommentExport = {
-            activePromptId: 'cached',
             prompts: [{ id: 'cached', title: 'Cached', content: 'Cached prompt.' }],
             template: [{ type: 'text', value: 'Cached template' }],
         };

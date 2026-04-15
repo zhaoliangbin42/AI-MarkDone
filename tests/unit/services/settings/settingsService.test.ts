@@ -33,9 +33,8 @@ describe('settingsService', () => {
         ];
         const next = planSetCategory(DEFAULT_SETTINGS, 'reader', {
             commentExport: {
-                activePromptId: 'prompt-2',
                 prompts: [
-                    { id: 'default', title: 'Default', content: 'Please review the following comments:', builtIn: true },
+                    { id: 'prompt-1', title: 'Prompt A', content: 'Please review the following comments:' },
                     { id: 'prompt-2', title: 'Research review', content: 'Summarize these findings:' },
                 ],
                 template,
@@ -43,8 +42,8 @@ describe('settingsService', () => {
         }).next;
 
         expect(next.reader.renderCodeInReader).toBe(DEFAULT_SETTINGS.reader.renderCodeInReader);
-        expect(next.reader.commentExport.activePromptId).toBe('prompt-2');
         expect(next.reader.commentExport.prompts).toHaveLength(2);
+        expect(next.reader.commentExport.prompts[0]?.id).toBe('prompt-1');
         expect(next.reader.commentExport.template).toEqual(template);
     });
 
@@ -72,8 +71,10 @@ describe('settingsService', () => {
         } as any);
 
         expect(next.reader.renderCodeInReader).toBe(false);
-        expect(next.reader.commentExport.activePromptId).toBeTruthy();
         expect(next.reader.commentExport.prompts.length).toBeGreaterThan(0);
+        expect(next.reader.commentExport.prompts[0]).toEqual(
+            expect.objectContaining({ id: expect.any(String), title: expect.any(String), content: expect.any(String) }),
+        );
         expect(next.reader.commentExport.template.length).toBeGreaterThan(0);
     });
 

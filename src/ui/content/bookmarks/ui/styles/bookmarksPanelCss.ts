@@ -1133,7 +1133,10 @@ ${getPanelChromeCss()}
 }
 
 .reader-settings-trigger {
-  min-width: calc(var(--aimd-size-control-action-panel) * 3);
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
+  min-width: 0;
+  padding: 0;
   justify-self: end;
 }
 
@@ -1153,45 +1156,37 @@ ${getPanelChromeCss()}
   z-index: var(--_bookmarks-inline-menu-z);
 }
 
-.reader-settings-popover {
+.panel-window--reader-settings {
+  position: relative;
+  inset: auto;
+  transform: none;
   pointer-events: auto;
-  width: 90%;
+  width: min(920px, calc(100% - var(--aimd-space-6)));
   max-width: 90%;
   max-height: 90%;
-  overflow: auto;
+}
+
+.dialog-body--reader-settings {
   display: grid;
   gap: var(--aimd-space-4);
-  padding: var(--aimd-space-4);
-  border-radius: var(--aimd-radius-2xl);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
-  box-shadow: var(--aimd-shadow-lg);
+  min-height: 0;
+  overflow: auto;
+  padding: calc(var(--aimd-space-5) + var(--aimd-space-1));
 }
 
-.reader-settings-popover--wide {
-  width: 90%;
-  max-width: 90%;
+.panel-footer--reader-settings {
+  justify-content: flex-end;
 }
 
-.reader-settings-popover__head,
-.reader-settings-popover__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--aimd-space-3);
-}
-
-.reader-settings-popover__title {
+.reader-settings-dialog__title {
   display: inline-flex;
   align-items: center;
   gap: var(--aimd-space-2);
-  margin: 0;
-  color: var(--aimd-text-primary);
-  font-size: var(--aimd-text-sm);
-  font-weight: var(--aimd-font-medium);
 }
 
-.reader-settings-popover__title .aimd-icon {
+.reader-settings-dialog__title-icon {
+  display: inline-flex;
+  align-items: center;
   color: var(--aimd-interactive-primary);
 }
 
@@ -1212,14 +1207,12 @@ ${getPanelChromeCss()}
   flex-direction: column;
   gap: var(--aimd-space-2);
   min-height: 220px;
-  max-height: min(420px, calc(100vh - (var(--aimd-space-6) * 2)));
-  overflow: auto;
 }
 
 .reader-prompt-settings__row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--aimd-space-2);
   min-height: var(--aimd-size-control-action-panel);
@@ -1230,14 +1223,16 @@ ${getPanelChromeCss()}
   transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 
-.reader-prompt-settings__row[data-active="1"] {
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 16%, transparent);
-}
-
 .reader-prompt-settings__row:hover,
 .reader-prompt-settings__row:focus-within {
   background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 20%, transparent);
+}
+
+.reader-prompt-settings__row[data-dragging="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 10%, var(--aimd-bg-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 28%, transparent);
+  z-index: 1;
 }
 
 .reader-prompt-settings__row-main {
@@ -1269,16 +1264,19 @@ ${getPanelChromeCss()}
   gap: var(--aimd-space-1);
 }
 
-.reader-prompt-settings__active {
-  display: inline-flex;
-  align-items: center;
-  min-height: calc(var(--aimd-size-control-action-panel) - var(--aimd-space-2));
-  padding: 0 var(--aimd-space-3);
-  border-radius: var(--aimd-radius-full);
-  background: color-mix(in srgb, var(--aimd-interactive-primary) 12%, var(--aimd-bg-surface));
-  color: var(--aimd-interactive-primary);
-  font-size: var(--aimd-text-sm);
-  font-weight: var(--aimd-font-medium);
+.reader-prompt-settings__drag {
+  cursor: grab;
+  touch-action: none;
+  color: var(--aimd-text-secondary);
+}
+
+.reader-prompt-settings__drag:hover {
+  color: var(--aimd-text-primary);
+}
+
+.reader-prompt-settings__drag:active,
+.reader-prompt-settings__row[data-dragging="1"] .reader-prompt-settings__drag {
+  cursor: grabbing;
 }
 
 .reader-prompt-settings__footer {
@@ -1323,6 +1321,52 @@ ${getPanelChromeCss()}
   gap: var(--aimd-space-2);
 }
 
+.reader-settings-template__menu-shell {
+  position: relative;
+  display: inline-flex;
+}
+
+.reader-settings-template__menu {
+  position: absolute;
+  top: calc(100% + var(--aimd-space-2));
+  left: 0;
+  z-index: var(--_bookmarks-inline-menu-z);
+  min-width: 220px;
+  display: none;
+  flex-direction: column;
+  gap: var(--aimd-space-1);
+  padding: var(--aimd-space-2);
+  border-radius: var(--_bookmarks-menu-radius);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 84%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
+  box-shadow: var(--aimd-shadow-lg);
+}
+
+.reader-settings-template__menu[data-open="1"] {
+  display: flex;
+}
+
+.reader-settings-template__menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  min-height: var(--aimd-size-control-action-panel);
+  padding: 0 var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  color: var(--aimd-text-primary);
+  cursor: pointer;
+}
+
+.reader-settings-template__menu-item:hover {
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+}
+
+.reader-settings-template__menu-item .aimd-icon {
+  color: var(--aimd-text-secondary);
+}
+
 .reader-settings-template__editor {
   min-height: 220px;
   white-space: pre-wrap;
@@ -1354,8 +1398,6 @@ ${getPanelChromeCss()}
 .reader-settings-template__preview {
   margin: 0;
   min-height: 180px;
-  max-height: 320px;
-  overflow: auto;
   font-family: var(--aimd-font-family-mono);
   font-size: var(--aimd-text-sm);
   line-height: 1.6;
@@ -1468,6 +1510,20 @@ ${getPanelChromeCss()}
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
+}
+
+.secondary-btn--primary {
+  background: var(--aimd-interactive-primary);
+  border-color: transparent;
+  color: var(--aimd-text-on-primary);
+}
+
+.secondary-btn--primary:hover {
+  background: var(--aimd-interactive-primary-hover);
+}
+
+.secondary-btn--primary:active {
+  background: var(--aimd-interactive-primary-hover);
 }
 
 .support-content,

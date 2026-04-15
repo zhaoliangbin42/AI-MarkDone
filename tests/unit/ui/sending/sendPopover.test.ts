@@ -212,6 +212,122 @@ describe('SendPopover', () => {
         composer.remove();
     });
 
+    it('inserts compiled reader comments into the local textarea at the current caret after choosing a prompt', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            adapter,
+            theme: 'light',
+            initialText: 'Hello \nworld',
+            commentInsert: {
+                prompts: [
+                    { id: 'strict', title: 'Strict', content: 'Review these comments:' },
+                ],
+                template: [
+                    { type: 'text', value: 'Regarding\n' },
+                    { type: 'token', key: 'selected_source' },
+                    { type: 'text', value: '\nMy comment is:\n' },
+                    { type: 'token', key: 'user_comment' },
+                ],
+                comments: [
+                    {
+                        id: 'c1',
+                        itemId: 'item-1',
+                        quoteText: 'alpha',
+                        sourceMarkdown: '`alpha()`',
+                        comment: 'Tighten wording.',
+                        selectors: {
+                            textQuote: { exact: '', prefix: '', suffix: '' },
+                            textPosition: { start: 0, end: 0 },
+                            domRange: null,
+                            atomicRefs: [],
+                        },
+                        createdAt: 1,
+                        updatedAt: 1,
+                    },
+                ],
+            },
+        });
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        textarea.focus();
+        textarea.setSelectionRange(7, 7);
+
+        footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')!.click();
+        await Promise.resolve();
+        footerLeft.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
+        await Promise.resolve();
+
+        expect(textarea.value).toBe(
+            [
+                'Hello ',
+                'Review these comments:',
+                '',
+                '1. Regarding',
+                '   `alpha()`',
+                '   My comment is:',
+                '   Tighten wording.',
+                'world',
+            ].join('\n'),
+        );
+        expect(textarea.selectionStart).toBe(textarea.selectionEnd);
+        expect(textarea.selectionStart).toBe(textarea.value.indexOf('world'));
+    });
+
+    it('keeps the insert comments action visible but disabled when no reader comments are available', () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            adapter,
+            theme: 'light',
+            initialText: '',
+            commentInsert: {
+                prompts: [{ id: 'strict', title: 'Strict', content: 'Review these comments:' }],
+                template: [{ type: 'token', key: 'selected_source' }],
+                comments: [],
+            },
+        });
+
+        const button = footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]');
+        expect(button).toBeTruthy();
+        expect(button?.disabled).toBe(true);
+        expect(button?.querySelector('path[d="M12 7v6"]')).toBeTruthy();
+    });
+
     it('does not rewrite the official composer during open when reading an initial draft', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });

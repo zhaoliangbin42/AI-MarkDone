@@ -178,9 +178,16 @@ ${getPanelMotionCss()}
   align-items: center;
   justify-content: center;
   gap: var(--aimd-space-2);
-  font-size: var(--aimd-text-sm);
+  font-size: var(--aimd-button-label-size);
   line-height: 1;
   font-weight: var(--aimd-font-medium);
+}
+
+.panel-secondary-btn--compact,
+.secondary-btn--compact {
+  min-height: var(--aimd-size-control-compact);
+  padding: 0 var(--aimd-space-2);
+  font-size: var(--aimd-button-label-size-compact);
 }
 
 .panel-secondary-btn:hover,

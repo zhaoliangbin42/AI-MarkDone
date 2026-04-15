@@ -8,6 +8,7 @@ import {
 import type { BookmarksStorageUsageResponse } from '../../../../../contracts/protocol';
 import type { ModalHost } from '../../../components/ModalHost';
 import { setLocale, t } from '../../../components/i18n';
+import { createIcon } from '../../../components/Icon';
 import { Icons } from '../../../../../assets/icons';
 import { buildCommentsExport, normalizeCommentTemplate } from '../../../../../services/reader/commentExport';
 import {
@@ -534,9 +535,12 @@ export class SettingsTabView {
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'secondary-btn reader-settings-trigger';
+        button.className = 'icon-btn reader-settings-trigger';
         button.dataset.role = role;
-        button.textContent = t('btnConfigure');
+        const configureLabel = t('btnConfigure');
+        button.setAttribute('aria-label', configureLabel);
+        button.setAttribute('title', configureLabel);
+        button.appendChild(createIcon(Icons.settings));
 
         item.append(info, button);
         parent.appendChild(item);
@@ -590,7 +594,6 @@ export class SettingsTabView {
         this.settings.reader = {
             ...this.settings.reader,
             commentExport: {
-                activePromptId: next.activePromptId,
                 prompts: next.prompts.map((prompt) => ({ ...prompt })),
                 template: next.template.map((segment) => ({ ...segment })),
             },
@@ -604,9 +607,9 @@ export class SettingsTabView {
     }
 
     private formatPromptSummary(commentExport: ReaderCommentExportSettings): string {
-        const active = commentExport.prompts.find((prompt) => prompt.id === commentExport.activePromptId) ?? commentExport.prompts[0];
-        if (!active) return t('readerCommentPromptListDesc');
-        return `${active.title} · ${commentExport.prompts.length}`;
+        const first = commentExport.prompts[0];
+        if (!first) return t('readerCommentPromptListDesc');
+        return `${first.title} · ${commentExport.prompts.length}`;
     }
 
     private formatTemplateSummary(template: CommentTemplateSegment[]): string {
@@ -652,8 +655,8 @@ export class SettingsTabView {
                     updatedAt: 2,
                 },
             ],
-            {
-                userPrompt: this.getReaderCommentExport().prompts.find((prompt) => prompt.id === this.getReaderCommentExport().activePromptId)?.content ?? '',
+                {
+                userPrompt: this.getReaderCommentExport().prompts[0]?.content ?? '',
                 commentTemplate: template,
             },
         );
@@ -670,8 +673,6 @@ export class SettingsTabView {
                 addPrompt: t('readerCommentPromptAdd'),
                 editPrompt: t('readerCommentPromptEdit'),
                 untitledPrompt: t('readerCommentPromptUntitled'),
-                active: t('readerCommentPromptActive'),
-                select: t('readerCommentPromptSelect'),
                 back: t('btnBack'),
                 titleLabel: t('readerCommentPromptTitleLabel'),
                 contentLabel: t('readerCommentPromptContentLabel'),
@@ -707,6 +708,7 @@ export class SettingsTabView {
                 template: t('readerCommentTemplate'),
                 templateHint: t('readerCommentTemplateHint'),
                 templatePlaceholder: t('readerCommentTemplatePlaceholder'),
+                insertPlaceholder: t('readerCommentTemplateInsertPlaceholder'),
                 insertSelectedSource: t('readerCommentTemplateInsertSelectedSource'),
                 insertUserComment: t('readerCommentTemplateInsertUserComment'),
                 tokenSelectedSource: t('readerCommentTemplateTokenSelectedSource'),
