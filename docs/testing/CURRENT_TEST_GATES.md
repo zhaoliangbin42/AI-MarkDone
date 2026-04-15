@@ -79,6 +79,14 @@ For testable bugs:
 - rerun the targeted test
 - finish with `npm run build`
 
+For overlay, modal, popover, panel, or shared-primitive regressions, targeted verification must include at least one real trigger-path test in addition to direct surface tests.
+
+Examples:
+
+- `header icon -> bookmarks panel toggle -> panel open`
+- `toolbar action -> reader popover open`
+- `settings trigger -> modal/dialog open`
+
 If the bug affects shared behavior or a critical path, also run `npm run test:smoke` or `npm run test:core` as appropriate.
 
 ---

@@ -32,4 +32,30 @@ describe('HeaderIconOrchestrator', () => {
 
         orchestrator.dispose();
     });
+
+    it('invokes the toggle handler when the injected header icon is clicked', () => {
+        const onToggle = vi.fn();
+        const injectHeaderIcon = vi.fn((host: HTMLElement) => {
+            document.body.appendChild(host);
+            return true;
+        });
+
+        const orchestrator = new HeaderIconOrchestrator(
+            {
+                injectHeaderIcon,
+            } as any,
+            { onToggle }
+        );
+
+        orchestrator.init();
+
+        const button = document.querySelector<HTMLElement>('#aimd-header-icon-btn');
+        expect(button).toBeTruthy();
+
+        button?.click();
+
+        expect(onToggle).toHaveBeenCalledTimes(1);
+
+        orchestrator.dispose();
+    });
 });

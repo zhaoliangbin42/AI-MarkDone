@@ -32,6 +32,7 @@ import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDial
 import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
 import { setLocale } from '@/ui/content/components/i18n';
 import { settingsClientRpc } from '@/drivers/shared/clients/settingsClientRpc';
+import { browser } from '@/drivers/shared/browser';
 
 function readLocaleJson(locale: 'en' | 'zh_CN'): any {
     const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
@@ -306,6 +307,102 @@ describe('BookmarksPanel', () => {
         expect(refreshedSponsorTab?.textContent).not.toContain('Donate');
 
         panel.hide();
+    });
+
+    it('still renders the bookmarks shell when initial async refresh work fails', async () => {
+        await setLocale('en');
+        const controller = {
+            subscribe: vi.fn(() => () => {}),
+            refreshAll: vi.fn(async () => {
+                throw new Error('refresh failed');
+            }),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+
+        await expect(panel.show()).resolves.toBeUndefined();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host');
+        const shadow = host?.shadowRoot;
+        const panelWindow = shadow?.querySelector<HTMLElement>('.panel-window.panel-window--bookmarks');
+
+        expect(host).toBeTruthy();
+        expect(panelWindow).toBeTruthy();
+        expect(panelWindow?.querySelector('.bookmarks-shell')).toBeTruthy();
+    });
+
+    it('still renders the bookmarks shell when a tab view constructor dependency throws during setup', async () => {
+        await setLocale('en');
+        const getUrlSpy = vi.spyOn(browser.runtime, 'getURL').mockImplementation(() => {
+            throw new Error('asset lookup failed');
+        });
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Ready',
+            storageUsage: null,
+        };
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+
+        await expect(panel.show()).resolves.toBeUndefined();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host');
+        const shadow = host?.shadowRoot;
+        const panelWindow = shadow?.querySelector<HTMLElement>('.panel-window.panel-window--bookmarks');
+
+        expect(host).toBeTruthy();
+        expect(panelWindow).toBeTruthy();
+        expect(panelWindow?.querySelector('.bookmarks-shell')).toBeTruthy();
+
+        getUrlSpy.mockRestore();
     });
 
     it('updates visible copy immediately when the locale changes', async () => {

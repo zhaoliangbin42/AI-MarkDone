@@ -193,6 +193,19 @@ describe('content runtime entry', () => {
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeUndefined();
     });
 
+    it('wires the header icon toggle directly to the bookmarks panel toggle path', async () => {
+        adapterPlatformId = 'gemini';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const headerOpts = headerIconCtor.mock.calls[0]?.[1];
+        expect(headerOpts?.onToggle).toBeTypeOf('function');
+
+        await headerOpts.onToggle();
+
+        expect(bookmarksToggle).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps ChatGPT folding ChatGPT-only', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();

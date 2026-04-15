@@ -45,6 +45,8 @@ This repository uses a Codex-first engineering guide for day-to-day development.
   - Do not repeat the same mistake silently.
 - For bug fixes, reproduce the bug with a failing test before changing implementation whenever the bug is testable in this repository.
   - If it is not realistically testable, state why and add the closest practical regression check.
+  - For overlay, modal, popover, panel, or shared-primitive regressions, do not stop at direct surface tests.
+    Also add or update at least one test that enters through the real user-facing trigger path.
 - Before writing code for a materially ambiguous request, ask clarifying questions instead of guessing.
 - After any code change, explicitly list important edge cases and suggest the tests that should cover them.
 - Do not claim success from reasoning alone.

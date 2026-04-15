@@ -81,6 +81,14 @@ function mergeSettings(input: unknown): AppSettings {
     return loadAndNormalize(input);
 }
 
+function createFallbackTabView(className: string): BookmarksPanelTabView {
+    const root = document.createElement('div');
+    root.className = className;
+    return {
+        getElement: () => root,
+    };
+}
+
 export class BookmarksPanel {
     private readonly controller: BookmarksPanelController;
     private readonly readerPanel: ReaderPanel;
@@ -196,13 +204,22 @@ export class BookmarksPanel {
             }
         });
 
-        await Promise.all([
+        this.render();
+        const initResults = await Promise.allSettled([
             this.controller.refreshAll(),
             this.controller.refreshPositionsForUrl(window.location.href.split('#')[0] || window.location.href),
             this.controller.refreshUiState(),
             this.loadSettings(),
         ]);
-
+        const initErrors = initResults.filter(
+            (result): result is PromiseRejectedResult => result.status === 'rejected',
+        );
+        if (initErrors.length > 0) {
+            logger.warn('[AI-MarkDone][BookmarksPanel] Initial panel refresh failed; keeping the shell open.', {
+                failures: initErrors.map((result) => String(result.reason)),
+            });
+        }
+        if (!this.visible || this.closing) return;
         this.render();
     }
 
@@ -422,25 +439,54 @@ export class BookmarksPanel {
         if (!this.modalHost) return;
         if (this.bookmarksView && this.settingsView && this.sponsorView) return;
 
-        this.bookmarksView = new BookmarksTabView({
-            controller: this.controller,
-            actions: createBookmarksTabActions({
-                readerPanel: this.readerPanel,
-                modal: this.modalHost,
-                onRequestHidePanel: () => this.hide(),
-                getSaveContextOnly: () => Boolean(this.uiState.settings.behavior.saveContextOnly),
-            }),
-        });
-        this.settingsView = new SettingsTabView({
-            modal: this.modalHost,
-            actions: this.createSettingsActions(),
-        });
-        this.sponsorView = new SponsorTabView({
-            actions: {
-                githubUrl: 'https://github.com/zhaoliangbin42/AI-MarkDone',
-                getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
-            },
-        });
+        if (!this.bookmarksView) {
+            try {
+                this.bookmarksView = new BookmarksTabView({
+                    controller: this.controller,
+                    actions: createBookmarksTabActions({
+                        readerPanel: this.readerPanel,
+                        modal: this.modalHost,
+                        onRequestHidePanel: () => this.hide(),
+                        getSaveContextOnly: () => Boolean(this.uiState.settings.behavior.saveContextOnly),
+                    }),
+                });
+            } catch (error) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create bookmarks tab view; keeping the shell open.', {
+                    error: String(error),
+                });
+                this.bookmarksView = createFallbackTabView('bookmarks-tab-content');
+            }
+        }
+
+        if (!this.settingsView) {
+            try {
+                this.settingsView = new SettingsTabView({
+                    modal: this.modalHost,
+                    actions: this.createSettingsActions(),
+                });
+            } catch (error) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create settings tab view; keeping the shell open.', {
+                    error: String(error),
+                });
+                this.settingsView = createFallbackTabView('aimd-settings');
+            }
+        }
+
+        if (!this.sponsorView) {
+            try {
+                this.sponsorView = new SponsorTabView({
+                    actions: {
+                        githubUrl: 'https://github.com/zhaoliangbin42/AI-MarkDone',
+                        getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                    },
+                });
+            } catch (error) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create sponsor tab view; keeping the shell open.', {
+                    error: String(error),
+                });
+                this.sponsorView = createFallbackTabView('aimd-sponsor');
+            }
+        }
     }
 
     private syncTabViews(): void {
