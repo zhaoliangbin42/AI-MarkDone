@@ -725,6 +725,132 @@
     "supportDevDesc": {
         "message": "AI-MarkDone 是开源项目。在 GitHub 点个星星支持下。"
     },
+    "bookmarksChangelogEyebrow": {
+        "message": "这次更新"
+    },
+    "bookmarksChangelogTitle": {
+        "message": "把真正重要的变化讲清楚"
+    },
+    "bookmarksChangelogIntro": {
+        "message": "这里展示的是更面向用户的版本变化，只保留那些你真正能感知到的改进。"
+    },
+    "bookmarksChangelogSectionTitle": {
+        "message": "版本亮点"
+    },
+    "bookmarksChangelogSectionIntro": {
+        "message": "展开某个版本，就能快速看到它最值得关注的变化。"
+    },
+    "bookmarksChangelogDateUnreleased": {
+        "message": "开发中"
+    },
+    "bookmarksChangelogUnreleasedItem1": {
+        "message": "阅读器评论现在支持可复用的导出提示词，以及更清晰的复制工作流。"
+    },
+    "bookmarksChangelogUnreleasedItem2": {
+        "message": "Send popover 已经可以把评论整理后的内容直接插入到本地草稿里。"
+    },
+    "bookmarksChangelogUnreleasedItem3": {
+        "message": "阅读器设置里的提示词库和评论模板编辑体验都变得更顺手。"
+    },
+    "bookmarksChangelog400Item1": {
+        "message": "书签、阅读器、源码面板和多个弹窗被收拢到更统一的面板外壳里。"
+    },
+    "bookmarksChangelog400Item2": {
+        "message": "阅读器评论和基于源码的复制行为正式成为阅读流程的一部分。"
+    },
+    "bookmarksChangelog400Item3": {
+        "message": "扩展整体 UI 更接近一套统一的 token 化视觉语言。"
+    },
+    "bookmarksChangelog300Item1": {
+        "message": "ChatGPT 对话折叠正式加入，支持折叠条和轻量快捷控制。"
+    },
+    "bookmarksChangelog300Item2": {
+        "message": "阅读器和字数统计在长回答、混合内容场景下变得更稳定。"
+    },
+    "bookmarksChangelog300Item3": {
+        "message": "ChatGPT 专属设置能力更完整，而且不需要离开当前页面。"
+    },
+    "bookmarksAboutEyebrow": {
+        "message": "关于作者"
+    },
+    "bookmarksAboutTitle": {
+        "message": "我为什么会做 AI-MarkDone"
+    },
+    "bookmarksAboutIntro": {
+        "message": "AI-MarkDone 最早是我给自己做的阅读工具：希望长对话更容易阅读、保存和回看，而不是被宿主页面不断打断。"
+    },
+    "bookmarksAboutStoryTitle": {
+        "message": "这个项目到底想解决什么"
+    },
+    "bookmarksAboutStoryIntro": {
+        "message": "我并不想在聊天页面上再叠一个新应用，而是想把那些真正缺失的阅读和归档能力，尽量温和地补进去。"
+    },
+    "bookmarksAboutStoryParagraph1": {
+        "message": "我希望它既尊重原页面，又尽可能保留 markdown 和源码的完整性，同时在长时间阅读时保持安静、克制。"
+    },
+    "bookmarksAboutStoryParagraph2": {
+        "message": "所以 AI-MarkDone 的很多功能都在努力贴近宿主产品，减少打扰，并让值得留下来的内容更容易被再次使用。"
+    },
+    "bookmarksAboutPrinciplesTitle": {
+        "message": "我会反复坚持的几个原则"
+    },
+    "bookmarksAboutPrinciplesIntro": {
+        "message": "这些原则会决定什么应该被加入，也会决定什么故意不做。"
+    },
+    "bookmarksAboutPrinciple1": {
+        "message": "阅读工具应该贴近原生，而不是像第二个应用强行盖在网页上。"
+    },
+    "bookmarksAboutPrinciple2": {
+        "message": "保存下来的内容应该尽量保留结构和源码，而不只是把可见 UI 截下来。"
+    },
+    "bookmarksAboutPrinciple3": {
+        "message": "高级能力可以有，但也应该让只想安静阅读的人一眼就能理解。"
+    },
+    "bookmarksFaqEyebrow": {
+        "message": "快速答疑"
+    },
+    "bookmarksFaqTitle": {
+        "message": "关于 AI-MarkDone 的一些常见问题"
+    },
+    "bookmarksFaqIntro": {
+        "message": "这里主要回答使用时最容易产生疑问的那几件事。"
+    },
+    "bookmarksFaqSectionTitle": {
+        "message": "常见问题"
+    },
+    "bookmarksFaqSectionIntro": {
+        "message": "这些回答更偏实际使用感受，而不是内部实现细节。"
+    },
+    "bookmarksFaqQuestion1": {
+        "message": "AI-MarkDone 最适合用来做什么？"
+    },
+    "bookmarksFaqAnswer1": {
+        "message": "最适合那种对话已经变长，原始聊天界面开始不方便阅读、回看、归档或再利用内容的场景。"
+    },
+    "bookmarksFaqQuestion2": {
+        "message": "为什么还要用 Reader，而不是直接看原页面？"
+    },
+    "bookmarksFaqAnswer2": {
+        "message": "Reader 会提供更安静的阅读表面、基于源码的复制体验，以及更专注的导航能力，同时不改变原始对话数据。"
+    },
+    "bookmarksFaqQuestion3": {
+        "message": "书签保存的一定是完整内容吗？"
+    },
+    "bookmarksFaqAnswer3": {
+        "message": "不一定，这取决于你的存储偏好。你可以保存更完整的内容，也可以只保留更轻量的上下文片段。"
+    },
+    "bookmarksFaqQuestion4": {
+        "message": "评论和提示词会自动同步到别处吗？"
+    },
+    "bookmarksFaqAnswer4": {
+        "message": "阅读器评论目前只存在于页面生命周期内，而可复用的提示词和模板配置会作为扩展设置保存。"
+    },
+    "bookmarksFaqQuestion5": {
+        "message": "为什么不同平台上的按钮位置有时不完全一样？"
+    },
+    "bookmarksFaqAnswer5": {
+        "message": "AI-MarkDone 会尽量贴近每个平台原有的界面结构，因此不同平台的入口位置可能不同，但核心行为会保持一致。"
+    },
     "starOnGitHub": {
         "message": "在 GitHub 点个星星"
     },
@@ -799,6 +925,15 @@
     },
     "tabSettings": {
         "message": "设置"
+    },
+    "tabChangelog": {
+        "message": "更新日志"
+    },
+    "tabAbout": {
+        "message": "关于我"
+    },
+    "tabFaq": {
+        "message": "常见问题"
     },
     "tabSponsor": {
         "message": "赞助"

@@ -5,19 +5,219 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>AI-MarkDone</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 12px; }
-      h1 { font-size: 14px; margin: 0 0 8px; }
-      p { font-size: 12px; margin: 0 0 10px; color: #555; }
-      a { display: block; font-size: 12px; margin: 6px 0; }
+      :root {
+        --aimd-bg-primary: #f6f8fc;
+        --aimd-bg-surface: rgba(255, 255, 255, 0.94);
+        --aimd-bg-secondary: #edf2fb;
+        --aimd-text-primary: #162033;
+        --aimd-text-secondary: #56627a;
+        --aimd-border-default: rgba(108, 130, 166, 0.18);
+        --aimd-border-strong: rgba(74, 97, 140, 0.26);
+        --aimd-interactive-primary: #3b82f6;
+        --aimd-interactive-primary-hover: #2563eb;
+        --aimd-text-on-primary: #ffffff;
+        --aimd-shadow-lg: 0 22px 48px rgba(19, 35, 68, 0.14);
+        --aimd-radius-xl: 18px;
+        --aimd-radius-lg: 14px;
+        --aimd-radius-full: 999px;
+        --aimd-space-1: 4px;
+        --aimd-space-2: 8px;
+        --aimd-space-3: 12px;
+        --aimd-space-4: 16px;
+        --aimd-space-5: 20px;
+        --aimd-space-6: 24px;
+        --aimd-text-xs: 12px;
+        --aimd-text-sm: 13px;
+        --aimd-text-base: 15px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 38%),
+          var(--aimd-bg-primary);
+        color: var(--aimd-text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      body {
+        padding: var(--aimd-space-4);
+      }
+
+      .popup-shell {
+        display: grid;
+        gap: var(--aimd-space-5);
+        padding: var(--aimd-space-5);
+        border-radius: calc(var(--aimd-radius-xl) + 4px);
+        border: 1px solid var(--aimd-border-default);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 255, 255, 0.9)),
+          var(--aimd-bg-surface);
+        box-shadow: var(--aimd-shadow-lg);
+      }
+
+      .popup-header {
+        display: grid;
+        gap: var(--aimd-space-3);
+      }
+
+      .popup-brand {
+        display: flex;
+        align-items: center;
+        gap: var(--aimd-space-3);
+      }
+
+      .popup-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid var(--aimd-border-default);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .popup-title {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+        font-weight: 600;
+      }
+
+      .popup-note {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        min-height: 28px;
+        padding: 0 var(--aimd-space-3);
+        border-radius: var(--aimd-radius-full);
+        background: rgba(59, 130, 246, 0.08);
+        color: var(--aimd-interactive-primary);
+        font-size: var(--aimd-text-xs);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .popup-links {
+        display: grid;
+        gap: var(--aimd-space-2);
+      }
+
+      .popup-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--aimd-space-3);
+        min-height: 44px;
+        padding: 0 var(--aimd-space-4);
+        border-radius: var(--aimd-radius-lg);
+        border: 1px solid var(--aimd-border-default);
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--aimd-text-primary);
+        font-size: var(--aimd-text-sm);
+        font-weight: 500;
+        text-decoration: none;
+        transition:
+          border-color 140ms ease,
+          background 140ms ease,
+          transform 140ms ease;
+      }
+
+      .popup-link:hover {
+        border-color: var(--aimd-border-strong);
+        background: rgba(255, 255, 255, 0.94);
+        transform: translateY(-1px);
+      }
+
+      .popup-link__meta {
+        display: grid;
+        gap: 2px;
+      }
+
+      .popup-link__label {
+        font-size: var(--aimd-text-sm);
+        font-weight: 600;
+      }
+
+      .popup-link__hint {
+        color: var(--aimd-text-secondary);
+        font-size: var(--aimd-text-xs);
+        font-weight: 400;
+      }
+
+      .popup-link__arrow {
+        color: var(--aimd-text-secondary);
+        font-size: 16px;
+      }
+
+      .popup-footer {
+        display: grid;
+        gap: var(--aimd-space-3);
+        padding-top: var(--aimd-space-4);
+        border-top: 1px solid var(--aimd-border-default);
+      }
+
+      .popup-footer__text {
+        margin: 0;
+        color: var(--aimd-text-secondary);
+        font-size: var(--aimd-text-xs);
+        line-height: 1.6;
+      }
+
     </style>
   </head>
   <body>
-    <h1>AI-MarkDone</h1>
-    <p>Open a supported site to enable the action button.</p>
-    <a href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPT</a>
-    <a href="https://chat.openai.com/" target="_blank" rel="noreferrer">ChatGPT Classic</a>
-    <a href="https://gemini.google.com/" target="_blank" rel="noreferrer">Gemini</a>
-    <a href="https://claude.ai/" target="_blank" rel="noreferrer">Claude</a>
-    <a href="https://chat.deepseek.com/" target="_blank" rel="noreferrer">Deepseek</a>
+    <main class="popup-shell">
+      <section class="popup-header">
+        <div class="popup-note">Unsupported page</div>
+        <div class="popup-brand">
+          <img class="popup-logo" src="/icons/icon48.png" alt="AI-MarkDone logo" />
+          <div class="popup-brand__copy">
+            <h1 class="popup-title">AI-MarkDone</h1>
+          </div>
+        </div>
+      </section>
+
+      <section class="popup-links">
+        <a class="popup-link" href="https://chatgpt.com/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">ChatGPT</span>
+            <span class="popup-link__hint">Primary supported site</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="popup-link" href="https://gemini.google.com/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">Gemini</span>
+            <span class="popup-link__hint">Google AI conversations</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="popup-link" href="https://claude.ai/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">Claude</span>
+            <span class="popup-link__hint">Anthropic chat workspace</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="popup-link" href="https://chat.deepseek.com/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">DeepSeek</span>
+            <span class="popup-link__hint">DeepSeek chat surface</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      <footer class="popup-footer">
+        <p class="popup-footer__text">
+          The toolbar icon becomes active when the current tab matches one of the supported hosts above.
+        </p>
+      </footer>
+    </main>
   </body>
 </html>

@@ -725,6 +725,132 @@
     "supportDevDesc": {
         "message": "AI-MarkDone is open source. Star us on GitHub."
     },
+    "bookmarksChangelogEyebrow": {
+        "message": "What changed"
+    },
+    "bookmarksChangelogTitle": {
+        "message": "Recent updates, presented for humans"
+    },
+    "bookmarksChangelogIntro": {
+        "message": "A compact view of the releases that meaningfully changed how AI-MarkDone feels to use."
+    },
+    "bookmarksChangelogSectionTitle": {
+        "message": "Version highlights"
+    },
+    "bookmarksChangelogSectionIntro": {
+        "message": "Open a version to see the most important user-facing improvements."
+    },
+    "bookmarksChangelogDateUnreleased": {
+        "message": "In progress"
+    },
+    "bookmarksChangelogUnreleasedItem1": {
+        "message": "Reader comments now support reusable export prompts and a clearer copy workflow."
+    },
+    "bookmarksChangelogUnreleasedItem2": {
+        "message": "Send popovers can insert comment-based prompts directly into the local draft."
+    },
+    "bookmarksChangelogUnreleasedItem3": {
+        "message": "Reader settings became easier to manage with prompt libraries and a dedicated template editor."
+    },
+    "bookmarksChangelog400Item1": {
+        "message": "Bookmarks, Reader, source panels, and dialogs were rebuilt around a more consistent shared shell."
+    },
+    "bookmarksChangelog400Item2": {
+        "message": "Reader comments and source-aware copy behaviors became first-class parts of the reading workflow."
+    },
+    "bookmarksChangelog400Item3": {
+        "message": "The extension UI moved closer to one tokenized visual language across panels and tooltips."
+    },
+    "bookmarksChangelog300Item1": {
+        "message": "Conversation folding arrived for ChatGPT with fold bars and a lightweight quick dock."
+    },
+    "bookmarksChangelog300Item2": {
+        "message": "Reader and word-count experiences became more stable across long, mixed-content answers."
+    },
+    "bookmarksChangelog300Item3": {
+        "message": "The ChatGPT-specific settings surface became more configurable without leaving the page."
+    },
+    "bookmarksAboutEyebrow": {
+        "message": "About the maker"
+    },
+    "bookmarksAboutTitle": {
+        "message": "Why I built AI-MarkDone"
+    },
+    "bookmarksAboutIntro": {
+        "message": "AI-MarkDone started as a personal attempt to make long AI conversations easier to read, save, and revisit without fighting the host UI."
+    },
+    "bookmarksAboutStoryTitle": {
+        "message": "What this project is trying to do"
+    },
+    "bookmarksAboutStoryIntro": {
+        "message": "The goal is not to overwhelm chat pages with a new app, but to gently add the missing reading and archiving tools."
+    },
+    "bookmarksAboutStoryParagraph1": {
+        "message": "I wanted a tool that respects the original page, keeps markdown and source fidelity intact, and still feels calm enough for long reading sessions."
+    },
+    "bookmarksAboutStoryParagraph2": {
+        "message": "That is why most features in AI-MarkDone try to stay close to the host interface, reduce friction, and make knowledge worth coming back to."
+    },
+    "bookmarksAboutPrinciplesTitle": {
+        "message": "Principles I keep coming back to"
+    },
+    "bookmarksAboutPrinciplesIntro": {
+        "message": "These ideas shape what gets built and what intentionally stays out."
+    },
+    "bookmarksAboutPrinciple1": {
+        "message": "Reading tools should feel native, not like a second application layered on top."
+    },
+    "bookmarksAboutPrinciple2": {
+        "message": "Saved material should preserve structure and source, not just screenshots of the visible UI."
+    },
+    "bookmarksAboutPrinciple3": {
+        "message": "Power features are welcome, but they should still be discoverable for people who just want calm, focused reading."
+    },
+    "bookmarksFaqEyebrow": {
+        "message": "Quick answers"
+    },
+    "bookmarksFaqTitle": {
+        "message": "Common questions about how AI-MarkDone works"
+    },
+    "bookmarksFaqIntro": {
+        "message": "A small help layer for the parts that are easiest to misunderstand at first glance."
+    },
+    "bookmarksFaqSectionTitle": {
+        "message": "Frequently asked questions"
+    },
+    "bookmarksFaqSectionIntro": {
+        "message": "These answers focus on practical usage rather than internal implementation details."
+    },
+    "bookmarksFaqQuestion1": {
+        "message": "What is AI-MarkDone best for?"
+    },
+    "bookmarksFaqAnswer1": {
+        "message": "It works best when a conversation becomes long enough that reading, revisiting, or reusing parts of it starts to feel awkward in the default chat interface."
+    },
+    "bookmarksFaqQuestion2": {
+        "message": "Why use Reader mode instead of the original page?"
+    },
+    "bookmarksFaqAnswer2": {
+        "message": "Reader mode gives you a calmer reading surface, source-aware copy behavior, and focused navigation without changing the original conversation data."
+    },
+    "bookmarksFaqQuestion3": {
+        "message": "Do bookmarks always save the full content?"
+    },
+    "bookmarksFaqAnswer3": {
+        "message": "That depends on your storage preference. You can keep fuller content or save a lighter context-only snapshot when you prefer a smaller footprint."
+    },
+    "bookmarksFaqQuestion4": {
+        "message": "Will comments or prompts sync anywhere automatically?"
+    },
+    "bookmarksFaqAnswer4": {
+        "message": "Reader comments currently stay local to the page lifecycle, while reusable prompt and template settings are stored as extension settings."
+    },
+    "bookmarksFaqQuestion5": {
+        "message": "Why do buttons sometimes look slightly different across platforms?"
+    },
+    "bookmarksFaqAnswer5": {
+        "message": "AI-MarkDone tries to stay close to each host product, so platform adapters may place actions differently while keeping the core behavior consistent."
+    },
     "starOnGitHub": {
         "message": "Star on GitHub"
     },
@@ -799,6 +925,15 @@
     },
     "tabSettings": {
         "message": "Settings"
+    },
+    "tabChangelog": {
+        "message": "Changelog"
+    },
+    "tabAbout": {
+        "message": "About"
+    },
+    "tabFaq": {
+        "message": "FAQ"
     },
     "tabSponsor": {
         "message": "Sponsor"

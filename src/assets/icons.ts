@@ -828,6 +828,7 @@ export const bookOpenIcon = Icons.bookOpen;
 export const copyIcon = Icons.copy;
 export const fileCodeIcon = Icons.code;
 export const fileTextIcon = Icons.fileText;
+export const infoIcon = Icons.info;
 export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
 export const locateIcon = Icons.locate;

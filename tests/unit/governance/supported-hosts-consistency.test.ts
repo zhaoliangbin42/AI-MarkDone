@@ -37,7 +37,7 @@ function popupHosts(): string[] {
 }
 
 describe('supported hosts consistency', () => {
-    it('keeps manifest hosts aligned across chrome, firefox, content scripts, and popup links', () => {
+    it('keeps manifest hosts aligned across chrome, firefox, and content scripts while allowing the popup to show a curated subset', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
         const firefox = readJson<FirefoxManifest>('manifest.firefox.json');
 
@@ -50,7 +50,8 @@ describe('supported hosts consistency', () => {
         expect(chromeHosts).toEqual(firefoxHosts);
         expect(chromeHosts).toEqual(chromeContentHosts);
         expect(chromeHosts).toEqual(firefoxContentHosts);
-        expect(chromeHosts).toEqual(popupLinkHosts);
+        expect(popupLinkHosts.length).toBeGreaterThan(0);
+        expect(popupLinkHosts.every((host) => chromeHosts.includes(host))).toBe(true);
     });
 
     it('defines an acceptance gate script for release-level parity checks', () => {

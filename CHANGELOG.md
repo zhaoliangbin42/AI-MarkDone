@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Added page-lifetime inline comments with selection-linked highlights, right-gutter comment anchors, editable comment popovers, and source-based comment export.
 - Settings: Added a Reader settings section for reusable comment-export prompts and a persistent comments copy template, while keeping the Reader export popover focused on previewing and copying the final result.
 - Reader and Sending: Added prompt-picker driven comment export actions so Reader copy now starts by choosing a prompt and Send popovers can insert compiled comment text at the local textarea caret.
+- Bookmarks: Added dedicated `Changelog`, `About`, and `FAQ` information tabs, with sponsor/support content now folded into a more editorial About page.
 
 ### Fixed
 - Reader: Fixed keyboard copy inside the reader so `Ctrl/Cmd+C` now exports markdown source for selected reader content instead of the rendered visible text.
