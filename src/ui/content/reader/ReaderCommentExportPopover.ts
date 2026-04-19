@@ -126,11 +126,11 @@ export class ReaderCommentExportPopover {
         this.close(params.shadow);
         ensureStyle(params.shadow, getExportPopoverCss(), { id: 'aimd-reader-comment-export-style', cache: 'shared' });
         const labels = {
-            title: params.labels?.title ?? 'Copy comments',
+            title: params.labels?.title ?? 'Copy annotations',
             close: params.labels?.close ?? 'Close',
-            copy: params.labels?.copy ?? 'Copy comments',
+            copy: params.labels?.copy ?? 'Copy annotations',
             copied: params.labels?.copied ?? 'Copied!',
-            empty: params.labels?.empty ?? 'No comments yet.',
+            empty: params.labels?.empty ?? 'No annotations yet.',
         };
 
         const layer = markTransientRoot(document.createElement('div'));
@@ -194,7 +194,7 @@ export class ReaderCommentExportPopover {
         if (!popover) return;
         const preview = popover.querySelector<HTMLElement>('[data-role="preview"]');
         const copyButton = popover.querySelector<HTMLButtonElement>('[data-action="copy"]');
-        if (preview) preview.textContent = params.preview || 'No comments yet.';
+        if (preview) preview.textContent = params.preview || 'No annotations yet.';
         if (copyButton) copyButton.disabled = !params.canCopy;
     }
 

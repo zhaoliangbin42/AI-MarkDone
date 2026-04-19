@@ -1,43 +1,21 @@
 import { chevronDownIcon, chevronUpIcon } from '../../../../../assets/icons';
+import { loadBookmarksDoc } from '../../content/loader';
+import { parseFaqDoc } from '../../content/parser';
 import { createIcon } from '../../../components/Icon';
-import { t } from '../../../components/i18n';
+import { renderInfoBlocks } from './renderInfoBlocks';
 
-type FaqItem = {
-    question: string;
-    answer: string;
+type FaqTabViewParams = {
+    resolveAssetUrl?: (assetPath: string) => string;
 };
-
-function getFaqItems(): FaqItem[] {
-    return [
-        {
-            question: t('bookmarksFaqQuestion1'),
-            answer: t('bookmarksFaqAnswer1'),
-        },
-        {
-            question: t('bookmarksFaqQuestion2'),
-            answer: t('bookmarksFaqAnswer2'),
-        },
-        {
-            question: t('bookmarksFaqQuestion3'),
-            answer: t('bookmarksFaqAnswer3'),
-        },
-        {
-            question: t('bookmarksFaqQuestion4'),
-            answer: t('bookmarksFaqAnswer4'),
-        },
-        {
-            question: t('bookmarksFaqQuestion5'),
-            answer: t('bookmarksFaqAnswer5'),
-        },
-    ];
-}
 
 export class FaqTabView {
     private root: HTMLElement;
+    private resolveAssetUrl?: (assetPath: string) => string;
 
-    constructor() {
+    constructor(params: FaqTabViewParams = {}) {
         this.root = document.createElement('div');
         this.root.className = 'aimd-info-tab aimd-faq';
+        this.resolveAssetUrl = params.resolveAssetUrl;
         this.render();
     }
 
@@ -46,30 +24,23 @@ export class FaqTabView {
     }
 
     private render(): void {
+        const doc = parseFaqDoc(loadBookmarksDoc('faq'));
         const shell = document.createElement('div');
         shell.className = 'info-shell';
 
         const hero = document.createElement('section');
         hero.className = 'info-hero info-hero--faq';
         hero.innerHTML = `
-          <div class="info-eyebrow">${t('bookmarksFaqEyebrow')}</div>
-          <h3 class="info-hero__title">${t('bookmarksFaqTitle')}</h3>
-          <p class="info-hero__body">${t('bookmarksFaqIntro')}</p>
+          <h3 class="info-hero__title">${doc.title}</h3>
         `;
 
         const section = document.createElement('section');
         section.className = 'info-section';
-        section.innerHTML = `
-          <div class="info-section__head">
-            <div class="info-section__title">${t('bookmarksFaqSectionTitle')}</div>
-            <p class="info-section__intro">${t('bookmarksFaqSectionIntro')}</p>
-          </div>
-        `;
 
         const list = document.createElement('div');
         list.className = 'info-disclosure-list';
 
-        getFaqItems().forEach((item, index) => {
+        doc.items.forEach((item, index) => {
             const disclosure = document.createElement('article');
             disclosure.className = 'info-disclosure';
             disclosure.dataset.open = index === 0 ? '1' : '0';
@@ -91,10 +62,7 @@ export class FaqTabView {
 
             const body = document.createElement('div');
             body.className = 'info-disclosure__body';
-            const paragraph = document.createElement('p');
-            paragraph.className = 'info-copy';
-            paragraph.textContent = item.answer;
-            body.appendChild(paragraph);
+            body.appendChild(renderInfoBlocks(item.blocks, { resolveAssetUrl: this.resolveAssetUrl }));
 
             trigger.addEventListener('click', () => {
                 const nextOpen = disclosure.dataset.open !== '1';

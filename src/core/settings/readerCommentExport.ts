@@ -15,6 +15,24 @@ export type ReaderCommentExportSettings = {
     template: CommentTemplateSegment[];
 };
 
+const DEFAULT_READER_COMMENT_PROMPTS: ReaderCommentPrompt[] = [
+    {
+        id: 'prompt-1',
+        title: 'Precise Revision',
+        content: 'Please revise the content according to my annotations below. Keep anything I did not mention unchanged whenever possible.',
+    },
+    {
+        id: 'prompt-2',
+        title: 'Point-by-Point Revision',
+        content: 'Please go through my annotations one by one. Briefly explain how you will address each point, then provide the revised version.',
+    },
+    {
+        id: 'prompt-3',
+        title: 'Polished Final Draft',
+        content: 'Please use my annotations below to produce a polished final version. Prioritize accuracy, clarity, and natural wording.',
+    },
+];
+
 const LEGACY_SELECTED_TEXT_PLACEHOLDER = '【选中文字】';
 const LEGACY_USER_COMMENT_PLACEHOLDER = '【用户评论】';
 
@@ -34,24 +52,25 @@ function pushText(segments: CommentTemplateSegment[], value: string): void {
 
 export function createDefaultCommentTemplate(): CommentTemplateSegment[] {
     return [
-        { type: 'text', value: 'Regarding\n' },
+        { type: 'text', value: 'Regarding the following text:\n<selected_text>\n' },
         { type: 'token', key: 'selected_source' },
-        { type: 'text', value: '\nMy comment is:\n' },
+        { type: 'text', value: '\n</selected_text>\n\nMy annotation:\n<annotation>\n' },
         { type: 'token', key: 'user_comment' },
+        { type: 'text', value: '\n</annotation>' },
     ];
 }
 
+export function createDefaultReaderCommentPrompts(): ReaderCommentPrompt[] {
+    return DEFAULT_READER_COMMENT_PROMPTS.map((prompt) => ({ ...prompt }));
+}
+
 export function createDefaultReaderCommentPrompt(): ReaderCommentPrompt {
-    return {
-        id: 'prompt-1',
-        title: 'Prompt 1',
-        content: 'Please review the following comments:',
-    };
+    return createDefaultReaderCommentPrompts()[0]!;
 }
 
 export function createDefaultReaderCommentExportSettings(): ReaderCommentExportSettings {
     return {
-        prompts: [createDefaultReaderCommentPrompt()],
+        prompts: createDefaultReaderCommentPrompts(),
         template: createDefaultCommentTemplate(),
     };
 }
@@ -107,7 +126,7 @@ export function normalizeCommentTemplate(
 }
 
 export function normalizeReaderCommentPrompts(value: unknown): ReaderCommentPrompt[] {
-    if (!Array.isArray(value)) return [createDefaultReaderCommentPrompt()];
+    if (!Array.isArray(value)) return createDefaultReaderCommentPrompts();
     const prompts: ReaderCommentPrompt[] = [];
     value.forEach((entry, index) => {
         if (!isRecord(entry)) return;
@@ -123,7 +142,7 @@ export function normalizeReaderCommentPrompts(value: unknown): ReaderCommentProm
         });
     });
 
-    if (prompts.length < 1) return [createDefaultReaderCommentPrompt()];
+    if (prompts.length < 1) return createDefaultReaderCommentPrompts();
     return prompts;
 }
 

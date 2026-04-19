@@ -1,5 +1,8 @@
 import { Icons } from '../../../../../assets/icons';
+import { loadBookmarksDoc } from '../../content/loader';
+import { parseBookmarksDoc } from '../../content/parser';
 import { t } from '../../../components/i18n';
+import { renderInfoBlocks } from './renderInfoBlocks';
 
 export type AboutTabViewActions = {
     githubUrl: string;
@@ -20,6 +23,9 @@ export class AboutTabView {
     }
 
     private render(actions: AboutTabViewActions): void {
+        const doc = parseBookmarksDoc(loadBookmarksDoc('about'));
+        const storySection = doc.sections[0] ?? { heading: '', blocks: [] };
+        const principlesSection = doc.sections[1] ?? { heading: '', blocks: [] };
         const celebration = document.createElement('div');
         celebration.className = 'sponsor-celebration';
         celebration.setAttribute('aria-hidden', 'true');
@@ -30,58 +36,36 @@ export class AboutTabView {
         const hero = document.createElement('section');
         hero.className = 'info-hero';
 
-        const brandRow = document.createElement('div');
-        brandRow.className = 'sponsor-title-row';
-        const brandBadge = document.createElement('div');
-        brandBadge.className = 'sponsor-brand-badge';
-        const brandMark = document.createElement('img');
-        brandMark.className = 'sponsor-brand-mark';
-        brandMark.src = actions.getAssetUrl('icons/icon128.png');
-        brandMark.alt = 'AI-MarkDone';
-        brandBadge.appendChild(brandMark);
-        brandRow.appendChild(brandBadge);
-
         hero.innerHTML = `
-          <div class="info-eyebrow">${t('bookmarksAboutEyebrow')}</div>
-          <h3 class="info-hero__title">${t('bookmarksAboutTitle')}</h3>
-          <p class="info-hero__body">${t('bookmarksAboutIntro')}</p>
+          <h3 class="info-hero__title">${doc.title}</h3>
         `;
-        hero.prepend(brandRow);
 
         const story = document.createElement('section');
         story.className = 'info-section';
         story.innerHTML = `
           <div class="info-section__head">
-            <div class="info-section__title">${t('bookmarksAboutStoryTitle')}</div>
-            <p class="info-section__intro">${t('bookmarksAboutStoryIntro')}</p>
-          </div>
-          <div class="info-copy-stack">
-            <p class="info-copy">${t('bookmarksAboutStoryParagraph1')}</p>
-            <p class="info-copy">${t('bookmarksAboutStoryParagraph2')}</p>
+            <div class="info-section__title">${storySection.heading}</div>
           </div>
         `;
+        const storyCopy = document.createElement('div');
+        storyCopy.className = 'info-copy-stack';
+        storyCopy.appendChild(renderInfoBlocks(storySection.blocks, { resolveAssetUrl: actions.getAssetUrl }));
+        story.appendChild(storyCopy);
 
         const principles = document.createElement('section');
         principles.className = 'info-section';
         principles.innerHTML = `
           <div class="info-section__head">
-            <div class="info-section__title">${t('bookmarksAboutPrinciplesTitle')}</div>
-            <p class="info-section__intro">${t('bookmarksAboutPrinciplesIntro')}</p>
+            <div class="info-section__title">${principlesSection.heading}</div>
           </div>
         `;
-        const principlesList = document.createElement('ul');
-        principlesList.className = 'info-list info-list--cards';
-        [
-            t('bookmarksAboutPrinciple1'),
-            t('bookmarksAboutPrinciple2'),
-            t('bookmarksAboutPrinciple3'),
-        ].forEach((item) => {
-            const li = document.createElement('li');
-            li.className = 'info-list-card';
-            li.textContent = item;
-            principlesList.appendChild(li);
-        });
-        principles.appendChild(principlesList);
+        principles.appendChild(
+            renderInfoBlocks(principlesSection.blocks, {
+                listClassName: 'info-list info-list--cards',
+                listItemClassName: 'info-list-card',
+                resolveAssetUrl: actions.getAssetUrl,
+            }),
+        );
 
         const openSource = document.createElement('section');
         openSource.className = 'sponsor-card sponsor-card--primary';

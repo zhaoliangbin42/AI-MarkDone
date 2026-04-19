@@ -1,53 +1,21 @@
 import { chevronDownIcon, chevronUpIcon } from '../../../../../assets/icons';
+import { loadBookmarksDoc } from '../../content/loader';
+import { parseChangelogDoc } from '../../content/parser';
 import { createIcon } from '../../../components/Icon';
-import { t } from '../../../components/i18n';
+import { renderInfoBlocks } from './renderInfoBlocks';
 
-type ChangelogEntry = {
-    version: string;
-    date: string;
-    highlights: string[];
-    expanded?: boolean;
+type ChangelogTabViewParams = {
+    resolveAssetUrl?: (assetPath: string) => string;
 };
-
-function getChangelogEntries(): ChangelogEntry[] {
-    return [
-        {
-            version: 'Unreleased',
-            date: t('bookmarksChangelogDateUnreleased'),
-            highlights: [
-                t('bookmarksChangelogUnreleasedItem1'),
-                t('bookmarksChangelogUnreleasedItem2'),
-                t('bookmarksChangelogUnreleasedItem3'),
-            ],
-            expanded: true,
-        },
-        {
-            version: '4.0.0',
-            date: '2026-04-02',
-            highlights: [
-                t('bookmarksChangelog400Item1'),
-                t('bookmarksChangelog400Item2'),
-                t('bookmarksChangelog400Item3'),
-            ],
-        },
-        {
-            version: '3.0.0',
-            date: '2026-02-18',
-            highlights: [
-                t('bookmarksChangelog300Item1'),
-                t('bookmarksChangelog300Item2'),
-                t('bookmarksChangelog300Item3'),
-            ],
-        },
-    ];
-}
 
 export class ChangelogTabView {
     private root: HTMLElement;
+    private resolveAssetUrl?: (assetPath: string) => string;
 
-    constructor() {
+    constructor(params: ChangelogTabViewParams = {}) {
         this.root = document.createElement('div');
         this.root.className = 'aimd-info-tab aimd-changelog';
+        this.resolveAssetUrl = params.resolveAssetUrl;
         this.render();
     }
 
@@ -56,40 +24,31 @@ export class ChangelogTabView {
     }
 
     private render(): void {
+        const doc = parseChangelogDoc(loadBookmarksDoc('changelog'));
         const shell = document.createElement('div');
         shell.className = 'info-shell';
 
         const hero = document.createElement('section');
         hero.className = 'info-hero info-hero--timeline';
         hero.innerHTML = `
-          <div class="info-eyebrow">${t('bookmarksChangelogEyebrow')}</div>
-          <h3 class="info-hero__title">${t('bookmarksChangelogTitle')}</h3>
-          <p class="info-hero__body">${t('bookmarksChangelogIntro')}</p>
+          <h3 class="info-hero__title">${doc.title}</h3>
         `;
 
         const section = document.createElement('section');
         section.className = 'info-section';
 
-        const sectionHead = document.createElement('div');
-        sectionHead.className = 'info-section__head';
-        sectionHead.innerHTML = `
-          <div class="info-section__title">${t('bookmarksChangelogSectionTitle')}</div>
-          <p class="info-section__intro">${t('bookmarksChangelogSectionIntro')}</p>
-        `;
-        section.appendChild(sectionHead);
-
         const list = document.createElement('div');
         list.className = 'info-disclosure-list';
 
-        for (const entry of getChangelogEntries()) {
+        doc.entries.forEach((entry, index) => {
             const disclosure = document.createElement('article');
             disclosure.className = 'info-disclosure';
-            disclosure.dataset.open = entry.expanded ? '1' : '0';
+            disclosure.dataset.open = index === 0 ? '1' : '0';
 
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'info-disclosure__trigger';
-            button.setAttribute('aria-expanded', entry.expanded ? 'true' : 'false');
+            button.setAttribute('aria-expanded', index === 0 ? 'true' : 'false');
 
             const meta = document.createElement('div');
             meta.className = 'info-disclosure__meta';
@@ -100,12 +59,20 @@ export class ChangelogTabView {
 
             const icon = document.createElement('span');
             icon.className = 'info-disclosure__icon';
-            icon.append(createIcon(entry.expanded ? chevronUpIcon : chevronDownIcon));
+            icon.append(createIcon(index === 0 ? chevronUpIcon : chevronDownIcon));
 
             button.append(meta, icon);
 
             const body = document.createElement('div');
             body.className = 'info-disclosure__body';
+            if (entry.leadBlocks.length > 0) {
+                const lead = document.createElement('div');
+                lead.className = 'info-disclosure__lead';
+                lead.appendChild(renderInfoBlocks(entry.leadBlocks, { resolveAssetUrl: this.resolveAssetUrl }));
+                const firstParagraph = lead.querySelector('.info-copy');
+                if (firstParagraph) firstParagraph.classList.add('info-disclosure__summary');
+                body.appendChild(lead);
+            }
             const bullets = document.createElement('ul');
             bullets.className = 'info-list';
             for (const item of entry.highlights) {
@@ -124,7 +91,7 @@ export class ChangelogTabView {
 
             disclosure.append(button, body);
             list.appendChild(disclosure);
-        }
+        });
 
         section.appendChild(list);
         shell.append(hero, section);

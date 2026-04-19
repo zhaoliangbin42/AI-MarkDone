@@ -40,5 +40,6 @@ Any additional information or context.
 - [ ] My code follows the project's code style
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] I have updated the documentation (CHANGELOG.md, README.md, docs/spec if needed)
+- [ ] If this PR changes user-visible behavior, I checked `CHANGELOG.md` and `src/ui/content/bookmarks/content/*.md`
 - [ ] My changes generate no new TypeScript errors
 - [ ] I have used `logger` instead of `console.log` for debugging

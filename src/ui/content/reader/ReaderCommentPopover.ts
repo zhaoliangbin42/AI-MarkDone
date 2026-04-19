@@ -195,9 +195,9 @@ export class ReaderCommentPopover {
             editTitle: params.labels?.editTitle ?? 'Edit comment',
             close: params.labels?.close ?? 'Close',
             selectedSource: params.labels?.selectedSource ?? 'Selected content',
-            placeholder: params.labels?.placeholder ?? 'Write your comment...',
+            placeholder: params.labels?.placeholder ?? 'Write your annotation...',
             cancel: params.labels?.cancel ?? 'Cancel',
-            save: params.labels?.save ?? 'Save comment',
+            save: params.labels?.save ?? 'Save annotation',
         };
 
         const layer = markTransientRoot(document.createElement('div'));

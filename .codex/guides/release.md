@@ -30,6 +30,7 @@
    - copied manifest, icons, popup, locales, and KaTeX assets
 6. Confirm entry format verification passed for both targets.
 7. Update `CHANGELOG.md` and any user-facing release references.
+   - If the release changes bookmarks information pages, also update `src/ui/content/bookmarks/content/*.md`.
 8. If the release changes adapters, runtime protocol, or browser support behavior, update the corresponding docs before finishing.
 
 ## References

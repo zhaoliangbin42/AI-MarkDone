@@ -11,6 +11,7 @@ type OpenParams = {
         title: string;
         close: string;
         addPrompt: string;
+        restoreDefaults: string;
         editPrompt: string;
         untitledPrompt: string;
         back: string;
@@ -26,6 +27,8 @@ type OpenParams = {
     createPromptId: () => string;
     onChange: (next: ReaderCommentExportSettings) => void;
     onConfirmDelete: (prompt: ReaderCommentPrompt) => Promise<boolean>;
+    onConfirmRestoreDefaults: () => Promise<boolean>;
+    onRestoreDefaults: () => ReaderCommentPrompt[];
     onClose?: () => void;
 };
 
@@ -137,9 +140,12 @@ export class ReaderPromptSettingsPopover {
                 deleteButton.appendChild(createIcon(trashIcon));
                 deleteButton.addEventListener('click', async (event) => {
                     event.stopPropagation();
-                    if (!this.params || !this.settings) return;
-                    const ok = await this.params.onConfirmDelete(prompt);
+                    const params = this.params;
+                    const settings = this.settings;
+                    if (!params || !settings) return;
+                    const ok = await params.onConfirmDelete(prompt);
                     if (!ok) return;
+                    if (!this.settings) return;
                     const prompts = this.settings.prompts.filter((entry) => entry.id !== prompt.id);
                     this.updateSettings({
                         ...this.settings,
@@ -170,7 +176,24 @@ export class ReaderPromptSettingsPopover {
         body.append(list);
         const footer = document.createElement('div');
         footer.className = 'panel-footer panel-footer--reader-settings';
-        footer.appendChild(addButton);
+        const restoreButton = document.createElement('button');
+        restoreButton.type = 'button';
+        restoreButton.className = 'secondary-btn secondary-btn--compact';
+        restoreButton.dataset.action = 'restore-default-prompts';
+        restoreButton.textContent = this.params.labels.restoreDefaults;
+        restoreButton.addEventListener('click', async () => {
+            const params = this.params;
+            const settings = this.settings;
+            if (!params || !settings) return;
+            const ok = await params.onConfirmRestoreDefaults();
+            if (!ok) return;
+            if (!this.settings) return;
+            this.updateSettings({
+                ...this.settings,
+                prompts: params.onRestoreDefaults(),
+            });
+        });
+        footer.append(restoreButton, addButton);
         popover.append(header, body, footer);
     }
 

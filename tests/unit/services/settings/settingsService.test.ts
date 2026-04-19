@@ -71,11 +71,18 @@ describe('settingsService', () => {
         } as any);
 
         expect(next.reader.renderCodeInReader).toBe(false);
-        expect(next.reader.commentExport.prompts.length).toBeGreaterThan(0);
-        expect(next.reader.commentExport.prompts[0]).toEqual(
-            expect.objectContaining({ id: expect.any(String), title: expect.any(String), content: expect.any(String) }),
-        );
-        expect(next.reader.commentExport.template.length).toBeGreaterThan(0);
+        expect(next.reader.commentExport.prompts).toEqual([
+            expect.objectContaining({ id: 'prompt-1', title: 'Precise Revision' }),
+            expect.objectContaining({ id: 'prompt-2', title: 'Point-by-Point Revision' }),
+            expect.objectContaining({ id: 'prompt-3', title: 'Polished Final Draft' }),
+        ]);
+        expect(next.reader.commentExport.template).toEqual([
+            { type: 'text', value: 'Regarding the following text:\n<selected_text>\n' },
+            { type: 'token', key: 'selected_source' },
+            { type: 'text', value: '\n</selected_text>\n\nMy annotation:\n<annotation>\n' },
+            { type: 'token', key: 'user_comment' },
+            { type: 'text', value: '\n</annotation>' },
+        ]);
     });
 
     it('does not re-persist removed chatgpt virtualization fields on category updates', () => {

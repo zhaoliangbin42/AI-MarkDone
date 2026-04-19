@@ -20,12 +20,14 @@ type OpenParams = {
         tokenSelectedSource: string;
         tokenUserComment: string;
         preview: string;
+        restoreDefault: string;
         save: string;
         cancel: string;
         copied: string;
     };
     onBuildPreview: (template: CommentTemplateSegment[]) => string;
     onSave: (template: CommentTemplateSegment[]) => void;
+    onRestoreDefault: () => CommentTemplateSegment[];
     onClose?: () => void;
 };
 
@@ -115,6 +117,7 @@ export class ReaderCommentTemplateSettingsPopover {
           </div>
         `;
         shell.footer.innerHTML = `
+          <button class="secondary-btn secondary-btn--compact" type="button" data-action="restore-default-template">${params.labels.restoreDefault}</button>
           <button class="secondary-btn" type="button" data-action="cancel">${params.labels.cancel}</button>
           <button class="secondary-btn secondary-btn--primary" type="button" data-action="save">${params.labels.save}</button>
         `;
@@ -181,6 +184,12 @@ export class ReaderCommentTemplateSettingsPopover {
         bindInsertButton('[data-action="insert-selected-source"]', 'selected_source');
         bindInsertButton('[data-action="insert-user-comment"]', 'user_comment');
 
+        popover.querySelector<HTMLButtonElement>('[data-action="restore-default-template"]')?.addEventListener('click', () => {
+            const restored = params.onRestoreDefault();
+            this.editor?.update(restored);
+            preview.textContent = params.onBuildPreview(restored);
+            editorRoot.focus({ preventScroll: true } as FocusOptions);
+        });
         popover.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', close);
         popover.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', () => {
             params.onSave(this.editor?.getValue() ?? params.template);

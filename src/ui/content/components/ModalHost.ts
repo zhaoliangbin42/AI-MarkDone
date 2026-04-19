@@ -5,6 +5,7 @@ import { beginSurfaceMotionClose, setSurfaceMotionOpening } from './motionLifecy
 import { getModalHostCss } from './styles/modalHostCss';
 import {
     installTransientOutsideDismissBoundary,
+    markTransientRoot,
     type TransientOutsideDismissBoundaryHandle,
 } from './transientUi';
 
@@ -220,7 +221,7 @@ export class ModalHost {
         overlay.className = 'mock-modal-overlay';
         overlay.dataset.kind = params.kind;
 
-        const dialog = document.createElement('div');
+        const dialog = markTransientRoot(document.createElement('div'));
         dialog.className = 'mock-modal';
         dialog.dataset.kind = params.kind;
         dialog.setAttribute('role', 'dialog');

@@ -1,6 +1,8 @@
 import type { AppSettings, FoldingMode } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
 import {
+    createDefaultCommentTemplate as createDefaultAnnotationTemplate,
+    createDefaultReaderCommentPrompts as createDefaultAnnotationPrompts,
     normalizeReaderCommentExportSettings,
     type CommentTemplateSegment,
     type ReaderCommentExportSettings,
@@ -606,6 +608,14 @@ export class SettingsTabView {
         return `prompt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     }
 
+    private createDefaultReaderCommentPrompts(): ReaderCommentExportSettings['prompts'] {
+        return createDefaultAnnotationPrompts();
+    }
+
+    private createDefaultReaderCommentTemplate(): ReaderCommentExportSettings['template'] {
+        return createDefaultAnnotationTemplate();
+    }
+
     private formatPromptSummary(commentExport: ReaderCommentExportSettings): string {
         const first = commentExport.prompts[0];
         if (!first) return t('readerCommentPromptListDesc');
@@ -671,6 +681,7 @@ export class SettingsTabView {
                 title: t('readerCommentPromptListLabel'),
                 close: t('btnClose'),
                 addPrompt: t('readerCommentPromptAdd'),
+                restoreDefaults: t('readerCommentPromptRestoreDefaults'),
                 editPrompt: t('readerCommentPromptEdit'),
                 untitledPrompt: t('readerCommentPromptUntitled'),
                 back: t('btnBack'),
@@ -692,6 +703,14 @@ export class SettingsTabView {
                 confirmText: t('btnDelete'),
                 cancelText: t('btnCancel'),
             }),
+            onConfirmRestoreDefaults: () => this.modal.confirm({
+                kind: 'warning',
+                title: t('readerCommentPromptRestoreDefaultsTitle'),
+                message: t('readerCommentPromptRestoreDefaultsMessage'),
+                confirmText: t('readerCommentPromptRestoreDefaults'),
+                cancelText: t('btnCancel'),
+            }),
+            onRestoreDefaults: () => this.createDefaultReaderCommentPrompts(),
         });
     }
 
@@ -714,11 +733,13 @@ export class SettingsTabView {
                 tokenSelectedSource: t('readerCommentTemplateTokenSelectedSource'),
                 tokenUserComment: t('readerCommentTemplateTokenUserComment'),
                 preview: t('readerCommentTemplatePreviewLabel'),
+                restoreDefault: t('readerCommentTemplateRestoreDefault'),
                 save: t('btnSave'),
                 cancel: t('btnCancel'),
                 copied: t('btnCopied'),
             },
             onBuildPreview: (template) => this.buildTemplatePreview(template),
+            onRestoreDefault: () => this.createDefaultReaderCommentTemplate(),
             onSave: (template) => {
                 this.updateReaderCommentExport({
                     ...current,

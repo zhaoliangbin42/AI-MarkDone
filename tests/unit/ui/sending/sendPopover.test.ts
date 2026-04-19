@@ -291,7 +291,59 @@ describe('SendPopover', () => {
         expect(textarea.selectionStart).toBe(textarea.value.indexOf('world'));
     });
 
-    it('keeps the insert comments action visible but disabled when no reader comments are available', () => {
+    it('keeps the insert comments action enabled when prompts are available even without reader annotations', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            adapter,
+            theme: 'light',
+            initialText: 'Draft',
+            commentInsert: {
+                prompts: [{ id: 'strict', title: 'Strict', content: 'Please revise the content according to my annotations below.' }],
+                template: [{ type: 'token', key: 'selected_source' }],
+                comments: [],
+            },
+        });
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        const button = footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]');
+        expect(button).toBeTruthy();
+        expect(button?.disabled).toBe(false);
+        expect(button?.querySelector('path[d="M12 7v6"]')).toBeTruthy();
+
+        button?.click();
+        await Promise.resolve();
+        footerLeft.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
+        await Promise.resolve();
+
+        expect(textarea.value).toBe(
+            [
+                'Draft',
+                'Please revise the content according to my annotations below.',
+            ].join('\n'),
+        );
+    });
+
+    it('keeps the insert comments action visible but disabled when no prompts are available', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
 
@@ -316,7 +368,7 @@ describe('SendPopover', () => {
             theme: 'light',
             initialText: '',
             commentInsert: {
-                prompts: [{ id: 'strict', title: 'Strict', content: 'Review these comments:' }],
+                prompts: [],
                 template: [{ type: 'token', key: 'selected_source' }],
                 comments: [],
             },
@@ -325,7 +377,6 @@ describe('SendPopover', () => {
         const button = footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]');
         expect(button).toBeTruthy();
         expect(button?.disabled).toBe(true);
-        expect(button?.querySelector('path[d="M12 7v6"]')).toBeTruthy();
     });
 
     it('does not rewrite the official composer during open when reading an initial draft', async () => {

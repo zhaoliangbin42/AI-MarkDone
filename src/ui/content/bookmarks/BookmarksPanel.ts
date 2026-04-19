@@ -370,9 +370,9 @@ export class BookmarksPanel {
                 ? tr('tabSettings', 'Settings')
                 : this.uiState.bookmarksTab === 'changelog'
                     ? tr('tabChangelog', 'Changelog')
-                    : this.uiState.bookmarksTab === 'about'
-                        ? tr('tabAbout', 'About')
-                        : tr('tabFaq', 'FAQ');
+                    : this.uiState.bookmarksTab === 'faq'
+                        ? tr('tabFaq', 'FAQ')
+                        : tr('tabAbout', 'About');
 
         const shell = createBookmarksPanelShell({
             titleText,
@@ -383,8 +383,8 @@ export class BookmarksPanel {
                 { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
                 { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
                 { id: 'changelog', label: tr('tabChangelog', 'Changelog'), icon: fileTextIcon, content: changelogPanel, panelClassName: 'changelog-panel' },
-                { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
                 { id: 'faq', label: tr('tabFaq', 'FAQ'), icon: messageSquareTextIcon, content: faqPanel, panelClassName: 'faq-panel' },
+                { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
             ],
         });
         const panel = shell.panel;
@@ -504,7 +504,9 @@ export class BookmarksPanel {
 
         if (!this.changelogView) {
             try {
-                this.changelogView = new ChangelogTabView();
+                this.changelogView = new ChangelogTabView({
+                    resolveAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                });
             } catch (error) {
                 logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create changelog tab view; keeping the shell open.', {
                     error: String(error),
@@ -531,7 +533,9 @@ export class BookmarksPanel {
 
         if (!this.faqView) {
             try {
-                this.faqView = new FaqTabView();
+                this.faqView = new FaqTabView({
+                    resolveAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                });
             } catch (error) {
                 logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create FAQ tab view; keeping the shell open.', {
                     error: String(error),

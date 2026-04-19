@@ -306,7 +306,8 @@ describe('BookmarksPanel', () => {
         expect(refreshedChangelogTab?.querySelector('.aimd-changelog')).toBeTruthy();
         expect(refreshedChangelogTab?.querySelector('.info-section')).toBeTruthy();
         expect(refreshedChangelogTab?.querySelector('.info-disclosure')).toBeTruthy();
-        expect(refreshedChangelogTab?.textContent).toContain('Unreleased');
+        expect(refreshedChangelogTab?.textContent).toContain('4.1.0');
+        expect(refreshedChangelogTab?.textContent).toContain('2026-04-16');
 
         aboutTabButton!.click();
 
@@ -316,7 +317,8 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-qr-card')).toBeTruthy();
-        expect(refreshedAboutActiveTab?.querySelector('.sponsor-brand-mark')).toBeTruthy();
+        expect(refreshedAboutActiveTab?.querySelector('.sponsor-brand-mark')).toBeNull();
+        expect(refreshedAboutActiveTab?.querySelector('.info-hero__body')).toBeNull();
         const sponsorCta = refreshedAboutActiveTab?.querySelector<HTMLAnchorElement>('[data-action="sponsor-github"]');
         expect(sponsorCta?.tagName).toBe('A');
         expect(sponsorCta?.href).toBe('https://github.com/zhaoliangbin42/AI-MarkDone');
@@ -336,7 +338,7 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('FAQ');
         expect(refreshedFaqActiveTab?.querySelector('.aimd-faq')).toBeTruthy();
         expect(refreshedFaqActiveTab?.querySelector('.info-disclosure')).toBeTruthy();
-        expect(refreshedFaqActiveTab?.textContent).toContain('What is AI-MarkDone best for?');
+        expect(refreshedFaqActiveTab?.textContent).toContain('Which platforms does this extension support?');
 
         panel.hide();
     });
@@ -498,7 +500,7 @@ describe('BookmarksPanel', () => {
             Array.from(shadow.querySelectorAll('.tab-btn span'))
                 .map((node) => node.textContent?.trim() ?? '')
                 .filter(Boolean),
-        ).toEqual(['书签', '设置', '更新日志', '关于我', '常见问题']);
+        ).toEqual(['书签', '设置', '更新日志', '常见问题', '关于我']);
         expect(shadow.querySelector<HTMLElement>('.settings-panel')?.textContent).toContain('存储占用');
 
         panel.hide();

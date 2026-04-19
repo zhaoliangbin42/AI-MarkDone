@@ -116,7 +116,7 @@ export class SendPopover {
     <strong>${escapeHtml(t('send'))}</strong>
     <div class="send-popover__head-actions">
       ${params.commentInsert !== undefined
-        ? `<button class="icon-btn" type="button" data-action="insert-comments" aria-label="${escapeHtml(t('readerCommentInsertIntoSend'))}" ${this.canInsertComments(params.commentInsert) ? '' : 'disabled'}>${createIcon(messageSquarePlusIcon).outerHTML}</button>`
+        ? `<button class="icon-btn" type="button" data-action="insert-comments" aria-label="${escapeHtml(t('readerCommentInsertIntoSend'))}" ${this.canInsertPromptContent(params.commentInsert) ? '' : 'disabled'}>${createIcon(messageSquarePlusIcon).outerHTML}</button>`
         : ''}
       <button class="icon-btn" type="button" data-action="close" aria-label="${escapeHtml(t('btnClose'))}">${createIcon(xIcon).outerHTML}</button>
     </div>
@@ -156,7 +156,7 @@ export class SendPopover {
         pop.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit(params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="resize"]')?.addEventListener('mousedown', (event) => this.startResize(event, params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')?.addEventListener('click', () => {
-            if (!this.canInsertComments(params.commentInsert)) return;
+            if (!this.canInsertPromptContent(params.commentInsert)) return;
             const button = pop.querySelector<HTMLElement>('[data-action="insert-comments"]');
             const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
             if (!button || !textarea) return;
@@ -172,13 +172,7 @@ export class SendPopover {
                     empty: t('readerCommentPromptPickerEmpty'),
                 },
                 onSelect: (promptId) => {
-                    const compiled = buildCommentsExport(
-                        params.commentInsert!.comments,
-                        resolveReaderCommentExportPrompts({
-                            prompts: params.commentInsert!.prompts,
-                            template: params.commentInsert!.template,
-                        }, promptId),
-                    );
+                    const compiled = this.buildInsertablePromptContent(params.commentInsert!, promptId);
                     if (!compiled.trim()) return;
                     this.insertIntoTextarea(textarea, compiled);
                 },
@@ -324,8 +318,21 @@ export class SendPopover {
         }
     }
 
-    private canInsertComments(context: CommentInsertContext | null | undefined): context is CommentInsertContext {
-        return Boolean(context && context.comments.length > 0 && context.prompts.length > 0);
+    private canInsertPromptContent(context: CommentInsertContext | null | undefined): context is CommentInsertContext {
+        return Boolean(context && context.prompts.length > 0);
+    }
+
+    private buildInsertablePromptContent(context: CommentInsertContext, promptId?: string | null): string {
+        const resolved = resolveReaderCommentExportPrompts({
+            prompts: context.prompts,
+            template: context.template,
+        }, promptId);
+
+        if (context.comments.length < 1) {
+            return resolved.userPrompt.trim();
+        }
+
+        return buildCommentsExport(context.comments, resolved);
     }
 
     private insertIntoTextarea(textarea: HTMLTextAreaElement, text: string): void {

@@ -1,6 +1,7 @@
 import type { ReaderCommentExportSettings, ReaderCommentPrompt } from '../../core/settings/readerCommentExport';
 import {
     createDefaultCommentTemplate,
+    createDefaultReaderCommentPrompts,
     createDefaultReaderCommentExportSettings,
     normalizeCommentTemplate,
     type CommentTemplateSegment,
@@ -14,7 +15,7 @@ export type ReaderCommentExportPrompts = {
     commentTemplate: CommentTemplateSegment[];
 };
 
-export { createDefaultCommentTemplate, createDefaultReaderCommentExportSettings, normalizeCommentTemplate };
+export { createDefaultCommentTemplate, createDefaultReaderCommentPrompts, createDefaultReaderCommentExportSettings, normalizeCommentTemplate };
 
 export function resolvePromptById(settings: ReaderCommentExportSettings, promptId?: string | null): ReaderCommentPrompt | null {
     if (settings.prompts.length < 1) return null;

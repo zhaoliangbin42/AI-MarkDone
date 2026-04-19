@@ -274,6 +274,35 @@ describe('ReaderPanel comments', () => {
         getSelectionSpy.mockRestore();
     });
 
+    it('still exposes prompt export context when there are no annotations yet', async () => {
+        const panel = new ReaderPanel();
+        panel.setCommentExportSettings({
+            prompts: [
+                { id: 'default', title: 'Default', content: 'Please revise the content according to my annotations below.' },
+            ],
+            template: [
+                { type: 'text', value: 'Regarding the following text:\n<selected_text>\n' },
+                { type: 'token', key: 'selected_source' },
+                { type: 'text', value: '\n</selected_text>\n\nMy annotation:\n<annotation>\n' },
+                { type: 'token', key: 'user_comment' },
+                { type: 'text', value: '\n</annotation>' },
+            ],
+        });
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const context = panel.getCommentExportContext();
+        expect(context).toBeTruthy();
+        expect(context?.comments).toEqual([]);
+        expect(context?.prompts).toHaveLength(1);
+        expect(context?.prompts[0]?.content).toBe('Please revise the content according to my annotations below.');
+        expect(context?.template).toHaveLength(5);
+    });
+
     it('stacks gutter anchors without numeric badges when comments share the same line region', async () => {
         const panel = new ReaderPanel();
 

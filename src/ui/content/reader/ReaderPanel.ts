@@ -189,7 +189,6 @@ export class ReaderPanel {
 
     getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template'] } | null {
         const comments = this.getCurrentComments();
-        if (comments.length < 1) return null;
         return {
             comments: comments.map((record) => ({ ...record })),
             prompts: this.commentExportSettings.prompts.map((prompt) => ({ ...prompt })),
@@ -1025,13 +1024,13 @@ export class ReaderPanel {
                 editTitle: this.getLabel('readerCommentEditTitle', 'Edit comment'),
                 close: this.getLabel('btnClose', 'Close'),
                 selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
-                placeholder: this.getLabel('readerCommentPlaceholder', 'Write your comment...'),
+                placeholder: this.getLabel('readerCommentPlaceholder', 'Write your annotation...'),
                 cancel: this.getLabel('btnCancel', 'Cancel'),
-                save: this.getLabel('readerCommentSave', 'Save comment'),
+                save: this.getLabel('readerCommentSave', 'Save annotation'),
             },
             onSave: (value) => {
                 params.onSave(value);
-                this.notify(this.getLabel('readerCommentSaved', 'Comment saved'));
+                this.notify(this.getLabel('readerCommentSaved', 'Annotation saved'));
             },
             onCancel: () => {
                 params.onCancel?.();
@@ -1044,7 +1043,7 @@ export class ReaderPanel {
         if (!this.overlaySession) return;
         const comments = this.getCurrentComments();
         if (comments.length < 1) {
-            this.notify(this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'));
+            this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
             return;
         }
 
@@ -1073,15 +1072,15 @@ export class ReaderPanel {
                     preview: compiledExport,
                     canCopy: Boolean(compiledExport.trim()),
                     labels: {
-                        title: this.getLabel('readerCommentCopyComments', 'Copy comments'),
+                        title: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
                         close: this.getLabel('btnClose', 'Close'),
-                        copy: this.getLabel('readerCommentCopyComments', 'Copy comments'),
+                        copy: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
                         copied: this.getLabel('btnCopied', 'Copied!'),
-                        empty: this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'),
+                        empty: this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'),
                     },
                     onCopy: async () => {
                         if (!compiledExport.trim()) {
-                            this.notify(this.getLabel('readerCommentCopyEmpty', 'No comments to copy yet.'));
+                            this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
                             return false;
                         }
                         const ok = await copyTextToClipboard(compiledExport);

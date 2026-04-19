@@ -28,7 +28,7 @@ type OpenParams = {
 function getCss(): string {
     return `
 .comment-prompt-picker-layer {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: var(--aimd-z-tooltip);
@@ -36,16 +36,16 @@ function getCss(): string {
 
 .comment-prompt-picker {
   position: absolute;
-  min-width: 280px;
-  max-width: min(360px, calc(100% - (var(--aimd-space-4) * 2)));
-  display: grid;
-  gap: var(--aimd-space-3);
-  padding: var(--aimd-space-3);
+  width: min(420px, calc(100vw - (var(--aimd-space-4) * 2)));
+  max-height: min(430px, calc(100vh - (var(--aimd-space-4) * 2)));
+  display: flex;
+  flex-direction: column;
   border-radius: var(--aimd-radius-2xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   box-shadow: var(--aimd-shadow-lg);
   pointer-events: auto;
+  overflow: hidden;
 }
 
 .comment-prompt-picker__head {
@@ -53,6 +53,9 @@ function getCss(): string {
   align-items: center;
   justify-content: space-between;
   gap: var(--aimd-space-3);
+  min-height: var(--aimd-panel-header-height-compact);
+  padding: var(--aimd-space-3) var(--aimd-space-3) var(--aimd-space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
 }
 
 .comment-prompt-picker__title {
@@ -66,6 +69,9 @@ function getCss(): string {
 .comment-prompt-picker__list {
   display: grid;
   gap: var(--aimd-space-2);
+  padding: var(--aimd-space-3);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .comment-prompt-picker__item {
@@ -109,6 +115,42 @@ function getCss(): string {
   line-height: 1.45;
   color: var(--aimd-text-secondary);
 }
+
+.comment-prompt-picker .icon-btn {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--aimd-radius-full);
+  border: 1px solid transparent;
+  color: var(--aimd-button-icon-text);
+  background: transparent;
+  flex: 0 0 auto;
+  transition:
+    background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.comment-prompt-picker .icon-btn:hover {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-button-icon-text-hover);
+}
+
+.comment-prompt-picker .icon-btn:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: 2px;
+}
+
+.comment-prompt-picker .icon-btn .aimd-icon,
+.comment-prompt-picker .icon-btn .aimd-icon svg {
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
+}
 `;
 }
 
@@ -142,15 +184,6 @@ export class CommentPromptPickerPopover {
     open(params: OpenParams): void {
         this.close(params.shadow);
         ensureStyle(params.shadow, getCss(), { id: 'aimd-comment-prompt-picker-style', cache: 'shared' });
-
-        const currentPosition = window.getComputedStyle(params.container).position;
-        if (currentPosition === 'static') {
-            const previous = params.container.style.position;
-            params.container.style.position = 'relative';
-            this.restoreContainerPosition = () => {
-                params.container.style.position = previous;
-            };
-        }
 
         const layer = markTransientRoot(document.createElement('div'));
         layer.className = 'comment-prompt-picker-layer';
@@ -219,20 +252,21 @@ export class CommentPromptPickerPopover {
         return path.includes(this.rootEl as EventTarget);
     }
 
-    private positionPopover(popover: HTMLElement, anchorEl: HTMLElement, container: HTMLElement): void {
-        const containerRect = container.getBoundingClientRect();
+    private positionPopover(popover: HTMLElement, anchorEl: HTMLElement, _container: HTMLElement): void {
         const anchorRect = anchorEl.getBoundingClientRect();
         const popoverRect = popover.getBoundingClientRect();
         const offset = 8;
-        const clampMin = 12;
-        const clampMax = Math.max(clampMin, containerRect.width - popoverRect.width - 12);
-        const rawLeft = anchorRect.left - containerRect.left + (anchorRect.width / 2) - (popoverRect.width / 2);
-        const left = Math.min(clampMax, Math.max(clampMin, rawLeft));
-        let top = anchorRect.bottom - containerRect.top + offset;
-        if (top + popoverRect.height > containerRect.height - 12) {
-            top = anchorRect.top - containerRect.top - popoverRect.height - offset;
+        const margin = 12;
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768;
+        const maxLeft = Math.max(margin, viewportWidth - popoverRect.width - margin);
+        const rawLeft = anchorRect.left + (anchorRect.width / 2) - (popoverRect.width / 2);
+        const left = Math.min(maxLeft, Math.max(margin, rawLeft));
+        let top = anchorRect.bottom + offset;
+        if (top + popoverRect.height > viewportHeight - margin) {
+            top = anchorRect.top - popoverRect.height - offset;
         }
-        popover.style.left = `${Math.max(12, left)}px`;
-        popover.style.top = `${Math.max(12, top)}px`;
+        popover.style.left = `${left}px`;
+        popover.style.top = `${Math.max(margin, top)}px`;
     }
 }

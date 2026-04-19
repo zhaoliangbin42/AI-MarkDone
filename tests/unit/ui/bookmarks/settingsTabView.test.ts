@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
 
+import { ModalHost } from '@/ui/content/components/ModalHost';
 import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView';
 
 const baseSettings = {
@@ -399,6 +400,98 @@ describe('SettingsTabView', () => {
         expect(root.querySelector('[data-action="add-prompt"] .aimd-icon')).toBeTruthy();
     });
 
+    it('restores the starter prompt library and persists the default English prompts', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: {
+                    ...structuredClone(baseSettings),
+                    reader: {
+                        renderCodeInReader: true,
+                        commentExport: {
+                            prompts: [
+                                { id: 'custom-1', title: 'Custom prompt', content: 'Rewrite this.' },
+                            ],
+                            template: structuredClone(baseSettings.reader.commentExport.template),
+                        },
+                    },
+                },
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        root.querySelector<HTMLButtonElement>('[data-action="restore-default-prompts"]')?.click();
+        await Promise.resolve();
+
+        expect(modal.confirm).toHaveBeenCalled();
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                prompts: [
+                    expect.objectContaining({ id: 'prompt-1', title: 'Precise Revision' }),
+                    expect.objectContaining({ id: 'prompt-2', title: 'Point-by-Point Revision' }),
+                    expect.objectContaining({ id: 'prompt-3', title: 'Polished Final Draft' }),
+                ],
+            }),
+        });
+    });
+
+    it('keeps the prompt settings popover open after confirming restore defaults through the real modal host', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const modal = new ModalHost(container);
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: {
+                    ...structuredClone(baseSettings),
+                    reader: {
+                        renderCodeInReader: true,
+                        commentExport: {
+                            prompts: [
+                                { id: 'custom-1', title: 'Custom prompt', content: 'Rewrite this.' },
+                            ],
+                            template: structuredClone(baseSettings.reader.commentExport.template),
+                        },
+                    },
+                },
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        container.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')?.click();
+        root.querySelector<HTMLButtonElement>('[data-action="restore-default-prompts"]')?.click();
+
+        expect(container.querySelector('.mock-modal-overlay')).toBeTruthy();
+        container.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(root.querySelector('.reader-prompt-settings[data-view="list"]')).toBeTruthy();
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                prompts: [
+                    expect.objectContaining({ id: 'prompt-1', title: 'Precise Revision' }),
+                    expect.objectContaining({ id: 'prompt-2', title: 'Point-by-Point Revision' }),
+                    expect.objectContaining({ id: 'prompt-3', title: 'Polished Final Draft' }),
+                ],
+            }),
+        });
+    });
+
     it('reorders prompts via drag and drop and persists the new order', async () => {
         const modal = {
             confirm: vi.fn(async () => true),
@@ -733,6 +826,59 @@ describe('SettingsTabView', () => {
                 template: expect.arrayContaining([
                     expect.objectContaining({ type: 'token', key: 'selected_source' }),
                 ]),
+            }),
+        });
+    });
+
+    it('restores the default annotation template and keeps save as the persistence boundary', async () => {
+        const modal = {
+            confirm: vi.fn(async () => true),
+        } as any;
+        const actions = {
+            loadState: vi.fn(async () => ({
+                settings: {
+                    ...structuredClone(baseSettings),
+                    reader: {
+                        renderCodeInReader: true,
+                        commentExport: {
+                            prompts: structuredClone(baseSettings.reader.commentExport.prompts),
+                            template: [
+                                { type: 'text', value: 'Custom template\n' },
+                                { type: 'token', key: 'user_comment' },
+                            ],
+                        },
+                    },
+                },
+                storageUsage: null,
+            })),
+            setReaderSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({ modal, actions });
+        await view.refresh();
+
+        const root = view.getElement();
+        document.body.appendChild(root);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')?.click();
+
+        root.querySelector<HTMLButtonElement>('[data-action="restore-default-template"]')?.click();
+        expect(actions.setReaderSettings).not.toHaveBeenCalled();
+        expect(root.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('Regarding the following text:');
+        expect(root.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('<selected_text>');
+        expect(root.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('My annotation:');
+        expect(root.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('<annotation>');
+
+        root.querySelector<HTMLButtonElement>('.panel-window--reader-settings.reader-settings-popover--template [data-action="save"]')?.click();
+
+        expect(actions.setReaderSettings).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({
+                template: [
+                    { type: 'text', value: 'Regarding the following text:\n<selected_text>\n' },
+                    { type: 'token', key: 'selected_source' },
+                    { type: 'text', value: '\n</selected_text>\n\nMy annotation:\n<annotation>\n' },
+                    { type: 'token', key: 'user_comment' },
+                    { type: 'text', value: '\n</annotation>' },
+                ],
             }),
         });
     });
