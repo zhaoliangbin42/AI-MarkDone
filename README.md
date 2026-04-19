@@ -15,7 +15,7 @@
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>ChatGPT Message Folding, Reading Mode, one-click Markdown copy, bookmarks, and beautiful PDF export.</em></p>
+  <p><em>ChatGPT Message Folding, Reader source copy, Dynamic Annotation, bookmarks, and beautiful PDF export.</em></p>
 
   [中文文档](./README.zh.md) | English
 </div>
@@ -64,6 +64,8 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 ### 📚 Reading Mode (Focus View)
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
 - **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages.
+- **Source-aware copy**: Copy formulas, code blocks, tables, images, and other closed Markdown units as source directly inside Reader.
+- **Dynamic Annotation**: Mark exact passages, leave revision notes, and compile them into structured follow-up input.
 - **Keep chatting**: Send messages from Reading Mode without losing your place.
 
 ### 📦 Export & Copy (Markdown + PDF)
@@ -75,6 +77,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **One-click save**: Bookmark any important message instantly.
 - **Organize**: Use folders to keep projects and topics separate.
 - **Preview + jump**: Preview a bookmark and jump back to its exact spot in chat.
+- **Built-in info pages**: Check Changelog, FAQ, and About directly inside the bookmarks panel.
 
 ### 🧮 One-Click LaTeX Copy
 - **Click-to-copy**: Copy LaTeX from inline (`$...$`) and block (`$$...$$`) formulas.
@@ -110,7 +113,7 @@ Secure, verified, and auto-updated.
 2. Unzip the file.
 3. Open Chrome and go to `chrome://extensions/`.
 4. Enable **Developer Mode** in the top right corner.
-5. Click **Load unpacked** and select the unzipped `dist/` folder.
+5. Click **Load unpacked** and select the unzipped extension folder that contains `manifest.json`.
 6. Refresh your ChatGPT or Gemini page and enjoy! 🎉
 
 ---
@@ -146,6 +149,7 @@ npm run build
 - The bookmarks panel now includes built-in Changelog, FAQ, and About pages.
 
 [Full Changelog](./CHANGELOG.md)
+[Release Notes](./RELEASE_NOTES.md)
 
 ## ☕️ Support the Author
 

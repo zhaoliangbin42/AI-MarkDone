@@ -31,12 +31,15 @@
 6. Confirm entry format verification passed for both targets.
 7. Update `CHANGELOG.md` and any user-facing release references.
    - Update the latest release summary in `README.md` and `README.zh.md` when the highlighted version changes.
+   - Review the main feature bullets, release summary, and manual-install wording in `README.md` and `README.zh.md` so they still match the shipped release artifacts and feature set.
+   - Update `RELEASE_NOTES.md` if the repository still uses it as a user-facing release summary.
    - If the release changes bookmarks information pages, review and update the relevant files under `src/ui/content/bookmarks/content/`.
    - At minimum, explicitly check `changelog.zh.md`, `changelog.en.md`, `faq.zh.md`, `faq.en.md`, `about.zh.md`, and `about.en.md` before submission.
 8. Perform maintainer manual review for all release-facing copy before finishing.
    - `CHANGELOG.md`
    - `README.md`
    - `README.zh.md`
+   - `RELEASE_NOTES.md`
    - any touched files under `src/ui/content/bookmarks/content/`
    - This manual review is required even if tests and build already pass.
 9. If the release changes adapters, runtime protocol, or browser support behavior, update the corresponding docs before finishing.

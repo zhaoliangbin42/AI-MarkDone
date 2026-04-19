@@ -41,5 +41,6 @@ Any additional information or context.
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] I have updated the documentation (CHANGELOG.md, README.md, docs/spec if needed)
 - [ ] If this PR changes user-visible behavior, I checked `CHANGELOG.md` and `src/ui/content/bookmarks/content/*.md`
+- [ ] If this PR prepares a release or changes release-facing behavior, I checked `README.md`, `README.zh.md`, and `RELEASE_NOTES.md`
 - [ ] My changes generate no new TypeScript errors
 - [ ] I have used `logger` instead of `console.log` for debugging

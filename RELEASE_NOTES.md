@@ -1,5 +1,18 @@
 # Release Notes
 
+## v4.1.0 (2026-04-19)
+
+### Added
+- Added Dynamic Annotation in Reader so you can mark exact passages, attach revision notes, and export them as structured follow-up input.
+- Added dedicated Changelog, FAQ, and About pages inside the bookmarks panel.
+
+### Changed
+- Removed the standalone source panel and moved source copying directly into Reader.
+- Reader copy now preserves formulas, code blocks, tables, images, and other closed Markdown units as source instead of flattening them into rendered text.
+
+### Improved
+- Expanded the Reader-centered workflow so source copy, annotation export, and prompt reuse now stay in one place.
+
 ## v2.0.0 (2025-12-20)
 
 ### 改进
