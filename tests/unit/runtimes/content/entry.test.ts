@@ -12,7 +12,7 @@ const themeManagerCtor = vi.fn(function () {
     return { init: themeInit, subscribe: themeSubscribe };
 });
 const readerPanelCtor = vi.fn(function () {
-    return { setTheme: vi.fn(), setRenderCodeInReader: vi.fn() };
+    return { setTheme: vi.fn(), setRenderCodeInReader: vi.fn(), setCommentExportSettings: vi.fn() };
 });
 const sendControllerCtor = vi.fn(function () {
     return { setTheme: vi.fn() };
@@ -193,6 +193,19 @@ describe('content runtime entry', () => {
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeUndefined();
     });
 
+    it('wires the header icon toggle directly to the bookmarks panel toggle path', async () => {
+        adapterPlatformId = 'gemini';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const headerOpts = headerIconCtor.mock.calls[0]?.[1];
+        expect(headerOpts?.onToggle).toBeTypeOf('function');
+
+        await headerOpts.onToggle();
+
+        expect(bookmarksToggle).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps ChatGPT folding ChatGPT-only', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
@@ -221,14 +234,19 @@ describe('content runtime entry', () => {
                 platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: false,
                     enableClickToCopy: false,
                     saveContextOnly: false,
                     _contextOnlyConfirmed: true,
                 },
-                reader: { renderCodeInReader: false },
+                reader: {
+                    renderCodeInReader: false,
+                    commentExport: {
+                        prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+                        template: [],
+                    },
+                },
             },
         });
 
@@ -246,14 +264,19 @@ describe('content runtime entry', () => {
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: true,
                     enableClickToCopy: true,
                     saveContextOnly: false,
                     _contextOnlyConfirmed: true,
                 },
-                reader: { renderCodeInReader: true },
+                reader: {
+                    renderCodeInReader: true,
+                    commentExport: {
+                        prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+                        template: [],
+                    },
+                },
             },
         });
 
@@ -263,7 +286,6 @@ describe('content runtime entry', () => {
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
         expect(messageToolbarsSetVirtualizationController).not.toHaveBeenCalled();
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
-            showViewSource: true,
             showSaveMessages: true,
             showWordCount: true,
         });
@@ -283,14 +305,19 @@ describe('content runtime entry', () => {
                 platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: true,
                     enableClickToCopy: false,
                     saveContextOnly: false,
                     _contextOnlyConfirmed: true,
                 },
-                reader: { renderCodeInReader: true },
+                reader: {
+                    renderCodeInReader: true,
+                    commentExport: {
+                        prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+                        template: [],
+                    },
+                },
             },
         });
 
@@ -309,14 +336,19 @@ describe('content runtime entry', () => {
             platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
             chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true },
             behavior: {
-                showViewSource: true,
                 showSaveMessages: true,
                 showWordCount: true,
                 enableClickToCopy: true,
                 saveContextOnly: false,
                 _contextOnlyConfirmed: true,
             },
-            reader: { renderCodeInReader: true },
+            reader: {
+                renderCodeInReader: true,
+                commentExport: {
+                    prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+                    template: [],
+                },
+            },
         });
 
         vi.resetModules();
@@ -325,5 +357,35 @@ describe('content runtime entry', () => {
         expect(messageToolbarsSetConversationContentPreparer).not.toHaveBeenCalled();
         expect(messageToolbarsSetVirtualizationController).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.virtualizationController).toBeUndefined();
+    });
+
+    it('applies cached reader comment export settings before the first subscription snapshot', async () => {
+        const cachedCommentExport = {
+            prompts: [{ id: 'cached', title: 'Cached', content: 'Cached prompt.' }],
+            template: [{ type: 'text', value: 'Cached template' }],
+        };
+        settingsGetCached.mockReturnValue({
+            language: 'auto',
+            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+            behavior: {
+                showSaveMessages: true,
+                showWordCount: true,
+                enableClickToCopy: true,
+                saveContextOnly: false,
+                _contextOnlyConfirmed: true,
+            },
+            reader: {
+                renderCodeInReader: false,
+                commentExport: cachedCommentExport,
+            },
+        });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const reader = readerPanelCtor.mock.results[0]?.value;
+        expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
+        expect(reader?.setCommentExportSettings).toHaveBeenCalledWith(cachedCommentExport);
     });
 });

@@ -247,4 +247,36 @@ describe('ModalHost', () => {
         await expect(resultPromise).resolves.toBe(false);
         expect(modalRoot.querySelector('.mock-modal-overlay')).toBeNull();
     });
+
+    it('keeps the modal open when text selection starts inside the dialog and releases on the overlay', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const modalRoot = document.createElement('div');
+        shadow.appendChild(modalRoot);
+        document.body.appendChild(host);
+
+        const modal = new ModalHost(modalRoot);
+        void modal.confirm({
+            kind: 'info',
+            title: 'Selectable content',
+            message: 'Drag selection from here.',
+            confirmText: 'OK',
+            cancelText: 'Cancel',
+        });
+
+        await Promise.resolve();
+
+        const overlay = modalRoot.querySelector<HTMLElement>('.mock-modal-overlay')!;
+        const dialog = modalRoot.querySelector<HTMLElement>('.mock-modal')!;
+        dialog.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        overlay.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(modalRoot.querySelector('.mock-modal-overlay')).toBeTruthy();
+        expect(overlay.dataset.motionState).not.toBe('closing');
+
+        overlay.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        overlay.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(overlay.dataset.motionState).toBe('closing');
+    });
 });

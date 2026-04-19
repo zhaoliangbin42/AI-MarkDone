@@ -9,6 +9,9 @@
  * - Merge with defaults to allow adding new fields safely
  */
 
+import type { ReaderCommentExportSettings } from './readerCommentExport';
+import { createDefaultReaderCommentExportSettings } from './readerCommentExport';
+
 export type SettingsVersion = 3;
 
 export type FoldingMode = 'off' | 'all' | 'keep_last_n';
@@ -27,7 +30,6 @@ export type AppSettings = {
         showFoldDock: boolean;
     };
     behavior: {
-        showViewSource: boolean;
         showSaveMessages: boolean;
         showWordCount: boolean;
         enableClickToCopy: boolean;
@@ -36,6 +38,7 @@ export type AppSettings = {
     };
     reader: {
         renderCodeInReader: boolean;
+        commentExport: ReaderCommentExportSettings;
     };
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
@@ -54,14 +57,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
         showFoldDock: true,
     },
     behavior: {
-        showViewSource: true,
         showSaveMessages: true,
         showWordCount: true,
         enableClickToCopy: true,
         saveContextOnly: false,
         _contextOnlyConfirmed: false,
     },
-    reader: { renderCodeInReader: true },
+    reader: {
+        renderCodeInReader: true,
+        commentExport: createDefaultReaderCommentExportSettings(),
+    },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
 };

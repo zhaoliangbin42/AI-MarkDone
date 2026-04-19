@@ -433,4 +433,30 @@ describe('BookmarkSaveDialog', () => {
             await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
         }
     });
+
+    it('does not close when text selection starts inside the dialog and releases on the backdrop', async () => {
+        await setLocale('en');
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        const host = document.getElementById('aimd-bookmark-save-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        const panel = shadow.querySelector<HTMLElement>('.panel-window--bookmark-save')!;
+        const backdrop = shadow.querySelector<HTMLElement>('[data-role="overlay-backdrop-root"] .panel-stage__overlay')!;
+
+        panel.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(document.getElementById('aimd-bookmark-save-dialog-host')).toBeTruthy();
+        expect(panel.dataset.motionState).not.toBe('closing');
+
+        backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(panel.dataset.motionState).toBe('closing');
+        panel.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+    });
 });

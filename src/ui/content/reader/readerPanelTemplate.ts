@@ -2,8 +2,8 @@ import {
     chevronRightIcon,
     copyIcon,
     externalLinkIcon,
-    fileCodeIcon,
     maximizeIcon,
+    messageSquareShareIcon,
     minimizeIcon,
     xIcon,
 } from '../../../assets/icons';
@@ -20,7 +20,6 @@ type ReaderTemplateState = {
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     showCopy: boolean;
-    showSource: boolean;
     showOpenConversation: boolean;
 };
 
@@ -60,7 +59,6 @@ export function getReaderPanelHtml(params: {
     const title = getLabel('btnReader', 'Reader panel');
     const openConversationLabel = getLabel('openConversationLabel', 'Open conversation');
     const copyLabel = getLabel('btnCopyText', 'Copy markdown');
-    const sourceLabel = getLabel('btnViewSource', 'View source');
     const fullscreenLabel = state.fullscreen
         ? getLabel('exitFullscreen', 'Exit fullscreen')
         : getLabel('toggleFullscreen', 'Toggle fullscreen');
@@ -79,8 +77,8 @@ export function getReaderPanelHtml(params: {
     <div class="panel-header__actions">
       <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
       ${state.showOpenConversation && canOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
+      <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}">${iconMarkup(messageSquareShareIcon)}</button>
       ${state.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
-      ${state.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" title="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
@@ -94,7 +92,10 @@ export function getReaderPanelHtml(params: {
         </section>
         <section class="reader-message reader-message--assistant">
           <div class="reader-message__label">AI response</div>
-          <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
+          <div class="reader-markdown-shell" data-role="reader-markdown-shell">
+            <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
+            <div class="reader-comment-overlay" data-role="comment-overlay"></div>
+          </div>
         </section>
       </div>
     </article>
@@ -194,8 +195,8 @@ ${getPanelChromeCss()}
 }
 
 .secondary-btn--compact {
-  min-height: 36px;
-  padding: 0 var(--aimd-space-3);
+  min-height: var(--aimd-size-control-compact);
+  padding: 0 var(--aimd-space-2);
 }
 
 .secondary-btn--primary {
@@ -262,9 +263,117 @@ ${getPanelChromeCss()}
 
 .reader-markdown {
   min-width: 0;
+  --_reader-atomic-selected-bg: color-mix(in srgb, var(--aimd-interactive-selected) 92%, var(--aimd-bg-primary));
+  --_reader-atomic-selected-bg-strong: color-mix(in srgb, var(--aimd-interactive-selected) 96%, var(--aimd-bg-primary));
+  --_reader-atomic-selected-border: color-mix(in srgb, var(--aimd-interactive-primary) 28%, transparent);
+  --_reader-atomic-selected-border-strong: color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
+}
+
+.reader-markdown-shell {
+  position: relative;
+  min-width: 0;
+  padding-right: calc(var(--aimd-space-5) + var(--aimd-size-control-icon-panel));
+  --_reader-comment-floating-bg: var(--aimd-button-floating-bg);
+  --_reader-comment-floating-border: var(--aimd-button-floating-border);
+  --_reader-comment-floating-hover-bg: var(--aimd-button-floating-hover);
+  --_reader-comment-floating-active-bg: var(--aimd-button-floating-active);
+}
+
+.reader-comment-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reader-comment-highlight {
+  position: absolute;
+  background: color-mix(in srgb, var(--aimd-interactive-selected) 92%, var(--aimd-bg-primary));
+  border-radius: var(--aimd-radius-sm);
+}
+
+.reader-comment-highlight--active {
+  background: color-mix(in srgb, var(--aimd-interactive-selected) 98%, var(--aimd-interactive-primary) 12%);
+}
+
+.reader-comment-action {
+  position: absolute;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  white-space: nowrap;
+}
+
+.reader-comment-anchor {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.reader-comment-action .aimd-icon,
+.reader-comment-anchor .aimd-icon {
+  color: var(--aimd-interactive-primary);
+}
+
+.reader-comment-action__button {
+  color: var(--aimd-text-secondary);
+  background: var(--_reader-comment-floating-bg);
+  border-color: var(--_reader-comment-floating-border);
+}
+
+.reader-comment-action__button:hover,
+.reader-comment-action__button:focus-visible,
+.reader-comment-anchor:hover {
+  color: var(--aimd-interactive-primary);
+  background: var(--_reader-comment-floating-hover-bg);
+  border-color: var(--_reader-comment-floating-border);
+}
+
+.reader-comment-action__button:active,
+.reader-comment-action__button:focus,
+.reader-comment-anchor:active {
+  color: var(--aimd-interactive-primary);
+  background: var(--_reader-comment-floating-active-bg);
+  border-color: var(--_reader-comment-floating-border);
+}
+
+.reader-comment-anchor {
+  border-color: var(--_reader-comment-floating-border);
+  background: var(--_reader-comment-floating-bg);
 }
 
 ${getMarkdownThemeCss('.reader-markdown')}
+
+.reader-markdown :where([data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
+  background: var(--_reader-atomic-selected-bg);
+  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border);
+}
+
+.reader-markdown :where(.katex[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
+  background: var(--_reader-atomic-selected-bg-strong);
+  box-shadow:
+    inset 0 -0.22em 0 var(--_reader-atomic-selected-bg-strong),
+    inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+}
+
+.reader-markdown :where(code[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
+  background: var(--_reader-atomic-selected-bg-strong);
+  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+}
+
+.reader-markdown :where(.katex-display[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
+  background: var(--_reader-atomic-selected-bg-strong);
+  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+}
+
+.reader-markdown :where(pre[data-aimd-unit-state="selected"], table[data-aimd-unit-state="selected"], img[data-aimd-unit-state="selected"]) {
+  border-radius: var(--aimd-radius-sm);
+  background: var(--_reader-atomic-selected-bg-strong);
+  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+}
 
 .reader-code-block {
   margin: 0 0 1em;

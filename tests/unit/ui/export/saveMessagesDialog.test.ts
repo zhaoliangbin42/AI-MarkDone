@@ -234,4 +234,28 @@ describe('SaveMessagesDialog', () => {
         expect(css).toContain('min-width: 42px;');
         expect(css).not.toContain('padding: 0 10px;');
     });
+
+    it('does not close when text selection starts inside the dialog and releases on the backdrop', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+
+        const dlg = new SaveMessagesDialog();
+        dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        const panel = shadow.querySelector<HTMLElement>('.panel-window--save')!;
+        const backdrop = shadow.querySelector<HTMLElement>('[data-role="overlay-backdrop-root"] .panel-stage__overlay')!;
+
+        panel.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
+        expect(panel.dataset.motionState).not.toBe('closing');
+
+        backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(panel.dataset.motionState).toBe('closing');
+    });
 });

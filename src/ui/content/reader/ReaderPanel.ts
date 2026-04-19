@@ -1,20 +1,46 @@
 import type { Theme } from '../../../core/types/theme';
 import { browser } from '../../../drivers/shared/browser';
+import { copyIcon, messageSquareTextIcon } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
-import { renderMarkdownToSanitizedHtml } from '../../../services/renderer/renderMarkdown';
+import type { AppSettings } from '../../../core/settings/types';
+import { renderMarkdownForReader, type ReaderAtomicUnit } from '../../../services/renderer/renderMarkdown';
+import {
+    annotateRenderedAtomicUnits,
+    applyRenderedAtomicSelection,
+    clearRenderedAtomicSelection,
+    resolveReaderSelectionRange,
+    resolveSelectedAtomicUnits,
+    type SelectedAtomicUnit,
+} from '../../../services/reader/atomicSelection';
+import { buildAtomicSelectionExport } from '../../../services/reader/atomicExport';
+import {
+    createReaderCommentRecord,
+    resolveReaderCommentAnchor,
+    resolveSelectionLayout,
+    type ReaderCommentRect,
+} from '../../../services/reader/commentAnchoring';
+import {
+    buildCommentsExport,
+    createDefaultReaderCommentExportSettings,
+    resolveReaderCommentExportPrompts,
+    type ReaderCommentExportSettings,
+} from '../../../services/reader/commentExport';
+import { listReaderComments, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
-import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
+import { ReaderCommentPopover } from './ReaderCommentPopover';
+import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
 import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
+import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -54,23 +80,38 @@ type ReaderPanelState = {
     visible: boolean;
     fullscreen: boolean;
     renderedHtml: string;
+    renderedMarkdownSource: string;
+    renderedAtomicUnits: ReaderAtomicUnit[];
+    selectedAtomicUnitIds: string[];
+    selectionSourceText: string;
+    selectionExport: string;
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     options: {
         profile: ReaderPanelProfile;
         showNav: boolean;
         showCopy: boolean;
-        showSource: boolean;
         showOpenConversation: boolean;
         dotStyle: 'meta' | 'plain';
-        initialView: 'render' | 'source';
         actions: ReaderPanelAction[];
         onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
     };
 };
 
+type ReaderCommentSelectionSnapshot = {
+    range: Range;
+    selectedUnits: SelectedAtomicUnit[];
+    selectedText: string;
+    sourceMarkdown: string;
+};
+
+const READER_COMMENT_SCOPE_ID = 'reader-panel-comments-v1';
+
 export class ReaderPanel {
     private overlaySession: OverlaySession | null = null;
+    private readonly commentPopover = new ReaderCommentPopover();
+    private readonly commentExportPopover = new ReaderCommentExportPopover();
+    private readonly commentPromptPicker = new CommentPromptPickerPopover();
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
@@ -79,6 +120,13 @@ export class ReaderPanel {
     private renderCodeInReader = true;
     private closing = false;
     private motionNeedsOpen = false;
+    private onSelectionChange: (() => void) | null = null;
+    private onPointerUp: (() => void) | null = null;
+    private onShadowCopy: EventListener | null = null;
+    private renderedAtomicElements: SelectedAtomicUnit[] = [];
+    private commentSelectionSnapshot: ReaderCommentSelectionSnapshot | null = null;
+    private activeCommentId: string | null = null;
+    private commentExportSettings: ReaderCommentExportSettings = createDefaultReaderCommentExportSettings();
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private state: ReaderPanelState = {
         theme: 'light',
@@ -87,16 +135,19 @@ export class ReaderPanel {
         visible: false,
         fullscreen: false,
         renderedHtml: '',
+        renderedMarkdownSource: '',
+        renderedAtomicUnits: [],
+        selectedAtomicUnitIds: [],
+        selectionSourceText: '',
+        selectionExport: '',
         userPromptDisplay: formatReaderUserPromptDisplay(''),
         statusText: '',
         options: {
             profile: 'conversation-reader',
             showNav: true,
             showCopy: true,
-            showSource: true,
             showOpenConversation: false,
             dotStyle: 'meta',
-            initialView: 'render',
             actions: [],
         },
     };
@@ -127,6 +178,19 @@ export class ReaderPanel {
         }
     }
 
+    setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
+        this.commentExportSettings = settings;
+    }
+
+    getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template'] } | null {
+        const comments = this.getCurrentComments();
+        return {
+            comments: comments.map((record) => ({ ...record })),
+            prompts: this.commentExportSettings.prompts.map((prompt) => ({ ...prompt })),
+            template: this.commentExportSettings.template.map((segment) => ({ ...segment })),
+        };
+    }
+
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
         this.focusLifecycle.capture();
         const resolvedProfile = this.resolveProfileState(options?.profile);
@@ -136,6 +200,11 @@ export class ReaderPanel {
         this.state.visible = true;
         this.state.fullscreen = false;
         this.state.renderedHtml = '';
+        this.state.renderedMarkdownSource = '';
+        this.state.renderedAtomicUnits = [];
+        this.state.selectedAtomicUnitIds = [];
+        this.state.selectionSourceText = '';
+        this.state.selectionExport = '';
         this.state.userPromptDisplay = formatReaderUserPromptDisplay(items[this.state.index]?.userPrompt ?? '');
         this.state.statusText = '';
         this.closing = false;
@@ -155,10 +224,6 @@ export class ReaderPanel {
             ignoreEscapeWhileComposing: true,
             trapTabWithin: this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession?.host ?? undefined,
         });
-
-        if (this.state.options.initialView === 'source') {
-            void this.openSourcePanel();
-        }
 
         await this.renderCurrentContent();
     }
@@ -207,7 +272,7 @@ export class ReaderPanel {
         this.overlaySession = session;
         this.tooltipDelegate = new TooltipDelegate(session.shadow, { upgradeTitles: false });
 
-        session.backdropRoot.addEventListener('click', () => this.hide());
+        session.syncBackdropDismiss(() => this.hide());
         session.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
 
         this.onKeyDown = (event: KeyboardEvent) => {
@@ -224,6 +289,13 @@ export class ReaderPanel {
         };
         session.host.addEventListener('keydown', this.onKeyDown);
 
+        this.onSelectionChange = () => this.syncAtomicSelection();
+        this.onPointerUp = () => this.syncAtomicSelection();
+        this.onShadowCopy = (event: Event) => this.handleAtomicCopy(event as ClipboardEvent);
+        document.addEventListener('selectionchange', this.onSelectionChange);
+        document.addEventListener('pointerup', this.onPointerUp);
+        session.shadow.addEventListener('copy', this.onShadowCopy, true);
+
         const katexUrl = this.getKatexUrl();
         if (katexUrl) ensureShadowStylesheetLink(session.shadow, katexUrl, 'aimd-reader-panel-katex');
 
@@ -237,6 +309,22 @@ export class ReaderPanel {
             this.overlaySession.host.removeEventListener('keydown', this.onKeyDown);
         }
         this.onKeyDown = null;
+        if (this.onSelectionChange) document.removeEventListener('selectionchange', this.onSelectionChange);
+        if (this.onPointerUp) document.removeEventListener('pointerup', this.onPointerUp);
+        if (this.overlaySession?.shadow && this.onShadowCopy) {
+            this.overlaySession.shadow.removeEventListener('copy', this.onShadowCopy, true);
+        }
+        this.onSelectionChange = null;
+        this.onPointerUp = null;
+        this.onShadowCopy = null;
+        this.renderedAtomicElements = [];
+        this.commentSelectionSnapshot = null;
+        this.activeCommentId = null;
+        if (this.overlaySession?.shadow) {
+            this.commentPopover.close(this.overlaySession.shadow, false);
+            this.commentExportPopover.close(this.overlaySession.shadow);
+            this.commentPromptPicker.close(this.overlaySession.shadow);
+        }
 
         if (this.statusTimer) {
             window.clearTimeout(this.statusTimer);
@@ -279,11 +367,11 @@ export class ReaderPanel {
             case 'reader-copy':
                 await this.copyCurrent();
                 return;
+            case 'reader-copy-comments':
+                this.openCommentExportPopover();
+                return;
             case 'reader-copy-code':
                 await this.copyCodeBlock(actionEl);
-                return;
-            case 'reader-source':
-                await this.openSourcePanel();
                 return;
             case 'reader-fullscreen':
                 this.toggleFullscreen();
@@ -315,6 +403,12 @@ export class ReaderPanel {
         const item = this.state.items[this.state.index];
         if (!item) {
             this.state.renderedHtml = '';
+            this.state.renderedMarkdownSource = '';
+            this.state.renderedAtomicUnits = [];
+            this.state.selectedAtomicUnitIds = [];
+            this.state.selectionSourceText = '';
+            this.state.selectionExport = '';
+            this.commentSelectionSnapshot = null;
             this.state.userPromptDisplay = formatReaderUserPromptDisplay('');
             this.render(false);
             return;
@@ -325,13 +419,17 @@ export class ReaderPanel {
         const markdown = await resolveContent(item.content);
         if (token !== this.contentRenderToken) return;
 
-        const renderedHtml = renderMarkdownToSanitizedHtml(markdown, {
+        const rendered = renderMarkdownForReader(markdown, {
             highlightCode: this.renderCodeInReader,
         });
-        this.state.renderedHtml = decorateReaderCodeBlocksHtml(renderedHtml, {
+        this.state.renderedMarkdownSource = rendered.markdownSource;
+        this.state.renderedAtomicUnits = rendered.atomicUnits;
+        this.state.renderedHtml = decorateReaderCodeBlocksHtml(rendered.html, {
             copyLabel: this.getLabel('btnCopyText', 'Copy code'),
         });
         this.render(false);
+        this.syncAtomicSelection();
+        this.syncCommentUi();
 
         const body = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
         if (body) body.scrollTop = 0;
@@ -356,13 +454,6 @@ export class ReaderPanel {
         } finally {
             button.disabled = false;
         }
-    }
-
-    private async openSourcePanel(): Promise<void> {
-        const item = this.state.items[this.state.index];
-        if (!item) return;
-        const markdown = await resolveContent(item.content);
-        sourcePanel.show({ theme: this.state.theme, title: t('modalSourceTitle'), content: markdown });
     }
 
     private async copyCodeBlock(button: HTMLElement): Promise<void> {
@@ -426,7 +517,6 @@ export class ReaderPanel {
                 userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,
                 showCopy: this.state.options.showCopy,
-                showSource: this.state.options.showSource,
                 showOpenConversation: this.state.options.showOpenConversation,
             },
             canOpenConversation: this.canOpenConversation(),
@@ -447,7 +537,6 @@ export class ReaderPanel {
                 selectors: [
                     '[data-action="reader-open-conversation"]',
                     '[data-action="reader-copy"]',
-                    '[data-action="reader-source"]',
                     '[data-action="reader-fullscreen"]',
                     '[data-action="close-panel"]',
                 ],
@@ -458,6 +547,10 @@ export class ReaderPanel {
         this.renderActions();
         this.renderDots();
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
+        this.syncAtomicMarkup();
+        this.applyAtomicSelectionState();
+        this.syncCommentUi();
+        this.syncCommentControls();
 
         const nextBody = panel.querySelector<HTMLElement>('.reader-body');
         if (nextBody && preserveScrollTop) {
@@ -613,10 +706,8 @@ export class ReaderPanel {
                 profile,
                 showNav: true,
                 showCopy: true,
-                showSource: true,
                 showOpenConversation: true,
                 dotStyle: 'plain',
-                initialView: 'render',
                 actions: [],
             };
         }
@@ -625,10 +716,8 @@ export class ReaderPanel {
             profile: 'conversation-reader',
             showNav: true,
             showCopy: true,
-            showSource: true,
             showOpenConversation: false,
             dotStyle: 'meta',
-            initialView: 'render',
             actions: [],
         };
     }
@@ -663,5 +752,427 @@ export class ReaderPanel {
         } catch {
             return '';
         }
+    }
+
+    private getMarkdownRoot(): HTMLElement | null {
+        return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-markdown') ?? null;
+    }
+
+    private getCommentOverlay(): HTMLElement | null {
+        return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('[data-role="comment-overlay"]') ?? null;
+    }
+
+    private toViewportRect(rect: ReaderCommentRect): DOMRect | null {
+        const overlay = this.getCommentOverlay();
+        if (!overlay) return null;
+        const overlayRect = overlay.getBoundingClientRect();
+        return new DOMRect(
+            overlayRect.left + rect.left,
+            overlayRect.top + rect.top,
+            rect.width,
+            rect.height,
+        );
+    }
+
+    private getCurrentItem(): ReaderItem | null {
+        return this.state.items[this.state.index] ?? null;
+    }
+
+    private getCurrentComments(): ReaderCommentRecord[] {
+        const item = this.getCurrentItem();
+        if (!item) return [];
+        return listReaderComments(READER_COMMENT_SCOPE_ID, item.id);
+    }
+
+    private syncCommentControls(): void {
+        const button = this.overlaySession?.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]');
+        if (!button) return;
+        button.disabled = this.getCurrentComments().length < 1;
+    }
+
+    private syncCommentUi(): void {
+        const overlayRoot = this.getCommentOverlay();
+        const markdownRoot = this.getMarkdownRoot();
+        if (!overlayRoot || !markdownRoot) return;
+        overlayRoot.replaceChildren();
+
+        const comments = this.getCurrentComments();
+        const occupiedAnchorTops: number[] = [];
+        for (const record of comments) {
+            const resolved = resolveReaderCommentAnchor(markdownRoot, record);
+            const active = record.id === this.activeCommentId;
+            resolved.rects.forEach((rect) => overlayRoot.appendChild(this.createCommentHighlight(rect, active)));
+            if (resolved.unionRect) {
+                overlayRoot.appendChild(this.createCommentAnchor(record, resolved.unionRect, resolved.rects, occupiedAnchorTops));
+            }
+        }
+
+        if (this.commentPopover.isOpen() || this.commentExportPopover.isOpen() || this.commentPromptPicker.isOpen()) return;
+        const selection = this.commentSelectionSnapshot;
+        if (!selection) return;
+        if (!selection.selectedText.trim() && selection.selectedUnits.length < 1) return;
+
+        const resolved = resolveSelectionLayout({
+            root: markdownRoot,
+            range: selection.range,
+            selectedUnits: selection.selectedUnits,
+        });
+        if (resolved.unionRect) {
+            overlayRoot.appendChild(this.createCommentAction(resolved.unionRect, selection));
+        }
+    }
+
+    private createCommentHighlight(rect: ReaderCommentRect, active: boolean): HTMLElement {
+        const element = document.createElement('div');
+        element.className = `reader-comment-highlight${active ? ' reader-comment-highlight--active' : ''}`;
+        element.style.left = `${rect.left}px`;
+        element.style.top = `${rect.top}px`;
+        element.style.width = `${rect.width}px`;
+        element.style.height = `${rect.height}px`;
+        return element;
+    }
+
+    private createCommentAction(unionRect: ReaderCommentRect, selection: ReaderCommentSelectionSnapshot): HTMLElement {
+        const group = document.createElement('div');
+        group.className = 'reader-comment-action';
+        const overlay = this.getCommentOverlay();
+        const buttonSize = this.getTokenSize('--aimd-size-control-icon-panel', 32);
+        const gap = this.getTokenSize('--aimd-space-2', 8);
+        const actionWidth = (buttonSize * 2) + gap;
+        const clampPadding = this.getTokenSize('--aimd-space-3', 12);
+        const verticalGap = this.getTokenSize('--aimd-space-2', 8);
+        const left = Math.max(0, Math.min(
+            Math.max(0, (overlay?.clientWidth ?? 0) - actionWidth - clampPadding),
+            unionRect.left + unionRect.width / 2 - actionWidth / 2,
+        ));
+        const preferredTop = unionRect.top - buttonSize - verticalGap;
+        const fallbackTop = unionRect.top + unionRect.height + verticalGap;
+        const top = preferredTop >= -(buttonSize + verticalGap) ? preferredTop : fallbackTop;
+
+        group.style.left = `${left}px`;
+        group.style.top = `${top}px`;
+        this.installTransientButtonBoundary(group);
+
+        const copyButton = document.createElement('button');
+        copyButton.className = 'icon-btn reader-comment-action__button';
+        copyButton.type = 'button';
+        copyButton.dataset.action = 'reader-selection-copy';
+        copyButton.setAttribute('aria-label', this.getLabel('btnCopyText', 'Copy markdown'));
+        copyButton.setAttribute('title', this.getLabel('btnCopyText', 'Copy markdown'));
+        copyButton.innerHTML = createIcon(copyIcon).outerHTML;
+        copyButton.addEventListener('click', async () => {
+            if (!selection.sourceMarkdown.trim()) return;
+            const ok = await copyTextToClipboard(selection.sourceMarkdown);
+            showEphemeralTooltip({
+                root: this.overlaySession?.shadow ?? document,
+                anchor: copyButton,
+                text: this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'),
+            });
+        });
+
+        const commentButton = document.createElement('button');
+        commentButton.className = 'icon-btn reader-comment-action__button';
+        commentButton.type = 'button';
+        commentButton.dataset.action = 'reader-comment-add';
+        commentButton.setAttribute('aria-label', this.getLabel('readerCommentAction', 'Comment'));
+        commentButton.setAttribute('title', this.getLabel('readerCommentAction', 'Comment'));
+        commentButton.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
+        commentButton.addEventListener('click', () => {
+            const markdownRoot = this.getMarkdownRoot();
+            const shell = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+            if (!markdownRoot || !shell || !this.overlaySession) return;
+            const frozenSelection: ReaderCommentSelectionSnapshot = {
+                range: selection.range.cloneRange(),
+                selectedUnits: [...selection.selectedUnits],
+                selectedText: selection.selectedText,
+                sourceMarkdown: selection.sourceMarkdown,
+            };
+            this.openCommentPopover({
+                mode: 'create',
+                anchorRect: commentButton.getBoundingClientRect(),
+                initialText: '',
+                selectedSource: frozenSelection.sourceMarkdown,
+                onSave: (value) => {
+                    const item = this.getCurrentItem();
+                    if (!item) return;
+                    const record = createReaderCommentRecord({
+                        id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        itemId: item.id,
+                        comment: value,
+                        range: frozenSelection.range,
+                        root: markdownRoot,
+                        selectedUnits: frozenSelection.selectedUnits,
+                    });
+                    saveReaderComment(READER_COMMENT_SCOPE_ID, record);
+                    this.activeCommentId = record.id;
+                    this.syncCommentUi();
+                    this.syncCommentControls();
+                },
+                onCancel: () => {
+                    this.activeCommentId = null;
+                    this.syncCommentUi();
+                },
+            });
+        });
+        group.append(copyButton, commentButton);
+        return group;
+    }
+
+    private createCommentAnchor(
+        record: ReaderCommentRecord,
+        unionRect: ReaderCommentRect,
+        _rects: ReaderCommentRect[],
+        occupiedAnchorTops: number[],
+    ): HTMLElement {
+        const button = document.createElement('button');
+        button.className = 'icon-btn reader-comment-anchor';
+        button.type = 'button';
+        button.dataset.action = 'reader-comment-open';
+        button.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
+
+        const buttonSize = this.getTokenSize('--aimd-size-control-icon-panel', 32);
+        const stackStep = buttonSize - this.getTokenSize('--aimd-space-1', 4);
+        let top = unionRect.top + unionRect.height / 2 - buttonSize / 2;
+        while (occupiedAnchorTops.some((value) => Math.abs(value - top) < buttonSize + this.getTokenSize('--aimd-space-1', 4))) {
+            top += stackStep;
+        }
+        occupiedAnchorTops.push(top);
+
+        const overlayRect = this.getCommentOverlay()!.getBoundingClientRect();
+        const markdownRect = this.getMarkdownRoot()!.getBoundingClientRect();
+        const gutterLeft = markdownRect.right - overlayRect.left + this.getTokenSize('--aimd-space-4', 16);
+        const anchorLeft = Math.max(
+            0,
+            Math.min(this.getCommentOverlay()!.clientWidth - buttonSize, gutterLeft),
+        );
+
+        button.style.left = `${anchorLeft}px`;
+        button.style.top = `${Math.max(0, top)}px`;
+        this.installTransientButtonBoundary(button);
+        button.addEventListener('click', () => {
+            this.activeCommentId = record.id;
+            this.syncCommentUi();
+            const markdownRoot = this.getMarkdownRoot();
+            const resolved = markdownRoot ? resolveReaderCommentAnchor(markdownRoot, record) : null;
+            const contentAnchorRect = resolved?.unionRect ? this.toViewportRect(resolved.unionRect) : null;
+            this.openCommentPopover({
+                mode: 'edit',
+                anchorRect: contentAnchorRect ?? button.getBoundingClientRect(),
+                initialText: record.comment,
+                selectedSource: record.sourceMarkdown,
+                onSave: (value) => {
+                    saveReaderComment(READER_COMMENT_SCOPE_ID, {
+                        ...record,
+                        comment: value,
+                        updatedAt: Date.now(),
+                    });
+                    this.activeCommentId = record.id;
+                    this.syncCommentUi();
+                },
+                onCancel: () => this.syncCommentUi(),
+            });
+        });
+        return button;
+    }
+
+    private openCommentPopover(params: {
+        mode: 'create' | 'edit';
+        anchorRect: DOMRect;
+        initialText: string;
+        selectedSource: string;
+        onSave: (value: string) => void;
+        onCancel?: () => void;
+    }): void {
+        if (!this.overlaySession) return;
+        const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+        if (!container) return;
+        this.commentPopover.open({
+            shadow: this.overlaySession.shadow,
+            container,
+            theme: this.state.theme,
+            selectedSource: params.selectedSource,
+            anchorRect: params.anchorRect,
+            initialText: params.initialText,
+            mode: params.mode,
+            labels: {
+                addTitle: this.getLabel('readerCommentAddTitle', 'Add comment'),
+                editTitle: this.getLabel('readerCommentEditTitle', 'Edit comment'),
+                close: this.getLabel('btnClose', 'Close'),
+                selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
+                placeholder: this.getLabel('readerCommentPlaceholder', 'Write your annotation...'),
+                cancel: this.getLabel('btnCancel', 'Cancel'),
+                save: this.getLabel('readerCommentSave', 'Save annotation'),
+            },
+            onSave: (value) => {
+                params.onSave(value);
+                this.notify(this.getLabel('readerCommentSaved', 'Annotation saved'));
+            },
+            onCancel: () => {
+                params.onCancel?.();
+                this.syncCommentUi();
+            },
+        });
+    }
+
+    private openCommentExportPopover(): void {
+        if (!this.overlaySession) return;
+        const comments = this.getCurrentComments();
+        if (comments.length < 1) {
+            this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
+            return;
+        }
+
+        const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+        const pickerContainer = this.overlaySession.surfaceRoot;
+        const anchorButton = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy-comments"]');
+        const shadow = this.overlaySession.shadow;
+        if (!container || !pickerContainer || !anchorButton) return;
+        this.commentPromptPicker.open({
+            shadow,
+            container: pickerContainer,
+            anchorEl: anchorButton,
+            placement: 'center',
+            theme: this.state.theme,
+            prompts: this.commentExportSettings.prompts,
+            labels: {
+                title: this.getLabel('readerCommentPromptPickerTitle', 'Choose prompt'),
+                close: this.getLabel('btnClose', 'Close'),
+                empty: this.getLabel('readerCommentPromptPickerEmpty', 'No prompts available.'),
+            },
+            onSelect: (promptId) => {
+                const prompts = resolveReaderCommentExportPrompts(this.commentExportSettings, promptId);
+                const compiledExport = buildCommentsExport(comments, prompts);
+                this.commentExportPopover.open({
+                    shadow,
+                    container,
+                    theme: this.state.theme,
+                    preview: compiledExport,
+                    canCopy: Boolean(compiledExport.trim()),
+                    labels: {
+                        title: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
+                        close: this.getLabel('btnClose', 'Close'),
+                        copy: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
+                        copied: this.getLabel('btnCopied', 'Copied!'),
+                        empty: this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'),
+                    },
+                    onCopy: async () => {
+                        if (!compiledExport.trim()) {
+                            this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
+                            return false;
+                        }
+                        const ok = await copyTextToClipboard(compiledExport);
+                        this.notify(this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'));
+                        return ok;
+                    },
+                    onClose: () => this.syncCommentUi(),
+                });
+            },
+            onClose: () => this.syncCommentUi(),
+        });
+    }
+
+    private installTransientButtonBoundary(button: HTMLElement): void {
+        const swallow = (event: Event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        button.addEventListener('pointerdown', swallow);
+        button.addEventListener('pointerup', swallow);
+        button.addEventListener('mouseup', swallow);
+    }
+
+    private getTokenSize(token: string, fallback: number): number {
+        const host = this.overlaySession?.host;
+        if (!host) return fallback;
+        const value = getComputedStyle(host).getPropertyValue(token).trim();
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    }
+
+    private syncAtomicMarkup(): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot) {
+            this.renderedAtomicElements = [];
+            return;
+        }
+
+        if (this.state.renderedAtomicUnits.length < 1) {
+            this.renderedAtomicElements = [];
+            clearRenderedAtomicSelection(markdownRoot);
+            return;
+        }
+
+        this.renderedAtomicElements = annotateRenderedAtomicUnits(markdownRoot, this.state.renderedAtomicUnits);
+    }
+
+    private applyAtomicSelectionState(): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot) return;
+        applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
+    }
+
+    private syncAtomicSelection(): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot || !this.overlaySession) return;
+
+        const selection = window.getSelection();
+        const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
+        if (!range) {
+            this.state.selectionSourceText = '';
+            this.state.selectionExport = '';
+            this.state.selectedAtomicUnitIds = [];
+            this.commentSelectionSnapshot = null;
+            clearRenderedAtomicSelection(markdownRoot);
+            this.syncCommentUi();
+            this.syncCommentControls();
+            return;
+        }
+
+        const selectedText = range.toString().trim();
+        const selectedUnits = resolveSelectedAtomicUnits(range, markdownRoot).map((selected) => {
+            const rendered = this.renderedAtomicElements.find((unit) => unit.id === selected.id);
+            return rendered ?? selected;
+        });
+
+        this.state.selectionSourceText = selectedText;
+        this.state.selectedAtomicUnitIds = selectedUnits.map((unit) => unit.id);
+        this.state.selectionExport = buildAtomicSelectionExport({
+            range,
+            root: markdownRoot,
+            selectedUnits,
+        });
+        this.commentSelectionSnapshot = {
+            range: range.cloneRange(),
+            selectedUnits: [...selectedUnits],
+            selectedText,
+            sourceMarkdown: this.state.selectionExport,
+        };
+        applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
+        this.syncCommentUi();
+        this.syncCommentControls();
+    }
+
+    private handleAtomicCopy(event: ClipboardEvent): void {
+        const markdownRoot = this.getMarkdownRoot();
+        if (!markdownRoot || !this.overlaySession) return;
+
+        this.syncAtomicSelection();
+        const selection = window.getSelection();
+        const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
+        if (!range || !this.state.selectionExport) return;
+
+        const hasSelection = Boolean(range.toString().trim()) || this.state.selectedAtomicUnitIds.length > 0;
+        if (!hasSelection) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.clipboardData?.setData('text/plain', this.state.selectionExport);
+
+        const anchor = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy"]') ?? markdownRoot;
+        showEphemeralTooltip({
+            root: this.overlaySession.shadow,
+            anchor,
+            text: t('btnCopied'),
+        });
     }
 }

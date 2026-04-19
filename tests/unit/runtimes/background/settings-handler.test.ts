@@ -115,7 +115,6 @@ describe('background settings handler', () => {
                     enableVirtualization: false,
                 },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: true,
                     enableClickToCopy: true,
@@ -144,6 +143,30 @@ describe('background settings handler', () => {
         expect(raw.chatgpt).not.toHaveProperty('foldingPowerMode');
         expect(raw.chatgpt).not.toHaveProperty('enableVirtualization');
         expect(raw.chatgpt).not.toHaveProperty('enableEarlyPrune');
+    });
+
+    it('drops the retired source panel behavior flag before persisting behavior updates', async () => {
+        const sync = mockSyncStorage({
+            [LEGACY_STORAGE_KEYS.appSettingsKey]: {
+                version: 3,
+                behavior: { showViewSource: true, showSaveMessages: true, showWordCount: true },
+            },
+        });
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        (globalThis as any).chrome = undefined;
+
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const setRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_behavior_cleanup',
+            type: 'settings:setCategory',
+            payload: { category: 'behavior', value: { showWordCount: false } },
+        } as any);
+        expect(setRes?.response.ok).toBe(true);
+
+        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
+        expect(raw.behavior.showWordCount).toBe(false);
+        expect(raw.behavior).not.toHaveProperty('showViewSource');
     });
 
     it('rejects legacy performance category through the protocol', async () => {

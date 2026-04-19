@@ -3,6 +3,11 @@ import { ensureStyle } from '../../../style/shadow';
 import { t } from './i18n';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from './motionLifecycle';
 import { getModalHostCss } from './styles/modalHostCss';
+import {
+    installTransientOutsideDismissBoundary,
+    markTransientRoot,
+    type TransientOutsideDismissBoundaryHandle,
+} from './transientUi';
 
 type ModalKind = 'info' | 'warning' | 'error';
 
@@ -216,7 +221,7 @@ export class ModalHost {
         overlay.className = 'mock-modal-overlay';
         overlay.dataset.kind = params.kind;
 
-        const dialog = document.createElement('div');
+        const dialog = markTransientRoot(document.createElement('div'));
         dialog.className = 'mock-modal';
         dialog.dataset.kind = params.kind;
         dialog.setAttribute('role', 'dialog');
@@ -260,6 +265,7 @@ export class ModalHost {
 
         const footer = document.createElement('div');
         footer.className = 'mock-modal__footer';
+        let outsideDismissBoundary: TransientOutsideDismissBoundaryHandle | null = null;
 
         const restoreFocus = () => {
             const previous = this.focusStack.pop() ?? null;
@@ -295,12 +301,15 @@ export class ModalHost {
         };
 
         const cleanup = () => {
+            outsideDismissBoundary?.detach();
+            outsideDismissBoundary = null;
             restoreFocus();
         };
 
-        overlay.addEventListener('click', (e) => {
-            if (e.target !== overlay) return;
-            dismiss();
+        outsideDismissBoundary = installTransientOutsideDismissBoundary({
+            eventTarget: overlay,
+            roots: [dialog],
+            onDismiss: dismiss,
         });
 
         closeBtn.addEventListener('click', () => {

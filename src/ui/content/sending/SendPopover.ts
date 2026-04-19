@@ -1,12 +1,16 @@
 import type { Theme } from '../../../core/types/theme';
+import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
+import type { CommentTemplateSegment, ReaderCommentPrompt } from '../../../core/settings/readerCommentExport';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { readComposer, writeComposer } from '../../../drivers/content/sending/composerPort';
 import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
-import { sendIcon, xIcon } from '../../../assets/icons';
+import { messageSquarePlusIcon, sendIcon, xIcon } from '../../../assets/icons';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
+import { buildCommentsExport, resolveReaderCommentExportPrompts } from '../../../services/reader/commentExport';
+import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
 
 type State = {
     theme: Theme;
@@ -15,6 +19,12 @@ type State = {
     anchor: HTMLElement | null;
     width: number;
     height: number;
+};
+
+type CommentInsertContext = {
+    prompts: ReaderCommentPrompt[];
+    template: CommentTemplateSegment[];
+    comments: ReaderCommentRecord[];
 };
 
 type ResizeState = {
@@ -58,6 +68,7 @@ export class SendPopover {
     private onWindowMouseUp: ((event: MouseEvent) => void) | null = null;
     private anchorPositionReset: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
+    private readonly promptPicker = new CommentPromptPickerPopover();
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
@@ -68,7 +79,14 @@ export class SendPopover {
         return this.state.open;
     }
 
-    toggle(params: { shadow: ShadowRoot; anchor: HTMLElement; adapter: SiteAdapter; theme: Theme }): void {
+    toggle(params: {
+        shadow: ShadowRoot;
+        anchor: HTMLElement;
+        adapter: SiteAdapter;
+        theme: Theme;
+        initialText?: string;
+        commentInsert?: CommentInsertContext | null;
+    }): void {
         if (this.state.open) {
             this.close(params.shadow, { syncBack: true });
             return;
@@ -76,7 +94,7 @@ export class SendPopover {
         this.open(params);
     }
 
-    open(params: { shadow: ShadowRoot; anchor: HTMLElement; adapter: SiteAdapter; theme: Theme; initialText?: string }): void {
+    open(params: { shadow: ShadowRoot; anchor: HTMLElement; adapter: SiteAdapter; theme: Theme; initialText?: string; commentInsert?: CommentInsertContext | null }): void {
         this.ensureStyles(params.shadow);
 
         this.state.adapter = params.adapter;
@@ -97,6 +115,9 @@ export class SendPopover {
   <div class="send-popover__head">
     <strong>${escapeHtml(t('send'))}</strong>
     <div class="send-popover__head-actions">
+      ${params.commentInsert !== undefined
+        ? `<button class="icon-btn" type="button" data-action="insert-comments" aria-label="${escapeHtml(t('readerCommentInsertIntoSend'))}" ${this.canInsertPromptContent(params.commentInsert) ? '' : 'disabled'}>${createIcon(messageSquarePlusIcon).outerHTML}</button>`
+        : ''}
       <button class="icon-btn" type="button" data-action="close" aria-label="${escapeHtml(t('btnClose'))}">${createIcon(xIcon).outerHTML}</button>
     </div>
   </div>
@@ -134,6 +155,29 @@ export class SendPopover {
         pop.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
         pop.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit(params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="resize"]')?.addEventListener('mousedown', (event) => this.startResize(event, params.shadow));
+        pop.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')?.addEventListener('click', () => {
+            if (!this.canInsertPromptContent(params.commentInsert)) return;
+            const button = pop.querySelector<HTMLElement>('[data-action="insert-comments"]');
+            const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
+            if (!button || !textarea) return;
+            this.promptPicker.open({
+                shadow: params.shadow,
+                container: this.getPopoverSurface(params.shadow, params.anchor),
+                anchorEl: button,
+                theme: this.state.theme,
+                prompts: params.commentInsert.prompts,
+                labels: {
+                    title: t('readerCommentPromptPickerTitle'),
+                    close: t('btnClose'),
+                    empty: t('readerCommentPromptPickerEmpty'),
+                },
+                onSelect: (promptId) => {
+                    const compiled = this.buildInsertablePromptContent(params.commentInsert!, promptId);
+                    if (!compiled.trim()) return;
+                    this.insertIntoTextarea(textarea, compiled);
+                },
+            });
+        });
 
         pop.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
@@ -189,6 +233,7 @@ export class SendPopover {
         this.anchorPositionReset = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.promptPicker.close(shadow);
 
         if (this.onShadowPointerDown) {
             shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
@@ -254,6 +299,8 @@ export class SendPopover {
         if (title) title.textContent = t('send');
         const close = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="close"]');
         if (close) close.setAttribute('aria-label', t('btnClose'));
+        const insertComments = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="insert-comments"]');
+        if (insertComments) insertComments.setAttribute('aria-label', t('readerCommentInsertIntoSend'));
         const resize = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="resize"]');
         if (resize) resize.setAttribute('aria-label', t('resizeSendPopover'));
         const textarea = this.popoverEl.querySelector<HTMLTextAreaElement>('[data-role="text"]');
@@ -269,6 +316,38 @@ export class SendPopover {
             const text = send.querySelector('span');
             if (text) text.textContent = t('send');
         }
+    }
+
+    private canInsertPromptContent(context: CommentInsertContext | null | undefined): context is CommentInsertContext {
+        return Boolean(context && context.prompts.length > 0);
+    }
+
+    private buildInsertablePromptContent(context: CommentInsertContext, promptId?: string | null): string {
+        const resolved = resolveReaderCommentExportPrompts({
+            prompts: context.prompts,
+            template: context.template,
+        }, promptId);
+
+        if (context.comments.length < 1) {
+            return resolved.userPrompt.trim();
+        }
+
+        return buildCommentsExport(context.comments, resolved);
+    }
+
+    private insertIntoTextarea(textarea: HTMLTextAreaElement, text: string): void {
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const before = textarea.value.slice(0, start);
+        const after = textarea.value.slice(end);
+        const needsLeadingBreak = before.length > 0 && !before.endsWith('\n');
+        const needsTrailingBreak = after.length > 0 && !after.startsWith('\n');
+        const insertion = `${needsLeadingBreak ? '\n' : ''}${text}${needsTrailingBreak ? '\n' : ''}`;
+        const nextValue = `${before}${insertion}${after}`;
+        const nextCaret = before.length + insertion.length;
+        textarea.value = nextValue;
+        textarea.setSelectionRange(nextCaret, nextCaret);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     private startResize(event: MouseEvent, shadow: ShadowRoot): void {
@@ -318,7 +397,7 @@ export class SendPopover {
     }
 
     private getClampedSize(shadow: ShadowRoot, width: number, height: number): { width: number; height: number } {
-        const surface = shadow.querySelector<HTMLElement>('.panel-window--reader, .panel-window');
+        const surface = this.getPopoverSurface(shadow);
         const rect = surface?.getBoundingClientRect();
         const surfaceWidth = rect?.width && rect.width > 0
             ? rect.width
@@ -333,6 +412,12 @@ export class SendPopover {
             width: Math.max(MIN_WIDTH, Math.min(maxWidth, Math.round(width))),
             height: Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(height))),
         };
+    }
+
+    private getPopoverSurface(shadow: ShadowRoot, fallback?: HTMLElement | null): HTMLElement {
+        return shadow.querySelector<HTMLElement>('.panel-window--reader, .panel-window')
+            ?? fallback
+            ?? shadow.host as HTMLElement;
     }
 
     private applySize(popover: HTMLElement, next: { width: number; height: number }): void {

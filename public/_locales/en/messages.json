@@ -20,9 +20,6 @@
     "btnReader": {
         "message": "Reader"
     },
-    "btnViewSource": {
-        "message": "View Source"
-    },
     "btnSaveAs": {
         "message": "Save as"
     },
@@ -37,6 +34,15 @@
     },
     "btnDelete": {
         "message": "Delete"
+    },
+    "btnEdit": {
+        "message": "Edit"
+    },
+    "btnConfigure": {
+        "message": "Configure"
+    },
+    "btnBack": {
+        "message": "Back"
     },
     "btnCancel": {
         "message": "Cancel"
@@ -58,9 +64,6 @@
     },
     "openingPreview": {
         "message": "Opening Preview..."
-    },
-    "sourceOpened": {
-        "message": "Source Opened"
     },
     "saving": {
         "message": "Saving..."
@@ -146,8 +149,131 @@
     "btnCopyText": {
         "message": "Copy"
     },
-    "modalSourceTitle": {
-        "message": "Markdown Source Code"
+    "readerCommentAction": {
+        "message": "Annotate"
+    },
+    "readerCommentAddTitle": {
+        "message": "Add annotation"
+    },
+    "readerCommentEditTitle": {
+        "message": "Edit annotation"
+    },
+    "readerCommentPlaceholder": {
+        "message": "Write your annotation..."
+    },
+    "readerCommentSave": {
+        "message": "Save annotation"
+    },
+    "readerCommentSaved": {
+        "message": "Annotation saved"
+    },
+    "readerCommentCopyComments": {
+        "message": "Copy annotations"
+    },
+    "readerCommentCopyEmpty": {
+        "message": "No annotations to copy yet."
+    },
+    "readerCommentUserPrompt": {
+        "message": "User prompt"
+    },
+    "readerCommentTemplate": {
+        "message": "Annotation template"
+    },
+    "readerCommentTemplateHint": {
+        "message": "Insert tokens with the buttons above. Token labels are localized; export uses stable internal placeholders."
+    },
+    "readerCommentTemplatePlaceholder": {
+        "message": "Write your annotation template here..."
+    },
+    "readerCommentTemplateInsertSelectedSource": {
+        "message": "Insert selected source"
+    },
+    "readerCommentTemplateInsertPlaceholder": {
+        "message": "Insert placeholder"
+    },
+    "readerCommentTemplateInsertUserComment": {
+        "message": "Insert user annotation"
+    },
+    "readerCommentTemplateTokenSelectedSource": {
+        "message": "Selected source"
+    },
+    "readerCommentTemplateTokenUserComment": {
+        "message": "User annotation"
+    },
+    "readerSettingsLabel": {
+        "message": "Reader"
+    },
+    "readerCommentPromptListLabel": {
+        "message": "User prompts"
+    },
+    "readerCommentPromptListDesc": {
+        "message": "Manage reusable prompt headers for annotation export."
+    },
+    "readerCommentTemplateSettingsLabel": {
+        "message": "Annotations copy template"
+    },
+    "readerCommentTemplateSettingsDesc": {
+        "message": "Configure the reusable template for copied annotations."
+    },
+    "readerCommentTemplatePreviewLabel": {
+        "message": "Preview"
+    },
+    "readerCommentTemplateRestoreDefault": {
+        "message": "Restore default"
+    },
+    "readerCommentPromptAdd": {
+        "message": "Add prompt"
+    },
+    "readerCommentPromptRestoreDefaults": {
+        "message": "Restore starter prompts"
+    },
+    "readerCommentPromptRestoreDefaultsTitle": {
+        "message": "Restore starter prompts"
+    },
+    "readerCommentPromptRestoreDefaultsMessage": {
+        "message": "Restoring the starter prompts will replace all of your current prompts. Do you want to continue?"
+    },
+    "readerCommentPromptEdit": {
+        "message": "Edit prompt"
+    },
+    "readerCommentPromptActive": {
+        "message": "Active"
+    },
+    "readerCommentPromptSelect": {
+        "message": "Use"
+    },
+    "readerCommentPromptUntitled": {
+        "message": "Untitled prompt"
+    },
+    "readerCommentPromptEmpty": {
+        "message": "No prompt text yet."
+    },
+    "readerCommentPromptTitleLabel": {
+        "message": "Prompt title"
+    },
+    "readerCommentPromptContentLabel": {
+        "message": "Prompt content"
+    },
+    "readerCommentPromptTitlePlaceholder": {
+        "message": "Name this prompt"
+    },
+    "readerCommentPromptContentPlaceholder": {
+        "message": "Write the prompt header shown above copied annotations..."
+    },
+    "readerCommentPromptDeleteTitle": {
+        "message": "Delete prompt"
+    },
+    "readerCommentPromptDeleteMessage": {
+        "message": "Delete this prompt from Reader settings?"
+    },
+    "readerCommentPromptPickerTitle": {
+        "message": "Choose prompt"
+    },
+    "readerCommentPromptPickerEmpty": {
+        "message": "No prompts available."
+    },
+    "readerCommentInsertIntoSend": {
+        "message": "Insert annotations"
     },
     "saveMessagesTitle": {
         "message": "Save Messages As"
@@ -506,9 +632,6 @@
     "copyMarkdown": {
         "message": "Copy Markdown"
     },
-    "viewSource": {
-        "message": "View Source"
-    },
     "close": {
         "message": "Close"
     },
@@ -563,12 +686,6 @@
     "enableOnDeepseek": {
         "message": "Enable extension on DeepSeek"
     },
-    "viewSourceLabel": {
-        "message": "View Source"
-    },
-    "viewSourceDesc": {
-        "message": "Show \"View Source\" button in toolbar"
-    },
     "saveMessagesLabel": {
         "message": "Save Messages"
     },
@@ -606,13 +723,25 @@
         "message": "Star on GitHub"
     },
     "supportCoffeeDesc": {
-        "message": "Support the developer with a coffee ☕️"
+        "message": "Support the project with a coffee if you want to."
     },
     "buyMeCoffee": {
         "message": "Buy Me a Coffee"
     },
     "wechatAppreciationCode": {
         "message": "微信赞赏码"
+    },
+    "xiaohongshuAccount": {
+        "message": "Xiaohongshu"
+    },
+    "findMeOnXiaohongshu": {
+        "message": "Find me on Xiaohongshu"
+    },
+    "followMe": {
+        "message": "Follow me"
+    },
+    "aboutProfileBio": {
+        "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me."
     },
     "selectFolderLabel": {
         "message": "Select folder"
@@ -676,6 +805,15 @@
     },
     "tabSettings": {
         "message": "Settings"
+    },
+    "tabChangelog": {
+        "message": "Changelog"
+    },
+    "tabAbout": {
+        "message": "About"
+    },
+    "tabFaq": {
+        "message": "FAQ"
     },
     "tabSponsor": {
         "message": "Sponsor"
@@ -1000,12 +1138,6 @@
     },
     "settingsFoldDockDesc": {
         "message": "Keep the compact fold dock visible in supported threads."
-    },
-    "settingsShowViewSourceLabel": {
-        "message": "Show View Source"
-    },
-    "settingsShowViewSourceDesc": {
-        "message": "Show the View Source action in supported toolbars and panels."
     },
     "settingsShowSaveMessagesLabel": {
         "message": "Show Save Messages"

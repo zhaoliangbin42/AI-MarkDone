@@ -102,7 +102,7 @@ export class SendModal {
             this.motionNeedsOpen = false;
         }
 
-        this.overlaySession.backdropRoot.addEventListener('click', () => this.close({ syncBack: true }));
+        this.overlaySession.syncBackdropDismiss(() => this.close({ syncBack: true }));
         this.overlaySession.surfaceRoot.addEventListener('click', (event) => {
             const target = event.target as HTMLElement | null;
             const action = target?.closest<HTMLElement>('[data-action]')?.dataset.action;

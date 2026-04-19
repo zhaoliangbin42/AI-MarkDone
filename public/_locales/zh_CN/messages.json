@@ -20,9 +20,6 @@
     "btnReader": {
         "message": "阅读器"
     },
-    "btnViewSource": {
-        "message": "查看源码"
-    },
     "btnSaveAs": {
         "message": "另存为"
     },
@@ -37,6 +34,15 @@
     },
     "btnDelete": {
         "message": "删除"
+    },
+    "btnEdit": {
+        "message": "编辑"
+    },
+    "btnConfigure": {
+        "message": "配置"
+    },
+    "btnBack": {
+        "message": "返回"
     },
     "btnCancel": {
         "message": "取消"
@@ -58,9 +64,6 @@
     },
     "openingPreview": {
         "message": "打开预览..."
-    },
-    "sourceOpened": {
-        "message": "源码已打开"
     },
     "saving": {
         "message": "保存中..."
@@ -146,8 +149,131 @@
     "btnCopyText": {
         "message": "复制"
     },
-    "modalSourceTitle": {
-        "message": "Markdown 源码"
+    "readerCommentAction": {
+        "message": "注释"
+    },
+    "readerCommentAddTitle": {
+        "message": "添加注释"
+    },
+    "readerCommentEditTitle": {
+        "message": "编辑注释"
+    },
+    "readerCommentPlaceholder": {
+        "message": "输入你的注释..."
+    },
+    "readerCommentSave": {
+        "message": "保存注释"
+    },
+    "readerCommentSaved": {
+        "message": "注释已保存"
+    },
+    "readerCommentCopyComments": {
+        "message": "复制注释"
+    },
+    "readerCommentCopyEmpty": {
+        "message": "当前还没有可复制的注释。"
+    },
+    "readerCommentUserPrompt": {
+        "message": "用户提示词"
+    },
+    "readerCommentTemplate": {
+        "message": "注释模板"
+    },
+    "readerCommentTemplateHint": {
+        "message": "使用上方按钮插入占位标签。标签文案可本地化，导出时会使用稳定的内部占位符。"
+    },
+    "readerCommentTemplatePlaceholder": {
+        "message": "在这里编写注释模板..."
+    },
+    "readerCommentTemplateInsertSelectedSource": {
+        "message": "插入选中文字"
+    },
+    "readerCommentTemplateInsertPlaceholder": {
+        "message": "插入占位符"
+    },
+    "readerCommentTemplateInsertUserComment": {
+        "message": "插入用户注释"
+    },
+    "readerCommentTemplateTokenSelectedSource": {
+        "message": "选中文字"
+    },
+    "readerCommentTemplateTokenUserComment": {
+        "message": "用户注释"
+    },
+    "readerSettingsLabel": {
+        "message": "阅读器"
+    },
+    "readerCommentPromptListLabel": {
+        "message": "用户提示词"
+    },
+    "readerCommentPromptListDesc": {
+        "message": "管理用于注释导出的可复用提示词前缀。"
+    },
+    "readerCommentTemplateSettingsLabel": {
+        "message": "注释复制模板"
+    },
+    "readerCommentTemplateSettingsDesc": {
+        "message": "配置复制注释时使用的唯一模板。"
+    },
+    "readerCommentTemplatePreviewLabel": {
+        "message": "预览"
+    },
+    "readerCommentTemplateRestoreDefault": {
+        "message": "恢复默认"
+    },
+    "readerCommentPromptAdd": {
+        "message": "添加提示词"
+    },
+    "readerCommentPromptRestoreDefaults": {
+        "message": "恢复默认提示词"
+    },
+    "readerCommentPromptRestoreDefaultsTitle": {
+        "message": "恢复默认提示词"
+    },
+    "readerCommentPromptRestoreDefaultsMessage": {
+        "message": "恢复默认提示词会覆盖你当前的全部提示词。确定要继续吗？"
+    },
+    "readerCommentPromptEdit": {
+        "message": "编辑提示词"
+    },
+    "readerCommentPromptActive": {
+        "message": "当前"
+    },
+    "readerCommentPromptSelect": {
+        "message": "使用"
+    },
+    "readerCommentPromptUntitled": {
+        "message": "未命名提示词"
+    },
+    "readerCommentPromptEmpty": {
+        "message": "还没有填写提示词内容。"
+    },
+    "readerCommentPromptTitleLabel": {
+        "message": "提示词标题"
+    },
+    "readerCommentPromptContentLabel": {
+        "message": "提示词内容"
+    },
+    "readerCommentPromptTitlePlaceholder": {
+        "message": "给这个提示词起个名字"
+    },
+    "readerCommentPromptContentPlaceholder": {
+        "message": "填写复制注释时显示在最前面的提示词..."
+    },
+    "readerCommentPromptDeleteTitle": {
+        "message": "删除提示词"
+    },
+    "readerCommentPromptDeleteMessage": {
+        "message": "要从阅读器设置中删除这条提示词吗？"
+    },
+    "readerCommentPromptPickerTitle": {
+        "message": "选择提示词"
+    },
+    "readerCommentPromptPickerEmpty": {
+        "message": "当前还没有可用的提示词。"
+    },
+    "readerCommentInsertIntoSend": {
+        "message": "插入注释"
     },
     "saveMessagesTitle": {
         "message": "保存消息"
@@ -506,9 +632,6 @@
     "copyMarkdown": {
         "message": "复制 Markdown"
     },
-    "viewSource": {
-        "message": "查看源码"
-    },
     "close": {
         "message": "关闭"
     },
@@ -563,12 +686,6 @@
     "enableOnDeepseek": {
         "message": "在 DeepSeek 上启用扩展"
     },
-    "viewSourceLabel": {
-        "message": "工具栏 > 查看源码"
-    },
-    "viewSourceDesc": {
-        "message": "在工具栏中显示\"查看源码\"按钮"
-    },
     "saveMessagesLabel": {
         "message": "工具栏 > 消息导出"
     },
@@ -606,13 +723,25 @@
         "message": "在 GitHub 点个星星"
     },
     "supportCoffeeDesc": {
-        "message": "请开发者喝杯咖啡 ☕️"
+        "message": "如果你愿意，也可以请我喝杯咖啡。"
     },
     "buyMeCoffee": {
         "message": "Buy Me a Coffee"
     },
     "wechatAppreciationCode": {
         "message": "微信赞赏码"
+    },
+    "xiaohongshuAccount": {
+        "message": "小红书"
+    },
+    "findMeOnXiaohongshu": {
+        "message": "在小红书找到我"
+    },
+    "followMe": {
+        "message": "关注我"
+    },
+    "aboutProfileBio": {
+        "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。"
     },
     "selectFolderLabel": {
         "message": "选择文件夹"
@@ -676,6 +805,15 @@
     },
     "tabSettings": {
         "message": "设置"
+    },
+    "tabChangelog": {
+        "message": "更新日志"
+    },
+    "tabAbout": {
+        "message": "关于我"
+    },
+    "tabFaq": {
+        "message": "常见问题"
     },
     "tabSponsor": {
         "message": "赞助"
@@ -1000,12 +1138,6 @@
     },
     "settingsFoldDockDesc": {
         "message": "在支持的对话页中保留紧凑的折叠侧边栏。"
-    },
-    "settingsShowViewSourceLabel": {
-        "message": "显示查看源码"
-    },
-    "settingsShowViewSourceDesc": {
-        "message": "在支持的工具栏和面板中显示“查看源码”操作。"
     },
     "settingsShowSaveMessagesLabel": {
         "message": "显示保存消息"

@@ -1,4 +1,6 @@
-declare module '*.css?inline' {
-    const cssText: string;
-    export default cssText;
+/// <reference types="vite/client" />
+
+declare module '*.md?raw' {
+    const content: string;
+    export default content;
 }

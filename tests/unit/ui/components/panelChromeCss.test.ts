@@ -11,6 +11,8 @@ describe('panelChromeCss', () => {
         expect(css).toContain('.panel-icon-btn');
         expect(css).toContain('.panel-nav-btn');
         expect(css).toContain('.panel-secondary-btn');
+        expect(css).toContain('.panel-secondary-btn--compact');
+        expect(css).toContain('.secondary-btn--compact');
 
         expect(css).toContain('min-height: var(--aimd-panel-header-height);');
         expect(css).toContain('padding: var(--aimd-panel-header-padding-block) var(--aimd-panel-header-padding-inline);');
@@ -38,6 +40,9 @@ describe('panelChromeCss', () => {
         expect(css).toContain('background: var(--aimd-button-secondary-bg);');
         expect(css).toContain('background: var(--aimd-button-secondary-hover);');
         expect(css).toContain('color: var(--aimd-button-secondary-text);');
+        expect(css).toContain('font-size: var(--aimd-button-label-size);');
+        expect(css).toContain('font-size: var(--aimd-button-label-size-compact);');
+        expect(css).toContain('min-height: var(--aimd-size-control-compact);');
         expect(css).toContain('.panel-secondary-btn--ghost');
         expect(css).toContain('.secondary-btn--ghost');
         expect(css).toContain('.panel-secondary-btn--danger:hover');

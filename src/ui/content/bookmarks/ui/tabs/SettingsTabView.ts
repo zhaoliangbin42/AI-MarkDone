@@ -1,11 +1,26 @@
 import type { AppSettings, FoldingMode } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
+import {
+    createDefaultCommentTemplate as createDefaultAnnotationTemplate,
+    createDefaultReaderCommentPrompts as createDefaultAnnotationPrompts,
+    normalizeReaderCommentExportSettings,
+    type CommentTemplateSegment,
+    type ReaderCommentExportSettings,
+} from '../../../../../core/settings/readerCommentExport';
 import type { BookmarksStorageUsageResponse } from '../../../../../contracts/protocol';
 import type { ModalHost } from '../../../components/ModalHost';
 import { setLocale, t } from '../../../components/i18n';
+import { createIcon } from '../../../components/Icon';
 import { Icons } from '../../../../../assets/icons';
+import { buildCommentsExport, normalizeCommentTemplate } from '../../../../../services/reader/commentExport';
+import {
+    installTransientOutsideDismissBoundary,
+    type TransientOutsideDismissBoundaryHandle,
+} from '../../../components/transientUi';
 import { createBookmarksInlineSelect } from '../components/BookmarksInlineSelect';
 import { createBookmarksNumberStepperField } from '../components/BookmarksNumberStepperField';
+import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
+import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
@@ -38,12 +53,17 @@ type Refs = {
     showFoldDockItem: HTMLElement;
     showFoldDock: HTMLInputElement;
     behavior: {
-        showViewSource: HTMLInputElement;
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
         enableClickToCopy: HTMLInputElement;
         saveContextOnly: HTMLInputElement;
+    };
+    reader: {
         renderCodeInReader: HTMLInputElement;
+        promptsButton: HTMLButtonElement;
+        promptsSummary: HTMLElement;
+        templateButton: HTMLButtonElement;
+        templateSummary: HTMLElement;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -57,13 +77,9 @@ export class SettingsTabView {
     private storageUsage: BookmarksStorageUsageResponse | null = null;
     private refs: Refs;
     private selectRefs: SelectRef[] = [];
-    private handleDocumentClick = (event: MouseEvent): void => {
-        const path = (event.composedPath?.() ?? []) as EventTarget[];
-        const target = event.target as Node | null;
-        if (this.selectRefs.some((selectRef) => path.includes(selectRef.root))) return;
-        if (target && this.selectRefs.some((selectRef) => selectRef.root.contains(target))) return;
-        this.closeSelectMenus();
-    };
+    private readonly promptSettingsPopover = new ReaderPromptSettingsPopover();
+    private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
+    private readonly outsideDismissBoundary: TransientOutsideDismissBoundaryHandle;
 
     constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions }) {
         this.modal = params.modal;
@@ -71,7 +87,11 @@ export class SettingsTabView {
 
         this.root = document.createElement('div');
         this.root.className = 'aimd-settings';
-        document.addEventListener('click', this.handleDocumentClick, true);
+        this.outsideDismissBoundary = installTransientOutsideDismissBoundary({
+            eventTarget: document,
+            roots: () => this.selectRefs.map((selectRef) => selectRef.root),
+            onDismiss: () => this.dismissTransientUi(),
+        });
 
         const scroll = document.createElement('div');
         scroll.className = 'aimd-scroll settings-panel-scroll';
@@ -104,14 +124,27 @@ export class SettingsTabView {
 
         const showFoldDock = this.createToggle(chatgptGroup.body, t('chatgptFoldDockLabel'), t('chatgptFoldDockDesc'));
 
-        // Behavior group (merged with reader per legacy)
+        // Behavior group
         const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
-        const showViewSource = this.createToggle(behaviorGroup.body, t('viewSourceLabel'), t('viewSourceDesc'));
         const showSaveMessages = this.createToggle(behaviorGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
         const showWordCount = this.createToggle(behaviorGroup.body, t('wordCountLabel'), t('wordCountDesc'));
         const enableClickToCopy = this.createToggle(behaviorGroup.body, t('clickToCopyLabel'), t('clickToCopyDesc'));
         const saveContextOnly = this.createToggle(behaviorGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
-        const renderCodeInReader = this.createToggle(behaviorGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
+
+        const readerGroup = this.createGroup(Icons.bookOpen, t('readerSettingsLabel'));
+        const renderCodeInReader = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
+        const promptsRow = this.createActionRow(
+            readerGroup.body,
+            t('readerCommentPromptListLabel'),
+            t('readerCommentPromptListDesc'),
+            'settings-reader-prompts',
+        );
+        const templateRow = this.createActionRow(
+            readerGroup.body,
+            t('readerCommentTemplateSettingsLabel'),
+            t('readerCommentTemplateSettingsDesc'),
+            'settings-reader-template',
+        );
 
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -156,6 +189,7 @@ export class SettingsTabView {
             platformsGroup.root,
             chatgptGroup.root,
             behaviorGroup.root,
+            readerGroup.root,
             languageGroup.root,
             storageGroup.root
         );
@@ -178,12 +212,17 @@ export class SettingsTabView {
             showFoldDockItem: showFoldDock.root,
             showFoldDock: showFoldDock.input,
             behavior: {
-                showViewSource: showViewSource.input,
                 showSaveMessages: showSaveMessages.input,
                 showWordCount: showWordCount.input,
                 enableClickToCopy: enableClickToCopy.input,
                 saveContextOnly: saveContextOnly.input,
+            },
+            reader: {
                 renderCodeInReader: renderCodeInReader.input,
+                promptsButton: promptsRow.button,
+                promptsSummary: promptsRow.summary,
+                templateButton: templateRow.button,
+                templateSummary: templateRow.summary,
             },
             language,
             storageText,
@@ -193,12 +232,13 @@ export class SettingsTabView {
         this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
         this.refs.showFoldDock.dataset.role = 'settings-fold-dock';
-        this.refs.behavior.showViewSource.dataset.role = 'settings-show-view-source';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.enableClickToCopy.dataset.role = 'settings-click-to-copy';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
-        this.refs.behavior.renderCodeInReader.dataset.role = 'settings-render-code-reader';
+        this.refs.reader.renderCodeInReader.dataset.role = 'settings-render-code-reader';
+        this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
+        this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
 
         this.bindHandlers();
         this.applySettingsToDom();
@@ -214,6 +254,25 @@ export class SettingsTabView {
 
     dismissTransientUi(): void {
         this.closeSelectMenus();
+        this.promptSettingsPopover.close();
+        this.templateSettingsPopover.close();
+    }
+
+    consumeEscape(): boolean {
+        if (this.templateSettingsPopover.isOpen()) {
+            this.templateSettingsPopover.close();
+            return true;
+        }
+        if (this.promptSettingsPopover.isOpen()) {
+            this.promptSettingsPopover.close();
+            return true;
+        }
+        const hasOpenSelect = this.selectRefs.some((selectRef) => selectRef.shell.dataset.open === '1');
+        if (hasOpenSelect) {
+            this.closeSelectMenus();
+            return true;
+        }
+        return false;
     }
 
     async refresh(): Promise<void> {
@@ -223,14 +282,27 @@ export class SettingsTabView {
     }
 
     setState(params: { settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null }): void {
-        this.settings = params.settings;
+        this.settings = {
+            ...DEFAULT_SETTINGS,
+            ...params.settings,
+            platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
+            chatgpt: { ...DEFAULT_SETTINGS.chatgpt, ...params.settings.chatgpt },
+            behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
+            bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
+            reader: {
+                renderCodeInReader: Boolean(
+                    params.settings.reader?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader,
+                ),
+                commentExport: normalizeReaderCommentExportSettings(params.settings.reader?.commentExport),
+            },
+        };
         this.storageUsage = params.storageUsage;
         this.applySettingsToDom();
     }
 
     destroy(): void {
-        document.removeEventListener('click', this.handleDocumentClick, true);
-        this.closeSelectMenus();
+        this.outsideDismissBoundary.detach();
+        this.dismissTransientUi();
     }
 
     private bindHandlers(): void {
@@ -265,11 +337,6 @@ export class SettingsTabView {
             void this.actions.setChatGptSettings?.({ showFoldDock: next });
         });
         // Behavior + reader
-        this.refs.behavior.showViewSource.addEventListener('change', () => {
-            const next = this.refs.behavior.showViewSource.checked;
-            this.settings.behavior.showViewSource = next;
-            void this.actions.setBehaviorSettings?.({ showViewSource: next });
-        });
         this.refs.behavior.showSaveMessages.addEventListener('change', () => {
             const next = this.refs.behavior.showSaveMessages.checked;
             this.settings.behavior.showSaveMessages = next;
@@ -307,10 +374,18 @@ export class SettingsTabView {
                 _contextOnlyConfirmed: this.settings.behavior._contextOnlyConfirmed,
             });
         });
-        this.refs.behavior.renderCodeInReader.addEventListener('change', () => {
-            const next = this.refs.behavior.renderCodeInReader.checked;
+        this.refs.reader.renderCodeInReader.addEventListener('change', () => {
+            const next = this.refs.reader.renderCodeInReader.checked;
             this.settings.reader.renderCodeInReader = next;
             void this.actions.setReaderSettings?.({ renderCodeInReader: next });
+        });
+        this.refs.reader.promptsButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.openPromptSettingsPopover();
+        });
+        this.refs.reader.templateButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.openTemplateSettingsPopover();
         });
         // Language
         this.refs.language.onChange((value) => {
@@ -322,6 +397,7 @@ export class SettingsTabView {
 
     private applySettingsToDom(): void {
         const s = this.settings;
+        const commentExport = this.getReaderCommentExport();
         const usagePercent = this.formatPercent(this.storageUsage?.usedPercentage);
         this.refs.platforms.chatgpt.checked = Boolean(s.platforms.chatgpt);
         this.refs.platforms.gemini.checked = Boolean(s.platforms.gemini);
@@ -332,13 +408,13 @@ export class SettingsTabView {
         this.refs.foldingCount.value = String(s.chatgpt.defaultExpandedCount);
         this.refs.foldingCount.dataset.role = 'settings-folding-count';
         this.refs.showFoldDock.checked = Boolean(s.chatgpt.showFoldDock);
-        this.refs.behavior.showViewSource.checked = Boolean(s.behavior.showViewSource);
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.enableClickToCopy.checked = Boolean(s.behavior.enableClickToCopy);
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
-        this.refs.behavior.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
-
+        this.refs.reader.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
+        this.refs.reader.promptsSummary.textContent = this.formatPromptSummary(commentExport);
+        this.refs.reader.templateSummary.textContent = this.formatTemplateSummary(commentExport.template);
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -346,12 +422,11 @@ export class SettingsTabView {
         this.syncToggle(this.refs.platforms.claude);
         this.syncToggle(this.refs.platforms.deepseek);
         this.syncToggle(this.refs.showFoldDock);
-        this.syncToggle(this.refs.behavior.showViewSource);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.enableClickToCopy);
         this.syncToggle(this.refs.behavior.saveContextOnly);
-        this.syncToggle(this.refs.behavior.renderCodeInReader);
+        this.syncToggle(this.refs.reader.renderCodeInReader);
 
         // Only show count input when keep_last_n.
         const foldingEnabled = s.chatgpt.foldingMode !== 'off';
@@ -433,6 +508,36 @@ export class SettingsTabView {
         return { root: item, input };
     }
 
+    private createActionRow(parent: HTMLElement, labelText: string, desc: string, role: string): {
+        root: HTMLElement;
+        button: HTMLButtonElement;
+        summary: HTMLElement;
+    } {
+        const item = document.createElement('div');
+        item.className = 'settings-row settings-item';
+        const info = document.createElement('div');
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        const summary = document.createElement('p');
+        summary.className = 'reader-settings-summary';
+        summary.textContent = desc;
+        info.append(label, summary);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'icon-btn reader-settings-trigger';
+        button.dataset.role = role;
+        const configureLabel = t('btnConfigure');
+        button.setAttribute('aria-label', configureLabel);
+        button.setAttribute('title', configureLabel);
+        button.appendChild(createIcon(Icons.settings));
+
+        item.append(info, button);
+        parent.appendChild(item);
+        return { root: item, button, summary };
+    }
+
     private createSelect(
         parent: HTMLElement,
         labelText: string,
@@ -470,6 +575,167 @@ export class SettingsTabView {
 
     private closeSelectMenus(): void {
         for (const selectRef of this.selectRefs) selectRef.close();
+    }
+
+    private getReaderCommentExport(): ReaderCommentExportSettings {
+        return normalizeReaderCommentExportSettings(this.settings.reader.commentExport);
+    }
+
+    private updateReaderCommentExport(next: ReaderCommentExportSettings): void {
+        this.settings.reader = {
+            ...this.settings.reader,
+            commentExport: {
+                prompts: next.prompts.map((prompt) => ({ ...prompt })),
+                template: next.template.map((segment) => ({ ...segment })),
+            },
+        };
+        this.applySettingsToDom();
+        void this.actions.setReaderSettings?.({ commentExport: this.settings.reader.commentExport });
+    }
+
+    private createPromptId(): string {
+        return `prompt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    private createDefaultReaderCommentPrompts(): ReaderCommentExportSettings['prompts'] {
+        return createDefaultAnnotationPrompts();
+    }
+
+    private createDefaultReaderCommentTemplate(): ReaderCommentExportSettings['template'] {
+        return createDefaultAnnotationTemplate();
+    }
+
+    private formatPromptSummary(commentExport: ReaderCommentExportSettings): string {
+        const first = commentExport.prompts[0];
+        if (!first) return t('readerCommentPromptListDesc');
+        return `${first.title} · ${commentExport.prompts.length}`;
+    }
+
+    private formatTemplateSummary(template: CommentTemplateSegment[]): string {
+        const normalized = normalizeCommentTemplate(template)
+            .map((segment) => segment.type === 'text' ? segment.value : segment.key === 'selected_source' ? t('readerCommentTemplateTokenSelectedSource') : t('readerCommentTemplateTokenUserComment'))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return normalized || t('readerCommentTemplateSettingsDesc');
+    }
+
+    private buildTemplatePreview(template: CommentTemplateSegment[]): string {
+        return buildCommentsExport(
+            [
+                {
+                    id: 'preview-comment-1',
+                    itemId: 'preview-item',
+                    quoteText: 'quote',
+                    sourceMarkdown: '`sample_source()`',
+                    comment: 'Needs clarification.',
+                    selectors: {
+                        textQuote: { exact: '', prefix: '', suffix: '' },
+                        textPosition: { start: 0, end: 0 },
+                        domRange: null,
+                        atomicRefs: [],
+                    },
+                    createdAt: 1,
+                    updatedAt: 1,
+                },
+                {
+                    id: 'preview-comment-2',
+                    itemId: 'preview-item',
+                    quoteText: 'quote',
+                    sourceMarkdown: '**another sample**',
+                    comment: 'Consider tightening this wording.',
+                    selectors: {
+                        textQuote: { exact: '', prefix: '', suffix: '' },
+                        textPosition: { start: 0, end: 0 },
+                        domRange: null,
+                        atomicRefs: [],
+                    },
+                    createdAt: 2,
+                    updatedAt: 2,
+                },
+            ],
+                {
+                userPrompt: this.getReaderCommentExport().prompts[0]?.content ?? '',
+                commentTemplate: template,
+            },
+        );
+    }
+
+    private openPromptSettingsPopover(): void {
+        this.dismissTransientUi();
+        this.promptSettingsPopover.open({
+            parent: this.root,
+            settings: this.getReaderCommentExport(),
+            labels: {
+                title: t('readerCommentPromptListLabel'),
+                close: t('btnClose'),
+                addPrompt: t('readerCommentPromptAdd'),
+                restoreDefaults: t('readerCommentPromptRestoreDefaults'),
+                editPrompt: t('readerCommentPromptEdit'),
+                untitledPrompt: t('readerCommentPromptUntitled'),
+                back: t('btnBack'),
+                titleLabel: t('readerCommentPromptTitleLabel'),
+                contentLabel: t('readerCommentPromptContentLabel'),
+                titlePlaceholder: t('readerCommentPromptTitlePlaceholder'),
+                contentPlaceholder: t('readerCommentPromptContentPlaceholder'),
+                empty: t('readerCommentPromptEmpty'),
+                save: t('btnSave'),
+                cancel: t('btnCancel'),
+                delete: t('btnDelete'),
+            },
+            createPromptId: () => this.createPromptId(),
+            onChange: (next) => this.updateReaderCommentExport(next),
+            onConfirmDelete: () => this.modal.confirm({
+                kind: 'warning',
+                title: t('readerCommentPromptDeleteTitle'),
+                message: t('readerCommentPromptDeleteMessage'),
+                confirmText: t('btnDelete'),
+                cancelText: t('btnCancel'),
+            }),
+            onConfirmRestoreDefaults: () => this.modal.confirm({
+                kind: 'warning',
+                title: t('readerCommentPromptRestoreDefaultsTitle'),
+                message: t('readerCommentPromptRestoreDefaultsMessage'),
+                confirmText: t('readerCommentPromptRestoreDefaults'),
+                cancelText: t('btnCancel'),
+            }),
+            onRestoreDefaults: () => this.createDefaultReaderCommentPrompts(),
+        });
+    }
+
+    private openTemplateSettingsPopover(): void {
+        this.dismissTransientUi();
+        const current = this.getReaderCommentExport();
+        this.templateSettingsPopover.open({
+            parent: this.root,
+            template: current.template,
+            preview: this.buildTemplatePreview(current.template),
+            labels: {
+                title: t('readerCommentTemplateSettingsLabel'),
+                close: t('btnClose'),
+                template: t('readerCommentTemplate'),
+                templateHint: t('readerCommentTemplateHint'),
+                templatePlaceholder: t('readerCommentTemplatePlaceholder'),
+                insertPlaceholder: t('readerCommentTemplateInsertPlaceholder'),
+                insertSelectedSource: t('readerCommentTemplateInsertSelectedSource'),
+                insertUserComment: t('readerCommentTemplateInsertUserComment'),
+                tokenSelectedSource: t('readerCommentTemplateTokenSelectedSource'),
+                tokenUserComment: t('readerCommentTemplateTokenUserComment'),
+                preview: t('readerCommentTemplatePreviewLabel'),
+                restoreDefault: t('readerCommentTemplateRestoreDefault'),
+                save: t('btnSave'),
+                cancel: t('btnCancel'),
+                copied: t('btnCopied'),
+            },
+            onBuildPreview: (template) => this.buildTemplatePreview(template),
+            onRestoreDefault: () => this.createDefaultReaderCommentTemplate(),
+            onSave: (template) => {
+                this.updateReaderCommentExport({
+                    ...current,
+                    template,
+                });
+            },
+        });
     }
 
     private formatPercent(value: number | null | undefined): string {

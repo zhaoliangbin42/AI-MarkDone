@@ -45,6 +45,8 @@ This repository uses a Codex-first engineering guide for day-to-day development.
   - Do not repeat the same mistake silently.
 - For bug fixes, reproduce the bug with a failing test before changing implementation whenever the bug is testable in this repository.
   - If it is not realistically testable, state why and add the closest practical regression check.
+  - For overlay, modal, popover, panel, or shared-primitive regressions, do not stop at direct surface tests.
+    Also add or update at least one test that enters through the real user-facing trigger path.
 - Before writing code for a materially ambiguous request, ask clarifying questions instead of guessing.
 - After any code change, explicitly list important edge cases and suggest the tests that should cover them.
 - Do not claim success from reasoning alone.
@@ -121,6 +123,7 @@ Start here:
 - Run `npm run build` after repo-tracked code changes.
 - Update the relevant authoritative docs when contracts, platform support, architecture boundaries, or testing gates change.
 - Update `CHANGELOG.md` in English when the change affects end users.
+- For version prep or store submission, also follow `.codex/guides/release.md`, including bookmarks information-page checks and maintainer manual review of release-facing copy.
 
 ## Scope Note
 

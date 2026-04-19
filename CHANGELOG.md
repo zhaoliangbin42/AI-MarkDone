@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-04-19
+
+### Added
+- Reader: Added atomic closed-unit selection handling for inline math, display math, inline code, code blocks, tables, and images so these units can be copied as source without changing normal text-selection behavior.
+- Reader: Added page-lifetime inline annotations with selection-linked highlights, right-gutter anchors, editable annotation popovers, and source-based annotation export.
+- Settings: Added a Reader settings section for reusable annotation-export prompts and a persistent annotations copy template, while keeping the Reader export popover focused on previewing and copying the final result.
+- Reader and Sending: Added prompt-picker driven annotation export actions so Reader copy now starts by choosing a prompt and Send popovers can insert compiled annotation text at the local textarea caret.
+- Bookmarks: Added dedicated `Changelog`, `About`, and `FAQ` information tabs, with sponsor/support content now folded into a more editorial About page.
+- Settings: Added built-in English starter prompts, a structured default annotation template, and restore-default actions for both Reader prompt presets and the annotations copy template.
+
+### Changed
+- Reader and toolbar source access now rely on the Reader markdown copy and atomic source-selection flow, replacing the retired standalone source panel entry points.
+- Reader source copy now keeps formulas, code blocks, tables, images, and other closed Markdown units tied to their original source boundaries, so copying inside Reader preserves structure instead of flattening rendered content.
+- Bookmarks: Rewrote the About page copy around the author's real workflow pain points, added a direct feedback email entry, and expanded the support section with a Xiaohongshu contact card.
+- Bookmarks: Clarified the About and FAQ copy around formula-copy workflows, including the click-to-copy formula shortcut and the older pain point of having to copy a whole block just to extract one formula.
+
+### Fixed
+- Reader: Fixed keyboard copy inside the reader so `Ctrl/Cmd+C` now exports markdown source for selected reader content instead of the rendered visible text.
+- Reader: Strengthened atomic closed-unit selection feedback with clearer square-edged highlights that stay visually noticeable without shifting Reader layout or markdown spacing.
+- Reader: Refined annotation selection controls so only assistant markdown body selections trigger floating actions, top-edge selections no longer cover the first line, and floating copy/annotation buttons keep an opaque hover surface above content.
+- Sending: Fixed the Reader send popover so prompt insertion stays available even before any annotations are added, allowing the same entry point to work as a lightweight prompt launcher.
+- UI: Fixed outside-dismiss behavior so dragging a text selection from inside popovers, modals, or overlay panels and releasing on the backdrop no longer closes the active surface accidentally.
+- Settings: Reworked Reader annotation-export prompts into an ordered prompt library without built-in/default prompt state, including drag reordering and placeholder-menu based template editing.
+
 ## [4.0.0] - 2026-04-02
 
 ### Added
@@ -358,3 +382,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modal Stability: Mounted shared modals into explicit overlay modal roots and switched them onto the shared keyboard-scope stack so nested dialogs close and restore focus more reliably.
 - Sending/Toolbar: Moved Send Modal back onto the shared overlay-host route and renamed toolbar pseudo tokens to the formal `--aimd-toolbar-*` component contract without changing placement behavior.
 - UI: Rebalanced panel typography so settings groups, sponsor sections, bookmark folders, reader content, toolbar stats, send status, and folding controls follow a clearer shared size hierarchy.
+## Unreleased
+
+### Changed
+- Reader annotation export now uses a multiline template with explicit `【选中文字】` and `【用户注释】` placeholders instead of separate prompt-1/2/3 fields, while keeping a separate user prompt header for LLM-ready output.

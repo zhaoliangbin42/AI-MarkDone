@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderMarkdownToSanitizedHtml } from '@/services/renderer/renderMarkdown';
+import { renderMarkdownForReader, renderMarkdownToSanitizedHtml } from '@/services/renderer/renderMarkdown';
 
 describe('renderMarkdownToSanitizedHtml', () => {
     it('sanitizes dangerous HTML', () => {
@@ -65,5 +65,38 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(html).toContain('language-ts');
         expect(html).toContain('data-code-language="ts"');
         expect(html).toContain('data-code-language="mermaid"');
+    });
+
+    it('produces reader atomic unit metadata for closed markdown units', () => {
+        const rendered = renderMarkdownForReader(
+            [
+                'Text with `code` and $x_1 + y$.',
+                '',
+                '$$',
+                'x^2',
+                '$$',
+                '',
+                '| A | B |',
+                '| --- | --- |',
+                '| 1 | 2 |',
+                '',
+                '```ts',
+                'const answer = 42;',
+                '```',
+                '',
+                '![Alt](https://example.com/image.png)',
+            ].join('\n')
+        );
+
+        expect(rendered.html).toContain('katex');
+        expect(rendered.atomicUnits.map((unit) => unit.kind)).toEqual([
+            'inline-code',
+            'inline-math',
+            'display-math',
+            'table',
+            'code-block',
+            'image',
+        ]);
+        expect(rendered.atomicUnits.every((unit) => unit.end > unit.start)).toBe(true);
     });
 });

@@ -39,7 +39,7 @@
 | Rule-based conversion stability (whitespace/indent/newlines) | Copy pipeline | `src/services/markdown-parser/**` | `tests/parity/copy/*` + goldens | golden 对齐作为输出真值。 |
 | Platform noise filtering (structural only) | `adapter.isNoiseNode()` + placeholder | `src/drivers/content/adapters/*`, `src/services/copy/copy-markdown.ts` | parity fixtures | 噪声过滤不基于文本，避免 i18n 漂移。 |
 | Streaming guard (pending state) | `adapter.isStreamingMessage()` → disable actions | `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | (covered by manual) | 流式阶段禁用按钮，不影响注入与后续重试。 |
-| LaTeX click-to-copy | Enable on injected message containers | `src/drivers/content/math/math-click.ts` | `tests/unit/drivers/math-click.test.ts` | 默认开启，在不破坏页面交互的前提下复制 LaTeX。 |
+| LaTeX click-to-copy | Enable on injected message containers | `src/drivers/content/math/math-click.ts` | `tests/unit/drivers/math-click.test.ts` | 默认开启，在不破坏页面交互的前提下复制 LaTeX。适合只想快速拿走单个公式，不必先复制整段内容再二次提取。 |
 
 #### Copy goldens（回归策略）
 
@@ -65,9 +65,11 @@
 | Render Markdown + sanitize | `renderMarkdown(markdown)` | `src/services/renderer/renderMarkdown.ts` | `tests/unit/services/renderer/renderMarkdown.test.ts` | XSS 清洗门禁必须存在。 |
 | Tokenized Markdown rendering | Reader uses the shared markdown theme and sanitize pipeline | `src/ui/content/reader/ReaderPanel.ts`, `src/ui/content/reader/readerPanelTemplate.ts`, `src/services/renderer/renderMarkdown.ts` | unit + governance + acceptance | Reader 正文始终使用默认 tokenized Markdown 主题；主题只影响正文视觉，不改变 Reader shell chrome。 |
 | Copy current page markdown | ReaderPanel `Copy` | `src/ui/content/reader/ReaderPanel.ts`, `src/drivers/content/clipboard/clipboard.ts` | integration test | Reader 页内容与 Copy pipeline 对齐（同一条消息输出一致）。 |
-| View Source | ReaderPanel toggle | `src/ui/content/reader/ReaderPanel.ts` | integration test | 可查看源文本、可复制。 |
 | Surface-owned reader profiles | `ReaderPanel.show(..., { profile, actions[] })` | `src/ui/content/reader/ReaderPanel.ts` | unit/integration + governance | 同一 ReaderPanel 在多个入口下保持稳定 baseline chrome；入口差异通过命名 profile 和批准的 action rail 表达，不允许入口直接传 CSS 或低层 chrome flags。 |
 | Message sending (composer sync + send) | ReaderPanel `Send` → `sendText(adapter, text)` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/sending/sendService.ts`, `src/drivers/content/sending/composerPort.ts`, `src/drivers/content/adapters/sites/chatgpt.ts`, `src/core/sending/contenteditable.ts` | `tests/unit/core/sending/*`, `tests/unit/drivers/content/sending/*`, `tests/integration/sending/*` | 多行文本换行保持一致；不会触发语音按钮；等待 send ready 后再点击发送。 |
+| Atomic closed-unit source selection | Native text selection + Reader-only atomic unit highlighting + `Ctrl/Cmd+C` | `src/ui/content/reader/ReaderPanel.ts`, `src/services/reader/atomicSelection.ts`, `src/services/reader/atomicExport.ts` | `tests/unit/services/reader/atomicSelection.test.ts`, `tests/unit/services/reader/atomicExport.test.ts`, `tests/integration/reader/reader-panel.test.ts` | 只允许 assistant markdown 正文选区触发 Reader selection actions；inline math / display math / inline code / code block / table / image 会整单元高亮并按源码复制，不改变普通文本选区手感。 |
+| Inline Reader comments | Selection action → comment popover → page-lifetime highlight + right gutter anchor | `src/ui/content/reader/ReaderPanel.ts`, `src/ui/content/reader/ReaderCommentPopover.ts`, `src/services/reader/commentSession.ts`, `src/services/reader/commentAnchoring.ts` | `tests/unit/services/reader/commentSession.test.ts`, `tests/unit/services/reader/commentAnchoring.test.ts`, `tests/integration/reader/reader-panel.comment.test.ts` | Reader 内选中 assistant markdown 正文后可添加评论；评论在页面生命周期内保留，高亮和 gutter anchor 可重开编辑；关闭 Reader 不丢，整页刷新后清空。 |
+| Comment export prompts | Settings `Reader` → reusable prompts + comments copy template; Reader header `Copy comments` → preview + clipboard | `src/ui/content/bookmarks/ui/tabs/SettingsTabView.ts`, `src/ui/content/bookmarks/ui/popovers/ReaderPromptEditorPopover.ts`, `src/ui/content/bookmarks/ui/popovers/ReaderCommentTemplateSettingsPopover.ts`, `src/ui/content/reader/ReaderCommentExportPopover.ts`, `src/services/reader/commentExport.ts`, `src/core/settings/readerCommentExport.ts` | `tests/unit/services/reader/commentExport.test.ts`, `tests/unit/services/settings/settingsService.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts`, `tests/unit/ui/reader/readerCommentExportPopover.test.ts`, `tests/integration/reader/reader-panel.comment.test.ts` | 评论导出按创建顺序生成编号列表，使用 `sourceMarkdown` 而不是渲染文本；可在 Settings 中管理多条 user prompt 和唯一的 token-based copy template，Reader 内只展示最终结果预览并一键复制。 |
 
 ### B.2.C ChatGPT Folding（ChatGPT only）
 
@@ -187,5 +189,5 @@
 
 - 刷新 / 切换对话 / 连续生成：每条 assistant 消息最终出现工具栏（不重复、不漂移）
 - Copy Markdown：复制当前消息内容
-- Reader：打开/翻页/复制/View Source，关闭无残留
+- Reader：打开/翻页/复制，关闭无残留
 - LaTeX click：可用且不影响用户选择/复制公式文本（selection guard 生效）

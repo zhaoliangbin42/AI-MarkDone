@@ -18,9 +18,8 @@ import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, chevronUpIcon, fileCodeIcon, locateIcon, sendIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, chevronUpIcon, locateIcon, sendIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
-import { sourcePanel } from '../source/sourcePanelSingleton';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import type { ChatGPTFoldingController } from './ChatGPTFoldingController';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
@@ -72,7 +71,7 @@ export class MessageToolbarOrchestrator {
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
     private foldingController: ChatGPTFoldingController | null = null;
-    private behavior = { showViewSource: true, showSaveMessages: true, showWordCount: true };
+    private behavior = { showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
     private messageOrder: HTMLElement[] = [];
     private messagePositionByElement = new WeakMap<HTMLElement, number>();
@@ -250,7 +249,12 @@ export class MessageToolbarOrchestrator {
                     const anchorBtn = ctx?.anchorEl as HTMLElement | undefined;
                     if (!shadow || !anchorBtn) return;
                     const anchorWrap = anchorBtn.closest?.('[data-role="footer-left-actions"]') as HTMLElement | null;
-                    this.sendController?.togglePopover({ adapter: this.adapter, shadow, anchor: anchorWrap || anchorBtn });
+                    this.sendController?.togglePopover({
+                        adapter: this.adapter,
+                        shadow,
+                        anchor: anchorWrap || anchorBtn,
+                        commentInsert: this.readerPanel.getCommentExportContext(),
+                    });
                 },
             });
         }
@@ -378,7 +382,7 @@ export class MessageToolbarOrchestrator {
         bookmarkSaveDialog.setTheme(theme);
     }
 
-    setBehaviorFlags(flags: Partial<{ showViewSource: boolean; showSaveMessages: boolean; showWordCount: boolean }>): void {
+    setBehaviorFlags(flags: Partial<{ showSaveMessages: boolean; showWordCount: boolean }>): void {
         this.behavior = { ...this.behavior, ...flags };
     }
 
@@ -453,24 +457,6 @@ export class MessageToolbarOrchestrator {
                     return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
                 },
         });
-
-        if (this.behavior.showViewSource) {
-            actions.push({
-                id: 'view_source',
-                label: t('btnViewSource'),
-                tooltip: t('btnViewSource'),
-                icon: fileCodeIcon,
-                kind: 'secondary',
-                disabledWhenPending: true,
-                onClick: async () => {
-                    const guard = this.guardMessageReady(messageElement);
-                    if (guard) return guard;
-                    const res = this.getMergedMarkdownForElement(messageElement);
-                    if (!res.ok) return { ok: false, message: res.error.message };
-                    sourcePanel.show({ theme: this.theme, title: t('modalSourceTitle'), content: res.markdown });
-                },
-            });
-        }
 
         actions.push({
             id: 'reader',

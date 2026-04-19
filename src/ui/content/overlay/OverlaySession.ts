@@ -4,6 +4,10 @@ import { getTokenCss } from '../../../style/tokens';
 import { ModalHost } from '../components/ModalHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
+import {
+    installTransientOutsideDismissBoundary,
+    type TransientOutsideDismissBoundaryHandle,
+} from '../components/transientUi';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from './OverlaySurfaceHost';
 
 export type OverlaySessionOptions = {
@@ -23,6 +27,7 @@ export class OverlaySession {
     readonly modalHost: ModalHost;
 
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
+    private backdropDismissHandle: TransientOutsideDismissBoundaryHandle | null = null;
     private readonly removeSurfaceBoundary: () => void;
     private readonly removeModalBoundary: () => void;
 
@@ -111,8 +116,27 @@ export class OverlaySession {
         this.keyboardHandle = null;
     }
 
+    syncBackdropDismiss(onDismiss: () => void): void {
+        this.backdropDismissHandle?.detach();
+        this.backdropDismissHandle = installTransientOutsideDismissBoundary({
+            eventTarget: this.shadow,
+            roots: [this.surfaceRoot, this.modalRoot],
+            onDismiss: (event) => {
+                const path = (event.composedPath?.() ?? []) as EventTarget[];
+                if (!path.includes(this.backdropRoot)) return;
+                onDismiss();
+            },
+        });
+    }
+
+    clearBackdropDismiss(): void {
+        this.backdropDismissHandle?.detach();
+        this.backdropDismissHandle = null;
+    }
+
     unmount(): void {
         this.clearKeyboardScope();
+        this.clearBackdropDismiss();
         this.removeSurfaceBoundary();
         this.removeModalBoundary();
         this.handle.unmount();

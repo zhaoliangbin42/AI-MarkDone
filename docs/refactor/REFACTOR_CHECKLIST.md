@@ -132,7 +132,7 @@ Checklist（每个域通用）：
 - [x] 人工验收：各站点消息级复制可用；LaTeX click 默认开启，点公式可复制
 - [x] 冻结功能与验收口径：`docs/FEATURES.md`
 
-### Module C — Reader MVP（打开/分页/渲染/复制/View Source）
+### Module C — Reader MVP（打开/分页/渲染/复制）
 
 - [x] Service：Reader items 收集（`src/services/reader/collectReaderItems.ts`）
 - [x] Service：markdown 渲染+净化（`src/services/renderer/renderMarkdown.ts`）

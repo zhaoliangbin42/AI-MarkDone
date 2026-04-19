@@ -1,5 +1,7 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
+import type { CommentTemplateSegment, ReaderCommentPrompt } from '../../../core/settings/readerCommentExport';
 import { SendModal } from './SendModal';
 import { SendPopover } from './SendPopover';
 
@@ -31,7 +33,24 @@ export class SendController {
         this.modal.close(opts);
     }
 
-    togglePopover(params: { adapter: SiteAdapter; shadow: ShadowRoot; anchor: HTMLElement; initialText?: string }): void {
-        this.popover.toggle({ adapter: params.adapter, shadow: params.shadow, anchor: params.anchor, theme: this.theme });
+    togglePopover(params: {
+        adapter: SiteAdapter;
+        shadow: ShadowRoot;
+        anchor: HTMLElement;
+        initialText?: string;
+        commentInsert?: {
+            prompts: ReaderCommentPrompt[];
+            template: CommentTemplateSegment[];
+            comments: ReaderCommentRecord[];
+        } | null;
+    }): void {
+        this.popover.toggle({
+            adapter: params.adapter,
+            shadow: params.shadow,
+            anchor: params.anchor,
+            theme: this.theme,
+            initialText: params.initialText,
+            commentInsert: params.commentInsert,
+        });
     }
 }

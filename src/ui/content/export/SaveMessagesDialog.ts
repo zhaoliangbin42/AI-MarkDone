@@ -130,7 +130,7 @@ export class SaveMessagesDialog {
             if (this.overlaySession) this.render();
         });
 
-        session.backdropRoot.addEventListener('click', () => this.close());
+        session.syncBackdropDismiss(() => this.close());
         session.surfaceRoot.addEventListener('click', (event) => void this.handleClick(event));
         session.syncKeyboardScope({
             root: session.host,

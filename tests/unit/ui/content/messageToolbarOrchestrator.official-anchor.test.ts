@@ -93,7 +93,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const adapter = new FakeOfficialToolbarAdapter();
         const readerPanel = { setTheme() {}, show: async () => undefined } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject();
 
@@ -115,7 +115,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const adapter = new FakeOfficialToolbarAdapter();
         const readerPanel = { setTheme() {}, show: async () => undefined } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject();
         expect(getToolbarCount()).toBe(0);
@@ -148,7 +148,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const adapter = new FakeOfficialToolbarAdapter();
         const readerPanel = { setTheme() {}, show: async () => undefined } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject();
         expect(getToolbarCount()).toBe(2);
@@ -175,7 +175,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const adapter = new FakeOfficialToolbarAdapter();
         const readerPanel = { setTheme() {}, show: async () => undefined } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject(new Set(['init']));
         expect(getToolbarCount()).toBe(1);
@@ -219,7 +219,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const adapter = new FakeOfficialToolbarAdapter();
         const readerPanel = { setTheme() {}, show: async () => undefined } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject(new Set(['init']));
         expect(getToolbarCount()).toBe(2);
@@ -253,7 +253,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         adapter.setStreaming(true);
         const readerPanel = { setTheme() {}, show: vi.fn(async () => undefined) } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject(new Set(['init']));
 

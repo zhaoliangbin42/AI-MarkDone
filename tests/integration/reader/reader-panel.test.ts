@@ -27,7 +27,6 @@ async function waitFor<T>(
 describe('ReaderPanel (MVP)', () => {
     afterEach(() => {
         document.querySelector('#aimd-reader-panel-host')?.remove();
-        document.querySelector('#aimd-source-panel-host')?.remove();
     });
 
     it('shows, paginates, and copies current page markdown', async () => {
@@ -169,5 +168,81 @@ describe('ReaderPanel (MVP)', () => {
 
         expect(styles).toContain('.reader-code-block__copy');
         expect(styles).toContain('margin-left: auto;');
+    });
+
+    it('intercepts copy inside the reader and writes markdown source for selected atomic units', async () => {
+        setClipboardMock();
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [{
+                id: 'a',
+                userPrompt: 'Q1',
+                content: 'Before `code` and $x+y$ after',
+            }],
+            0,
+            'light'
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = await waitFor(() => shadow.querySelector<HTMLElement>('.reader-markdown'));
+        const paragraph = markdownRoot.querySelector('p')!;
+        const firstText = paragraph.firstChild as Text;
+        const lastText = paragraph.lastChild as Text;
+        const range = document.createRange();
+        range.setStart(firstText, 0);
+        range.setEnd(lastText, lastText.textContent!.length);
+
+        const selection = {
+            rangeCount: 1,
+            getRangeAt: () => range,
+            getComposedRanges: () => [{
+                startContainer: firstText,
+                startOffset: 0,
+                endContainer: lastText,
+                endOffset: lastText.textContent!.length,
+            }],
+            toString: () => range.toString(),
+        } as unknown as Selection;
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(selection);
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        const clipboardData = {
+            values: new Map<string, string>(),
+            setData(type: string, value: string) {
+                this.values.set(type, value);
+            },
+        };
+        const copyEvent = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent;
+        Object.defineProperty(copyEvent, 'clipboardData', { value: clipboardData });
+        shadow.dispatchEvent(copyEvent);
+
+        expect(clipboardData.values.get('text/plain')).toContain('`code`');
+        expect(clipboardData.values.get('text/plain')).toContain('$x+y$');
+        getSelectionSpy.mockRestore();
+    });
+
+    it('does not close when text selection starts inside the reader and releases on the backdrop', async () => {
+        const panel = new ReaderPanel();
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Reader body' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const reader = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+        const backdrop = shadow.querySelector<HTMLElement>('[data-role="overlay-backdrop-root"] .panel-stage__overlay')!;
+
+        reader.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(document.querySelector('#aimd-reader-panel-host')).toBeTruthy();
+        expect(reader.dataset.motionState).not.toBe('closing');
+
+        backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(reader.dataset.motionState).toBe('closing');
     });
 });

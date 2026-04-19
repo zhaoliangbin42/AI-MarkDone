@@ -46,7 +46,7 @@ describe('ChatGPT toolbar injection dedup', () => {
             const adapter = new ChatGPTAdapter();
             const readerPanel = new ReaderPanel();
             const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-            orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false, showViewSource: false });
+            orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
             (orchestrator as any).scanAndInject();
             (orchestrator as any).scanAndInject();
