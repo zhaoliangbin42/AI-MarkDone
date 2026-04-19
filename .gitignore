@@ -63,12 +63,16 @@ mocks/
 
 # Tooling artifacts
 vite.config.ts.timestamp-*.mjs
+.playwright-browsers-chromium/
+playwright.config.ts
 
 # Backups
 *.bak
 *.bak*
 *.backup
 src/utils/* copy.ts
+survey.md
+tmp-Claude-All-sanitized.html
 
 # Note: .agent/ rules and workflows should be tracked. 
 # GEMINI.md and Agents.md should be tracked if they are project docs.
