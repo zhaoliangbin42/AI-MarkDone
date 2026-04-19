@@ -11,7 +11,6 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
                     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
                     chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
                     behavior: {
-                        showViewSource: true,
                         showSaveMessages: true,
                         showWordCount: true,
                         enableClickToCopy: true,
@@ -307,7 +306,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedChangelogTab?.querySelector('.info-section')).toBeTruthy();
         expect(refreshedChangelogTab?.querySelector('.info-disclosure')).toBeTruthy();
         expect(refreshedChangelogTab?.textContent).toContain('4.1.0');
-        expect(refreshedChangelogTab?.textContent).toContain('2026-04-16');
+        expect(refreshedChangelogTab?.textContent).toContain('2026-04-19');
 
         aboutTabButton!.click();
 
@@ -315,10 +314,18 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About');
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
+        expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(2);
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeTruthy();
-        expect(refreshedAboutActiveTab?.querySelector('.sponsor-qr-card')).toBeTruthy();
+        expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(2);
+        expect(refreshedAboutActiveTab?.querySelector('.social-follow-card')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-brand-mark')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelector('.info-hero__body')).toBeNull();
+        expect(refreshedAboutActiveTab?.querySelector('.info-hero__title')?.textContent).toBe('Follow me');
+        expect(refreshedAboutActiveTab?.querySelector('.info-profile-card')).toBeTruthy();
+        expect(refreshedAboutActiveTab?.querySelector('.info-profile')).toBeTruthy();
+        expect(refreshedAboutActiveTab?.querySelector('.info-profile__avatar')).toBeTruthy();
+        expect(refreshedAboutActiveTab?.querySelector('.info-profile__bio')?.textContent).toContain('graduate student');
+        expect(refreshedAboutActiveTab?.querySelector('[data-action="contact-email"]')).toBeNull();
         const sponsorCta = refreshedAboutActiveTab?.querySelector<HTMLAnchorElement>('[data-action="sponsor-github"]');
         expect(sponsorCta?.tagName).toBe('A');
         expect(sponsorCta?.href).toBe('https://github.com/zhaoliangbin42/AI-MarkDone');
@@ -328,8 +335,14 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.textContent).toContain('Support Development');
         expect(refreshedAboutActiveTab?.textContent).toContain('AI-MarkDone is open source. Star us on GitHub.');
         expect(refreshedAboutActiveTab?.textContent).toContain('If this project helps you');
-        expect(refreshedAboutActiveTab?.textContent).toContain('Support the developer with a coffee');
+        expect(refreshedAboutActiveTab?.textContent).toContain('Support the project with a coffee if you want to.');
         expect(refreshedAboutActiveTab?.textContent).toContain('Why I built AI-MarkDone');
+        expect(refreshedAboutActiveTab?.textContent).toContain('copy the whole block first');
+        expect(refreshedAboutActiveTab?.textContent).toContain('Feedback and contact');
+        expect(refreshedAboutActiveTab?.textContent).toContain('zhaoliangbin42@gmail.com');
+        expect(refreshedAboutActiveTab?.textContent).toContain('Xiaohongshu');
+        expect(refreshedAboutActiveTab?.textContent).toContain('Follow me');
+        expect(refreshedAboutActiveTab?.textContent).toContain('Find me on Xiaohongshu');
 
         faqTabButton!.click();
 
@@ -339,6 +352,8 @@ describe('BookmarksPanel', () => {
         expect(refreshedFaqActiveTab?.querySelector('.aimd-faq')).toBeTruthy();
         expect(refreshedFaqActiveTab?.querySelector('.info-disclosure')).toBeTruthy();
         expect(refreshedFaqActiveTab?.textContent).toContain('Which platforms does this extension support?');
+        expect(refreshedFaqActiveTab?.textContent).toContain('Click to copy formulas');
+        expect(refreshedFaqActiveTab?.textContent).toContain('just click the formula itself');
 
         panel.hide();
     });

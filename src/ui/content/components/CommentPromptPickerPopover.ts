@@ -14,6 +14,7 @@ type OpenParams = {
     shadow: ShadowRoot;
     container: HTMLElement;
     anchorEl: HTMLElement;
+    placement?: 'anchor' | 'center';
     theme: Theme;
     prompts: PromptOption[];
     labels: {
@@ -28,10 +29,18 @@ type OpenParams = {
 function getCss(): string {
     return `
 .comment-prompt-picker-layer {
-  position: fixed;
-  inset: 0;
   pointer-events: none;
   z-index: var(--aimd-z-tooltip);
+}
+
+.comment-prompt-picker-layer[data-placement="center"] {
+  position: fixed;
+  inset: 0;
+}
+
+.comment-prompt-picker-layer[data-placement="anchor"] {
+  position: absolute;
+  inset: 0;
 }
 
 .comment-prompt-picker {
@@ -187,6 +196,7 @@ export class CommentPromptPickerPopover {
 
         const layer = markTransientRoot(document.createElement('div'));
         layer.className = 'comment-prompt-picker-layer';
+        layer.dataset.placement = params.placement === 'center' ? 'center' : 'anchor';
         const popover = document.createElement('div');
         popover.className = 'comment-prompt-picker';
         popover.setAttribute('data-aimd-theme', params.theme);
@@ -229,7 +239,7 @@ export class CommentPromptPickerPopover {
         layer.appendChild(popover);
         params.container.appendChild(layer);
         this.rootEl = layer;
-        this.positionPopover(popover, params.anchorEl, params.container);
+        this.positionPopover(popover, layer, params);
 
         popover.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => {
             this.close(params.shadow, params.onClose);
@@ -252,19 +262,42 @@ export class CommentPromptPickerPopover {
         return path.includes(this.rootEl as EventTarget);
     }
 
-    private positionPopover(popover: HTMLElement, anchorEl: HTMLElement, _container: HTMLElement): void {
+    private positionPopover(popover: HTMLElement, layer: HTMLElement, params: Pick<OpenParams, 'anchorEl' | 'placement'>): void {
+        if (params.placement === 'center') {
+            this.positionPopoverCentered(popover);
+            return;
+        }
+        this.positionPopoverAnchored(popover, layer, params.anchorEl);
+    }
+
+    private positionPopoverCentered(popover: HTMLElement): void {
+        const popoverRect = popover.getBoundingClientRect();
+        const margin = 12;
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768;
+        const left = Math.max(margin, (viewportWidth - popoverRect.width) / 2);
+        const top = Math.max(margin, (viewportHeight - popoverRect.height) / 2);
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+    }
+
+    private positionPopoverAnchored(popover: HTMLElement, layer: HTMLElement, anchorEl: HTMLElement): void {
+        const referenceRect = layer.parentElement?.getBoundingClientRect() ?? layer.getBoundingClientRect();
         const anchorRect = anchorEl.getBoundingClientRect();
         const popoverRect = popover.getBoundingClientRect();
         const offset = 8;
         const margin = 12;
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768;
-        const maxLeft = Math.max(margin, viewportWidth - popoverRect.width - margin);
-        const rawLeft = anchorRect.left + (anchorRect.width / 2) - (popoverRect.width / 2);
+        const layerWidth = referenceRect.width || layer.clientWidth || 1024;
+        const layerHeight = referenceRect.height || layer.clientHeight || 768;
+        const anchorCenterX = anchorRect.left - referenceRect.left + (anchorRect.width / 2);
+        const anchorBottom = anchorRect.bottom - referenceRect.top;
+        const anchorTop = anchorRect.top - referenceRect.top;
+        const maxLeft = Math.max(margin, layerWidth - popoverRect.width - margin);
+        const rawLeft = anchorCenterX - (popoverRect.width / 2);
         const left = Math.min(maxLeft, Math.max(margin, rawLeft));
-        let top = anchorRect.bottom + offset;
-        if (top + popoverRect.height > viewportHeight - margin) {
-            top = anchorRect.top - popoverRect.height - offset;
+        let top = anchorBottom + offset;
+        if (top + popoverRect.height > layerHeight - margin) {
+            top = anchorTop - popoverRect.height - offset;
         }
         popover.style.left = `${left}px`;
         popover.style.top = `${Math.max(margin, top)}px`;

@@ -203,6 +203,78 @@ describe('ReaderPanel comments', () => {
         getSelectionSpy.mockRestore();
     });
 
+    it('opens the prompt picker centered when copying annotations from the reader header', async () => {
+        const panel = new ReaderPanel();
+        panel.setCommentExportSettings({
+            prompts: [
+                { id: 'default', title: 'Default', content: 'Please review the following comments:' },
+            ],
+            template: [
+                { type: 'token', key: 'selected_source' },
+                { type: 'text', value: '\n' },
+                { type: 'token', key: 'user_comment' },
+            ],
+        });
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+        const paragraph = markdownRoot.querySelector('p')!;
+        const range = document.createRange();
+        range.setStart(paragraph.firstChild as Text, 0);
+        range.setEnd(paragraph.lastChild as Text, paragraph.lastChild?.textContent?.length ?? 0);
+        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
+        await Promise.resolve();
+        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        textarea.value = 'Needs clarification';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
+        await Promise.resolve();
+
+        Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true });
+        Object.defineProperty(window, 'innerHeight', { value: 720, configurable: true });
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('comment-prompt-picker')) {
+                return { left: 0, top: 0, width: 420, height: 280, right: 420, bottom: 280, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+            }
+            return {
+                left: 40,
+                top: 32,
+                width: 32,
+                height: 32,
+                right: 72,
+                bottom: 64,
+                x: 40,
+                y: 32,
+                toJSON: () => ({}),
+            } as DOMRect;
+        });
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+        await Promise.resolve();
+
+        const pickerLayer = shadow.querySelector<HTMLElement>('.comment-prompt-picker-layer')!;
+        const picker = shadow.querySelector<HTMLElement>('.comment-prompt-picker')!;
+        expect(pickerLayer.parentElement).toBe(shadow.querySelector('[data-role="overlay-surface-root"]'));
+        expect(Number.parseFloat(picker.style.left)).toBe(430);
+        expect(Number.parseFloat(picker.style.top)).toBe(220);
+
+        rectSpy.mockRestore();
+        getSelectionSpy.mockRestore();
+    });
+
     it('copies the same compiled text shown in the export popover even if settings change while it is open', async () => {
         const { writeText } = setClipboardMock();
         const panel = new ReaderPanel();

@@ -102,7 +102,6 @@ if (adapter) {
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
         folding?.setPolicy(snap.settings.chatgpt);
         messageToolbars.setBehaviorFlags({
-            showViewSource: snap.settings.behavior.showViewSource,
             showSaveMessages: snap.settings.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior.showWordCount,
         });

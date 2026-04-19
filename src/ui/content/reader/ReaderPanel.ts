@@ -30,7 +30,6 @@ import {
 import { listReaderComments, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
-import { sourcePanel } from '../source/sourcePanelSingleton';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
@@ -92,10 +91,8 @@ type ReaderPanelState = {
         profile: ReaderPanelProfile;
         showNav: boolean;
         showCopy: boolean;
-        showSource: boolean;
         showOpenConversation: boolean;
         dotStyle: 'meta' | 'plain';
-        initialView: 'render' | 'source';
         actions: ReaderPanelAction[];
         onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
     };
@@ -149,10 +146,8 @@ export class ReaderPanel {
             profile: 'conversation-reader',
             showNav: true,
             showCopy: true,
-            showSource: true,
             showOpenConversation: false,
             dotStyle: 'meta',
-            initialView: 'render',
             actions: [],
         },
     };
@@ -229,10 +224,6 @@ export class ReaderPanel {
             ignoreEscapeWhileComposing: true,
             trapTabWithin: this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession?.host ?? undefined,
         });
-
-        if (this.state.options.initialView === 'source') {
-            void this.openSourcePanel();
-        }
 
         await this.renderCurrentContent();
     }
@@ -382,9 +373,6 @@ export class ReaderPanel {
             case 'reader-copy-code':
                 await this.copyCodeBlock(actionEl);
                 return;
-            case 'reader-source':
-                await this.openSourcePanel();
-                return;
             case 'reader-fullscreen':
                 this.toggleFullscreen();
                 return;
@@ -468,13 +456,6 @@ export class ReaderPanel {
         }
     }
 
-    private async openSourcePanel(): Promise<void> {
-        const item = this.state.items[this.state.index];
-        if (!item) return;
-        const markdown = await resolveContent(item.content);
-        sourcePanel.show({ theme: this.state.theme, title: t('modalSourceTitle'), content: markdown });
-    }
-
     private async copyCodeBlock(button: HTMLElement): Promise<void> {
         const code = button.closest('.reader-code-block')?.querySelector<HTMLElement>('pre code');
         if (!code) return;
@@ -536,7 +517,6 @@ export class ReaderPanel {
                 userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,
                 showCopy: this.state.options.showCopy,
-                showSource: this.state.options.showSource,
                 showOpenConversation: this.state.options.showOpenConversation,
             },
             canOpenConversation: this.canOpenConversation(),
@@ -557,7 +537,6 @@ export class ReaderPanel {
                 selectors: [
                     '[data-action="reader-open-conversation"]',
                     '[data-action="reader-copy"]',
-                    '[data-action="reader-source"]',
                     '[data-action="reader-fullscreen"]',
                     '[data-action="close-panel"]',
                 ],
@@ -727,10 +706,8 @@ export class ReaderPanel {
                 profile,
                 showNav: true,
                 showCopy: true,
-                showSource: true,
                 showOpenConversation: true,
                 dotStyle: 'plain',
-                initialView: 'render',
                 actions: [],
             };
         }
@@ -739,10 +716,8 @@ export class ReaderPanel {
             profile: 'conversation-reader',
             showNav: true,
             showCopy: true,
-            showSource: true,
             showOpenConversation: false,
             dotStyle: 'meta',
-            initialView: 'render',
             actions: [],
         };
     }
@@ -1048,13 +1023,15 @@ export class ReaderPanel {
         }
 
         const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+        const pickerContainer = this.overlaySession.surfaceRoot;
         const anchorButton = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy-comments"]');
         const shadow = this.overlaySession.shadow;
-        if (!container || !anchorButton) return;
+        if (!container || !pickerContainer || !anchorButton) return;
         this.commentPromptPicker.open({
             shadow,
-            container,
+            container: pickerContainer,
             anchorEl: anchorButton,
+            placement: 'center',
             theme: this.state.theme,
             prompts: this.commentExportSettings.prompts,
             labels: {

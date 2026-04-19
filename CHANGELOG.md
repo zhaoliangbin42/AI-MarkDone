@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-04-19
+
 ### Added
 - Reader: Added atomic closed-unit selection handling for inline math, display math, inline code, code blocks, tables, and images so these units can be copied as source without changing normal text-selection behavior.
 - Reader: Added page-lifetime inline annotations with selection-linked highlights, right-gutter anchors, editable annotation popovers, and source-based annotation export.
@@ -14,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader and Sending: Added prompt-picker driven annotation export actions so Reader copy now starts by choosing a prompt and Send popovers can insert compiled annotation text at the local textarea caret.
 - Bookmarks: Added dedicated `Changelog`, `About`, and `FAQ` information tabs, with sponsor/support content now folded into a more editorial About page.
 - Settings: Added built-in English starter prompts, a structured default annotation template, and restore-default actions for both Reader prompt presets and the annotations copy template.
+
+### Changed
+- Reader and toolbar source access now rely on the Reader markdown copy and atomic source-selection flow, replacing the retired standalone source panel entry points.
+- Reader source copy now keeps formulas, code blocks, tables, images, and other closed Markdown units tied to their original source boundaries, so copying inside Reader preserves structure instead of flattening rendered content.
+- Bookmarks: Rewrote the About page copy around the author's real workflow pain points, added a direct feedback email entry, and expanded the support section with a Xiaohongshu contact card.
+- Bookmarks: Clarified the About and FAQ copy around formula-copy workflows, including the click-to-copy formula shortcut and the older pain point of having to copy a whole block just to extract one formula.
 
 ### Fixed
 - Reader: Fixed keyboard copy inside the reader so `Ctrl/Cmd+C` now exports markdown source for selected reader content instead of the rendered visible text.

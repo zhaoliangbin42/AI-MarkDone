@@ -12,7 +12,7 @@ describe('bookmarks content parser', () => {
         expect(en.title).toBe('Changelog');
         expect(zh.entries.map((entry) => entry.version)).toEqual(['4.1.0', '4.0.0', '3.0.0']);
         expect(en.entries.map((entry) => entry.version)).toEqual(['4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-04-16');
+        expect(zh.entries[0]?.date).toBe('2026-04-19');
         expect(en.entries[0]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
@@ -32,12 +32,18 @@ describe('bookmarks content parser', () => {
             }),
         );
         expect(zh.sections.map((section) => section.heading)).toEqual([
-            '为什么会做 AI-MarkDone',
-            '我会反复坚持的原则',
+            '为什么我会做 AI-MarkDone',
+            '反馈与联系',
         ]);
-        expect(zh.sections[1]?.blocks[0]).toEqual(
+        expect(zh.sections[0]?.blocks[0]).toEqual(
             expect.objectContaining({
-                type: 'list',
+                type: 'paragraph',
+            }),
+        );
+        expect(zh.sections[1]?.blocks[1]).toEqual(
+            expect.objectContaining({
+                type: 'paragraph',
+                text: expect.stringContaining('zhaoliangbin42@gmail.com'),
             }),
         );
     });
@@ -47,7 +53,7 @@ describe('bookmarks content parser', () => {
 
         expect(en.title).toBe('FAQ');
         expect(en.leadBlocks).toEqual([]);
-        expect(en.items).toHaveLength(14);
+        expect(en.items).toHaveLength(15);
         expect(en.items[0]?.question).toContain('Which platforms does this extension support');
         expect(en.items[0]?.blocks[0]).toEqual(
             expect.objectContaining({

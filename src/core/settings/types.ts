@@ -30,7 +30,6 @@ export type AppSettings = {
         showFoldDock: boolean;
     };
     behavior: {
-        showViewSource: boolean;
         showSaveMessages: boolean;
         showWordCount: boolean;
         enableClickToCopy: boolean;
@@ -58,7 +57,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
         showFoldDock: true,
     },
     behavior: {
-        showViewSource: true,
         showSaveMessages: true,
         showWordCount: true,
         enableClickToCopy: true,

@@ -2,7 +2,6 @@ import {
     chevronRightIcon,
     copyIcon,
     externalLinkIcon,
-    fileCodeIcon,
     maximizeIcon,
     messageSquareShareIcon,
     minimizeIcon,
@@ -21,7 +20,6 @@ type ReaderTemplateState = {
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     showCopy: boolean;
-    showSource: boolean;
     showOpenConversation: boolean;
 };
 
@@ -61,7 +59,6 @@ export function getReaderPanelHtml(params: {
     const title = getLabel('btnReader', 'Reader panel');
     const openConversationLabel = getLabel('openConversationLabel', 'Open conversation');
     const copyLabel = getLabel('btnCopyText', 'Copy markdown');
-    const sourceLabel = getLabel('btnViewSource', 'View source');
     const fullscreenLabel = state.fullscreen
         ? getLabel('exitFullscreen', 'Exit fullscreen')
         : getLabel('toggleFullscreen', 'Toggle fullscreen');
@@ -82,7 +79,6 @@ export function getReaderPanelHtml(params: {
       ${state.showOpenConversation && canOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}">${iconMarkup(messageSquareShareIcon)}</button>
       ${state.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
-      ${state.showSource ? `<button class="icon-btn" data-action="reader-source" aria-label="${escapeHtml(sourceLabel)}" title="${escapeHtml(sourceLabel)}">${iconMarkup(fileCodeIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>

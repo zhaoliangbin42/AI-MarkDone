@@ -140,8 +140,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.0.0
-- **Refactor**: The codebase and UI have been thoroughly rebuilt.
+### v4.1.0
+- Reader source copy now happens directly inside Reader, with better preservation for formulas, code blocks, tables, and other closed Markdown units.
+- Dynamic Annotation is now available for article-level revision workflows.
+- The bookmarks panel now includes built-in Changelog, FAQ, and About pages.
 
 [Full Changelog](./CHANGELOG.md)
 

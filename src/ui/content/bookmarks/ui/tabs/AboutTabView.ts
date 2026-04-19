@@ -24,8 +24,6 @@ export class AboutTabView {
 
     private render(actions: AboutTabViewActions): void {
         const doc = parseBookmarksDoc(loadBookmarksDoc('about'));
-        const storySection = doc.sections[0] ?? { heading: '', blocks: [] };
-        const principlesSection = doc.sections[1] ?? { heading: '', blocks: [] };
         const celebration = document.createElement('div');
         celebration.className = 'sponsor-celebration';
         celebration.setAttribute('aria-hidden', 'true');
@@ -36,36 +34,38 @@ export class AboutTabView {
         const hero = document.createElement('section');
         hero.className = 'info-hero';
 
-        hero.innerHTML = `
-          <h3 class="info-hero__title">${doc.title}</h3>
-        `;
+        const heroTitle = document.createElement('h3');
+        heroTitle.className = 'info-hero__title';
+        heroTitle.textContent = t('followMe');
+        hero.appendChild(heroTitle);
 
-        const story = document.createElement('section');
-        story.className = 'info-section';
-        story.innerHTML = `
-          <div class="info-section__head">
-            <div class="info-section__title">${storySection.heading}</div>
+        const profileCard = document.createElement('section');
+        profileCard.className = 'info-profile-card';
+        profileCard.innerHTML = `
+          <div class="info-profile">
+            <div class="info-profile__avatar-frame">
+              <img src="${actions.getAssetUrl('icons/about_avatar.png')}" alt="Benko Zhao avatar" class="info-profile__avatar">
+            </div>
+            <p class="info-profile__bio">${t('aboutProfileBio')}</p>
           </div>
         `;
-        const storyCopy = document.createElement('div');
-        storyCopy.className = 'info-copy-stack';
-        storyCopy.appendChild(renderInfoBlocks(storySection.blocks, { resolveAssetUrl: actions.getAssetUrl }));
-        story.appendChild(storyCopy);
 
-        const principles = document.createElement('section');
-        principles.className = 'info-section';
-        principles.innerHTML = `
-          <div class="info-section__head">
-            <div class="info-section__title">${principlesSection.heading}</div>
-          </div>
-        `;
-        principles.appendChild(
-            renderInfoBlocks(principlesSection.blocks, {
-                listClassName: 'info-list info-list--cards',
-                listItemClassName: 'info-list-card',
-                resolveAssetUrl: actions.getAssetUrl,
-            }),
-        );
+        const infoSections = document.createDocumentFragment();
+        for (const section of doc.sections) {
+            const container = document.createElement('section');
+            container.className = 'info-section';
+            container.innerHTML = `
+              <div class="info-section__head">
+                <div class="info-section__title">${section.heading}</div>
+              </div>
+            `;
+
+            const body = document.createElement('div');
+            body.className = 'info-copy-stack';
+            body.appendChild(renderInfoBlocks(section.blocks, { resolveAssetUrl: actions.getAssetUrl }));
+            container.appendChild(body);
+            infoSections.appendChild(container);
+        }
 
         const openSource = document.createElement('section');
         openSource.className = 'sponsor-card sponsor-card--primary';
@@ -123,7 +123,20 @@ export class AboutTabView {
           </div>
         `;
 
-        shell.append(hero, story, principles, openSource, donate);
+        const socialFollow = document.createElement('section');
+        socialFollow.className = 'social-follow-card';
+        socialFollow.innerHTML = `
+          <div class="sponsor-section-head">
+            <div class="sponsor-section-copy">
+              <div class="sponsor-section-label">${t('findMeOnXiaohongshu')}</div>
+            </div>
+          </div>
+          <div class="social-follow-card__frame">
+            <img src="${actions.getAssetUrl('icons/xiaohongshu_card.png')}" alt="Xiaohongshu account card" class="social-follow-card__image">
+          </div>
+        `;
+
+        shell.append(hero, profileCard, infoSections, openSource, donate, socialFollow);
         this.root.replaceChildren(celebration, shell);
     }
 }

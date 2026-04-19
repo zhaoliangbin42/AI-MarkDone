@@ -1,18 +1,19 @@
 # Changelog
 
 # 4.1.0
-2026-04-16
+2026-04-19
 
-In Reader, copying a selection now gives you the original source instead of flattened rendered text. This release also introduces Dynamic Annotation: you can read through a response, mark the parts you want to revise, add your own notes inline, and then export everything as structured input for another model. Compared with one-sentence-at-a-time review flows, this is much better for article-level rewriting, bulk polishing, and targeted replies, so you spend fewer turns and usually get more precise results.
+This release is centered around three changes. First, the standalone source panel is gone, and source copying now lives directly inside Reader. Second, Dynamic Annotation is now available, so you can read through a response, mark the exact parts you want to revise, add your own notes, and compile everything into structured input for another model. Third, the bookmarks panel now includes dedicated Changelog, About, and FAQ pages to make version history, project background, and usage guidance easier to find.
 
-- Reader now lets you add annotations directly to selected content. When you select text, floating copy and annotate actions appear nearby.
-- Annotations stay linked to the original selection and remain highlighted inside Reader.
-- Existing annotations can be reopened, reviewed, and edited at any time.
+The hardest part here was moving source copy into Reader without falling back to the browser's default rendered-text copy. Formulas, code blocks, tables, and images are not ordinary text spans. They behave more like closed units that need to be copied as a whole. If Reader simply copied the visible selection, much of the original Markdown structure would be lost. The new flow first maps those closed units back to their source boundaries, then rebuilds the copied result from the original Markdown fragments in selection order. That is what lets Reader return source-shaped output instead of flattened page text.
+
+- Source copying is now available directly inside Reader, so you no longer need a separate source panel.
+- Reader now supports source-aware selection and copying for formulas, code blocks, tables, images, and other closed Markdown units.
+- Reader now lets you add Dynamic Annotations directly to selected content. When you select text, floating copy and annotate actions appear nearby.
+- Annotations stay linked to the original selection, remain highlighted inside Reader, and can be reopened and edited later.
 - Added an annotation export template that you can configure in `Settings > Reader > Annotations copy template`.
 - Added a Prompt Library so you can manage multiple reusable prompt headers in `Settings > Reader > User prompts`.
-- Annotation results can now be copied in one click from the Reader header whenever the page already has annotations.
-- Annotation results can also be inserted directly above the send box in the lower-left Reader input area.
-- Reader now supports source-aware selection and copying for code, formulas, tables, images, and other closed units. The copied result stays as close as possible to standard Markdown instead of collapsing into plain rendered text.
+- Annotation results can now be copied in one click or inserted directly above the send box in the lower-left Reader input area.
 - The bookmarks panel now includes dedicated Changelog, About, and FAQ pages.
 - The popup shown on unsupported pages has been cleaned up with a clearer layout and less redundant copy.
 

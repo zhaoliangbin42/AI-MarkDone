@@ -162,7 +162,7 @@ export class SendPopover {
             if (!button || !textarea) return;
             this.promptPicker.open({
                 shadow: params.shadow,
-                container: pop,
+                container: this.getPopoverSurface(params.shadow, params.anchor),
                 anchorEl: button,
                 theme: this.state.theme,
                 prompts: params.commentInsert.prompts,
@@ -397,7 +397,7 @@ export class SendPopover {
     }
 
     private getClampedSize(shadow: ShadowRoot, width: number, height: number): { width: number; height: number } {
-        const surface = shadow.querySelector<HTMLElement>('.panel-window--reader, .panel-window');
+        const surface = this.getPopoverSurface(shadow);
         const rect = surface?.getBoundingClientRect();
         const surfaceWidth = rect?.width && rect.width > 0
             ? rect.width
@@ -412,6 +412,12 @@ export class SendPopover {
             width: Math.max(MIN_WIDTH, Math.min(maxWidth, Math.round(width))),
             height: Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(height))),
         };
+    }
+
+    private getPopoverSurface(shadow: ShadowRoot, fallback?: HTMLElement | null): HTMLElement {
+        return shadow.querySelector<HTMLElement>('.panel-window--reader, .panel-window')
+            ?? fallback
+            ?? shadow.host as HTMLElement;
     }
 
     private applySize(popover: HTMLElement, next: { width: number; height: number }): void {

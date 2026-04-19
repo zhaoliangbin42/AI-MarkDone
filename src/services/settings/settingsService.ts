@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
-import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode, normalizeChatGptSettings } from '../../core/settings/migrations';
+import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode, normalizeBehaviorSettings, normalizeChatGptSettings } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -54,7 +54,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
         case 'behavior': {
             const next: AppSettings = {
                 ...cur,
-                behavior: mergeObject({ ...DEFAULT_SETTINGS.behavior, ...cur.behavior }, value),
+                behavior: normalizeBehaviorSettings(mergeObject({ ...cur.behavior }, value)),
             };
             return { next };
         }

@@ -20,9 +20,6 @@
     "btnReader": {
         "message": "阅读器"
     },
-    "btnViewSource": {
-        "message": "查看源码"
-    },
     "btnSaveAs": {
         "message": "另存为"
     },
@@ -67,9 +64,6 @@
     },
     "openingPreview": {
         "message": "打开预览..."
-    },
-    "sourceOpened": {
-        "message": "源码已打开"
     },
     "saving": {
         "message": "保存中..."
@@ -280,9 +274,6 @@
     },
     "readerCommentInsertIntoSend": {
         "message": "插入注释"
-    },
-    "modalSourceTitle": {
-        "message": "Markdown 源码"
     },
     "saveMessagesTitle": {
         "message": "保存消息"
@@ -641,9 +632,6 @@
     "copyMarkdown": {
         "message": "复制 Markdown"
     },
-    "viewSource": {
-        "message": "查看源码"
-    },
     "close": {
         "message": "关闭"
     },
@@ -698,12 +686,6 @@
     "enableOnDeepseek": {
         "message": "在 DeepSeek 上启用扩展"
     },
-    "viewSourceLabel": {
-        "message": "工具栏 > 查看源码"
-    },
-    "viewSourceDesc": {
-        "message": "在工具栏中显示\"查看源码\"按钮"
-    },
     "saveMessagesLabel": {
         "message": "工具栏 > 消息导出"
     },
@@ -741,13 +723,25 @@
         "message": "在 GitHub 点个星星"
     },
     "supportCoffeeDesc": {
-        "message": "请开发者喝杯咖啡 ☕️"
+        "message": "如果你愿意，也可以请我喝杯咖啡。"
     },
     "buyMeCoffee": {
         "message": "Buy Me a Coffee"
     },
     "wechatAppreciationCode": {
         "message": "微信赞赏码"
+    },
+    "xiaohongshuAccount": {
+        "message": "小红书"
+    },
+    "findMeOnXiaohongshu": {
+        "message": "在小红书找到我"
+    },
+    "followMe": {
+        "message": "关注我"
+    },
+    "aboutProfileBio": {
+        "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。"
     },
     "selectFolderLabel": {
         "message": "选择文件夹"
@@ -1144,12 +1138,6 @@
     },
     "settingsFoldDockDesc": {
         "message": "在支持的对话页中保留紧凑的折叠侧边栏。"
-    },
-    "settingsShowViewSourceLabel": {
-        "message": "显示查看源码"
-    },
-    "settingsShowViewSourceDesc": {
-        "message": "在支持的工具栏和面板中显示“查看源码”操作。"
     },
     "settingsShowSaveMessagesLabel": {
         "message": "显示保存消息"

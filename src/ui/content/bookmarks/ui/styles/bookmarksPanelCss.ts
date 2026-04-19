@@ -1583,14 +1583,6 @@ ${getPanelChromeCss()}
   font-weight: 600;
 }
 
-.info-hero__body {
-  margin: 0;
-  max-width: 54ch;
-  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
-  font-size: var(--_bookmarks-body-copy-size);
-  line-height: 1.7;
-}
-
 .info-section {
   display: grid;
   gap: var(--aimd-space-4);
@@ -1623,6 +1615,47 @@ ${getPanelChromeCss()}
 .info-copy-stack {
   display: grid;
   gap: var(--aimd-space-3);
+}
+
+.info-profile-card {
+  padding: var(--aimd-space-5);
+  border-radius: var(--_bookmarks-card-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--aimd-interactive-primary) 8%, transparent), transparent 42%),
+    color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
+}
+
+.info-profile {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: var(--aimd-space-4);
+  align-items: center;
+}
+
+.info-profile__avatar-frame {
+  width: 112px;
+  height: 112px;
+  border-radius: var(--_bookmarks-pill-radius);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
+  box-shadow: var(--_bookmarks-raised-shadow);
+}
+
+.info-profile__avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.info-profile__bio {
+  margin: 0;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
+  font-size: var(--aimd-text-sm);
+  line-height: 1.65;
 }
 
 .info-media {
@@ -1893,7 +1926,7 @@ ${getPanelChromeCss()}
   width: 100%;
   display: grid;
   gap: var(--aimd-space-4);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .qr-card,
@@ -1931,6 +1964,44 @@ ${getPanelChromeCss()}
   border-radius: var(--_bookmarks-menu-radius);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--_bookmarks-media-surface) 96%, var(--aimd-bg-secondary));
+}
+
+.sponsor-qr-frame--card {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 0.75;
+}
+
+.social-follow-card {
+  display: grid;
+  gap: var(--aimd-space-4);
+  padding: var(--aimd-space-5);
+  border-radius: var(--_bookmarks-card-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
+}
+
+.social-follow-card__frame {
+  width: min(100%, 420px);
+  justify-self: center;
+  border-radius: var(--_bookmarks-card-radius);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--_bookmarks-media-surface) 96%, var(--aimd-bg-secondary));
+  box-shadow: var(--_bookmarks-raised-shadow);
+}
+
+.social-follow-card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 720px) {
+  .info-profile {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
 }
 
 .qr-image,

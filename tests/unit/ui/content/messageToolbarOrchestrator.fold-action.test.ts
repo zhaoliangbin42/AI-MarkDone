@@ -120,7 +120,6 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
 
         expect(actions.map((action: any) => action.id)).toEqual([
             'copy_markdown',
-            'view_source',
             'reader',
             'export',
             'collapse_turn',

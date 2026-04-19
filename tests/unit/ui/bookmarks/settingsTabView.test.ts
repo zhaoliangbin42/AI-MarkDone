@@ -9,7 +9,6 @@ const baseSettings = {
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
     behavior: {
-        showViewSource: true,
         showSaveMessages: true,
         showWordCount: true,
         enableClickToCopy: true,
@@ -160,7 +159,6 @@ describe('SettingsTabView', () => {
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'keep_last_n', defaultExpandedCount: 5, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: true,
                     enableClickToCopy: true,

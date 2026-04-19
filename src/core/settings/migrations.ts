@@ -21,6 +21,18 @@ export function normalizeChatGptSettings(chatgpt: unknown): AppSettings['chatgpt
     };
 }
 
+export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behavior'] {
+    const record = isRecord(behavior) ? behavior : {};
+
+    return {
+        showSaveMessages: Boolean((record as any).showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages),
+        showWordCount: Boolean((record as any).showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount),
+        enableClickToCopy: Boolean((record as any).enableClickToCopy ?? DEFAULT_SETTINGS.behavior.enableClickToCopy),
+        saveContextOnly: Boolean((record as any).saveContextOnly ?? DEFAULT_SETTINGS.behavior.saveContextOnly),
+        _contextOnlyConfirmed: Boolean((record as any)._contextOnlyConfirmed ?? DEFAULT_SETTINGS.behavior._contextOnlyConfirmed),
+    };
+}
+
 export function migrateSortMode(oldMode: unknown): AppSettings['bookmarks']['sortMode'] {
     if (oldMode === 'alphabetical') return 'alpha-asc';
     if (oldMode === 'time') return 'time-desc';
@@ -43,10 +55,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             ...stored.platforms,
         },
         chatgpt: normalizeChatGptSettings(stored.chatgpt),
-        behavior: {
-            ...DEFAULT_SETTINGS.behavior,
-            ...stored.behavior,
-        },
+        behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
@@ -90,12 +99,11 @@ export function migrateFromV1(v1: unknown): AppSettings {
             defaultExpandedCount: Number((chatgpt as any).defaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount),
             showFoldDock: Boolean((chatgpt as any).showFoldDock ?? DEFAULT_SETTINGS.chatgpt.showFoldDock),
         },
-        behavior: {
-            ...DEFAULT_SETTINGS.behavior,
+        behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
             saveContextOnly: Boolean((storage as any).saveContextOnly ?? false),
             _contextOnlyConfirmed: Boolean((storage as any)._contextOnlyConfirmed ?? false),
-        },
+        }),
         reader: {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
@@ -136,10 +144,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             foldingMode,
             defaultExpandedCount: Number.isFinite(defaultExpandedCount) ? defaultExpandedCount : DEFAULT_SETTINGS.chatgpt.defaultExpandedCount,
         },
-        behavior: {
-            ...DEFAULT_SETTINGS.behavior,
-            ...behavior,
-        } as any,
+        behavior: normalizeBehaviorSettings(behavior),
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),

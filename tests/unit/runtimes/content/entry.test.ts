@@ -234,7 +234,6 @@ describe('content runtime entry', () => {
                 platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: false,
                     enableClickToCopy: false,
@@ -265,7 +264,6 @@ describe('content runtime entry', () => {
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: true,
                     enableClickToCopy: true,
@@ -288,7 +286,6 @@ describe('content runtime entry', () => {
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
         expect(messageToolbarsSetVirtualizationController).not.toHaveBeenCalled();
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
-            showViewSource: true,
             showSaveMessages: true,
             showWordCount: true,
         });
@@ -308,7 +305,6 @@ describe('content runtime entry', () => {
                 platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
                 chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
                 behavior: {
-                    showViewSource: true,
                     showSaveMessages: true,
                     showWordCount: true,
                     enableClickToCopy: false,
@@ -340,7 +336,6 @@ describe('content runtime entry', () => {
             platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
             chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true },
             behavior: {
-                showViewSource: true,
                 showSaveMessages: true,
                 showWordCount: true,
                 enableClickToCopy: true,
@@ -374,7 +369,6 @@ describe('content runtime entry', () => {
             platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
             chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
             behavior: {
-                showViewSource: true,
                 showSaveMessages: true,
                 showWordCount: true,
                 enableClickToCopy: true,

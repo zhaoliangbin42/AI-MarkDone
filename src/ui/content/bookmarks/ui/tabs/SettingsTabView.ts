@@ -53,7 +53,6 @@ type Refs = {
     showFoldDockItem: HTMLElement;
     showFoldDock: HTMLInputElement;
     behavior: {
-        showViewSource: HTMLInputElement;
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
         enableClickToCopy: HTMLInputElement;
@@ -127,7 +126,6 @@ export class SettingsTabView {
 
         // Behavior group
         const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
-        const showViewSource = this.createToggle(behaviorGroup.body, t('viewSourceLabel'), t('viewSourceDesc'));
         const showSaveMessages = this.createToggle(behaviorGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
         const showWordCount = this.createToggle(behaviorGroup.body, t('wordCountLabel'), t('wordCountDesc'));
         const enableClickToCopy = this.createToggle(behaviorGroup.body, t('clickToCopyLabel'), t('clickToCopyDesc'));
@@ -214,7 +212,6 @@ export class SettingsTabView {
             showFoldDockItem: showFoldDock.root,
             showFoldDock: showFoldDock.input,
             behavior: {
-                showViewSource: showViewSource.input,
                 showSaveMessages: showSaveMessages.input,
                 showWordCount: showWordCount.input,
                 enableClickToCopy: enableClickToCopy.input,
@@ -235,7 +232,6 @@ export class SettingsTabView {
         this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
         this.refs.showFoldDock.dataset.role = 'settings-fold-dock';
-        this.refs.behavior.showViewSource.dataset.role = 'settings-show-view-source';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.enableClickToCopy.dataset.role = 'settings-click-to-copy';
@@ -341,11 +337,6 @@ export class SettingsTabView {
             void this.actions.setChatGptSettings?.({ showFoldDock: next });
         });
         // Behavior + reader
-        this.refs.behavior.showViewSource.addEventListener('change', () => {
-            const next = this.refs.behavior.showViewSource.checked;
-            this.settings.behavior.showViewSource = next;
-            void this.actions.setBehaviorSettings?.({ showViewSource: next });
-        });
         this.refs.behavior.showSaveMessages.addEventListener('change', () => {
             const next = this.refs.behavior.showSaveMessages.checked;
             this.settings.behavior.showSaveMessages = next;
@@ -417,7 +408,6 @@ export class SettingsTabView {
         this.refs.foldingCount.value = String(s.chatgpt.defaultExpandedCount);
         this.refs.foldingCount.dataset.role = 'settings-folding-count';
         this.refs.showFoldDock.checked = Boolean(s.chatgpt.showFoldDock);
-        this.refs.behavior.showViewSource.checked = Boolean(s.behavior.showViewSource);
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.enableClickToCopy.checked = Boolean(s.behavior.enableClickToCopy);
@@ -432,7 +422,6 @@ export class SettingsTabView {
         this.syncToggle(this.refs.platforms.claude);
         this.syncToggle(this.refs.platforms.deepseek);
         this.syncToggle(this.refs.showFoldDock);
-        this.syncToggle(this.refs.behavior.showViewSource);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.enableClickToCopy);

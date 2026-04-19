@@ -123,6 +123,7 @@ Start here:
 - Run `npm run build` after repo-tracked code changes.
 - Update the relevant authoritative docs when contracts, platform support, architecture boundaries, or testing gates change.
 - Update `CHANGELOG.md` in English when the change affects end users.
+- For version prep or store submission, also follow `.codex/guides/release.md`, including bookmarks information-page checks and maintainer manual review of release-facing copy.
 
 ## Scope Note
 

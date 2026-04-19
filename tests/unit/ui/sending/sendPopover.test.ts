@@ -272,7 +272,11 @@ describe('SendPopover', () => {
 
         footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')!.click();
         await Promise.resolve();
-        footerLeft.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
+        const panelSurface = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+        const pickerLayer = panelSurface.querySelector<HTMLElement>('.comment-prompt-picker-layer')!;
+        expect(pickerLayer.parentElement).toBe(panelSurface);
+        expect(pickerLayer.closest('.send-popover')).toBeNull();
+        panelSurface.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
         await Promise.resolve();
 
         expect(textarea.value).toBe(
@@ -332,7 +336,8 @@ describe('SendPopover', () => {
 
         button?.click();
         await Promise.resolve();
-        footerLeft.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
+        const panelSurface = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+        panelSurface.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
         await Promise.resolve();
 
         expect(textarea.value).toBe(

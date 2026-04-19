@@ -10,7 +10,7 @@ That said, those other three are not the platforms I use every day, so the test 
 
 - Reader: toolbar -> Reader
 - Source copy: toolbar -> Copy Markdown
-- View source: toolbar -> View Source
+- Click to copy formulas: just click the formula inside the message
 - Save bookmark: toolbar -> Bookmark
 - Export messages: toolbar -> Export
 - Word count: toolbar stats area
@@ -77,6 +77,16 @@ Yes. That is one of the strongest Reader features.
 Inside Reader, I rebuilt the Markdown rendering path so the visible surface stays much closer to the underlying structure. In practice, that means you can select almost any range inside Reader and copy it as source-aware Markdown instead of getting a flattened chunk of rendered text.
 
 If you take notes, quote paragraphs, revise drafts, or only want part of a formula, list, or code example, this is much more usable than copying from the original page.
+
+## How do I use click-to-copy for formulas?
+
+This one is straightforward. You do not need to open Reader first.
+
+If all you want is a specific formula, just click the formula itself inside the original message. The extension will try to copy the corresponding LaTeX source, so you do not have to copy the whole block first and then dig the formula back out by hand.
+
+I use this a lot when I am taking notes or moving formulas into Typora, Obsidian, or other editors. It is much faster when the goal is just one formula, not an entire paragraph around it.
+
+If you need more than a single formula, for example a mixed range that includes normal text, formulas, code, or lists, then Reader and source-aware partial copy are still the better option.
 
 ## What is the bookmarks feature actually for?
 

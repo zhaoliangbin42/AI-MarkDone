@@ -103,4 +103,31 @@ describe('settingsService', () => {
         expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
         expect(next.chatgpt).not.toHaveProperty('enableEarlyPrune');
     });
+
+    it('drops the retired source panel behavior flag when normalizing stored settings', () => {
+        const next = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            behavior: {
+                ...DEFAULT_SETTINGS.behavior,
+                showViewSource: true,
+            },
+        } as any);
+
+        expect(next.behavior).not.toHaveProperty('showViewSource');
+    });
+
+    it('does not re-persist the retired source panel behavior flag on behavior updates', () => {
+        const current = {
+            ...DEFAULT_SETTINGS,
+            behavior: {
+                ...DEFAULT_SETTINGS.behavior,
+                showViewSource: true,
+            },
+        } as any;
+
+        const next = planSetCategory(current, 'behavior', { showWordCount: false }).next;
+
+        expect(next.behavior.showWordCount).toBe(false);
+        expect(next.behavior).not.toHaveProperty('showViewSource');
+    });
 });

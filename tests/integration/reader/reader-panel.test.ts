@@ -27,7 +27,6 @@ async function waitFor<T>(
 describe('ReaderPanel (MVP)', () => {
     afterEach(() => {
         document.querySelector('#aimd-reader-panel-host')?.remove();
-        document.querySelector('#aimd-source-panel-host')?.remove();
     });
 
     it('shows, paginates, and copies current page markdown', async () => {

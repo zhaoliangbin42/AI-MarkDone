@@ -388,7 +388,7 @@ export const Icons = {
 
     /**
      * Code icon
-     * Usage: View source code
+     * Usage: Markdown format and selected-code placeholders
      */
     code: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="16 18 22 12 16 6"/>
