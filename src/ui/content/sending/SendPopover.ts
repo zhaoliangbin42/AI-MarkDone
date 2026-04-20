@@ -11,6 +11,7 @@ import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
 import { buildCommentsExport, resolveReaderCommentExportPrompts } from '../../../services/reader/commentExport';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
+import { eventWithinTransientRoot } from '../components/transientUi';
 
 type State = {
     theme: Theme;
@@ -270,6 +271,7 @@ export class SendPopover {
 
     private shouldIgnorePointerDown(ev: Event): boolean {
         if (!this.state.open) return true;
+        if (eventWithinTransientRoot(ev)) return true;
         const path = (ev as MouseEvent & { composedPath?: () => Array<unknown> }).composedPath?.() as Array<unknown> | undefined;
         const inPath = (node: unknown) => Array.isArray(path) && path.includes(node);
         if (this.popoverEl && inPath(this.popoverEl)) return true;
