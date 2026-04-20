@@ -1,5 +1,10 @@
 # Release Notes
 
+## v4.1.1 (2026-04-20)
+
+### Fixed
+- Fixed Reader annotation insertion from the send popover so choosing an annotation prompt no longer closes the popover before the compiled text is inserted.
+
 ## v4.1.0 (2026-04-19)
 
 ### Added

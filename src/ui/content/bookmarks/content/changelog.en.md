@@ -1,5 +1,10 @@
 # Changelog
 
+# 4.1.1
+2026-04-20
+
+This release fixes annotation insertion from the Reader send popover. Choosing a prompt no longer gets treated as an outside click, so the send popover stays open long enough to insert the compiled annotation text.
+
 # 4.1.0
 2026-04-19
 

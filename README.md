@@ -65,7 +65,9 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
 - **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages.
 - **Source-aware copy**: Copy formulas, code blocks, tables, images, and other closed Markdown units as source directly inside Reader.
+- **Partial source selection**: Select only the part you need; Reader maps closed units back to their original Markdown boundaries and rebuilds the copied result in selection order.
 - **Dynamic Annotation**: Mark exact passages, leave revision notes, and compile them into structured follow-up input.
+- **Annotation insertion**: Insert compiled annotations into the Reader send box with your chosen prompt, without manually copying and pasting.
 - **Keep chatting**: Send messages from Reading Mode without losing your place.
 
 ### 📦 Export & Copy (Markdown + PDF)
@@ -143,10 +145,11 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.1.0
+### v4.1.1
 - Reader source copy now happens directly inside Reader, with better preservation for formulas, code blocks, tables, and other closed Markdown units.
 - Dynamic Annotation is now available for article-level revision workflows.
 - The bookmarks panel now includes built-in Changelog, FAQ, and About pages.
+- Fixed annotation insertion from the Reader send popover so choosing a prompt no longer closes the popover before the compiled text is inserted.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)
