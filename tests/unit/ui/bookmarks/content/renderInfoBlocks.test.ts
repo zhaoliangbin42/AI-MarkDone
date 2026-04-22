@@ -41,4 +41,23 @@ describe('renderInfoBlocks', () => {
         expect(image?.alt).toBe('Project mark');
         expect(image?.src).toBe('chrome-extension://test/icons/icon128.png');
     });
+
+    it('renders preserved line breaks inside paragraphs and list items', () => {
+        const fragment = renderInfoBlocks([
+            { type: 'paragraph', text: 'First line\nSecond **line**' },
+            { type: 'list', items: ['Alpha\nBeta'] },
+        ]);
+
+        const host = document.createElement('div');
+        host.appendChild(fragment);
+
+        const paragraph = host.querySelector('p.info-copy');
+        const listItem = host.querySelector('ul.info-list li');
+
+        expect(paragraph?.querySelectorAll('br')).toHaveLength(1);
+        expect(paragraph?.textContent).toBe('First lineSecond line');
+        expect(paragraph?.querySelector('strong')?.textContent).toBe('line');
+        expect(listItem?.querySelectorAll('br')).toHaveLength(1);
+        expect(listItem?.textContent).toBe('AlphaBeta');
+    });
 });

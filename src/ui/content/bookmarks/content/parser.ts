@@ -28,6 +28,10 @@ function isDate(line: string): boolean {
     return /^\d{4}-\d{2}-\d{2}$/.test(line.trim());
 }
 
+function isVersionHeading(value: string): boolean {
+    return /^\d+\.\d+\.\d+$/.test(value.trim());
+}
+
 function parseMarkdownImage(line: string): { alt: string; src: string } | null {
     const match = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
     if (!match) return null;
@@ -47,7 +51,7 @@ function parseMarkdownImage(line: string): { alt: string; src: string } | null {
 }
 
 function pushParagraphBlock(target: BookmarksDocBlock[], lines: string[]): void {
-    const text = lines.map((line) => line.trim()).join(' ').trim();
+    const text = lines.map((line) => line.trim()).join('\n').trim();
     if (text) target.push({ type: 'paragraph', text });
 }
 
@@ -85,6 +89,10 @@ function parseBlocks(lines: string[]): BookmarksDocBlock[] {
         if (isListItem(line)) {
             flushParagraph();
             listItems.push(line.slice(2).trim());
+            continue;
+        }
+        if (listItems.length > 0) {
+            listItems[listItems.length - 1] = `${listItems[listItems.length - 1]}\n${line}`;
             continue;
         }
         flushList();
@@ -166,16 +174,38 @@ function parseChangelogEntry(sectionRaw: string): ParsedChangelogEntry {
         startIndex += 1;
     }
 
-    const blocks = parseBlocks(bodyLines.slice(startIndex));
-    const listBlock = blocks.find((block) => block.type === 'list');
-    const listIndex = listBlock ? blocks.indexOf(listBlock) : -1;
-    const leadBlocks = listIndex >= 0 ? blocks.slice(0, listIndex) : blocks;
+    const contentLines = bodyLines.slice(startIndex);
+    const leadLines: string[] = [];
+    const sectionsRaw: Array<{ heading: string; lines: string[] }> = [];
+    let currentSection: { heading: string; lines: string[] } | null = null;
+
+    for (const rawLine of contentLines) {
+        const line = rawLine.trim();
+        if (isH2(line)) {
+            currentSection = {
+                heading: line.slice(3).trim(),
+                lines: [],
+            };
+            sectionsRaw.push(currentSection);
+            continue;
+        }
+
+        if (currentSection) {
+            currentSection.lines.push(rawLine);
+            continue;
+        }
+
+        leadLines.push(rawLine);
+    }
 
     return {
         version,
         date,
-        leadBlocks,
-        highlights: listBlock?.type === 'list' ? listBlock.items : [],
+        leadBlocks: parseBlocks(leadLines),
+        sections: sectionsRaw.map((section) => ({
+            heading: section.heading,
+            blocks: parseBlocks(section.lines),
+        })),
     };
 }
 
@@ -193,7 +223,9 @@ export function parseChangelogDoc(raw: string): ParsedChangelogDoc {
         const end = matches[index + 1]?.index ?? normalized.length;
         const sectionRaw = normalized.slice(start, end).trim();
         if (!sectionRaw) continue;
-        entries.push(parseChangelogEntry(sectionRaw));
+        const entry = parseChangelogEntry(sectionRaw);
+        if (!isVersionHeading(entry.version)) continue;
+        entries.push(entry);
     }
 
     return { title, entries };

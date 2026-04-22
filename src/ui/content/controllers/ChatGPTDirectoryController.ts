@@ -45,6 +45,8 @@ export class ChatGPTDirectoryController {
     private rafId: number | null = null;
     private snapshotRetryTimer: number | null = null;
     private snapshotRetryCount = 0;
+    private unsubscribeEngine: (() => void) | null = null;
+    private initialized = false;
 
     constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine) {
         this.adapter = adapter;
@@ -55,12 +57,18 @@ export class ChatGPTDirectoryController {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
         this.theme = theme;
         this.ensureRail();
+        if (this.initialized) {
+            this.rail?.setTheme(theme);
+            void this.refresh();
+            return;
+        }
+        this.initialized = true;
         writeDebugState({ DirectoryInit: 'start' });
         this.routeWatcher = new RouteWatcher(() => {
             this.refresh();
         }, { intervalMs: 500 });
         this.routeWatcher.start();
-        this.engine.subscribe((snapshot) => {
+        this.unsubscribeEngine = this.engine.subscribe((snapshot) => {
             this.snapshot = snapshot;
             if (snapshot) this.snapshotRetryCount = 0;
             this.render();
@@ -79,12 +87,15 @@ export class ChatGPTDirectoryController {
         }
         this.routeWatcher?.stop();
         this.routeWatcher = null;
+        this.unsubscribeEngine?.();
+        this.unsubscribeEngine = null;
         this.mutationObserver?.disconnect();
         this.mutationObserver = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
         this.scrollRoot = null;
         this.rail?.dispose();
         this.rail = null;
+        this.initialized = false;
     }
 
     setTheme(theme: Theme): void {

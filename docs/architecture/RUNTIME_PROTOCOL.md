@@ -118,10 +118,13 @@
 - `bookmarks:storageUsage`
 - `bookmarks:uiState:get`
 - `bookmarks:uiState:set`
+- `bookmarks:changelogNotice:get`
+- `bookmarks:changelogNotice:ack`
 
 用途：
 
 - 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
+- changelog install/update notice 的本地读取与确认
 
 关键语义：
 

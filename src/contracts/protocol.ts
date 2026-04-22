@@ -71,6 +71,14 @@ export type FolderMovePayload = { sourcePath: string; targetParentPath: string }
 export type BookmarksUiStateKey = 'lastSelectedFolderPath';
 export type BookmarksUiStateGetPayload = { key: BookmarksUiStateKey };
 export type BookmarksUiStateSetPayload = { key: BookmarksUiStateKey; value: string | null };
+export type ChangelogNoticeReason = 'install' | 'update';
+export type ChangelogNoticeState = {
+    pendingVersion: string | null;
+    lastShownVersion: string | null;
+    reason: ChangelogNoticeReason | null;
+    previousVersion?: string | null;
+};
+export type BookmarksChangelogNoticeAckPayload = { version: string };
 export type BookmarksStorageUsageResponse = {
     usedBytes: number;
     quotaBytes: number;
@@ -105,7 +113,9 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:folders:move'; payload: FolderMovePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:storageUsage' }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:get'; payload: BookmarksUiStateGetPayload }
-    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:set'; payload: BookmarksUiStateSetPayload };
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:set'; payload: BookmarksUiStateSetPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:get' }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:ack'; payload: BookmarksChangelogNoticeAckPayload };
 
 export type ExtResponse =
     | { v: ProtocolVersion; id: RequestId; ok: true; type: ExtRequest['type']; data?: unknown }
@@ -149,6 +159,8 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'bookmarks:storageUsage',
         'bookmarks:uiState:get',
         'bookmarks:uiState:set',
+        'bookmarks:changelogNotice:get',
+        'bookmarks:changelogNotice:ack',
     ]);
 
     return allowedTypes.has(type);

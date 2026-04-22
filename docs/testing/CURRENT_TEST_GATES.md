@@ -159,7 +159,8 @@ Current acceptance gate includes:
 - `tests/unit/governance/i18n-keys.test.ts`
 - `tests/unit/ui/i18n/i18n.test.ts`
 - `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts`
-- `tests/unit/runtimes/content/entry.test.ts`
+- `tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts`
+- `tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts`
 - `tests/unit/runtimes/content/entry.test.ts`
 
 ---

@@ -1,5 +1,5 @@
 import { PROTOCOL_VERSION, isExtRequest, type ExtResponse } from '../../contracts/protocol';
-import { handleBookmarksRequest, recoverJournalIfAny } from './handlers/bookmarks';
+import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNotice } from './handlers/bookmarks';
 import { handleSettingsRequest } from './handlers/settings';
 
 declare const chrome: any;
@@ -76,6 +76,19 @@ async function updateActionState(tabId: number, url?: string) {
 const tabs = getTabs();
 const action = getActionApi();
 const runtime = getRuntime();
+
+runtime?.onInstalled?.addListener?.((details: { reason?: string; previousVersion?: string }) => {
+    const manifestVersion = String(runtime?.getManifest?.()?.version ?? '').trim();
+    if (!manifestVersion) return;
+    if (details?.reason !== 'install' && details?.reason !== 'update') return;
+    void recordPendingChangelogNotice({
+        currentVersion: manifestVersion,
+        reason: details.reason,
+        previousVersion: details.previousVersion ?? null,
+    }).catch(() => {
+        // best-effort metadata write; keep runtime boot non-fatal.
+    });
+});
 
 // Best-effort recovery: if a previous folder relocate was interrupted, replay it.
 // Why: MV3 service worker can be terminated between async storage ops.

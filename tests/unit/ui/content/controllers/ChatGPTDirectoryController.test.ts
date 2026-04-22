@@ -229,6 +229,62 @@ describe('ChatGPTDirectoryController', () => {
         expect(items).toHaveLength(2);
     });
 
+    it('makes init idempotent and unsubscribes from the engine on dispose', async () => {
+        const unsubscribe = vi.fn();
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn(() => unsubscribe),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+        controller.init('dark');
+        await Promise.resolve();
+        controller.dispose();
+
+        expect(engine.subscribe).toHaveBeenCalledTimes(1);
+        expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it('updates the rail when the engine publishes a newer snapshot', async () => {
+        let onSnapshot: ((snapshot: ReturnType<typeof buildSnapshot> | null) => void) | null = null;
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn((listener: typeof onSnapshot) => {
+                onSnapshot = listener;
+                return () => undefined;
+            }),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        onSnapshot?.({
+            ...buildSnapshot(),
+            rounds: [
+                ...buildSnapshot().rounds,
+                {
+                    id: 'round-3',
+                    position: 3,
+                    userPrompt: 'Third question',
+                    assistantContent: 'Third answer',
+                    preview: 'Third question',
+                    messageId: 'a3',
+                    userMessageId: 'u3',
+                    assistantMessageId: 'a3',
+                },
+            ],
+        });
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        expect(items).toHaveLength(3);
+    });
+
     it('reattaches the rail host if the ChatGPT app removes the body-level node', async () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;

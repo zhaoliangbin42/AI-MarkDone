@@ -1,6 +1,8 @@
 import type {
+    BookmarksChangelogNoticeAckPayload,
     BookmarksBulkMovePayload,
     BookmarksBulkRemovePayload,
+    ChangelogNoticeState,
     BookmarksExportPayload,
     BookmarksExportSelectedPayload,
     BookmarksImportPayload,
@@ -50,6 +52,7 @@ export type RepairResponse = { stats: any };
 export type UiStateGetResponse = { value: string | null };
 export type UiStateSetResponse = { value: string | null };
 export type StorageUsageResponse = BookmarksStorageUsageResponse;
+export type ChangelogNoticeResponse = ChangelogNoticeState;
 
 export const bookmarksClient = {
     async list(payload?: BookmarksListPayload): Promise<Result<ListResponse>> {
@@ -107,6 +110,13 @@ export const bookmarksClient = {
     async uiStateSetLastSelectedFolderPath(value: string | null): Promise<Result<UiStateSetResponse>> {
         const payload: BookmarksUiStateSetPayload = { key: 'lastSelectedFolderPath', value };
         return call('bookmarks:uiState:set', payload);
+    },
+    async getChangelogNotice(): Promise<Result<ChangelogNoticeResponse>> {
+        return call('bookmarks:changelogNotice:get');
+    },
+    async ackChangelogNotice(version: string): Promise<Result<ChangelogNoticeResponse>> {
+        const payload: BookmarksChangelogNoticeAckPayload = { version };
+        return call('bookmarks:changelogNotice:ack', payload);
     },
     async listOptionsDefaults(): Promise<{ sortMode: BookmarksSortMode; platform: string }> {
         return { sortMode: 'time-desc', platform: 'All' };

@@ -78,7 +78,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
                         id: 'round-1',
                         position: 1,
                         userPrompt: 'Hello from user',
-                        assistantContent: 'Hi from payload',
+                        assistantContent: 'Formula: \\(x = y + z\\)',
                         preview: 'Hello from user',
                         messageId: 'a1',
                         userMessageId: 'u1',
@@ -100,7 +100,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             [
                 expect.objectContaining({
                     userPrompt: 'Hello from user',
-                    content: 'Hi from payload',
+                    content: 'Formula: $x = y + z$',
                     meta: expect.objectContaining({
                         platformId: 'chatgpt',
                         messageId: 'a1',

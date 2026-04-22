@@ -51,21 +51,33 @@ function appendInlineMarkdown(container: HTMLElement, text: string): void {
         if (matchIndex < 0) continue;
 
         if (matchIndex > lastIndex) {
-            container.append(document.createTextNode(text.slice(lastIndex, matchIndex)));
+            appendTextWithLineBreaks(container, text.slice(lastIndex, matchIndex));
         }
 
         const strong = document.createElement('strong');
-        strong.textContent = match[1];
+        appendTextWithLineBreaks(strong, match[1] ?? '');
         container.append(strong);
         lastIndex = matchIndex + match[0].length;
     }
 
     if (lastIndex === 0) {
-        container.textContent = text;
+        appendTextWithLineBreaks(container, text);
         return;
     }
 
     if (lastIndex < text.length) {
-        container.append(document.createTextNode(text.slice(lastIndex)));
+        appendTextWithLineBreaks(container, text.slice(lastIndex));
     }
+}
+
+function appendTextWithLineBreaks(container: HTMLElement, text: string): void {
+    const lines = text.split('\n');
+    lines.forEach((line, index) => {
+        if (index > 0) {
+            container.append(document.createElement('br'));
+        }
+        if (line) {
+            container.append(document.createTextNode(line));
+        }
+    });
 }

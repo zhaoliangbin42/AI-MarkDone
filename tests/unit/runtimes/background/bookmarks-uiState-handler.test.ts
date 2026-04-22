@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExtRequest } from '../../../../src/contracts/protocol';
+import { STORAGE_KEYS } from '../../../../src/contracts/storage';
 
 type StorageMap = Record<string, any>;
 
@@ -113,5 +114,37 @@ describe('background bookmarks uiState handler', () => {
         expect(res?.response.ok).toBe(true);
         expect(store.lastSelectedFolderPath).toBe('A');
     });
-});
 
+    it('records and acknowledges the once-per-version changelog notice', async () => {
+        const store: StorageMap = {};
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest, recordPendingChangelogNotice } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        await recordPendingChangelogNotice({
+            currentVersion: '4.1.2',
+            reason: 'update',
+            previousVersion: '4.1.0',
+        });
+
+        expect(store[STORAGE_KEYS.changelogNoticeV1]).toEqual({
+            pendingVersion: '4.1.2',
+            lastShownVersion: null,
+            reason: 'update',
+            previousVersion: '4.1.0',
+        });
+
+        const getRes = await handleBookmarksRequest(req('bookmarks:changelogNotice:get'));
+        expect(getRes?.response.ok).toBe(true);
+        expect((getRes as any).response.data.pendingVersion).toBe('4.1.2');
+
+        const ackRes = await handleBookmarksRequest(req('bookmarks:changelogNotice:ack', { version: '4.1.2' }));
+        expect(ackRes?.response.ok).toBe(true);
+        expect(store[STORAGE_KEYS.changelogNoticeV1]).toEqual({
+            pendingVersion: null,
+            lastShownVersion: '4.1.2',
+            reason: null,
+            previousVersion: '4.1.0',
+        });
+    });
+});

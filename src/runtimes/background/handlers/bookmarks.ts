@@ -1,4 +1,4 @@
-import type { ExtRequest, ExtResponse } from '../../../contracts/protocol';
+import type { ChangelogNoticeReason, ChangelogNoticeState, ExtRequest, ExtResponse } from '../../../contracts/protocol';
 import { PROTOCOL_VERSION } from '../../../contracts/protocol';
 import type { ProtocolErrorCode } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from '../../../contracts/storage';
@@ -83,6 +83,66 @@ function normalizeLastSelectedFolderPath(raw: unknown): string | null {
     } catch {
         return null;
     }
+}
+
+function emptyChangelogNotice(): ChangelogNoticeState {
+    return {
+        pendingVersion: null,
+        lastShownVersion: null,
+        reason: null,
+        previousVersion: null,
+    };
+}
+
+function normalizeChangelogNoticeState(raw: unknown): ChangelogNoticeState {
+    if (!raw || typeof raw !== 'object') return emptyChangelogNotice();
+    const rec = raw as Record<string, unknown>;
+    const pendingVersion = typeof rec.pendingVersion === 'string' && rec.pendingVersion.trim()
+        ? rec.pendingVersion.trim()
+        : null;
+    const lastShownVersion = typeof rec.lastShownVersion === 'string' && rec.lastShownVersion.trim()
+        ? rec.lastShownVersion.trim()
+        : null;
+    const reason = rec.reason === 'install' || rec.reason === 'update'
+        ? rec.reason
+        : null;
+    const previousVersion = typeof rec.previousVersion === 'string' && rec.previousVersion.trim()
+        ? rec.previousVersion.trim()
+        : null;
+    return {
+        pendingVersion,
+        lastShownVersion,
+        reason,
+        previousVersion,
+    };
+}
+
+async function readChangelogNoticeState(): Promise<ChangelogNoticeState> {
+    const result = await localStoragePort.get([STORAGE_KEYS.changelogNoticeV1]);
+    return normalizeChangelogNoticeState(result[STORAGE_KEYS.changelogNoticeV1]);
+}
+
+async function writeChangelogNoticeState(next: ChangelogNoticeState): Promise<ChangelogNoticeState> {
+    const normalized = normalizeChangelogNoticeState(next);
+    await localStoragePort.set({ [STORAGE_KEYS.changelogNoticeV1]: normalized });
+    return normalized;
+}
+
+export async function recordPendingChangelogNotice(params: {
+    currentVersion: string;
+    reason: ChangelogNoticeReason;
+    previousVersion?: string | null;
+}): Promise<ChangelogNoticeState> {
+    const currentVersion = String(params.currentVersion ?? '').trim();
+    if (!currentVersion) {
+        return readChangelogNoticeState();
+    }
+    return writeChangelogNoticeState({
+        pendingVersion: currentVersion,
+        lastShownVersion: null,
+        reason: params.reason,
+        previousVersion: params.previousVersion?.trim() || null,
+    });
 }
 
 async function readLastSelectedFolderPath(): Promise<string | null> {
@@ -822,6 +882,29 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                     const mapped = toProtocolErrorCode(e);
                     return { response: err(request.id, request.type, mapped.code, mapped.message) };
                 }
+            });
+        }
+        case 'bookmarks:changelogNotice:get': {
+            return backgroundStorageQueue.enqueue(async () => {
+                const notice = await readChangelogNoticeState();
+                return { response: ok(request.id, request.type, notice) };
+            });
+        }
+        case 'bookmarks:changelogNotice:ack': {
+            const version = String(request.payload?.version ?? '').trim();
+            if (!version) {
+                return { response: err(request.id, request.type, 'INVALID_REQUEST', 'Invalid changelog notice version') };
+            }
+            return backgroundStorageQueue.enqueue(async () => {
+                const notice = await readChangelogNoticeState();
+                const next: ChangelogNoticeState = {
+                    pendingVersion: notice.pendingVersion === version ? null : notice.pendingVersion,
+                    lastShownVersion: version,
+                    reason: notice.pendingVersion === version ? null : notice.reason,
+                    previousVersion: notice.pendingVersion === version ? notice.previousVersion ?? null : notice.previousVersion,
+                };
+                const saved = await writeChangelogNoticeState(next);
+                return { response: ok(request.id, request.type, saved) };
             });
         }
         default:

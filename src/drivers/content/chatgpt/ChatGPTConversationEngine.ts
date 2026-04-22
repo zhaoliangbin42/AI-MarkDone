@@ -8,12 +8,14 @@ const BRIDGE_SCRIPT_ID = 'aimd-chatgpt-conversation-bridge-script';
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
 const RESPONSE_TIMEOUT_MS = 2500;
+const LIVE_REFRESH_INTERVAL_MS = 1000;
 
 type BridgeRequest =
     | {
         requestId: string;
         type: 'snapshot';
         conversationId: string;
+        force?: boolean;
     };
 
 type BridgeResponse = {
@@ -221,6 +223,11 @@ export class ChatGPTConversationEngine {
     private snapshotByConversation = new Map<string, ChatGPTConversationSnapshot>();
     private inFlightByConversation = new Map<string, Promise<ChatGPTConversationSnapshot | null>>();
     private subscribers = new Set<(snapshot: ChatGPTConversationSnapshot | null) => void>();
+    private liveRefreshTimer: number | null = null;
+    private readonly handleVisibilityChange = () => {
+        if (document.visibilityState !== 'visible') return;
+        void this.refreshCurrentConversation({ force: true });
+    };
 
     constructor(adapter: SiteAdapter) {
         this.adapter = adapter;
@@ -242,33 +249,54 @@ export class ChatGPTConversationEngine {
 
     subscribe(listener: (snapshot: ChatGPTConversationSnapshot | null) => void): () => void {
         this.subscribers.add(listener);
+        const conversationId = getConversationIdFromUrl(window.location.href);
+        if (conversationId) {
+            const cached = this.snapshotByConversation.get(conversationId) ?? null;
+            if (cached) listener(cached);
+        }
+        this.startLiveRefresh();
         return () => {
             this.subscribers.delete(listener);
+            if (this.subscribers.size === 0) this.stopLiveRefresh();
         };
     }
 
     async getSnapshot(): Promise<ChatGPTConversationSnapshot | null> {
+        return this.refreshCurrentConversation({ force: false });
+    }
+
+    private async refreshCurrentConversation(options?: { force?: boolean }): Promise<ChatGPTConversationSnapshot | null> {
         const conversationId = getConversationIdFromUrl(window.location.href);
         if (!conversationId) return null;
+        return this.refreshSnapshot(conversationId, { force: options?.force === true });
+    }
 
+    private async refreshSnapshot(
+        conversationId: string,
+        options?: { force?: boolean }
+    ): Promise<ChatGPTConversationSnapshot | null> {
+        const force = options?.force === true;
         const cached = this.snapshotByConversation.get(conversationId);
-        if (cached) return cached;
+        if (cached && !force) return cached;
 
         const inFlight = this.inFlightByConversation.get(conversationId);
         if (inFlight) return inFlight;
 
-        const promise = this.loadSnapshot(conversationId).finally(() => {
+        const promise = this.loadSnapshot(conversationId, { force }).finally(() => {
             this.inFlightByConversation.delete(conversationId);
         });
         this.inFlightByConversation.set(conversationId, promise);
         return promise;
     }
 
-    private async loadSnapshot(conversationId: string): Promise<ChatGPTConversationSnapshot | null> {
+    private async loadSnapshot(
+        conversationId: string,
+        options?: { force?: boolean }
+    ): Promise<ChatGPTConversationSnapshot | null> {
         let snapshot: ChatGPTConversationSnapshot | null = null;
         try {
             await this.ensureBridgeReady();
-            snapshot = await this.requestBridgeSnapshot(conversationId);
+            snapshot = await this.requestBridgeSnapshot(conversationId, options?.force === true);
         } catch {
             snapshot = null;
         }
@@ -278,10 +306,37 @@ export class ChatGPTConversationEngine {
         }
 
         if (snapshot) {
+            const previous = this.snapshotByConversation.get(conversationId) ?? null;
             this.snapshotByConversation.set(conversationId, snapshot);
-            this.subscribers.forEach((listener) => listener(snapshot));
+            if (!areSnapshotsEquivalent(previous, snapshot)) {
+                this.subscribers.forEach((listener) => listener(snapshot));
+            }
         }
         return snapshot;
+    }
+
+    private startLiveRefresh(): void {
+        if (this.subscribers.size === 0) return;
+        if (this.liveRefreshTimer !== null) return;
+        if (this.adapter.getPlatformId() !== 'chatgpt') return;
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        this.liveRefreshTimer = window.setInterval(() => {
+            if (this.subscribers.size === 0) {
+                this.stopLiveRefresh();
+                return;
+            }
+            if (!isChatGPTConversationPage(window.location.href)) return;
+            if (document.visibilityState !== 'visible') return;
+            void this.refreshCurrentConversation({ force: true });
+        }, LIVE_REFRESH_INTERVAL_MS);
+    }
+
+    private stopLiveRefresh(): void {
+        if (this.liveRefreshTimer !== null) {
+            window.clearInterval(this.liveRefreshTimer);
+            this.liveRefreshTimer = null;
+        }
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     }
 
     private async ensureBridgeReady(): Promise<void> {
@@ -317,7 +372,7 @@ export class ChatGPTConversationEngine {
         return this.bridgeReadyPromise;
     }
 
-    private requestBridgeSnapshot(conversationId: string): Promise<ChatGPTConversationSnapshot | null> {
+    private requestBridgeSnapshot(conversationId: string, force = false): Promise<ChatGPTConversationSnapshot | null> {
         const requestId = `aimd-chatgpt-snapshot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
         return new Promise((resolve) => {
@@ -347,8 +402,36 @@ export class ChatGPTConversationEngine {
                     requestId,
                     type: 'snapshot',
                     conversationId,
+                    force,
                 },
             }));
         });
     }
+}
+
+function areSnapshotsEquivalent(
+    previous: ChatGPTConversationSnapshot | null,
+    next: ChatGPTConversationSnapshot | null
+): boolean {
+    if (!previous || !next) return false;
+    if (previous.conversationId !== next.conversationId) return false;
+    if (previous.rounds.length !== next.rounds.length) return false;
+    for (let index = 0; index < previous.rounds.length; index += 1) {
+        const a = previous.rounds[index];
+        const b = next.rounds[index];
+        if (!b) return false;
+        if (
+            a.id !== b.id
+            || a.position !== b.position
+            || a.userPrompt !== b.userPrompt
+            || a.assistantContent !== b.assistantContent
+            || a.preview !== b.preview
+            || a.messageId !== b.messageId
+            || a.userMessageId !== b.userMessageId
+            || a.assistantMessageId !== b.assistantMessageId
+        ) {
+            return false;
+        }
+    }
+    return true;
 }

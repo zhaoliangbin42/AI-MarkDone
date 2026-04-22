@@ -25,10 +25,34 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
     },
 }));
 
+vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
+    bookmarksClient: {
+        getChangelogNotice: vi.fn(async () => ({
+            ok: true,
+            data: {
+                pendingVersion: null,
+                lastShownVersion: null,
+                reason: null,
+                previousVersion: null,
+            },
+        })),
+        ackChangelogNotice: vi.fn(async () => ({
+                ok: true,
+                data: {
+                    pendingVersion: null,
+                    lastShownVersion: '4.1.2',
+                    reason: null,
+                    previousVersion: '4.1.0',
+                },
+        })),
+    },
+}));
+
 import { BookmarksPanel } from '@/ui/content/bookmarks/BookmarksPanel';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
 import { setLocale } from '@/ui/content/components/i18n';
+import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { settingsClientRpc } from '@/drivers/shared/clients/settingsClientRpc';
 import { browser } from '@/drivers/shared/browser';
 
@@ -348,6 +372,142 @@ describe('BookmarksPanel', () => {
         expect(refreshedFaqActiveTab?.textContent).toContain('just click the formula itself');
 
         panel.hide();
+    });
+
+    it('shows the latest settings-changelog modal once when a pending version notice exists', async () => {
+        await setLocale('en');
+        vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
+            ok: true,
+            data: {
+                pendingVersion: '4.1.2',
+                lastShownVersion: null,
+                reason: 'update',
+                previousVersion: '4.1.0',
+            },
+        } as any);
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn({
+                    vm: {
+                        query: '',
+                        platform: 'All',
+                        bookmarks: [],
+                        folderTree: [],
+                        selectedFolderPath: null,
+                        sortMode: 'time-desc',
+                    },
+                    folders: [],
+                    folderPaths: [],
+                    selectedKeys: new Set(),
+                    previewId: null,
+                    status: 'Ready',
+                    storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
+                });
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+        await flushUi();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host')!;
+        const shadow = host.shadowRoot!;
+        const modal = shadow.querySelector<HTMLElement>('.mock-modal');
+
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.1.2");
+        expect(modal?.textContent).toContain('2026-04-22');
+        expect(modal?.textContent).toContain('once-per-version changelog modal');
+
+        const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
+        okButton?.click();
+        await flushUi();
+
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.1.2');
+    });
+
+    it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
+        await setLocale('en');
+        vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
+            ok: true,
+            data: {
+                pendingVersion: '4.1.2',
+                lastShownVersion: null,
+                reason: 'update',
+                previousVersion: '4.1.0',
+            },
+        } as any);
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn({
+                    vm: {
+                        query: '',
+                        platform: 'All',
+                        bookmarks: [],
+                        folderTree: [],
+                        selectedFolderPath: null,
+                        sortMode: 'time-desc',
+                    },
+                    folders: [],
+                    folderPaths: [],
+                    selectedKeys: new Set(),
+                    previewId: null,
+                    status: 'Ready',
+                    storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
+                });
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+        await flushUi();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host')!;
+        const shadow = host.shadowRoot!;
+        const modal = shadow.querySelector<HTMLElement>('.mock-modal')!;
+        const viewAllButton = Array.from(modal.querySelectorAll<HTMLButtonElement>('.mock-modal__button')).find((button) => button.textContent === 'View full changelog');
+
+        viewAllButton?.click();
+        await flushUi();
+
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.1.2');
+        expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
+        expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
 
     it('still renders the bookmarks shell when initial async refresh work fails', async () => {

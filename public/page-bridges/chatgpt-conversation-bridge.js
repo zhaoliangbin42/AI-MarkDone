@@ -355,8 +355,9 @@
     }
   }
 
-  async function getSnapshot(conversationId) {
-    if (bridgeState.snapshotCache.has(conversationId)) {
+  async function getSnapshot(conversationId, options = {}) {
+    const force = options?.force === true;
+    if (!force && bridgeState.snapshotCache.has(conversationId)) {
       return bridgeState.snapshotCache.get(conversationId);
     }
 
@@ -385,7 +386,7 @@
     if (!detail || detail.type !== 'snapshot') return;
 
     Promise.resolve()
-      .then(() => getSnapshot(detail.conversationId))
+      .then(() => getSnapshot(detail.conversationId, { force: detail.force === true }))
       .then((snapshot) => {
         window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
           detail: {

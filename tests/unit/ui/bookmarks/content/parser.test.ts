@@ -10,16 +10,17 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-04-19');
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-04-22');
         expect(en.entries[0]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
-                text: expect.stringContaining('Dynamic Annotation'),
+                text: expect.stringContaining('incremental loading'),
             }),
         );
-        expect(zh.entries[0]?.highlights.length).toBeGreaterThan(5);
+        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(['新增', '变更', '修复', '移除']);
+        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(['Added', 'Changed', 'Fixed', 'Removed']);
     });
 
     it('parses about markdown into title, lead, and sections', () => {
@@ -94,7 +95,7 @@ Lead paragraph.
 `.trim());
 
         expect(parsed.leadBlocks).toEqual([
-            { type: 'paragraph', text: '![Remote](https://example.com/remote.png) ![Absolute](/icons/icon128.png) ![Traversal](../secret.png)' },
+            { type: 'paragraph', text: '![Remote](https://example.com/remote.png)\n![Absolute](/icons/icon128.png)\n![Traversal](../secret.png)' },
         ]);
     });
 
@@ -117,14 +118,69 @@ Short summary only.
                 version: '1.0.0',
                 date: '2026-01-01',
                 leadBlocks: [],
-                highlights: ['Added the first thing'],
+                sections: [],
             },
             {
                 version: '0.9.0',
                 date: '',
                 leadBlocks: [{ type: 'paragraph', text: 'Short summary only.' }],
-                highlights: [],
+                sections: [],
             },
         ]);
+    });
+
+    it('preserves single line breaks inside paragraph blocks', () => {
+        const parsed = parseChangelogDoc(`
+# Changelog
+
+# 1.0.0
+2026-01-01
+
+First line
+Second line
+
+- Bullet line one
+  still same bullet text
+`.trim());
+
+        expect(parsed.entries[0]?.leadBlocks).toEqual([
+            { type: 'paragraph', text: 'First line\nSecond line' },
+        ]);
+        expect(parsed.entries[0]?.sections).toEqual([]);
+    });
+
+    it('parses categorized changelog sections into structured entry sections', () => {
+        const parsed = parseChangelogDoc(`
+# Changelog
+
+# 1.0.0
+2026-01-01
+
+Intro line one
+Intro line two
+
+## Added
+- First feature
+
+## Fixed
+- First fix
+  with extra detail
+`.trim());
+
+        expect(parsed.entries[0]).toEqual({
+            version: '1.0.0',
+            date: '2026-01-01',
+            leadBlocks: [{ type: 'paragraph', text: 'Intro line one\nIntro line two' }],
+            sections: [
+                {
+                    heading: 'Added',
+                    blocks: [{ type: 'list', items: ['First feature'] }],
+                },
+                {
+                    heading: 'Fixed',
+                    blocks: [{ type: 'list', items: ['First fix\nwith extra detail'] }],
+                },
+            ],
+        });
     });
 });

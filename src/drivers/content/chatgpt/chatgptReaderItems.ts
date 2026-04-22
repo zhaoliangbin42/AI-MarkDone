@@ -1,5 +1,6 @@
 import type { ReaderItem } from '../../../services/reader/types';
 import type { ChatGPTConversationSnapshot } from './types';
+import { normalizeChatGPTReaderMarkdown } from './normalizeReaderMarkdown';
 
 export type BuildChatGPTReaderItemsResult = {
     items: ReaderItem[];
@@ -25,7 +26,7 @@ export function buildChatGPTReaderItems(
     const items: ReaderItem[] = snapshot.rounds.map((round) => ({
         id: `chatgpt-${round.messageId ?? round.id}`,
         userPrompt: round.userPrompt,
-        content: round.assistantContent,
+        content: normalizeChatGPTReaderMarkdown(round.assistantContent),
         meta: {
             platformId: 'chatgpt',
             messageId: round.messageId,

@@ -7,18 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Bookmarks: Restored bookmark item renaming through the shared prompt dialog and existing save path.
-- Bookmarks: Improved jump-to-original navigation by using stable message ids when available and falling back to legacy positions for older saved items.
-- Bookmarks: Removed the awkward folder-name prompt wording that exposed internal "single segment" terminology.
-- Reader: Added delete support to existing annotation popovers so saved annotations can now be removed directly from the same edit surface.
-- Reader: Fixed ChatGPT `jump to message` inside Reader so it now reuses the same stable directory navigation path as the ChatGPT conversation directory rail.
-- Settings: Hardened the settings layout against horizontal overflow while keeping setting labels and controls in a stable two-column row.
-- ChatGPT: Made the conversation directory rail part of the ChatGPT runtime so retired folding settings can no longer hide it.
+## [4.1.2] - 2026-04-22
+
+### Added
+- ChatGPT: Added a right-side conversation directory with live previews and direct jump actions for users who prefer staying on the native page.
+- Reader: Restored full-thread discovery on ChatGPT by redesigning the content discovery engine for the new incremental-loading page model.
 
 ### Changed
-- ChatGPT: Replaced the old fold bar and fold dock path with a payload-driven conversation directory rail that renders full history from the internal thread store and keeps the official page as the display layer.
-- ChatGPT: Switched Reader collection to a payload/store-first path backed by the internal conversation thread, while continuing to reuse the shared Markdown and Reader rendering pipeline after normalization.
+- ChatGPT: Removed the old message folding feature after the platform switched to incremental loading and inactive-node unloading, making the old fold-bar path both less necessary and less stable.
+
+### Fixed
+- Reader: Dynamic Annotations now support deleting existing annotations.
+- Bookmarks: Restored bookmark item renaming through the shared prompt dialog and existing save path.
+- Reader and Sending: Fixed prompt insertion inside the Reader send box.
+- Bookmarks: Partially improved jump-to-original positioning on ChatGPT, though incremental loading can still require a second click for a fully accurate jump.
 
 ## [4.1.1] - 2026-04-20
 

@@ -37,11 +37,16 @@ export type ParsedFaqDoc = {
     items: ParsedFaqItem[];
 };
 
+export type ParsedChangelogCategory = {
+    heading: string;
+    blocks: BookmarksDocBlock[];
+};
+
 export type ParsedChangelogEntry = {
     version: string;
     date: string;
     leadBlocks: BookmarksDocBlock[];
-    highlights: string[];
+    sections: ParsedChangelogCategory[];
 };
 
 export type ParsedChangelogDoc = {

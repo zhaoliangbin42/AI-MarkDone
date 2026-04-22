@@ -50,6 +50,12 @@
     "btnOk": {
         "message": "OK"
     },
+    "changelogNoticeTitle": {
+        "message": "What's new in AI-MarkDone $1"
+    },
+    "changelogNoticeViewAll": {
+        "message": "View full changelog"
+    },
     "btnReset": {
         "message": "Reset"
     },

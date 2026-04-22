@@ -1,8 +1,8 @@
 import { chevronDownIcon, chevronUpIcon } from '../../../../../assets/icons';
-import { loadBookmarksDoc } from '../../content/loader';
-import { parseChangelogDoc } from '../../content/parser';
+import { loadParsedChangelogDoc } from '../../content/changelog';
 import { createIcon } from '../../../components/Icon';
 import { renderInfoBlocks } from './renderInfoBlocks';
+import { renderChangelogSections } from './renderChangelogSections';
 
 type ChangelogTabViewParams = {
     resolveAssetUrl?: (assetPath: string) => string;
@@ -24,7 +24,7 @@ export class ChangelogTabView {
     }
 
     private render(): void {
-        const doc = parseChangelogDoc(loadBookmarksDoc('changelog'));
+        const doc = loadParsedChangelogDoc();
         const shell = document.createElement('div');
         shell.className = 'info-shell';
 
@@ -73,14 +73,9 @@ export class ChangelogTabView {
                 if (firstParagraph) firstParagraph.classList.add('info-disclosure__summary');
                 body.appendChild(lead);
             }
-            const bullets = document.createElement('ul');
-            bullets.className = 'info-list';
-            for (const item of entry.highlights) {
-                const li = document.createElement('li');
-                li.textContent = item;
-                bullets.appendChild(li);
+            if (entry.sections.length > 0) {
+                body.appendChild(renderChangelogSections(entry.sections, { resolveAssetUrl: this.resolveAssetUrl }));
             }
-            body.appendChild(bullets);
 
             button.addEventListener('click', () => {
                 const nextOpen = disclosure.dataset.open !== '1';

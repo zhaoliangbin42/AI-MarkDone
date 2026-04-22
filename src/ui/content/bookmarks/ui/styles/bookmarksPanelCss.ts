@@ -1629,6 +1629,46 @@ ${getPanelChromeCss()}
   gap: var(--aimd-space-3);
 }
 
+.changelog-notice-modal {
+  display: grid;
+  gap: var(--aimd-space-4);
+}
+
+.changelog-notice-modal__date {
+  margin: 0;
+  color: color-mix(in srgb, var(--aimd-text-tertiary) 92%, transparent);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.5;
+}
+
+.changelog-notice-modal__content {
+  display: grid;
+  gap: var(--aimd-space-3);
+}
+
+.changelog-notice-modal__sections {
+  display: grid;
+  gap: var(--aimd-space-4);
+}
+
+.changelog-entry-section {
+  display: grid;
+  gap: var(--aimd-space-2);
+}
+
+.changelog-entry-section__title {
+  margin: 0;
+  color: var(--aimd-text-primary);
+  font-size: var(--_bookmarks-section-title-size);
+  font-weight: var(--_bookmarks-section-title-weight);
+  line-height: 1.35;
+}
+
+.changelog-entry-section__body {
+  display: grid;
+  gap: var(--aimd-space-3);
+}
+
 .info-profile-card {
   padding: var(--aimd-space-5);
   border-radius: var(--_bookmarks-card-radius-lg);

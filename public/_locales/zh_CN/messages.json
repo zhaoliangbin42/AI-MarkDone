@@ -50,6 +50,12 @@
     "btnOk": {
         "message": "确定"
     },
+    "changelogNoticeTitle": {
+        "message": "AI-MarkDone $1 更新内容"
+    },
+    "changelogNoticeViewAll": {
+        "message": "查看完整更新日志"
+    },
     "btnReset": {
         "message": "重置"
     },

@@ -13,6 +13,9 @@ describe('governance: bookmarks content docs', () => {
     it('keeps changelog docs aligned across locales', () => {
         const zh = parseChangelogDoc(readContentFile('changelog.zh.md'));
         const en = parseChangelogDoc(readContentFile('changelog.en.md'));
+        const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+        const chromeManifest = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'manifest.chrome.json'), 'utf8'));
+        const firefoxManifest = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'manifest.firefox.json'), 'utf8'));
 
         expect(zh.title).toBeTruthy();
         expect(en.title).toBeTruthy();
@@ -25,6 +28,10 @@ describe('governance: bookmarks content docs', () => {
         expect(en.entries[0]?.leadBlocks.length).toBeGreaterThan(0);
         expect(zh.entries.every((entry) => entry.date)).toBe(true);
         expect(en.entries.every((entry) => entry.date)).toBe(true);
+        expect(zh.entries[0]?.version).toBe(packageJson.version);
+        expect(en.entries[0]?.version).toBe(packageJson.version);
+        expect(chromeManifest.version).toBe(packageJson.version);
+        expect(firefoxManifest.version).toBe(packageJson.version);
     });
 
     it('keeps about docs parseable in both locales', () => {

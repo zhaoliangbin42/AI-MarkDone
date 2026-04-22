@@ -54,4 +54,34 @@ describe('buildChatGPTReaderItems', () => {
             }),
         ]);
     });
+
+    it('normalizes ChatGPT reader markdown without mutating round metadata', () => {
+        const { items } = buildChatGPTReaderItems({
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Prompt 1',
+                    assistantContent: 'Inline: \\(x = y + z\\)\n\nBlock:\n\\[\na^2 + b^2 = c^2\n\\]',
+                    preview: 'Prompt 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+            ],
+        }, 'a1', 'https://chatgpt.com/c/abc#settings');
+
+        expect(items[0]).toEqual(expect.objectContaining({
+            userPrompt: 'Prompt 1',
+            content: 'Inline: $x = y + z$\n\nBlock:\n\n$$\na^2 + b^2 = c^2\n$$',
+            meta: expect.objectContaining({
+                position: 1,
+                messageId: 'a1',
+            }),
+        }));
+    });
 });

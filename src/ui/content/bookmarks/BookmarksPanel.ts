@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types';
 import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
+import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
 import { browser } from '../../../drivers/shared/browser';
 import {
     bookmarkIcon,
@@ -18,6 +19,7 @@ import { SettingsTabView, type SettingsTabViewActions } from './ui/tabs/Settings
 import { ChangelogTabView } from './ui/tabs/ChangelogTabView';
 import { AboutTabView } from './ui/tabs/AboutTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
+import { loadLatestChangelogEntry } from './content/changelog';
 import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { ReaderPanel } from '../reader/ReaderPanel';
@@ -27,6 +29,8 @@ import { logger } from '../../../core/logger';
 import { eventWithinTransientRoot } from '../components/transientUi';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
+import { renderInfoBlocks } from './ui/tabs/renderInfoBlocks';
+import { renderChangelogSections } from './ui/tabs/renderChangelogSections';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq';
 
@@ -121,6 +125,8 @@ export class BookmarksPanel {
     private unsubscribeLocale: (() => void) | null = null;
     private closing = false;
     private motionNeedsOpen = false;
+    private changelogNoticeCheckedForSession = false;
+    private pendingChangelogModalVersion: string | null = null;
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private readonly onShadowPointerDown = (event: Event) => {
         if (!this.hostHandle) return;
@@ -178,6 +184,8 @@ export class BookmarksPanel {
         this.visible = true;
         this.closing = false;
         this.motionNeedsOpen = true;
+        this.changelogNoticeCheckedForSession = false;
+        this.pendingChangelogModalVersion = null;
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
             theme: this.controller.getTheme(),
@@ -233,6 +241,7 @@ export class BookmarksPanel {
         }
         if (!this.visible || this.closing) return;
         this.render();
+        void this.maybeShowChangelogNotice();
     }
 
     hide(): void {
@@ -280,6 +289,8 @@ export class BookmarksPanel {
         this.overlaySession = null;
         this.closing = false;
         this.motionNeedsOpen = false;
+        this.changelogNoticeCheckedForSession = false;
+        this.pendingChangelogModalVersion = null;
     }
 
     private async loadSettings(): Promise<void> {
@@ -393,13 +404,7 @@ export class BookmarksPanel {
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
             const nextTab = (event as CustomEvent<{ id: string }>).detail.id;
             if (nextTab === 'bookmarks' || nextTab === 'settings' || nextTab === 'changelog' || nextTab === 'about' || nextTab === 'faq') {
-                this.bookmarksView?.dismissTransientUi?.();
-                this.settingsView?.dismissTransientUi?.();
-                this.changelogView?.dismissTransientUi?.();
-                this.aboutView?.dismissTransientUi?.();
-                this.faqView?.dismissTransientUi?.();
-                this.uiState.bookmarksTab = nextTab;
-                this.render();
+                this.switchToTab(nextTab);
             }
         });
         this.syncTabViews();
@@ -542,6 +547,118 @@ export class BookmarksPanel {
         (this.settingsView as SettingsTabView | null)?.setState({
             settings: this.uiState.settings,
             storageUsage: this.snapshot?.storageUsage ?? null,
+        });
+    }
+
+    private switchToTab(nextTab: PanelTabId): void {
+        if (this.uiState.bookmarksTab === nextTab) return;
+        this.bookmarksView?.dismissTransientUi?.();
+        this.settingsView?.dismissTransientUi?.();
+        this.changelogView?.dismissTransientUi?.();
+        this.aboutView?.dismissTransientUi?.();
+        this.faqView?.dismissTransientUi?.();
+        this.uiState.bookmarksTab = nextTab;
+        this.render();
+    }
+
+    private async maybeShowChangelogNotice(): Promise<void> {
+        if (this.changelogNoticeCheckedForSession || !this.visible || this.closing || !this.modalHost) return;
+        this.changelogNoticeCheckedForSession = true;
+
+        const noticeResult = await bookmarksClient.getChangelogNotice();
+        if (!noticeResult.ok || !this.visible || this.closing || !this.modalHost) return;
+
+        const notice = noticeResult.data;
+        if (!notice.pendingVersion || notice.pendingVersion === notice.lastShownVersion) return;
+        if (this.pendingChangelogModalVersion === notice.pendingVersion) return;
+
+        const latestEntry = loadLatestChangelogEntry();
+        if (!latestEntry) return;
+        if (latestEntry.version !== notice.pendingVersion) {
+            logger.warn('[AI-MarkDone][BookmarksPanel] Pending changelog notice version does not match latest changelog entry.', {
+                pendingVersion: notice.pendingVersion,
+                latestVersion: latestEntry.version,
+            });
+            return;
+        }
+
+        this.pendingChangelogModalVersion = latestEntry.version;
+
+        const body = document.createElement('div');
+        body.className = 'changelog-notice-modal';
+
+        if (latestEntry.date) {
+            const date = document.createElement('p');
+            date.className = 'changelog-notice-modal__date';
+            date.textContent = latestEntry.date;
+            body.appendChild(date);
+        }
+
+        const content = document.createElement('div');
+        content.className = 'changelog-notice-modal__content';
+        content.appendChild(renderInfoBlocks(latestEntry.leadBlocks));
+        body.appendChild(content);
+
+        if (latestEntry.sections.length > 0) {
+            const sections = document.createElement('div');
+            sections.className = 'changelog-notice-modal__sections';
+            sections.appendChild(renderChangelogSections(latestEntry.sections));
+            body.appendChild(sections);
+        }
+
+        let ackStarted = false;
+        const acknowledge = async () => {
+            if (ackStarted) return true;
+            ackStarted = true;
+            const result = await bookmarksClient.ackChangelogNotice(latestEntry.version);
+            if (!result.ok) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to acknowledge changelog notice.', {
+                    version: latestEntry.version,
+                    error: result.message,
+                });
+                ackStarted = false;
+                return false;
+            }
+            this.pendingChangelogModalVersion = null;
+            return true;
+        };
+
+        await this.modalHost.showCustom({
+            kind: 'info',
+            title: tr('changelogNoticeTitle', `What's new in AI-MarkDone ${latestEntry.version}`, [latestEntry.version]),
+            body,
+            footer: (footer, close) => {
+                const viewAll = document.createElement('button');
+                viewAll.type = 'button';
+                viewAll.className = 'mock-modal__button mock-modal__button--secondary';
+                viewAll.textContent = tr('changelogNoticeViewAll', 'View full changelog');
+                viewAll.addEventListener('click', () => {
+                    void (async () => {
+                        const acked = await acknowledge();
+                        if (!acked) return;
+                        close();
+                        this.switchToTab('changelog');
+                    })();
+                });
+
+                const ok = document.createElement('button');
+                ok.type = 'button';
+                ok.className = 'mock-modal__button mock-modal__button--primary';
+                ok.textContent = tr('btnOk', 'OK');
+                ok.addEventListener('click', () => {
+                    void (async () => {
+                        const acked = await acknowledge();
+                        if (!acked) return;
+                        close();
+                    })();
+                });
+
+                footer.append(viewAll, ok);
+                window.setTimeout(() => ok.focus(), 0);
+            },
+            onDismiss: () => {
+                void acknowledge();
+            },
         });
     }
 
