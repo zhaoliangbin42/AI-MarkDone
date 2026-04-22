@@ -14,7 +14,7 @@ That said, those other three are not the platforms I use every day, so the test 
 - Save bookmark: toolbar -> Bookmark
 - Export messages: toolbar -> Export
 - Word count: toolbar stats area
-- ChatGPT folding: ChatGPT toolbar / right-side fold controls
+- ChatGPT conversation directory: right-side directory rail on ChatGPT pages
 - Dynamic Annotation: select content inside Reader -> floating annotation button
 - Copy annotations: Reader top bar -> Copy annotations
 - Insert annotations: above the send box in Reader -> Insert annotations
@@ -25,7 +25,7 @@ That said, those other three are not the platforms I use every day, so the test 
 
 Because the original page is built for chatting, not necessarily for reading carefully.
 
-Once a conversation gets long, the page starts competing for your attention. Buttons, references, folding controls, long scroll ranges, streaming UI... it all adds up. Reader is meant to give you a calmer surface so you can actually read.
+Once a conversation gets long, the page starts competing for your attention. Buttons, references, long scroll ranges, streaming UI, and side navigation all add up. Reader is meant to give you a calmer surface so you can actually read.
 
 To make that useful in practice, Reader also includes fullscreen mode, message switching, quick previews, send actions, and toolbar shortcuts. You do not have to keep bouncing back to the host page just to continue working.
 
@@ -140,17 +140,17 @@ And yes, batch export is supported.
 
 Yes.
 
-Click the extension icon to open the bookmarks panel, then go to Settings. From there you can turn individual features on or off. That includes toolbar actions as well as Reader, folding, and annotation-related options.
+Click the extension icon to open the bookmarks panel, then go to Settings. From there you can turn individual features on or off. That includes toolbar actions as well as Reader and annotation-related options.
 
 I do not like tools that dump every feature on every user, so this part is meant to stay flexible.
 
-## What is message folding, and why does it only support ChatGPT right now?
+## What is the ChatGPT conversation directory, and why is it ChatGPT-only right now?
 
-Because very long ChatGPT conversations get unwieldy fast. The page grows, finding the message you want gets slower, and performance can start to fall apart.
+Because very long ChatGPT conversations get unwieldy fast. The page grows, finding the message you want gets slower, and the host page only hydrates part of the thread at a time.
 
-Folding helps by collapsing older messages down to a single-line preview. That saves space, lowers rendering pressure, and makes long threads much easier to navigate.
+The conversation directory solves that by showing the full history as a lightweight right-side rail. Each mark maps to one user round, hover gives you a quick preview, and click jumps you back to that part of the conversation. The official page still owns the actual message rendering and input box.
 
-As for why it is ChatGPT-only right now: this feature depends heavily on platform-specific DOM structure. ChatGPT is the platform I use and maintain most actively, so it is the one where this folding workflow has been fully built out.
+As for why it is ChatGPT-only right now: this feature depends heavily on platform-specific conversation structure. ChatGPT is the platform where I have built out the payload/store-first path that makes this full-history navigation reliable.
 
 ## How does word count work?
 

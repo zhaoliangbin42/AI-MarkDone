@@ -1,5 +1,11 @@
 # Changelog
 
+# Unreleased
+
+- ChatGPT now uses a payload-driven conversation directory rail instead of the older folding controls, so long threads can be navigated from a lightweight right-side history view.
+- Reader on ChatGPT now opens from the same payload/store-first conversation snapshot, which means it can read the full thread without depending on the current host-page hydration window.
+- Reader `jump to message` on ChatGPT now reuses the same stable navigation path as the directory rail.
+
 # 4.1.1
 2026-04-20
 

@@ -1,15 +1,10 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { scrollToBookmarkTargetWithRetry, highlightElement } from '../../../drivers/content/bookmarks/navigation';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
-
-type SkeletonAnchor = {
-    position: number;
-    anchorEl: HTMLElement;
-};
+import { collectChatGPTSkeletonAnchors, navigateChatGPTDirectoryTarget, type ChatGPTSkeletonAnchor } from '../chatgptDirectory/navigation';
 
 function isChatGPTConversationPage(url: string): boolean {
     try {
@@ -45,7 +40,7 @@ export class ChatGPTDirectoryController {
     private routeWatcher: RouteWatcher | null = null;
     private scrollRoot: HTMLElement | null = null;
     private mutationObserver: MutationObserver | null = null;
-    private skeletonAnchors: SkeletonAnchor[] = [];
+    private skeletonAnchors: ChatGPTSkeletonAnchor[] = [];
     private activePosition = 0;
     private rafId: number | null = null;
     private snapshotRetryTimer: number | null = null;
@@ -196,42 +191,7 @@ export class ChatGPTDirectoryController {
     }
 
     private refreshSkeletonAnchors(): void {
-        const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
-            (node): node is HTMLElement => node instanceof HTMLElement,
-        );
-        const anchors: SkeletonAnchor[] = [];
-        let pendingUserContainer: HTMLElement | null = null;
-
-        for (const container of turnContainers) {
-            const userTurn = container.querySelector('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]');
-            const assistantTurn = container.querySelector('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]');
-
-            if (userTurn instanceof HTMLElement && !(assistantTurn instanceof HTMLElement)) {
-                pendingUserContainer = container;
-                continue;
-            }
-
-            if (!(assistantTurn instanceof HTMLElement)) continue;
-            anchors.push({
-                position: anchors.length + 1,
-                anchorEl: pendingUserContainer ?? container,
-            });
-            pendingUserContainer = null;
-        }
-
-        if (anchors.length === 0) {
-            const messages = Array.from(document.querySelectorAll(this.adapter.getMessageSelector())).filter(
-                (node): node is HTMLElement => node instanceof HTMLElement,
-            );
-            messages.forEach((messageEl, index) => {
-                anchors.push({
-                    position: index + 1,
-                    anchorEl: messageEl,
-                });
-            });
-        }
-
-        this.skeletonAnchors = anchors;
+        this.skeletonAnchors = collectChatGPTSkeletonAnchors(this.adapter);
     }
 
     private buildPlaceholderRounds(): ChatGPTConversationRound[] {
@@ -269,14 +229,7 @@ export class ChatGPTDirectoryController {
     }
 
     private async handleSelect(round: ChatGPTConversationRound): Promise<void> {
-        const anchor = this.skeletonAnchors[round.position - 1]?.anchorEl;
-        if (anchor) {
-            anchor.scrollIntoView({ behavior: 'auto', block: 'start' });
-            window.setTimeout(() => highlightElement(anchor), 40);
-            return;
-        }
-
-        const result = await scrollToBookmarkTargetWithRetry(
+        const result = await navigateChatGPTDirectoryTarget(
             this.adapter,
             { position: round.position, messageId: round.messageId },
             { timeoutMs: 1500, intervalMs: 120 },

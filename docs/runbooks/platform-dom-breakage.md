@@ -17,6 +17,21 @@
 4. 检查 action bar fallback 是否触发
 5. 检查主题探测是否仍输出有效 theme
 
+### ChatGPT-specific checks
+
+当问题只发生在 ChatGPT，不要只盯 DOM selector。当前 ChatGPT shipping path 还依赖 payload/store-first 与目录条锚点链路，需要额外检查：
+
+1. `ChatGPTConversationEngine` 是否还能拿到完整 snapshot
+   - 如果 Reader 只能看到当前 hydration 的几条消息，先检查 bridge/store，而不是先改 Reader UI
+2. `ChatGPTDirectoryController` 是否还能建立当前页面的 skeleton/container anchors
+   - 目录条 click 和 Reader locate 的 ChatGPT 同页跳转都依赖这条锚点链路
+3. 如果目录条能跳、Reader 不能跳
+   - 先检查 Reader locate 是否仍走 `src/ui/content/chatgptDirectory/navigation.ts`
+   - 不要直接改全平台共享 bookmark navigation，除非确认是跨平台语义问题
+4. 如果 payload 完整但同页跳转失败
+   - 检查 `[data-turn-id-container]` / `section[data-turn]` 的宿主结构是否变化
+   - 再检查目录条 helper 是否正确回退到了共享 bookmark navigation
+
 ## Related Documents
 
 - `docs/antigravity/platform/ADAPTER_CONTRACT.md`

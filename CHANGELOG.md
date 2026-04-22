@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Improved jump-to-original navigation by using stable message ids when available and falling back to legacy positions for older saved items.
 - Bookmarks: Removed the awkward folder-name prompt wording that exposed internal "single segment" terminology.
 - Reader: Added delete support to existing annotation popovers so saved annotations can now be removed directly from the same edit surface.
+- Reader: Fixed ChatGPT `jump to message` inside Reader so it now reuses the same stable directory navigation path as the ChatGPT conversation directory rail.
 - Settings: Hardened the settings layout against horizontal overflow while keeping setting labels and controls in a stable two-column row.
 - ChatGPT: Made the conversation directory rail part of the ChatGPT runtime so retired folding settings can no longer hide it.
 

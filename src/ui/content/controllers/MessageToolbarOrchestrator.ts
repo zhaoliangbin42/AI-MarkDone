@@ -24,6 +24,7 @@ import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleto
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { buildChatGPTReaderItems } from '../../../drivers/content/chatgpt/chatgptReaderItems';
+import { navigateChatGPTDirectoryTarget } from '../chatgptDirectory/navigation';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -281,11 +282,17 @@ export class MessageToolbarOrchestrator {
                 }
 
                 this.readerPanel.hide();
-                const result = await scrollToBookmarkTargetWithRetry(
-                    this.adapter,
-                    { position, messageId },
-                    { timeoutMs: 2500, intervalMs: 200 }
-                );
+                const result = this.adapter.getPlatformId() === 'chatgpt'
+                    ? await navigateChatGPTDirectoryTarget(
+                        this.adapter,
+                        { position, messageId },
+                        { timeoutMs: 2500, intervalMs: 200 },
+                    )
+                    : await scrollToBookmarkTargetWithRetry(
+                        this.adapter,
+                        { position, messageId },
+                        { timeoutMs: 2500, intervalMs: 200 }
+                    );
                 if (!result.ok) ctx?.notify?.(t('positionNotAvailable'));
             },
         });

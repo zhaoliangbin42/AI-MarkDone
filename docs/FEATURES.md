@@ -76,8 +76,9 @@
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
 | Payload/store-first snapshot | `ChatGPTConversationEngine.getSnapshot()` | `src/drivers/content/chatgpt/ChatGPTConversationEngine.ts`, `public/page-bridges/chatgpt-conversation-bridge.js` | `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts` | 在 ChatGPT conversation 页面可从内部 thread store 读取完整轮次，不依赖当前 DOM hydration 范围。 |
-| Reader payload path | `ChatGPTConversationEngine -> chatgptReaderItems -> ReaderPanel.show()` | `src/drivers/content/chatgpt/chatgptReaderItems.ts`, `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | `tests/unit/drivers/content/chatgpt/chatgptReaderItems.test.ts`, `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts` | Reader 在 ChatGPT 上可打开完整历史，并继续复用共享 Markdown/Reader 渲染链路。 |
+| Reader payload path | `ChatGPTConversationEngine -> chatgptReaderItems -> ReaderPanel.show()` | `src/drivers/content/chatgpt/chatgptReaderItems.ts`, `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | `tests/unit/drivers/content/chatgpt/chatgptReaderItems.test.ts`, `tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts` | Reader 在 ChatGPT 上可打开完整历史，并继续复用共享 Markdown/Reader 渲染链路。 |
 | Conversation directory rail | ChatGPT runtime → `ChatGPTDirectoryController` | `src/ui/content/controllers/ChatGPTDirectoryController.ts`, `src/ui/content/chatgptDirectory/ChatGPTDirectoryRail.ts` | `tests/unit/runtimes/content/entry.test.ts`, `tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts` | 右侧目录条按完整用户轮次展示历史；hover 显示预览；click 在同页跳转到对应轮次；目录条不再受 retired folding settings 影响。 |
+| ChatGPT same-page navigation helper | `navigateChatGPTDirectoryTarget({ position, messageId })` | `src/ui/content/chatgptDirectory/navigation.ts`, `src/ui/content/controllers/ChatGPTDirectoryController.ts`, `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | `tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts`, `tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts` | ChatGPT 目录条与 Reader locate 共用同一条同页跳转路径：优先命中 skeleton/container anchor，失败后再回退到共享 bookmark navigation；Bookmarks 继续保留原有跳转路径。 |
 
 ---
 

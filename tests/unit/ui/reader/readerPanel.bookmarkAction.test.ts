@@ -1,9 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
+const navigationMocks = vi.hoisted(() => ({
+    navigateChatGPTDirectoryTarget: vi.fn(async () => ({ ok: true })),
+}));
+
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
     bookmarkSaveDialog: {
         open: vi.fn(),
         setTheme: vi.fn(),
     },
+}));
+vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
+    navigateChatGPTDirectoryTarget: navigationMocks.navigateChatGPTDirectoryTarget,
 }));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
@@ -54,6 +61,57 @@ describe('ReaderPanel bookmark action injection', () => {
         expect(locateAction).toBeTruthy();
         expect(locateAction.placement).toBe('footer_left');
         expect(locateAction.tooltip).toBe('jumpToMessage');
+    });
+
+    it('reuses the ChatGPT directory navigation helper for reader locate actions', async () => {
+        document.body.innerHTML = `
+          <div data-turn-id-container id="user-1"><section data-turn="user"></section></div>
+          <div data-turn-id-container id="assistant-1">
+            <section data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Hi</div>
+              </div>
+            </section>
+          </div>
+        `;
+
+        navigationMocks.navigateChatGPTDirectoryTarget.mockClear();
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            show: vi.fn(async () => undefined),
+            hide: vi.fn(),
+            getCommentExportContext: vi.fn(() => null),
+        } as any;
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController });
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+
+        (orchestrator as any).rebuildTurnIndex();
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+
+        const options = readerPanel.show.mock.calls[0][3];
+        const locateAction = options.actions.find((action: any) => action.id === 'locate');
+        expect(locateAction).toBeTruthy();
+
+        await locateAction.onClick({
+            item: {
+                meta: { position: 1, messageId: 'a1' },
+            },
+            notify: vi.fn(),
+        });
+
+        expect(readerPanel.hide).toHaveBeenCalledTimes(1);
+        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
+            adapter,
+            { position: 1, messageId: 'a1' },
+            { timeoutMs: 2500, intervalMs: 200 },
+        );
     });
 
     it('anchors the reader send popover to the footer action wrapper instead of the clicked button', async () => {

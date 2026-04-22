@@ -53,6 +53,13 @@ For large structural refactors, the minimum acceptable closing gate is:
 - `npm run test:acceptance`
 - `npm run build`
 
+For ChatGPT-only payload/store-first or directory-rail changes, targeted verification must also prove both of these entrypoints still work together:
+
+- directory rail click
+- Reader locate / jump-to-message
+
+If those two entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation.
+
 If the change affects a shared surface with 2+ entrypoints, verification must also prove that production callers route through the surface-owned profile contract instead of directly shaping low-level chrome flags.
 
 If the change affects shared overlay / modal motion, verification must also prove:
