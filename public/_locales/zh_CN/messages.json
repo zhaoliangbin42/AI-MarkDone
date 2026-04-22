@@ -458,41 +458,11 @@
     "platforms": {
         "message": "平台"
     },
-    "performance": {
-        "message": "性能"
-    },
-    "chatgptSettings": {
-        "message": "ChatGPT"
-    },
     "behavior": {
         "message": "配置"
     },
     "reader": {
         "message": "阅读器"
-    },
-    "chatgptConversationDirectoryLabel": {
-        "message": "对话目录"
-    },
-    "chatgptConversationDirectoryDesc": {
-        "message": "在右侧显示完整轮次目录，方便在长 ChatGPT 对话中进行同页跳转。"
-    },
-    "chatgptCollapseAll": {
-        "message": "全部折叠"
-    },
-    "chatgptFoldRestore": {
-        "message": "恢复折叠消息"
-    },
-    "chatgptFoldVirtualized": {
-        "message": "折叠后已卸载，点击恢复"
-    },
-    "chatgptExpandAll": {
-        "message": "全部展开"
-    },
-    "btnCollapse": {
-        "message": "折叠"
-    },
-    "btnExpand": {
-        "message": "展开"
     },
     "supportDevelopment": {
         "message": "支持开发"
@@ -1102,27 +1072,6 @@
     },
     "settingsPlatformDeepseekDesc": {
         "message": "在 DeepSeek 上启用 AI-MarkDone。"
-    },
-    "settingsFoldingModeLabel": {
-        "message": "折叠模式"
-    },
-    "settingsFoldingModeDesc": {
-        "message": "控制默认保持展开的消息范围。"
-    },
-    "settingsExpandedCountDesc": {
-        "message": "仅在“保留最近 N 条展开”模式下生效。"
-    },
-    "increaseExpandedCount": {
-        "message": "增加展开数量"
-    },
-    "decreaseExpandedCount": {
-        "message": "减少展开数量"
-    },
-    "settingsFoldDockLabel": {
-        "message": "显示折叠侧边栏"
-    },
-    "settingsFoldDockDesc": {
-        "message": "在支持的对话页中保留紧凑的折叠侧边栏。"
     },
     "settingsShowSaveMessagesLabel": {
         "message": "显示保存消息"

@@ -9,7 +9,7 @@ describe('settings migrations', () => {
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
     });
 
-    it('merges v3 stored settings with defaults and strips retired ChatGPT folding fields', () => {
+    it('merges v3 stored settings with defaults and strips retired ChatGPT fields', () => {
         const stored: any = {
             version: 3,
             platforms: { chatgpt: false },
@@ -24,9 +24,7 @@ describe('settings migrations', () => {
         expect(next.version).toBe(3);
         expect(next.platforms.chatgpt).toBe(false);
         expect(next.platforms.gemini).toBe(true);
-        expect(next.chatgpt.showConversationDirectory).toBe(false);
-        expect(next.chatgpt).not.toHaveProperty('foldingMode');
-        expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
@@ -34,7 +32,7 @@ describe('settings migrations', () => {
         expect(next.language).toBe('zh_CN');
     });
 
-    it('migrates v2 ChatGPT folding settings without inheriting the old dock visibility', () => {
+    it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {
         const stored: any = {
             version: 2,
             chatgpt: { showFoldDock: false, foldingMode: 'keep_last_n', defaultExpandedCount: 6 },
@@ -44,9 +42,7 @@ describe('settings migrations', () => {
 
         const next = loadAndNormalize(stored);
         expect(next.version).toBe(3);
-        expect(next.chatgpt.showConversationDirectory).toBe(true);
-        expect(next.chatgpt).not.toHaveProperty('foldingMode');
-        expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
+        expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.showWordCount).toBe(false);
         expect(next.bookmarks.sortMode).toBe('time-desc');
         expect('performance' in next).toBe(false);
@@ -65,6 +61,6 @@ describe('settings migrations', () => {
         expect(next.behavior.saveContextOnly).toBe(true);
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.reader.renderCodeInReader).toBe(false);
-        expect(next.chatgpt.showConversationDirectory).toBe(true);
+        expect(next).not.toHaveProperty('chatgpt');
     });
 });

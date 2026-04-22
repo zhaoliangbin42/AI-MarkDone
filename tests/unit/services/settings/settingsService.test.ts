@@ -37,10 +37,11 @@ describe('settingsService', () => {
         expect(next.reader.commentExport.template).toEqual(template);
     });
 
-    it('normalizes retired ChatGPT folding fields without hiding the new directory by default', () => {
+    it('drops retired ChatGPT-specific settings when normalizing stored settings', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,
             chatgpt: {
+                showConversationDirectory: false,
                 showFoldDock: false,
                 foldingMode: 'all',
                 defaultExpandedCount: 8,
@@ -48,43 +49,13 @@ describe('settingsService', () => {
             },
         } as any);
 
-        expect(next.chatgpt.showConversationDirectory).toBe(true);
-        expect(next.chatgpt).not.toHaveProperty('foldingMode');
-        expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
-        expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(next).not.toHaveProperty('chatgpt');
     });
 
-    it('preserves an explicit new ChatGPT directory toggle value', () => {
-        const next = loadAndNormalize({
-            ...DEFAULT_SETTINGS,
-            chatgpt: {
-                showConversationDirectory: false,
-                showFoldDock: true,
-                foldingMode: 'all',
-            },
-        } as any);
-
-        expect(next.chatgpt.showConversationDirectory).toBe(false);
-        expect(next.chatgpt).not.toHaveProperty('showFoldDock');
-        expect(next.chatgpt).not.toHaveProperty('foldingMode');
-    });
-
-    it('does not re-persist removed chatgpt folding fields on category updates', () => {
-        const current = {
-            ...DEFAULT_SETTINGS,
-            chatgpt: {
-                showFoldDock: true,
-                foldingMode: 'all',
-                defaultExpandedCount: 8,
-            },
-        } as any;
-
-        const next = planSetCategory(current, 'chatgpt', { showConversationDirectory: false }).next;
-
-        expect(next.chatgpt.showConversationDirectory).toBe(false);
-        expect(next.chatgpt).not.toHaveProperty('showFoldDock');
-        expect(next.chatgpt).not.toHaveProperty('foldingMode');
-        expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
+    it('rejects retired ChatGPT settings category writes', () => {
+        expect(() => planSetCategory(DEFAULT_SETTINGS, 'chatgpt' as any, { showConversationDirectory: false })).toThrow(
+            'Invalid category: chatgpt',
+        );
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

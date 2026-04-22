@@ -5,7 +5,6 @@ import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView'
 const baseSettings = {
     version: 3,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-    chatgpt: { showConversationDirectory: true },
     behavior: {
         showSaveMessages: true,
         showWordCount: true,
@@ -32,7 +31,7 @@ const baseSettings = {
 } as any;
 
 describe('SettingsTabView', () => {
-    it('renders the ChatGPT directory toggle instead of the removed folding controls', async () => {
+    it('does not expose retired ChatGPT folding or directory visibility controls', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const actions = {
             loadState: vi.fn(async () => ({
@@ -47,36 +46,10 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const directoryToggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-conversation-directory"]');
 
-        expect(directoryToggle?.checked).toBe(true);
+        expect(directoryToggle).toBeNull();
         expect(root.querySelector('#aimd-chatgpt-folding-mode')).toBeNull();
         expect(root.querySelector('[data-role="settings-fold-dock"]')).toBeNull();
         expect(root.querySelector('[data-role="settings-folding-count"]')).toBeNull();
-    });
-
-    it('routes the ChatGPT directory toggle through injected actions', async () => {
-        const modal = { confirm: vi.fn(async () => true) } as any;
-        const actions = {
-            loadState: vi.fn(async () => ({
-                settings: structuredClone(baseSettings),
-                storageUsage: null,
-            })),
-            setPlatforms: vi.fn(async () => undefined),
-            setChatGptSettings: vi.fn(async () => undefined),
-            setBehaviorSettings: vi.fn(async () => undefined),
-            setReaderSettings: vi.fn(async () => undefined),
-            setLanguage: vi.fn(async () => undefined),
-        };
-
-        const view = new SettingsTabView({ modal, actions });
-        await view.refresh();
-
-        const root = view.getElement();
-        const directoryToggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-conversation-directory"]')!;
-
-        directoryToggle.checked = false;
-        directoryToggle.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(actions.setChatGptSettings).toHaveBeenCalledWith({ showConversationDirectory: false });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {

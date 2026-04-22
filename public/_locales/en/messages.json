@@ -458,41 +458,11 @@
     "platforms": {
         "message": "Platforms"
     },
-    "performance": {
-        "message": "Performance"
-    },
-    "chatgptSettings": {
-        "message": "ChatGPT"
-    },
     "behavior": {
         "message": "Behavior"
     },
     "reader": {
         "message": "Reader"
-    },
-    "chatgptConversationDirectoryLabel": {
-        "message": "Conversation directory"
-    },
-    "chatgptConversationDirectoryDesc": {
-        "message": "Show the right-side round directory for same-page navigation in long ChatGPT conversations."
-    },
-    "chatgptCollapseAll": {
-        "message": "Collapse all"
-    },
-    "chatgptFoldRestore": {
-        "message": "Restore folded messages"
-    },
-    "chatgptFoldVirtualized": {
-        "message": "Unloaded while folded, click to restore"
-    },
-    "chatgptExpandAll": {
-        "message": "Expand all"
-    },
-    "btnCollapse": {
-        "message": "Collapse"
-    },
-    "btnExpand": {
-        "message": "Expand"
     },
     "supportDevelopment": {
         "message": "Support Development"
@@ -1102,27 +1072,6 @@
     },
     "settingsPlatformDeepseekDesc": {
         "message": "Enable AI-MarkDone on DeepSeek."
-    },
-    "settingsFoldingModeLabel": {
-        "message": "Folding mode"
-    },
-    "settingsFoldingModeDesc": {
-        "message": "Controls how many messages stay expanded by default."
-    },
-    "settingsExpandedCountDesc": {
-        "message": "Used only when the folding mode keeps the latest N messages visible."
-    },
-    "increaseExpandedCount": {
-        "message": "Increase expanded count"
-    },
-    "decreaseExpandedCount": {
-        "message": "Decrease expanded count"
-    },
-    "settingsFoldDockLabel": {
-        "message": "Show fold dock"
-    },
-    "settingsFoldDockDesc": {
-        "message": "Keep the compact fold dock visible in supported threads."
     },
     "settingsShowSaveMessagesLabel": {
         "message": "Show Save Messages"

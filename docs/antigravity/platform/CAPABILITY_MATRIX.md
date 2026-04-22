@@ -43,7 +43,7 @@
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
 | 特殊处理 | payload/store-first Reader；右侧 conversation directory rail |
-| 设置分组 | `chatgpt`（`showConversationDirectory`） |
+| 设置分组 | 使用平台总开关 `platforms.chatgpt`；无 ChatGPT 专属折叠/目录设置 |
 
 ### Gemini
 

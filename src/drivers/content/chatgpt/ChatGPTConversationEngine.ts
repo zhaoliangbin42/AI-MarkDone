@@ -33,7 +33,7 @@ function isChatGPTConversationPage(url: string): boolean {
     try {
         const parsed = new URL(url);
         const isChatGPT = parsed.hostname === 'chatgpt.com' || parsed.hostname === 'chat.openai.com';
-        return isChatGPT && /^\/c\//.test(parsed.pathname);
+        return isChatGPT && /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
     } catch {
         return false;
     }
@@ -42,7 +42,7 @@ function isChatGPTConversationPage(url: string): boolean {
 function getConversationIdFromUrl(url: string): string | null {
     try {
         const parsed = new URL(url);
-        return parsed.pathname.match(/^\/c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
+        return parsed.pathname.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
     } catch {
         return null;
     }

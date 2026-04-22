@@ -217,7 +217,7 @@ describe('content runtime entry', () => {
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
     });
 
-    it('applies settings updates to ChatGPT directory visibility without changing shared navigation wiring', async () => {
+    it('keeps the ChatGPT directory tied to platform runtime state instead of a retired visibility setting', async () => {
         adapterPlatformId = 'chatgpt';
         document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
         vi.resetModules();
@@ -229,7 +229,6 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
-                chatgpt: { showConversationDirectory: false },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: false,
@@ -250,7 +249,7 @@ describe('content runtime entry', () => {
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
-        expect(directorySetEnabled).toHaveBeenCalledWith(false);
+        expect(directorySetEnabled).not.toHaveBeenCalled();
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
 
@@ -258,7 +257,6 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                chatgpt: { showConversationDirectory: true },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: true,
@@ -278,7 +276,7 @@ describe('content runtime entry', () => {
 
         expect(headerIconInit).toHaveBeenCalledTimes(2);
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
-        expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
+        expect(directorySetEnabled).not.toHaveBeenCalled();
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
@@ -299,7 +297,6 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
-                chatgpt: { showConversationDirectory: true },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: true,
@@ -333,7 +330,6 @@ describe('content runtime entry', () => {
         settingsGetCached.mockReturnValue({
             language: 'auto',
             platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-            chatgpt: { showConversationDirectory: true },
             behavior: {
                 showSaveMessages: true,
                 showWordCount: true,

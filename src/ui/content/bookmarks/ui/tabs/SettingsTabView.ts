@@ -24,7 +24,6 @@ import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentT
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
     setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<void> | void;
-    setChatGptSettings?: (patch: Partial<AppSettings['chatgpt']>) => Promise<void> | void;
     setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<void> | void;
     setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
@@ -45,7 +44,6 @@ type SelectRef = {
 
 type Refs = {
     platforms: Record<'chatgpt' | 'gemini' | 'claude' | 'deepseek', HTMLInputElement>;
-    showConversationDirectory: HTMLInputElement;
     behavior: {
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
@@ -101,14 +99,6 @@ export class SettingsTabView {
             claude: this.createToggle(platformsGroup.body, `${Icons.claude} Claude`, t('enableOnClaude')),
             deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} DeepSeek`, t('enableOnDeepseek')),
         };
-
-        // ChatGPT group
-        const chatgptGroup = this.createGroup(Icons.chatgpt, t('chatgptSettings'));
-        const showConversationDirectory = this.createToggle(
-            chatgptGroup.body,
-            t('chatgptConversationDirectoryLabel'),
-            t('chatgptConversationDirectoryDesc'),
-        );
 
         // Behavior group
         const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
@@ -173,7 +163,6 @@ export class SettingsTabView {
 
         content.append(
             platformsGroup.root,
-            chatgptGroup.root,
             behaviorGroup.root,
             readerGroup.root,
             languageGroup.root,
@@ -191,7 +180,6 @@ export class SettingsTabView {
                 claude: platforms.claude.input,
                 deepseek: platforms.deepseek.input,
             },
-            showConversationDirectory: showConversationDirectory.input,
             behavior: {
                 showSaveMessages: showSaveMessages.input,
                 showWordCount: showWordCount.input,
@@ -212,7 +200,6 @@ export class SettingsTabView {
         this.refs.platforms.gemini.dataset.role = 'settings-platform-gemini';
         this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
-        this.refs.showConversationDirectory.dataset.role = 'settings-chatgpt-conversation-directory';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.enableClickToCopy.dataset.role = 'settings-click-to-copy';
@@ -230,7 +217,7 @@ export class SettingsTabView {
     }
 
     focusPrimaryInput(): void {
-        this.refs.showConversationDirectory.focus({ preventScroll: true } as FocusOptions);
+        this.refs.platforms.chatgpt.focus({ preventScroll: true } as FocusOptions);
     }
 
     dismissTransientUi(): void {
@@ -267,7 +254,6 @@ export class SettingsTabView {
             ...DEFAULT_SETTINGS,
             ...params.settings,
             platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
-            chatgpt: { ...DEFAULT_SETTINGS.chatgpt, ...params.settings.chatgpt },
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
             reader: {
@@ -295,11 +281,6 @@ export class SettingsTabView {
             });
         }
 
-        this.refs.showConversationDirectory.addEventListener('change', () => {
-            const next = this.refs.showConversationDirectory.checked;
-            this.settings.chatgpt.showConversationDirectory = next;
-            void this.actions.setChatGptSettings?.({ showConversationDirectory: next });
-        });
         // Behavior + reader
         this.refs.behavior.showSaveMessages.addEventListener('change', () => {
             const next = this.refs.behavior.showSaveMessages.checked;
@@ -368,7 +349,6 @@ export class SettingsTabView {
         this.refs.platforms.claude.checked = Boolean(s.platforms.claude);
         this.refs.platforms.deepseek.checked = Boolean(s.platforms.deepseek);
 
-        this.refs.showConversationDirectory.checked = Boolean(s.chatgpt.showConversationDirectory);
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.enableClickToCopy.checked = Boolean(s.behavior.enableClickToCopy);
@@ -382,7 +362,6 @@ export class SettingsTabView {
         this.syncToggle(this.refs.platforms.gemini);
         this.syncToggle(this.refs.platforms.claude);
         this.syncToggle(this.refs.platforms.deepseek);
-        this.syncToggle(this.refs.showConversationDirectory);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.enableClickToCopy);

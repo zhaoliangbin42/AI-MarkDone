@@ -5,17 +5,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
 
-export function normalizeChatGptSettings(chatgpt: unknown): AppSettings['chatgpt'] {
-    const record = isRecord(chatgpt) ? chatgpt : {};
-
-    return {
-        ...DEFAULT_SETTINGS.chatgpt,
-        showConversationDirectory: typeof (record as any).showConversationDirectory === 'boolean'
-            ? Boolean((record as any).showConversationDirectory)
-            : DEFAULT_SETTINGS.chatgpt.showConversationDirectory,
-    };
-}
-
 export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behavior'] {
     const record = isRecord(behavior) ? behavior : {};
 
@@ -49,7 +38,6 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             ...DEFAULT_SETTINGS.platforms,
             ...stored.platforms,
         },
-        chatgpt: normalizeChatGptSettings(stored.chatgpt),
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
@@ -75,7 +63,6 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
 export function migrateFromV1(v1: unknown): AppSettings {
     const rec = isRecord(v1) ? v1 : {};
     const platforms = isRecord(rec.platforms) ? rec.platforms : {};
-    const chatgpt = isRecord(rec.chatgpt) ? rec.chatgpt : {};
     const behavior = isRecord(rec.behavior) ? rec.behavior : {};
     const storage = isRecord((rec as any).storage) ? (rec as any).storage : {};
 
@@ -87,12 +74,6 @@ export function migrateFromV1(v1: unknown): AppSettings {
             gemini: Boolean((platforms as any).gemini ?? true),
             claude: Boolean((platforms as any).claude ?? true),
             deepseek: Boolean((platforms as any).deepseek ?? true),
-        },
-        chatgpt: {
-            ...DEFAULT_SETTINGS.chatgpt,
-            showConversationDirectory: typeof (chatgpt as any).showConversationDirectory === 'boolean'
-                ? Boolean((chatgpt as any).showConversationDirectory)
-                : DEFAULT_SETTINGS.chatgpt.showConversationDirectory,
         },
         behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
@@ -130,12 +111,6 @@ export function migrateFromV2(v2: unknown): AppSettings {
             ...DEFAULT_SETTINGS.platforms,
             ...platforms,
         } as any,
-        chatgpt: {
-            ...DEFAULT_SETTINGS.chatgpt,
-            showConversationDirectory: typeof (rec as any)?.chatgpt?.showConversationDirectory === 'boolean'
-                ? Boolean((rec as any)?.chatgpt?.showConversationDirectory)
-                : DEFAULT_SETTINGS.chatgpt.showConversationDirectory,
-        },
         behavior: normalizeBehaviorSettings(behavior),
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),

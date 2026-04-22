@@ -21,6 +21,21 @@ import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPT
 
 ensurePageTokens();
 
+const isDebugEnabled = () => {
+    try {
+        return window.localStorage.getItem('aimd:debug') === '1';
+    } catch {
+        return false;
+    }
+};
+
+const writeDebugState = (patch: Record<string, string | boolean | number | null | undefined>) => {
+    if (!isDebugEnabled()) return;
+    for (const [key, value] of Object.entries(patch)) {
+        document.documentElement.dataset[`aimdDebug${key}`] = value == null ? '' : String(value);
+    }
+};
+
 const adapter = getAdapter();
 if (adapter) {
     const themeManager = new ThemeManager();
@@ -56,6 +71,12 @@ if (adapter) {
     const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
     let runtimeEnabled = cachedSettings?.platforms?.[platformKey] ?? true;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
+    writeDebugState({
+        Content: 'loaded',
+        Platform: adapter.getPlatformId(),
+        RuntimeEnabled: runtimeEnabled,
+        DirectoryAvailable: Boolean(chatGptDirectory),
+    });
 
     const syncClickToCopy = (enabled: boolean) => {
         mathClick.disable();
@@ -67,13 +88,16 @@ if (adapter) {
 
     const initChatGptIfNeeded = () => {
         if (!chatGptConversationEngine || !chatGptDirectory) return;
+        writeDebugState({ ChatGptInit: 'start' });
         chatGptConversationEngine.init();
         chatGptDirectory.init(currentTheme);
+        writeDebugState({ ChatGptInit: 'done' });
     };
 
     const enableRuntime = () => {
         if (runtimeEnabled) return;
         runtimeEnabled = true;
+        writeDebugState({ RuntimeEnabled: runtimeEnabled });
         initChatGptIfNeeded();
         messageToolbars.init();
         headerIcon.init();
@@ -82,6 +106,7 @@ if (adapter) {
     const disableRuntime = () => {
         if (!runtimeEnabled) return;
         runtimeEnabled = false;
+        writeDebugState({ RuntimeEnabled: runtimeEnabled });
         messageToolbars.dispose();
         headerIcon.dispose();
         chatGptDirectory?.dispose();
@@ -104,7 +129,6 @@ if (adapter) {
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
-        chatGptDirectory?.setEnabled(Boolean(snap.settings.chatgpt.showConversationDirectory));
         messageToolbars.setBehaviorFlags({
             showSaveMessages: snap.settings.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior.showWordCount,

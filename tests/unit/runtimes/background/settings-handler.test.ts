@@ -72,7 +72,7 @@ describe('background settings handler', () => {
         expect((getRes?.response as any).data.value.showWordCount).toBe(false);
     });
 
-    it('drops removed chatgpt folding fields before persisting category updates', async () => {
+    it('rejects retired ChatGPT settings category through the protocol', async () => {
         const sync = mockSyncStorage({
             [LEGACY_STORAGE_KEYS.appSettingsKey]: {
                 version: 3,
@@ -105,14 +105,11 @@ describe('background settings handler', () => {
             type: 'settings:setCategory',
             payload: { category: 'chatgpt', value: { showConversationDirectory: false } },
         } as any);
-        expect(setRes?.response.ok).toBe(true);
+        expect(setRes?.response.ok).toBe(false);
+        expect((setRes?.response as any).error.code).toBe('INVALID_REQUEST');
 
         const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
-        expect(raw.chatgpt.showConversationDirectory).toBe(false);
-        expect(raw.chatgpt).not.toHaveProperty('showFoldDock');
-        expect(raw.chatgpt).not.toHaveProperty('foldingMode');
-        expect(raw.chatgpt).not.toHaveProperty('defaultExpandedCount');
-        expect(raw.chatgpt).not.toHaveProperty('enableVirtualization');
+        expect(raw.chatgpt.showFoldDock).toBe(true);
     });
 
     it('rejects legacy performance category through the protocol', async () => {

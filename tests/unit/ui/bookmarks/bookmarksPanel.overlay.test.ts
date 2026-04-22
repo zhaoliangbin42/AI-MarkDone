@@ -7,7 +7,6 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             data: {
                 settings: {
                     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                    chatgpt: { showConversationDirectory: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,
@@ -20,7 +19,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
                 },
             },
         })),
-        setCategory: vi.fn(async () => ({ ok: true, data: { category: 'chatgpt' } })),
+        setCategory: vi.fn(async () => ({ ok: true, data: { category: 'platforms' } })),
     },
 }));
 

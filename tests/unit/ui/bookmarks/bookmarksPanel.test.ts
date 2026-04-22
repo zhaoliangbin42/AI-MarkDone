@@ -9,7 +9,6 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             data: {
                 settings: {
                     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                    chatgpt: { showConversationDirectory: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,
@@ -22,7 +21,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
                 },
             },
         })),
-        setCategory: vi.fn(async () => ({ ok: true, data: { category: 'chatgpt' } })),
+        setCategory: vi.fn(async () => ({ ok: true, data: { category: 'platforms' } })),
     },
 }));
 
@@ -268,8 +267,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedSettingsPanel?.querySelectorAll('.settings-select-trigger').length).toBeGreaterThanOrEqual(1);
         expect(refreshedSettingsPanel?.querySelector('.settings-select')).toBeNull();
         expect(refreshedSettingsPanel?.querySelector('[data-role="settings-folding-count"]')).toBeNull();
-        const directoryToggle = refreshedSettingsPanel?.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-conversation-directory"]');
-        expect(directoryToggle?.checked).toBe(true);
+        expect(refreshedSettingsPanel?.querySelector('[data-role="settings-chatgpt-conversation-directory"]')).toBeNull();
         const platformLabels = Array.from(refreshedSettingsPanel?.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong') ?? []);
         const deepseekLabel = platformLabels.find((node) => node.textContent?.includes('Deep'));
         expect(deepseekLabel?.textContent).toContain('DeepSeek');
@@ -281,12 +279,6 @@ describe('BookmarksPanel', () => {
         expect(platformIconHtml).toContain('DeepSeek');
         expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
         expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
-
-        directoryToggle!.checked = false;
-        directoryToggle!.dispatchEvent(new Event('change', { bubbles: true }));
-        await flushUi();
-
-        expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgpt', { showConversationDirectory: false });
 
         changelogTabButton!.click();
 

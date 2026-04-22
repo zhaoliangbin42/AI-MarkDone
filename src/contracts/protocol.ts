@@ -19,7 +19,6 @@ export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-
 
 export type SettingsCategory =
     | 'platforms'
-    | 'chatgpt'
     | 'behavior'
     | 'reader'
     | 'bookmarks'

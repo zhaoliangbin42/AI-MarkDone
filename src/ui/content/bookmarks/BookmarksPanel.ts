@@ -304,16 +304,6 @@ export class BookmarksPanel {
                 };
                 await settingsClientRpc.setCategory('platforms', patch);
             },
-            setChatGptSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    chatgpt: {
-                        ...this.uiState.settings.chatgpt,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('chatgpt', patch);
-            },
             setBehaviorSettings: async (patch) => {
                 this.uiState.settings = {
                     ...this.uiState.settings,
