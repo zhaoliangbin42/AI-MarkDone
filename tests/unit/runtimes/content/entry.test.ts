@@ -81,7 +81,7 @@ const foldingCtor = vi.fn(function () {
     };
 });
 const setLocale = vi.fn(async () => {});
-const scrollToAssistantPositionWithRetry = vi.fn(async () => ({ ok: true }));
+const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
 const addListener = vi.fn();
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
@@ -105,7 +105,7 @@ vi.mock('@/drivers/content/math/math-click', () => ({
 
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({
     consumePendingNavigation,
-    scrollToAssistantPositionWithRetry,
+    scrollToBookmarkTargetWithRetry,
 }));
 
 vi.mock('@/drivers/shared/browser', () => ({
@@ -204,6 +204,28 @@ describe('content runtime entry', () => {
         await headerOpts.onToggle();
 
         expect(bookmarksToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('consumes pending bookmark navigation through the unified message target helper', async () => {
+        adapterPlatformId = 'gemini';
+        consumePendingNavigation.mockReturnValueOnce({
+            url: 'https://gemini.google.com/app/123',
+            position: 3,
+            messageId: 'msg-3',
+        });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(scrollToBookmarkTargetWithRetry).toHaveBeenCalledWith(
+            expect.any(Object),
+            {
+                url: 'https://gemini.google.com/app/123',
+                position: 3,
+                messageId: 'msg-3',
+            },
+            { timeoutMs: 8000, intervalMs: 200 }
+        );
     });
 
     it('keeps ChatGPT folding ChatGPT-only', async () => {

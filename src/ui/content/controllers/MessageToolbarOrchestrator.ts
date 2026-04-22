@@ -1,6 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { scrollToAssistantPositionWithRetry } from '../../../drivers/content/bookmarks/navigation';
+import { scrollToBookmarkTargetWithRetry } from '../../../drivers/content/bookmarks/navigation';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { getConversationUrl } from '../../../drivers/content/bookmarks/position';
 import { discoverMessageElements } from '../../../drivers/content/injection/messageDiscovery';
@@ -46,6 +46,7 @@ type ScanSnapshotItem = {
 type BookmarkToggleParams = {
     url: string;
     position: number;
+    messageId?: string | null;
     userPrompt: string;
     markdown: string;
     alreadyBookmarked: boolean;
@@ -148,6 +149,7 @@ export class MessageToolbarOrchestrator {
             const saveRes = await this.bookmarksController.toggleBookmarkFromToolbar({
                 url: params.url,
                 position: params.position,
+                messageId: params.messageId ?? null,
                 folderPath: dialogRes.folderPath,
                 userMessage: userPrompt,
                 aiResponse: params.markdown,
@@ -169,6 +171,7 @@ export class MessageToolbarOrchestrator {
         const removeRes = await this.bookmarksController.toggleBookmarkFromToolbar({
             url: params.url,
             position: params.position,
+            messageId: params.messageId ?? null,
             folderPath: this.bookmarksController.getDefaultFolderPath(),
             userMessage: userPrompt,
             aiResponse: params.markdown,
@@ -215,11 +218,13 @@ export class MessageToolbarOrchestrator {
                     const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
                     const url = typeof meta.url === 'string' ? meta.url : this.getBookmarkPageUrl();
                     const position = Number(meta.position ?? 0);
+                    const messageId = typeof meta.messageId === 'string' ? meta.messageId : null;
                     const userPrompt = String(ctx?.item?.userPrompt || '').trim();
                     const markdown = await resolveContent(ctx.item.content);
                     const result = await this.runBookmarkToggle({
                         url,
                         position,
+                        messageId,
                         userPrompt,
                         markdown,
                         alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, position),
@@ -228,7 +233,7 @@ export class MessageToolbarOrchestrator {
                         if (!result.cancelled && result.message) ctx?.notify?.(result.message);
                         return;
                     }
-                    ctx.item.meta = { ...(ctx.item.meta || {}), url, position, bookmarked: result.bookmarked, bookmarkable: true };
+                    ctx.item.meta = { ...(ctx.item.meta || {}), url, position, messageId, bookmarked: result.bookmarked, bookmarkable: true };
                     ctx?.notify?.(result.message);
                     ctx?.rerender?.();
                 },
@@ -268,13 +273,18 @@ export class MessageToolbarOrchestrator {
             onClick: async (ctx: any) => {
                 const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
                 const position = Number(meta.position ?? 0);
-                if (!position) {
+                const messageId = typeof meta.messageId === 'string' ? meta.messageId : null;
+                if (!position && !messageId) {
                     ctx?.notify?.(t('positionNotAvailable'));
                     return;
                 }
 
                 this.readerPanel.hide();
-                const result = await scrollToAssistantPositionWithRetry(this.adapter, position, { timeoutMs: 2500, intervalMs: 200 });
+                const result = await scrollToBookmarkTargetWithRetry(
+                    this.adapter,
+                    { position, messageId },
+                    { timeoutMs: 2500, intervalMs: 200 }
+                );
                 if (!result.ok) ctx?.notify?.(t('positionNotAvailable'));
             },
         });
@@ -416,12 +426,14 @@ export class MessageToolbarOrchestrator {
                     const toolbar = getToolbar();
                     const url = this.getBookmarkPageUrl();
                     const position = this.getPositionForMessage(messageElement);
+                    const messageId = this.adapter.getMessageId(messageElement);
                     const userMessage = this.getUserPromptForElement(messageElement);
                     const md = this.getMergedMarkdownForElement(messageElement);
                     if (!md.ok) return { ok: false, message: md.error.message };
                     const result = await this.runBookmarkToggle({
                         url,
                         position,
+                        messageId,
                         userPrompt: userMessage,
                         markdown: md.markdown,
                         alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, position),

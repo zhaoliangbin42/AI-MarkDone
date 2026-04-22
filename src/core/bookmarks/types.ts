@@ -4,6 +4,7 @@ export interface Bookmark {
     url: string;
     urlWithoutProtocol: string;
     position: number;
+    messageId?: string | null;
     userMessage: string;
     aiResponse?: string;
     timestamp: number;

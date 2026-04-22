@@ -208,7 +208,7 @@ describe('ReaderPanel bookmark action injection', () => {
         const item = {
             userPrompt: 'Hello from user',
             content: 'Hi',
-            meta: { position: 1, url: 'https://example.com/chat', bookmarked: false, bookmarkable: true },
+            meta: { position: 1, messageId: 'a1', url: 'https://example.com/chat', bookmarked: false, bookmarkable: true },
         };
         const notify = vi.fn();
         const rerender = vi.fn();
@@ -218,9 +218,11 @@ describe('ReaderPanel bookmark action injection', () => {
         expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
             platform: 'ChatGPT',
             position: 1,
+            messageId: 'a1',
             folderPath: '/Inbox',
             title: 'Hello from user',
         }));
+        expect(item.meta.messageId).toBe('a1');
         expect(item.meta.bookmarked).toBe(true);
         expect(rerender).toHaveBeenCalledTimes(1);
         expect(notify).toHaveBeenCalledWith('savedStatus');

@@ -258,6 +258,7 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
         expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
             platform: 'Gemini',
             position: 7,
+            messageId: 'm1',
             folderPath: '/Research',
             title: 'Prompt',
         }));

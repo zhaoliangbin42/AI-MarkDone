@@ -2,10 +2,12 @@ import type { Theme } from '../../../../../core/types/theme';
 import type { Bookmark } from '../../../../../core/bookmarks/types';
 import type { ReaderItem } from '../../../../../services/reader/types';
 import { PathUtils } from '../../../../../core/bookmarks/path';
+import { validateBookmarkTitle } from '../../../../../core/bookmarks/title';
 import { t } from '../../../components/i18n';
 import type { ModalHost } from '../../../components/ModalHost';
 import type { ReaderPanel } from '../../../reader/ReaderPanel';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
+import { titleValidationMessage } from '../../helpers/nameValidation';
 import { bookmarkSaveDialog } from '../../save/bookmarkSaveDialogSingleton';
 
 function bookmarkSelectionKey(b: Bookmark): string {
@@ -85,6 +87,7 @@ export type BookmarksTabActions = {
     confirmDeleteBookmark(): Promise<boolean>;
     promptCreateFolderPath(): Promise<string | null>;
     promptFolderName(title: string): Promise<string | null>;
+    promptBookmarkTitle(currentTitle: string): Promise<string | null>;
     pickFolder(currentFolderPath: string | null, theme: Theme): Promise<string | null>;
     showImportMergeSummary(params: {
         kind: 'info' | 'warning';
@@ -104,6 +107,7 @@ export function createNoopBookmarksTabActions(): BookmarksTabActions {
         async confirmDeleteBookmark() { return false; },
         async promptCreateFolderPath() { return null; },
         async promptFolderName() { return null; },
+        async promptBookmarkTitle() { return null; },
         async pickFolder() { return null; },
         async showImportMergeSummary() {},
     };
@@ -201,6 +205,23 @@ export function createBookmarksTabActions(params: {
                 confirmText: t('btnSave'),
                 cancelText: t('btnCancel'),
                 validate: (value) => ({ ok: Boolean(value.trim()), message: t('folderNameEmpty') }),
+            });
+        },
+        async promptBookmarkTitle(currentTitle) {
+            return params.modal.prompt({
+                kind: 'info',
+                title: t('renameBookmarkLabel'),
+                message: t('enterBookmarkTitle'),
+                placeholder: t('enterBookmarkTitle'),
+                defaultValue: currentTitle,
+                confirmText: t('btnSave'),
+                cancelText: t('btnCancel'),
+                validate: (value) => {
+                    const result = validateBookmarkTitle(value);
+                    return result.ok
+                        ? { ok: true }
+                        : { ok: false, message: titleValidationMessage(result.reason ?? 'empty') };
+                },
             });
         },
         async pickFolder(currentFolderPath, theme) {

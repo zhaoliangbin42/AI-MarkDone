@@ -167,6 +167,9 @@
     "readerCommentSaved": {
         "message": "注释已保存"
     },
+    "readerCommentDeleted": {
+        "message": "注释已删除"
+    },
     "readerCommentCopyComments": {
         "message": "复制注释"
     },
@@ -424,6 +427,9 @@
     },
     "enterBookmarkTitle": {
         "message": "输入书签标题..."
+    },
+    "renameBookmarkLabel": {
+        "message": "重命名书签"
     },
     "saveBookmark": {
         "message": "保存书签"
@@ -849,7 +855,7 @@
         "message": "新建文件夹路径（例如 Work/Project）"
     },
     "promptNewFolderName": {
-        "message": "新文件夹名称（单段）"
+        "message": "输入文件夹名称"
     },
     "promptTargetParentFolder": {
         "message": "目标父文件夹路径（根目录留空）"

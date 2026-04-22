@@ -203,6 +203,54 @@ describe('ReaderPanel comments', () => {
         getSelectionSpy.mockRestore();
     });
 
+    it('deletes an existing annotation from the anchor edit flow and clears its UI state', async () => {
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+        const paragraph = markdownRoot.querySelector('p')!;
+        const firstText = paragraph.firstChild as Text;
+        const lastText = paragraph.lastChild as Text;
+        const range = document.createRange();
+        range.setStart(firstText, 0);
+        range.setEnd(lastText, lastText.textContent!.length);
+        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
+        await Promise.resolve();
+        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        textarea.value = 'Needs clarification';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
+        await Promise.resolve();
+
+        expect(listReaderComments(scopeId, 'a')).toHaveLength(1);
+        expect(shadow.querySelectorAll('.reader-comment-anchor')).toHaveLength(1);
+
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-anchor')!.click();
+        await Promise.resolve();
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="cancel"]')!.click();
+        await Promise.resolve();
+
+        expect(listReaderComments(scopeId, 'a')).toHaveLength(0);
+        expect(shadow.querySelectorAll('.reader-comment-anchor')).toHaveLength(0);
+        expect(shadow.querySelectorAll('.reader-comment-highlight')).toHaveLength(0);
+        expect(shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')?.disabled).toBe(true);
+
+        getSelectionSpy.mockRestore();
+    });
+
     it('opens the prompt picker centered when copying annotations from the reader header', async () => {
         const panel = new ReaderPanel();
         panel.setCommentExportSettings({

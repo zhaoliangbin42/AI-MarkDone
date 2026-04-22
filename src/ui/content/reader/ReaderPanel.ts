@@ -27,7 +27,7 @@ import {
     resolveReaderCommentExportPrompts,
     type ReaderCommentExportSettings,
 } from '../../../services/reader/commentExport';
-import { listReaderComments, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
+import { listReaderComments, removeReaderComment, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
 import { subscribeLocaleChange, t } from '../components/i18n';
@@ -969,6 +969,13 @@ export class ReaderPanel {
                     this.activeCommentId = record.id;
                     this.syncCommentUi();
                 },
+                onDelete: () => {
+                    removeReaderComment(READER_COMMENT_SCOPE_ID, record.itemId, record.id);
+                    this.activeCommentId = null;
+                    this.syncCommentUi();
+                    this.syncCommentControls();
+                    this.notify(this.getLabel('readerCommentDeleted', 'Annotation deleted'));
+                },
                 onCancel: () => this.syncCommentUi(),
             });
         });
@@ -981,6 +988,7 @@ export class ReaderPanel {
         initialText: string;
         selectedSource: string;
         onSave: (value: string) => void;
+        onDelete?: () => void;
         onCancel?: () => void;
     }): void {
         if (!this.overlaySession) return;
@@ -1001,11 +1009,15 @@ export class ReaderPanel {
                 selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
                 placeholder: this.getLabel('readerCommentPlaceholder', 'Write your annotation...'),
                 cancel: this.getLabel('btnCancel', 'Cancel'),
+                delete: this.getLabel('btnDelete', 'Delete'),
                 save: this.getLabel('readerCommentSave', 'Save annotation'),
             },
             onSave: (value) => {
                 params.onSave(value);
                 this.notify(this.getLabel('readerCommentSaved', 'Annotation saved'));
+            },
+            onDelete: () => {
+                params.onDelete?.();
             },
             onCancel: () => {
                 params.onCancel?.();

@@ -846,6 +846,11 @@ ${getPanelChromeCss()}
   height: 100%;
 }
 
+.settings-panel-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .settings-grid {
   width: min(760px, 100%);
   margin: 0 auto;
@@ -874,9 +879,11 @@ ${getPanelChromeCss()}
 .toggle-row,
 .settings-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: var(--aimd-space-3);
   padding: 10px 0;
   border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
 }
@@ -887,6 +894,7 @@ ${getPanelChromeCss()}
 }
 
 .settings-label {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -980,14 +988,17 @@ ${getPanelChromeCss()}
 
 .settings-select-shell {
   position: relative;
-  flex: 0 0 auto;
+  flex: 0 0 clamp(148px, 34%, 220px);
+  width: clamp(148px, 34%, 220px);
+  max-width: clamp(148px, 34%, 220px);
 }
 
 .settings-select-trigger {
   all: unset;
   box-sizing: border-box;
   cursor: pointer;
-  width: 220px;
+  width: 100%;
+  max-width: 100%;
   height: 44px;
   padding: 0 var(--_bookmarks-control-inline-padding);
   display: inline-flex;
@@ -1078,7 +1089,8 @@ ${getPanelChromeCss()}
 }
 
 .settings-number-field {
-  width: 220px;
+  width: clamp(148px, 34%, 220px);
+  max-width: clamp(148px, 34%, 220px);
   height: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1088,7 +1100,7 @@ ${getPanelChromeCss()}
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   box-shadow: var(--_bookmarks-control-inset-shadow);
   overflow: hidden;
-  flex: 0 0 auto;
+  flex: 0 0 clamp(148px, 34%, 220px);
 }
 
 .settings-number-field:hover,

@@ -167,6 +167,9 @@
     "readerCommentSaved": {
         "message": "Annotation saved"
     },
+    "readerCommentDeleted": {
+        "message": "Annotation deleted"
+    },
     "readerCommentCopyComments": {
         "message": "Copy annotations"
     },
@@ -424,6 +427,9 @@
     },
     "enterBookmarkTitle": {
         "message": "Enter bookmark title..."
+    },
+    "renameBookmarkLabel": {
+        "message": "Rename bookmark"
     },
     "saveBookmark": {
         "message": "Save Bookmark"
@@ -849,7 +855,7 @@
         "message": "New folder path (e.g. Work/Project)"
     },
     "promptNewFolderName": {
-        "message": "New folder name (single segment)"
+        "message": "Enter folder name"
     },
     "promptTargetParentFolder": {
         "message": "Target parent folder path (empty for root)"

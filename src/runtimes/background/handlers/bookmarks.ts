@@ -96,6 +96,9 @@ function normalizeStoredBookmark(key: string, raw: unknown, now: number): Bookma
 
     const url = typeof rec.url === 'string' ? rec.url : null;
     const position = typeof rec.position === 'number' ? rec.position : null;
+    const messageId = typeof rec.messageId === 'string' && rec.messageId.trim().length > 0
+        ? rec.messageId
+        : null;
     const userMessage = typeof rec.userMessage === 'string' ? rec.userMessage : null;
     const timestamp = typeof rec.timestamp === 'number' ? rec.timestamp : null;
 
@@ -132,6 +135,7 @@ function normalizeStoredBookmark(key: string, raw: unknown, now: number): Bookma
         url,
         urlWithoutProtocol,
         position,
+        messageId,
         userMessage,
         aiResponse,
         timestamp: timestamp || now,

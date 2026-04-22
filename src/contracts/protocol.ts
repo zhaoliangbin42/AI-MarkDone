@@ -36,6 +36,7 @@ export type BookmarksListPayload = {
 export type BookmarksSavePayload = {
     url: string;
     position: number;
+    messageId?: string | null;
     userMessage: string;
     aiResponse?: string;
     title?: string;

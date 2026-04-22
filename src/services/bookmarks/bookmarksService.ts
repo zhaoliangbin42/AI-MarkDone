@@ -25,6 +25,7 @@ export type StorageRemoveKeys = string[];
 export type SaveBookmarkInput = {
     url: string;
     position: number;
+    messageId?: string | null;
     userMessage: string;
     aiResponse?: string;
     title?: string;
@@ -138,6 +139,9 @@ export function planSaveBookmark(params: {
         url: params.input.url,
         urlWithoutProtocol,
         position: params.input.position,
+        messageId: typeof params.input.messageId === 'string' && params.input.messageId.trim().length > 0
+            ? params.input.messageId
+            : null,
         userMessage: finalUserMessage,
         aiResponse: finalAiResponse,
         timestamp,

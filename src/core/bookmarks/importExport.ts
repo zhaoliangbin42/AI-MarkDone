@@ -14,6 +14,7 @@ export const DEFAULT_PLATFORM = 'ChatGPT';
 export function validateBookmarkLike(value: unknown): value is {
     url: unknown;
     position: unknown;
+    messageId?: unknown;
     userMessage: unknown;
     timestamp: unknown;
 } {
@@ -42,6 +43,9 @@ export function normalizeImportedBookmark(item: unknown): Bookmark | null {
     const position = rec.position as number;
     const userMessage = rec.userMessage as string;
     const timestamp = rec.timestamp as number;
+    const messageId = typeof rec.messageId === 'string' && rec.messageId.trim().length > 0
+        ? rec.messageId
+        : null;
 
     const aiResponse = typeof rec.aiResponse === 'string' ? rec.aiResponse : undefined;
     const urlWithoutProtocol = typeof rec.urlWithoutProtocol === 'string'
@@ -70,6 +74,7 @@ export function normalizeImportedBookmark(item: unknown): Bookmark | null {
         url,
         urlWithoutProtocol,
         position,
+        messageId,
         userMessage,
         aiResponse,
         timestamp,
@@ -155,4 +160,3 @@ export function collectImportFolderPaths(bookmarks: Bookmark[]): string[] {
         return a.localeCompare(b, undefined, { sensitivity: 'base' });
     });
 }
-

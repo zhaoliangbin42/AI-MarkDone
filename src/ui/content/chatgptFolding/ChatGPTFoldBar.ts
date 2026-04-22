@@ -21,6 +21,8 @@ export class ChatGPTFoldBar {
     private title = '';
     private collapsed = true;
     private virtualized = false;
+    private attention = false;
+    private attentionTimer: number | null = null;
 
     constructor(theme: Theme, callbacks: ChatGPTFoldBarCallbacks) {
         this.callbacks = callbacks;
@@ -28,6 +30,12 @@ export class ChatGPTFoldBar {
         this.rootEl = document.createElement('div');
         this.rootEl.className = 'aimd-chatgpt-foldbar';
         this.rootEl.setAttribute('data-aimd-theme', theme);
+        this.rootEl.addEventListener('aimd:flash-attention', (event) => {
+            const durationMs = event instanceof CustomEvent && Number.isFinite(event.detail?.durationMs)
+                ? Number(event.detail.durationMs)
+                : 3000;
+            this.flashAttention(durationMs);
+        });
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
 
         this.styleEl = document.createElement('style');
@@ -70,6 +78,10 @@ export class ChatGPTFoldBar {
     }
 
     dispose(): void {
+        if (this.attentionTimer !== null) {
+            window.clearTimeout(this.attentionTimer);
+            this.attentionTimer = null;
+        }
         this.tooltipDelegate.disconnect();
         this.rootEl.remove();
     }
@@ -94,11 +106,27 @@ export class ChatGPTFoldBar {
         this.render();
     }
 
+    setAttention(attention: boolean): void {
+        this.attention = attention;
+        this.render();
+    }
+
+    flashAttention(durationMs = 3000): void {
+        if (this.attentionTimer !== null) window.clearTimeout(this.attentionTimer);
+        this.setAttention(true);
+        this.attentionTimer = window.setTimeout(() => {
+            this.attentionTimer = null;
+            this.setAttention(false);
+        }, durationMs);
+    }
+
     private render(): void {
         this.rootEl.dataset.collapsed = this.collapsed ? '1' : '0';
         this.rootEl.dataset.virtualized = this.virtualized ? '1' : '0';
+        this.rootEl.dataset.attention = this.attention ? '1' : '0';
         this.rootEl.style.marginBottom = this.collapsed ? 'var(--aimd-space-2)' : '0';
         this.barEl.setAttribute('aria-expanded', this.collapsed ? 'false' : 'true');
+        this.barEl.dataset.attention = this.attention ? '1' : '0';
         this.buttonEl.replaceChildren(createIcon(this.collapsed ? chevronRightIcon : chevronDownIcon));
 
         const actionLabel = this.virtualized ? t('chatgptFoldRestore') : (this.collapsed ? t('btnExpand') : t('btnCollapse'));
@@ -140,6 +168,10 @@ export class ChatGPTFoldBar {
 .bar:hover {
   background: color-mix(in srgb, var(--_foldbar-surface) 84%, var(--aimd-interactive-hover));
   border-color: color-mix(in srgb, var(--aimd-border-strong) 70%, var(--aimd-interactive-primary));
+}
+.bar[data-attention="1"] {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 14%, var(--_foldbar-surface));
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 54%, var(--aimd-border-strong));
 }
 .bar:active {
   background: color-mix(in srgb, var(--_foldbar-surface) 80%, var(--aimd-interactive-active));

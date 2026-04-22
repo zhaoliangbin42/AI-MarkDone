@@ -79,14 +79,17 @@ export function scrollToConversationTarget(
 export async function scrollToConversationTargetWithRetry(
     adapter: SiteAdapter,
     locator: ConversationLocator,
-    options?: { timeoutMs?: number; intervalMs?: number }
+    options?: { timeoutMs?: number; intervalMs?: number; behavior?: ScrollBehavior; block?: ScrollLogicalPosition }
 ): Promise<ScrollResult> {
     const timeoutMs = options?.timeoutMs ?? 2000;
     const intervalMs = options?.intervalMs ?? 200;
     const start = Date.now();
     let last: ScrollResult = { ok: false, message: 'Not ready' };
     while (Date.now() - start < timeoutMs) {
-        last = scrollToConversationTarget(adapter, locator);
+        last = scrollToConversationTarget(adapter, locator, {
+            behavior: options?.behavior,
+            block: options?.block,
+        });
         if (last.ok) return last;
         await new Promise((r) => window.setTimeout(r, intervalMs));
     }

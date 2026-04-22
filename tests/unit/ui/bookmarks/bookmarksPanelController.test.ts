@@ -7,6 +7,7 @@ const uiStateGetMock = vi.fn(async () => ({ ok: true, data: { value: 'Research/M
 const uiStateSetMock = vi.fn(async (_value: string | null) => ({ ok: true, data: { value: _value } }));
 const bulkMoveMock = vi.fn(async () => ({ ok: true, data: {} }));
 const bulkRemoveMock = vi.fn(async () => ({ ok: true, data: {} }));
+const saveMock = vi.fn(async () => ({ ok: true, data: { saved: true } }));
 const storageUsageMock = vi.fn(async () => ({ ok: true, data: { usedBytes: 0, quotaBytes: 1024, usedPercentage: 0, warningLevel: 'none' } }));
 
 vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
@@ -19,6 +20,7 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
         uiStateSetLastSelectedFolderPath: uiStateSetMock,
         bulkMove: bulkMoveMock,
         bulkRemove: bulkRemoveMock,
+        save: saveMock,
     },
 }));
 
@@ -133,6 +135,37 @@ describe('BookmarksPanelController', () => {
         expect(bulkMoveMock).toHaveBeenCalledWith({
             items: [{ url: 'https://chat.openai.com/c/123', position: 8 }],
             targetFolderPath: 'Archive',
+        });
+    });
+
+    it('renames a bookmark by reusing the existing save overwrite path without title uniqueness checks', async () => {
+        const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
+        const controller = new BookmarksPanelController({} as any);
+
+        await controller.renameBookmark({
+            url: 'https://chat.openai.com/c/123',
+            urlWithoutProtocol: 'chat.openai.com/c/123',
+            position: 8,
+            messageId: 'msg-8',
+            userMessage: 'Prompt',
+            aiResponse: 'Answer',
+            timestamp: 123456,
+            title: 'Old title',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+        }, 'Duplicate title is allowed');
+
+        expect(saveMock).toHaveBeenCalledWith({
+            url: 'https://chat.openai.com/c/123',
+            position: 8,
+            messageId: 'msg-8',
+            userMessage: 'Prompt',
+            aiResponse: 'Answer',
+            title: 'Duplicate title is allowed',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+            timestamp: 123456,
+            options: { saveContextOnly: false },
         });
     });
 

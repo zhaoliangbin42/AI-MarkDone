@@ -7,8 +7,7 @@ import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient
 import type { Result } from '../../../drivers/shared/clients/bookmarksClient';
 import { computeBookmarksPanelViewModel, type BookmarksPanelState, type BookmarksPanelViewModel } from '../../../services/bookmarks/panelModel';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
-import { isSamePageUrl, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
-import { scrollToConversationTargetWithRetry } from '../../../drivers/content/conversation/navigation';
+import { isSamePageUrl, scrollToBookmarkTargetWithRetry, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
 import { t } from '../components/i18n';
 import { logger } from '../../../core/logger';
 import {
@@ -359,6 +358,23 @@ export class BookmarksPanelController {
         return res;
     }
 
+    async renameBookmark(bookmark: Bookmark, title: string): Promise<Result<any>> {
+        const res = await bookmarksClient.save({
+            url: bookmark.url,
+            position: bookmark.position,
+            messageId: bookmark.messageId ?? null,
+            userMessage: bookmark.userMessage,
+            aiResponse: bookmark.aiResponse,
+            title,
+            platform: bookmark.platform,
+            folderPath: bookmark.folderPath,
+            timestamp: bookmark.timestamp,
+            options: { saveContextOnly: false },
+        });
+        if (res.ok) await this.refreshAll();
+        return res;
+    }
+
     async moveFolder(sourcePath: string, targetParentPath: string): Promise<Result<any>> {
         const res = await bookmarksClient.foldersMove({ sourcePath, targetParentPath });
         if (res.ok) await this.refreshAll();
@@ -414,14 +430,10 @@ export class BookmarksPanelController {
         const target = bookmark.url;
         if (isSamePageUrl(current, target)) {
             this.setStatus('Navigating…');
-            await scrollToConversationTargetWithRetry(
-                this.adapter,
-                { kind: 'legacyAssistantPosition', position: bookmark.position },
-                { timeoutMs: 2000, intervalMs: 200 }
-            );
+            await scrollToBookmarkTargetWithRetry(this.adapter, bookmark, { timeoutMs: 2000, intervalMs: 200 });
             return;
         }
-        setPendingNavigation({ url: target, position: bookmark.position });
+        setPendingNavigation({ url: target, position: bookmark.position, messageId: bookmark.messageId ?? null });
         window.location.href = target;
     }
 
@@ -458,6 +470,7 @@ export class BookmarksPanelController {
     async toggleBookmarkFromToolbar(params: {
         url: string;
         position: number;
+        messageId?: string | null;
         folderPath: string;
         userMessage: string;
         aiResponse: string;
@@ -476,6 +489,7 @@ export class BookmarksPanelController {
         const res = await bookmarksClient.save({
             url: params.url,
             position: params.position,
+            messageId: params.messageId ?? null,
             userMessage: params.userMessage,
             aiResponse: params.aiResponse,
             title: params.title,

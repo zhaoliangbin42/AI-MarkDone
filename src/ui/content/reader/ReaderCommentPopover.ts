@@ -27,10 +27,12 @@ type OpenParams = {
         selectedSource?: string;
         placeholder?: string;
         cancel?: string;
+        delete?: string;
         save?: string;
     };
     onSave: (value: string) => void;
     onCancel?: () => void;
+    onDelete?: () => void;
 };
 
 function getCommentPopoverCss(): string {
@@ -197,8 +199,10 @@ export class ReaderCommentPopover {
             selectedSource: params.labels?.selectedSource ?? 'Selected content',
             placeholder: params.labels?.placeholder ?? 'Write your annotation...',
             cancel: params.labels?.cancel ?? 'Cancel',
+            delete: params.labels?.delete ?? 'Delete',
             save: params.labels?.save ?? 'Save annotation',
         };
+        const secondaryActionLabel = params.mode === 'edit' ? labels.delete : labels.cancel;
 
         const layer = markTransientRoot(document.createElement('div'));
         layer.className = 'reader-comment-popover-layer';
@@ -217,7 +221,7 @@ export class ReaderCommentPopover {
           </div>
           <textarea class="reader-comment-popover__input" data-role="input" placeholder="${labels.placeholder}"></textarea>
           <div class="reader-comment-popover__actions">
-            <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="cancel">${labels.cancel}</button>
+            <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="cancel">${secondaryActionLabel}</button>
             <button class="secondary-btn secondary-btn--primary reader-comment-popover__btn" type="button" data-action="save">${labels.save}</button>
           </div>
         `;
@@ -264,7 +268,8 @@ export class ReaderCommentPopover {
         });
 
         popover.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => {
-            params.onCancel?.();
+            if (params.mode === 'edit') params.onDelete?.();
+            else params.onCancel?.();
             this.close(params.shadow, false);
         });
 

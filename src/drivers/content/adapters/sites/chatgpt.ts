@@ -22,20 +22,43 @@ const detector: ThemeDetector = {
 };
 
 export class ChatGPTAdapter extends SiteAdapter {
+    private getTurnContainer(rootEl: HTMLElement): HTMLElement {
+        const container = rootEl.closest('[data-turn-id-container]');
+        return container instanceof HTMLElement ? container : rootEl;
+    }
+
     private getUserTurnRootFromAssistantRoot(assistantRootEl: HTMLElement): HTMLElement | null {
-        let cursor: Element | null = assistantRootEl.previousElementSibling;
+        let cursor: Element | null = this.getTurnContainer(assistantRootEl).previousElementSibling;
         while (cursor) {
             if (!(cursor instanceof HTMLElement)) {
                 cursor = cursor.previousElementSibling;
                 continue;
             }
-            const isFoldBar = cursor.classList.contains('aimd-chatgpt-foldbar');
+
+            const turnRoot =
+                (cursor.matches?.('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]')
+                    ? cursor
+                    : cursor.querySelector?.('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]')) as HTMLElement | null;
+            const userMessage = turnRoot?.querySelector?.('[data-message-author-role="user"]') as HTMLElement | null;
+            if (turnRoot instanceof HTMLElement && userMessage instanceof HTMLElement) {
+                return turnRoot;
+            }
+
+            const isFoldBar =
+                cursor.classList.contains('aimd-chatgpt-foldbar')
+                || cursor.querySelector?.('.aimd-chatgpt-foldbar');
             if (isFoldBar) {
                 cursor = cursor.previousElementSibling;
                 continue;
             }
-            const userMessage = cursor.querySelector('[data-message-author-role="user"]');
-            return userMessage instanceof HTMLElement ? cursor : null;
+
+            const fallbackUserMessage = cursor.querySelector('[data-message-author-role="user"]');
+            if (fallbackUserMessage instanceof HTMLElement) {
+                const fallbackRoot = fallbackUserMessage.closest('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]');
+                return fallbackRoot instanceof HTMLElement ? fallbackRoot : cursor;
+            }
+
+            cursor = cursor.previousElementSibling;
         }
         return null;
     }

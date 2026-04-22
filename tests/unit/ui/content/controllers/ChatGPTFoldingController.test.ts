@@ -278,4 +278,5 @@ describe('ChatGPTFoldingController', () => {
 
         controller.dispose();
     });
+
 });

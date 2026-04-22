@@ -54,6 +54,7 @@ type BookmarksTreeViewportActions = {
     openBookmark: (bookmark: Bookmark) => Promise<void> | void;
     goToBookmark: (bookmark: Bookmark) => Promise<void> | void;
     copyBookmark: (bookmark: Bookmark) => Promise<void> | void;
+    renameBookmark: (bookmark: Bookmark) => Promise<void> | void;
     moveBookmark: (bookmark: Bookmark) => Promise<void> | void;
     deleteBookmark: (bookmark: Bookmark) => Promise<void> | void;
     createFolder: () => Promise<void> | void;
@@ -171,6 +172,7 @@ function renderBookmarkRow(bookmark: Bookmark, depth: number, selectedKeys: Set<
         <div class="tree-actions">
           <button class="icon-btn" type="button" data-action="go-to-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(t('openConversationLabel'))}" title="${escapeHtml(t('openConversationLabel'))}" ${tooltipAttr(t('openConversationLabel'))}>${icon(externalLinkIcon)}</button>
           <button class="icon-btn" type="button" data-action="copy-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(t('btnCopyText'))}" title="${escapeHtml(t('btnCopyText'))}" ${tooltipAttr(t('btnCopyText'))}>${icon(copyIcon)}</button>
+          <button class="icon-btn" type="button" data-action="rename-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(t('renameBookmarkLabel'))}" title="${escapeHtml(t('renameBookmarkLabel'))}" ${tooltipAttr(t('renameBookmarkLabel'))}>${icon(pencilIcon)}</button>
           <button class="icon-btn" type="button" data-action="move-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(t('moveBookmarkLabel'))}" title="${escapeHtml(t('moveBookmarkLabel'))}" ${tooltipAttr(t('moveBookmarkLabel'))}>${icon(moveIcon)}</button>
           <button class="icon-btn icon-btn--danger" type="button" data-action="delete-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" aria-label="${escapeHtml(t('btnDelete'))}" title="${escapeHtml(t('btnDelete'))}" ${tooltipAttr(t('btnDelete'))}>${icon(trashIcon)}</button>
         </div>
@@ -526,6 +528,9 @@ export class BookmarksTreeViewport {
                     return;
                 case 'copy-bookmark':
                     if (bookmark) await this.actions.copyBookmark(bookmark);
+                    return;
+                case 'rename-bookmark':
+                    if (bookmark) await this.actions.renameBookmark(bookmark);
                     return;
                 case 'move-bookmark':
                     if (bookmark) await this.actions.moveBookmark(bookmark);

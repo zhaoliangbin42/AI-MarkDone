@@ -2,7 +2,7 @@ import { getAdapter } from '../../drivers/content/adapters/registry';
 import type { Theme } from '../../core/types/theme';
 import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { MathClickHandler } from '../../drivers/content/math/math-click';
-import { consumePendingNavigation, scrollToAssistantPositionWithRetry } from '../../drivers/content/bookmarks/navigation';
+import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
 import { isExtRequest } from '../../contracts/protocol';
 import { ensurePageTokens } from '../../style/pageTokens';
@@ -133,6 +133,6 @@ if (adapter) {
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
     const pending = consumePendingNavigation();
     if (pending) {
-        void scrollToAssistantPositionWithRetry(adapter, pending.position, { timeoutMs: 2500, intervalMs: 200 });
+        void scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
     }
 }

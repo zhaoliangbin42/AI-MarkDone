@@ -102,4 +102,40 @@ describe('ReaderCommentPopover', () => {
         input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
         expect(onSave).toHaveBeenCalledWith('line 1');
     });
+
+    it('uses Delete in edit mode and routes it through onDelete instead of cancel', () => {
+        const { shadow, container } = createHost();
+        const popover = new ReaderCommentPopover();
+        const onDelete = vi.fn();
+        const onCancel = vi.fn();
+
+        popover.open({
+            shadow,
+            container,
+            theme: 'light',
+            mode: 'edit',
+            initialText: 'seed',
+            selectedSource: 'seed source',
+            anchorRect: {
+                left: 180,
+                top: 320,
+                width: 120,
+                height: 22,
+                right: 300,
+                bottom: 342,
+            },
+            labels: {},
+            onSave: vi.fn(),
+            onDelete,
+            onCancel,
+        } as any);
+
+        const secondaryAction = shadow.querySelector<HTMLButtonElement>('[data-action="cancel"]');
+        expect(secondaryAction?.textContent).toBe('Delete');
+
+        secondaryAction?.click();
+
+        expect(onDelete).toHaveBeenCalledTimes(1);
+        expect(onCancel).not.toHaveBeenCalled();
+    });
 });

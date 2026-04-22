@@ -211,6 +211,22 @@ describe('SettingsTabView', () => {
         expect(css).toContain('background: var(--aimd-interactive-primary-hover);');
     });
 
+    it('locks settings scrolling to the vertical axis while keeping settings rows in a stable two-column layout', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).toContain('.settings-panel-scroll,');
+        expect(css).toContain('overflow-x: hidden;');
+        expect(css).toContain('overflow-y: auto;');
+        expect(css).toContain('.toggle-row,');
+        expect(css).toContain('flex-wrap: nowrap;');
+        expect(css).toContain('.settings-label {');
+        expect(css).toContain('flex: 1 1 auto;');
+        expect(css).toContain('.settings-select-shell {');
+        expect(css).toContain('width: clamp(148px, 34%, 220px);');
+        expect(css).toContain('.settings-number-field {');
+        expect(css).toContain('width: clamp(148px, 34%, 220px);');
+    });
+
     it('routes settings updates through injected actions instead of directly depending on the rpc client', async () => {
         const modal = {
             confirm: vi.fn(async () => true),

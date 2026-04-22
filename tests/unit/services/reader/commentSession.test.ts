@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
     clearReaderCommentScope,
     listReaderComments,
+    removeReaderComment,
     saveReaderComment,
     type ReaderCommentRecord,
 } from '@/services/reader/commentSession';
@@ -48,5 +49,13 @@ describe('commentSession', () => {
         expect(comments).toHaveLength(1);
         expect(comments[0]?.comment).toBe('updated');
         expect(comments[0]?.updatedAt).toBe(30);
+    });
+
+    it('removes an existing comment and clears the item bucket when it becomes empty', () => {
+        saveReaderComment(scopeId, createRecord());
+
+        removeReaderComment(scopeId, 'item-1', 'comment-1');
+
+        expect(listReaderComments(scopeId, 'item-1')).toEqual([]);
     });
 });

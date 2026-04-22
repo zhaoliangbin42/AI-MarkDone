@@ -48,6 +48,7 @@ describe('BookmarksTreeViewport', () => {
             openBookmark: vi.fn(),
             goToBookmark: vi.fn(),
             copyBookmark: vi.fn(),
+            renameBookmark: vi.fn(),
             moveBookmark: vi.fn(),
             deleteBookmark: vi.fn(),
             createFolder: vi.fn(),
@@ -86,6 +87,7 @@ describe('BookmarksTreeViewport', () => {
                 openBookmark: vi.fn(),
                 goToBookmark: vi.fn(),
                 copyBookmark: vi.fn(),
+                renameBookmark: vi.fn(),
                 moveBookmark: vi.fn(),
                 deleteBookmark: vi.fn(),
                 createFolder: vi.fn(),
@@ -134,5 +136,45 @@ describe('BookmarksTreeViewport', () => {
             window.requestAnimationFrame = originalRaf;
             window.cancelAnimationFrame = originalCancelRaf;
         }
+    });
+
+    it('invokes the shared rename action from the bookmark row control', async () => {
+        const actions = {
+            selectFolder: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            openBookmark: vi.fn(),
+            goToBookmark: vi.fn(),
+            copyBookmark: vi.fn(),
+            renameBookmark: vi.fn(),
+            moveBookmark: vi.fn(),
+            deleteBookmark: vi.fn(),
+            createFolder: vi.fn(),
+            importBookmarks: vi.fn(),
+            createSubfolder: vi.fn(),
+            renameFolder: vi.fn(),
+            moveFolder: vi.fn(),
+            deleteFolder: vi.fn(),
+        };
+        const viewport = new BookmarksTreeViewport({
+            controller: {
+                getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+                getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            } as any,
+            actions,
+        });
+
+        const snapshot = makeSnapshot(1);
+        viewport.update(snapshot);
+
+        const renameBtn = viewport.getElement().querySelector('[data-action="rename-bookmark"]') as HTMLButtonElement | null;
+        expect(renameBtn).toBeTruthy();
+
+        renameBtn!.click();
+        await Promise.resolve();
+
+        expect(actions.renameBookmark).toHaveBeenCalledWith(snapshot.vm.bookmarks[0]);
+        viewport.destroy();
     });
 });

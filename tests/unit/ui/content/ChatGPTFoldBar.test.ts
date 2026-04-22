@@ -50,4 +50,18 @@ describe('ChatGPTFoldBar', () => {
         expect(barStyle).not.toContain('background: var(--aimd-color-white);');
         expect(dockStyle).not.toContain('background: var(--aimd-color-white);');
     });
+
+    it('supports a temporary attention state for navigation hints without hardcoded colors', () => {
+        const bar = new ChatGPTFoldBar('light', { onToggle() {} });
+        const host = bar.getElement();
+        const style = host.shadowRoot?.querySelector('style')?.textContent ?? '';
+
+        bar.setAttention(true);
+        expect(host.dataset.attention).toBe('1');
+        expect(style).toContain('.bar[data-attention="1"]');
+        expect(style).toContain('var(--aimd-interactive-primary)');
+
+        bar.setAttention(false);
+        expect(host.dataset.attention).toBe('0');
+    });
 });

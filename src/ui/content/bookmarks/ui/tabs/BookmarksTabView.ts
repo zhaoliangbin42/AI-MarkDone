@@ -70,6 +70,7 @@ export class BookmarksTabView {
                 openBookmark: async (bookmark) => await this.openPreviewInReader(bookmark),
                 goToBookmark: async (bookmark) => await this.goTo(bookmark),
                 copyBookmark: async (bookmark) => await this.controller.copyBookmarkMarkdown(bookmark),
+                renameBookmark: async (bookmark) => await this.renameBookmark(bookmark),
                 moveBookmark: async (bookmark) => await this.moveBookmark(bookmark),
                 deleteBookmark: async (bookmark) => await this.deleteBookmark(bookmark),
                 createFolder: async () => await this.createFolder(),
@@ -371,6 +372,14 @@ export class BookmarksTabView {
         const res = await this.controller.moveBookmark(bookmark, target);
         if (!res.ok) await this.actions.alertError(t('moveBookmarkLabel'), res.message);
         this.controller.setPanelStatus(res.ok ? t('movedStatus') : res.message);
+    }
+
+    private async renameBookmark(bookmark: Bookmark): Promise<void> {
+        const title = await this.actions.promptBookmarkTitle(bookmark.title);
+        if (title === null) return;
+        const res = await this.controller.renameBookmark(bookmark, title);
+        if (!res.ok) await this.actions.alertError(t('renameBookmarkLabel'), res.message);
+        this.controller.setPanelStatus(res.ok ? t('renamedStatus') : res.message);
     }
 
     private async deleteFolder(path: string): Promise<void> {
