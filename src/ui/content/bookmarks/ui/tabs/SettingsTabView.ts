@@ -1,4 +1,4 @@
-import type { AppSettings, FoldingMode } from '../../../../../core/settings/types';
+import type { AppSettings } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
 import {
     createDefaultCommentTemplate as createDefaultAnnotationTemplate,
@@ -18,7 +18,6 @@ import {
     type TransientOutsideDismissBoundaryHandle,
 } from '../../../components/transientUi';
 import { createBookmarksInlineSelect } from '../components/BookmarksInlineSelect';
-import { createBookmarksNumberStepperField } from '../components/BookmarksNumberStepperField';
 import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 
@@ -46,12 +45,7 @@ type SelectRef = {
 
 type Refs = {
     platforms: Record<'chatgpt' | 'gemini' | 'claude' | 'deepseek', HTMLInputElement>;
-    foldingMode: SelectRef;
-    foldingCountItem: HTMLElement;
-    foldingCountParent: HTMLElement;
-    foldingCount: HTMLInputElement;
-    showFoldDockItem: HTMLElement;
-    showFoldDock: HTMLInputElement;
+    showConversationDirectory: HTMLInputElement;
     behavior: {
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
@@ -110,19 +104,11 @@ export class SettingsTabView {
 
         // ChatGPT group
         const chatgptGroup = this.createGroup(Icons.chatgpt, t('chatgptSettings'));
-        const foldingMode = this.createSelect(chatgptGroup.body, t('chatgptFoldingLabel'), t('chatgptFoldingDesc'), [
-            { value: 'off', label: t('chatgptFoldingModeOff') },
-            { value: 'all', label: t('chatgptFoldingModeAll') },
-            { value: 'keep_last_n', label: t('chatgptFoldingModeKeepLastN') },
-        ], 'folding-mode');
-        foldingMode.trigger.id = 'aimd-chatgpt-folding-mode';
-
-        const foldingCountItem = this.createNumber(chatgptGroup.body, t('chatgptFoldingCountLabel'), t('chatgptFoldingCountDesc'));
-        foldingCountItem.input.id = 'aimd-chatgpt-folding-count';
-        foldingCountItem.input.min = '0';
-        foldingCountItem.input.step = '1';
-
-        const showFoldDock = this.createToggle(chatgptGroup.body, t('chatgptFoldDockLabel'), t('chatgptFoldDockDesc'));
+        const showConversationDirectory = this.createToggle(
+            chatgptGroup.body,
+            t('chatgptConversationDirectoryLabel'),
+            t('chatgptConversationDirectoryDesc'),
+        );
 
         // Behavior group
         const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
@@ -205,12 +191,7 @@ export class SettingsTabView {
                 claude: platforms.claude.input,
                 deepseek: platforms.deepseek.input,
             },
-            foldingMode,
-            foldingCountParent: chatgptGroup.body,
-            foldingCountItem: foldingCountItem.root,
-            foldingCount: foldingCountItem.input,
-            showFoldDockItem: showFoldDock.root,
-            showFoldDock: showFoldDock.input,
+            showConversationDirectory: showConversationDirectory.input,
             behavior: {
                 showSaveMessages: showSaveMessages.input,
                 showWordCount: showWordCount.input,
@@ -231,7 +212,7 @@ export class SettingsTabView {
         this.refs.platforms.gemini.dataset.role = 'settings-platform-gemini';
         this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
-        this.refs.showFoldDock.dataset.role = 'settings-fold-dock';
+        this.refs.showConversationDirectory.dataset.role = 'settings-chatgpt-conversation-directory';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.enableClickToCopy.dataset.role = 'settings-click-to-copy';
@@ -249,7 +230,7 @@ export class SettingsTabView {
     }
 
     focusPrimaryInput(): void {
-        this.refs.foldingMode.trigger.focus({ preventScroll: true } as FocusOptions);
+        this.refs.showConversationDirectory.focus({ preventScroll: true } as FocusOptions);
     }
 
     dismissTransientUi(): void {
@@ -314,27 +295,10 @@ export class SettingsTabView {
             });
         }
 
-        // ChatGPT folding
-        this.refs.foldingMode.onChange((value) => {
-            const mode = value as FoldingMode;
-            this.settings.chatgpt.foldingMode = mode;
-            this.applySettingsToDom();
-            void this.actions.setChatGptSettings?.({ foldingMode: mode });
-        });
-        this.refs.foldingCount.addEventListener('input', () => {
-            const n = Number(this.refs.foldingCount.value);
-            const next = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-            this.settings.chatgpt.defaultExpandedCount = next;
-            void this.actions.setChatGptSettings?.({ defaultExpandedCount: next });
-        });
-        this.refs.foldingCount.addEventListener('change', () => {
-            const n = Number(this.refs.foldingCount.value);
-            this.refs.foldingCount.value = String(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
-        });
-        this.refs.showFoldDock.addEventListener('change', () => {
-            const next = this.refs.showFoldDock.checked;
-            this.settings.chatgpt.showFoldDock = next;
-            void this.actions.setChatGptSettings?.({ showFoldDock: next });
+        this.refs.showConversationDirectory.addEventListener('change', () => {
+            const next = this.refs.showConversationDirectory.checked;
+            this.settings.chatgpt.showConversationDirectory = next;
+            void this.actions.setChatGptSettings?.({ showConversationDirectory: next });
         });
         // Behavior + reader
         this.refs.behavior.showSaveMessages.addEventListener('change', () => {
@@ -404,10 +368,7 @@ export class SettingsTabView {
         this.refs.platforms.claude.checked = Boolean(s.platforms.claude);
         this.refs.platforms.deepseek.checked = Boolean(s.platforms.deepseek);
 
-        this.refs.foldingMode.setValue(s.chatgpt.foldingMode);
-        this.refs.foldingCount.value = String(s.chatgpt.defaultExpandedCount);
-        this.refs.foldingCount.dataset.role = 'settings-folding-count';
-        this.refs.showFoldDock.checked = Boolean(s.chatgpt.showFoldDock);
+        this.refs.showConversationDirectory.checked = Boolean(s.chatgpt.showConversationDirectory);
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.enableClickToCopy.checked = Boolean(s.behavior.enableClickToCopy);
@@ -421,34 +382,13 @@ export class SettingsTabView {
         this.syncToggle(this.refs.platforms.gemini);
         this.syncToggle(this.refs.platforms.claude);
         this.syncToggle(this.refs.platforms.deepseek);
-        this.syncToggle(this.refs.showFoldDock);
+        this.syncToggle(this.refs.showConversationDirectory);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.enableClickToCopy);
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.reader.renderCodeInReader);
 
-        // Only show count input when keep_last_n.
-        const foldingEnabled = s.chatgpt.foldingMode !== 'off';
-        if (foldingEnabled) {
-            if (!this.refs.showFoldDockItem.isConnected) this.refs.foldingCountParent.appendChild(this.refs.showFoldDockItem);
-        } else {
-            this.refs.showFoldDockItem.remove();
-        }
-        const showCount = s.chatgpt.foldingMode === 'keep_last_n';
-        if (showCount && foldingEnabled) {
-            if (!this.refs.foldingCountItem.isConnected) {
-                if (this.refs.showFoldDockItem.isConnected) {
-                    this.refs.foldingCountParent.insertBefore(this.refs.foldingCountItem, this.refs.showFoldDockItem);
-                } else {
-                    this.refs.foldingCountParent.appendChild(this.refs.foldingCountItem);
-                }
-            }
-            this.refs.foldingCountItem.dataset.role = 'settings-folding-count-container';
-        } else {
-            this.refs.foldingCountItem.remove();
-            delete this.refs.foldingCountItem.dataset.role;
-        }
         this.refs.storageText.textContent = usagePercent;
 
         const storageFill = this.root.querySelector<HTMLElement>('[data-field="storage_bar"]');
@@ -555,22 +495,6 @@ export class SettingsTabView {
         });
         this.selectRefs.push(ref);
         return ref;
-    }
-
-    private createNumber(parent: HTMLElement, labelText: string, desc: string): { root: HTMLElement; input: HTMLInputElement } {
-        return createBookmarksNumberStepperField({
-            parent,
-            labelText,
-            desc,
-            valueRole: 'settings-folding-count',
-            onStep: (direction) => {
-                const current = Number(this.refs.foldingCount.value);
-                const normalized = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
-                const next = direction === 'up' ? normalized + 1 : Math.max(0, normalized - 1);
-                this.refs.foldingCount.value = String(next);
-                this.refs.foldingCount.dispatchEvent(new Event('input', { bubbles: true }));
-            },
-        });
     }
 
     private closeSelectMenus(): void {

@@ -9,7 +9,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             data: {
                 settings: {
                     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                    chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                    chatgpt: { showConversationDirectory: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,
@@ -265,9 +265,11 @@ describe('BookmarksPanel', () => {
         expect(refreshedSettingsPanel?.querySelector('.settings-card')).toBeTruthy();
         expect(refreshedSettingsPanel?.querySelector('.storage-fill')).toBeTruthy();
         expect(refreshedSettingsPanel?.textContent).toContain('50%');
-        expect(refreshedSettingsPanel?.querySelectorAll('.settings-select-trigger').length).toBeGreaterThanOrEqual(2);
+        expect(refreshedSettingsPanel?.querySelectorAll('.settings-select-trigger').length).toBeGreaterThanOrEqual(1);
         expect(refreshedSettingsPanel?.querySelector('.settings-select')).toBeNull();
         expect(refreshedSettingsPanel?.querySelector('[data-role="settings-folding-count"]')).toBeNull();
+        const directoryToggle = refreshedSettingsPanel?.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-conversation-directory"]');
+        expect(directoryToggle?.checked).toBe(true);
         const platformLabels = Array.from(refreshedSettingsPanel?.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong') ?? []);
         const deepseekLabel = platformLabels.find((node) => node.textContent?.includes('Deep'));
         expect(deepseekLabel?.textContent).toContain('DeepSeek');
@@ -280,13 +282,11 @@ describe('BookmarksPanel', () => {
         expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
         expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
 
-        shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!.click();
-        shadow.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-mode"][data-value="keep_last_n"]')!.click();
+        directoryToggle!.checked = false;
+        directoryToggle!.dispatchEvent(new Event('change', { bubbles: true }));
         await flushUi();
 
-        const keepLastNPanel = shadow.querySelector<HTMLElement>('.settings-panel');
-        expect(keepLastNPanel?.querySelector('[data-role="settings-folding-count"]')).toBeTruthy();
-        expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgpt', { foldingMode: 'keep_last_n' });
+        expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgpt', { showConversationDirectory: false });
 
         changelogTabButton!.click();
 
@@ -728,12 +728,8 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector<HTMLInputElement>('[data-role="bookmark-query"]')?.classList.contains('aimd-field-control')).toBe(true);
 
         shadow.querySelector<HTMLButtonElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
-        shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!.click();
-        shadow.querySelector<HTMLElement>('[data-action="settings-select-option"][data-menu="folding-mode"][data-value="keep_last_n"]')!.click();
-        await flushUi();
 
-        expect(shadow.querySelector('.settings-number-field')?.classList.contains('aimd-field-shell')).toBe(true);
-        expect(shadow.querySelector<HTMLInputElement>('.settings-number')?.classList.contains('aimd-field-control')).toBe(true);
+        expect(shadow.querySelector<HTMLButtonElement>('.settings-select-trigger')).toBeTruthy();
 
         panel.hide();
     });
@@ -1034,7 +1030,7 @@ describe('BookmarksPanel', () => {
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
-        const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!;
+        const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="language"]')!;
 
         trigger.click();
         expect(shadow.querySelector('.settings-select-menu')?.getAttribute('data-open')).toBe('1');
@@ -1618,9 +1614,9 @@ describe('BookmarksPanel', () => {
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         const actions = Array.from(shadow.querySelectorAll<HTMLElement>('.tree-item--bookmark .tree-actions .icon-btn'));
         const labels = actions.map((button) => button.getAttribute('aria-label'));
-        expect(labels).toEqual(['Open conversation', 'Copy', 'Move bookmark', 'Delete']);
+        expect(labels).toEqual(['Open conversation', 'Copy', 'Rename bookmark', 'Move bookmark', 'Delete']);
 
-        actions[2]!.click();
+        actions[3]!.click();
         await flushUi();
 
         expect(controller.moveBookmark).toHaveBeenCalledWith(bookmark, 'Archive');
@@ -1685,6 +1681,7 @@ describe('BookmarksPanel', () => {
             getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT · 2026/3/15'),
             exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
             setPanelStatus: vi.fn(),
+            renameBookmark: vi.fn(async () => ({ ok: true, data: bookmark })),
             goToBookmark: vi.fn(async () => undefined),
             copyBookmarkMarkdown: vi.fn(async () => undefined),
             moveBookmark: vi.fn(async () => ({ ok: true })),
@@ -1700,9 +1697,9 @@ describe('BookmarksPanel', () => {
 
         buttons[0]!.click();
         buttons[1]!.click();
-        buttons[2]!.click();
-        await flushUi();
         buttons[3]!.click();
+        await flushUi();
+        buttons[4]!.click();
         await flushUi();
         shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
         await flushUi();
@@ -1784,6 +1781,7 @@ describe('BookmarksPanel', () => {
             getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT · 2026/3/15'),
             exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
             setPanelStatus: vi.fn(),
+            renameBookmark: vi.fn(async () => ({ ok: true, data: visibleTreeBookmark })),
             goToBookmark: vi.fn(async () => undefined),
             copyBookmarkMarkdown: vi.fn(async () => undefined),
             moveBookmark: vi.fn(async () => ({ ok: true })),
@@ -1797,13 +1795,13 @@ describe('BookmarksPanel', () => {
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         const buttons = Array.from(shadow.querySelectorAll<HTMLElement>('.tree-item--bookmark .tree-actions .icon-btn'));
 
-        expect(buttons).toHaveLength(4);
+        expect(buttons).toHaveLength(5);
 
         buttons[0]!.click();
         buttons[1]!.click();
-        buttons[2]!.click();
-        await flushUi();
         buttons[3]!.click();
+        await flushUi();
+        buttons[4]!.click();
         await flushUi();
         shadow.querySelector<HTMLButtonElement>('[data-action="modal-confirm"]')!.click();
         await flushUi();
@@ -2858,7 +2856,7 @@ describe('BookmarksPanel', () => {
         expect(settingsPanel).toBeTruthy();
         settingsPanel!.scrollTop = 180;
 
-        shadow.querySelector<HTMLElement>('[data-action="toggle-settings-menu"][data-menu="folding-mode"]')!.click();
+        shadow.querySelector<HTMLElement>('[data-action="toggle-settings-menu"][data-menu="language"]')!.click();
 
         const refreshedSettingsPanel = shadow.querySelector<HTMLElement>('.settings-panel');
         expect(refreshedSettingsPanel?.scrollTop).toBe(180);

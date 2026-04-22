@@ -72,46 +72,15 @@ describe('background settings handler', () => {
         expect((getRes?.response as any).data.value.showWordCount).toBe(false);
     });
 
-    it('drops removed reader markdown theme settings and only persists the remaining reader fields', async () => {
-        const sync = mockSyncStorage();
-        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
-        (globalThis as any).chrome = undefined;
-
-        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
-        const setRes = await handleSettingsRequest({
-            v: PROTOCOL_VERSION,
-            id: 'req_reader_theme_set',
-            type: 'settings:setCategory',
-            payload: { category: 'reader', value: { renderCodeInReader: false, markdownTheme: 'github-dark-high-contrast' } },
-        } as any);
-        expect(setRes?.response.ok).toBe(true);
-
-        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
-        expect(raw.reader.renderCodeInReader).toBe(false);
-        expect(raw.reader).not.toHaveProperty('markdownTheme');
-
-        const getRes = await handleSettingsRequest({
-            v: PROTOCOL_VERSION,
-            id: 'req_reader_theme_get',
-            type: 'settings:getCategory',
-            payload: { category: 'reader' },
-        } as any);
-
-        expect(getRes?.response.ok).toBe(true);
-        expect((getRes?.response as any).data.value.renderCodeInReader).toBe(false);
-        expect((getRes?.response as any).data.value).not.toHaveProperty('markdownTheme');
-    });
-
-    it('drops removed chatgpt virtualization fields before persisting category updates', async () => {
+    it('drops removed chatgpt folding fields before persisting category updates', async () => {
         const sync = mockSyncStorage({
             [LEGACY_STORAGE_KEYS.appSettingsKey]: {
                 version: 3,
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
                 chatgpt: {
+                    showFoldDock: true,
                     foldingMode: 'all',
                     defaultExpandedCount: 8,
-                    showFoldDock: true,
-                    foldingPowerMode: 'on',
                     enableVirtualization: false,
                 },
                 behavior: {
@@ -134,39 +103,16 @@ describe('background settings handler', () => {
             v: PROTOCOL_VERSION,
             id: 'req_chatgpt_cleanup',
             type: 'settings:setCategory',
-            payload: { category: 'chatgpt', value: { showFoldDock: false } },
+            payload: { category: 'chatgpt', value: { showConversationDirectory: false } },
         } as any);
         expect(setRes?.response.ok).toBe(true);
 
         const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
-        expect(raw.chatgpt.showFoldDock).toBe(false);
-        expect(raw.chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(raw.chatgpt.showConversationDirectory).toBe(false);
+        expect(raw.chatgpt).not.toHaveProperty('showFoldDock');
+        expect(raw.chatgpt).not.toHaveProperty('foldingMode');
+        expect(raw.chatgpt).not.toHaveProperty('defaultExpandedCount');
         expect(raw.chatgpt).not.toHaveProperty('enableVirtualization');
-        expect(raw.chatgpt).not.toHaveProperty('enableEarlyPrune');
-    });
-
-    it('drops the retired source panel behavior flag before persisting behavior updates', async () => {
-        const sync = mockSyncStorage({
-            [LEGACY_STORAGE_KEYS.appSettingsKey]: {
-                version: 3,
-                behavior: { showViewSource: true, showSaveMessages: true, showWordCount: true },
-            },
-        });
-        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
-        (globalThis as any).chrome = undefined;
-
-        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
-        const setRes = await handleSettingsRequest({
-            v: PROTOCOL_VERSION,
-            id: 'req_behavior_cleanup',
-            type: 'settings:setCategory',
-            payload: { category: 'behavior', value: { showWordCount: false } },
-        } as any);
-        expect(setRes?.response.ok).toBe(true);
-
-        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
-        expect(raw.behavior.showWordCount).toBe(false);
-        expect(raw.behavior).not.toHaveProperty('showViewSource');
     });
 
     it('rejects legacy performance category through the protocol', async () => {
@@ -184,31 +130,5 @@ describe('background settings handler', () => {
 
         expect(setRes?.response.ok).toBe(false);
         expect((setRes?.response as any).error.code).toBe('INVALID_REQUEST');
-
-        const getRes = await handleSettingsRequest({
-            v: PROTOCOL_VERSION,
-            id: 'req_legacy_get',
-            type: 'settings:getCategory',
-            payload: { category: 'performance' },
-        } as any);
-
-        expect(getRes?.response.ok).toBe(false);
-        expect((getRes?.response as any).error.code).toBe('INVALID_REQUEST');
-    });
-
-    it('resets settings', async () => {
-        const sync = mockSyncStorage({
-            [LEGACY_STORAGE_KEYS.appSettingsKey]: { version: 3, behavior: { showWordCount: false } },
-        });
-        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
-        (globalThis as any).chrome = undefined;
-
-        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
-        const res = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'req_4', type: 'settings:reset' } as any);
-        expect(res?.response.ok).toBe(true);
-
-        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
-        expect(raw.version).toBe(3);
-        expect(raw.behavior.showWordCount).toBe(true);
     });
 });

@@ -14,6 +14,8 @@ export type ConversationGroupRef = {
     assistantRootEl: HTMLElement;
     assistantMessageEl: HTMLElement;
     userRootEl: HTMLElement | null;
+    userPromptText?: string | null;
+    barAnchorEl?: HTMLElement | null;
     groupEls: HTMLElement[];
     assistantIndex: number;
     isStreaming: boolean;
@@ -82,7 +84,7 @@ export abstract class SiteAdapter {
     getConversationScrollRoot?(): HTMLElement | null;
 
     /**
-     * Optional platform-owned conversation grouping for virtualization.
+     * Optional platform-owned conversation grouping / anchor hints for page-level navigation.
      */
     getConversationGroupRefs?(): ConversationGroupRef[];
 

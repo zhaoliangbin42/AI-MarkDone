@@ -3,7 +3,7 @@
         "message": "AI-MarkDone"
     },
     "extDescription": {
-        "message": "All you need for ChatGPT, Gemini, Claude & DeepSeek: reader mode, message folding, bookmarks, LaTeX copy & Markdown export."
+        "message": "All you need for ChatGPT, Gemini, Claude & DeepSeek: reader mode, conversation directory, bookmarks, LaTeX copy & Markdown export."
     },
     "btnCopy": {
         "message": "Copy Markdown"
@@ -470,32 +470,11 @@
     "reader": {
         "message": "Reader"
     },
-    "chatgptFoldingLabel": {
-        "message": "ChatGPT folding"
+    "chatgptConversationDirectoryLabel": {
+        "message": "Conversation directory"
     },
-    "chatgptFoldingDesc": {
-        "message": "Collapse older assistant messages to reduce lag in long conversations."
-    },
-    "chatgptFoldingModeOff": {
-        "message": "Off"
-    },
-    "chatgptFoldingModeAll": {
-        "message": "Collapse all"
-    },
-    "chatgptFoldingModeKeepLastN": {
-        "message": "Keep last N expanded"
-    },
-    "chatgptFoldingCountLabel": {
-        "message": "Default expanded count"
-    },
-    "chatgptFoldingCountDesc": {
-        "message": "How many recent assistant messages stay expanded by default."
-    },
-    "chatgptFoldDockLabel": {
-        "message": "Right-side fold buttons"
-    },
-    "chatgptFoldDockDesc": {
-        "message": "Show fixed collapse/expand all buttons on the right side."
+    "chatgptConversationDirectoryDesc": {
+        "message": "Show the right-side round directory for same-page navigation in long ChatGPT conversations."
     },
     "chatgptCollapseAll": {
         "message": "Collapse all"

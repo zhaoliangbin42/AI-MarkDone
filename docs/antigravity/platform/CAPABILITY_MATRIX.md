@@ -8,7 +8,7 @@
 
 | Platform | Status | Host patterns | Notable deltas |
 |:---|:---:|:---|:---|
-| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 ChatGPT Folding 与右侧 fold dock；保留 classic host 链接与权限一致性门禁。 |
+| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader 与右侧 conversation directory rail；保留 classic host 链接与权限一致性门禁。 |
 | Gemini | ✅ Active | `gemini.google.com` | 支持 Gemini-specific DOM 结构与 thought/noise 过滤。 |
 | Claude | ✅ Active | `claude.ai` | 支持 Claude action-row 缺席时的稳定注入与发送桥接。 |
 | DeepSeek | ✅ Active | `chat.deepseek.com` | 支持 DeepSeek DOM 结构、噪音过滤与消息入口。 |
@@ -27,7 +27,7 @@
   - Bookmarks panel / Settings tab / Sponsor tab
   - Send modal / Reader send / Export actions
 - 当前唯一明确的**平台专属**能力是：
-  - ChatGPT Folding（仅 ChatGPT hosts）
+  - ChatGPT Conversation Directory / Payload Engine（仅 ChatGPT hosts）
 - 当前明确**不继续推进**的平台方向：
   - Gemini Deep Research（不纳入产品支持范围）
 
@@ -42,8 +42,8 @@
 | URL 匹配 | `chatgpt.com`, `chat.openai.com` |
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
-| 特殊处理 | 消息折叠；右侧固定折叠/展开按钮 |
-| 设置分组 | `chatgpt`（`foldingMode`, `defaultExpandedCount`, `showFoldDock`） |
+| 特殊处理 | payload/store-first Reader；右侧 conversation directory rail |
+| 设置分组 | `chatgpt`（`showConversationDirectory`） |
 
 ### Gemini
 

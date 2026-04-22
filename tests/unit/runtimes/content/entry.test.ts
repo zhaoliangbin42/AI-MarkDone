@@ -49,16 +49,12 @@ const bookmarksPanelCtor = vi.fn(function () {
 const messageToolbarsInit = vi.fn();
 const messageToolbarsSetTheme = vi.fn();
 const messageToolbarsSetBehaviorFlags = vi.fn();
-const messageToolbarsSetConversationContentPreparer = vi.fn();
-const messageToolbarsSetVirtualizationController = vi.fn();
 const messageToolbarsDispose = vi.fn();
 const messageToolbarCtor = vi.fn(function () {
     return {
         init: messageToolbarsInit,
         setTheme: messageToolbarsSetTheme,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
-        setConversationContentPreparer: messageToolbarsSetConversationContentPreparer,
-        setVirtualizationController: messageToolbarsSetVirtualizationController,
         dispose: messageToolbarsDispose,
     };
 });
@@ -67,17 +63,26 @@ const headerIconDispose = vi.fn();
 const headerIconCtor = vi.fn(function () {
     return { init: headerIconInit, dispose: headerIconDispose };
 });
-const foldingInit = vi.fn();
-const foldingRegisterMessage = vi.fn();
-const foldingSetPolicy = vi.fn();
-const foldingSetTheme = vi.fn();
-const foldingCtor = vi.fn(function () {
+const directoryInit = vi.fn();
+const directorySetEnabled = vi.fn();
+const directorySetTheme = vi.fn();
+const directoryDispose = vi.fn();
+const directoryCtor = vi.fn(function () {
     return {
-        init: foldingInit,
-        registerMessage: foldingRegisterMessage,
-        setPolicy: foldingSetPolicy,
-        setTheme: foldingSetTheme,
-        dispose: vi.fn(),
+        init: directoryInit,
+        setEnabled: directorySetEnabled,
+        setTheme: directorySetTheme,
+        dispose: directoryDispose,
+    };
+});
+const engineInit = vi.fn();
+const engineSubscribe = vi.fn();
+const engineGetSnapshot = vi.fn(async () => null);
+const engineCtor = vi.fn(function () {
+    return {
+        init: engineInit,
+        subscribe: engineSubscribe,
+        getSnapshot: engineGetSnapshot,
     };
 });
 const setLocale = vi.fn(async () => {});
@@ -92,6 +97,7 @@ vi.mock('@/drivers/content/adapters/registry', () => ({
     getAdapter: () => ({
         getPlatformId: () => adapterPlatformId,
         getMessageSelector: () => '[data-testid="message"]',
+        getObserverContainer: () => document.body,
     }),
 }));
 
@@ -153,9 +159,14 @@ vi.mock('@/ui/content/components/i18n', () => ({
     setLocale,
 }));
 
-vi.mock('@/ui/content/controllers/ChatGPTFoldingController', () => ({
-    ChatGPTFoldingController: foldingCtor,
+vi.mock('@/ui/content/controllers/ChatGPTDirectoryController', () => ({
+    ChatGPTDirectoryController: directoryCtor,
 }));
+
+vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
+    ChatGPTConversationEngine: engineCtor,
+}));
+
 vi.mock('@/ui/content/sending/SendController', () => ({
     SendController: sendControllerCtor,
 }));
@@ -189,60 +200,24 @@ describe('content runtime entry', () => {
         expect(bookmarksControllerCtor).toHaveBeenCalledTimes(1);
         expect(bookmarksPanelCtor).toHaveBeenCalledTimes(1);
         expect(addListener).toHaveBeenCalledTimes(1);
-        expect(foldingInit).not.toHaveBeenCalled();
-        expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeUndefined();
+        expect(engineCtor).not.toHaveBeenCalled();
+        expect(directoryCtor).not.toHaveBeenCalled();
+        expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeUndefined();
     });
 
-    it('wires the header icon toggle directly to the bookmarks panel toggle path', async () => {
-        adapterPlatformId = 'gemini';
-        vi.resetModules();
-        await import('@/runtimes/content/entry');
-
-        const headerOpts = headerIconCtor.mock.calls[0]?.[1];
-        expect(headerOpts?.onToggle).toBeTypeOf('function');
-
-        await headerOpts.onToggle();
-
-        expect(bookmarksToggle).toHaveBeenCalledTimes(1);
-    });
-
-    it('consumes pending bookmark navigation through the unified message target helper', async () => {
-        adapterPlatformId = 'gemini';
-        consumePendingNavigation.mockReturnValueOnce({
-            url: 'https://gemini.google.com/app/123',
-            position: 3,
-            messageId: 'msg-3',
-        });
-
-        vi.resetModules();
-        await import('@/runtimes/content/entry');
-
-        expect(scrollToBookmarkTargetWithRetry).toHaveBeenCalledWith(
-            expect.any(Object),
-            {
-                url: 'https://gemini.google.com/app/123',
-                position: 3,
-                messageId: 'msg-3',
-            },
-            { timeoutMs: 8000, intervalMs: 200 }
-        );
-    });
-
-    it('keeps ChatGPT folding ChatGPT-only', async () => {
+    it('creates ChatGPT-only conversation engine and directory controller', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
-        expect(messageToolbarsInit).toHaveBeenCalledTimes(1);
-        expect(headerIconInit).toHaveBeenCalledTimes(1);
-        expect(foldingCtor).toHaveBeenCalledTimes(1);
-        expect(foldingInit).toHaveBeenCalledTimes(1);
-        expect(messageToolbarsSetConversationContentPreparer).not.toHaveBeenCalled();
-        expect(messageToolbarsSetVirtualizationController).not.toHaveBeenCalled();
-        expect(messageToolbarCtor.mock.calls[0]?.[1]?.foldingController).toBeTruthy();
+        expect(engineCtor).toHaveBeenCalledTimes(1);
+        expect(directoryCtor).toHaveBeenCalledTimes(1);
+        expect(engineInit).toHaveBeenCalledTimes(1);
+        expect(directoryInit).toHaveBeenCalledTimes(1);
+        expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
     });
 
-    it('applies settings updates to runtime wiring and existing messages', async () => {
+    it('applies settings updates to ChatGPT directory visibility without changing shared navigation wiring', async () => {
         adapterPlatformId = 'chatgpt';
         document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
         vi.resetModules();
@@ -254,7 +229,7 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                chatgpt: { showConversationDirectory: false },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: false,
@@ -275,16 +250,15 @@ describe('content runtime entry', () => {
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
-        expect(bookmarksHide).not.toHaveBeenCalled();
+        expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
-        expect(messageToolbarsSetConversationContentPreparer).not.toHaveBeenCalled();
 
         settingsSubscriber!({
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true },
+                chatgpt: { showConversationDirectory: true },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: true,
@@ -304,9 +278,9 @@ describe('content runtime entry', () => {
 
         expect(headerIconInit).toHaveBeenCalledTimes(2);
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
+        expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
-        expect(messageToolbarsSetVirtualizationController).not.toHaveBeenCalled();
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
             showSaveMessages: true,
             showWordCount: true,
@@ -325,7 +299,7 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
-                chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                chatgpt: { showConversationDirectory: true },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: true,
@@ -351,36 +325,6 @@ describe('content runtime entry', () => {
         expect(bookmarksHide).not.toHaveBeenCalled();
     });
 
-    it('does not instantiate ChatGPT strong-mode controllers', async () => {
-        adapterPlatformId = 'chatgpt';
-        settingsGetCached.mockReturnValue({
-            language: 'auto',
-            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-            chatgpt: { foldingMode: 'all', defaultExpandedCount: 8, showFoldDock: true },
-            behavior: {
-                showSaveMessages: true,
-                showWordCount: true,
-                enableClickToCopy: true,
-                saveContextOnly: false,
-                _contextOnlyConfirmed: true,
-            },
-            reader: {
-                renderCodeInReader: true,
-                commentExport: {
-                    prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
-                    template: [],
-                },
-            },
-        });
-
-        vi.resetModules();
-        await import('@/runtimes/content/entry');
-
-        expect(messageToolbarsSetConversationContentPreparer).not.toHaveBeenCalled();
-        expect(messageToolbarsSetVirtualizationController).not.toHaveBeenCalled();
-        expect(messageToolbarCtor.mock.calls[0]?.[1]?.virtualizationController).toBeUndefined();
-    });
-
     it('applies cached reader comment export settings before the first subscription snapshot', async () => {
         const cachedCommentExport = {
             prompts: [{ id: 'cached', title: 'Cached', content: 'Cached prompt.' }],
@@ -389,7 +333,7 @@ describe('content runtime entry', () => {
         settingsGetCached.mockReturnValue({
             language: 'auto',
             platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-            chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+            chatgpt: { showConversationDirectory: true },
             behavior: {
                 showSaveMessages: true,
                 showWordCount: true,

@@ -7,7 +7,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             data: {
                 settings: {
                     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
-                    chatgpt: { foldingMode: 'off', defaultExpandedCount: 8, showFoldDock: true },
+                    chatgpt: { showConversationDirectory: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,

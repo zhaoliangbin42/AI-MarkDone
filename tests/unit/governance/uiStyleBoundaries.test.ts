@@ -12,8 +12,7 @@ const uiFiles = [
     'src/ui/content/bookmarks/save/bookmarkSaveDialogCss.ts',
     'src/ui/content/export/saveMessagesDialogCss.ts',
     'src/ui/content/sending/SendModal.ts',
-    'src/ui/content/chatgptFolding/ChatGPTFoldBar.ts',
-    'src/ui/content/chatgptFolding/ChatGPTFoldDock.ts',
+    'src/ui/content/chatgptDirectory/ChatGPTDirectoryRail.ts',
 ];
 
 const sansFiles = [
@@ -23,8 +22,7 @@ const sansFiles = [
     'src/ui/content/bookmarks/save/bookmarkSaveDialogCss.ts',
     'src/ui/content/export/saveMessagesDialogCss.ts',
     'src/ui/content/sending/SendModal.ts',
-    'src/ui/content/chatgptFolding/ChatGPTFoldBar.ts',
-    'src/ui/content/chatgptFolding/ChatGPTFoldDock.ts',
+    'src/ui/content/chatgptDirectory/ChatGPTDirectoryRail.ts',
 ];
 
 const monoWhitelist = [

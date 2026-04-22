@@ -73,11 +73,11 @@
 
 - 主要实现在 `src/drivers/content/adapters/sites/*`
 - 平台差异已集中在 driver 层，而不是 UI 或 service 层
-- ChatGPT 当前的折叠能力仍是 **ChatGPT-only**：
-  - `ChatGPTFoldingController` 在 UI/controller 层拥有 fold bar、fold dock 与稳定 group registry
-  - 当前 shipping path 已回到纯 `hidden-only` 折叠语义；不再接入页面稳定门、正文 trim/restore、stable performance 或 streaming quarantine
+- ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
+  - `ChatGPTConversationEngine` 负责发现 live conversation-source module，并从内部 thread store 提取完整轮次快照
+  - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 负责把完整历史呈现为页面右侧目录条；官方线程继续作为正文显示层
+  - Reader 在 ChatGPT 上优先消费 payload/store 快照，而不是当前 hydration 的 DOM 片段
   - `drivers/content/virtualization/*` 与相关设计文档目前只保留为历史实验资产，不构成现行 shipping path
-  - 仓库中仍保留少量 virtualization 兼容类型与接口表面，当前不被 shipping runtime 消费，应视为待后续清理的历史兼容面，而不是活跃能力
 
 ### Bookmarks
 

@@ -151,7 +151,8 @@ Current acceptance gate includes:
 - `tests/unit/governance/supported-hosts-consistency.test.ts`
 - `tests/unit/governance/i18n-keys.test.ts`
 - `tests/unit/ui/i18n/i18n.test.ts`
-- `tests/unit/ui/content/controllers/ChatGPTFoldingController.test.ts`
+- `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts`
+- `tests/unit/runtimes/content/entry.test.ts`
 - `tests/unit/runtimes/content/entry.test.ts`
 
 ---

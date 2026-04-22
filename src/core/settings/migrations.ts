@@ -1,23 +1,20 @@
-import { DEFAULT_SETTINGS, type AppSettings, type FoldingMode } from './types';
+import { DEFAULT_SETTINGS, type AppSettings } from './types';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
 
-function pickFoldingMode(value: unknown, fallback: FoldingMode): FoldingMode {
-    return value === 'off' || value === 'all' || value === 'keep_last_n' ? value : fallback;
-}
-
 export function normalizeChatGptSettings(chatgpt: unknown): AppSettings['chatgpt'] {
     const record = isRecord(chatgpt) ? chatgpt : {};
-    const defaultExpandedCount = Number((record as any).defaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount);
 
     return {
         ...DEFAULT_SETTINGS.chatgpt,
-        foldingMode: pickFoldingMode((record as any).foldingMode, DEFAULT_SETTINGS.chatgpt.foldingMode),
-        defaultExpandedCount: Number.isFinite(defaultExpandedCount) ? defaultExpandedCount : DEFAULT_SETTINGS.chatgpt.defaultExpandedCount,
-        showFoldDock: Boolean((record as any).showFoldDock ?? DEFAULT_SETTINGS.chatgpt.showFoldDock),
+        showConversationDirectory: Boolean(
+            (record as any).showConversationDirectory
+            ?? (record as any).showFoldDock
+            ?? DEFAULT_SETTINGS.chatgpt.showConversationDirectory
+        ),
     };
 }
 
@@ -95,9 +92,11 @@ export function migrateFromV1(v1: unknown): AppSettings {
         },
         chatgpt: {
             ...DEFAULT_SETTINGS.chatgpt,
-            foldingMode: pickFoldingMode((chatgpt as any).foldingMode, DEFAULT_SETTINGS.chatgpt.foldingMode),
-            defaultExpandedCount: Number((chatgpt as any).defaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount),
-            showFoldDock: Boolean((chatgpt as any).showFoldDock ?? DEFAULT_SETTINGS.chatgpt.showFoldDock),
+            showConversationDirectory: Boolean(
+                (chatgpt as any).showConversationDirectory
+                ?? (chatgpt as any).showFoldDock
+                ?? DEFAULT_SETTINGS.chatgpt.showConversationDirectory
+            ),
         },
         behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
@@ -128,10 +127,6 @@ export function migrateFromV2(v2: unknown): AppSettings {
     const behavior = isRecord(rec.behavior) ? rec.behavior : {};
     const reader = isRecord(rec.reader) ? rec.reader : {};
     const bookmarks = isRecord(rec.bookmarks) ? rec.bookmarks : {};
-    const perf = isRecord((rec as any).performance) ? (rec as any).performance : {};
-
-    const foldingMode = pickFoldingMode((perf as any).chatgptFoldingMode, DEFAULT_SETTINGS.chatgpt.foldingMode);
-    const defaultExpandedCount = Number((perf as any).chatgptDefaultExpandedCount ?? DEFAULT_SETTINGS.chatgpt.defaultExpandedCount);
 
     return {
         version: 3,
@@ -141,8 +136,11 @@ export function migrateFromV2(v2: unknown): AppSettings {
         } as any,
         chatgpt: {
             ...DEFAULT_SETTINGS.chatgpt,
-            foldingMode,
-            defaultExpandedCount: Number.isFinite(defaultExpandedCount) ? defaultExpandedCount : DEFAULT_SETTINGS.chatgpt.defaultExpandedCount,
+            showConversationDirectory: Boolean(
+                (rec as any)?.chatgpt?.showConversationDirectory
+                ?? (rec as any)?.chatgpt?.showFoldDock
+                ?? true
+            ),
         },
         behavior: normalizeBehaviorSettings(behavior),
         reader: {

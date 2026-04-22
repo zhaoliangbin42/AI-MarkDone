@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChatGPTFoldBar } from '@/ui/content/chatgptFolding/ChatGPTFoldBar';
 
 const scrollToConversationTarget = vi.fn();
 const scrollToConversationTargetWithRetry = vi.fn();
@@ -101,8 +100,12 @@ describe('bookmark navigation', () => {
     it('routes folded ChatGPT targets to the fold bar while still highlighting the resolved message', async () => {
         vi.useFakeTimers();
         const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
-        const foldBar = new ChatGPTFoldBar('light', { onToggle() {} }).getElement();
+        const foldBar = document.createElement('div');
+        foldBar.className = 'aimd-chatgpt-foldbar';
         foldBar.setAttribute('data-aimd-fold-group-id', 'group-a1');
+        foldBar.addEventListener('aimd:flash-attention', () => {
+            foldBar.dataset.attention = '1';
+        });
         const assistantRoot = document.createElement('section');
         assistantRoot.setAttribute('data-aimd-fold-role', 'assistant');
         assistantRoot.setAttribute('data-aimd-fold-group-id', 'group-a1');
@@ -142,8 +145,12 @@ describe('bookmark navigation', () => {
         assistantRoot.appendChild(message);
         document.body.appendChild(assistantRoot);
 
-        const foldBar = new ChatGPTFoldBar('light', { onToggle() {} }).getElement();
+        const foldBar = document.createElement('div');
+        foldBar.className = 'aimd-chatgpt-foldbar';
         foldBar.setAttribute('data-aimd-fold-group-id', 'group-a1');
+        foldBar.addEventListener('aimd:flash-attention', () => {
+            foldBar.dataset.attention = '1';
+        });
         const scrollIntoView = vi.fn();
         foldBar.scrollIntoView = scrollIntoView;
 

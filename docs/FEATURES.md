@@ -24,7 +24,7 @@
 | Per-message toolbar placement | Prefer the official action bar row (same line); fallback after message content, aligned right | 避免把官方工具栏挤到下方；同时保留无 action bar 场景的稳定可见兜底。 |
 | Injection algorithm | MO as signal + debounced scan + idempotent retry + route rebind | SPA/React 更稳定；允许短暂失败但最终一致。 |
 | LaTeX click-to-copy | Enabled by default (no UI toggle) | 功能性优先；后续再引入可审计的开关。 |
-| ChatGPT Folding | Treated as a shipped ChatGPT-only capability, not a rewrite backlog item | 当前实现、设置项与控制器均已进入主线，后续只做治理与回归，不再挂在“待实现”状态。 |
+| ChatGPT conversation directory | Treated as a ChatGPT-only navigation layer backed by the internal conversation payload | 目录条负责完整历史导航；官方线程继续承担正文显示与输入交互。 |
 
 ---
 
@@ -71,13 +71,13 @@
 | Inline Reader comments | Selection action → comment popover → page-lifetime highlight + right gutter anchor | `src/ui/content/reader/ReaderPanel.ts`, `src/ui/content/reader/ReaderCommentPopover.ts`, `src/services/reader/commentSession.ts`, `src/services/reader/commentAnchoring.ts` | `tests/unit/services/reader/commentSession.test.ts`, `tests/unit/services/reader/commentAnchoring.test.ts`, `tests/integration/reader/reader-panel.comment.test.ts` | Reader 内选中 assistant markdown 正文后可添加评论；评论在页面生命周期内保留，高亮和 gutter anchor 可重开编辑；关闭 Reader 不丢，整页刷新后清空。 |
 | Comment export prompts | Settings `Reader` → reusable prompts + comments copy template; Reader header `Copy comments` → preview + clipboard | `src/ui/content/bookmarks/ui/tabs/SettingsTabView.ts`, `src/ui/content/bookmarks/ui/popovers/ReaderPromptEditorPopover.ts`, `src/ui/content/bookmarks/ui/popovers/ReaderCommentTemplateSettingsPopover.ts`, `src/ui/content/reader/ReaderCommentExportPopover.ts`, `src/services/reader/commentExport.ts`, `src/core/settings/readerCommentExport.ts` | `tests/unit/services/reader/commentExport.test.ts`, `tests/unit/services/settings/settingsService.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts`, `tests/unit/ui/reader/readerCommentExportPopover.test.ts`, `tests/integration/reader/reader-panel.comment.test.ts` | 评论导出按创建顺序生成编号列表，使用 `sourceMarkdown` 而不是渲染文本；可在 Settings 中管理多条 user prompt 和唯一的 token-based copy template，Reader 内只展示最终结果预览并一键复制。 |
 
-### B.2.C ChatGPT Folding（ChatGPT only）
+### B.2.C ChatGPT Conversation Directory（ChatGPT only）
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
-| Fold old assistant messages | ChatGPT settings `chatgpt.foldingMode/defaultExpandedCount` → `ChatGPTFoldingController` | `src/ui/content/controllers/ChatGPTFoldingController.ts`, `src/core/chatgptFolding/policy.ts` | `tests/unit/ui/content/controllers/ChatGPTFoldingController.test.ts`, `tests/unit/runtimes/content/entry.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts` | 在 ChatGPT 页面可按设置隐藏旧助手消息，`keep_last_n` 仅保留最近 N 条展开。 |
-| Fold dock toggle | ChatGPT settings `chatgpt.showFoldDock` | `src/ui/content/chatgptFolding/ChatGPTFoldDock.ts`, `src/ui/content/chatgptFolding/ChatGPTFoldBar.ts` | `tests/unit/ui/content/ChatGPTFoldBar.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanel.test.ts` | 右侧固定折叠按钮可随设置显示/隐藏，并与当前折叠策略保持一致。 |
-| Health degradation | Content runtime controller lifecycle | `src/runtimes/content/entry.ts`, `src/ui/content/controllers/ChatGPTFoldingController.ts` | `tests/unit/runtimes/content/entry.test.ts` | 若宿主 DOM 不满足折叠条件，应优雅退化，不影响工具栏、Reader、Bookmarks 等其它能力。 |
+| Payload/store-first snapshot | `ChatGPTConversationEngine.getSnapshot()` | `src/drivers/content/chatgpt/ChatGPTConversationEngine.ts`, `public/page-bridges/chatgpt-conversation-bridge.js` | `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts` | 在 ChatGPT conversation 页面可从内部 thread store 读取完整轮次，不依赖当前 DOM hydration 范围。 |
+| Reader payload path | `ChatGPTConversationEngine -> chatgptReaderItems -> ReaderPanel.show()` | `src/drivers/content/chatgpt/chatgptReaderItems.ts`, `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | `tests/unit/drivers/content/chatgpt/chatgptReaderItems.test.ts`, `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts` | Reader 在 ChatGPT 上可打开完整历史，并继续复用共享 Markdown/Reader 渲染链路。 |
+| Conversation directory rail | ChatGPT settings `chatgpt.showConversationDirectory` → `ChatGPTDirectoryController` | `src/ui/content/controllers/ChatGPTDirectoryController.ts`, `src/ui/content/chatgptDirectory/ChatGPTDirectoryRail.ts` | `tests/unit/runtimes/content/entry.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts` | 右侧目录条按完整用户轮次展示历史；hover 显示预览；click 在同页跳转到对应轮次。 |
 
 ---
 

@@ -27,6 +27,33 @@ export class ChatGPTAdapter extends SiteAdapter {
         return container instanceof HTMLElement ? container : rootEl;
     }
 
+    private getTurnRootFromContainer(container: HTMLElement, role: 'user' | 'assistant'): HTMLElement | null {
+        const selector = `section[data-turn="${role}"], article[data-turn="${role}"], [data-turn="${role}"]`;
+        const turnRoot = container.matches(selector) ? container : container.querySelector(selector);
+        return turnRoot instanceof HTMLElement ? turnRoot : null;
+    }
+
+    private getAssistantMessageFromRoot(assistantRootEl: HTMLElement): HTMLElement | null {
+        const messageEl = assistantRootEl.matches(this.getMessageSelector())
+            ? assistantRootEl
+            : assistantRootEl.querySelector(this.getMessageSelector());
+        return messageEl instanceof HTMLElement ? messageEl : null;
+    }
+
+    private normalizePromptText(text: string): string {
+        return text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+    }
+
+    private extractUserPromptFromRoot(userRootEl: HTMLElement | null): string | null {
+        if (!userRootEl) return null;
+        const bubble =
+            (userRootEl.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap') as HTMLElement | null) ||
+            (userRootEl.querySelector('[data-message-author-role="user"]') as HTMLElement | null) ||
+            (userRootEl.querySelector('.whitespace-pre-wrap') as HTMLElement | null);
+        const normalized = this.normalizePromptText((bubble?.textContent || userRootEl.textContent || '').trim());
+        return normalized || null;
+    }
+
     private getUserTurnRootFromAssistantRoot(assistantRootEl: HTMLElement): HTMLElement | null {
         let cursor: Element | null = this.getTurnContainer(assistantRootEl).previousElementSibling;
         while (cursor) {
@@ -63,19 +90,14 @@ export class ChatGPTAdapter extends SiteAdapter {
         return null;
     }
 
-    private collectGroupEls(userRootEl: HTMLElement | null, assistantRootEl: HTMLElement): HTMLElement[] {
-        const groupId = assistantRootEl.getAttribute('data-aimd-fold-group-id');
+    private collectGroupEls(userRootEl: HTMLElement | null, assistantRootEl: HTMLElement, barAnchorEl?: HTMLElement | null): HTMLElement[] {
         const nodes: HTMLElement[] = [];
         const push = (node: HTMLElement | null) => {
             if (node && !nodes.includes(node)) nodes.push(node);
         };
 
-        push(userRootEl);
-        if (groupId) {
-            const foldBar = document.querySelector(`.aimd-chatgpt-foldbar[data-aimd-fold-group-id="${groupId}"]`);
-            push(foldBar instanceof HTMLElement ? foldBar : null);
-        }
-        push(assistantRootEl);
+        push(barAnchorEl ?? (userRootEl ? this.getTurnContainer(userRootEl) : null));
+        push(this.getTurnContainer(assistantRootEl));
         return nodes;
     }
 
@@ -119,9 +141,6 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     extractUserPrompt(assistantMessageElement: HTMLElement): string | null {
-        const normalize = (text: string): string =>
-            text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
-
         const assistantArticle = assistantMessageElement.closest('article') || assistantMessageElement;
         const scope = assistantArticle.parentElement;
         if (scope) {
@@ -140,7 +159,7 @@ export class ChatGPTAdapter extends SiteAdapter {
                         (turn.querySelector('.whitespace-pre-wrap') as HTMLElement | null);
 
                     const text = (bubble?.textContent || turn.textContent || '').trim();
-                    const normalized = normalize(text);
+                    const normalized = this.normalizePromptText(text);
                     return normalized || null;
                 }
             }
@@ -156,7 +175,7 @@ export class ChatGPTAdapter extends SiteAdapter {
                     (prev.querySelector?.('[data-message-author-role="user"]') as HTMLElement | null);
                 if (user) {
                     const text = (user.textContent || '').trim();
-                    const normalized = normalize(text);
+                    const normalized = this.normalizePromptText(text);
                     return normalized || null;
                 }
                 prev = prev.previousElementSibling;
@@ -279,11 +298,59 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getConversationGroupRefs(): ConversationGroupRef[] {
+        const refs: ConversationGroupRef[] = [];
+        let assistantIndex = 0;
+        const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
+            (node): node is HTMLElement => node instanceof HTMLElement
+        );
+
+        if (turnContainers.length > 0) {
+            let pendingUser: { container: HTMLElement; root: HTMLElement } | null = null;
+
+            for (const container of turnContainers) {
+                const userRootEl = this.getTurnRootFromContainer(container, 'user');
+                const assistantRootEl = this.getTurnRootFromContainer(container, 'assistant');
+
+                if (userRootEl && !assistantRootEl) {
+                    pendingUser = { container, root: userRootEl };
+                    continue;
+                }
+
+                if (!assistantRootEl) continue;
+
+                const messageEl = this.getAssistantMessageFromRoot(assistantRootEl);
+                if (!messageEl) continue;
+                if (!this.isVirtualizationEligibleMessage(messageEl)) continue;
+                if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
+
+                const pairedUser = pendingUser;
+                const pairedUserRoot = pairedUser?.root ?? this.getUserTurnRootFromAssistantRoot(assistantRootEl);
+                const barAnchorEl = pairedUser?.container ?? (pairedUserRoot ? this.getTurnContainer(pairedUserRoot) : container);
+                const id = this.getMessageId(messageEl)
+                    || assistantRootEl.getAttribute('data-turn-id')
+                    || `chatgpt-group-${assistantIndex}`;
+
+                refs.push({
+                    id,
+                    assistantRootEl,
+                    assistantMessageEl: messageEl,
+                    userRootEl: pairedUserRoot,
+                    userPromptText: this.extractUserPromptFromRoot(pairedUserRoot),
+                    barAnchorEl,
+                    groupEls: this.collectGroupEls(pairedUserRoot, assistantRootEl, barAnchorEl),
+                    assistantIndex,
+                    isStreaming: this.isStreamingMessage(messageEl),
+                });
+                assistantIndex += 1;
+                pendingUser = null;
+            }
+
+            if (refs.length > 0) return refs;
+        }
+
         const messages = Array.from(document.querySelectorAll(this.getMessageSelector())).filter(
             (node): node is HTMLElement => node instanceof HTMLElement
         );
-        const refs: ConversationGroupRef[] = [];
-        let assistantIndex = 0;
 
         for (const messageEl of messages) {
             const assistantRootEl = this.getTurnRootElement(messageEl) ?? messageEl.closest('section[data-turn="assistant"]') as HTMLElement | null ?? messageEl;
@@ -292,9 +359,9 @@ export class ChatGPTAdapter extends SiteAdapter {
             if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
 
             const userRootEl = this.getUserTurnRootFromAssistantRoot(assistantRootEl);
-            const groupEls = this.collectGroupEls(userRootEl, assistantRootEl);
-            const id = assistantRootEl.getAttribute('data-aimd-fold-group-id')
-                || this.getMessageId(messageEl)
+            const barAnchorEl = userRootEl ? this.getTurnContainer(userRootEl) : this.getTurnContainer(assistantRootEl);
+            const groupEls = this.collectGroupEls(userRootEl, assistantRootEl, barAnchorEl);
+            const id = this.getMessageId(messageEl)
                 || `chatgpt-group-${assistantIndex}`;
 
             refs.push({
@@ -302,6 +369,8 @@ export class ChatGPTAdapter extends SiteAdapter {
                 assistantRootEl,
                 assistantMessageEl: messageEl,
                 userRootEl,
+                userPromptText: this.extractUserPromptFromRoot(userRootEl),
+                barAnchorEl,
                 groupEls,
                 assistantIndex,
                 isStreaming: this.isStreamingMessage(messageEl),

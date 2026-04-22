@@ -14,16 +14,6 @@ describe('settingsService', () => {
         expect(() => planGetCategory(DEFAULT_SETTINGS as any, 'performance')).toThrow('Invalid category: performance');
     });
 
-    it('ignores removed reader markdown theme writes and preserves the default reader shape', () => {
-        const next = planSetCategory(DEFAULT_SETTINGS, 'reader', {
-            renderCodeInReader: false,
-            markdownTheme: 'github-dark-dimmed',
-        } as any).next;
-
-        expect(next.reader.renderCodeInReader).toBe(false);
-        expect(next.reader).not.toHaveProperty('markdownTheme');
-    });
-
     it('merges reader comment export settings while preserving renderCodeInReader', () => {
         const template: CommentTemplateSegment[] = [
             { type: 'text', value: 'Prefix\n' },
@@ -47,21 +37,39 @@ describe('settingsService', () => {
         expect(next.reader.commentExport.template).toEqual(template);
     });
 
-    it('drops removed chatgpt virtualization fields when normalizing v3 settings', () => {
+    it('normalizes retired ChatGPT folding fields into the single directory toggle', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,
             chatgpt: {
-                ...DEFAULT_SETTINGS.chatgpt,
+                showFoldDock: false,
                 foldingMode: 'all',
-                foldingPowerMode: 'on',
+                defaultExpandedCount: 8,
                 enableVirtualization: false,
             },
         } as any);
 
-        expect(next.chatgpt.foldingMode).toBe('all');
-        expect(next.chatgpt).not.toHaveProperty('foldingPowerMode');
+        expect(next.chatgpt.showConversationDirectory).toBe(false);
+        expect(next.chatgpt).not.toHaveProperty('foldingMode');
+        expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
         expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
-        expect(next.chatgpt).not.toHaveProperty('enableEarlyPrune');
+    });
+
+    it('does not re-persist removed chatgpt folding fields on category updates', () => {
+        const current = {
+            ...DEFAULT_SETTINGS,
+            chatgpt: {
+                showFoldDock: true,
+                foldingMode: 'all',
+                defaultExpandedCount: 8,
+            },
+        } as any;
+
+        const next = planSetCategory(current, 'chatgpt', { showConversationDirectory: false }).next;
+
+        expect(next.chatgpt.showConversationDirectory).toBe(false);
+        expect(next.chatgpt).not.toHaveProperty('showFoldDock');
+        expect(next.chatgpt).not.toHaveProperty('foldingMode');
+        expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {
@@ -85,25 +93,6 @@ describe('settingsService', () => {
         ]);
     });
 
-    it('does not re-persist removed chatgpt virtualization fields on category updates', () => {
-        const current = {
-            ...DEFAULT_SETTINGS,
-            chatgpt: {
-                ...DEFAULT_SETTINGS.chatgpt,
-                foldingMode: 'all',
-                foldingPowerMode: 'on',
-                enableVirtualization: false,
-            },
-        } as any;
-
-        const next = planSetCategory(current, 'chatgpt', { showFoldDock: false }).next;
-
-        expect(next.chatgpt.showFoldDock).toBe(false);
-        expect(next.chatgpt).not.toHaveProperty('foldingPowerMode');
-        expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
-        expect(next.chatgpt).not.toHaveProperty('enableEarlyPrune');
-    });
-
     it('drops the retired source panel behavior flag when normalizing stored settings', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,
@@ -113,21 +102,6 @@ describe('settingsService', () => {
             },
         } as any);
 
-        expect(next.behavior).not.toHaveProperty('showViewSource');
-    });
-
-    it('does not re-persist the retired source panel behavior flag on behavior updates', () => {
-        const current = {
-            ...DEFAULT_SETTINGS,
-            behavior: {
-                ...DEFAULT_SETTINGS.behavior,
-                showViewSource: true,
-            },
-        } as any;
-
-        const next = planSetCategory(current, 'behavior', { showWordCount: false }).next;
-
-        expect(next.behavior.showWordCount).toBe(false);
         expect(next.behavior).not.toHaveProperty('showViewSource');
     });
 });

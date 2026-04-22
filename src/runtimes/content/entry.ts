@@ -13,10 +13,11 @@ import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPa
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale } from '../../ui/content/components/i18n';
-import { ChatGPTFoldingController } from '../../ui/content/controllers/ChatGPTFoldingController';
 import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
+import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 
 ensurePageTokens();
 
@@ -29,7 +30,10 @@ if (adapter) {
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
-    const folding = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTFoldingController() : null;
+    const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
+    const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
+        ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine)
+        : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
     });
@@ -37,13 +41,12 @@ if (adapter) {
         readerPanel,
         sendController,
         bookmarksController,
-        foldingController: folding ?? undefined,
+        chatGptConversationEngine: chatGptConversationEngine ?? undefined,
         onMessageInjected: (messageElement) => {
             const behavior = settingsClient.getCached()?.behavior ?? DEFAULT_SETTINGS.behavior;
             if (behavior.enableClickToCopy) {
                 mathClick.enable(messageElement);
             }
-            folding?.registerMessage(messageElement);
         },
     });
 
@@ -62,15 +65,16 @@ if (adapter) {
         }
     };
 
-    const initFoldingIfNeeded = () => {
-        if (!folding) return;
-        folding.init(adapter, currentTheme);
+    const initChatGptIfNeeded = () => {
+        if (!chatGptConversationEngine || !chatGptDirectory) return;
+        chatGptConversationEngine.init();
+        chatGptDirectory.init(currentTheme);
     };
 
     const enableRuntime = () => {
         if (runtimeEnabled) return;
         runtimeEnabled = true;
-        initFoldingIfNeeded();
+        initChatGptIfNeeded();
         messageToolbars.init();
         headerIcon.init();
     };
@@ -80,7 +84,7 @@ if (adapter) {
         runtimeEnabled = false;
         messageToolbars.dispose();
         headerIcon.dispose();
-        folding?.dispose();
+        chatGptDirectory?.dispose();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
@@ -100,7 +104,7 @@ if (adapter) {
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
-        folding?.setPolicy(snap.settings.chatgpt);
+        chatGptDirectory?.setEnabled(Boolean(snap.settings.chatgpt.showConversationDirectory));
         messageToolbars.setBehaviorFlags({
             showSaveMessages: snap.settings.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior.showWordCount,
@@ -114,7 +118,7 @@ if (adapter) {
         readerPanel.setTheme(theme);
         sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
-        folding?.setTheme(theme);
+        chatGptDirectory?.setTheme(theme);
     });
 
     browser.runtime.onMessage.addListener((msg: unknown) => {
@@ -127,7 +131,7 @@ if (adapter) {
     if (runtimeEnabled) {
         messageToolbars.init();
         headerIcon.init();
-        initFoldingIfNeeded();
+        initChatGptIfNeeded();
     }
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.

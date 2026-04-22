@@ -18,11 +18,12 @@ import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, chevronUpIcon, locateIcon, sendIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, locateIcon, sendIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
-import type { ChatGPTFoldingController } from './ChatGPTFoldingController';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
+import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import { buildChatGPTReaderItems } from '../../../drivers/content/chatgpt/chatgptReaderItems';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -71,7 +72,7 @@ export class MessageToolbarOrchestrator {
     private readerPanel: ReaderPanel;
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
-    private foldingController: ChatGPTFoldingController | null = null;
+    private chatGptConversationEngine: ChatGPTConversationEngine | null = null;
     private behavior = { showSaveMessages: true, showWordCount: true };
     private wordCounter = new WordCounter();
     private messageOrder: HTMLElement[] = [];
@@ -298,7 +299,7 @@ export class MessageToolbarOrchestrator {
             readerPanel: ReaderPanel;
             sendController?: SendController;
             bookmarksController?: BookmarksPanelController;
-            foldingController?: ChatGPTFoldingController;
+            chatGptConversationEngine?: ChatGPTConversationEngine;
             onMessageInjected?: (messageElement: HTMLElement) => void;
         }
     ) {
@@ -306,7 +307,7 @@ export class MessageToolbarOrchestrator {
         this.readerPanel = opts.readerPanel;
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
-        this.foldingController = opts.foldingController ?? null;
+        this.chatGptConversationEngine = opts.chatGptConversationEngine ?? null;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
@@ -477,11 +478,22 @@ export class MessageToolbarOrchestrator {
             icon: bookOpenIcon,
             kind: 'secondary',
             disabledWhenPending: true,
-                onClick: async () => {
-                    const guard = this.guardMessageReady(messageElement);
-                    if (guard) return guard;
+            onClick: async () => {
+                const guard = this.guardMessageReady(messageElement);
+                if (guard) return guard;
+                let itemsResult = null as ReturnType<typeof collectReaderItems> | ReturnType<typeof buildChatGPTReaderItems> | null;
+                if (this.adapter.getPlatformId() === 'chatgpt' && this.chatGptConversationEngine) {
+                    const snapshot = await this.chatGptConversationEngine.getSnapshot();
+                    const startMessageId = this.adapter.getMessageId(messageElement);
+                    if (snapshot?.rounds?.length) {
+                        itemsResult = buildChatGPTReaderItems(snapshot, startMessageId, this.getBookmarkPageUrl());
+                    }
+                }
+                if (!itemsResult) {
                     this.rebuildTurnIndex();
-                    const { items, startIndex } = collectReaderItems(this.adapter, messageElement);
+                    itemsResult = collectReaderItems(this.adapter, messageElement);
+                }
+                const { items, startIndex } = itemsResult;
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 await this.readerPanel.show(items, startIndex, this.theme, {
                     profile: 'conversation-reader',
@@ -502,21 +514,6 @@ export class MessageToolbarOrchestrator {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
                     saveMessagesDialog.open(this.adapter, this.theme);
-                },
-            });
-        }
-
-        if (this.adapter.getPlatformId() === 'chatgpt' && this.foldingController?.canCollapseMessage(messageElement)) {
-            actions.push({
-                id: 'collapse_turn',
-                label: t('collapse'),
-                tooltip: t('collapse'),
-                icon: chevronUpIcon,
-                kind: 'secondary',
-                disabledWhenPending: true,
-                onClick: async () => {
-                    const collapsed = this.foldingController?.collapseGroupForMessage(messageElement) ?? false;
-                    return collapsed ? { ok: true, message: t('collapse') } : { ok: false, message: t('contentNotFound') };
                 },
             });
         }

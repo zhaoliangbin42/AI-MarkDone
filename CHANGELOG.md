@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Improved jump-to-original navigation by using stable message ids when available and falling back to legacy positions for older saved items.
 - Bookmarks: Removed the awkward folder-name prompt wording that exposed internal "single segment" terminology.
 - Reader: Added delete support to existing annotation popovers so saved annotations can now be removed directly from the same edit surface.
-- ChatGPT: Improved bookmark and reader locate jumps in folded conversations by flashing the matching fold bar and targeting it when the message body is currently hidden.
 - Settings: Hardened the settings layout against horizontal overflow while keeping setting labels and controls in a stable two-column row.
+
+### Changed
+- ChatGPT: Replaced the old fold bar and fold dock path with a payload-driven conversation directory rail that renders full history from the internal thread store and keeps the official page as the display layer.
+- ChatGPT: Switched Reader collection to a payload/store-first path backed by the internal conversation thread, while continuing to reuse the shared Markdown and Reader rendering pipeline after normalization.
 
 ## [4.1.1] - 2026-04-20
 

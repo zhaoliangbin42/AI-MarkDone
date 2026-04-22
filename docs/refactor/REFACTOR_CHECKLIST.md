@@ -124,6 +124,7 @@ Checklist（每个域通用）：
 
 - [x] Service：copy pipeline（`src/services/copy/copy-markdown.ts`）
 - [x] Driver：站点 copy root + noise filtering hooks（`src/drivers/content/adapters/sites/*`）
+- [x] Driver：ChatGPT conversation group refs own complete conversation body roots, user prompt titles, and stable anchor hints, keeping host-specific grouping out of UI controllers
 - [x] Driver：platform markdown parser capability（`src/drivers/content/adapters/parser/*`）
 - [x] Driver：clipboard 写入（`src/drivers/content/clipboard/clipboard.ts`）
 - [x] Driver：LaTeX click mode（`src/drivers/content/math/math-click.ts`）

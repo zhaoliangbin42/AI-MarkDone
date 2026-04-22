@@ -14,8 +14,6 @@ import { createDefaultReaderCommentExportSettings } from './readerCommentExport'
 
 export type SettingsVersion = 3;
 
-export type FoldingMode = 'off' | 'all' | 'keep_last_n';
-
 export type AppSettings = {
     version: SettingsVersion;
     platforms: {
@@ -25,9 +23,7 @@ export type AppSettings = {
         deepseek: boolean;
     };
     chatgpt: {
-        foldingMode: FoldingMode;
-        defaultExpandedCount: number;
-        showFoldDock: boolean;
+        showConversationDirectory: boolean;
     };
     behavior: {
         showSaveMessages: boolean;
@@ -52,9 +48,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     version: 3,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     chatgpt: {
-        foldingMode: 'off',
-        defaultExpandedCount: 8,
-        showFoldDock: true,
+        showConversationDirectory: true,
     },
     behavior: {
         showSaveMessages: true,

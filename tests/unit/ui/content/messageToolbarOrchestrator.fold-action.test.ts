@@ -45,8 +45,8 @@ class NonChatGPTAdapter extends SiteAdapter {
     getObserverContainer(): HTMLElement | null { return document.body; }
 }
 
-describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
-    it('adds a ChatGPT-only fold action when the message belongs to a foldable group', async () => {
+describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
+    it('uses ChatGPTConversationEngine snapshot to open Reader with payload-first items', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -67,96 +67,56 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
 
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
-        const foldingController = {
-            canCollapseMessage: vi.fn(() => true),
-            collapseGroupForMessage: vi.fn(() => true),
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                buildFingerprint: 'build-1',
+                capturedAt: Date.now(),
+                source: 'runtime-bridge',
+                rounds: [
+                    {
+                        id: 'round-1',
+                        position: 1,
+                        userPrompt: 'Hello from user',
+                        assistantContent: 'Hi from payload',
+                        preview: 'Hello from user',
+                        messageId: 'a1',
+                        userMessageId: 'u1',
+                        assistantMessageId: 'a1',
+                    },
+                ],
+            })),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, foldingController });
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
 
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
-        const foldAction = actions.find((action: any) => action.id === 'collapse_turn');
-        const foldIndex = actions.findIndex((action: any) => action.id === 'collapse_turn');
+        const readerAction = actions.find((action: any) => action.id === 'reader');
 
-        expect(foldAction).toBeTruthy();
-        expect(foldAction.label).toBe('collapse');
-        expect(foldIndex).toBe(actions.length - 1);
+        await readerAction.onClick();
 
-        await foldAction.onClick();
-
-        expect(foldingController.canCollapseMessage).toHaveBeenCalledWith(assistant);
-        expect(foldingController.collapseGroupForMessage).toHaveBeenCalledWith(assistant);
+        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(readerPanel.show).toHaveBeenCalledWith(
+            [
+                expect.objectContaining({
+                    userPrompt: 'Hello from user',
+                    content: 'Hi from payload',
+                    meta: expect.objectContaining({
+                        platformId: 'chatgpt',
+                        messageId: 'a1',
+                        position: 1,
+                    }),
+                }),
+            ],
+            0,
+            expect.any(String),
+            expect.objectContaining({ profile: 'conversation-reader' }),
+        );
     });
 
-    it('places the ChatGPT fold action at the far right of the toolbar action row', () => {
+    it('does not add a retired ChatGPT fold action', () => {
         document.body.innerHTML = `
           <div id="thread">
-            <article data-turn="user">
-              <div data-message-author-role="user">
-                <div class="whitespace-pre-wrap">Hello from user</div>
-              </div>
-            </article>
-            <article data-turn="assistant">
-              <div data-message-author-role="assistant" data-message-id="a1">
-                <div class="markdown prose">Hi</div>
-              </div>
-              <div class="z-0 flex">
-                <div><button data-testid="copy-turn-action-button">copy</button></div>
-              </div>
-            </article>
-          </div>
-        `;
-
-        const adapter = new ChatGPTAdapter();
-        const readerPanel = { show: vi.fn(async () => undefined) } as any;
-        const foldingController = {
-            canCollapseMessage: vi.fn(() => true),
-            collapseGroupForMessage: vi.fn(() => true),
-        } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, foldingController });
-
-        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
-        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
-
-        expect(actions.map((action: any) => action.id)).toEqual([
-            'copy_markdown',
-            'reader',
-            'export',
-            'collapse_turn',
-        ]);
-    });
-
-    it('does not add the fold action on other platforms', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new NonChatGPTAdapter();
-        const readerPanel = { show: vi.fn(async () => undefined) } as any;
-        const foldingController = {
-            canCollapseMessage: vi.fn(() => true),
-            collapseGroupForMessage: vi.fn(() => true),
-        } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, foldingController });
-
-        const assistant = document.querySelector('.assistant-message') as HTMLElement;
-        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
-
-        expect(actions.some((action: any) => action.id === 'collapse_turn')).toBe(false);
-        expect(foldingController.canCollapseMessage).not.toHaveBeenCalled();
-    });
-
-    it('opens Reader mode directly from live DOM in hidden-only mode', async () => {
-        document.body.innerHTML = `
-          <div id="thread">
-            <article data-turn="user">
-              <div data-message-author-role="user">
-                <div class="whitespace-pre-wrap">Hello from user</div>
-              </div>
-            </article>
             <article data-turn="assistant">
               <div data-message-author-role="assistant" data-message-id="a1">
                 <div class="markdown prose">Hi</div>
@@ -171,16 +131,10 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
-        const readerAction = actions.find((action: any) => action.id === 'reader');
 
-        expect(readerAction).toBeTruthy();
-
-        await readerAction.onClick();
-
-        expect(readerPanel.show).toHaveBeenCalledTimes(1);
+        expect(actions.some((action: any) => action.id === 'collapse_turn')).toBe(false);
     });
 
     it('opens save messages directly from live DOM in hidden-only mode', async () => {
@@ -209,8 +163,6 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const actions = orchestrator.getActionsForMessage(assistant, () => null);
         const exportAction = actions.find((action: any) => action.id === 'export');
-
-        expect(exportAction).toBeTruthy();
 
         await exportAction.onClick();
 
@@ -248,8 +200,6 @@ describe('MessageToolbarOrchestrator ChatGPT fold action', () => {
             setActionActive: vi.fn(),
         }));
         const bookmarkAction = actions.find((action: any) => action.id === 'bookmark_toggle');
-
-        expect(bookmarkAction).toBeTruthy();
 
         await bookmarkAction.onClick();
         await Promise.resolve();
