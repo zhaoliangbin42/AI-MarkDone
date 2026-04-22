@@ -111,6 +111,23 @@ describe('ChatGPTDirectoryController', () => {
         expect(navigationMocks.highlightElement).not.toHaveBeenCalled();
     });
 
+    it('renders skeleton placeholder bars before the payload snapshot is ready', () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = null;
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        expect(items).toHaveLength(2);
+        expect(items[0]?.dataset.position).toBe('1');
+        expect(items[0]?.getAttribute('aria-label')).toContain('Message 1');
+        expect(items[1]?.dataset.position).toBe('2');
+    });
+
     it('falls back to ChatGPT-local skeleton anchors when the shared jump path cannot resolve a cold round', async () => {
         navigationMocks.scrollToBookmarkTargetWithRetry.mockResolvedValue({ ok: false });
 

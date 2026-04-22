@@ -34,6 +34,8 @@ export class ChatGPTDirectoryController {
     private skeletonAnchors: SkeletonAnchor[] = [];
     private activePosition = 0;
     private rafId: number | null = null;
+    private snapshotRetryTimer: number | null = null;
+    private snapshotRetryCount = 0;
 
     constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine) {
         this.adapter = adapter;
@@ -50,6 +52,7 @@ export class ChatGPTDirectoryController {
         this.routeWatcher.start();
         this.engine.subscribe((snapshot) => {
             this.snapshot = snapshot;
+            if (snapshot) this.snapshotRetryCount = 0;
             this.render();
         });
         void this.refresh();
@@ -59,6 +62,10 @@ export class ChatGPTDirectoryController {
         if (this.rafId !== null) {
             window.cancelAnimationFrame(this.rafId);
             this.rafId = null;
+        }
+        if (this.snapshotRetryTimer !== null) {
+            window.clearTimeout(this.snapshotRetryTimer);
+            this.snapshotRetryTimer = null;
         }
         this.routeWatcher?.stop();
         this.routeWatcher = null;
@@ -104,14 +111,30 @@ export class ChatGPTDirectoryController {
         this.snapshot = await this.engine.getSnapshot();
         this.render();
         this.rebindObservers();
+        if (!this.snapshot) this.scheduleSnapshotRetry();
     }
 
     private render(): void {
         if (!this.rail) return;
-        const rounds = this.snapshot?.rounds ?? [];
-        this.rail.setRounds(rounds);
         this.refreshSkeletonAnchors();
+        const rounds = this.snapshot?.rounds?.length
+            ? this.snapshot.rounds
+            : this.buildPlaceholderRounds();
+        this.rail.setRounds(rounds);
         this.updateActivePosition();
+    }
+
+    private scheduleSnapshotRetry(): void {
+        if (this.snapshotRetryTimer !== null) return;
+        if (this.snapshotRetryCount >= 4) return;
+        const delays = [700, 1400, 2800, 5000];
+        const delay = delays[this.snapshotRetryCount] ?? 5000;
+        this.snapshotRetryCount += 1;
+        this.snapshotRetryTimer = window.setTimeout(() => {
+            this.snapshotRetryTimer = null;
+            if (!this.enabled || this.snapshot) return;
+            void this.refresh();
+        }, delay);
     }
 
     private handleScroll = () => {
@@ -166,6 +189,19 @@ export class ChatGPTDirectoryController {
         }
 
         this.skeletonAnchors = anchors;
+    }
+
+    private buildPlaceholderRounds(): ChatGPTConversationRound[] {
+        return this.skeletonAnchors.map((anchor) => ({
+            id: `chatgpt-skeleton-${anchor.position}`,
+            position: anchor.position,
+            userPrompt: `Message ${anchor.position}`,
+            assistantContent: '',
+            preview: '',
+            messageId: null,
+            userMessageId: null,
+            assistantMessageId: null,
+        }));
     }
 
     private updateActivePosition(): void {
