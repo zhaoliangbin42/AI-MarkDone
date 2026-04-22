@@ -34,7 +34,7 @@ describe('settings migrations', () => {
         expect(next.language).toBe('zh_CN');
     });
 
-    it('migrates v2 ChatGPT settings to the directory toggle', () => {
+    it('migrates v2 ChatGPT folding settings without inheriting the old dock visibility', () => {
         const stored: any = {
             version: 2,
             chatgpt: { showFoldDock: false, foldingMode: 'keep_last_n', defaultExpandedCount: 6 },
@@ -44,7 +44,7 @@ describe('settings migrations', () => {
 
         const next = loadAndNormalize(stored);
         expect(next.version).toBe(3);
-        expect(next.chatgpt.showConversationDirectory).toBe(false);
+        expect(next.chatgpt.showConversationDirectory).toBe(true);
         expect(next.chatgpt).not.toHaveProperty('foldingMode');
         expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
         expect(next.behavior.showWordCount).toBe(false);
@@ -65,6 +65,6 @@ describe('settings migrations', () => {
         expect(next.behavior.saveContextOnly).toBe(true);
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.reader.renderCodeInReader).toBe(false);
-        expect(next.chatgpt.showConversationDirectory).toBe(false);
+        expect(next.chatgpt.showConversationDirectory).toBe(true);
     });
 });

@@ -10,11 +10,9 @@ export function normalizeChatGptSettings(chatgpt: unknown): AppSettings['chatgpt
 
     return {
         ...DEFAULT_SETTINGS.chatgpt,
-        showConversationDirectory: Boolean(
-            (record as any).showConversationDirectory
-            ?? (record as any).showFoldDock
-            ?? DEFAULT_SETTINGS.chatgpt.showConversationDirectory
-        ),
+        showConversationDirectory: typeof (record as any).showConversationDirectory === 'boolean'
+            ? Boolean((record as any).showConversationDirectory)
+            : DEFAULT_SETTINGS.chatgpt.showConversationDirectory,
     };
 }
 
@@ -92,11 +90,9 @@ export function migrateFromV1(v1: unknown): AppSettings {
         },
         chatgpt: {
             ...DEFAULT_SETTINGS.chatgpt,
-            showConversationDirectory: Boolean(
-                (chatgpt as any).showConversationDirectory
-                ?? (chatgpt as any).showFoldDock
-                ?? DEFAULT_SETTINGS.chatgpt.showConversationDirectory
-            ),
+            showConversationDirectory: typeof (chatgpt as any).showConversationDirectory === 'boolean'
+                ? Boolean((chatgpt as any).showConversationDirectory)
+                : DEFAULT_SETTINGS.chatgpt.showConversationDirectory,
         },
         behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
@@ -136,11 +132,9 @@ export function migrateFromV2(v2: unknown): AppSettings {
         } as any,
         chatgpt: {
             ...DEFAULT_SETTINGS.chatgpt,
-            showConversationDirectory: Boolean(
-                (rec as any)?.chatgpt?.showConversationDirectory
-                ?? (rec as any)?.chatgpt?.showFoldDock
-                ?? true
-            ),
+            showConversationDirectory: typeof (rec as any)?.chatgpt?.showConversationDirectory === 'boolean'
+                ? Boolean((rec as any)?.chatgpt?.showConversationDirectory)
+                : DEFAULT_SETTINGS.chatgpt.showConversationDirectory,
         },
         behavior: normalizeBehaviorSettings(behavior),
         reader: {

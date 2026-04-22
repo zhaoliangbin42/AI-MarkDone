@@ -37,7 +37,7 @@ describe('settingsService', () => {
         expect(next.reader.commentExport.template).toEqual(template);
     });
 
-    it('normalizes retired ChatGPT folding fields into the single directory toggle', () => {
+    it('normalizes retired ChatGPT folding fields without hiding the new directory by default', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,
             chatgpt: {
@@ -48,10 +48,25 @@ describe('settingsService', () => {
             },
         } as any);
 
-        expect(next.chatgpt.showConversationDirectory).toBe(false);
+        expect(next.chatgpt.showConversationDirectory).toBe(true);
         expect(next.chatgpt).not.toHaveProperty('foldingMode');
         expect(next.chatgpt).not.toHaveProperty('defaultExpandedCount');
         expect(next.chatgpt).not.toHaveProperty('enableVirtualization');
+    });
+
+    it('preserves an explicit new ChatGPT directory toggle value', () => {
+        const next = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            chatgpt: {
+                showConversationDirectory: false,
+                showFoldDock: true,
+                foldingMode: 'all',
+            },
+        } as any);
+
+        expect(next.chatgpt.showConversationDirectory).toBe(false);
+        expect(next.chatgpt).not.toHaveProperty('showFoldDock');
+        expect(next.chatgpt).not.toHaveProperty('foldingMode');
     });
 
     it('does not re-persist removed chatgpt folding fields on category updates', () => {

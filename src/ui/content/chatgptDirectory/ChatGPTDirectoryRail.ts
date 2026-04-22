@@ -108,6 +108,7 @@ export class ChatGPTDirectoryRail {
   pointer-events: auto;
   display: block;
   font-family: var(--aimd-font-family-sans);
+  width: var(--aimd-space-3);
 }
 .rail {
   display: flex;
@@ -117,12 +118,13 @@ export class ChatGPTDirectoryRail {
 .rail__list {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--aimd-space-1);
-  padding: var(--aimd-space-2);
+  width: 100%;
+  padding: var(--aimd-space-1) 0;
   border-radius: calc(var(--aimd-radius-lg) * 2);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
-  box-shadow: var(--aimd-shadow-popover, var(--aimd-shadow-lg));
   max-height: min(78vh, 920px);
   overflow: hidden auto;
 }
@@ -130,8 +132,8 @@ export class ChatGPTDirectoryRail {
   all: unset;
   cursor: pointer;
   display: block;
-  width: calc(var(--aimd-space-3) * 3);
-  height: 3px;
+  width: calc(100% - var(--aimd-space-1));
+  height: 2px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
   transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),

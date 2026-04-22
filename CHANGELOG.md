@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bookmarks: Removed the awkward folder-name prompt wording that exposed internal "single segment" terminology.
 - Reader: Added delete support to existing annotation popovers so saved annotations can now be removed directly from the same edit surface.
 - Settings: Hardened the settings layout against horizontal overflow while keeping setting labels and controls in a stable two-column row.
+- ChatGPT: Kept the new conversation directory visible by default instead of inheriting the retired fold dock's hidden state.
 
 ### Changed
 - ChatGPT: Replaced the old fold bar and fold dock path with a payload-driven conversation directory rail that renders full history from the internal thread store and keeps the official page as the display layer.
