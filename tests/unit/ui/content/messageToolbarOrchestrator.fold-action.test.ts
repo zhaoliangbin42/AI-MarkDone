@@ -114,6 +114,83 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         );
     });
 
+    it('opens ChatGPT Reader at the current DOM message by identity instead of DOM-local position', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Question 50</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="dom-wrapper-id" data-aimd-msg-position="2">
+                <div class="markdown prose">Visible answer</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                buildFingerprint: 'build-1',
+                capturedAt: Date.now(),
+                source: 'runtime-bridge',
+                rounds: [
+                    {
+                        id: 'round-1',
+                        position: 1,
+                        userPrompt: 'Question 1',
+                        assistantContent: 'Answer 1',
+                        preview: 'Question 1',
+                        messageId: 'payload-a1',
+                        userMessageId: 'u1',
+                        assistantMessageId: 'payload-a1',
+                    },
+                    {
+                        id: 'round-2',
+                        position: 2,
+                        userPrompt: 'Question 2',
+                        assistantContent: 'Answer 2',
+                        preview: 'Question 2',
+                        messageId: 'payload-a2',
+                        userMessageId: 'u2',
+                        assistantMessageId: 'payload-a2',
+                    },
+                    {
+                        id: 'round-50',
+                        position: 50,
+                        userPrompt: 'Question 50',
+                        assistantContent: 'Answer 50',
+                        preview: 'Question 50',
+                        messageId: 'payload-a50',
+                        userMessageId: 'u50',
+                        assistantMessageId: 'payload-a50',
+                    },
+                ],
+            })),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+
+        expect(readerPanel.show).toHaveBeenCalledWith(
+            expect.any(Array),
+            2,
+            expect.any(String),
+            expect.objectContaining({ profile: 'conversation-reader' }),
+        );
+    });
+
     it('does not add a retired ChatGPT fold action', () => {
         document.body.innerHTML = `
           <div id="thread">

@@ -9,11 +9,19 @@ export type ChatGPTConversationTurn = {
 
 export type ChatGPTConversationStartTarget = {
     position?: number | null;
+    positionSource?: 'snapshot' | 'dom';
     messageId?: string | null;
+    userPrompt?: string | null;
 };
 
 function normalizeMessageId(value: unknown): string | null {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizePrompt(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized || null;
 }
 
 export function buildChatGPTConversationTurns(snapshot: ChatGPTConversationSnapshot): ChatGPTConversationTurn[] {
@@ -31,12 +39,6 @@ export function resolveChatGPTConversationStartIndex(
     const fallback = Math.max(0, snapshot.rounds.length - 1);
     if (!target) return fallback;
 
-    const position = Number(target.position ?? 0);
-    if (Number.isInteger(position) && position > 0) {
-        const byPosition = snapshot.rounds.findIndex((round) => round.position === position);
-        if (byPosition >= 0) return byPosition;
-    }
-
     const messageId = normalizeMessageId(target.messageId);
     if (messageId) {
         const byMessageId = snapshot.rounds.findIndex((round) => (
@@ -46,6 +48,18 @@ export function resolveChatGPTConversationStartIndex(
             || round.id === messageId
         ));
         if (byMessageId >= 0) return byMessageId;
+    }
+
+    const userPrompt = normalizePrompt(target.userPrompt);
+    if (userPrompt) {
+        const byPrompt = snapshot.rounds.findIndex((round) => normalizePrompt(round.userPrompt) === userPrompt);
+        if (byPrompt >= 0) return byPrompt;
+    }
+
+    const position = Number(target.position ?? 0);
+    if (target.positionSource === 'snapshot' && Number.isInteger(position) && position > 0) {
+        const byPosition = snapshot.rounds.findIndex((round) => round.position === position);
+        if (byPosition >= 0) return byPosition;
     }
 
     return fallback;

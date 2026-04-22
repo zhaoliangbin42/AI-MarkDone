@@ -492,8 +492,8 @@ export class MessageToolbarOrchestrator {
                 if (this.adapter.getPlatformId() === 'chatgpt' && this.chatGptConversationEngine) {
                     const snapshot = await this.chatGptConversationEngine.getSnapshot();
                     const startTarget = {
-                        position: this.getPositionForMessage(messageElement),
                         messageId: this.adapter.getMessageId(messageElement),
+                        userPrompt: this.getUserPromptForElement(messageElement),
                     };
                     if (snapshot?.rounds?.length) {
                         itemsResult = buildChatGPTReaderItems(snapshot, startTarget, this.getBookmarkPageUrl());

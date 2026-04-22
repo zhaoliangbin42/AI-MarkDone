@@ -86,7 +86,7 @@ describe('buildChatGPTReaderItems', () => {
         }));
     });
 
-    it('prefers position for the initial Reader item when DOM and payload message ids differ', () => {
+    it('does not treat DOM-local positions as payload positions when opening Reader', () => {
         const snapshot = {
             conversationId: 'conv-1',
             buildFingerprint: 'build-1',
@@ -113,11 +113,98 @@ describe('buildChatGPTReaderItems', () => {
                     userMessageId: 'u2',
                     assistantMessageId: 'payload-a2',
                 },
+                {
+                    id: 'round-3',
+                    position: 50,
+                    userPrompt: 'Prompt 50',
+                    assistantContent: 'Answer 50',
+                    preview: 'Prompt 50',
+                    messageId: 'payload-a50',
+                    userMessageId: 'u50',
+                    assistantMessageId: 'payload-a50',
+                },
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1, messageId: 'dom-wrapper-id' })).toBe(0);
-        expect(buildChatGPTReaderItems(snapshot, { position: 1, messageId: 'dom-wrapper-id' }).startIndex).toBe(0);
+        expect(resolveChatGPTConversationStartIndex(snapshot, {
+            position: 2,
+            positionSource: 'dom',
+            messageId: 'dom-wrapper-id',
+            userPrompt: 'Prompt\n50',
+        })).toBe(2);
+        expect(buildChatGPTReaderItems(snapshot, {
+            position: 2,
+            positionSource: 'dom',
+            messageId: 'dom-wrapper-id',
+            userPrompt: 'Prompt 50',
+        }).startIndex).toBe(2);
+    });
+
+    it('prefers message id over prompt when resolving the initial Reader item', () => {
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge' as const,
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Duplicate prompt',
+                    assistantContent: 'Answer 1',
+                    preview: 'Duplicate prompt',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Duplicate prompt',
+                    assistantContent: 'Answer 2',
+                    preview: 'Duplicate prompt',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+
+        expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'a2', userPrompt: 'Duplicate prompt' })).toBe(1);
+    });
+
+    it('uses payload positions only when the caller marks the source as snapshot', () => {
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge' as const,
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Prompt 1',
+                    assistantContent: 'Answer 1',
+                    preview: 'Prompt 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Prompt 2',
+                    assistantContent: 'Answer 2',
+                    preview: 'Prompt 2',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+
+        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1 })).toBe(1);
+        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1, positionSource: 'snapshot' })).toBe(0);
     });
 
     it('builds shared ChatGPT turns for Reader and export from the same snapshot content', () => {
