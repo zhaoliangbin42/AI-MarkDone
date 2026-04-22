@@ -491,9 +491,12 @@ export class MessageToolbarOrchestrator {
                 let itemsResult = null as ReturnType<typeof collectReaderItems> | ReturnType<typeof buildChatGPTReaderItems> | null;
                 if (this.adapter.getPlatformId() === 'chatgpt' && this.chatGptConversationEngine) {
                     const snapshot = await this.chatGptConversationEngine.getSnapshot();
-                    const startMessageId = this.adapter.getMessageId(messageElement);
+                    const startTarget = {
+                        position: this.getPositionForMessage(messageElement),
+                        messageId: this.adapter.getMessageId(messageElement),
+                    };
                     if (snapshot?.rounds?.length) {
-                        itemsResult = buildChatGPTReaderItems(snapshot, startMessageId, this.getBookmarkPageUrl());
+                        itemsResult = buildChatGPTReaderItems(snapshot, startTarget, this.getBookmarkPageUrl());
                     }
                 }
                 if (!itemsResult) {
@@ -520,7 +523,9 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
-                    saveMessagesDialog.open(this.adapter, this.theme);
+                    await saveMessagesDialog.open(this.adapter, this.theme, {
+                        chatGptConversationEngine: this.chatGptConversationEngine,
+                    });
                 },
             });
         }

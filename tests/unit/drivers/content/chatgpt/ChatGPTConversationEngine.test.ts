@@ -25,9 +25,9 @@ function createAdapter() {
     } as any;
 }
 
-function makeSnapshot(roundCount: number, capturedAt = 1) {
+function makeSnapshot(roundCount: number, capturedAt = 1, id = conversationId) {
     return {
-        conversationId,
+        conversationId: id,
         buildFingerprint: 'build-1',
         capturedAt,
         source: 'runtime-bridge' as const,
@@ -132,6 +132,65 @@ describe('ChatGPTConversationEngine', () => {
         expect(refreshed?.rounds).toHaveLength(2);
         expect((await engine.getSnapshot())?.rounds).toHaveLength(2);
         expect(requestCount).toBe(2);
+    });
+
+    it('treats SPA conversation changes as stale and force-refreshes the next snapshot', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const nextConversationId = '795499b7-464c-8323-a998-119f661ac954';
+        const requests: Array<{ conversationId: string; force: boolean }> = [];
+        installBridgeResponder((detail) => {
+            requests.push({ conversationId: detail.conversationId, force: Boolean(detail.force) });
+            return { snapshot: makeSnapshot(detail.conversationId === nextConversationId ? 2 : 1, requests.length, detail.conversationId) };
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const firstPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await firstPromise;
+
+        const prevUrl = window.location.href;
+        history.replaceState({}, '', `/c/${nextConversationId}`);
+        const routePromise = (engine as any).handleRouteChange(window.location.href, prevUrl);
+        await vi.runAllTimersAsync();
+        await routePromise;
+        const next = await engine.getSnapshot();
+
+        expect(next?.conversationId).toBe(nextConversationId);
+        expect(next?.rounds).toHaveLength(2);
+        expect(requests).toEqual([
+            { conversationId, force: false },
+            { conversationId: nextConversationId, force: true },
+        ]);
+    });
+
+    it('force-refreshes the current conversation when ChatGPT fetches conversation payload again', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const requests: boolean[] = [];
+        installBridgeResponder((detail) => {
+            requests.push(Boolean(detail.force));
+            return { snapshot: makeSnapshot(detail.force ? 2 : 1, requests.length) };
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const firstPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await firstPromise;
+
+        (engine as any).handleConversationFetch(new CustomEvent('aimd:chatgpt-conversation-fetch', {
+            detail: { url: `https://chatgpt.com/backend-api/conversation/${conversationId}` },
+        }));
+        await vi.runAllTimersAsync();
+
+        expect((await engine.getSnapshot())?.rounds).toHaveLength(2);
+        expect(requests).toContain(true);
     });
 
     it('does not notify subscribers when force refresh returns equivalent content', async () => {

@@ -3,12 +3,15 @@ import { browser } from '../../shared/browser';
 import { collectConversationTurnRefs } from '../conversation/collectConversationTurnRefs';
 import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from './types';
+import { RouteWatcher } from '../injection/routeWatcher';
 
 const BRIDGE_SCRIPT_ID = 'aimd-chatgpt-conversation-bridge-script';
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
+const FETCH_EVENT = 'aimd:chatgpt-conversation-fetch';
 const RESPONSE_TIMEOUT_MS = 2500;
 const LIVE_REFRESH_INTERVAL_MS = 1000;
+const REBUILD_RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
 
 type BridgeRequest =
     | {
@@ -34,19 +37,20 @@ type ReactTurnLike = {
 function isChatGPTConversationPage(url: string): boolean {
     try {
         const parsed = new URL(url);
-        const isChatGPT = parsed.hostname === 'chatgpt.com' || parsed.hostname === 'chat.openai.com';
-        return isChatGPT && /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
+        return /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
     } catch {
-        return false;
+        return /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(url);
     }
 }
 
 function getConversationIdFromUrl(url: string): string | null {
     try {
         const parsed = new URL(url);
-        return parsed.pathname.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
+        return parsed.pathname.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1]
+            ?? parsed.pathname.match(/(?:^|\/)conversation\/([0-9a-f-]{8,})/i)?.[1]
+            ?? null;
     } catch {
-        return null;
+        return url.match(/(?:^|\/)(?:c|conversation)\/([0-9a-f-]{8,})/i)?.[1] ?? null;
     }
 }
 
@@ -220,6 +224,12 @@ export class ChatGPTConversationEngine {
     private adapter: SiteAdapter;
     private bridgeReady = false;
     private bridgeReadyPromise: Promise<void> | null = null;
+    private initialized = false;
+    private routeWatcher: RouteWatcher | null = null;
+    private currentConversationId: string | null = null;
+    private rebuildRetryTimer: number | null = null;
+    private rebuildRetryCount = 0;
+    private staleConversationIds = new Set<string>();
     private snapshotByConversation = new Map<string, ChatGPTConversationSnapshot>();
     private inFlightByConversation = new Map<string, Promise<ChatGPTConversationSnapshot | null>>();
     private subscribers = new Set<(snapshot: ChatGPTConversationSnapshot | null) => void>();
@@ -235,16 +245,39 @@ export class ChatGPTConversationEngine {
 
     init(): void {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
+        if (this.initialized) {
+            this.handleRouteChange(window.location.href, window.location.href);
+            return;
+        }
+        this.initialized = true;
+        this.currentConversationId = getConversationIdFromUrl(window.location.href);
+        this.routeWatcher = new RouteWatcher((nextUrl, prevUrl) => this.handleRouteChange(nextUrl, prevUrl), { intervalMs: 500 });
+        this.routeWatcher.start();
+        window.addEventListener(FETCH_EVENT, this.handleConversationFetch as EventListener);
+
         if (!isChatGPTConversationPage(window.location.href)) return;
 
         const run = () => {
-            void this.getSnapshot();
+            this.markCurrentConversationStale();
+            void this.rebuildCurrentConversation();
         };
         if (typeof window.requestIdleCallback === 'function') {
             window.requestIdleCallback(run, { timeout: 1500 });
         } else {
             window.setTimeout(run, 600);
         }
+    }
+
+    dispose(): void {
+        this.routeWatcher?.stop();
+        this.routeWatcher = null;
+        window.removeEventListener(FETCH_EVENT, this.handleConversationFetch as EventListener);
+        if (this.rebuildRetryTimer !== null) {
+            window.clearTimeout(this.rebuildRetryTimer);
+            this.rebuildRetryTimer = null;
+        }
+        this.stopLiveRefresh();
+        this.initialized = false;
     }
 
     subscribe(listener: (snapshot: ChatGPTConversationSnapshot | null) => void): () => void {
@@ -265,9 +298,15 @@ export class ChatGPTConversationEngine {
         return this.refreshCurrentConversation({ force: false });
     }
 
+    forceRefreshCurrentConversation(): Promise<ChatGPTConversationSnapshot | null> {
+        this.markCurrentConversationStale();
+        return this.rebuildCurrentConversation();
+    }
+
     private async refreshCurrentConversation(options?: { force?: boolean }): Promise<ChatGPTConversationSnapshot | null> {
         const conversationId = getConversationIdFromUrl(window.location.href);
         if (!conversationId) return null;
+        this.currentConversationId = conversationId;
         return this.refreshSnapshot(conversationId, { force: options?.force === true });
     }
 
@@ -275,9 +314,9 @@ export class ChatGPTConversationEngine {
         conversationId: string,
         options?: { force?: boolean }
     ): Promise<ChatGPTConversationSnapshot | null> {
-        const force = options?.force === true;
+        const force = options?.force === true || this.staleConversationIds.has(conversationId);
         const cached = this.snapshotByConversation.get(conversationId);
-        if (cached && !force) return cached;
+        if (cached && !force && !this.staleConversationIds.has(conversationId)) return cached;
 
         const inFlight = this.inFlightByConversation.get(conversationId);
         if (inFlight) return inFlight;
@@ -307,12 +346,88 @@ export class ChatGPTConversationEngine {
 
         if (snapshot) {
             const previous = this.snapshotByConversation.get(conversationId) ?? null;
+            if (
+                previous?.source === 'runtime-bridge'
+                && snapshot.source !== 'runtime-bridge'
+                && snapshot.rounds.length < previous.rounds.length
+            ) {
+                this.scheduleRebuildRetry(conversationId);
+                return previous;
+            }
             this.snapshotByConversation.set(conversationId, snapshot);
+            this.staleConversationIds.delete(conversationId);
             if (!areSnapshotsEquivalent(previous, snapshot)) {
                 this.subscribers.forEach((listener) => listener(snapshot));
             }
         }
         return snapshot;
+    }
+
+    private handleRouteChange(nextUrl: string, prevUrl: string): void {
+        const previousId = getConversationIdFromUrl(prevUrl);
+        const nextId = getConversationIdFromUrl(nextUrl);
+        if (previousId === nextId && nextId === this.currentConversationId) return;
+
+        this.currentConversationId = nextId;
+        this.rebuildRetryCount = 0;
+        if (this.rebuildRetryTimer !== null) {
+            window.clearTimeout(this.rebuildRetryTimer);
+            this.rebuildRetryTimer = null;
+        }
+
+        if (!nextId || !isChatGPTConversationPage(nextUrl)) {
+            this.subscribers.forEach((listener) => listener(null));
+            return;
+        }
+
+        this.staleConversationIds.add(nextId);
+        void this.rebuildCurrentConversation();
+    }
+
+    private readonly handleConversationFetch = (event: Event) => {
+        const conversationId = getConversationIdFromUrl(window.location.href);
+        if (!conversationId || !isChatGPTConversationPage(window.location.href)) return;
+
+        const detail = (event as CustomEvent<{ url?: string }>).detail;
+        const fetchedConversationId = typeof detail?.url === 'string'
+            ? getConversationIdFromUrl(detail.url)
+            : null;
+        if (fetchedConversationId && fetchedConversationId !== conversationId) return;
+
+        this.currentConversationId = conversationId;
+        this.staleConversationIds.add(conversationId);
+        this.rebuildRetryCount = 0;
+        void this.rebuildCurrentConversation();
+    };
+
+    private markCurrentConversationStale(): void {
+        const conversationId = getConversationIdFromUrl(window.location.href);
+        if (!conversationId) return;
+        this.currentConversationId = conversationId;
+        this.staleConversationIds.add(conversationId);
+    }
+
+    private async rebuildCurrentConversation(): Promise<ChatGPTConversationSnapshot | null> {
+        const conversationId = getConversationIdFromUrl(window.location.href);
+        if (!conversationId || !isChatGPTConversationPage(window.location.href)) return null;
+        this.currentConversationId = conversationId;
+        const snapshot = await this.refreshSnapshot(conversationId, { force: true });
+        if (!snapshot || snapshot.source !== 'runtime-bridge') this.scheduleRebuildRetry(conversationId);
+        else this.rebuildRetryCount = 0;
+        return snapshot;
+    }
+
+    private scheduleRebuildRetry(conversationId: string): void {
+        if (this.rebuildRetryTimer !== null) return;
+        if (this.rebuildRetryCount >= REBUILD_RETRY_DELAYS_MS.length) return;
+        const delay = REBUILD_RETRY_DELAYS_MS[this.rebuildRetryCount] ?? REBUILD_RETRY_DELAYS_MS[REBUILD_RETRY_DELAYS_MS.length - 1];
+        this.rebuildRetryCount += 1;
+        this.rebuildRetryTimer = window.setTimeout(() => {
+            this.rebuildRetryTimer = null;
+            if (this.currentConversationId !== conversationId) return;
+            if (document.visibilityState !== 'visible') return;
+            void this.rebuildCurrentConversation();
+        }, delay);
     }
 
     private startLiveRefresh(): void {

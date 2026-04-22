@@ -110,6 +110,7 @@ if (adapter) {
         messageToolbars.dispose();
         headerIcon.dispose();
         chatGptDirectory?.dispose();
+        chatGptConversationEngine?.dispose?.();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).

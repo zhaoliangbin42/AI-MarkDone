@@ -1,6 +1,6 @@
 import type { ReaderItem } from '../../../services/reader/types';
 import type { ChatGPTConversationSnapshot } from './types';
-import { normalizeChatGPTReaderMarkdown } from './normalizeReaderMarkdown';
+import { buildChatGPTConversationTurns, resolveChatGPTConversationStartIndex, type ChatGPTConversationStartTarget } from './chatgptConversationSource';
 
 export type BuildChatGPTReaderItemsResult = {
     items: ReaderItem[];
@@ -19,14 +19,15 @@ function stripHash(url: string): string {
 
 export function buildChatGPTReaderItems(
     snapshot: ChatGPTConversationSnapshot,
-    startMessageId?: string | null,
+    startTarget?: ChatGPTConversationStartTarget | string | null,
     pageUrl: string = window.location.href
 ): BuildChatGPTReaderItemsResult {
     const normalizedUrl = stripHash(pageUrl);
-    const items: ReaderItem[] = snapshot.rounds.map((round) => ({
+    const turns = buildChatGPTConversationTurns(snapshot);
+    const items: ReaderItem[] = snapshot.rounds.map((round, index) => ({
         id: `chatgpt-${round.messageId ?? round.id}`,
         userPrompt: round.userPrompt,
-        content: normalizeChatGPTReaderMarkdown(round.assistantContent),
+        content: turns[index]?.assistant ?? '',
         meta: {
             platformId: 'chatgpt',
             messageId: round.messageId,
@@ -37,10 +38,10 @@ export function buildChatGPTReaderItems(
         },
     }));
 
-    const normalizedMessageId = typeof startMessageId === 'string' && startMessageId.trim() ? startMessageId.trim() : null;
-    const startIndexRaw = normalizedMessageId
-        ? items.findIndex((item) => item.meta?.messageId === normalizedMessageId)
-        : -1;
-    const startIndex = startIndexRaw >= 0 ? startIndexRaw : Math.max(0, items.length - 1);
+    const normalizedTarget: ChatGPTConversationStartTarget | null =
+        typeof startTarget === 'string'
+            ? { messageId: startTarget }
+            : startTarget ?? null;
+    const startIndex = resolveChatGPTConversationStartIndex(snapshot, normalizedTarget);
     return { items, startIndex };
 }

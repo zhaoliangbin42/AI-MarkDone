@@ -57,6 +57,7 @@ For ChatGPT-only payload/store-first or directory-rail changes, targeted verific
 
 - directory rail click
 - Reader locate / jump-to-message
+- Save Messages export source, when the change touches conversation snapshot collection
 
 If those two entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation.
 

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
-    collectConversationTurns: vi.fn(() => ({
+    collectConversationTurnsAsync: vi.fn(async () => ({
         turns: [
             { user: 'u1', assistant: 'a1', index: 0 },
             { user: 'u2', assistant: 'a2', index: 1 },
@@ -20,7 +20,7 @@ vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
     exportTurnsPdf: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
-import { collectConversationTurns, exportTurnsMarkdown, exportTurnsPdf } from '../../../../src/services/export/saveMessagesFacade';
+import { collectConversationTurnsAsync, exportTurnsMarkdown, exportTurnsPdf } from '../../../../src/services/export/saveMessagesFacade';
 import { SaveMessagesDialog } from '../../../../src/ui/content/export/SaveMessagesDialog';
 import { setLocale } from '../../../../src/ui/content/components/i18n';
 
@@ -64,11 +64,11 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const host = document.getElementById('aimd-save-messages-dialog-host');
         expect(host).toBeTruthy();
-        expect(collectConversationTurns).toHaveBeenCalledTimes(1);
+        expect(collectConversationTurnsAsync).toHaveBeenCalledTimes(1);
 
         const shadow = host!.shadowRoot!;
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/export/SaveMessagesDialog.ts'), 'utf8');
@@ -97,7 +97,7 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsMarkdown).toHaveBeenCalledTimes(1);
 
         // Reopen, switch to PDF and export.
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
         const host2 = document.getElementById('aimd-save-messages-dialog-host')!;
         const shadow2 = host2.shadowRoot!;
         const pdfBtn = shadow2.querySelector<HTMLElement>('[data-action="set-format"][data-format="pdf"]')!;
@@ -116,7 +116,7 @@ describe('SaveMessagesDialog', () => {
         });
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const host = document.getElementById('aimd-save-messages-dialog-host')!;
         const shadow = host.shadowRoot!;
@@ -133,7 +133,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const host = document.getElementById('aimd-save-messages-dialog-host');
         expect(host).toBeTruthy();
@@ -154,7 +154,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
 
@@ -177,7 +177,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const host = document.getElementById('aimd-save-messages-dialog-host');
         expect(host).toBeTruthy();
@@ -199,7 +199,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const firstHost = document.getElementById('aimd-save-messages-dialog-host')!;
         const firstPanel = firstHost.shadowRoot!.querySelector<HTMLElement>('.panel-window--save')!;
@@ -207,7 +207,7 @@ describe('SaveMessagesDialog', () => {
         dlg.close();
         expect(firstPanel.dataset.motionState).toBe('closing');
 
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const secondHost = document.getElementById('aimd-save-messages-dialog-host')!;
         const secondPanel = secondHost.shadowRoot!.querySelector<HTMLElement>('.panel-window--save')!;
@@ -240,7 +240,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
         const dlg = new SaveMessagesDialog();
-        dlg.open(adapter, 'light');
+        await dlg.open(adapter, 'light');
 
         const host = document.getElementById('aimd-save-messages-dialog-host')!;
         const shadow = host.shadowRoot!;

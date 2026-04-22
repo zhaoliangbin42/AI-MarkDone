@@ -1,10 +1,11 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { getTokenCss } from '../../../style/tokens';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
-    collectConversationTurns,
+    collectConversationTurnsAsync,
     exportTurnsMarkdown,
     exportTurnsPdf,
 } from '../../../services/export/saveMessagesFacade';
@@ -54,12 +55,18 @@ export class SaveMessagesDialog {
         return Boolean(this.overlaySession);
     }
 
-    open(adapter: SiteAdapter, theme: Theme): void {
+    async open(
+        adapter: SiteAdapter,
+        theme: Theme,
+        options?: { chatGptConversationEngine?: ChatGPTConversationEngine | null }
+    ): Promise<void> {
         this.focusLifecycle.capture();
         this.adapter = adapter;
         this.state.theme = theme;
 
-        const { turns, metadata } = collectConversationTurns(adapter);
+        const { turns, metadata } = await collectConversationTurnsAsync(adapter, {
+            chatGptConversationEngine: options?.chatGptConversationEngine ?? null,
+        });
         this.turns = turns;
         this.metadata = metadata;
         this.state.turnsCount = turns.length;

@@ -1,4 +1,6 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
+import type { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import { buildChatGPTConversationTurns } from '../../drivers/content/chatgpt/chatgptConversationSource';
 import { collectConversationTurnRefs } from '../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildConversationMetadata } from '../../drivers/content/conversation/metadata';
 import { downloadText } from '../../drivers/content/export/downloadFile';
@@ -12,6 +14,10 @@ export type ExportResult = { ok: true; noop: boolean } | { ok: false; error: { c
 
 export type ExportOptions = {
     t: TranslateFn;
+};
+
+export type CollectConversationTurnsOptions = {
+    chatGptConversationEngine?: ChatGPTConversationEngine | null;
 };
 
 function buildTurns(adapter: SiteAdapter): ChatTurn[] {
@@ -31,6 +37,25 @@ export function collectConversationTurns(adapter: SiteAdapter): { turns: ChatTur
     const turns = buildTurns(adapter);
     const metadata = buildConversationMetadata(adapter, turns.length) as ConversationMetadata;
     return { turns, metadata };
+}
+
+export async function collectConversationTurnsAsync(
+    adapter: SiteAdapter,
+    options?: CollectConversationTurnsOptions
+): Promise<{ turns: ChatTurn[]; metadata: ConversationMetadata }> {
+    if (adapter.getPlatformId?.() === 'chatgpt' && options?.chatGptConversationEngine) {
+        try {
+            const snapshot = await options.chatGptConversationEngine.forceRefreshCurrentConversation();
+            if (snapshot?.rounds?.length) {
+                const turns = buildChatGPTConversationTurns(snapshot);
+                const metadata = buildConversationMetadata(adapter, turns.length) as ConversationMetadata;
+                return { turns, metadata };
+            }
+        } catch {
+            // Fall back to the established DOM path if the ChatGPT payload bridge is temporarily unavailable.
+        }
+    }
+    return collectConversationTurns(adapter);
 }
 
 export async function exportTurnsMarkdown(
