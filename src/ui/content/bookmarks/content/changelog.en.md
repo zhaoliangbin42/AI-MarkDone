@@ -13,17 +13,18 @@ On the official page itself, I also found a few rough edges in the new dynamic l
 
 ## Added
 - Dynamic Annotations in Reader now support deleting annotations. Thanks to Xiaohongshu user @Z.. (研一版).
-- Added a right-side ChatGPT directory so you can jump to any conversation segment in one click. Because ChatGPT itself now uses incremental loading, the first jump may be slightly off, but a second click should land precisely.
+- Added a right-side ChatGPT directory so you can jump to any conversation segment in one click.
 
 ## Changed
 - Redesigned the ChatGPT content discovery engine so Reader can recover full-thread visibility under the new incremental-loading page model.
-- Adjusted bookmark jump behavior on ChatGPT around the new dynamic loading path. Positioning is more usable now, but the page can still drift on the first jump while older content is being reloaded.
+- Adjusted ChatGPT bookmark save, highlight, and jump behavior around the new dynamic loading path so bookmarks use the same stable conversation position model as the right-side directory.
 
 ## Fixed
 - Fixed bookmark renaming. Thanks to Xiaohongshu user @Z.. (研一版).
+- Fixed ChatGPT bookmark save, highlight, and jump positioning under incremental loading.
 - Fixed Reader content discovery on ChatGPT so full-thread collection works again. Thanks to Xiaohongshu user @沐霖.
 - Fixed the insert-prompt action inside the Reader send box.
-- Partially improved bookmark jump positioning so it is less likely to miss the start of a message. Thanks to Xiaohongshu user @Z.. (研一版). It is still not ideal: a second click works reliably, while the first click can still drift because the ChatGPT page is less stable under incremental loading.
+- Improved bookmark jump positioning so ChatGPT bookmarks use the same stable anchor path as the right-side directory. Thanks to Xiaohongshu user @Z.. (研一版).
 
 ## Removed
 - Removed ChatGPT message folding.

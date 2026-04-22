@@ -49,6 +49,34 @@ export function collectChatGPTSkeletonAnchors(adapter: SiteAdapter): ChatGPTSkel
     return anchors;
 }
 
+export function resolveChatGPTSkeletonPositionForMessage(adapter: SiteAdapter, messageElement: HTMLElement): number | null {
+    const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
+        (node): node is HTMLElement => node instanceof HTMLElement,
+    );
+    let position = 0;
+
+    for (const container of turnContainers) {
+        const userTurn = container.querySelector('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]');
+        const assistantTurn = container.querySelector('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]');
+
+        if (userTurn instanceof HTMLElement && !(assistantTurn instanceof HTMLElement)) {
+            continue;
+        }
+
+        if (!(assistantTurn instanceof HTMLElement)) continue;
+        position += 1;
+        if (container.contains(messageElement) || assistantTurn.contains(messageElement)) {
+            return position;
+        }
+    }
+
+    const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
+        (node): node is HTMLElement => node instanceof HTMLElement,
+    );
+    const index = messages.findIndex((node) => node === messageElement || node.contains(messageElement) || messageElement.contains(node));
+    return index >= 0 ? index + 1 : null;
+}
+
 export async function navigateChatGPTDirectoryTarget(
     adapter: SiteAdapter,
     target: ChatGPTNavigationTarget,

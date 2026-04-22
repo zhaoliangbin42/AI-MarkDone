@@ -78,7 +78,8 @@
   - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 负责把完整历史呈现为页面右侧目录条；官方线程继续作为正文显示层
   - `src/ui/content/chatgptDirectory/navigation.ts` 现在是 ChatGPT 目录条同页跳转的稳定入口：优先使用当前页面的 skeleton/container anchor，再回退到共享 bookmark/conversation navigation
   - Reader 与 Save Messages 导出在 ChatGPT 上优先消费 payload/store 快照，而不是当前 hydration 的 DOM 片段
-  - ChatGPT Reader 的 `jump to message` 当前也复用同一条 directory navigation helper；Bookmarks 仍保持原有 bookmark navigation 路径，不把 ChatGPT-only 入口扩散到全平台共享导航
+  - ChatGPT Reader 的 `jump to message`、右侧目录条、书签面板的同页/跨页定位入口都复用同一条 directory navigation helper；非 ChatGPT 平台仍保持原有 bookmark/conversation navigation 路径
+  - ChatGPT 工具栏书签保存与高亮会先通过 skeleton/container 轮次映射到 payload 的绝对 `position`，再复用现有 `url + position` 书签身份，不改变底层存储 schema
   - `drivers/content/virtualization/*` 与相关设计文档目前只保留为历史实验资产，不构成现行 shipping path
 
 ### Bookmarks

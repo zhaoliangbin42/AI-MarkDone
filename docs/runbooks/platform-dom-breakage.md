@@ -24,11 +24,14 @@
 1. `ChatGPTConversationEngine` 是否还能拿到完整 snapshot
    - 如果 Reader 只能看到当前 hydration 的几条消息，先检查 bridge/store，而不是先改 Reader UI
 2. `ChatGPTDirectoryController` 是否还能建立当前页面的 skeleton/container anchors
-   - 目录条 click 和 Reader locate 的 ChatGPT 同页跳转都依赖这条锚点链路
-3. 如果目录条能跳、Reader 不能跳
-   - 先检查 Reader locate 是否仍走 `src/ui/content/chatgptDirectory/navigation.ts`
+   - 目录条 click、Reader locate、ChatGPT 书签 Go/pending navigation 都依赖这条锚点链路
+3. 如果目录条能跳、Reader 或书签不能跳
+   - 先检查对应入口是否仍走 `src/ui/content/chatgptDirectory/navigation.ts`
    - 不要直接改全平台共享 bookmark navigation，除非确认是跨平台语义问题
-4. 如果 payload 完整但同页跳转失败
+4. 如果 ChatGPT 工具栏书签高亮或保存位置漂移
+   - 先检查 `MessageToolbarOrchestrator` 是否仍通过 `resolveChatGPTSkeletonPositionForMessage()` 解析绝对轮次
+   - 不要为了修复 ChatGPT 动态加载窗口里的局部 position 而修改 bookmark storage key/schema
+5. 如果 payload 完整但同页跳转失败
    - 检查 `[data-turn-id-container]` / `section[data-turn]` 的宿主结构是否变化
    - 再检查目录条 helper 是否正确回退到了共享 bookmark navigation
 

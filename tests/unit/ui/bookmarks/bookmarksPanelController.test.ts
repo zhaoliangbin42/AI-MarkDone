@@ -9,6 +9,7 @@ const bulkMoveMock = vi.fn(async () => ({ ok: true, data: {} }));
 const bulkRemoveMock = vi.fn(async () => ({ ok: true, data: {} }));
 const saveMock = vi.fn(async () => ({ ok: true, data: { saved: true } }));
 const storageUsageMock = vi.fn(async () => ({ ok: true, data: { usedBytes: 0, quotaBytes: 1024, usedPercentage: 0, warningLevel: 'none' } }));
+const navigateChatGPTDirectoryTargetMock = vi.fn(async () => ({ ok: true }));
 
 vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
     bookmarksClient: {
@@ -24,9 +25,14 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
     },
 }));
 
+vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
+    navigateChatGPTDirectoryTarget: navigateChatGPTDirectoryTargetMock,
+}));
+
 describe('BookmarksPanelController', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.history.replaceState({}, '', '/c/123');
     });
 
     it('restores the persisted last selected folder path through the existing uiState client', async () => {
@@ -167,6 +173,33 @@ describe('BookmarksPanelController', () => {
             timestamp: 123456,
             options: { saveContextOnly: false },
         });
+    });
+
+    it('uses the ChatGPT directory helper for same-page bookmark navigation', async () => {
+        const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
+        const adapter = { getPlatformId: () => 'chatgpt' };
+        const controller = new BookmarksPanelController(adapter as any);
+        const url = `${window.location.origin}/c/123`;
+        const bookmark = {
+            url,
+            urlWithoutProtocol: url.replace(/^https?:\/\//, ''),
+            position: 50,
+            messageId: 'payload-a50',
+            userMessage: 'Prompt',
+            aiResponse: 'Answer',
+            timestamp: Date.now(),
+            title: 'Saved thread',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+        };
+
+        await controller.goToBookmark(bookmark);
+
+        expect(navigateChatGPTDirectoryTargetMock).toHaveBeenCalledWith(
+            adapter,
+            bookmark,
+            { timeoutMs: 2000, intervalMs: 200 },
+        );
     });
 
     it('includes checked folder paths when batch deleting a selected folder', async () => {

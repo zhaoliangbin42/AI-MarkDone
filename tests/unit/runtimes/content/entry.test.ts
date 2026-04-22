@@ -88,6 +88,7 @@ const engineCtor = vi.fn(function () {
 const setLocale = vi.fn(async () => {});
 const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
+const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
 const addListener = vi.fn();
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
 
@@ -112,6 +113,10 @@ vi.mock('@/drivers/content/math/math-click', () => ({
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({
     consumePendingNavigation,
     scrollToBookmarkTargetWithRetry,
+}));
+
+vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
+    navigateChatGPTDirectoryTarget,
 }));
 
 vi.mock('@/drivers/shared/browser', () => ({
@@ -215,6 +220,24 @@ describe('content runtime entry', () => {
         expect(engineInit).toHaveBeenCalledTimes(1);
         expect(directoryInit).toHaveBeenCalledTimes(1);
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
+    });
+
+    it('routes ChatGPT pending bookmark navigation through the directory helper', async () => {
+        adapterPlatformId = 'chatgpt';
+        consumePendingNavigation.mockReturnValueOnce({
+            url: 'https://chatgpt.com/c/abc',
+            position: 50,
+            messageId: 'payload-a50',
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
+            expect.objectContaining({ getPlatformId: expect.any(Function) }),
+            { url: 'https://chatgpt.com/c/abc', position: 50, messageId: 'payload-a50' },
+            { timeoutMs: 8000, intervalMs: 200 },
+        );
+        expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
     it('keeps the ChatGPT directory tied to platform runtime state instead of a retired visibility setting', async () => {

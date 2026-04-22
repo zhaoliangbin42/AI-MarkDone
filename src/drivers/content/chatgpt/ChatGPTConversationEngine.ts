@@ -1,7 +1,6 @@
 import type { SiteAdapter } from '../adapters/base';
 import { browser } from '../../shared/browser';
 import { collectConversationTurnRefs } from '../conversation/collectConversationTurnRefs';
-import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from './types';
 import { RouteWatcher } from '../injection/routeWatcher';
 
@@ -197,8 +196,10 @@ function buildDomFallback(adapter: SiteAdapter, conversationId: string): ChatGPT
     const turns = collectConversationTurnRefs(adapter);
     if (turns.length === 0) return null;
     const rounds: ChatGPTConversationRound[] = turns.map((turn, index) => {
-        const markdown = copyMarkdownFromTurn(adapter, turn.messageEls);
-        const assistantContent = markdown.ok ? markdown.markdown : '';
+        const assistantContent = turn.messageEls
+            .map((element) => element.textContent?.trim() ?? '')
+            .filter(Boolean)
+            .join('\n\n');
         return {
             id: turn.messageId ?? `dom-${index + 1}`,
             position: index + 1,

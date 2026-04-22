@@ -144,13 +144,13 @@ Click the extension icon to open the bookmarks panel, then go to Settings. From 
 
 I do not like tools that dump every feature on every user, so this part is meant to stay flexible.
 
-## What is the ChatGPT conversation directory, and why is it ChatGPT-only right now?
+## How do I use the ChatGPT conversation directory?
 
-Because very long ChatGPT conversations get unwieldy fast. The page grows, finding the message you want gets slower, and the host page only hydrates part of the thread at a time.
+Open a ChatGPT conversation. The directory appears on the right side of the page.
 
-The conversation directory solves that by showing the full history as a lightweight right-side rail. Each mark maps to one user round, hover gives you a quick preview, and click jumps you back to that part of the conversation. The official page still owns the actual message rendering and input box.
+Each item represents one user round. Hover an item to preview that part of the conversation, then click it to jump back to that position.
 
-As for why it is ChatGPT-only right now: this feature depends heavily on platform-specific conversation structure. ChatGPT is the platform where I have built out the payload/store-first path that makes this full-history navigation reliable.
+The directory is currently available on ChatGPT only.
 
 ## How does word count work?
 

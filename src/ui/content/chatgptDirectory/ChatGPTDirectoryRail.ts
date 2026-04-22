@@ -223,7 +223,7 @@ export class ChatGPTDirectoryRail {
   transition: opacity 120ms var(--aimd-ease-in-out),
               translate 120ms var(--aimd-ease-out);
   z-index: var(--aimd-z-tooltip, 10000);
-  font-family: var(--aimd-font-family-sans, ui-sans-serif, -apple-system, "system-ui", "Segoe UI", Helvetica, Arial, sans-serif);
+  font-family: var(--aimd-font-family-sans);
   box-sizing: border-box;
 }
 .aimd-chatgpt-directory-preview[data-open="1"] {

@@ -434,7 +434,7 @@ describe('BookmarksPanel', () => {
 
         expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.1.2");
         expect(modal?.textContent).toContain('2026-04-22');
-        expect(modal?.textContent).toContain('once-per-version changelog modal');
+        expect(modal?.textContent).toContain('right-side ChatGPT directory');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();

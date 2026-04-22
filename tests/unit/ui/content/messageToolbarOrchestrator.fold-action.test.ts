@@ -46,6 +46,84 @@ class NonChatGPTAdapter extends SiteAdapter {
 }
 
 describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
+    function buildVirtualizedChatGptSnapshot() {
+        return {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Answer 1',
+                    preview: 'Question 1',
+                    messageId: 'payload-a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'payload-a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: 'Answer 2',
+                    preview: 'Question 2',
+                    messageId: 'payload-a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'payload-a2',
+                },
+                {
+                    id: 'round-50',
+                    position: 50,
+                    userPrompt: 'Question 50',
+                    assistantContent: 'Answer 50',
+                    preview: 'Question 50',
+                    messageId: 'payload-a50',
+                    userMessageId: 'u50',
+                    assistantMessageId: 'payload-a50',
+                },
+            ],
+        };
+    }
+
+    function renderVirtualizedChatGptBookmarkDom(): void {
+        const previousTurns = Array.from({ length: 49 }, (_value, index) => {
+            const position = index + 1;
+            return `
+              <div data-turn-id-container id="user-${position}">
+                <section data-turn="user"></section>
+              </div>
+              <div data-turn-id-container id="assistant-${position}">
+                <section data-turn="assistant"></section>
+              </div>
+            `;
+        }).join('');
+
+        document.body.innerHTML = `
+          <div id="thread">
+            ${previousTurns}
+            <div data-turn-id-container id="user-50">
+              <section data-turn="user">
+                <div data-message-author-role="user">
+                  <div class="whitespace-pre-wrap">Question 50</div>
+                </div>
+              </section>
+            </div>
+            <div data-turn-id-container id="assistant-50">
+              <section data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="dom-wrapper-id" data-aimd-msg-position="2">
+                  <div class="markdown prose">Visible answer</div>
+                </div>
+                <div class="z-0 flex">
+                  <div><button data-testid="copy-turn-action-button">copy</button></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        `;
+    }
+
     it('uses ChatGPTConversationEngine snapshot to open Reader with payload-first items', async () => {
         document.body.innerHTML = `
           <div id="thread">
@@ -136,44 +214,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const chatGptConversationEngine = {
-            getSnapshot: vi.fn(async () => ({
-                conversationId: 'conv-1',
-                buildFingerprint: 'build-1',
-                capturedAt: Date.now(),
-                source: 'runtime-bridge',
-                rounds: [
-                    {
-                        id: 'round-1',
-                        position: 1,
-                        userPrompt: 'Question 1',
-                        assistantContent: 'Answer 1',
-                        preview: 'Question 1',
-                        messageId: 'payload-a1',
-                        userMessageId: 'u1',
-                        assistantMessageId: 'payload-a1',
-                    },
-                    {
-                        id: 'round-2',
-                        position: 2,
-                        userPrompt: 'Question 2',
-                        assistantContent: 'Answer 2',
-                        preview: 'Question 2',
-                        messageId: 'payload-a2',
-                        userMessageId: 'u2',
-                        assistantMessageId: 'payload-a2',
-                    },
-                    {
-                        id: 'round-50',
-                        position: 50,
-                        userPrompt: 'Question 50',
-                        assistantContent: 'Answer 50',
-                        preview: 'Question 50',
-                        messageId: 'payload-a50',
-                        userMessageId: 'u50',
-                        assistantMessageId: 'payload-a50',
-                    },
-                ],
-            })),
+            getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
         } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
 
@@ -189,6 +230,67 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
+    });
+
+    it('saves ChatGPT bookmarks with payload positions instead of DOM-local positions', async () => {
+        renderVirtualizedChatGptBookmarkDom();
+
+        vi.mocked(bookmarkSaveDialog.open).mockReset();
+        vi.mocked(bookmarkSaveDialog.open).mockResolvedValueOnce({
+            ok: true,
+            folderPath: '/Research',
+            title: 'Question 50',
+        } as any);
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            getDefaultFolderPath: vi.fn(() => '/Inbox'),
+            toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
+            selectFolder: vi.fn(),
+        } as any;
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController, chatGptConversationEngine }) as any;
+        orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'Visible answer' }));
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const toolbar = { setActionActive: vi.fn() };
+        const actions = orchestrator.getActionsForMessage(assistant, () => toolbar);
+        const bookmarkAction = actions.find((action: any) => action.id === 'bookmark_toggle');
+
+        await bookmarkAction.onClick();
+
+        expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
+            position: 50,
+            messageId: 'payload-a50',
+            userMessage: 'Question 50',
+        }));
+        expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
+    });
+
+    it('highlights ChatGPT bookmark buttons by payload position instead of DOM-local position', async () => {
+        renderVirtualizedChatGptBookmarkDom();
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn((_url: string, position: number) => position === 50),
+        } as any;
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController, chatGptConversationEngine }) as any;
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const toolbar = { setActionActive: vi.fn() };
+        (orchestrator as any).refreshBookmarkStateForToolbar(toolbar, assistant, 2);
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+        expect(bookmarksController.isPositionBookmarked).toHaveBeenCalledWith(expect.any(String), 50);
+        expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
     });
 
     it('does not add a retired ChatGPT fold action', () => {

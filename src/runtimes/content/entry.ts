@@ -18,6 +18,7 @@ import { SendController } from '../../ui/content/sending/SendController';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
+import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 
 ensurePageTokens();
 
@@ -162,6 +163,9 @@ if (adapter) {
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
     const pending = consumePendingNavigation();
     if (pending) {
-        void scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
+        const pendingNavigation = adapter.getPlatformId() === 'chatgpt'
+            ? navigateChatGPTDirectoryTarget(adapter, pending, { timeoutMs: 8000, intervalMs: 200 })
+            : scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
+        void pendingNavigation;
     }
 }

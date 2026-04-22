@@ -24,8 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Reader: Dynamic Annotations now support deleting existing annotations.
 - Bookmarks: Restored bookmark item renaming through the shared prompt dialog and existing save path.
+- ChatGPT Bookmarks: Fixed bookmark save, highlight, and jump positioning on dynamically loaded ChatGPT conversations.
 - Reader and Sending: Fixed prompt insertion inside the Reader send box.
-- Bookmarks: Partially improved jump-to-original positioning on ChatGPT, though incremental loading can still require a second click for a fully accurate jump.
+- Bookmarks: Improved jump-to-original positioning on ChatGPT by routing ChatGPT bookmark jumps through the same directory anchor path used by the right-side conversation directory.
 
 ## [4.1.1] - 2026-04-20
 

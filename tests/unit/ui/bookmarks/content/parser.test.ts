@@ -117,7 +117,7 @@ Short summary only.
             {
                 version: '1.0.0',
                 date: '2026-01-01',
-                leadBlocks: [],
+                leadBlocks: [{ type: 'list', items: ['Added the first thing'] }],
                 sections: [],
             },
             {
@@ -145,6 +145,7 @@ Second line
 
         expect(parsed.entries[0]?.leadBlocks).toEqual([
             { type: 'paragraph', text: 'First line\nSecond line' },
+            { type: 'list', items: ['Bullet line one\nstill same bullet text'] },
         ]);
         expect(parsed.entries[0]?.sections).toEqual([]);
     });

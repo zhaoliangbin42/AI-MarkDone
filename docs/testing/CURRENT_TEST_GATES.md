@@ -53,13 +53,15 @@ For large structural refactors, the minimum acceptable closing gate is:
 - `npm run test:acceptance`
 - `npm run build`
 
-For ChatGPT-only payload/store-first or directory-rail changes, targeted verification must also prove both of these entrypoints still work together:
+For ChatGPT-only payload/store-first, directory-rail, or ChatGPT bookmark-position changes, targeted verification must also prove these entrypoints still agree on the same conversation position model:
 
 - directory rail click
 - Reader locate / jump-to-message
+- toolbar bookmark save/highlight
+- bookmarks panel Go and cross-page pending navigation
 - Save Messages export source, when the change touches conversation snapshot collection
 
-If those two entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation.
+If those entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation. For ChatGPT bookmark-position work, the focused set should cover `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanelController.test.ts`, and `tests/unit/runtimes/content/entry.test.ts`.
 
 If the change affects a shared surface with 2+ entrypoints, verification must also prove that production callers route through the surface-owned profile contract instead of directly shaping low-level chrome flags.
 

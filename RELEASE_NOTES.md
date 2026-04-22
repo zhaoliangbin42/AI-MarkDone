@@ -1,5 +1,20 @@
 # Release Notes
 
+## v4.1.2 (2026-04-22)
+
+### Added
+- Added a right-side ChatGPT conversation directory with live previews and direct jump actions.
+- Reader Dynamic Annotations now support deleting existing annotations.
+
+### Changed
+- Reworked ChatGPT conversation discovery for the new incremental-loading page model so Reader and export can recover full-thread content again.
+- Removed the old ChatGPT message folding feature because the current ChatGPT page dynamically loads and unloads message nodes.
+
+### Fixed
+- Fixed bookmark renaming from the bookmarks panel.
+- Fixed ChatGPT bookmark save, highlight, and jump positioning under incremental loading.
+- Fixed Reader prompt insertion from the send box.
+
 ## v4.1.1 (2026-04-20)
 
 ### Fixed

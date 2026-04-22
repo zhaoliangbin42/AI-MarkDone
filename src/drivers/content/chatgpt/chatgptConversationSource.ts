@@ -1,5 +1,5 @@
 import { normalizeChatGPTReaderMarkdown } from './normalizeReaderMarkdown';
-import type { ChatGPTConversationSnapshot } from './types';
+import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from './types';
 
 export type ChatGPTConversationTurn = {
     user: string;
@@ -63,4 +63,35 @@ export function resolveChatGPTConversationStartIndex(
     }
 
     return fallback;
+}
+
+export function resolveChatGPTConversationRound(
+    snapshot: ChatGPTConversationSnapshot,
+    target?: ChatGPTConversationStartTarget | null
+): ChatGPTConversationRound | null {
+    if (!target) return null;
+
+    const messageId = normalizeMessageId(target.messageId);
+    if (messageId) {
+        const byMessageId = snapshot.rounds.find((round) => (
+            round.messageId === messageId
+            || round.assistantMessageId === messageId
+            || round.userMessageId === messageId
+            || round.id === messageId
+        ));
+        if (byMessageId) return byMessageId;
+    }
+
+    const userPrompt = normalizePrompt(target.userPrompt);
+    if (userPrompt) {
+        const byPrompt = snapshot.rounds.find((round) => normalizePrompt(round.userPrompt) === userPrompt);
+        if (byPrompt) return byPrompt;
+    }
+
+    const position = Number(target.position ?? 0);
+    if (target.positionSource === 'snapshot' && Number.isInteger(position) && position > 0) {
+        return snapshot.rounds.find((round) => round.position === position) ?? null;
+    }
+
+    return null;
 }

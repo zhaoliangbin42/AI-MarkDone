@@ -15,7 +15,7 @@
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>ChatGPT Message Folding, Reader source copy, Dynamic Annotation, bookmarks, and beautiful PDF export.</em></p>
+  <p><em>ChatGPT directory navigation, Reader source copy, Dynamic Annotation, bookmarks, and beautiful PDF export.</em></p>
 
   [中文文档](./README.zh.md) | English
 </div>
@@ -30,9 +30,9 @@
 
 ## 🤔 Is This For You?
 
-- **ChatGPT feels slow?** Long answers make the page heavy and annoying to navigate.
+- **ChatGPT threads are hard to navigate?** Incremental loading can make older messages slower to revisit.
 - **Scroll fatigue?** You keep losing the exact paragraph you need.
-- **Page getting sluggish?** Dozens of messages piling up slow down ChatGPT noticeably — you just want to focus on the latest few.
+- **Need a conversation map?** You want a live outline that previews messages and jumps back to the right turn quickly.
 - **Need a stable view?** You want to read and keep chatting without losing context.
 - **Need real deliverables?** Clean Markdown for Obsidian/Typora, or a beautiful PDF you can share.
 - **Knowledge keeps disappearing?** You want a bookmark system that actually helps you organize.
@@ -48,25 +48,30 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
   <img src="imgs/Toolbar.png" style="max-width:800px;width:100%;" />
 </p>
 <p align="center">
-  <img src="imgs/Fold.png" style="max-width:800px;width:100%;" />
+  <img src="imgs/Reading.png" style="max-width:800px;width:100%;" />
+</p>
+<p align="center">
+  <img src="imgs/Bookmark.png" style="max-width:800px;width:100%;" />
 </p>
 
 ---
 
 ## ✨ Core Features
 
-### ⚡ Conversation Folding (ChatGPT Speed Boost)
-- **Collapse old messages**: Fold earlier exchanges into a slim bar — the page renders faster and feels lighter instantly.
-- **Quick dock**: A fixed right-side control lets you collapse or expand all messages in one click.
-- **Smart defaults**: Set how many recent messages stay expanded automatically, so you always see what matters.
-- **Manual control**: Fold or unfold any individual message at any time.
+### ⚡ ChatGPT Directory
+- **Right-side outline**: See a live directory of the current ChatGPT conversation without leaving the native page.
+- **Message previews**: Scan compact previews before jumping.
+- **Direct jump**: Click an item to return to the target turn through the same stable anchor path used by ChatGPT bookmarks and Reader locate.
+- **Built for the new ChatGPT page**: Replaces the old folding workflow, which is no longer stable under ChatGPT's incremental loading model.
 
 ### 📚 Reading Mode (Focus View)
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
+- **Full-thread recovery on ChatGPT**: Reader can discover the whole conversation again under ChatGPT's incremental loading model.
 - **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages.
 - **Source-aware copy**: Copy formulas, code blocks, tables, images, and other closed Markdown units as source directly inside Reader.
 - **Partial source selection**: Select only the part you need; Reader maps closed units back to their original Markdown boundaries and rebuilds the copied result in selection order.
 - **Dynamic Annotation**: Mark exact passages, leave revision notes, and compile them into structured follow-up input.
+- **Annotation cleanup**: Delete annotations when they are no longer needed.
 - **Annotation insertion**: Insert compiled annotations into the Reader send box with your chosen prompt, without manually copying and pasting.
 - **Keep chatting**: Send messages from Reading Mode without losing your place.
 
@@ -78,7 +83,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 ### 🔖 Bookmarks That Actually Help
 - **One-click save**: Bookmark any important message instantly.
 - **Organize**: Use folders to keep projects and topics separate.
-- **Preview + jump**: Preview a bookmark and jump back to its exact spot in chat.
+- **Preview + jump**: Preview a bookmark and jump back to its original chat position, with improved ChatGPT positioning for both saving and navigation.
 - **Built-in info pages**: Check Changelog, FAQ, and About directly inside the bookmarks panel.
 
 ### 🧮 One-Click LaTeX Copy
@@ -145,11 +150,12 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.1.1
-- Reader source copy now happens directly inside Reader, with better preservation for formulas, code blocks, tables, and other closed Markdown units.
-- Dynamic Annotation is now available for article-level revision workflows.
-- The bookmarks panel now includes built-in Changelog, FAQ, and About pages.
-- Fixed annotation insertion from the Reader send popover so choosing a prompt no longer closes the popover before the compiled text is inserted.
+### v4.1.2
+- Added a right-side ChatGPT directory with live previews and direct jump actions.
+- Restored full-thread Reader discovery on ChatGPT after the platform moved to incremental loading.
+- Removed the old ChatGPT message folding feature, which is no longer stable under the new dynamic loading model.
+- Fixed bookmark renaming, ChatGPT bookmark save/highlight/jump positioning, Reader prompt insertion, and several ChatGPT dynamic-loading edge cases.
+- Dynamic Annotations in Reader now support deleting annotations.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

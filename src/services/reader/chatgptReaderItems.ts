@@ -1,6 +1,6 @@
-import type { ReaderItem } from '../../../services/reader/types';
-import type { ChatGPTConversationSnapshot } from './types';
-import { buildChatGPTConversationTurns, resolveChatGPTConversationStartIndex, type ChatGPTConversationStartTarget } from './chatgptConversationSource';
+import type { ChatGPTConversationSnapshot } from '../../drivers/content/chatgpt/types';
+import { buildChatGPTConversationTurns, resolveChatGPTConversationStartIndex, type ChatGPTConversationStartTarget } from '../../drivers/content/chatgpt/chatgptConversationSource';
+import type { ReaderItem } from './types';
 
 export type BuildChatGPTReaderItemsResult = {
     items: ReaderItem[];

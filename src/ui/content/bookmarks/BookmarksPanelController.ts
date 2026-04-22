@@ -10,6 +10,7 @@ import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboar
 import { isSamePageUrl, scrollToBookmarkTargetWithRetry, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
 import { t } from '../components/i18n';
 import { logger } from '../../../core/logger';
+import { navigateChatGPTDirectoryTarget } from '../chatgptDirectory/navigation';
 import {
     bookmarkKey,
     expandPathChain,
@@ -430,7 +431,11 @@ export class BookmarksPanelController {
         const target = bookmark.url;
         if (isSamePageUrl(current, target)) {
             this.setStatus('Navigating…');
-            await scrollToBookmarkTargetWithRetry(this.adapter, bookmark, { timeoutMs: 2000, intervalMs: 200 });
+            if (this.adapter.getPlatformId() === 'chatgpt') {
+                await navigateChatGPTDirectoryTarget(this.adapter, bookmark, { timeoutMs: 2000, intervalMs: 200 });
+            } else {
+                await scrollToBookmarkTargetWithRetry(this.adapter, bookmark, { timeoutMs: 2000, intervalMs: 200 });
+            }
             return;
         }
         setPendingNavigation({ url: target, position: bookmark.position, messageId: bookmark.messageId ?? null });

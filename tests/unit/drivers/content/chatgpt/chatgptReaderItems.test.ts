@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildChatGPTReaderItems } from '@/drivers/content/chatgpt/chatgptReaderItems';
-import { buildChatGPTConversationTurns, resolveChatGPTConversationStartIndex } from '@/drivers/content/chatgpt/chatgptConversationSource';
+import { buildChatGPTReaderItems } from '@/services/reader/chatgptReaderItems';
+import { buildChatGPTConversationTurns, resolveChatGPTConversationRound, resolveChatGPTConversationStartIndex } from '@/drivers/content/chatgpt/chatgptConversationSource';
 
 describe('buildChatGPTReaderItems', () => {
     it('maps ChatGPT rounds to shared reader items and starts at the requested message', () => {
@@ -171,6 +171,7 @@ describe('buildChatGPTReaderItems', () => {
         };
 
         expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'a2', userPrompt: 'Duplicate prompt' })).toBe(1);
+        expect(resolveChatGPTConversationRound(snapshot, { messageId: 'a2', userPrompt: 'Duplicate prompt' })?.position).toBe(2);
     });
 
     it('uses payload positions only when the caller marks the source as snapshot', () => {
