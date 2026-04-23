@@ -1109,6 +1109,12 @@ ${getPanelChromeCss()}
   background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
 }
 
+.settings-number-field[data-disabled="1"] {
+  background: color-mix(in srgb, var(--aimd-bg-surface) 90%, var(--aimd-bg-secondary));
+  border-color: color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  box-shadow: none;
+}
+
 .settings-number {
   all: unset;
   box-sizing: border-box;
@@ -1117,6 +1123,11 @@ ${getPanelChromeCss()}
   padding: 0 14px;
   color: var(--aimd-text-primary);
   font-size: var(--aimd-text-sm);
+}
+
+.settings-number:disabled {
+  cursor: not-allowed;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
 }
 
 .settings-number::-webkit-outer-spin-button,

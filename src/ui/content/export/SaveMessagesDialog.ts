@@ -1,4 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
+import { DEFAULT_EXPORT_SETTINGS, resolvePngExportWidth, type ExportSettings } from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { getTokenCss } from '../../../style/tokens';
@@ -42,6 +43,7 @@ export class SaveMessagesDialog {
         if (Array.isArray(args)) return t(key, args.map((x) => String(x)));
         return t(key, String(args));
     };
+    private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
 
     private state: State = {
         theme: 'light',
@@ -58,6 +60,10 @@ export class SaveMessagesDialog {
 
     isOpen(): boolean {
         return Boolean(this.overlaySession);
+    }
+
+    setExportSettings(settings: ExportSettings): void {
+        this.resolvedPngWidth = resolvePngExportWidth(settings);
     }
 
     async open(
@@ -265,6 +271,7 @@ export class SaveMessagesDialog {
                     : format === 'png'
                     ? await exportTurnsPng(turns, selectedIndices, metadata, {
                           t: this.exportT,
+                          png: { width: this.resolvedPngWidth },
                           onProgress: (event) => {
                               this.state.progressValue = event.total > 0 ? Math.round((event.completed / event.total) * 100) : null;
                               this.state.progressText = this.getPngProgressLabel(event.phase, event.completed, event.total, event.filename);
@@ -367,15 +374,21 @@ ${getSaveMessagesDialogCss(this.state.theme)}
         const base = `${completed}/${total}`;
         switch (phase) {
             case 'preparing':
-                return `Preparing PNG export ${base}`;
+                return this.getLabel('pngExportPreparing', `Preparing PNG export ${base}`, [base]);
             case 'rendering':
-                return filename ? `Rendering ${base}: ${filename}` : `Rendering ${base}`;
+                return filename
+                    ? this.getLabel('pngExportRenderingWithFilename', `Rendering ${base}: ${filename}`, [base, filename])
+                    : this.getLabel('pngExportRendering', `Rendering ${base}`, [base]);
             case 'zipping':
-                return filename ? `Packaging ZIP ${base}: ${filename}` : `Packaging ZIP ${base}`;
+                return filename
+                    ? this.getLabel('pngExportZippingWithFilename', `Packaging ZIP ${base}: ${filename}`, [base, filename])
+                    : this.getLabel('pngExportZipping', `Packaging ZIP ${base}`, [base]);
             case 'downloading':
-                return filename ? `Downloading ${filename}` : `Downloading export`;
+                return filename
+                    ? this.getLabel('pngExportDownloadingWithFilename', `Downloading ${filename}`, [filename])
+                    : this.getLabel('pngExportDownloading', 'Downloading export');
             case 'done':
-                return `PNG export ready ${base}`;
+                return this.getLabel('pngExportDone', `PNG export ready ${base}`, [base]);
             default:
                 return base;
         }

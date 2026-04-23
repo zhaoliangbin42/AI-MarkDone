@@ -37,11 +37,21 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[0].html).toContain('class="message-section');
         expect(result!.plans[0].html).toContain('class="reader-markdown markdown-body"');
         expect(result!.plans[0].html).toContain('reader-code-block');
+        expect(result!.plans[0].html).toContain('hljs');
         expect(result!.plans[0].html).not.toContain('reader-copy-code');
         expect(result!.plans[0].html).toContain('<table>');
         expect(result!.plans[1].html).toContain('&lt;script&gt;');
         expect(result!.options.width).toBe(800);
         expect(result!.options.pixelRatio).toBe(2);
         expect(result!.options.backgroundColor).toBe('#ffffff');
+    });
+
+    it('writes a custom width into the generated PNG plans', () => {
+        const result = buildPngExportPlans(turns, [0], meta, t, { width: 420 });
+
+        expect(result).not.toBeNull();
+        expect(result!.options.width).toBe(420);
+        expect(result!.plans[0].width).toBe(420);
+        expect(result!.plans[0].html).toContain('width: 420px;');
     });
 });

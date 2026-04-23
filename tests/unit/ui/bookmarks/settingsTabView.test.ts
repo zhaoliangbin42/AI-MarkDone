@@ -26,6 +26,10 @@ const baseSettings = {
             ],
         },
     },
+    export: {
+        pngWidthPreset: 'desktop',
+        pngCustomWidth: 920,
+    },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
 } as any;
@@ -74,6 +78,42 @@ describe('SettingsTabView', () => {
 
         exportButton?.click();
         expect(onExportAllBookmarks).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps PNG export width presets and custom width in sync inside Settings', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetExportSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({ modal, actions: { setExportSettings: onSetExportSettings } });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const presetTrigger = root.querySelector<HTMLElement>('[data-role="settings-export-png-width-preset"]')!;
+        const widthInput = root.querySelector<HTMLInputElement>('[data-role="settings-export-png-width"]')!;
+
+        expect(presetTrigger.textContent).toContain('Desktop');
+        expect(widthInput.disabled).toBe(true);
+        expect(widthInput.value).toBe('800');
+
+        presetTrigger.click();
+        root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="custom"]')!.click();
+        expect(widthInput.disabled).toBe(false);
+        expect(widthInput.value).toBe('920');
+        expect(onSetExportSettings).toHaveBeenCalledWith({ pngWidthPreset: 'custom' });
+
+        widthInput.value = '410';
+        widthInput.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(widthInput.value).toBe('420');
+        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngCustomWidth: 410 });
+
+        presetTrigger.click();
+        root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="mobile"]')!.click();
+        expect(widthInput.disabled).toBe(true);
+        expect(widthInput.value).toBe('390');
+        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngWidthPreset: 'mobile' });
     });
 
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {

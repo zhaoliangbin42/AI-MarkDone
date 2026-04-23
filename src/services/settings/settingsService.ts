@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
+import { normalizeExportSettings } from '../../core/settings/export';
 import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode, normalizeBehaviorSettings } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
@@ -66,6 +67,16 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         ...(isRecord(patch.commentExport) ? patch.commentExport : {}),
                     }),
                 },
+            };
+            return { next };
+        }
+        case 'export': {
+            const next: AppSettings = {
+                ...cur,
+                export: normalizeExportSettings({
+                    ...cur.export,
+                    ...(isRecord(value) ? value : {}),
+                }),
             };
             return { next };
         }

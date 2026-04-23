@@ -124,6 +124,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         let resolveExport!: () => void;
         vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
+            expect(options.png).toEqual({ width: 800 });
             options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;
@@ -148,6 +149,55 @@ describe('SaveMessagesDialog', () => {
 
         expect(shadow.querySelector('[role="progressbar"]')).toBeTruthy();
         expect(shadow.textContent).toContain('1/2');
+        expect(shadow.textContent).toContain('message-001.png');
+
+        resolveExport();
+        await flushUi();
+    });
+
+    it('uses the configured PNG export width from settings', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
+            expect(options.png).toEqual({ width: 640 });
+            return { ok: true, noop: false };
+        });
+
+        const dlg = new SaveMessagesDialog();
+        dlg.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920 });
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        expect(shadow.querySelector('[data-action="set-png-width"]')).toBeNull();
+        shadow.querySelector<HTMLElement>('[data-action="set-format"][data-format="png"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await flushUi();
+        expect(exportTurnsPng).toHaveBeenCalledTimes(1);
+    });
+
+    it('localizes PNG progress copy for zh_CN while exporting', async () => {
+        await setLocale('zh_CN');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        let resolveExport!: () => void;
+        vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
+            options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
+            await new Promise<void>((resolve) => {
+                resolveExport = resolve;
+            });
+            return { ok: true, noop: false };
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLElement>('[data-action="set-format"][data-format="png"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await flushUi();
+
+        expect(shadow.textContent).toContain('正在渲染 1/2');
         expect(shadow.textContent).toContain('message-001.png');
 
         resolveExport();

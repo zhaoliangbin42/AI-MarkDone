@@ -335,6 +335,16 @@ export class BookmarksPanel {
                 };
                 await settingsClientRpc.setCategory('reader', patch);
             },
+            setExportSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    export: {
+                        ...this.uiState.settings.export,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('export', patch);
+            },
             setLanguage: async (value) => {
                 this.uiState.settings = {
                     ...this.uiState.settings,

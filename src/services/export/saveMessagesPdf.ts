@@ -4,6 +4,7 @@ import {
     buildMessageDocument,
     buildScopedMarkdownCss,
     escapeExportHtml,
+    renderMarkdownForPdfExport,
     selectTurns,
     tokenCssAsRoot,
     type ExportDocumentBuildOptions,
@@ -131,7 +132,10 @@ ${scopedMarkdownCss}
 `;
 
     selected.forEach((msg, i) => {
-        html += buildMessageDocument(msg, i + 1, t, options).html;
+        html += buildMessageDocument(msg, i + 1, t, {
+            ...options,
+            renderMarkdown: options?.renderMarkdown ?? renderMarkdownForPdfExport,
+        }).html;
     });
 
     return { containerId: CONTAINER_ID, html };

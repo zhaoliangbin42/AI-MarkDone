@@ -59,9 +59,9 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(plan).not.toBeNull();
 
         const html = plan!.html;
-        expect(html).toContain('hljs');
         expect(html).toContain('reader-code-block');
         expect(html).toContain('reader-code-block__header');
+        expect(html).not.toContain('class="hljs');
         expect(html).not.toContain('reader-copy-code');
     });
 });

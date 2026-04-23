@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type AppSettings } from './types';
+import { normalizeExportSettings } from './export';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -43,6 +44,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
+        export: normalizeExportSettings((stored as any).export),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
             ...stored.bookmarks,
@@ -85,6 +87,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
+        export: normalizeExportSettings(undefined),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
         },
@@ -116,6 +119,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,
+        export: normalizeExportSettings((rec as any).export),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
             ...bookmarks,

@@ -72,6 +72,25 @@ describe('background settings handler', () => {
         expect((getRes?.response as any).data.value.showWordCount).toBe(false);
     });
 
+    it('persists export settings through the protocol', async () => {
+        const sync = mockSyncStorage();
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        (globalThis as any).chrome = undefined;
+
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const setRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_export',
+            type: 'settings:setCategory',
+            payload: { category: 'export', value: { pngWidthPreset: 'custom', pngCustomWidth: 417 } },
+        } as any);
+        expect(setRes?.response.ok).toBe(true);
+
+        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
+        expect(raw.export.pngWidthPreset).toBe('custom');
+        expect(raw.export.pngCustomWidth).toBe(420);
+    });
+
     it('rejects retired ChatGPT settings category through the protocol', async () => {
         const sync = mockSyncStorage({
             [LEGACY_STORAGE_KEYS.appSettingsKey]: {

@@ -296,6 +296,54 @@
     "formatPng": {
         "message": "PNG"
     },
+    "pngExportPreparing": {
+        "message": "正在准备 PNG 导出 $1"
+    },
+    "pngExportRendering": {
+        "message": "正在渲染 $1"
+    },
+    "pngExportRenderingWithFilename": {
+        "message": "正在渲染 $1：$2"
+    },
+    "pngExportZipping": {
+        "message": "正在打包 ZIP $1"
+    },
+    "pngExportZippingWithFilename": {
+        "message": "正在打包 ZIP $1：$2"
+    },
+    "pngExportDownloading": {
+        "message": "正在下载导出文件"
+    },
+    "pngExportDownloadingWithFilename": {
+        "message": "正在下载 $1"
+    },
+    "pngExportDone": {
+        "message": "PNG 导出已完成 $1"
+    },
+    "pngExportWidthPresetLabel": {
+        "message": "PNG 图片宽度"
+    },
+    "pngExportWidthPresetDesc": {
+        "message": "选择 PNG 导出默认使用的卡片宽度。"
+    },
+    "pngExportWidthValueLabel": {
+        "message": "宽度值"
+    },
+    "pngExportWidthValueDesc": {
+        "message": "预设宽度会保持固定。选择“自定义”后，才可以按像素修改 PNG 宽度。"
+    },
+    "pngExportWidthPresetMobile": {
+        "message": "手机"
+    },
+    "pngExportWidthPresetTablet": {
+        "message": "平板"
+    },
+    "pngExportWidthPresetDesktop": {
+        "message": "电脑"
+    },
+    "pngExportWidthPresetCustom": {
+        "message": "自定义"
+    },
     "saveBookmarkTitle": {
         "message": "保存书签"
     },

@@ -48,7 +48,11 @@ export function tokenCssAsRoot(theme: 'light' | 'dark'): string {
     return getTokenCss(theme).replace(/:host/g, ':root');
 }
 
-export function renderMarkdownForExport(markdown: string): string {
+export function renderMarkdownForPdfExport(markdown: string): string {
+    return renderMarkdownToSanitizedHtml(markdown, { softBreaks: true, highlightCode: false });
+}
+
+export function renderMarkdownForPngExport(markdown: string): string {
     return renderMarkdownToSanitizedHtml(markdown, { softBreaks: true, highlightCode: true });
 }
 
@@ -139,7 +143,7 @@ export function buildMessageDocument(
     t: TranslateFn,
     options?: ExportDocumentBuildOptions,
 ): ExportMessageDocument {
-    const render = options?.renderMarkdown ?? renderMarkdownForExport;
+    const render = options?.renderMarkdown ?? renderMarkdownForPdfExport;
     let renderedAssistant = '';
     try {
         renderedAssistant = decorateCodeBlocksForExport(render(msg.assistant));

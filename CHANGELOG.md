@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Export: Added PNG export to Save Messages. A single selected message downloads as one PNG, while multiple selected messages render one PNG per message and download together as a ZIP.
 - Export: Added in-dialog PNG export progress feedback so long-running multi-message renders now report the current step and item count instead of looking stalled.
+- Settings: Added a global PNG export width preference with `Mobile`, `Tablet`, `Desktop`, and `Custom` options in the Bookmarks panel Settings tab.
 
 ### Changed
-- Export: PDF and PNG now share the same sanitized Markdown document builder and align their Markdown presentation with the Reader theme, including Reader-style code block shells and highlighted code rendering.
+- Export: PDF and PNG now share the same sanitized Markdown document builder and align their Markdown presentation with the Reader theme, while keeping PDF and PNG media-specific rendering rules separate.
+- Export: Save Messages now consumes the global PNG width preference from Settings instead of editing PNG width inside the export dialog.
 
 ### Fixed
 - ChatGPT: Reader now opens on the message that launched it instead of falling back to the last message when DOM and payload message ids differ.

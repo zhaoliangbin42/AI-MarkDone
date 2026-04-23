@@ -296,6 +296,54 @@
     "formatPng": {
         "message": "PNG"
     },
+    "pngExportPreparing": {
+        "message": "Preparing PNG export $1"
+    },
+    "pngExportRendering": {
+        "message": "Rendering $1"
+    },
+    "pngExportRenderingWithFilename": {
+        "message": "Rendering $1: $2"
+    },
+    "pngExportZipping": {
+        "message": "Packaging ZIP $1"
+    },
+    "pngExportZippingWithFilename": {
+        "message": "Packaging ZIP $1: $2"
+    },
+    "pngExportDownloading": {
+        "message": "Downloading export"
+    },
+    "pngExportDownloadingWithFilename": {
+        "message": "Downloading $1"
+    },
+    "pngExportDone": {
+        "message": "PNG export ready $1"
+    },
+    "pngExportWidthPresetLabel": {
+        "message": "PNG image width"
+    },
+    "pngExportWidthPresetDesc": {
+        "message": "Choose the default card width used for PNG exports."
+    },
+    "pngExportWidthValueLabel": {
+        "message": "Width value"
+    },
+    "pngExportWidthValueDesc": {
+        "message": "Preset widths stay fixed. Choose Custom to edit the PNG width in pixels."
+    },
+    "pngExportWidthPresetMobile": {
+        "message": "Mobile"
+    },
+    "pngExportWidthPresetTablet": {
+        "message": "Tablet"
+    },
+    "pngExportWidthPresetDesktop": {
+        "message": "Desktop"
+    },
+    "pngExportWidthPresetCustom": {
+        "message": "Custom"
+    },
     "saveBookmarkTitle": {
         "message": "Save Bookmark"
     },

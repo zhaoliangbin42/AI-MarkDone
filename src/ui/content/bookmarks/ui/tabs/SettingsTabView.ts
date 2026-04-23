@@ -1,6 +1,13 @@
 import type { AppSettings } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
 import {
+    MAX_PNG_EXPORT_WIDTH,
+    MIN_PNG_EXPORT_WIDTH,
+    PNG_EXPORT_WIDTH_STEP,
+    resolvePngExportWidth,
+    type PngExportWidthPreset,
+} from '../../../../../core/settings/export';
+import {
     createDefaultCommentTemplate as createDefaultAnnotationTemplate,
     createDefaultReaderCommentPrompts as createDefaultAnnotationPrompts,
     normalizeReaderCommentExportSettings,
@@ -26,6 +33,7 @@ export type SettingsTabViewActions = {
     setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<void> | void;
     setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<void> | void;
     setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
+    setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
 };
@@ -42,6 +50,12 @@ type SelectRef = {
     onChange: (listener: (value: string) => void) => void;
 };
 
+type NumberFieldRef = {
+    root: HTMLElement;
+    field: HTMLElement;
+    input: HTMLInputElement;
+};
+
 type Refs = {
     platforms: Record<'chatgpt' | 'gemini' | 'claude' | 'deepseek', HTMLInputElement>;
     behavior: {
@@ -56,6 +70,10 @@ type Refs = {
         promptsSummary: HTMLElement;
         templateButton: HTMLButtonElement;
         templateSummary: HTMLElement;
+    };
+    export: {
+        pngWidthPreset: SelectRef;
+        pngWidth: NumberFieldRef;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -122,6 +140,28 @@ export class SettingsTabView {
             'settings-reader-template',
         );
 
+        const exportGroup = this.createGroup(Icons.download, t('export'));
+        const pngWidthPreset = this.createSelect(
+            exportGroup.body,
+            t('pngExportWidthPresetLabel'),
+            t('pngExportWidthPresetDesc'),
+            [
+                { value: 'mobile', label: t('pngExportWidthPresetMobile') },
+                { value: 'tablet', label: t('pngExportWidthPresetTablet') },
+                { value: 'desktop', label: t('pngExportWidthPresetDesktop') },
+                { value: 'custom', label: t('pngExportWidthPresetCustom') },
+            ],
+            'png-width-preset',
+        );
+        const pngWidth = this.createNumberRow(
+            exportGroup.body,
+            t('pngExportWidthValueLabel'),
+            t('pngExportWidthValueDesc'),
+            MIN_PNG_EXPORT_WIDTH,
+            MAX_PNG_EXPORT_WIDTH,
+            PNG_EXPORT_WIDTH_STEP,
+        );
+
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
         const language = this.createSelect(languageGroup.body, t('settingsLanguageLabel'), t('settingsLanguageDesc'), [
@@ -165,6 +205,7 @@ export class SettingsTabView {
             platformsGroup.root,
             behaviorGroup.root,
             readerGroup.root,
+            exportGroup.root,
             languageGroup.root,
             storageGroup.root
         );
@@ -193,6 +234,10 @@ export class SettingsTabView {
                 templateButton: templateRow.button,
                 templateSummary: templateRow.summary,
             },
+            export: {
+                pngWidthPreset,
+                pngWidth,
+            },
             language,
             storageText,
         };
@@ -207,6 +252,8 @@ export class SettingsTabView {
         this.refs.reader.renderCodeInReader.dataset.role = 'settings-render-code-reader';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
         this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
+        this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
+        this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
 
         this.bindHandlers();
         this.applySettingsToDom();
@@ -255,6 +302,7 @@ export class SettingsTabView {
             ...params.settings,
             platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
+            export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
             reader: {
                 renderCodeInReader: Boolean(
@@ -332,6 +380,22 @@ export class SettingsTabView {
             event.preventDefault();
             this.openTemplateSettingsPopover();
         });
+        this.refs.export.pngWidthPreset.onChange((value) => {
+            const nextPreset = value as PngExportWidthPreset;
+            this.settings.export.pngWidthPreset = nextPreset;
+            this.applySettingsToDom();
+            void this.actions.setExportSettings?.({ pngWidthPreset: nextPreset });
+        });
+        this.refs.export.pngWidth.input.addEventListener('change', () => {
+            const raw = Number.parseInt(this.refs.export.pngWidth.input.value, 10);
+            if (!Number.isFinite(raw)) {
+                this.applySettingsToDom();
+                return;
+            }
+            this.settings.export.pngCustomWidth = raw;
+            this.applySettingsToDom();
+            void this.actions.setExportSettings?.({ pngCustomWidth: raw });
+        });
         // Language
         this.refs.language.onChange((value) => {
             this.settings.language = value as any;
@@ -356,6 +420,10 @@ export class SettingsTabView {
         this.refs.reader.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
         this.refs.reader.promptsSummary.textContent = this.formatPromptSummary(commentExport);
         this.refs.reader.templateSummary.textContent = this.formatTemplateSummary(commentExport.template);
+        this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
+        this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
+        this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
+        this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -455,6 +523,42 @@ export class SettingsTabView {
         item.append(info, button);
         parent.appendChild(item);
         return { root: item, button, summary };
+    }
+
+    private createNumberRow(
+        parent: HTMLElement,
+        labelText: string,
+        desc: string,
+        min: number,
+        max: number,
+        step: number,
+    ): NumberFieldRef {
+        const item = document.createElement('div');
+        item.className = 'settings-row settings-item';
+        const info = document.createElement('div');
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        const summary = document.createElement('p');
+        summary.textContent = desc;
+        info.append(label, summary);
+
+        const field = document.createElement('div');
+        field.className = 'settings-number-field';
+        field.dataset.disabled = '0';
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'settings-number';
+        input.min = String(min);
+        input.max = String(max);
+        input.step = String(step);
+        input.inputMode = 'numeric';
+        field.appendChild(input);
+
+        item.append(info, field);
+        parent.appendChild(item);
+        return { root: item, field, input };
     }
 
     private createSelect(

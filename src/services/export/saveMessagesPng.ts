@@ -1,8 +1,10 @@
+import { DEFAULT_PNG_EXPORT_WIDTH } from '../../core/settings/export';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import {
     BUNDLED_KATEX_CSS,
     buildMessageDocument,
     buildScopedMarkdownCss,
+    renderMarkdownForPngExport,
     sanitizeExportFilename,
     selectTurns,
     tokenCssAsRoot,
@@ -32,7 +34,7 @@ export type PngExportPlanResult = {
 export type BuildPngExportPlanOptions = Partial<PngExportOptions> & ExportDocumentBuildOptions;
 
 const DEFAULT_OPTIONS: PngExportOptions = {
-    width: 800,
+    width: DEFAULT_PNG_EXPORT_WIDTH,
     pixelRatio: 2,
     backgroundColor: '#ffffff',
 };
@@ -152,7 +154,10 @@ export function buildPngExportPlans(
     const css = buildPngCss(resolved);
     const plans = selected.map((turn, index) => {
         const messageNumber = index + 1;
-        const message = buildMessageDocument(turn, messageNumber, t, options);
+        const message = buildMessageDocument(turn, messageNumber, t, {
+            ...options,
+            renderMarkdown: options?.renderMarkdown ?? renderMarkdownForPngExport,
+        });
         return {
             filename: `${baseName}-message-${String(messageNumber).padStart(3, '0')}.png`,
             html: `

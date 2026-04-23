@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_PNG_EXPORT_WIDTH, MIN_PNG_EXPORT_WIDTH, resolvePngExportWidth } from '@/core/settings/export';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
 import { loadAndNormalize, planGetCategory, planSetCategory } from '@/services/settings/settingsService';
 import type { CommentTemplateSegment } from '@/services/reader/commentExport';
@@ -77,6 +78,38 @@ describe('settingsService', () => {
             { type: 'token', key: 'user_comment' },
             { type: 'text', value: '\n</annotation>' },
         ]);
+    });
+
+    it('adds default export settings when normalizing stored settings', () => {
+        const next = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            export: undefined,
+        } as any);
+
+        expect(next.export).toEqual(DEFAULT_SETTINGS.export);
+        expect(resolvePngExportWidth(next.export)).toBe(800);
+    });
+
+    it('normalizes export settings and resolves preset widths', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'export', {
+            pngWidthPreset: 'mobile',
+            pngCustomWidth: MIN_PNG_EXPORT_WIDTH - 100,
+        }).next;
+
+        expect(next.export.pngWidthPreset).toBe('mobile');
+        expect(next.export.pngCustomWidth).toBe(MIN_PNG_EXPORT_WIDTH);
+        expect(resolvePngExportWidth(next.export)).toBe(390);
+    });
+
+    it('preserves a normalized custom PNG width when writing export settings', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'export', {
+            pngWidthPreset: 'custom',
+            pngCustomWidth: MAX_PNG_EXPORT_WIDTH + 37,
+        }).next;
+
+        expect(next.export.pngWidthPreset).toBe('custom');
+        expect(next.export.pngCustomWidth).toBe(MAX_PNG_EXPORT_WIDTH);
+        expect(resolvePngExportWidth(next.export)).toBe(MAX_PNG_EXPORT_WIDTH);
     });
 
     it('drops the retired source panel behavior flag when normalizing stored settings', () => {

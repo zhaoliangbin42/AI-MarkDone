@@ -15,6 +15,7 @@ import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale } from '../../ui/content/components/i18n';
 import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
+import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
@@ -120,6 +121,7 @@ if (adapter) {
         readerPanel.setRenderCodeInReader(Boolean(cachedSettings.reader.renderCodeInReader));
         readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
     }
+    saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
@@ -131,6 +133,7 @@ if (adapter) {
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
+        saveMessagesDialog.setExportSettings(snap.settings.export);
         messageToolbars.setBehaviorFlags({
             showSaveMessages: snap.settings.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior.showWordCount,

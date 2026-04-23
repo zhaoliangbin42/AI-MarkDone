@@ -10,6 +10,8 @@
  */
 
 import type { ReaderCommentExportSettings } from './readerCommentExport';
+import type { ExportSettings } from './export';
+import { DEFAULT_EXPORT_SETTINGS } from './export';
 import { createDefaultReaderCommentExportSettings } from './readerCommentExport';
 
 export type SettingsVersion = 3;
@@ -33,6 +35,7 @@ export type AppSettings = {
         renderCodeInReader: boolean;
         commentExport: ReaderCommentExportSettings;
     };
+    export: ExportSettings;
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
     };
@@ -55,6 +58,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         renderCodeInReader: true,
         commentExport: createDefaultReaderCommentExportSettings(),
     },
+    export: DEFAULT_EXPORT_SETTINGS,
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
 };
@@ -64,6 +68,7 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         value === 'platforms'
         || value === 'behavior'
         || value === 'reader'
+        || value === 'export'
         || value === 'bookmarks'
         || value === 'language'
     );
