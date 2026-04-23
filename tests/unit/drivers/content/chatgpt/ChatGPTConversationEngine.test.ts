@@ -257,4 +257,53 @@ describe('ChatGPTConversationEngine', () => {
             messageId: 'a1',
         }));
     });
+
+    it('prefers the fuller DOM fallback when React props only expose a partial window', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onerror?.(new Event('error')), 0);
+            return node;
+        });
+        document.body.innerHTML = `
+          <article data-turn="user">
+            <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt 1</div></div>
+          </article>
+          <article data-turn="assistant">
+            <div data-message-author-role="assistant" data-message-id="a1">
+              <div class="markdown prose">Answer 1</div>
+            </div>
+          </article>
+          <article data-turn="user">
+            <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt 2</div></div>
+          </article>
+          <article data-turn="assistant">
+            <div data-message-author-role="assistant" data-message-id="a2">
+              <div class="markdown prose">Answer 2</div>
+            </div>
+          </article>
+        `;
+        const firstAssistant = document.querySelector<HTMLElement>('[data-message-id="a1"]')!;
+        (firstAssistant as any).__reactFiber$aimd = {
+            pendingProps: {
+                turn: {
+                    id: 'react-turn-1',
+                    messages: [{ id: 'a1', content: { parts: ['React answer 1'] } }],
+                },
+                parentPromptMessage: {
+                    id: 'u1',
+                    content: { parts: ['React prompt 1'] },
+                },
+            },
+            return: null,
+        };
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot?.source).toBe('dom');
+        expect(snapshot?.rounds).toHaveLength(2);
+        expect(snapshot?.rounds.map((round) => round.messageId)).toEqual(['a1', 'a2']);
+    });
 });

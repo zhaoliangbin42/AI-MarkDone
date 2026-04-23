@@ -221,6 +221,14 @@ function buildDomFallback(adapter: SiteAdapter, conversationId: string): ChatGPT
     };
 }
 
+function buildBestFallback(adapter: SiteAdapter, conversationId: string): ChatGPTConversationSnapshot | null {
+    const reactSnapshot = buildReactPropsFallback(adapter, conversationId);
+    const domSnapshot = buildDomFallback(adapter, conversationId);
+    if (!reactSnapshot) return domSnapshot;
+    if (!domSnapshot) return reactSnapshot;
+    return domSnapshot.rounds.length > reactSnapshot.rounds.length ? domSnapshot : reactSnapshot;
+}
+
 export class ChatGPTConversationEngine {
     private adapter: SiteAdapter;
     private bridgeReady = false;
@@ -341,9 +349,7 @@ export class ChatGPTConversationEngine {
             snapshot = null;
         }
 
-        if (!snapshot) {
-            snapshot = buildReactPropsFallback(this.adapter, conversationId) ?? buildDomFallback(this.adapter, conversationId);
-        }
+        if (!snapshot) snapshot = buildBestFallback(this.adapter, conversationId);
 
         if (snapshot) {
             const previous = this.snapshotByConversation.get(conversationId) ?? null;

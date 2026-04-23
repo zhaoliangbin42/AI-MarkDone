@@ -4,9 +4,8 @@
 
   const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
   const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
-  const CACHE_KEY = 'aimd:chatgpt-conversation-bridge-cache:v1';
+  const CACHE_KEY = 'aimd:chatgpt-conversation-bridge-cache:v3';
   const JS_ASSET_RE = /\/cdn\/assets\/[^"' )]+\.js(?:\?[^"' )]+)?$/i;
-  const SYMBOLS = ['nS', 'eS', 'Yx', 'Lx', 'Rx', 'Y3', 'X3', 'qx'];
   const MAX_SCAN = 18;
   const MAX_BRIDGE_ATTEMPTS = 5;
   const KEYWORDS = [
@@ -21,6 +20,7 @@
     buildFingerprint: null,
     candidate: null,
     aliasMap: null,
+    descriptor: null,
     module: null,
     snapshotCache: new Map(),
     discoveryPromise: null,
@@ -96,20 +96,49 @@
   }
 
   function parseExportAliases(text) {
-    const map = {};
+    const exportToLocal = {};
+    const localToExport = {};
     const exportMatch = text.match(/export\s*\{([\s\S]{0,200000})\}\s*;?\s*(?:\/\/# sourceMappingURL=|$)/m);
-    if (!exportMatch) return map;
+    if (!exportMatch) return { exportToLocal, localToExport };
     const block = exportMatch[1];
+    const pairRe = /\b([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)\b/g;
+    let match = null;
 
-    for (const symbol of SYMBOLS) {
-      const match = block.match(new RegExp(`\\b${symbol}\\s+as\\s+([A-Za-z0-9_$]+)\\b`));
-      if (match?.[1]) map[symbol] = match[1];
+    while ((match = pairRe.exec(block))) {
+      const localName = match[1];
+      const exportName = match[2];
+      exportToLocal[exportName] = localName;
+      localToExport[localName] = exportName;
     }
 
-    return map;
+    return { exportToLocal, localToExport };
   }
 
-  function scoreAsset(url, text, aliasMap) {
+  function extractDescriptor(text, aliasMaps) {
+    const anchorNeedle = 'threads:{},clientNewThreadIdToServerIdMapping:{},threadRetainCounts:{}';
+    const anchorIndex = text.indexOf(anchorNeedle);
+    if (anchorIndex < 0) return null;
+
+    const anchorWindow = text.slice(Math.max(0, anchorIndex - 2400), Math.min(text.length, anchorIndex + 2400));
+    const stateGetterMatch = anchorWindow.match(/\b([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\.getState\b/);
+    if (!stateGetterMatch) return null;
+
+    const [, stateGetterLocal, storeLocal] = stateGetterMatch;
+    const descriptor = {
+      storeLocal,
+      stateGetterLocal,
+    };
+
+    const storeExport = aliasMaps.localToExport[storeLocal] || null;
+    const stateGetterExport = aliasMaps.localToExport[stateGetterLocal] || null;
+
+    if (storeExport) descriptor.storeExport = storeExport;
+    if (stateGetterExport) descriptor.stateGetterExport = stateGetterExport;
+
+    return descriptor.storeExport || descriptor.stateGetterExport ? descriptor : null;
+  }
+
+  function scoreAsset(url, text, descriptor) {
     let score = 0;
     if (/_conversation/i.test(url)) score += 20;
 
@@ -123,8 +152,8 @@
       if (count > 0) score += rule.score + Math.min(count, 4) * 5;
     }
 
-    if (aliasMap.Lx && aliasMap.Yx) score += 120;
-    if (aliasMap.nS && aliasMap.eS) score += 70;
+    if (descriptor?.storeExport) score += 140;
+    if (descriptor?.stateGetterExport) score += 80;
     return score;
   }
 
@@ -134,11 +163,13 @@
       try {
         const response = await fetch(url, { credentials: 'include' });
         const text = await response.text();
-        const aliasMap = parseExportAliases(text);
+        const aliasMaps = parseExportAliases(text);
+        const descriptor = extractDescriptor(text, aliasMaps);
         results.push({
           url,
-          score: scoreAsset(url, text, aliasMap),
-          aliasMap,
+          score: scoreAsset(url, text, descriptor),
+          aliasMap: aliasMaps.exportToLocal,
+          descriptor,
         });
       } catch {
         // ignore candidate
@@ -241,23 +272,81 @@
     return rounds.filter((round) => round.userPrompt || round.assistantContent);
   }
 
-  async function importBridgeCandidate(candidate, conversationId) {
-    if (!candidate?.aliasMap?.Lx || !candidate?.aliasMap?.Yx) return null;
-    const mod = await import(candidate.url);
-    const threadGetter = mod[candidate.aliasMap.Lx];
-    const turnsApi = mod[candidate.aliasMap.Yx];
-    if (typeof threadGetter !== 'function' || !turnsApi || typeof turnsApi.getConversationTurns !== 'function') return null;
+  function findTurnsApiExport(mod) {
+    for (const [name, value] of Object.entries(mod)) {
+      if (isTurnsApi(value)) return name;
+    }
+    return null;
+  }
 
-    const thread = threadGetter(conversationId);
-    if (!thread) return null;
+  function isTurnsApi(value) {
+    return Boolean(
+      value
+      && typeof value === 'object'
+      && typeof value.getConversationTurns === 'function'
+      && typeof value.getTree === 'function'
+      && typeof value.getCurrentLeafId === 'function'
+    );
+  }
+
+  function isThreadLike(value) {
+    if (!value || typeof value !== 'object') return false;
+    const tree = value.tree;
+    return Boolean(
+      tree
+      && typeof tree === 'object'
+      && (
+        typeof tree.getDisplayTurns === 'function'
+        || typeof tree.getBranchFromLeaf === 'function'
+        || typeof tree.getNodeByIdOrMessageId === 'function'
+        || Array.isArray(tree.nodes)
+      )
+    );
+  }
+
+  function getStateThread(state, conversationId) {
+    if (!state || typeof state !== 'object' || !state.threads || typeof state.threads !== 'object') return null;
+    const normalizedId = state.clientNewThreadIdToServerIdMapping?.[conversationId] || conversationId;
+    return state.threads[normalizedId] || state.threads[conversationId] || null;
+  }
+
+  function buildRoundsFromDescriptor(mod, descriptor, conversationId) {
+    const turnsApiExport = descriptor?.turnsApiExport || findTurnsApiExport(mod);
+    if (!turnsApiExport) return null;
+    const turnsApi = mod[turnsApiExport];
+    if (!isTurnsApi(turnsApi)) return null;
+
+    let state = null;
+    if (descriptor?.stateGetterExport && typeof mod[descriptor.stateGetterExport] === 'function') {
+      state = mod[descriptor.stateGetterExport]();
+    } else if (
+      descriptor?.storeExport
+      && mod[descriptor.storeExport]
+      && typeof mod[descriptor.storeExport].getState === 'function'
+    ) {
+      state = mod[descriptor.storeExport].getState();
+    }
+
+    if (!state) return null;
+    const thread = getStateThread(state, conversationId);
+    if (!isThreadLike(thread)) return null;
 
     const turns = turnsApi.getConversationTurns(thread);
     const rounds = buildRoundsFromTurns(turns);
     if (!Array.isArray(rounds) || rounds.length === 0) return null;
+    return rounds;
+  }
+
+  async function importBridgeCandidate(candidate, conversationId) {
+    const mod = await import(candidate.url);
+    if (!candidate.descriptor) return null;
+    const rounds = buildRoundsFromDescriptor(mod, candidate.descriptor, conversationId);
+    if (!rounds) return null;
 
     return {
       candidateUrl: candidate.url,
       aliasMap: candidate.aliasMap,
+      descriptor: candidate.descriptor,
       rounds,
     };
   }
@@ -269,12 +358,13 @@
     if (
       bridgeState.buildFingerprint === buildFingerprint
       && bridgeState.candidate
-      && bridgeState.aliasMap
+      && (bridgeState.aliasMap || bridgeState.descriptor)
     ) {
       return {
         buildFingerprint,
         candidateUrl: bridgeState.candidate,
         aliasMap: bridgeState.aliasMap,
+        descriptor: bridgeState.descriptor,
       };
     }
 
@@ -286,18 +376,20 @@
         cached
         && cached.buildFingerprint === buildFingerprint
         && typeof cached.candidateUrl === 'string'
-        && cached.aliasMap
+        && (cached.aliasMap || cached.descriptor)
         && assets.includes(cached.candidateUrl)
       ) {
         try {
           const bridged = await importBridgeCandidate({
             url: cached.candidateUrl,
             aliasMap: cached.aliasMap,
+            descriptor: cached.descriptor,
           }, conversationId);
           if (bridged) {
             bridgeState.buildFingerprint = buildFingerprint;
             bridgeState.candidate = bridged.candidateUrl;
             bridgeState.aliasMap = bridged.aliasMap;
+            bridgeState.descriptor = bridged.descriptor;
             bridgeState.snapshotCache.set(conversationId, {
               conversationId,
               buildFingerprint,
@@ -309,6 +401,7 @@
               buildFingerprint,
               candidateUrl: bridged.candidateUrl,
               aliasMap: bridged.aliasMap,
+              descriptor: bridged.descriptor,
             };
           }
         } catch {
@@ -324,10 +417,12 @@
           bridgeState.buildFingerprint = buildFingerprint;
           bridgeState.candidate = bridged.candidateUrl;
           bridgeState.aliasMap = bridged.aliasMap;
+          bridgeState.descriptor = bridged.descriptor;
           writeBridgeCache({
             buildFingerprint,
             candidateUrl: bridged.candidateUrl,
             aliasMap: bridged.aliasMap,
+            descriptor: bridged.descriptor,
           });
           bridgeState.snapshotCache.set(conversationId, {
             conversationId,
@@ -340,6 +435,7 @@
             buildFingerprint,
             candidateUrl: bridged.candidateUrl,
             aliasMap: bridged.aliasMap,
+            descriptor: bridged.descriptor,
           };
         } catch {
           // try next candidate
@@ -362,11 +458,12 @@
     }
 
     const bridge = await discoverBridge(conversationId);
-    if (!bridge?.candidateUrl || !bridge.aliasMap) return null;
+    if (!bridge?.candidateUrl || (!bridge.aliasMap && !bridge.descriptor)) return null;
 
     const bridged = await importBridgeCandidate({
       url: bridge.candidateUrl,
       aliasMap: bridge.aliasMap,
+      descriptor: bridge.descriptor,
     }, conversationId);
     if (!bridged) return null;
 
