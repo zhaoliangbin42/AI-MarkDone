@@ -31,7 +31,7 @@ describe('buildPdfPrintPlan (sanitization)', () => {
 
         expect(html).toContain('&lt;img');
         expect(html).toContain('&lt;script');
-        expect(html).toContain('class="markdown-body"');
+        expect(html).toContain('class="reader-markdown markdown-body"');
         // Title is escaped text and may contain the substring "onerror=" safely.
         // The assistant HTML must be sanitized so event handlers don't survive.
         expect(html).not.toContain('assistantXss()');

@@ -293,6 +293,9 @@
     "formatPdf": {
         "message": "PDF"
     },
+    "formatPng": {
+        "message": "PNG"
+    },
     "saveBookmarkTitle": {
         "message": "保存书签"
     },

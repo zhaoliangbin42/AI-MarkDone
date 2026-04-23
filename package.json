@@ -23,6 +23,8 @@
         "verify:entry-format:firefox": "bash scripts/verify-extension-entry-format.sh firefox"
     },
     "dependencies": {
+        "html-to-image": "^1.11.13",
+        "jszip": "^3.10.1",
         "rehype-highlight": "^7.0.2",
         "rehype-katex": "^7.0.1",
         "rehype-sanitize": "^6.0.0",

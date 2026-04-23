@@ -137,16 +137,17 @@
 
 ---
 
-### B.6 Save Messages Export Core（Markdown + PDF; no UI entry yet）
+### B.6 Save Messages Export Core（Markdown + PDF + PNG; no UI entry yet）
 
 说明：本阶段交付 **导出核心能力**（采集/构建/副作用 drivers + 门禁测试）。为便于端到端回归，目前已提供一个“低耦合的 UI 入口”：
 
-- MessageToolbar 打开 ReaderPanel 后，在 ReaderPanel footer 的 custom actions 中提供 `Export MD / Export PDF`（导出当前页对应消息）。
+- MessageToolbar 打开 ReaderPanel 后，在 ReaderPanel footer 的 custom actions 中提供 `Export MD / Export PDF / Export PNG`（导出当前页对应消息）。
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
 | Export Markdown (download) | `exportConversationMarkdown(adapter, selectedIndices, {t})` | `src/services/export/saveMessagesFacade.ts`, `src/services/export/saveMessagesMarkdown.ts`, `src/drivers/content/export/downloadFile.ts` | `tests/unit/services/export/saveMessagesMarkdown.test.ts`, `tests/unit/services/export/saveMessagesFacade.test.ts`, `tests/unit/drivers/content/export/downloadFile.test.ts` | selection 为空不触发下载；文件名 sanitize；标题 heading 归一化；内容编号按 1..n 连续。 |
 | Export PDF (print) | `exportConversationPdf(adapter, selectedIndices, {t})` | `src/services/export/saveMessagesPdf.ts`, `src/drivers/content/export/printPdf.ts` | `tests/unit/drivers/content/export/printPdf.test.ts`, `tests/unit/services/export/saveMessagesPdf.sanitization.test.ts` | print container 创建后能 afterprint/timeout cleanup；metadata/userPrompt escape；assistant HTML 走 sanitize 路径。 |
+| Export PNG (download / zip) | `exportConversationPng(adapter, selectedIndices, {t, onProgress})` | `src/services/export/saveMessagesFacade.ts`, `src/services/export/saveMessagesPng.ts`, `src/services/export/saveMessagesDocument.ts`, `src/drivers/content/export/renderPng.ts`, `src/drivers/content/export/downloadBlob.ts`, `src/drivers/content/export/zipBlobs.ts` | `tests/unit/services/export/saveMessagesPng.test.ts`, `tests/unit/services/export/saveMessagesFacade.test.ts`, `tests/unit/drivers/content/export/renderPng.test.ts`, `tests/unit/drivers/content/export/downloadBlob.test.ts`, `tests/unit/drivers/content/export/zipBlobs.test.ts`, `tests/unit/ui/export/saveMessagesDialog.test.ts` | 单条导出 `.png`；多条串行渲染为多张 `.png` 并打包 `.zip`；复用 PDF/PNG shared document builder、sanitize 与 Reader markdown theme；导出弹窗可显示 PNG 渲染/打包进度；单条长内容第一版不自动切片，渲染失败时返回明确错误。 |
 | ChatGPT payload export source | `collectConversationTurnsAsync(adapter, { chatGptConversationEngine })` | `src/services/export/saveMessagesFacade.ts`, `src/drivers/content/chatgpt/chatgptConversationSource.ts` | `tests/unit/services/export/saveMessagesFacade.test.ts` | ChatGPT 导出使用与 Reader 相同的 payload snapshot turns；其他平台仍走 DOM-first 收集。 |
 | DOM collection (assistant turns) | `collectConversationMessageRefs(adapter)` | `src/drivers/content/conversation/collectConversationMessageRefs.ts` | `tests/unit/drivers/content/conversation/collectConversationMessageRefs.test.ts` | 仅采集 assistant message roots；去除嵌套重复；能提取 userPrompt。 |
 

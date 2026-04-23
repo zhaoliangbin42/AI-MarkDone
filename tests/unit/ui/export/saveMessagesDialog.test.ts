@@ -18,9 +18,10 @@ vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
     })),
     exportTurnsMarkdown: vi.fn(async () => ({ ok: true, noop: false })),
     exportTurnsPdf: vi.fn(async () => ({ ok: true, noop: false })),
+    exportTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
-import { collectConversationTurnsAsync, exportTurnsMarkdown, exportTurnsPdf } from '../../../../src/services/export/saveMessagesFacade';
+import { collectConversationTurnsAsync, exportTurnsMarkdown, exportTurnsPdf, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
 import { SaveMessagesDialog } from '../../../../src/ui/content/export/SaveMessagesDialog';
 import { setLocale } from '../../../../src/ui/content/components/i18n';
 
@@ -59,7 +60,7 @@ describe('SaveMessagesDialog', () => {
         vi.unstubAllGlobals();
     });
 
-    it('opens with all messages selected and can export markdown/pdf', async () => {
+    it('opens with all messages selected and can export markdown/pdf/png', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
@@ -82,6 +83,7 @@ describe('SaveMessagesDialog', () => {
         expect(source).toContain('OverlaySession');
         expect(getGridButtons()).toHaveLength(2);
         expect(getGridButtons().every((b) => b.dataset.active === '1')).toBe(true);
+        expect(shadow.textContent).toContain('PNG');
 
         // Deselect all disables save.
         shadow.querySelector<HTMLButtonElement>('[data-action="deselect-all-turns"]')!.click();
@@ -105,6 +107,51 @@ describe('SaveMessagesDialog', () => {
         shadow2.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
         await Promise.resolve();
         expect(exportTurnsPdf).toHaveBeenCalledTimes(1);
+
+        // Reopen, switch to PNG and export.
+        await dlg.open(adapter, 'light');
+        const host3 = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow3 = host3.shadowRoot!;
+        const pngBtn = shadow3.querySelector<HTMLElement>('[data-action="set-format"][data-format="png"]')!;
+        pngBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        shadow3.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await Promise.resolve();
+        expect(exportTurnsPng).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses an image icon for PNG and shows progress while PNG export is running', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        let resolveExport!: () => void;
+        vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
+            options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
+            await new Promise<void>((resolve) => {
+                resolveExport = resolve;
+            });
+            options.onProgress?.({ phase: 'done', completed: 2, total: 2 });
+            return { ok: true, noop: false };
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        const pngBtn = shadow.querySelector<HTMLElement>('[data-action="set-format"][data-format="png"]')!;
+        pngBtn.click();
+
+        expect(pngBtn.innerHTML).toContain('circle cx="9" cy="9"');
+        expect(pngBtn.innerHTML).toContain('rect x="3" y="3"');
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await flushUi();
+
+        expect(shadow.querySelector('[role="progressbar"]')).toBeTruthy();
+        expect(shadow.textContent).toContain('1/2');
+        expect(shadow.textContent).toContain('message-001.png');
+
+        resolveExport();
+        await flushUi();
     });
 
     it('closes the dialog before starting PDF export so the modal shell cannot leak into print', async () => {

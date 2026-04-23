@@ -149,6 +149,34 @@ ${getPanelChromeCss()}
   height: 16px;
 }
 
+.progress-panel {
+  display: grid;
+  gap: var(--aimd-space-2);
+  margin-top: var(--aimd-space-4);
+}
+
+.progress-label {
+  font-size: var(--aimd-text-xs);
+  line-height: 1.4;
+  color: var(--aimd-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.progress-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--aimd-radius-full);
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, var(--aimd-border-default));
+}
+
+.progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--aimd-interactive-primary), var(--aimd-interactive-primary-hover));
+}
+
 .panel-footer--between {
   justify-content: space-between;
 }

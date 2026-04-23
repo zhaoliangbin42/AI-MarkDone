@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Export: Added PNG export to Save Messages. A single selected message downloads as one PNG, while multiple selected messages render one PNG per message and download together as a ZIP.
+- Export: Added in-dialog PNG export progress feedback so long-running multi-message renders now report the current step and item count instead of looking stalled.
+
+### Changed
+- Export: PDF and PNG now share the same sanitized Markdown document builder and align their Markdown presentation with the Reader theme, including Reader-style code block shells and highlighted code rendering.
+
 ### Fixed
 - ChatGPT: Reader now opens on the message that launched it instead of falling back to the last message when DOM and payload message ids differ.
 - ChatGPT: Conversation snapshots now refresh on conversation route changes and conversation payload fetches, improving full-history recovery after in-app navigation.

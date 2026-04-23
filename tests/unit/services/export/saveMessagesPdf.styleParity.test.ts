@@ -33,13 +33,13 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(html).toContain('@media print');
         expect(html).toContain('--aimd-text-primary: #000000');
         expect(html).toContain('katex-styles-bundled');
-        expect(html).toContain('class="markdown-body"');
+        expect(html).toContain('class="reader-markdown markdown-body"');
         expect(html).toContain('中文用户');
         expect(html).toContain('中文内容');
         expect(html).toContain('body > *:not(#aimd-pdf-export-container) { display: none !important; }');
     });
 
-    it('keeps PDF markdown rendering free of syntax-highlight wrapper markup', () => {
+    it('aligns PDF markdown rendering with the Reader theme without exporting Reader copy controls', () => {
         const turns: ChatTurn[] = [
             {
                 user: 'u1',
@@ -59,8 +59,9 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(plan).not.toBeNull();
 
         const html = plan!.html;
-        expect(html).not.toContain('hljs');
-        expect(html).toContain('<pre');
-        expect(html).toContain('<code');
+        expect(html).toContain('hljs');
+        expect(html).toContain('reader-code-block');
+        expect(html).toContain('reader-code-block__header');
+        expect(html).not.toContain('reader-copy-code');
     });
 });

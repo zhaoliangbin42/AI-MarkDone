@@ -8,9 +8,10 @@ import {
     collectConversationTurnsAsync,
     exportTurnsMarkdown,
     exportTurnsPdf,
+    exportTurnsPng,
 } from '../../../services/export/saveMessagesFacade';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
-import { xIcon, fileCodeIcon, fileTextIcon } from '../../../assets/icons';
+import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/icons';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from '../components/Icon';
@@ -25,6 +26,8 @@ type State = {
     selected: Set<number>;
     saving: boolean;
     turnsCount: number;
+    progressText: string;
+    progressValue: number | null;
 };
 
 export class SaveMessagesDialog {
@@ -46,6 +49,8 @@ export class SaveMessagesDialog {
         selected: new Set(),
         saving: false,
         turnsCount: 0,
+        progressText: '',
+        progressValue: null,
     };
     private closing = false;
     private motionNeedsOpen = false;
@@ -73,6 +78,8 @@ export class SaveMessagesDialog {
         this.state.selected = new Set(turns.map((_, i) => i));
         this.state.format = 'markdown';
         this.state.saving = false;
+        this.state.progressText = '';
+        this.state.progressValue = null;
         if (this.overlaySession && this.closing) {
             cancelSurfaceMotionClose({
                 shell: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window'),
@@ -244,6 +251,8 @@ export class SaveMessagesDialog {
         const format = this.state.format;
 
         this.state.saving = true;
+        this.state.progressText = '';
+        this.state.progressValue = null;
         this.render();
 
         try {
@@ -253,6 +262,15 @@ export class SaveMessagesDialog {
                           this.finishClose();
                           return exportTurnsPdf(turns, selectedIndices, metadata, { t: this.exportT });
                       })()
+                    : format === 'png'
+                    ? await exportTurnsPng(turns, selectedIndices, metadata, {
+                          t: this.exportT,
+                          onProgress: (event) => {
+                              this.state.progressValue = event.total > 0 ? Math.round((event.completed / event.total) * 100) : null;
+                              this.state.progressText = this.getPngProgressLabel(event.phase, event.completed, event.total, event.filename);
+                              if (this.overlaySession && !this.closing) this.render();
+                          },
+                      })
                     : await exportTurnsMarkdown(turns, selectedIndices, metadata, { t: this.exportT });
 
             if (!res.ok) return;
@@ -270,10 +288,13 @@ export class SaveMessagesDialog {
         const formatLabel = this.getLabel('formatLabel', 'Format');
         const markdownLabel = this.getLabel('formatMarkdown', 'Markdown');
         const pdfLabel = this.getLabel('formatPdf', 'PDF');
+        const pngLabel = this.getLabel('formatPng', 'PNG');
         const selectAllLabel = this.getLabel('selectAll', 'Select all');
         const deselectAllLabel = this.getLabel('deselectAll', 'Deselect all');
         const saveLabel = this.state.saving ? this.getLabel('saving', 'Saving') : this.getLabel('btnSave', 'Save');
         const countLabel = this.getSelectedCountLabel();
+        const showProgress = this.state.format === 'png' && this.state.saving && Boolean(this.state.progressText);
+        const progressValue = this.state.progressValue ?? 0;
 
         return `
 <div class="panel-window panel-window--dialog panel-window--save" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
@@ -297,7 +318,15 @@ export class SaveMessagesDialog {
     <div class="segmented">
       <button data-action="set-format" data-format="markdown" data-active="${this.state.format === 'markdown' ? '1' : '0'}" aria-label="${escapeHtml(markdownLabel)}">${iconMarkup(fileCodeIcon)}<span>${escapeHtml(markdownLabel)}</span></button>
       <button data-action="set-format" data-format="pdf" data-active="${this.state.format === 'pdf' ? '1' : '0'}" aria-label="${escapeHtml(pdfLabel)}">${iconMarkup(fileTextIcon)}<span>${escapeHtml(pdfLabel)}</span></button>
+      <button data-action="set-format" data-format="png" data-active="${this.state.format === 'png' ? '1' : '0'}" aria-label="${escapeHtml(pngLabel)}">${iconMarkup(imageIcon)}<span>${escapeHtml(pngLabel)}</span></button>
     </div>
+    ${showProgress ? `
+    <div class="progress-panel">
+      <div class="progress-label">${escapeHtml(this.state.progressText)}</div>
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressValue}">
+        <div class="progress-fill" style="width: ${progressValue}%"></div>
+      </div>
+    </div>` : ''}
   </div>
   <div class="panel-footer panel-footer--between">
     <div class="button-row">
@@ -332,6 +361,24 @@ ${getSaveMessagesDialogCss(this.state.theme)}
         const translated = t('selectedCountMessages', [count, total]);
         if (!translated || translated === 'selectedCountMessages') return `${count}/${total} selected`;
         return translated;
+    }
+
+    private getPngProgressLabel(phase: string, completed: number, total: number, filename?: string): string {
+        const base = `${completed}/${total}`;
+        switch (phase) {
+            case 'preparing':
+                return `Preparing PNG export ${base}`;
+            case 'rendering':
+                return filename ? `Rendering ${base}: ${filename}` : `Rendering ${base}`;
+            case 'zipping':
+                return filename ? `Packaging ZIP ${base}: ${filename}` : `Packaging ZIP ${base}`;
+            case 'downloading':
+                return filename ? `Downloading ${filename}` : `Downloading export`;
+            case 'done':
+                return `PNG export ready ${base}`;
+            default:
+                return base;
+        }
     }
 }
 
