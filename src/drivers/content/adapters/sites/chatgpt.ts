@@ -71,14 +71,6 @@ export class ChatGPTAdapter extends SiteAdapter {
                 return turnRoot;
             }
 
-            const isFoldBar =
-                cursor.classList.contains('aimd-chatgpt-foldbar')
-                || cursor.querySelector?.('.aimd-chatgpt-foldbar');
-            if (isFoldBar) {
-                cursor = cursor.previousElementSibling;
-                continue;
-            }
-
             const fallbackUserMessage = cursor.querySelector('[data-message-author-role="user"]');
             if (fallbackUserMessage instanceof HTMLElement) {
                 const fallbackRoot = fallbackUserMessage.closest('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]');

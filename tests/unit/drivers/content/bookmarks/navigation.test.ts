@@ -97,32 +97,20 @@ describe('bookmark navigation', () => {
         );
     });
 
-    it('routes folded ChatGPT targets to the fold bar while still highlighting the resolved message', async () => {
-        vi.useFakeTimers();
+    it('scrolls ChatGPT bookmark targets to the resolved message element', async () => {
         const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
-        const foldBar = document.createElement('div');
-        foldBar.className = 'aimd-chatgpt-foldbar';
-        foldBar.setAttribute('data-aimd-fold-group-id', 'group-a1');
-        foldBar.addEventListener('aimd:flash-attention', () => {
-            foldBar.dataset.attention = '1';
-        });
-        const assistantRoot = document.createElement('section');
-        assistantRoot.setAttribute('data-aimd-fold-role', 'assistant');
-        assistantRoot.setAttribute('data-aimd-fold-group-id', 'group-a1');
-        assistantRoot.setAttribute('data-aimd-folded', '1');
         const message = document.createElement('div');
-        assistantRoot.appendChild(message);
-        document.body.append(foldBar, assistantRoot);
-
         const scrollIntoView = vi.fn();
-        foldBar.scrollIntoView = scrollIntoView;
+        message.scrollIntoView = scrollIntoView;
         resolveConversationTarget.mockReturnValue({ ok: true, targetEl: message, turnIndex: 0 });
 
         const result = await scrollToBookmarkTargetWithRetry({ getPlatformId: () => 'chatgpt' } as any, {
             position: 4,
             messageId: 'msg-4',
+        }, {
+            timeoutMs: 100,
+            intervalMs: 10,
         });
-        await vi.advanceTimersByTimeAsync(100);
 
         expect(result).toEqual({ ok: true });
         expect(resolveConversationTarget).toHaveBeenCalledWith(
@@ -130,47 +118,6 @@ describe('bookmark navigation', () => {
             { kind: 'messageId', messageId: 'msg-4' }
         );
         expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-        expect(foldBar.dataset.attention).toBe('1');
-        vi.useRealTimers();
     });
 
-    it('keeps retrying ChatGPT pending jumps until the folded target gets a visible fold bar', async () => {
-        vi.useFakeTimers();
-        const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
-        const assistantRoot = document.createElement('section');
-        assistantRoot.setAttribute('data-aimd-fold-role', 'assistant');
-        assistantRoot.setAttribute('data-aimd-fold-group-id', 'group-a1');
-        assistantRoot.setAttribute('data-aimd-folded', '1');
-        const message = document.createElement('div');
-        assistantRoot.appendChild(message);
-        document.body.appendChild(assistantRoot);
-
-        const foldBar = document.createElement('div');
-        foldBar.className = 'aimd-chatgpt-foldbar';
-        foldBar.setAttribute('data-aimd-fold-group-id', 'group-a1');
-        foldBar.addEventListener('aimd:flash-attention', () => {
-            foldBar.dataset.attention = '1';
-        });
-        const scrollIntoView = vi.fn();
-        foldBar.scrollIntoView = scrollIntoView;
-
-        resolveConversationTarget.mockReturnValue({ ok: true, targetEl: message, turnIndex: 0 });
-
-        const pendingPromise = scrollToBookmarkTargetWithRetry({ getPlatformId: () => 'chatgpt' } as any, {
-            position: 4,
-            messageId: 'msg-4',
-        }, {
-            timeoutMs: 600,
-            intervalMs: 200,
-        });
-
-        await vi.advanceTimersByTimeAsync(250);
-        document.body.insertBefore(foldBar, assistantRoot);
-        await vi.advanceTimersByTimeAsync(250);
-
-        await expect(pendingPromise).resolves.toEqual({ ok: true });
-        expect(resolveConversationTarget.mock.calls.length).toBeGreaterThanOrEqual(2);
-        expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-        vi.useRealTimers();
-    });
 });

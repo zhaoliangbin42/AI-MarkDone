@@ -1,6 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
 import {
-    highlightElement as highlightConversationElement,
     resolveConversationTarget,
     scrollToConversationTarget,
     scrollToConversationTargetWithRetry,
@@ -71,13 +70,6 @@ export type BookmarkNavigationTarget = {
     messageId?: string | null;
 };
 
-type ChatGptFoldNavigationHint = {
-    scrollTarget: HTMLElement;
-    highlightTarget: HTMLElement;
-    foldBarEl: HTMLElement | null;
-    ready: boolean;
-};
-
 function legacyScrollToAssistantPosition(
     adapter: SiteAdapter,
     position: number,
@@ -119,37 +111,6 @@ function buildBookmarkTargetLocators(target: BookmarkNavigationTarget): Array<{ 
     return locators;
 }
 
-function findChatGptFoldBar(groupId: string): HTMLElement | null {
-    for (const element of document.querySelectorAll('.aimd-chatgpt-foldbar')) {
-        if (!(element instanceof HTMLElement)) continue;
-        if (element.getAttribute('data-aimd-fold-group-id') === groupId) return element;
-    }
-    return null;
-}
-
-function requestChatGptFoldBarAttention(barEl: HTMLElement, durationMs = 3000): void {
-    barEl.dispatchEvent(new CustomEvent('aimd:flash-attention', {
-        detail: { durationMs },
-        bubbles: false,
-        composed: false,
-    }));
-}
-
-function resolveChatGptFoldNavigationHint(targetEl: HTMLElement): ChatGptFoldNavigationHint | null {
-    const assistantRoot = targetEl.closest<HTMLElement>('[data-aimd-fold-role="assistant"][data-aimd-fold-group-id]');
-    if (!assistantRoot) return null;
-    const groupId = assistantRoot.getAttribute('data-aimd-fold-group-id');
-    if (!groupId) return null;
-    const foldBarEl = findChatGptFoldBar(groupId);
-    const folded = assistantRoot.getAttribute('data-aimd-folded') === '1';
-    return {
-        scrollTarget: folded && foldBarEl ? foldBarEl : targetEl,
-        highlightTarget: targetEl,
-        foldBarEl,
-        ready: !folded || Boolean(foldBarEl),
-    };
-}
-
 function scrollElementIntoView(targetEl: HTMLElement, options?: { behavior?: ScrollBehavior; block?: ScrollLogicalPosition }): ScrollResult {
     if (typeof targetEl.scrollIntoView !== 'function') return { ok: false, message: 'Scroll target unavailable' };
     targetEl.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
@@ -164,16 +125,7 @@ function scrollChatGptLocator(
 ): ScrollResult {
     const resolved = resolveConversationTarget(adapter, locator);
     if (!resolved.ok) return resolved;
-    const hint = resolveChatGptFoldNavigationHint(resolved.targetEl);
-    if (!hint) return scrollElementIntoView(resolved.targetEl, options);
-    if (!hint.ready) return { ok: false, message: 'Fold target not ready' };
-    if (typeof hint.scrollTarget.scrollIntoView !== 'function') return { ok: false, message: 'Scroll target unavailable' };
-    hint.scrollTarget.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
-    window.setTimeout(() => {
-        highlightConversationElement(hint.highlightTarget);
-        if (hint.foldBarEl) requestChatGptFoldBarAttention(hint.foldBarEl);
-    }, 100);
-    return { ok: true };
+    return scrollElementIntoView(resolved.targetEl, options);
 }
 
 async function scrollChatGptLocatorWithRetry(
