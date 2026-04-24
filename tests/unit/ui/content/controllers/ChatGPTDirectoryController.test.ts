@@ -104,7 +104,7 @@ describe('ChatGPTDirectoryController', () => {
         const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
         items[0]?.click();
         await Promise.resolve();
-        vi.runAllTimers();
+        await vi.advanceTimersByTimeAsync(1000);
 
         expect(anchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
         expect(navigationMocks.highlightElement).toHaveBeenCalledWith(anchor);
