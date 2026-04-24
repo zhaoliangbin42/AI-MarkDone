@@ -49,12 +49,14 @@ const bookmarksPanelCtor = vi.fn(function () {
 const messageToolbarsInit = vi.fn();
 const messageToolbarsSetTheme = vi.fn();
 const messageToolbarsSetBehaviorFlags = vi.fn();
+const messageToolbarsSetExportSettings = vi.fn();
 const messageToolbarsDispose = vi.fn();
 const messageToolbarCtor = vi.fn(function () {
     return {
         init: messageToolbarsInit,
         setTheme: messageToolbarsSetTheme,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
+        setExportSettings: messageToolbarsSetExportSettings,
         dispose: messageToolbarsDispose,
     };
 });

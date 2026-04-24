@@ -122,6 +122,7 @@ if (adapter) {
         readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
     }
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
+    messageToolbars.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
@@ -133,7 +134,8 @@ if (adapter) {
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
-        saveMessagesDialog.setExportSettings(snap.settings.export);
+        saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
+        messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setBehaviorFlags({
             showSaveMessages: snap.settings.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior.showWordCount,
