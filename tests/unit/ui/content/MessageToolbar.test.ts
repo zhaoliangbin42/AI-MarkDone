@@ -75,7 +75,7 @@ describe('MessageToolbar', () => {
         expect(css).not.toContain('.icon-btn svg { width: 16px; height: 16px; display: block; }');
     });
 
-    it('keeps Copy primary click behavior while exposing a hover-triggered PNG secondary action', async () => {
+    it('keeps Copy primary click behavior while exposing an icon-only hover-triggered PNG secondary action', async () => {
         vi.useFakeTimers();
         const onCopyMarkdown = vi.fn(async () => ({ ok: true as const, message: 'Copied!' }));
         const onCopyPng = vi.fn(async () => ({ ok: true as const, message: 'PNG copied!' }));
@@ -106,7 +106,9 @@ describe('MessageToolbar', () => {
         const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host');
         const portalShadow = portalHost?.shadowRoot;
         const secondaryButton = portalShadow?.querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]');
-        expect(secondaryButton?.textContent).toContain('Copy as PNG');
+        expect(secondaryButton?.textContent).toBe('');
+        expect(secondaryButton?.getAttribute('aria-label')).toBe('Copy as PNG');
+        expect(secondaryButton?.dataset.tooltip).toBe('Copy as PNG');
 
         button.click();
         await Promise.resolve();
@@ -115,6 +117,133 @@ describe('MessageToolbar', () => {
         secondaryButton?.click();
         await Promise.resolve();
         expect(onCopyPng).toHaveBeenCalledTimes(1);
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        vi.useRealTimers();
+    });
+
+    it('keeps the PNG hover action open while the pointer crosses the trigger gap', () => {
+        vi.useFakeTimers();
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                tooltip: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const, message: 'Copied!' })),
+                hoverAction: {
+                    id: 'copy_png',
+                    label: 'Copy as PNG',
+                    icon: '<svg viewBox="0 0 16 16"></svg>',
+                    onClick: vi.fn(async () => ({ ok: true as const, message: 'PNG copied!' })),
+                },
+            },
+        ], { showStats: false });
+
+        document.body.appendChild(toolbar.getElement());
+        const trigger = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+
+        trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        vi.advanceTimersByTime(100);
+
+        const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
+        const portalShadow = portalHost.shadowRoot!;
+        const bridge = portalShadow.querySelector<HTMLElement>('[data-role="toolbar-hover-bridge"]')!;
+        expect(bridge).not.toBeNull();
+
+        trigger.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+        bridge.dispatchEvent(new Event('pointerenter', { bubbles: true, composed: true }));
+        vi.advanceTimersByTime(120);
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).not.toBeNull();
+
+        bridge.dispatchEvent(new Event('pointerleave', { bubbles: true, composed: true }));
+        vi.advanceTimersByTime(120);
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        vi.useRealTimers();
+    });
+
+    it('renders the PNG hover action as a stable 30px rounded square without hover background changes', () => {
+        const toolbar = new MessageToolbar('light', [], { showStats: false });
+        document.body.appendChild(toolbar.getElement());
+
+        const host = document.createElement('button');
+        document.body.appendChild(host);
+
+        const action = {
+            id: 'copy_markdown',
+            label: 'Copy Markdown',
+            icon: '<svg viewBox="0 0 16 16"></svg>',
+            onClick: vi.fn(async () => ({ ok: true as const, message: 'Copied!' })),
+            hoverAction: {
+                id: 'copy_png',
+                label: 'Copy as PNG',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const, message: 'PNG copied!' })),
+            },
+        };
+        toolbar['openHoverAction'](action, host);
+
+        const portalStyle = document
+            .querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!
+            .shadowRoot!
+            .querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-hover-action-base"]')!;
+        const css = portalStyle.textContent ?? '';
+        const hoverRule = css.match(/\\.toolbar-hover-action:hover\\s*\\{[^}]*\\}/)?.[0] ?? '';
+
+        expect(css).toContain('width: var(--aimd-size-control-icon-toolbar);');
+        expect(css).toContain('height: var(--aimd-size-control-icon-toolbar);');
+        expect(css).toContain('border-radius: var(--aimd-radius-lg);');
+        expect(css).toContain('width: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-4));');
+        expect(css).toContain('.toolbar-hover-bridge {');
+        expect(hoverRule).not.toContain('background:');
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        host.remove();
+    });
+
+    it('keeps Copy Markdown and PNG hover tooltips locally anchored to their own buttons', () => {
+        vi.useFakeTimers();
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                tooltip: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const, message: 'Copied!' })),
+                hoverAction: {
+                    id: 'copy_png',
+                    label: 'Copy as PNG',
+                    icon: '<svg viewBox="0 0 16 16"></svg>',
+                    onClick: vi.fn(async () => ({ ok: true as const, message: 'PNG copied!' })),
+                },
+            },
+        ], { showStats: false });
+
+        document.body.appendChild(toolbar.getElement());
+        const trigger = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+
+        trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        vi.advanceTimersByTime(100);
+
+        const triggerTooltip = trigger.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
+        expect(triggerTooltip?.textContent).toBe('Copy Markdown');
+        expect(triggerTooltip?.dataset.placement).toBe('bottom');
+
+        const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
+        const secondaryButton = portalHost.shadowRoot!.querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!;
+        expect(secondaryButton.dataset.tooltip).toBe('Copy as PNG');
+
+        secondaryButton.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        vi.advanceTimersByTime(100);
+
+        const secondaryTooltip = secondaryButton.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
+        expect(secondaryTooltip?.textContent).toBe('Copy as PNG');
+        expect(secondaryTooltip?.dataset.placement).toBe('top');
 
         toolbar.dispose();
         toolbar.getElement().remove();

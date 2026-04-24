@@ -29,6 +29,7 @@ describe('MessageToolbar tooltip integration', () => {
         vi.advanceTimersByTime(1);
         const feedback = button?.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
         expect(feedback?.textContent).toBe('Copy markdown');
+        expect(feedback?.dataset.placement).toBe('top');
         expect(document.querySelector('.aimd-tooltip')).toBeNull();
 
         button?.dispatchEvent(new Event('mouseleave', { bubbles: true }));

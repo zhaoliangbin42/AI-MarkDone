@@ -6,6 +6,7 @@ import { createIcon } from './Icon';
 export type ToolbarHoverActionPortalParams = {
     anchorEl: HTMLElement;
     label: string;
+    tooltip?: string;
     icon: string;
     onClick: () => void;
     onPointerEnter?: () => void;
@@ -16,6 +17,7 @@ export type ToolbarHoverActionPortalParams = {
 export class ToolbarHoverActionPortal {
     private host: HTMLElement;
     private shadow: ShadowRoot;
+    private bridge: HTMLElement;
     private button: HTMLButtonElement;
     private currentAnchor: HTMLElement | null = null;
     private onClick: (() => void) | null = null;
@@ -25,6 +27,8 @@ export class ToolbarHoverActionPortal {
     private onDocPointerDown: ((event: Event) => void) | null = null;
     private onWindowResize: (() => void) | null = null;
     private onWindowScroll: (() => void) | null = null;
+    private hoverTooltipTimer: number | null = null;
+    private hoverTooltipEl: HTMLElement | null = null;
 
     constructor(theme: Theme) {
         this.host = document.createElement('div');
@@ -34,6 +38,13 @@ export class ToolbarHoverActionPortal {
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-hover-action-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-hover-action-base', cache: 'shared' });
+
+        this.bridge = document.createElement('div');
+        this.bridge.className = 'toolbar-hover-bridge';
+        this.bridge.dataset.role = 'toolbar-hover-bridge';
+        this.bridge.setAttribute('aria-hidden', 'true');
+        this.bridge.addEventListener('pointerenter', () => this.onPointerEnter?.());
+        this.bridge.addEventListener('pointerleave', () => this.onPointerLeave?.());
 
         this.button = document.createElement('button');
         this.button.type = 'button';
@@ -46,6 +57,9 @@ export class ToolbarHoverActionPortal {
         });
         this.button.addEventListener('pointerenter', () => this.onPointerEnter?.());
         this.button.addEventListener('pointerleave', () => this.onPointerLeave?.());
+        this.button.addEventListener('mouseenter', () => this.scheduleTooltip());
+        this.button.addEventListener('mouseleave', () => this.clearTooltip());
+        this.shadow.appendChild(this.bridge);
         this.shadow.appendChild(this.button);
     }
 
@@ -64,9 +78,9 @@ export class ToolbarHoverActionPortal {
         this.onPointerEnter = params.onPointerEnter ?? null;
         this.onPointerLeave = params.onPointerLeave ?? null;
         this.onRequestClose = params.onRequestClose ?? null;
-        this.button.replaceChildren(createIcon(params.icon), document.createTextNode(params.label));
+        this.button.replaceChildren(createIcon(params.icon));
         this.button.setAttribute('aria-label', params.label);
-        this.button.setAttribute('title', params.label);
+        this.button.dataset.tooltip = params.tooltip || params.label;
 
         if (!this.host.isConnected) {
             document.body.appendChild(this.host);
@@ -78,6 +92,7 @@ export class ToolbarHoverActionPortal {
     }
 
     close(): void {
+        this.clearTooltip();
         this.host.dataset.open = '0';
         this.currentAnchor = null;
         this.onClick = null;
@@ -90,6 +105,30 @@ export class ToolbarHoverActionPortal {
 
     dispose(): void {
         this.close();
+    }
+
+    private scheduleTooltip(): void {
+        this.clearTooltip();
+        this.hoverTooltipTimer = window.setTimeout(() => {
+            const label = this.button.dataset.tooltip || this.button.getAttribute('aria-label') || '';
+            if (!label) return;
+            const tooltip = document.createElement('div');
+            tooltip.className = 'toolbar-hover-feedback';
+            tooltip.dataset.role = 'toolbar-tooltip';
+            tooltip.dataset.placement = 'top';
+            tooltip.textContent = label;
+            this.button.appendChild(tooltip);
+            this.hoverTooltipEl = tooltip;
+        }, 100);
+    }
+
+    private clearTooltip(): void {
+        if (this.hoverTooltipTimer !== null) {
+            window.clearTimeout(this.hoverTooltipTimer);
+            this.hoverTooltipTimer = null;
+        }
+        this.hoverTooltipEl?.remove();
+        this.hoverTooltipEl = null;
     }
 
     private positionToAnchor(anchorEl: HTMLElement): void {
@@ -150,10 +189,11 @@ export class ToolbarHoverActionPortal {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--aimd-space-2);
-  min-height: var(--aimd-size-control-action-panel);
-  padding: 0 var(--aimd-space-3);
-  border-radius: var(--aimd-radius-full);
+  gap: 0;
+  width: var(--aimd-size-control-icon-toolbar);
+  height: var(--aimd-size-control-icon-toolbar);
+  padding: 0;
+  border-radius: var(--aimd-radius-lg);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 99%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
@@ -166,13 +206,47 @@ export class ToolbarHoverActionPortal {
   pointer-events: auto;
   cursor: pointer;
   transform: translate(-50%, calc(-100% - var(--aimd-space-2)));
-  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),
-              border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+  transition: border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
               color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 
+.toolbar-hover-bridge {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--aimd-space-3));
+  width: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-4));
+  height: var(--aimd-space-4);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  background: transparent;
+}
+
+.toolbar-hover-feedback {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + var(--aimd-space-3));
+  transform: translateX(-50%);
+  padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  font-size: var(--aimd-font-size-xs);
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--aimd-radius-md);
+  opacity: 0;
+  pointer-events: none;
+  z-index: var(--aimd-z-tooltip);
+  animation: toolbarFeedbackFade 1.5s ease;
+}
+
+@keyframes toolbarFeedbackFade {
+  0% { opacity: 0; transform: translateX(-50%) translateY(0); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+}
+
 .toolbar-hover-action:hover {
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
   border-color: color-mix(in srgb, var(--aimd-border-strong) 72%, var(--aimd-interactive-primary) 20%);
 }
 

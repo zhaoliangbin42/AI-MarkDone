@@ -25,6 +25,7 @@ export type MessageToolbarAction = {
     hoverAction?: {
         id: string;
         label: string;
+        tooltip?: string;
         icon: string;
         onClick: () => Promise<void | ToolbarActionResult>;
     };
@@ -147,8 +148,9 @@ export class MessageToolbar {
             btn.appendChild(createIcon(action.icon));
             if (action.hoverAction) {
                 this.attachHoverAction(action, btn);
+                this.attachHoverFeedback(btn, action.tooltip || action.label, 'bottom');
             } else {
-                this.attachHoverFeedback(btn, action.tooltip || action.label);
+                this.attachHoverFeedback(btn, action.tooltip || action.label, 'top');
             }
             btn.addEventListener('click', (e) => void this.handleActionClick(action, e));
             group.appendChild(btn);
@@ -400,6 +402,7 @@ export class MessageToolbar {
         this.getHoverActionPortal().open({
             anchorEl: anchor,
             label: action.hoverAction.label,
+            tooltip: action.hoverAction.tooltip || action.hoverAction.label,
             icon: action.hoverAction.icon,
             onClick: () => void this.handleHoverActionClick(action, anchor),
             onPointerEnter: () => {
@@ -442,7 +445,7 @@ export class MessageToolbar {
         }
     }
 
-    private attachHoverFeedback(button: HTMLButtonElement, label: string): void {
+    private attachHoverFeedback(button: HTMLButtonElement, label: string, placement: 'top' | 'bottom'): void {
         let hoverTimeout: number | null = null;
         let feedbackElement: HTMLElement | null = null;
 
@@ -463,6 +466,7 @@ export class MessageToolbar {
                 feedbackElement = document.createElement('div');
                 feedbackElement.className = 'toolbar-hover-feedback';
                 feedbackElement.dataset.role = 'toolbar-tooltip';
+                feedbackElement.dataset.placement = placement;
                 feedbackElement.textContent = button.getAttribute('aria-label') || label;
                 button.appendChild(feedbackElement);
             }, 100);
@@ -592,7 +596,6 @@ export class MessageToolbar {
 
 .toolbar-hover-feedback {
   position: absolute;
-  bottom: calc(100% + var(--aimd-space-3));
   left: 50%;
   transform: translateX(-50%);
   padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
@@ -606,6 +609,12 @@ export class MessageToolbar {
   pointer-events: none;
   z-index: var(--aimd-z-tooltip);
   animation: toolbarFeedbackFade 1.5s ease;
+}
+.toolbar-hover-feedback[data-placement="top"] {
+  bottom: calc(100% + var(--aimd-space-3));
+}
+.toolbar-hover-feedback[data-placement="bottom"] {
+  top: calc(100% + var(--aimd-space-3));
 }
 
 @keyframes toolbarFeedbackFade {
