@@ -11,6 +11,12 @@
     "btnCopied": {
         "message": "Copied!"
     },
+    "btnCopyAsPng": {
+        "message": "Copy as PNG"
+    },
+    "btnCopyAsPngCopied": {
+        "message": "PNG copied!"
+    },
     "btnBookmark": {
         "message": "Bookmark"
     },
@@ -118,6 +124,12 @@
     },
     "copyFailed": {
         "message": "Copy failed"
+    },
+    "clipboardImageWriteFailed": {
+        "message": "PNG copy failed"
+    },
+    "clipboardImageWriteUnsupported": {
+        "message": "This browser does not support copying PNG images"
     },
     "openFailed": {
         "message": "Open failed"

@@ -9,6 +9,14 @@ import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler'
 import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
+import { copyTurnsPng } from '../../../services/copy/copy-turn-png';
+import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
+import {
+    isCopyPngDebugEnabled,
+    logCopyPngDebugEvent,
+    nowMs,
+    type CopyPngDebugEvent,
+} from '../../../services/copy/copy-png-debug';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, collectReaderItems, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
 import { resolveContent } from '../../../services/reader/types';
@@ -18,7 +26,7 @@ import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, locateIcon, sendIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, locateIcon, sendIcon, imageIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
@@ -379,6 +387,7 @@ export class MessageToolbarOrchestrator {
     private removeRecord(messageKey: string): void {
         const record = this.recordsByMessageKey.get(messageKey);
         if (!record) return;
+        record.toolbar.dispose();
         record.toolbar.getElement().remove();
         this.recordsByMessageKey.delete(messageKey);
     }
@@ -520,14 +529,86 @@ export class MessageToolbarOrchestrator {
             icon: copyIcon,
             kind: 'secondary',
             disabledWhenPending: true,
+            onClick: async () => {
+                const guard = this.guardMessageReady(messageElement);
+                if (guard) return guard;
+                const res = this.getMergedMarkdownForElement(messageElement);
+                if (!res.ok) return { ok: false, message: res.error.message };
+                const ok = await copyTextToClipboard(res.markdown);
+                return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
+            },
+            hoverAction: {
+                id: 'copy_png',
+                label: t('btnCopyAsPng'),
+                icon: imageIcon,
                 onClick: async () => {
+                    const debugEnabled = isCopyPngDebugEnabled();
+                    const copyStartedAt = nowMs();
+                    const debugEvents: CopyPngDebugEvent[] = [];
+                    const emitDebug = (event: CopyPngDebugEvent) => {
+                        if (!debugEnabled) return;
+                        debugEvents.push(event);
+                        logCopyPngDebugEvent(event);
+                    };
+                    const finishDebug = (result: string) => {
+                        if (!debugEnabled) return;
+                        const summary = {
+                            result,
+                            totalMs: Math.round(nowMs() - copyStartedAt),
+                            stages: debugEvents,
+                        };
+                        try {
+                            console.info('[AI-MarkDone][CopyPNG][PerfSummary]', summary);
+                            console.table(debugEvents);
+                        } catch {
+                            // ignore debug logging failures
+                        }
+                    };
+
                     const guard = this.guardMessageReady(messageElement);
-                    if (guard) return guard;
-                    const res = this.getMergedMarkdownForElement(messageElement);
-                    if (!res.ok) return { ok: false, message: res.error.message };
-                    const ok = await copyTextToClipboard(res.markdown);
-                    return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
+                    if (guard) {
+                        finishDebug('guard_blocked');
+                        return guard;
+                    }
+                    const collectStartedAt = nowMs();
+                    const markdownResult = this.getMergedMarkdownForElement(messageElement);
+                    if (!markdownResult.ok) {
+                        finishDebug(markdownResult.error.code);
+                        return { ok: false, message: markdownResult.error.message };
+                    }
+                    const fallbackPosition = this.getPositionForMessage(messageElement);
+                    const currentTurn = {
+                        user: this.getUserPromptForElement(messageElement),
+                        assistant: markdownResult.markdown,
+                        index: fallbackPosition > 0 ? fallbackPosition - 1 : 0,
+                    };
+                    const metadata = buildConversationMetadata(this.adapter, 1);
+                    emitDebug({
+                        stage: 'collect_turns',
+                        durationMs: Math.round(nowMs() - collectStartedAt),
+                        totalMs: Math.round(nowMs() - copyStartedAt),
+                        selectedIndex: currentTurn.index,
+                        turnCount: 1,
+                    });
+                    const result = await copyTurnsPng([currentTurn], [0], metadata, {
+                        t: (key: string, args?: unknown) => {
+                            if (typeof args === 'string' || Array.isArray(args)) return t(key, args);
+                            return t(key);
+                        },
+                        onDebug: emitDebug,
+                    });
+                    if (!result.ok) {
+                        finishDebug(result.error.code);
+                        return { ok: false, message: result.error.message };
+                    }
+                    if (result.noop) {
+                        finishDebug('noop');
+                        return { ok: false, message: t('contentNotFound') };
+                    }
+                    finishDebug('ok');
+                    return { ok: true, message: t('btnCopyAsPngCopied') };
                 },
+            },
         });
 
         actions.push({
@@ -619,6 +700,7 @@ export class MessageToolbarOrchestrator {
         const injected = this.adapter.injectToolbar(params.message, host);
         if (!injected) {
             logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
+            toolbar.dispose();
             host.remove();
             return null;
         }
@@ -644,6 +726,7 @@ export class MessageToolbarOrchestrator {
     }
 
     private rebuildToolbarRecord(record: ToolbarRecord): ToolbarRecord | null {
+        record.toolbar.dispose();
         record.toolbar.getElement().remove();
         return this.createToolbarRecord({
             messageKey: record.messageKey,

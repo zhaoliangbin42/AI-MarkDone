@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export: Added PNG export to Save Messages. A single selected message downloads as one PNG, while multiple selected messages render one PNG per message and download together as a ZIP.
 - Export: Added in-dialog PNG export progress feedback so long-running multi-message renders now report the current step and item count instead of looking stalled.
 - Settings: Added a global PNG export width preference with `Mobile`, `Tablet`, `Desktop`, and `Custom` options in the Bookmarks panel Settings tab.
+- Toolbar: Added `Copy as PNG` as a hover secondary action above the message `Copy Markdown` button, so the current message can be copied directly to the clipboard as a PNG without opening export flows.
 
 ### Changed
 - Export: PDF and PNG now share the same sanitized Markdown document builder and align their Markdown presentation with the Reader theme, while keeping PDF and PNG media-specific rendering rules separate.

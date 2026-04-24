@@ -3,6 +3,7 @@ import { getTokenCss } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 import { createIcon } from './components/Icon';
 import { t } from './components/i18n';
+import { ToolbarHoverActionPortal } from './components/ToolbarHoverActionPortal';
 
 export type ToolbarActionResult = { ok: true; message?: string } | { ok: false; message: string };
 
@@ -21,19 +22,32 @@ export type MessageToolbarAction = {
     disabledWhenPending?: boolean;
     onClick: () => Promise<void | ToolbarActionResult>;
     menu?: MessageToolbarMenuItem[];
+    hoverAction?: {
+        id: string;
+        label: string;
+        icon: string;
+        onClick: () => Promise<void | ToolbarActionResult>;
+    };
 };
 
 export class MessageToolbar {
     private host: HTMLElement;
     private shadow: ShadowRoot;
+    private theme: Theme;
     private actions: MessageToolbarAction[];
     private actionButtons = new Map<string, HTMLButtonElement>();
     private pending: boolean = false;
     private openMenuFor: string | null = null;
     private onDocPointerDown: ((e: Event) => void) | null = null;
     private showStats: boolean = false;
+    private hoverActionPortal: ToolbarHoverActionPortal | null = null;
+    private hoverActionOpenTimer: number | null = null;
+    private hoverActionCloseTimer: number | null = null;
+    private hoverActionTriggerInside = false;
+    private hoverActionPortalInside = false;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean }) {
+        this.theme = theme;
         this.actions = actions;
         this.showStats = opts?.showStats ?? false;
         this.host = document.createElement('div');
@@ -49,13 +63,22 @@ export class MessageToolbar {
         return this.host;
     }
 
+    dispose(): void {
+        this.closeMenu();
+        this.closeHoverAction();
+        this.hoverActionPortal?.dispose();
+        this.hoverActionPortal = null;
+    }
+
     setPlacement(placement: 'actionbar' | 'content'): void {
         this.host.setAttribute('data-aimd-placement', placement);
     }
 
     setTheme(theme: Theme): void {
+        this.theme = theme;
         this.host.setAttribute('data-aimd-theme', theme);
         ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
+        this.hoverActionPortal?.setTheme(theme);
     }
 
     setPending(pending: boolean): void {
@@ -122,7 +145,11 @@ export class MessageToolbar {
             btn.dataset.action = action.id;
             btn.setAttribute('aria-label', action.tooltip || action.label);
             btn.appendChild(createIcon(action.icon));
-            this.attachHoverFeedback(btn, action.tooltip || action.label);
+            if (action.hoverAction) {
+                this.attachHoverAction(action, btn);
+            } else {
+                this.attachHoverFeedback(btn, action.tooltip || action.label);
+            }
             btn.addEventListener('click', (e) => void this.handleActionClick(action, e));
             group.appendChild(btn);
             this.actionButtons.set(action.id, btn);
@@ -253,6 +280,13 @@ export class MessageToolbar {
         const btn = this.actionButtons.get(action.id);
         if (!btn) return;
 
+        if (action.hoverAction && !this.supportsPointerHover()) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            this.openHoverAction(action, btn);
+            return;
+        }
+
         if (action.menu && action.menu.length > 0) {
             ev.preventDefault();
             ev.stopPropagation();
@@ -284,6 +318,127 @@ export class MessageToolbar {
             } else {
                 btn.disabled = false;
             }
+        }
+    }
+
+    private attachHoverAction(action: MessageToolbarAction, button: HTMLButtonElement): void {
+        button.addEventListener('mouseenter', () => {
+            this.hoverActionTriggerInside = true;
+            this.scheduleHoverActionOpen(action, button);
+        });
+        button.addEventListener('mouseleave', () => {
+            this.hoverActionTriggerInside = false;
+            this.scheduleHoverActionClose();
+        });
+        button.addEventListener('focusin', () => {
+            this.openHoverAction(action, button);
+        });
+        button.addEventListener('focusout', () => {
+            this.scheduleHoverActionClose();
+        });
+    }
+
+    private supportsPointerHover(): boolean {
+        if (typeof window.matchMedia !== 'function') return true;
+        try {
+            return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        } catch {
+            return true;
+        }
+    }
+
+    private clearHoverActionCloseTimer(): void {
+        if (this.hoverActionCloseTimer !== null) {
+            window.clearTimeout(this.hoverActionCloseTimer);
+            this.hoverActionCloseTimer = null;
+        }
+    }
+
+    private clearHoverActionOpenTimer(): void {
+        if (this.hoverActionOpenTimer !== null) {
+            window.clearTimeout(this.hoverActionOpenTimer);
+            this.hoverActionOpenTimer = null;
+        }
+    }
+
+    private scheduleHoverActionOpen(action: MessageToolbarAction, anchor: HTMLButtonElement): void {
+        this.clearHoverActionCloseTimer();
+        this.clearHoverActionOpenTimer();
+        this.hoverActionOpenTimer = window.setTimeout(() => {
+            this.openHoverAction(action, anchor);
+        }, 100);
+    }
+
+    private scheduleHoverActionClose(): void {
+        this.clearHoverActionOpenTimer();
+        this.clearHoverActionCloseTimer();
+        this.hoverActionCloseTimer = window.setTimeout(() => {
+            if (this.hoverActionTriggerInside || this.hoverActionPortalInside) return;
+            this.closeHoverAction();
+        }, 120);
+    }
+
+    private closeHoverAction(): void {
+        this.clearHoverActionOpenTimer();
+        this.clearHoverActionCloseTimer();
+        this.hoverActionTriggerInside = false;
+        this.hoverActionPortalInside = false;
+        this.hoverActionPortal?.close();
+    }
+
+    private getHoverActionPortal(): ToolbarHoverActionPortal {
+        if (!this.hoverActionPortal) {
+            this.hoverActionPortal = new ToolbarHoverActionPortal(this.theme);
+        }
+        return this.hoverActionPortal;
+    }
+
+    private openHoverAction(action: MessageToolbarAction, anchor: HTMLButtonElement): void {
+        if (!action.hoverAction) return;
+        this.clearHoverActionOpenTimer();
+        this.clearHoverActionCloseTimer();
+        this.getHoverActionPortal().open({
+            anchorEl: anchor,
+            label: action.hoverAction.label,
+            icon: action.hoverAction.icon,
+            onClick: () => void this.handleHoverActionClick(action, anchor),
+            onPointerEnter: () => {
+                this.hoverActionPortalInside = true;
+                this.clearHoverActionCloseTimer();
+            },
+            onPointerLeave: () => {
+                this.hoverActionPortalInside = false;
+                this.scheduleHoverActionClose();
+            },
+            onRequestClose: () => this.closeHoverAction(),
+        });
+    }
+
+    private async handleHoverActionClick(action: MessageToolbarAction, button: HTMLButtonElement): Promise<void> {
+        if (!action.hoverAction) return;
+        try {
+            button.disabled = true;
+            this.setStatus('info', 'Working…');
+            const res = await action.hoverAction.onClick();
+            if (!res) {
+                this.setStatus('idle', '');
+            } else if (res.ok) {
+                this.setStatus('success', res.message || 'Done');
+                button.setAttribute('data-flash', '1');
+                window.setTimeout(() => button.removeAttribute('data-flash'), 650);
+            } else {
+                this.setStatus('error', res.message || 'Failed');
+            }
+        } catch {
+            this.setStatus('error', 'Failed');
+        } finally {
+            window.setTimeout(() => this.setStatus('idle', ''), 1200);
+            if (this.pending && action.disabledWhenPending) {
+                button.disabled = true;
+            } else {
+                button.disabled = false;
+            }
+            this.closeHoverAction();
         }
     }
 

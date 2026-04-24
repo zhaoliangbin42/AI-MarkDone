@@ -35,6 +35,7 @@
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
 | Copy Markdown for **current message** | MessageToolbar `Copy Markdown` → `copyMarkdownFromMessage(adapter, messageEl)` → clipboard | `src/services/copy/copy-markdown.ts`, `src/drivers/content/clipboard/clipboard.ts`, `src/ui/content/MessageToolbar.ts` | `tests/parity/copy/*`, `tests/integration/copy/*` | 点击某条消息的 Copy，只复制该消息内容（非整页/非最后一条）。 |
+| Copy PNG for **current message** | MessageToolbar `Copy Markdown` hover action → PNG plan/render reuse → image clipboard | `src/services/copy/copy-turn-png.ts`, `src/drivers/content/clipboard/copyImageToClipboard.ts`, `src/drivers/content/export/renderPng.ts`, `src/ui/content/MessageToolbar.ts` | `tests/unit/services/copy/copy-turn-png.test.ts`, `tests/unit/drivers/content/clipboard/copyImageToClipboard.test.ts`, `tests/unit/ui/content/MessageToolbar.test.ts` | hover 次动作只复制当前消息/turn 的单张 PNG；复用现有 PNG 渲染链路；不改变原有 Markdown Copy 主按钮语义。 |
 | Copy Markdown for **last message** (dev helper) | `copyMarkdownFromPage(adapter)` | `src/services/copy/copy-markdown.ts` | `tests/integration/copy/copy-markdown.chatgpt.test.ts` | 仅用于开发/调试；非 UI 验收入口。 |
 | Rule-based conversion stability (whitespace/indent/newlines) | Copy pipeline | `src/services/markdown-parser/**` | `tests/parity/copy/*` + goldens | golden 对齐作为输出真值。 |
 | Platform noise filtering (structural only) | `adapter.isNoiseNode()` + placeholder | `src/drivers/content/adapters/*`, `src/services/copy/copy-markdown.ts` | parity fixtures | 噪声过滤不基于文本，避免 i18n 漂移。 |

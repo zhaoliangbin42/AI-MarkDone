@@ -11,6 +11,12 @@
     "btnCopied": {
         "message": "已复制!"
     },
+    "btnCopyAsPng": {
+        "message": "复制为 PNG"
+    },
+    "btnCopyAsPngCopied": {
+        "message": "PNG 已复制!"
+    },
     "btnBookmark": {
         "message": "书签"
     },
@@ -118,6 +124,12 @@
     },
     "copyFailed": {
         "message": "复制失败"
+    },
+    "clipboardImageWriteFailed": {
+        "message": "PNG 复制失败"
+    },
+    "clipboardImageWriteUnsupported": {
+        "message": "当前浏览器不支持复制 PNG 图片"
     },
     "openFailed": {
         "message": "打开失败"
