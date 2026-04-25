@@ -44,6 +44,54 @@
     return text.length > maxLen ? `${text.slice(0, maxLen - 1)}…` : text;
   }
 
+  function readRecord(value) {
+    return value && typeof value === 'object' ? value : null;
+  }
+
+  function readString(record, key) {
+    const value = record?.[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  function readAuthorRole(message) {
+    const author = readRecord(message?.author);
+    return readString(author || message, 'role');
+  }
+
+  function isHiddenMessage(message) {
+    const metadata = readRecord(message?.metadata);
+    if (!metadata) return false;
+    return metadata.is_visually_hidden_from_conversation === true
+      || metadata.is_hidden === true
+      || metadata.hidden === true;
+  }
+
+  function isDisplayableMessage(message, expectedRole) {
+    if (!readRecord(message)) return false;
+    if (isHiddenMessage(message)) return false;
+
+    const role = readAuthorRole(message);
+    if (role && role !== expectedRole) return false;
+
+    const recipient = readString(message, 'recipient');
+    if (recipient && recipient !== 'all') return false;
+
+    const channel = readString(message, 'channel');
+    if (channel && channel !== 'final') return false;
+
+    return true;
+  }
+
+  function isTextContentRecord(record) {
+    const contentType = readString(record, 'content_type');
+    return !contentType || contentType === 'text' || contentType === 'multimodal_text';
+  }
+
+  function isTextPartRecord(record) {
+    const contentType = readString(record, 'content_type') || readString(record, 'type');
+    return !contentType || contentType === 'text' || contentType === 'output_text';
+  }
+
   function normalizeUrl(value) {
     try {
       return new URL(value, location.href).href;
@@ -189,11 +237,14 @@
     }
     if (!value || typeof value !== 'object') return '';
 
+    if (!isTextContentRecord(value)) return '';
+
     if (Array.isArray(value.parts)) {
       const joined = value.parts
         .map((part) => {
           if (typeof part === 'string') return part;
           if (part && typeof part === 'object') {
+            if (!isTextPartRecord(part)) return '';
             if (typeof part.text === 'string') return part.text;
             if (typeof part.content === 'string') return part.content;
             if (typeof part.markdown === 'string') return part.markdown;
@@ -222,6 +273,11 @@
     return extractTextFromValue(message.content);
   }
 
+  function getDisplayableMessageContent(message, expectedRole) {
+    if (!isDisplayableMessage(message, expectedRole)) return '';
+    return getMessageContent(message);
+  }
+
   function buildRoundsFromTurns(turns) {
     const rounds = [];
     let pendingRound = null;
@@ -230,8 +286,11 @@
       const role = typeof turn?.role === 'string' ? turn.role : null;
       if (role === 'user') {
         const messages = Array.isArray(turn.messages) ? turn.messages : [];
-        const userMessage = messages.find((message) => getMessageId(message) || getMessageContent(message));
-        const userPrompt = getMessageContent(userMessage);
+        const userMessage = messages.find((message) => (
+          isDisplayableMessage(message, 'user')
+          && (getMessageId(message) || getMessageContent(message))
+        ));
+        const userPrompt = getDisplayableMessageContent(userMessage, 'user');
         pendingRound = {
           id: typeof turn.id === 'string' ? turn.id : `user-${rounds.length + 1}`,
           position: rounds.length + 1,
@@ -251,11 +310,14 @@
 
       const messages = Array.isArray(turn.messages) ? turn.messages : [];
       const assistantContent = messages
-        .map((message) => getMessageContent(message))
+        .map((message) => getDisplayableMessageContent(message, 'assistant'))
         .filter(Boolean)
         .join('\n\n')
         .trim();
-      const assistantMessage = messages.find((message) => getMessageId(message) || getMessageContent(message)) || null;
+      const assistantMessage = messages.find((message) => (
+        isDisplayableMessage(message, 'assistant')
+        && (getMessageId(message) || getMessageContent(message))
+      )) || null;
 
       if (assistantContent) {
         pendingRound.assistantContent = pendingRound.assistantContent

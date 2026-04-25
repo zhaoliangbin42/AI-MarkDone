@@ -306,4 +306,64 @@ describe('ChatGPTConversationEngine', () => {
         expect(snapshot?.rounds).toHaveLength(2);
         expect(snapshot?.rounds.map((round) => round.messageId)).toEqual(['a1', 'a2']);
     });
+
+    it('ignores non-visible structured messages inside an assistant turn', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onerror?.(new Event('error')), 0);
+            return node;
+        });
+        document.body.innerHTML = `
+          <article data-turn="user">
+            <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt</div></div>
+          </article>
+          <article data-turn="assistant">
+            <div data-message-author-role="assistant" data-message-id="a1">
+              <div class="markdown prose">Visible answer</div>
+            </div>
+          </article>
+        `;
+        const assistant = document.querySelector<HTMLElement>('[data-message-id="a1"]')!;
+        (assistant as any).__reactFiber$aimd = {
+            pendingProps: {
+                turn: {
+                    id: 'react-turn-1',
+                    messages: [
+                        {
+                            id: 'hidden-file-context',
+                            author: { role: 'tool' },
+                            metadata: { is_visually_hidden_from_conversation: true },
+                            content: {
+                                content_type: 'text',
+                                parts: ['Uploaded file full text that should not be shown'],
+                            },
+                        },
+                        {
+                            id: 'a1',
+                            author: { role: 'assistant' },
+                            content: {
+                                content_type: 'text',
+                                parts: ['Visible answer'],
+                            },
+                        },
+                    ],
+                },
+                parentPromptMessage: {
+                    id: 'u1',
+                    author: { role: 'user' },
+                    content: { content_type: 'text', parts: ['Prompt'] },
+                },
+            },
+            return: null,
+        };
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot?.source).toBe('react-props');
+        expect(snapshot?.rounds[0]?.assistantContent).toBe('Visible answer');
+        expect(snapshot?.rounds[0]?.assistantMessageId).toBe('a1');
+    });
 });

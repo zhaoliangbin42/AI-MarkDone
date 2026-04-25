@@ -33,6 +33,8 @@ type ReactTurnLike = {
     messages?: unknown[];
 };
 
+type MessageRole = 'user' | 'assistant';
+
 function isChatGPTConversationPage(url: string): boolean {
     try {
         const parsed = new URL(url);
@@ -63,6 +65,55 @@ function truncatePreview(text: string, maxLen = 180): string {
     return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
 }
 
+function readString(record: Record<string, unknown>, key: string): string | null {
+    const value = record[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
+
+function readAuthorRole(message: Record<string, unknown>): string | null {
+    const author = readRecord(message.author);
+    return readString(author ?? message, 'role');
+}
+
+function isHiddenMessage(message: Record<string, unknown>): boolean {
+    const metadata = readRecord(message.metadata);
+    if (!metadata) return false;
+    return metadata.is_visually_hidden_from_conversation === true
+        || metadata.is_hidden === true
+        || metadata.hidden === true;
+}
+
+function isDisplayableMessage(message: unknown, expectedRole: MessageRole): message is Record<string, unknown> {
+    const record = readRecord(message);
+    if (!record) return false;
+    if (isHiddenMessage(record)) return false;
+
+    const role = readAuthorRole(record);
+    if (role && role !== expectedRole) return false;
+
+    const recipient = readString(record, 'recipient');
+    if (recipient && recipient !== 'all') return false;
+
+    const channel = readString(record, 'channel');
+    if (channel && channel !== 'final') return false;
+
+    return true;
+}
+
+function isTextContentRecord(record: Record<string, unknown>): boolean {
+    const contentType = readString(record, 'content_type');
+    return !contentType || contentType === 'text' || contentType === 'multimodal_text';
+}
+
+function isTextPartRecord(record: Record<string, unknown>): boolean {
+    const contentType = readString(record, 'content_type') ?? readString(record, 'type');
+    return !contentType || contentType === 'text' || contentType === 'output_text';
+}
+
 function normalizeMessageText(value: unknown): string {
     if (typeof value === 'string') return value.trim();
     if (Array.isArray(value)) {
@@ -75,12 +126,15 @@ function normalizeMessageText(value: unknown): string {
     if (!value || typeof value !== 'object') return '';
 
     const record = value as Record<string, unknown>;
+    if (!isTextContentRecord(record)) return '';
+
     if (Array.isArray(record.parts)) {
         const combined = record.parts
             .map((part) => {
                 if (typeof part === 'string') return part;
                 if (part && typeof part === 'object') {
                     const objectPart = part as Record<string, unknown>;
+                    if (!isTextPartRecord(objectPart)) return '';
                     if (typeof objectPart.text === 'string') return objectPart.text;
                     if (typeof objectPart.content === 'string') return objectPart.content;
                     if (typeof objectPart.markdown === 'string') return objectPart.markdown;
@@ -97,6 +151,16 @@ function normalizeMessageText(value: unknown): string {
     if (typeof record.content === 'string') return record.content.trim();
     if (typeof record.markdown === 'string') return record.markdown.trim();
     return '';
+}
+
+function getMessageId(message: unknown): string | null {
+    const record = readRecord(message);
+    return record ? readString(record, 'id') : null;
+}
+
+function getDisplayableMessageContent(message: unknown, expectedRole: MessageRole): string {
+    if (!isDisplayableMessage(message, expectedRole)) return '';
+    return normalizeMessageText(message.content);
 }
 
 function getReactKeys(element: HTMLElement): Array<string> {
@@ -164,12 +228,15 @@ function buildReactPropsFallback(adapter: SiteAdapter, conversationId: string): 
         if (!turnId || seen.has(turnId)) continue;
         seen.add(turnId);
 
-        const assistantContent = normalizeMessageText(
-            Array.isArray(turn?.messages)
-                ? turn.messages.map((message) => (message as Record<string, unknown>)?.content)
-                : null,
-        );
-        const userPrompt = normalizeMessageText(parentPromptMessage?.content);
+        const turnMessages = Array.isArray(turn?.messages) ? turn.messages : [];
+        const assistantMessages = turnMessages.filter((message) => isDisplayableMessage(message, 'assistant'));
+        const assistantContent = assistantMessages
+            .map((message) => normalizeMessageText(message.content))
+            .filter(Boolean)
+            .join('\n\n')
+            .trim();
+        const userPrompt = getDisplayableMessageContent(parentPromptMessage, 'user');
+        const assistantMessage = assistantMessages.find((message) => getMessageId(message) || normalizeMessageText(message.content)) ?? null;
         rounds.push({
             id: turnId,
             position: rounds.length + 1,
@@ -178,7 +245,7 @@ function buildReactPropsFallback(adapter: SiteAdapter, conversationId: string): 
             preview: truncatePreview(userPrompt || assistantContent),
             messageId: adapter.getMessageId(messageElement),
             userMessageId: typeof parentPromptMessage?.id === 'string' ? String(parentPromptMessage.id) : null,
-            assistantMessageId: adapter.getMessageId(messageElement),
+            assistantMessageId: getMessageId(assistantMessage) ?? adapter.getMessageId(messageElement),
         });
     }
 
