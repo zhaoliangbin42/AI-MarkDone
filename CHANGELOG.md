@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Reader now opens on the message that launched it instead of falling back to the last message when DOM and payload message ids differ.
 - ChatGPT: Conversation snapshots now refresh on conversation route changes and conversation payload fetches, improving full-history recovery after in-app navigation.
 - ChatGPT: Directory jumps now re-align after host-side hydration shifts while yielding to manual user scrolling or pointer input.
+- ChatGPT: Reader, Copy Markdown, and Save Messages now remove source citation controls, citation markers, and hyperlink URLs from extracted assistant markdown.
 - ChatGPT: Save Messages export now uses the same payload-backed conversation source as Reader, so exported content no longer depends on the currently hydrated DOM range.
 - Toolbar: Kept the `Copy as PNG` hover action icon-only with a 30px rounded-square target, local tooltips, and a small hover bridge so moving from Copy to PNG does not collapse the action.
 

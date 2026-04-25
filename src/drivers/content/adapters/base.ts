@@ -150,6 +150,13 @@ export abstract class SiteAdapter {
     }
 
     /**
+     * Optional platform-specific markdown cleanup after DOM parsing or payload extraction.
+     */
+    cleanMarkdown(markdown: string): string {
+        return markdown;
+    }
+
+    /**
      * Platform-specific noise filtering hook (artifact cards, action bars, etc).
      * Called on cloned content root only.
      */

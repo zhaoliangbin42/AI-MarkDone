@@ -3,6 +3,7 @@ import { SiteAdapter, type ConversationGroupRef, type NoiseContext, type ThemeDe
 import { chatgptMarkdownParserAdapter } from '../parser/chatgpt';
 import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 import { logger } from '../../../../core/logger';
+import { cleanChatGPTReferenceNoise } from '../../chatgpt/normalizeReaderMarkdown';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -458,10 +459,18 @@ export class ChatGPTAdapter extends SiteAdapter {
         return !!stopButton;
     }
 
+    cleanMarkdown(markdown: string): string {
+        return cleanChatGPTReferenceNoise(markdown);
+    }
+
     isNoiseNode(node: Node, context: NoiseContext): boolean {
         if (!(node instanceof HTMLElement)) return false;
 
         if (node.classList.contains('sr-only')) {
+            return true;
+        }
+
+        if (this.isMarkdownControlNoise(node)) {
             return true;
         }
 
@@ -472,5 +481,14 @@ export class ChatGPTAdapter extends SiteAdapter {
         }
 
         return false;
+    }
+
+    private isMarkdownControlNoise(node: HTMLElement): boolean {
+        if (!node.closest('.markdown.prose, .markdown.prose.dark\\:prose-invert')) return false;
+        if (node.matches('button')) return true;
+        if (node.getAttribute('role') === 'button') return true;
+        const label = `${node.getAttribute('aria-label') ?? ''} ${node.textContent ?? ''}`.replace(/\s+/g, ' ').trim();
+        if (!label) return false;
+        return /^(sources?|引用|来源)$/i.test(label);
     }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import type { MarkdownParserAdapter } from '@/drivers/content/adapters/parser/MarkdownParserAdapter';
 import { copyMarkdownFromMessage } from '@/services/copy/copy-markdown';
 
@@ -83,5 +84,31 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         if (!result.ok) return;
 
         expect(result.markdown).toBe('Hello adapter contract');
+    });
+
+    it('lets ChatGPT remove source controls and link noise before copied markdown leaves the pipeline', () => {
+        document.body.innerHTML = `
+          <div data-message-author-role="assistant" data-message-id="a1">
+            <div class="markdown prose">
+<p>Useful answer <button>Huang 2020 Holographic MIMO Sur...</button></p>
+<p>Read <a href="https://example.com/paper.pdf">paper</a> for details.</p>
+<button>Sources</button>
+            </div>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const message = document.querySelector(adapter.getMessageSelector());
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toBe('Useful answer\n\nRead paper for details.');
+        expect(result.markdown).not.toContain('Huang 2020');
+        expect(result.markdown).not.toContain('https://example.com');
+        expect(result.markdown).not.toContain('Sources');
     });
 });

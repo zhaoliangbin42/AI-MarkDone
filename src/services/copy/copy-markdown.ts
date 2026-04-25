@@ -70,7 +70,7 @@ export function copyMarkdownFromMessage(adapter: SiteAdapter, messageElement: HT
         }
 
         const parser = createMarkdownParser(parserAdapter, { enablePerformanceLogging: false });
-        const markdown = parser.parse(clone);
+        const markdown = adapter.cleanMarkdown(parser.parse(clone));
         return { ok: true, markdown };
     } catch (err) {
         logger.error('[AI-MarkDone][Copy] copyMarkdownFromMessage failed', err);
