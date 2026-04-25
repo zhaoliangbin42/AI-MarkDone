@@ -530,6 +530,27 @@
     "behavior": {
         "message": "Behavior"
     },
+    "chatgptDirectorySettingsLabel": {
+        "message": "ChatGPT Directory"
+    },
+    "chatgptDirectoryEnabledLabel": {
+        "message": "Show ChatGPT directory"
+    },
+    "chatgptDirectoryEnabledDesc": {
+        "message": "Show the right-side conversation directory on ChatGPT pages."
+    },
+    "chatgptDirectoryModeLabel": {
+        "message": "Directory display mode"
+    },
+    "chatgptDirectoryModeDesc": {
+        "message": "Choose how message previews appear from the right-side directory."
+    },
+    "chatgptDirectoryModePreview": {
+        "message": "Compact preview"
+    },
+    "chatgptDirectoryModeExpanded": {
+        "message": "Expanded list"
+    },
     "reader": {
         "message": "Reader"
     },

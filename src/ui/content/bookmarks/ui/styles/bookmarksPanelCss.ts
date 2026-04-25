@@ -832,6 +832,7 @@ ${getPanelChromeCss()}
 .about-panel,
 .faq-panel,
 .sponsor-panel {
+  min-width: 0;
   min-height: 0;
   padding: 20px;
   overflow: auto;
@@ -842,6 +843,8 @@ ${getPanelChromeCss()}
 .about-panel-scroll,
 .faq-panel-scroll,
 .sponsor-panel-scroll {
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
   height: 100%;
 }
@@ -849,22 +852,34 @@ ${getPanelChromeCss()}
 .settings-panel-scroll {
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-inline-end: var(--aimd-space-3);
 }
 
 .settings-grid {
   width: min(760px, 100%);
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
   display: grid;
   gap: 16px;
 }
 
 .settings-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
   display: grid;
   gap: 14px;
   padding: 18px;
   border-radius: var(--_bookmarks-card-radius);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
+}
+
+.settings-card:has(.settings-select-shell[data-open="1"]) {
+  z-index: var(--_bookmarks-inline-menu-z);
 }
 
 .card-title {
@@ -878,10 +893,12 @@ ${getPanelChromeCss()}
 
 .toggle-row,
 .settings-row {
-  display: flex;
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: nowrap;
   min-width: 0;
   gap: var(--aimd-space-3);
   padding: 10px 0;
@@ -929,6 +946,7 @@ ${getPanelChromeCss()}
   color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
   font-size: var(--aimd-text-xs);
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .sponsor-section-note,
@@ -953,7 +971,8 @@ ${getPanelChromeCss()}
     inset 0 1px 0 color-mix(in srgb, var(--aimd-text-on-primary) 6%, transparent),
     0 4px 10px color-mix(in srgb, var(--aimd-bg-primary) 22%, transparent);
   padding: 3px;
-  flex: 0 0 auto;
+  flex: 0 0 48px;
+  justify-self: end;
 }
 
 .toggle-switch input {
@@ -988,9 +1007,14 @@ ${getPanelChromeCss()}
 
 .settings-select-shell {
   position: relative;
-  flex: 0 0 clamp(148px, 34%, 220px);
-  width: clamp(148px, 34%, 220px);
-  max-width: clamp(148px, 34%, 220px);
+  min-width: min(148px, 100%);
+  width: max-content;
+  max-width: min(320px, 100%);
+  justify-self: end;
+}
+
+.settings-select-shell[data-open="1"] {
+  z-index: calc(var(--_bookmarks-inline-menu-z) + 1);
 }
 
 .settings-select-trigger {
@@ -1042,6 +1066,8 @@ ${getPanelChromeCss()}
   top: calc(100% + 10px);
   z-index: var(--_bookmarks-inline-menu-z);
   min-width: 100%;
+  width: max-content;
+  max-width: min(320px, calc(100vw - var(--aimd-space-6)));
   padding: 8px;
   gap: 4px;
   border-radius: var(--_bookmarks-menu-radius);
@@ -1070,6 +1096,13 @@ ${getPanelChromeCss()}
   cursor: pointer;
 }
 
+.settings-select-option span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-select-option:hover {
   background: color-mix(in srgb, var(--aimd-button-secondary-hover) 88%, var(--aimd-sys-color-surface-hover));
 }
@@ -1088,9 +1121,42 @@ ${getPanelChromeCss()}
   opacity: 1;
 }
 
+.settings-export-width-controls {
+  min-width: 0;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--aimd-space-2);
+  justify-self: end;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.settings-export-width-controls .settings-export-width-preset {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: auto;
+  justify-self: auto;
+}
+
+.settings-export-width-controls .settings-export-width-value {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 88px;
+  max-width: none;
+  justify-self: auto;
+}
+
+.settings-export-width-preset .settings-select-trigger {
+  width: auto;
+  min-width: 120px;
+}
+
 .settings-number-field {
-  width: clamp(148px, 34%, 220px);
-  max-width: clamp(148px, 34%, 220px);
+  min-width: min(148px, 100%);
+  width: 180px;
+  max-width: min(320px, 100%);
   height: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1100,7 +1166,7 @@ ${getPanelChromeCss()}
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   box-shadow: var(--_bookmarks-control-inset-shadow);
   overflow: hidden;
-  flex: 0 0 clamp(148px, 34%, 220px);
+  justify-self: end;
 }
 
 .settings-number-field:hover,
@@ -1164,15 +1230,14 @@ ${getPanelChromeCss()}
 .reader-settings-trigger {
   width: var(--aimd-size-control-icon-panel);
   height: var(--aimd-size-control-icon-panel);
-  min-width: 0;
+  min-width: var(--aimd-size-control-icon-panel);
   padding: 0;
   justify-self: end;
 }
 
 .reader-settings-summary {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .reader-settings-popover-layer {

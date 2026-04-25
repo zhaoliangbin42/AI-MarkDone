@@ -75,7 +75,7 @@
 - 平台差异已集中在 driver 层，而不是 UI 或 service 层
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
   - `ChatGPTConversationEngine` 负责发现 live conversation-source module，并从内部 thread store 提取完整轮次快照
-  - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 负责把完整历史呈现为页面右侧目录条；官方线程继续作为正文显示层
+  - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 负责把完整历史呈现为页面右侧目录条；官方线程继续作为正文显示层；目录条由独立的 `chatgptDirectory` 设置控制，可关闭或在 compact preview / expanded list 两种显示模式之间切换，不复用 `platforms.chatgpt` 平台总开关
   - `src/ui/content/chatgptDirectory/navigation.ts` 现在是 ChatGPT 目录条同页跳转的稳定入口：优先使用当前页面的 skeleton/container anchor，再回退到共享 bookmark/conversation navigation；命中 anchor 后会用短生命周期的位置校准抵消官方 hydration/layout shift，但不会抢占焦点，且用户主动滚动、触摸、指针或键盘导航会中止后续校准
   - Reader 与 Save Messages 导出在 ChatGPT 上优先消费 payload/store 快照，而不是当前 hydration 的 DOM 片段
   - ChatGPT Reader 的 `jump to message`、右侧目录条、书签面板的同页/跨页定位入口都复用同一条 directory navigation helper；非 ChatGPT 平台仍保持原有 bookmark/conversation navigation 路径

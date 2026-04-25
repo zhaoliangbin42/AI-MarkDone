@@ -24,7 +24,7 @@ import {
     installTransientOutsideDismissBoundary,
     type TransientOutsideDismissBoundaryHandle,
 } from '../../../components/transientUi';
-import { createBookmarksInlineSelect } from '../components/BookmarksInlineSelect';
+import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from '../components/BookmarksInlineSelect';
 import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 
@@ -34,6 +34,7 @@ export type SettingsTabViewActions = {
     setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<void> | void;
     setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
     setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
+    setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
 };
@@ -74,6 +75,10 @@ type Refs = {
     export: {
         pngWidthPreset: SelectRef;
         pngWidth: NumberFieldRef;
+    };
+    chatgptDirectory: {
+        enabled: HTMLInputElement;
+        mode: SelectRef;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -141,7 +146,7 @@ export class SettingsTabView {
         );
 
         const exportGroup = this.createGroup(Icons.download, t('export'));
-        const pngWidthPreset = this.createSelect(
+        const pngExportWidth = this.createPngExportWidthRow(
             exportGroup.body,
             t('pngExportWidthPresetLabel'),
             t('pngExportWidthPresetDesc'),
@@ -152,14 +157,26 @@ export class SettingsTabView {
                 { value: 'custom', label: t('pngExportWidthPresetCustom') },
             ],
             'png-width-preset',
-        );
-        const pngWidth = this.createNumberRow(
-            exportGroup.body,
-            t('pngExportWidthValueLabel'),
-            t('pngExportWidthValueDesc'),
             MIN_PNG_EXPORT_WIDTH,
             MAX_PNG_EXPORT_WIDTH,
             PNG_EXPORT_WIDTH_STEP,
+        );
+
+        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptDirectorySettingsLabel'));
+        const chatGptDirectoryEnabled = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryEnabledLabel'),
+            t('chatgptDirectoryEnabledDesc'),
+        );
+        const chatGptDirectoryMode = this.createSelect(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryModeLabel'),
+            t('chatgptDirectoryModeDesc'),
+            [
+                { value: 'preview', label: t('chatgptDirectoryModePreview') },
+                { value: 'expanded', label: t('chatgptDirectoryModeExpanded') },
+            ],
+            'chatgpt-directory-mode',
         );
 
         // Language group
@@ -206,6 +223,7 @@ export class SettingsTabView {
             behaviorGroup.root,
             readerGroup.root,
             exportGroup.root,
+            chatGptDirectoryGroup.root,
             languageGroup.root,
             storageGroup.root
         );
@@ -235,8 +253,12 @@ export class SettingsTabView {
                 templateSummary: templateRow.summary,
             },
             export: {
-                pngWidthPreset,
-                pngWidth,
+                pngWidthPreset: pngExportWidth.preset,
+                pngWidth: pngExportWidth.width,
+            },
+            chatgptDirectory: {
+                enabled: chatGptDirectoryEnabled.input,
+                mode: chatGptDirectoryMode,
             },
             language,
             storageText,
@@ -254,6 +276,8 @@ export class SettingsTabView {
         this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
+        this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
+        this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
 
         this.bindHandlers();
         this.applySettingsToDom();
@@ -303,6 +327,7 @@ export class SettingsTabView {
             platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
+            chatgptDirectory: { ...DEFAULT_SETTINGS.chatgptDirectory, ...params.settings.chatgptDirectory },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
             reader: {
                 renderCodeInReader: Boolean(
@@ -396,6 +421,16 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setExportSettings?.({ pngCustomWidth: raw });
         });
+        this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.enabled.checked;
+            this.settings.chatgptDirectory.enabled = next;
+            void this.actions.setChatGptDirectorySettings?.({ enabled: next });
+        });
+        this.refs.chatgptDirectory.mode.onChange((value) => {
+            const next = value === 'expanded' ? 'expanded' : 'preview';
+            this.settings.chatgptDirectory.mode = next;
+            void this.actions.setChatGptDirectorySettings?.({ mode: next });
+        });
         // Language
         this.refs.language.onChange((value) => {
             this.settings.language = value as any;
@@ -424,6 +459,8 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
+        this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
+        this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -435,6 +472,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.enableClickToCopy);
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.reader.renderCodeInReader);
+        this.syncToggle(this.refs.chatgptDirectory.enabled);
 
         this.refs.storageText.textContent = usagePercent;
 
@@ -525,16 +563,18 @@ export class SettingsTabView {
         return { root: item, button, summary };
     }
 
-    private createNumberRow(
+    private createPngExportWidthRow(
         parent: HTMLElement,
         labelText: string,
         desc: string,
+        options: Array<{ value: string; label: string }>,
+        menuName: string,
         min: number,
         max: number,
         step: number,
-    ): NumberFieldRef {
+    ): { preset: SelectRef; width: NumberFieldRef } {
         const item = document.createElement('div');
-        item.className = 'settings-row settings-item';
+        item.className = 'settings-row settings-item settings-export-width-row';
         const info = document.createElement('div');
         info.className = 'settings-label settings-item-info';
         const label = document.createElement('strong');
@@ -543,6 +583,26 @@ export class SettingsTabView {
         summary.textContent = desc;
         info.append(label, summary);
 
+        const controls = document.createElement('div');
+        controls.className = 'settings-export-width-controls';
+
+        const preset = createBookmarksInlineSelectControl({
+            options,
+            menuName,
+            onBeforeOpen: () => this.closeSelectMenus(),
+        });
+        preset.shell.classList.add('settings-export-width-preset');
+        this.selectRefs.push(preset);
+
+        const width = this.createNumberField(min, max, step);
+        width.field.classList.add('settings-export-width-value');
+        controls.append(preset.shell, width.field);
+        item.append(info, controls);
+        parent.appendChild(item);
+        return { preset, width };
+    }
+
+    private createNumberField(min: number, max: number, step: number): NumberFieldRef {
         const field = document.createElement('div');
         field.className = 'settings-number-field';
         field.dataset.disabled = '0';
@@ -555,10 +615,7 @@ export class SettingsTabView {
         input.step = String(step);
         input.inputMode = 'numeric';
         field.appendChild(input);
-
-        item.append(info, field);
-        parent.appendChild(item);
-        return { root: item, field, input };
+        return { root: field, field, input };
     }
 
     private createSelect(

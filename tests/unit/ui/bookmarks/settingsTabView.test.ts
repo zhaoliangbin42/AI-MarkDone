@@ -30,6 +30,10 @@ const baseSettings = {
         pngWidthPreset: 'desktop',
         pngCustomWidth: 920,
     },
+    chatgptDirectory: {
+        enabled: true,
+        mode: 'preview',
+    },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
 } as any;
@@ -54,6 +58,35 @@ describe('SettingsTabView', () => {
         expect(root.querySelector('#aimd-chatgpt-folding-mode')).toBeNull();
         expect(root.querySelector('[data-role="settings-fold-dock"]')).toBeNull();
         expect(root.querySelector('[data-role="settings-folding-count"]')).toBeNull();
+    });
+
+    it('wires ChatGPT directory settings to the scoped settings category', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptDirectorySettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptDirectorySettings: onSetChatGptDirectorySettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const enabled = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
+        const mode = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-mode"]')!;
+
+        expect(enabled.checked).toBe(true);
+        expect(mode.textContent?.trim()).toBeTruthy();
+
+        enabled.checked = false;
+        enabled.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetChatGptDirectorySettings).toHaveBeenCalledWith({ enabled: false });
+
+        mode.click();
+        root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="expanded"]')!.click();
+        expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ mode: 'expanded' });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {
@@ -93,10 +126,20 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const presetTrigger = root.querySelector<HTMLElement>('[data-role="settings-export-png-width-preset"]')!;
         const widthInput = root.querySelector<HTMLInputElement>('[data-role="settings-export-png-width"]')!;
+        const exportRows = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
+            .find((card) => card.querySelector('[data-role="settings-export-png-width-preset"]'))
+            ?.querySelectorAll('.settings-row');
+        const combinedRow = presetTrigger.closest<HTMLElement>('.settings-export-width-row');
+        const controls = presetTrigger.closest<HTMLElement>('.settings-export-width-controls');
 
         expect(presetTrigger.textContent).toContain('Desktop');
         expect(widthInput.disabled).toBe(true);
         expect(widthInput.value).toBe('800');
+        expect(combinedRow).toBeTruthy();
+        expect(controls?.contains(widthInput)).toBe(true);
+        expect(presetTrigger.closest('.settings-export-width-preset')).toBeTruthy();
+        expect(widthInput.closest('.settings-export-width-value')).toBeTruthy();
+        expect(exportRows).toHaveLength(1);
 
         presetTrigger.click();
         root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="custom"]')!.click();
@@ -129,15 +172,74 @@ describe('SettingsTabView', () => {
         expect(css).toContain('font-size: var(--aimd-text-xs);');
     });
 
+    it('keeps PNG export controls on one compact content-sized row', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).toContain('.settings-export-width-controls {');
+        expect(css).toContain('min-width: 0;');
+        expect(css).toContain('display: flex;');
+        expect(css).toContain('flex-flow: row nowrap;');
+        expect(css).toContain('white-space: nowrap;');
+        expect(css).toContain('.settings-export-width-controls .settings-export-width-preset {');
+        expect(css).toContain('.settings-export-width-controls .settings-export-width-value {');
+        expect(css).toContain('width: 88px;');
+        expect(css).toContain('.settings-export-width-preset .settings-select-trigger {');
+        expect(css).toContain('min-width: 120px;');
+        expect(css).not.toContain('--_bookmarks-settings-control-min-width');
+        expect(css).not.toContain('--_bookmarks-settings-control-max-width');
+        expect(css).not.toContain('flex: 1 1 190px;');
+        expect(css).not.toContain('max-width: min(100%, 520px);');
+    });
+
     it('locks settings scrolling to the vertical axis while keeping settings rows in a stable two-column layout', () => {
         const css = getBookmarksPanelCss();
 
         expect(css).toContain('.settings-panel-scroll,');
         expect(css).toContain('overflow-x: hidden;');
         expect(css).toContain('overflow-y: auto;');
+        expect(css).toContain('scrollbar-gutter: stable;');
+        expect(css).toContain('padding-inline-end: var(--aimd-space-3);');
+        expect(css).toContain('max-width: 100%;');
         expect(css).toContain('.toggle-row,');
-        expect(css).toContain('flex-wrap: nowrap;');
+        expect(css).toContain('grid-template-columns: minmax(0, 1fr) max-content;');
+        expect(css).toContain('width: 100%;');
         expect(css).toContain('.settings-label {');
         expect(css).toContain('flex: 1 1 auto;');
+    });
+
+    it('lets settings selects size to their labels while shrinking inside narrow rows', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).toContain('.settings-select-shell {');
+        expect(css).toContain('width: max-content;');
+        expect(css).toContain('min-width: min(148px, 100%);');
+        expect(css).toContain('max-width: min(320px, 100%);');
+        expect(css).toContain('.settings-select-menu {');
+        expect(css).toContain('width: max-content;');
+        expect(css).toContain('max-width: min(320px, calc(100vw - var(--aimd-space-6)));');
+        expect(css).toContain('.settings-select-option span:first-child {');
+        expect(css).toContain('white-space: nowrap;');
+        expect(css).not.toContain('max-width: clamp(148px, 34%, 220px);');
+    });
+
+    it('lets long reader setting summaries wrap without pushing fixed controls out of the row', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).toContain('.settings-label p,');
+        expect(css).toContain('overflow-wrap: anywhere;');
+        expect(css).toContain('.reader-settings-summary {');
+        expect(css).not.toContain('.reader-settings-summary {\n  white-space: nowrap;');
+        expect(css).toContain('.reader-settings-trigger {');
+        expect(css).toContain('min-width: var(--aimd-size-control-icon-panel);');
+    });
+
+    it('keeps inline settings menus above neighboring cards without clipping the floating layer', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).toContain('.settings-card:has(.settings-select-shell[data-open="1"])');
+        expect(css).toContain('z-index: var(--_bookmarks-inline-menu-z);');
+        expect(css).toContain('.settings-select-shell[data-open="1"] {');
+        expect(css).toContain('z-index: calc(var(--_bookmarks-inline-menu-z) + 1);');
+        expect(css).not.toContain('.settings-card {\n  width: 100%;\n  max-width: 100%;\n  min-width: 0;\n  overflow: hidden;');
     });
 });

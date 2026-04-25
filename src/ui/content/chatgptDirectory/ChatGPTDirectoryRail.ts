@@ -1,16 +1,25 @@
 import type { Theme } from '../../../core/types/theme';
 import { getTokenCss } from '../../../style/tokens';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
+import type { ChatGPTDirectoryMode } from '../../../core/settings/types';
 
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
 const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
 const PREVIEW_STYLE_ID = 'aimd-chatgpt-directory-preview-style';
 const HOVER_RADIUS = 3;
+const EXPANDED_LABEL_MAX_LENGTH = 30;
 
 function getPreviewTokenCss(): string {
     const light = getTokenCss('light').replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
     const dark = getTokenCss('dark').replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="dark"]');
     return `${light}\n${dark}`;
+}
+
+function formatExpandedLabel(value: string): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    const chars = Array.from(normalized);
+    if (chars.length <= EXPANDED_LABEL_MAX_LENGTH) return normalized;
+    return `${chars.slice(0, EXPANDED_LABEL_MAX_LENGTH).join('')}…`;
 }
 
 export class ChatGPTDirectoryRail {
@@ -22,6 +31,8 @@ export class ChatGPTDirectoryRail {
     private rounds: ChatGPTConversationRound[] = [];
     private activePosition = 0;
     private hoverPosition: number | null = null;
+    private displayMode: ChatGPTDirectoryMode = 'preview';
+    private expanded = false;
     private onSelect: (round: ChatGPTConversationRound) => void;
 
     constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void) {
@@ -35,6 +46,8 @@ export class ChatGPTDirectoryRail {
         this.rootEl = document.createElement('div');
         this.rootEl.id = RAIL_ID;
         this.rootEl.className = 'aimd-chatgpt-directory-rail';
+        this.rootEl.dataset.mode = this.displayMode;
+        this.rootEl.dataset.expanded = '0';
         this.rootEl.setAttribute('data-aimd-theme', theme);
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
 
@@ -46,18 +59,29 @@ export class ChatGPTDirectoryRail {
         shell.className = 'rail';
         this.listEl = document.createElement('div');
         this.listEl.className = 'rail__list';
+        this.listEl.dataset.mode = this.displayMode;
+        this.listEl.dataset.expanded = '0';
+        this.listEl.addEventListener('pointerenter', () => this.setExpanded(true));
         this.listEl.addEventListener('pointerover', (event) => {
             const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.rail__item') : null;
             if (!item) return;
+            this.setExpanded(true);
             this.setHoverPosition(Number(item.dataset.position));
         });
-        this.listEl.addEventListener('pointerleave', () => this.setHoverPosition(null));
+        this.listEl.addEventListener('pointerleave', () => {
+            this.setHoverPosition(null);
+            this.setExpanded(false);
+        });
         this.listEl.addEventListener('focusin', (event) => {
             const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.rail__item') : null;
+            this.setExpanded(true);
             if (!item) return;
             this.setHoverPosition(Number(item.dataset.position));
         });
-        this.listEl.addEventListener('focusout', () => this.setHoverPosition(null));
+        this.listEl.addEventListener('focusout', () => {
+            this.setHoverPosition(null);
+            this.setExpanded(false);
+        });
         shell.appendChild(this.listEl);
         this.shadowRoot.appendChild(shell);
 
@@ -88,7 +112,21 @@ export class ChatGPTDirectoryRail {
 
     setVisible(visible: boolean): void {
         this.rootEl.style.display = visible ? 'block' : 'none';
-        if (!visible) this.previewEl.dataset.open = '0';
+        if (!visible) {
+            this.previewEl.dataset.open = '0';
+            this.hoverPosition = null;
+            this.setExpanded(false);
+            this.renderHoverState();
+        }
+    }
+
+    setDisplayMode(mode: ChatGPTDirectoryMode): void {
+        this.displayMode = mode === 'expanded' ? 'expanded' : 'preview';
+        this.listEl.dataset.mode = this.displayMode;
+        this.rootEl.dataset.mode = this.displayMode;
+        this.previewEl.dataset.open = '0';
+        this.setExpanded(false);
+        this.renderHoverState();
     }
 
     setRounds(rounds: ChatGPTConversationRound[]): void {
@@ -112,6 +150,13 @@ export class ChatGPTDirectoryRail {
             button.dataset.active = round.position === this.activePosition ? '1' : '0';
             button.setAttribute('aria-label', `#${round.position} ${round.userPrompt}`);
             button.addEventListener('click', () => this.onSelect(round));
+            const index = document.createElement('span');
+            index.className = 'rail__index';
+            index.textContent = `#${round.position}`;
+            const label = document.createElement('span');
+            label.className = 'rail__label';
+            label.textContent = formatExpandedLabel(round.userPrompt || `Message ${round.position}`);
+            button.append(index, label);
             this.listEl.appendChild(button);
         }
 
@@ -131,17 +176,31 @@ export class ChatGPTDirectoryRail {
         this.renderPreview();
     }
 
+    private setExpanded(expanded: boolean): void {
+        this.expanded = this.displayMode === 'expanded' && expanded;
+        this.rootEl.dataset.expanded = this.expanded ? '1' : '0';
+        this.listEl.dataset.expanded = this.expanded ? '1' : '0';
+    }
+
     private renderHoverState(): void {
+        this.listEl.dataset.mode = this.displayMode;
+        this.listEl.dataset.expanded = this.expanded ? '1' : '0';
         this.listEl.dataset.hasHover = this.hoverPosition === null ? '0' : '1';
         for (const item of Array.from(this.listEl.querySelectorAll<HTMLElement>('.rail__item'))) {
             delete item.dataset.proximity;
+            delete item.dataset.hovered;
             if (this.hoverPosition === null) continue;
             const distance = Math.abs(Number(item.dataset.position) - this.hoverPosition);
             if (distance <= HOVER_RADIUS) item.dataset.proximity = String(distance);
+            if (distance === 0) item.dataset.hovered = '1';
         }
     }
 
     private renderPreview(): void {
+        if (this.displayMode !== 'preview') {
+            this.previewEl.dataset.open = '0';
+            return;
+        }
         this.ensurePreviewAttached();
         const position = this.hoverPosition;
         const round = position == null ? null : this.rounds.find((item) => item.position === position);
@@ -270,6 +329,10 @@ export class ChatGPTDirectoryRail {
   display: block;
   font-family: var(--aimd-font-family-sans);
   width: calc(var(--aimd-space-4) + var(--aimd-space-6));
+  transition: width 140ms var(--aimd-ease-out);
+}
+:host([data-mode="expanded"][data-expanded="1"]) {
+  width: min(280px, calc(100vw - 32px));
 }
 .rail {
   display: flex;
@@ -286,6 +349,21 @@ export class ChatGPTDirectoryRail {
   min-height: calc(var(--aimd-space-3) * 6);
   max-height: min(78vh, 920px);
   overflow: hidden auto;
+  border: 1px solid transparent;
+  border-radius: var(--aimd-radius-lg);
+  transition: padding 140ms var(--aimd-ease-out),
+              background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] {
+  gap: var(--aimd-space-1);
+  padding: var(--aimd-space-2);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, transparent);
+  border-color: color-mix(in srgb, var(--aimd-border-subtle) 72%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .rail__item {
   all: unset;
@@ -298,9 +376,15 @@ export class ChatGPTDirectoryRail {
   height: 10px;
   border-radius: 999px;
   padding-inline: 0;
+  gap: var(--aimd-space-2);
+  color: var(--aimd-text-secondary);
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+              color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .rail__item::before {
   content: "";
+  order: 3;
+  flex: 0 0 auto;
   display: block;
   width: 36px;
   height: 3px;
@@ -313,6 +397,30 @@ export class ChatGPTDirectoryRail {
               background var(--aimd-duration-fast) var(--aimd-ease-in-out),
               box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
   will-change: transform;
+}
+.rail__index,
+.rail__label {
+  display: block;
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--aimd-font-size-sm);
+  line-height: 1.25;
+  transition: max-width 140ms var(--aimd-ease-out),
+              opacity 120ms var(--aimd-ease-in-out);
+}
+.rail__index {
+  order: 1;
+  flex: 0 0 auto;
+  color: var(--aimd-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--aimd-font-medium);
+}
+.rail__label {
+  order: 2;
 }
 .rail__item[data-active="1"]::before {
   transform: scaleX(0.56);
@@ -337,11 +445,46 @@ export class ChatGPTDirectoryRail {
   transform: scaleX(0.5);
   background: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
 }
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item {
+  height: 30px;
+  padding-inline: var(--aimd-space-2);
+  border-radius: var(--aimd-radius-md);
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item::before {
+  width: 26px;
+  transform: scaleX(0.5);
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-active="1"]::before,
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-hovered="1"]::before {
+  transform: scaleX(1);
+  height: 4px;
+  background: var(--aimd-interactive-primary);
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__label {
+  flex: 1 1 auto;
+  max-width: 210px;
+  opacity: 1;
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__index {
+  max-width: 48px;
+  opacity: 1;
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-hovered="1"] {
+  background: var(--aimd-interactive-selected);
+  color: var(--aimd-text-primary);
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-active="1"] {
+  color: var(--aimd-interactive-primary);
+}
 .rail__item:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
   outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
+  :host,
+  .rail__list,
+  .rail__item,
+  .rail__label,
   .rail__item::before {
     transition: none;
   }

@@ -59,6 +59,20 @@ describe('settingsService', () => {
         );
     });
 
+    it('writes scoped ChatGPT directory settings without restoring retired ChatGPT category', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptDirectory', {
+            enabled: false,
+            mode: 'expanded',
+            showFoldDock: true,
+        }).next;
+
+        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded' });
+        expect(next).not.toHaveProperty('chatgpt');
+
+        const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense' }).next;
+        expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview' });
+    });
+
     it('adds default reader comment export settings when normalizing stored settings', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export: Added PNG export to Save Messages. A single selected message downloads as one PNG, while multiple selected messages render one PNG per message and download together as a ZIP.
 - Export: Added in-dialog PNG export progress feedback so long-running multi-message renders now report the current step and item count instead of looking stalled.
 - Settings: Added a global PNG export width preference with `Mobile`, `Tablet`, `Desktop`, and `Custom` options in the Bookmarks panel Settings tab.
+- Settings: Added ChatGPT directory controls so users can hide the right-side directory or switch between compact preview and expanded list modes.
 - Toolbar: Added `Copy as PNG` as a hover secondary action above the message `Copy Markdown` button, so the current message can be copied directly to the clipboard as a PNG without opening export flows.
 
 ### Changed

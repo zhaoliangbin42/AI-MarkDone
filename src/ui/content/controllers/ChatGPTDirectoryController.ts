@@ -3,6 +3,7 @@ import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
+import type { ChatGPTDirectoryMode } from '../../../core/settings/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
 import { collectChatGPTSkeletonAnchors, navigateChatGPTDirectoryTarget, type ChatGPTSkeletonAnchor } from '../chatgptDirectory/navigation';
 
@@ -36,6 +37,7 @@ export class ChatGPTDirectoryController {
     private rail: ChatGPTDirectoryRail | null = null;
     private theme: Theme = 'light';
     private enabled = true;
+    private displayMode: ChatGPTDirectoryMode = 'preview';
     private snapshot: ChatGPTConversationSnapshot | null = null;
     private routeWatcher: RouteWatcher | null = null;
     private scrollRoot: HTMLElement | null = null;
@@ -111,6 +113,11 @@ export class ChatGPTDirectoryController {
         }
     }
 
+    setDisplayMode(mode: ChatGPTDirectoryMode): void {
+        this.displayMode = mode === 'expanded' ? 'expanded' : 'preview';
+        this.rail?.setDisplayMode(this.displayMode);
+    }
+
     private ensureRail(): void {
         if (this.rail) {
             const element = this.rail.getElement();
@@ -124,6 +131,7 @@ export class ChatGPTDirectoryController {
         this.rail = new ChatGPTDirectoryRail(this.theme, (round) => {
             void this.handleSelect(round);
         });
+        this.rail.setDisplayMode(this.displayMode);
         document.body.appendChild(this.rail.getElement());
         this.rail.setVisible(this.enabled);
         writeDebugState({ DirectoryHost: 'created' });

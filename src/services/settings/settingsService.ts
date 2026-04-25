@@ -1,6 +1,13 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
 import { normalizeExportSettings } from '../../core/settings/export';
-import { mergeWithDefaults, migrateFromV1, migrateFromV2, migrateSortMode, normalizeBehaviorSettings } from '../../core/settings/migrations';
+import {
+    mergeWithDefaults,
+    migrateFromV1,
+    migrateFromV2,
+    migrateSortMode,
+    normalizeBehaviorSettings,
+    normalizeChatGPTDirectorySettings,
+} from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -75,6 +82,16 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                 ...cur,
                 export: normalizeExportSettings({
                     ...cur.export,
+                    ...(isRecord(value) ? value : {}),
+                }),
+            };
+            return { next };
+        }
+        case 'chatgptDirectory': {
+            const next: AppSettings = {
+                ...cur,
+                chatgptDirectory: normalizeChatGPTDirectorySettings({
+                    ...cur.chatgptDirectory,
                     ...(isRecord(value) ? value : {}),
                 }),
             };

@@ -93,7 +93,18 @@ if (adapter) {
         writeDebugState({ ChatGptInit: 'start' });
         chatGptConversationEngine.init();
         chatGptDirectory.init(currentTheme);
+        syncChatGptDirectorySettings(settingsClient.getCached()?.chatgptDirectory);
         writeDebugState({ ChatGptInit: 'done' });
+    };
+
+    const syncChatGptDirectorySettings = (settings: typeof DEFAULT_SETTINGS.chatgptDirectory | undefined) => {
+        if (!chatGptDirectory) return;
+        const next = {
+            ...DEFAULT_SETTINGS.chatgptDirectory,
+            ...settings,
+        };
+        chatGptDirectory.setDisplayMode(next.mode === 'expanded' ? 'expanded' : 'preview');
+        chatGptDirectory.setEnabled(Boolean(next.enabled));
     };
 
     const enableRuntime = () => {
@@ -129,6 +140,7 @@ if (adapter) {
             void setLocale(lastLocale);
         }
         const nextRuntimeEnabled = snap.settings.platforms?.[platformKey] ?? true;
+        syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
         if (nextRuntimeEnabled) enableRuntime();
         else disableRuntime();
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));

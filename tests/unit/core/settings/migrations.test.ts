@@ -24,12 +24,24 @@ describe('settings migrations', () => {
         expect(next.version).toBe(3);
         expect(next.platforms.chatgpt).toBe(false);
         expect(next.platforms.gemini).toBe(true);
+        expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
         expect(next.bookmarks.sortMode).toBe('alpha-asc');
         expect(next.language).toBe('zh_CN');
+    });
+
+    it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {
+        const next = loadAndNormalize({
+            version: 3,
+            chatgptDirectory: { enabled: false, mode: 'dense' },
+            chatgpt: { showConversationDirectory: false },
+        } as any);
+
+        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'preview' });
+        expect(next).not.toHaveProperty('chatgpt');
     });
 
     it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {

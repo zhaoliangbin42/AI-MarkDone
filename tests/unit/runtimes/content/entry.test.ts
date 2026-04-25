@@ -67,12 +67,14 @@ const headerIconCtor = vi.fn(function () {
 });
 const directoryInit = vi.fn();
 const directorySetEnabled = vi.fn();
+const directorySetDisplayMode = vi.fn();
 const directorySetTheme = vi.fn();
 const directoryDispose = vi.fn();
 const directoryCtor = vi.fn(function () {
     return {
         init: directoryInit,
         setEnabled: directorySetEnabled,
+        setDisplayMode: directorySetDisplayMode,
         setTheme: directorySetTheme,
         dispose: directoryDispose,
     };
@@ -214,6 +216,27 @@ describe('content runtime entry', () => {
 
     it('creates ChatGPT-only conversation engine and directory controller', async () => {
         adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue({
+            language: 'auto',
+            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            behavior: {
+                showSaveMessages: true,
+                showWordCount: true,
+                enableClickToCopy: true,
+                saveContextOnly: false,
+                _contextOnlyConfirmed: false,
+            },
+            reader: {
+                renderCodeInReader: true,
+                commentExport: {
+                    prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+                    template: [],
+                },
+            },
+            export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+            chatgptDirectory: { enabled: false, mode: 'expanded' },
+            bookmarks: { sortMode: 'alpha-asc' },
+        });
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
@@ -221,6 +244,8 @@ describe('content runtime entry', () => {
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(engineInit).toHaveBeenCalledTimes(1);
         expect(directoryInit).toHaveBeenCalledTimes(1);
+        expect(directorySetEnabled).toHaveBeenCalledWith(false);
+        expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
     });
 
@@ -242,7 +267,7 @@ describe('content runtime entry', () => {
         expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
-    it('keeps the ChatGPT directory tied to platform runtime state instead of a retired visibility setting', async () => {
+    it('keeps the ChatGPT directory tied to scoped directory settings and platform runtime state', async () => {
         adapterPlatformId = 'chatgpt';
         document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
         vi.resetModules();
@@ -268,13 +293,17 @@ describe('content runtime entry', () => {
                         template: [],
                     },
                 },
+                export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+                chatgptDirectory: { enabled: false, mode: 'expanded' },
+                bookmarks: { sortMode: 'alpha-asc' },
             },
         });
 
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
-        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directorySetEnabled).toHaveBeenCalledWith(false);
+        expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
 
@@ -296,12 +325,16 @@ describe('content runtime entry', () => {
                         template: [],
                     },
                 },
+                export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+                chatgptDirectory: { enabled: true, mode: 'preview' },
+                bookmarks: { sortMode: 'alpha-asc' },
             },
         });
 
         expect(headerIconInit).toHaveBeenCalledTimes(2);
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
-        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
+        expect(directorySetDisplayMode).toHaveBeenLastCalledWith('preview');
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({

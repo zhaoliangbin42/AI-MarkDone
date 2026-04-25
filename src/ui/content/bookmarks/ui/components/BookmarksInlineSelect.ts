@@ -13,24 +13,11 @@ export type BookmarksInlineSelectRef = {
     onChange: (listener: (value: string) => void) => void;
 };
 
-export function createBookmarksInlineSelect(params: {
-    parent: HTMLElement;
-    labelText: string;
-    desc: string;
+export function createBookmarksInlineSelectControl(params: {
     options: Array<{ value: string; label: string }>;
     menuName: string;
     onBeforeOpen?: () => void;
 }): BookmarksInlineSelectRef {
-    const item = document.createElement('div');
-    item.className = 'settings-row settings-item';
-    const info = document.createElement('div');
-    info.className = 'settings-label settings-item-info';
-    const label = document.createElement('strong');
-    label.textContent = params.labelText;
-    const p = document.createElement('p');
-    p.textContent = params.desc;
-    info.append(label, p);
-
     const shell = markTransientRoot(document.createElement('div'));
     shell.className = 'settings-select-shell';
     shell.dataset.open = '0';
@@ -117,10 +104,8 @@ export function createBookmarksInlineSelect(params: {
 
     syncValue();
     shell.append(trigger, menu);
-    item.append(info, shell);
-    params.parent.appendChild(item);
     return {
-        root: item,
+        root: shell,
         shell,
         trigger,
         triggerLabel,
@@ -132,5 +117,43 @@ export function createBookmarksInlineSelect(params: {
         },
         close,
         onChange: (listener) => listeners.add(listener),
+    };
+}
+
+export function createBookmarksInlineSelect(params: {
+    parent: HTMLElement;
+    labelText: string;
+    desc: string;
+    options: Array<{ value: string; label: string }>;
+    menuName: string;
+    onBeforeOpen?: () => void;
+}): BookmarksInlineSelectRef {
+    const item = document.createElement('div');
+    item.className = 'settings-row settings-item';
+    const info = document.createElement('div');
+    info.className = 'settings-label settings-item-info';
+    const label = document.createElement('strong');
+    label.textContent = params.labelText;
+    const p = document.createElement('p');
+    p.textContent = params.desc;
+    info.append(label, p);
+
+    const control = createBookmarksInlineSelectControl({
+        options: params.options,
+        menuName: params.menuName,
+        onBeforeOpen: params.onBeforeOpen,
+    });
+    item.append(info, control.shell);
+    params.parent.appendChild(item);
+    return {
+        root: item,
+        shell: control.shell,
+        trigger: control.trigger,
+        triggerLabel: control.triggerLabel,
+        menu: control.menu,
+        getValue: control.getValue,
+        setValue: control.setValue,
+        close: control.close,
+        onChange: control.onChange,
     };
 }

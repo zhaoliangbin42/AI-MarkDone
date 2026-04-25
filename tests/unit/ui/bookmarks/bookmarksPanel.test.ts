@@ -760,6 +760,13 @@ describe('BookmarksPanel', () => {
 
             expect(documentChange).not.toHaveBeenCalled();
             expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('platforms', { chatgpt: false });
+
+            const directoryToggle = shadow.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
+            directoryToggle.checked = false;
+            directoryToggle.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            await flushUi();
+
+            expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgptDirectory', { enabled: false });
         } finally {
             panel.hide();
             document.removeEventListener('click', documentClick);
@@ -1183,12 +1190,13 @@ describe('BookmarksPanel', () => {
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
         const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="toggle-settings-menu"][data-menu="language"]')!;
+        const menu = trigger.closest<HTMLElement>('.settings-select-shell')?.querySelector<HTMLElement>('.settings-select-menu');
 
         trigger.click();
-        expect(shadow.querySelector('.settings-select-menu')?.getAttribute('data-open')).toBe('1');
+        expect(menu?.getAttribute('data-open')).toBe('1');
 
         trigger.click();
-        expect(shadow.querySelector('.settings-select-menu')?.getAttribute('data-open')).toBe('0');
+        expect(menu?.getAttribute('data-open')).toBe('0');
         panel.hide();
     });
 

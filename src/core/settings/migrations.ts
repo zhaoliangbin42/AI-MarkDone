@@ -29,6 +29,16 @@ export function migrateSortMode(oldMode: unknown): AppSettings['bookmarks']['sor
     return DEFAULT_SETTINGS.bookmarks.sortMode;
 }
 
+export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['chatgptDirectory'] {
+    const record = isRecord(value) ? value : {};
+    const mode = (record as any).mode === 'expanded' ? 'expanded' : DEFAULT_SETTINGS.chatgptDirectory.mode;
+
+    return {
+        enabled: Boolean((record as any).enabled ?? DEFAULT_SETTINGS.chatgptDirectory.enabled),
+        mode,
+    };
+}
+
 /**
  * Merge stored settings with defaults (keeps v3 but tolerates missing new fields).
  */
@@ -45,6 +55,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
         export: normalizeExportSettings((stored as any).export),
+        chatgptDirectory: normalizeChatGPTDirectorySettings((stored as any).chatgptDirectory),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
             ...stored.bookmarks,
@@ -88,6 +99,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
         export: normalizeExportSettings(undefined),
+        chatgptDirectory: normalizeChatGPTDirectorySettings(undefined),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
         },
@@ -120,6 +132,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,
         export: normalizeExportSettings((rec as any).export),
+        chatgptDirectory: normalizeChatGPTDirectorySettings((rec as any).chatgptDirectory),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
             ...bookmarks,

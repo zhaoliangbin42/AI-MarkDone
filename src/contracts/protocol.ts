@@ -22,6 +22,7 @@ export type SettingsCategory =
     | 'behavior'
     | 'reader'
     | 'export'
+    | 'chatgptDirectory'
     | 'bookmarks'
     | 'language';
 

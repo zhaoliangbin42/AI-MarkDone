@@ -530,6 +530,27 @@
     "behavior": {
         "message": "配置"
     },
+    "chatgptDirectorySettingsLabel": {
+        "message": "ChatGPT 目录条"
+    },
+    "chatgptDirectoryEnabledLabel": {
+        "message": "显示 ChatGPT 目录条"
+    },
+    "chatgptDirectoryEnabledDesc": {
+        "message": "在 ChatGPT 对话页面显示右侧对话目录条。"
+    },
+    "chatgptDirectoryModeLabel": {
+        "message": "目录条显示方式"
+    },
+    "chatgptDirectoryModeDesc": {
+        "message": "选择右侧目录条展示消息预览的方式。"
+    },
+    "chatgptDirectoryModePreview": {
+        "message": "紧凑预览"
+    },
+    "chatgptDirectoryModeExpanded": {
+        "message": "展开列表"
+    },
     "reader": {
         "message": "阅读器"
     },

@@ -201,6 +201,47 @@ describe('ChatGPTDirectoryController', () => {
         expect(preview?.dataset.open).toBe('0');
     });
 
+    it('renders an expanded hover directory with truncated user prompts without opening the preview portal', () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        controller.setDisplayMode('expanded');
+        (controller as any).snapshot = {
+            ...buildSnapshot(),
+            rounds: [
+                {
+                    ...buildSnapshot().rounds[0],
+                    userPrompt: 'This is a very long user prompt with more than thirty visible characters',
+                },
+                buildSnapshot().rounds[1],
+            ],
+        };
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const list = railRoot?.querySelector<HTMLElement>('.rail__list');
+        const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+
+        expect(list?.dataset.mode).toBe('expanded');
+        expect(list?.dataset.expanded).toBe('0');
+        expect(items[0]?.querySelector<HTMLElement>('.rail__index')?.textContent).toBe('#1');
+        expect(items[0]?.textContent).toContain('This is a very long user promp…');
+        expect(items[0]?.querySelector<HTMLElement>('.rail__label')?.textContent).toHaveLength(31);
+
+        list?.dispatchEvent(new Event('pointerenter', { bubbles: true }));
+        items[1]?.dispatchEvent(new Event('pointerover', { bubbles: true }));
+
+        expect(list?.dataset.expanded).toBe('1');
+        expect(items[1]?.dataset.hovered).toBe('1');
+        expect(document.getElementById('aimd-chatgpt-directory-preview')?.dataset.open).toBe('0');
+
+        list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
+        expect(list?.dataset.expanded).toBe('0');
+        expect(items.every((item) => item.dataset.hovered === undefined)).toBe(true);
+    });
+
     it('ships scoped token styles for the body-level directory preview', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;

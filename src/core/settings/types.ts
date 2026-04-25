@@ -16,6 +16,13 @@ import { createDefaultReaderCommentExportSettings } from './readerCommentExport'
 
 export type SettingsVersion = 3;
 
+export type ChatGPTDirectoryMode = 'preview' | 'expanded';
+
+export type ChatGPTDirectorySettings = {
+    enabled: boolean;
+    mode: ChatGPTDirectoryMode;
+};
+
 export type AppSettings = {
     version: SettingsVersion;
     platforms: {
@@ -36,6 +43,7 @@ export type AppSettings = {
         commentExport: ReaderCommentExportSettings;
     };
     export: ExportSettings;
+    chatgptDirectory: ChatGPTDirectorySettings;
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
     };
@@ -59,6 +67,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         commentExport: createDefaultReaderCommentExportSettings(),
     },
     export: DEFAULT_EXPORT_SETTINGS,
+    chatgptDirectory: { enabled: true, mode: 'preview' },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
 };
@@ -69,6 +78,7 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         || value === 'behavior'
         || value === 'reader'
         || value === 'export'
+        || value === 'chatgptDirectory'
         || value === 'bookmarks'
         || value === 'language'
     );
