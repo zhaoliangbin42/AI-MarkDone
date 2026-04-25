@@ -488,6 +488,9 @@
     "titleForbiddenChars": {
         "message": "Title contains invalid characters"
     },
+    "titleForbiddenCharsDetailed": {
+        "message": "Title cannot contain: $1"
+    },
     "errorCalculating": {
         "message": "Error calculating"
     },
@@ -628,6 +631,12 @@
     },
     "folderNameInvalidChars": {
         "message": "Folder name contains invalid characters."
+    },
+    "folderNameControlChars": {
+        "message": "Folder name cannot contain control characters."
+    },
+    "folderPathSegmentInvalid": {
+        "message": "Invalid folder name \"$1\": $2"
     },
     "spacesCollapsed": {
         "message": "Consecutive spaces were collapsed."

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeBookmarkTitle, validateBookmarkTitle } from '../../../../src/core/bookmarks/title';
+import { getBookmarkTitleForbiddenCharacters, normalizeBookmarkTitle, validateBookmarkTitle } from '../../../../src/core/bookmarks/title';
 
 describe('bookmarks/title', () => {
     it('normalizes by trimming', () => {
@@ -22,8 +22,11 @@ describe('bookmarks/title', () => {
         }
     });
 
+    it('reports unique forbidden characters in input order', () => {
+        expect(getBookmarkTitleForbiddenCharacters('a?b/c?d|e')).toEqual(['?', '/', '|']);
+    });
+
     it('accepts a normal title', () => {
         expect(validateBookmarkTitle('My bookmark title')).toEqual({ ok: true });
     });
 });
-

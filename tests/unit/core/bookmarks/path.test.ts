@@ -11,6 +11,21 @@ describe('bookmarks path utils', () => {
         expect(() => PathUtils.validatePath('A/B/C/D/E')).toThrow(PathValidationError);
     });
 
+    it('reports slash as invalid for a single folder segment', () => {
+        const result = PathUtils.getFolderNameValidation('Work/Project');
+
+        expect(result.isValid).toBe(false);
+        expect(result.normalization.removedSlash).toBe(true);
+        expect(result.errors).toContain('forbiddenChars');
+    });
+
+    it('reports control characters as invalid folder segment characters', () => {
+        const result = PathUtils.getFolderNameValidation('Work\u0001Project');
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('forbiddenChars');
+    });
+
     it('treats same-level folder names as case-insensitive conflicts', () => {
         expect(PathUtils.hasNameConflict('import', ['Import'])).toBe(true);
         expect(PathUtils.hasNameConflict('Work', ['Personal'])).toBe(false);
@@ -22,4 +37,3 @@ describe('bookmarks path utils', () => {
         expect(PathUtils.updatePathPrefix('Work', 'Projects', 'Personal/Notes')).toBe('Personal/Notes');
     });
 });
-

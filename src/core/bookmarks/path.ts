@@ -149,6 +149,9 @@ export class PathUtils {
         const normalization = this.normalizeFolderName(name);
         const normalized = normalization.value;
         const errors = this.getFolderNameErrors(normalized);
+        if (normalization.removedSlash && !errors.includes('forbiddenChars')) {
+            errors.push('forbiddenChars');
+        }
         return { normalized, normalization, errors, isValid: errors.length === 0 };
     }
 

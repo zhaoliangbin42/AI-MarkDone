@@ -383,6 +383,80 @@ describe('BookmarkSaveDialog', () => {
         }
     });
 
+    it('shows the exact forbidden characters for invalid bookmark titles', async () => {
+        await setLocale('en');
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+
+            const title = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-title"]')!;
+            title.value = 'Alpha/Beta?';
+            title.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            const error = shadow.querySelector<HTMLElement>('[data-role="bookmark-save-title-error"]')!;
+            expect(error.hidden).toBe(false);
+            expect(error.textContent).toBe('Title cannot contain: / ?');
+        } finally {
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLElement>('.panel-window--bookmark-save')
+                ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
+
+    it('blocks slash-separated names when creating a single inline subfolder', async () => {
+        await setLocale('en');
+        const { bookmarksClient } = await import('@/drivers/shared/clients/bookmarksClient');
+        vi.mocked(bookmarksClient.foldersCreate).mockClear();
+
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((r) => setTimeout(r, 0));
+
+        try {
+            const host = document.getElementById('aimd-bookmark-save-dialog-host');
+            expect(host).toBeTruthy();
+            const shadow = host!.shadowRoot!;
+
+            shadow.querySelector<HTMLElement>('[data-action="bookmark-save-inline-folder"][data-path="Work"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+            await new Promise((r) => setTimeout(r, 0));
+
+            const inline = shadow.querySelector<HTMLInputElement>('[data-role="bookmark-save-inline-draft"][data-parent="Work"]')!;
+            inline.value = 'Bad/Name';
+            inline.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+            shadow.querySelector<HTMLElement>('[data-action="bookmark-save-inline-confirm"][data-path="Work"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+            await flushUi();
+
+            expect(shadow.querySelector<HTMLElement>('.error-text--inline')?.textContent).toBe('Folder name cannot contain "/".');
+            expect(bookmarksClient.foldersCreate).not.toHaveBeenCalled();
+        } finally {
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="close-panel"]')
+                ?.click();
+            document.getElementById('aimd-bookmark-save-dialog-host')
+                ?.shadowRoot
+                ?.querySelector<HTMLElement>('.panel-window--bookmark-save')
+                ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+            await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
+        }
+    });
+
     it('keeps focus on the inline subfolder input after a failed submit rerender', async () => {
         await setLocale('en');
         const { bookmarksClient } = await import('@/drivers/shared/clients/bookmarksClient');

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export: Save Messages now consumes the global PNG width preference from Settings instead of editing PNG width inside the export dialog.
 
 ### Fixed
+- Bookmarks: Folder and bookmark title validation now reports specific naming problems, including forbidden title characters, slash-separated single folder names, traversal names, and control characters.
 - ChatGPT: Reader now opens on the message that launched it instead of falling back to the last message when DOM and payload message ids differ.
 - ChatGPT: Conversation snapshots now refresh on conversation route changes and conversation payload fetches, improving full-history recovery after in-app navigation.
 - ChatGPT: Directory jumps now re-align after host-side hydration shifts while yielding to manual user scrolling or pointer input.

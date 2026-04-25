@@ -488,6 +488,9 @@
     "titleForbiddenChars": {
         "message": "标题包含非法字符"
     },
+    "titleForbiddenCharsDetailed": {
+        "message": "标题不能包含以下字符：$1"
+    },
     "errorCalculating": {
         "message": "计算错误"
     },
@@ -628,6 +631,12 @@
     },
     "folderNameInvalidChars": {
         "message": "文件夹名称包含非法字符。"
+    },
+    "folderNameControlChars": {
+        "message": "文件夹名称不能包含控制字符。"
+    },
+    "folderPathSegmentInvalid": {
+        "message": "文件夹名称“$1”无效：$2"
     },
     "spacesCollapsed": {
         "message": "连续空格已被合并。"

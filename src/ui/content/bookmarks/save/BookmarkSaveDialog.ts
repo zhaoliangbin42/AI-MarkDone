@@ -635,7 +635,7 @@ export class BookmarkSaveDialog {
     ${isFolderSelect ? '' : `<div class="field-block">
       <label class="field-label">${escapeHtml(titleLabel)}</label>
       <input class="text-input text-input--bookmark-save-title aimd-field-control aimd-field-control--standalone" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
-      <div class="error-text" data-role="bookmark-save-title-error" ${validation.titleError ? '' : 'hidden'}>${validation.titleError ? escapeHtml(titleValidationMessage(validation.titleError as any)) : ''}</div>
+      <div class="error-text" data-role="bookmark-save-title-error" ${validation.titleError ? '' : 'hidden'}>${validation.titleError ? escapeHtml(titleValidationMessage(validation.titleError as any, this.state?.title ?? '')) : ''}</div>
     </div>`}
     <div class="field-block">
       <div class="field-head">
@@ -704,7 +704,7 @@ export class BookmarkSaveDialog {
         if (error) {
             if (validation.titleError) {
                 error.hidden = false;
-                error.textContent = titleValidationMessage(validation.titleError as any);
+                error.textContent = titleValidationMessage(validation.titleError as any, this.state.title);
             } else {
                 error.hidden = true;
                 error.textContent = '';

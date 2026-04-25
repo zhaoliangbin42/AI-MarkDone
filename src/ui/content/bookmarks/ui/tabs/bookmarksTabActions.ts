@@ -7,7 +7,7 @@ import { t } from '../../../components/i18n';
 import type { ModalHost } from '../../../components/ModalHost';
 import type { ReaderPanel } from '../../../reader/ReaderPanel';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
-import { titleValidationMessage } from '../../helpers/nameValidation';
+import { titleValidationMessage, validateFolderPathInput, validateFolderSegmentName } from '../../helpers/nameValidation';
 import { bookmarkSaveDialog } from '../../save/bookmarkSaveDialogSingleton';
 
 function bookmarkSelectionKey(b: Bookmark): string {
@@ -192,7 +192,10 @@ export function createBookmarksTabActions(params: {
                 defaultValue: '',
                 confirmText: t('btnSave'),
                 cancelText: t('btnCancel'),
-                validate: (value) => ({ ok: Boolean(value.trim()), message: t('folderNameEmpty') }),
+                validate: (value) => {
+                    const result = validateFolderPathInput(value);
+                    return result.ok ? { ok: true } : { ok: false, message: result.message };
+                },
             });
         },
         async promptFolderName(title) {
@@ -204,7 +207,10 @@ export function createBookmarksTabActions(params: {
                 defaultValue: '',
                 confirmText: t('btnSave'),
                 cancelText: t('btnCancel'),
-                validate: (value) => ({ ok: Boolean(value.trim()), message: t('folderNameEmpty') }),
+                validate: (value) => {
+                    const result = validateFolderSegmentName(value);
+                    return result.ok ? { ok: true } : { ok: false, message: result.message };
+                },
             });
         },
         async promptBookmarkTitle(currentTitle) {
@@ -220,7 +226,7 @@ export function createBookmarksTabActions(params: {
                     const result = validateBookmarkTitle(value);
                     return result.ok
                         ? { ok: true }
-                        : { ok: false, message: titleValidationMessage(result.reason ?? 'empty') };
+                        : { ok: false, message: titleValidationMessage(result.reason ?? 'empty', value) };
                 },
             });
         },
