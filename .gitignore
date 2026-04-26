@@ -58,6 +58,7 @@ release-artifacts/
 *.dmg
 *.pkg
 *.ipa
+release/*SHA256SUMS.txt
 *.cjs
 
 # Apple signing and distribution artifacts

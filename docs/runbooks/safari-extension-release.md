@@ -56,7 +56,7 @@ npm run package:safari:xcode
    默认输出：
 
    ```text
-   release-artifacts/safari/AI-MarkDone-<package.version>-free.dmg
+   release/AI-MarkDone-v<package.version>-free.dmg
    ```
 
 4. 如果需要脚本自动提交 notarization 并 stapler，使用 keychain profile：

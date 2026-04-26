@@ -98,7 +98,7 @@ async function main(): Promise<void> {
     const appPath = resolveAppPath();
     const outputPath = resolve(
         process.cwd(),
-        process.env.SAFARI_DMG_OUTPUT?.trim() || `release-artifacts/safari/${productName}-${version}-free.dmg`,
+        process.env.SAFARI_DMG_OUTPUT?.trim() || `release/${productName}-v${version}-free.dmg`,
     );
 
     mkdirSync(dirname(outputPath), { recursive: true });

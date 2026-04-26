@@ -12,7 +12,8 @@
    - `npm run package:safari:xcode` 已生成 `safari-build/`
    - 免费 DMG 由签名后的 `AI-MarkDone.app` 通过 `SAFARI_APP_PATH="/path/to/AI-MarkDone.app" npm run package:safari:dmg` 生成
    - App Store Connect 付费版使用同一版本、同一功能代码与同一 Safari WebExtension 输入
-6. 若是 runtime 问题，优先检查：
+6. 正式 release 包统一放在 `release/` 下，沿用现有扁平命名：`AI-MarkDone-v<version>-<target>.zip`；校验文件使用 `AI-MarkDone-v<version>-SHA256SUMS.txt`
+7. 若是 runtime 问题，优先检查：
    - `src/runtimes/content/entry.ts`
    - `src/runtimes/background/entry.ts`
    - `docs/architecture/BROWSER_COMPATIBILITY.md`

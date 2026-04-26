@@ -14,6 +14,10 @@ function readReleaseGuide(): string {
     return readFileSync(resolve(process.cwd(), '.codex/guides/release.md'), 'utf-8');
 }
 
+function readSafariDmgScript(): string {
+    return readFileSync(resolve(process.cwd(), 'scripts/package-safari-dmg.ts'), 'utf-8');
+}
+
 describe('release scripts', () => {
     it('runs all automated release gates including Safari web extension build', () => {
         const scripts = readPackageJson().scripts || {};
@@ -48,5 +52,15 @@ describe('release scripts', () => {
         expect(releaseGuide).toContain('npm run package:safari:dmg');
         expect(releaseGuide).toContain('SAFARI_APP_PATH');
         expect(releaseGuide).toContain('App Store Connect');
+    });
+
+    it('keeps formal release artifacts under the release directory', () => {
+        const releaseGuide = readReleaseGuide();
+        const safariDmgScript = readSafariDmgScript();
+
+        expect(releaseGuide).toContain('release/AI-MarkDone-v<version>-free.dmg');
+        expect(releaseGuide).toContain('release/AI-MarkDone-v<version>-<target>.zip');
+        expect(releaseGuide).toContain('Do not place formal release packages under `release-artifacts/`');
+        expect(safariDmgScript).toContain('release/${productName}-v${version}-free.dmg');
     });
 });
