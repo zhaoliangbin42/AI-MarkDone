@@ -1,14 +1,12 @@
 {
-    "manifest_version": 3,
+    "manifest_version": 2,
     "name": "__MSG_extName__",
     "version": "4.2.0",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
     "permissions": [
         "clipboardWrite",
-        "storage"
-    ],
-    "host_permissions": [
+        "storage",
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://gemini.google.com/*",
@@ -31,9 +29,11 @@
         }
     ],
     "background": {
-        "service_worker": "background.js"
+        "scripts": [
+            "background.js"
+        ]
     },
-    "action": {
+    "browser_action": {
         "default_icon": {
             "16": "icons/icon16.png",
             "48": "icons/icon48.png",
@@ -46,21 +46,10 @@
         "128": "icons/icon128.png"
     },
     "web_accessible_resources": [
-        {
-            "resources": [
-                "icons/*.png",
-                "_locales/*/messages.json",
-                "vendor/katex/*.css",
-                "vendor/katex/fonts/*",
-                "page-bridges/*.js"
-            ],
-            "matches": [
-                "https://chatgpt.com/*",
-                "https://chat.openai.com/*",
-                "https://gemini.google.com/*",
-                "https://claude.ai/*",
-                "https://chat.deepseek.com/*"
-            ]
-        }
+        "icons/*.png",
+        "_locales/*/messages.json",
+        "vendor/katex/*.css",
+        "vendor/katex/fonts/*",
+        "page-bridges/*.js"
     ]
 }

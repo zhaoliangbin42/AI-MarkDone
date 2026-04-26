@@ -8,6 +8,7 @@
   const JS_ASSET_RE = /\/cdn\/assets\/[^"' )]+\.js(?:\?[^"' )]+)?$/i;
   const MAX_SCAN = 18;
   const MAX_BRIDGE_ATTEMPTS = 5;
+  const BACKEND_NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000;
   const KEYWORDS = [
     { pattern: /updateThreadFromServer/g, score: 90 },
     { pattern: /getConversationTurns|getConversationTurnAtIndex|lastUserMessage/g, score: 70 },
@@ -23,6 +24,7 @@
     descriptor: null,
     module: null,
     snapshotCache: new Map(),
+    backendFailureCache: new Map(),
     discoveryPromise: null,
   };
 
@@ -490,11 +492,20 @@
   }
 
   async function fetchConversationPayloadSnapshot(conversationId) {
+    const failedAt = bridgeState.backendFailureCache.get(conversationId);
+    if (failedAt && nowTs() - failedAt < BACKEND_NEGATIVE_CACHE_TTL_MS) return null;
+
     try {
       const response = await fetch(`/backend-api/conversation/${encodeURIComponent(conversationId)}`, {
         credentials: 'include',
       });
-      if (!response?.ok) return null;
+      if (!response?.ok) {
+        if (response?.status === 404 || response?.status === 401 || response?.status === 403) {
+          bridgeState.backendFailureCache.set(conversationId, nowTs());
+        }
+        return null;
+      }
+      bridgeState.backendFailureCache.delete(conversationId);
       const payload = await response.json();
       const rounds = buildRoundsFromPayload(payload);
       if (!rounds) return null;

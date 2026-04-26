@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-04-26
+
 ### Added
+- Release: Added Safari free DMG packaging guidance and an explicit `package:safari:dmg` command for signed wrapper apps, alongside the existing Safari App Store Connect path.
 - Export: Added PNG export to Save Messages. A single selected message downloads as one PNG, while multiple selected messages render one PNG per message and download together as a ZIP.
 - Export: Added in-dialog PNG export progress feedback so long-running multi-message renders now report the current step and item count instead of looking stalled.
 - Settings: Added a global PNG export width preference with `Mobile`, `Tablet`, `Desktop`, and `Custom` options in the Bookmarks panel Settings tab.
@@ -21,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export: Long PNG rendering now caps the effective clarity ratio by a total pixel budget so very tall images no longer request impractically large canvases.
 - Export: Tall PNG rendering now splits large message DOM into conservative 2000px block-level chunks before stitching the final image, avoiding oversized SVG data URLs.
 - Export: The default PNG image scale is now 1x, while Settings clearly keeps 3x as the maximum manual scale.
+- ChatGPT: Reduced live directory refresh polling and cached failed backend conversation payload lookups so unavailable payload endpoints no longer get retried every second.
 
 ### Fixed
 - Bookmarks: Folder and bookmark title validation now reports specific naming problems, including forbidden title characters, slash-separated single folder names, traversal names, and control characters.

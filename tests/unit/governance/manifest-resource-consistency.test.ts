@@ -6,12 +6,17 @@ type ChromeManifest = {
     host_permissions?: string[];
     icons?: Record<string, string>;
     action?: { default_icon?: Record<string, string> };
+    background?: { service_worker?: string };
+    content_scripts?: Array<{ js?: string[]; run_at?: string }>;
     web_accessible_resources?: Array<{ resources?: string[]; matches?: string[] }>;
 };
 
-type FirefoxManifest = {
+type Mv2Manifest = {
+    permissions?: string[];
     icons?: Record<string, string>;
     browser_action?: { default_icon?: Record<string, string> };
+    background?: { scripts?: string[] };
+    content_scripts?: Array<{ js?: string[]; run_at?: string }>;
     web_accessible_resources?: string[];
 };
 
@@ -24,15 +29,18 @@ function normalized(values: string[] | undefined): string[] {
 }
 
 describe('manifest resource consistency', () => {
-    it('web_accessible_resources should stay aligned across chrome/firefox manifests', () => {
+    it('web_accessible_resources should stay aligned across target manifests', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
-        const firefox = readJson<FirefoxManifest>('manifest.firefox.json');
+        const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
+        const safari = readJson<Mv2Manifest>('manifest.safari.json');
 
         const chromeResources = normalized(chrome.web_accessible_resources?.[0]?.resources);
         const firefoxResources = normalized(firefox.web_accessible_resources);
+        const safariResources = normalized(safari.web_accessible_resources);
 
         expect(chromeResources.length).toBeGreaterThan(0);
         expect(chromeResources).toEqual(firefoxResources);
+        expect(chromeResources).toEqual(safariResources);
     });
 
     it('chrome web_accessible_resources matches should align with host permissions', () => {
@@ -46,27 +54,46 @@ describe('manifest resource consistency', () => {
 
     it('toolbar/action icon paths should stay aligned across manifests', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
-        const firefox = readJson<FirefoxManifest>('manifest.firefox.json');
+        const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
+        const safari = readJson<Mv2Manifest>('manifest.safari.json');
 
         const chromeIcons = chrome.action?.default_icon || {};
         const firefoxIcons = firefox.browser_action?.default_icon || {};
+        const safariIcons = safari.browser_action?.default_icon || {};
 
         expect(chromeIcons).toEqual(firefoxIcons);
+        expect(chromeIcons).toEqual(safariIcons);
         expect(chrome.icons).toEqual(firefox.icons);
+        expect(chrome.icons).toEqual(safari.icons);
+    });
+
+    it('background entries should match each target runtime model', () => {
+        const chrome = readJson<ChromeManifest>('manifest.chrome.json');
+        const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
+        const safari = readJson<Mv2Manifest>('manifest.safari.json');
+
+        expect(chrome.background).toEqual({ service_worker: 'background.js' });
+        expect(firefox.background).toEqual({ scripts: ['background.js'] });
+        expect(safari.background).toEqual({ scripts: ['background.js'] });
     });
 
     it('default manifests should not expose ChatGPT early-prune entrypoints', () => {
-        const chrome = readJson<ChromeManifest & { content_scripts?: Array<{ js?: string[]; run_at?: string }> }>('manifest.chrome.json');
-        const firefox = readJson<FirefoxManifest & { content_scripts?: Array<{ js?: string[]; run_at?: string }> }>('manifest.firefox.json');
+        const chrome = readJson<ChromeManifest>('manifest.chrome.json');
+        const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
+        const safari = readJson<Mv2Manifest>('manifest.safari.json');
 
         const chromeScripts = chrome.content_scripts?.flatMap((item) => item.js || []) || [];
         const firefoxScripts = firefox.content_scripts?.flatMap((item) => item.js || []) || [];
+        const safariScripts = safari.content_scripts?.flatMap((item) => item.js || []) || [];
         const chromeResources = normalized(chrome.web_accessible_resources?.[0]?.resources);
         const firefoxResources = normalized(firefox.web_accessible_resources);
+        const safariResources = normalized(safari.web_accessible_resources);
 
         expect(chromeScripts).not.toContain('content-early.js');
         expect(firefoxScripts).not.toContain('content-early.js');
+        expect(safariScripts).not.toContain('content-early.js');
         expect(chromeResources).not.toContain('content-early-main.js');
         expect(firefoxResources).not.toContain('content-early-main.js');
+        expect(safariResources).not.toContain('content-early-main.js');
     });
 });

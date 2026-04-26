@@ -218,11 +218,13 @@ describe('ChatGPTConversationEngine', () => {
     });
 
     it('starts live refresh while subscribed and stops it after unsubscribe', async () => {
+        const setIntervalSpy = vi.spyOn(window, 'setInterval');
         const engine = new ChatGPTConversationEngine(createAdapter());
         const unsubscribe = engine.subscribe(vi.fn());
         const timerId = (engine as any).liveRefreshTimer;
 
         expect(timerId).not.toBeNull();
+        expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
         unsubscribe();
 
         expect((engine as any).liveRefreshTimer).toBeNull();

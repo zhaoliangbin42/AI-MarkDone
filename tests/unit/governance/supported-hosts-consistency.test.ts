@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
 type ChromeManifest = {
     host_permissions?: string[];
@@ -40,16 +41,23 @@ describe('supported hosts consistency', () => {
     it('keeps manifest hosts aligned across chrome, firefox, and content scripts while allowing the popup to show a curated subset', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
         const firefox = readJson<FirefoxManifest>('manifest.firefox.json');
+        const safari = readJson<FirefoxManifest>('manifest.safari.json');
 
+        const sourceHosts = normalizeHosts([...SUPPORTED_HOST_PATTERNS]);
         const chromeHosts = normalizeHosts(chrome.host_permissions || []);
         const firefoxHosts = normalizeHosts((firefox.permissions || []).filter((value) => value.startsWith('http')));
+        const safariHosts = normalizeHosts((safari.permissions || []).filter((value) => value.startsWith('http')));
         const chromeContentHosts = normalizeHosts(chrome.content_scripts?.flatMap((entry) => entry.matches || []) || []);
         const firefoxContentHosts = normalizeHosts(firefox.content_scripts?.flatMap((entry) => entry.matches || []) || []);
+        const safariContentHosts = normalizeHosts(safari.content_scripts?.flatMap((entry) => entry.matches || []) || []);
         const popupLinkHosts = popupHosts();
 
+        expect(sourceHosts).toEqual(chromeHosts);
         expect(chromeHosts).toEqual(firefoxHosts);
+        expect(chromeHosts).toEqual(safariHosts);
         expect(chromeHosts).toEqual(chromeContentHosts);
         expect(chromeHosts).toEqual(firefoxContentHosts);
+        expect(chromeHosts).toEqual(safariContentHosts);
         expect(popupLinkHosts.length).toBeGreaterThan(0);
         expect(popupLinkHosts.every((host) => chromeHosts.includes(host))).toBe(true);
     });

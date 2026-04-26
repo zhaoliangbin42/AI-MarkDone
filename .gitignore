@@ -41,6 +41,9 @@ lerna-debug.log*
 # Build output
 dist-chrome/
 dist-firefox/
+dist-safari/
+safari-build/
+release-artifacts/
 
 # Editor directories and files
 .DS_Store

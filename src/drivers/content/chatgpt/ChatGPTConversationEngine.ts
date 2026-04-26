@@ -9,7 +9,7 @@ const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
 const FETCH_EVENT = 'aimd:chatgpt-conversation-fetch';
 const RESPONSE_TIMEOUT_MS = 2500;
-const LIVE_REFRESH_INTERVAL_MS = 1000;
+const LIVE_REFRESH_INTERVAL_MS = 5000;
 const REBUILD_RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
 
 type BridgeRequest =

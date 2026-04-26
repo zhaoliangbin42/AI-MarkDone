@@ -38,6 +38,10 @@ If the change affects protocol, storage, adapter contracts, runtime boundaries, 
 - `npm run test:acceptance`
 - `npm run build`
 
+If the change adds or changes Safari WebExtension packaging, also run:
+
+- `npm run build:safari:webext`
+
 ### Broad Behavior Changes Or Risky Refactors
 
 If the change touches multiple modules, user-visible flows, or high-risk paths, run:
@@ -147,7 +151,8 @@ For new UI modules or major UI refactors, manual regression now also includes th
 - High-risk or cross-module change
   - `npm run test:core` + `npm run build`
 - Release preparation
-  - `npm run test:smoke` + `npm run test:core` + `npm run test:acceptance` + `npm run build` + relevant manual regression
+  - `npm run release:verify` + `npm run package:safari:xcode` + Safari DMG packaging from a signed `.app` + App Store Connect readiness check + relevant manual regression
+  - add `npm run test:core` for broad behavior changes, risky refactors, or release-candidate hardening runs where the full fixture set is available
 
 ### Acceptance / Release Governance
 
@@ -160,9 +165,11 @@ Use `npm run test:acceptance` when the change affects:
 Current acceptance gate includes:
 
 - `tests/unit/governance/manifest-resource-consistency.test.ts`
+- `tests/unit/governance/manifest-generation.test.ts`
 - `tests/unit/governance/supported-hosts-consistency.test.ts`
 - `tests/unit/governance/i18n-keys.test.ts`
 - `tests/unit/ui/i18n/i18n.test.ts`
+- `tests/unit/drivers/shared/browserApi.test.ts`
 - `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts`
 - `tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts`
 - `tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts`
