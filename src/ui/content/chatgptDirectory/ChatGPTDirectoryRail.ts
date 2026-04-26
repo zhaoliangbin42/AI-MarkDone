@@ -349,7 +349,6 @@ export class ChatGPTDirectoryRail {
   min-height: calc(var(--aimd-space-3) * 6);
   max-height: min(78vh, 920px);
   overflow: hidden auto;
-  scrollbar-gutter: stable;
   border: 1px solid transparent;
   border-radius: var(--aimd-radius-lg);
   transition: padding 140ms var(--aimd-ease-out),
@@ -360,6 +359,7 @@ export class ChatGPTDirectoryRail {
 .rail__list[data-mode="expanded"][data-expanded="1"] {
   gap: var(--aimd-space-1);
   padding: var(--aimd-space-2);
+  scrollbar-gutter: stable;
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, transparent);
   border-color: color-mix(in srgb, var(--aimd-border-subtle) 72%, transparent);
   box-shadow: var(--aimd-shadow-lg);
