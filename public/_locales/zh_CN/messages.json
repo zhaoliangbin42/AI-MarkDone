@@ -17,6 +17,9 @@
     "btnCopyAsPngCopied": {
         "message": "PNG 已复制!"
     },
+    "btnCopyAsPngDownloaded": {
+        "message": "PNG 已下载"
+    },
     "btnBookmark": {
         "message": "书签"
     },
@@ -360,7 +363,7 @@
         "message": "PNG 图片倍率"
     },
     "pngExportPixelRatioDesc": {
-        "message": "控制位图清晰度。长图导出时可能会受浏览器 Canvas 上限保护。"
+        "message": "控制位图清晰度。默认 1x，最大 3x。长图导出时仍可能为了稳定性自动降级。"
     },
     "saveBookmarkTitle": {
         "message": "保存书签"

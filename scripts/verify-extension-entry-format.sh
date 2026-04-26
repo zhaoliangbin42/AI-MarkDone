@@ -3,7 +3,7 @@ set -euo pipefail
 
 target="${1:-}"
 if [[ -z "$target" ]]; then
-  echo "Usage: $0 <chrome|firefox>"
+  echo "Usage: $0 <chrome|firefox|safari>"
   exit 1
 fi
 
@@ -11,6 +11,8 @@ if [[ "$target" == "chrome" ]]; then
   files=("dist-chrome/background.js" "dist-chrome/content.js")
 elif [[ "$target" == "firefox" ]]; then
   files=("dist-firefox/background.js" "dist-firefox/content.js")
+elif [[ "$target" == "safari" ]]; then
+  files=("dist-safari/background.js" "dist-safari/content.js")
 else
   echo "Unknown target: $target"
   exit 1

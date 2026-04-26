@@ -16,6 +16,7 @@ describe('governance: bookmarks content docs', () => {
         const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
         const chromeManifest = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'manifest.chrome.json'), 'utf8'));
         const firefoxManifest = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'manifest.firefox.json'), 'utf8'));
+        const safariManifest = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'manifest.safari.json'), 'utf8'));
 
         expect(zh.title).toBeTruthy();
         expect(en.title).toBeTruthy();
@@ -32,6 +33,7 @@ describe('governance: bookmarks content docs', () => {
         expect(en.entries[0]?.version).toBe(packageJson.version);
         expect(chromeManifest.version).toBe(packageJson.version);
         expect(firefoxManifest.version).toBe(packageJson.version);
+        expect(safariManifest.version).toBe(packageJson.version);
     });
 
     it('keeps about docs parseable in both locales', () => {

@@ -1,30 +1,10 @@
 import { PROTOCOL_VERSION, isExtRequest, type ExtResponse } from '../../contracts/protocol';
 import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNotice } from './handlers/bookmarks';
 import { handleSettingsRequest } from './handlers/settings';
-
-declare const chrome: any;
-declare const browser: any;
-
-function getRuntime(): any {
-    if (typeof chrome !== 'undefined' && chrome.runtime) return chrome.runtime;
-    if (typeof browser !== 'undefined' && browser.runtime) return browser.runtime;
-    return null;
-}
-
-function getTabs(): any {
-    if (typeof chrome !== 'undefined' && chrome.tabs) return chrome.tabs;
-    if (typeof browser !== 'undefined' && browser.tabs) return browser.tabs;
-    return null;
-}
-
-function getActionApi(): any {
-    if (typeof chrome !== 'undefined' && chrome.action) return chrome.action;
-    if (typeof browser !== 'undefined') return browser.action || browser.browserAction || null;
-    return null;
-}
+import { browserCompat } from '../../drivers/shared/browser';
 
 function extractSupportedHostPatterns(): string[] {
-    const runtime = getRuntime();
+    const runtime = browserCompat.runtime;
     const manifest = runtime?.getManifest?.() as any;
     if (!manifest) return [];
     const mv = manifest.manifest_version;
@@ -54,28 +34,28 @@ function isSupportedUrl(url?: string): boolean {
 }
 
 async function updateActionState(tabId: number, url?: string) {
-    const action = getActionApi();
+    const action = browserCompat.action;
     if (!action) return;
 
     if (isSupportedUrl(url)) {
-        await action.setIcon({
+        await action.setIcon?.({
             tabId,
             path: { '16': 'icons/icon16.png', '48': 'icons/icon48.png', '128': 'icons/icon128.png' }
         } as any);
-        await action.setPopup({ tabId, popup: '' } as any);
+        await action.setPopup?.({ tabId, popup: '' } as any);
     } else {
-        await action.setIcon({
+        await action.setIcon?.({
             tabId,
             path: { '16': 'icons/icon16_gray.png', '48': 'icons/icon48_gray.png', '128': 'icons/icon128_gray.png' }
         } as any);
-        await action.setPopup({ tabId, popup: 'src/popup/popup.html' } as any);
+        await action.setPopup?.({ tabId, popup: 'src/popup/popup.html' } as any);
     }
 }
 
 // Chrome MV3: prefer chrome.* events (more direct), but browser.* works as well.
-const tabs = getTabs();
-const action = getActionApi();
-const runtime = getRuntime();
+const tabs = browserCompat.tabs;
+const action = browserCompat.action;
+const runtime = browserCompat.runtime;
 
 runtime?.onInstalled?.addListener?.((details: { reason?: string; previousVersion?: string }) => {
     const manifestVersion = String(runtime?.getManifest?.()?.version ?? '').trim();
@@ -96,21 +76,21 @@ recoverJournalIfAny(Date.now()).catch(() => {
     // recovery is best-effort; keep silent unless debugging is enabled in console.
 });
 
-if (tabs?.onUpdated) {
+if (tabs?.onUpdated?.addListener) {
     tabs.onUpdated.addListener((tabId: number, changeInfo: { status?: string; url?: string }, tab: { url?: string }) => {
         if (changeInfo.status === 'complete' || changeInfo.url) updateActionState(tabId, tab.url);
     });
-    tabs.onActivated.addListener(async (activeInfo: { tabId: number }) => {
+    tabs.onActivated?.addListener?.(async (activeInfo: { tabId: number }) => {
         const tab = await tabs.get(activeInfo.tabId);
         updateActionState(activeInfo.tabId, tab.url);
     });
-    action?.onClicked?.addListener((tab: { id?: number }) => {
+    action?.onClicked?.addListener?.((tab: { id?: number }) => {
         if (!tab.id) return;
         tabs.sendMessage(tab.id, { v: PROTOCOL_VERSION, id: `click_${Date.now()}`, type: 'ui:toggle_toolbar' });
     });
 }
 
-runtime?.onMessage?.addListener((msg: unknown, _sender: any, sendResponse: (r: ExtResponse) => void) => {
+runtime?.onMessage?.addListener?.((msg: unknown, _sender: any, sendResponse: (r: ExtResponse) => void) => {
     if (!isExtRequest(msg)) return;
     if (msg.v !== PROTOCOL_VERSION) return;
     if (msg.type === 'ping') {

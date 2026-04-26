@@ -1,5 +1,40 @@
 # Changelog
 
+# 4.2.0
+2026-04-26
+
+After reading user feedback, I realized that Gemini, DeepSeek, and Claude have each started to accumulate platform-specific compatibility issues. Given the time and energy I can realistically put into this project, I would rather focus deeply on ChatGPT than try to keep building a large, all-in-one extension. ChatGPT already has enough efficiency problems worth solving, and it is also the platform I use most in daily work, so my own understanding is much deeper there.
+
+Practice is the real test. I believe I can only build truly useful productivity features when I have felt the workflow pain myself. There are also already other projects that cover some of these cross-platform needs. After thinking it through, I have decided to gradually step back from active Gemini, DeepSeek, and Claude development and return AI-MarkDone to its original focus: ChatGPT.
+
+Of course, there are good alternatives for those platforms.
+
+For Gemini, the best extension I know today is [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager).
+
+For cross-platform bookmark workflows, one extension I used before and liked a lot is [Timeline](https://github.com/houyanchao/Timeline).
+
+I believe these two projects should cover most needs on the other platforms. On the ChatGPT side, I will keep moving along the original direction: restrained, unobtrusive, and genuinely useful from the perspective of an engineering graduate student who uses ChatGPT heavily. The goal is still to fill in the last mile of the ChatGPT experience and make daily work smoother.
+
+This release also adds two practical features: exporting messages as images and an expanded directory mode. Image export is one of my personal favorites. ChatGPT sharing usually happens through links or screenshots, but longer answers often require long screenshots, which quickly becomes awkward. To better support real sharing scenarios, AI-MarkDone now supports one-click copy as image and batch export as image.
+
+The directory also gets an expanded mode. The previous accordion behavior looked nice, but it was not always practical. When a conversation has dozens of messages, it is hard to find the target message at a glance. Expanded mode makes all message summaries visible at once, so navigation is faster.
+
+## Added
+- Added support for Safari and Firefox.
+- Added batch message rendering to PNG. Thanks to Xiaohongshu user @小锋iDyll.
+- Added direct Copy as PNG for quickly sharing a message with friends. Thanks to Xiaohongshu user @小锋iDyll.
+- Added settings for PNG width and image scale, so exported images can better match the visual width of the target sharing platform.
+- Added expanded directory mode so all message summaries can be reviewed at once.
+- Added a directory toggle so users can hide the right-side directory.
+
+## Fixed
+- Fixed layout issues in the Settings panel.
+- Improved invalid bookmark filename messages so naming problems are clearer. Thanks to Xiaohongshu user @Colin的AI杠杆.
+- Fixed a directory issue where one click could fail to land on the target message. Thanks to Xiaohongshu user @谦卑于世.
+
+## How it works
+- Previously, clicking a directory item would jump to the target message position, but that jump could trigger ChatGPT's incremental loading. Once new content loaded, the page layout shifted and the target position drifted. That is why a second click was sometimes needed after the page settled. The new flow first jumps to the target, then watches for coordinate changes caused by incremental loading, and performs a second correction jump. The correction is almost unnoticeable to the user.
+
 # 4.1.2
 2026-04-22
 

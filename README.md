@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — Enhancement Extension for ChatGPT, Gemini & More</h1>
+  <h1>AI-MarkDone — Focused Enhancement Extension for ChatGPT</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -8,14 +8,16 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
+    <img src="https://img.shields.io/badge/Version-4.2.0-10A37F" alt="Version 4.2.0">
     </br>
-    <img src="https://img.shields.io/badge/Platforms-ChatGPT%20%7C%20Gemini%20%7C%20Claude%20%7C%20DeepSeek-10A37F" alt="Platforms">
+    <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
+    <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
     <a href="https://github.com/zhaoliangbin42/AI-MarkDone">
       <img src="https://img.shields.io/github/stars/zhaoliangbin42/AI-MarkDone?style=social" alt="GitHub stars">
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>ChatGPT directory navigation, Reader source copy, Dynamic Annotation, bookmarks, and beautiful PDF export.</em></p>
+  <p><em>ChatGPT directory navigation, Reader source copy, Dynamic Annotation, bookmarks, PNG export, and beautiful PDF export.</em></p>
 
   [中文文档](./README.zh.md) | English
 </div>
@@ -34,7 +36,7 @@
 - **Scroll fatigue?** You keep losing the exact paragraph you need.
 - **Need a conversation map?** You want a live outline that previews messages and jumps back to the right turn quickly.
 - **Need a stable view?** You want to read and keep chatting without losing context.
-- **Need real deliverables?** Clean Markdown for Obsidian/Typora, or a beautiful PDF you can share.
+- **Need real deliverables?** Clean Markdown for Obsidian/Typora, a beautiful PDF, or a PNG image you can share.
 - **Knowledge keeps disappearing?** You want a bookmark system that actually helps you organize.
 - **Deep Research looks like a dump?** You want AI output cleaned up so it is readable and reusable.
 
@@ -60,7 +62,8 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 ### ⚡ ChatGPT Directory
 - **Right-side outline**: See a live directory of the current ChatGPT conversation without leaving the native page.
-- **Message previews**: Scan compact previews before jumping.
+- **Message previews**: Scan compact previews, or switch to expanded mode when you want to see every summary at once.
+- **Directory toggle**: Hide the directory when you want the native page to stay clean.
 - **Direct jump**: Click an item to return to the target turn through the same stable anchor path used by ChatGPT bookmarks and Reader locate.
 - **Built for the new ChatGPT page**: Replaces the old folding workflow, which is no longer stable under ChatGPT's incremental loading model.
 
@@ -75,9 +78,12 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **Annotation insertion**: Insert compiled annotations into the Reader send box with your chosen prompt, without manually copying and pasting.
 - **Keep chatting**: Send messages from Reading Mode without losing your place.
 
-### 📦 Export & Copy (Markdown + PDF)
+### 📦 Export & Copy (Markdown + PDF + PNG)
 - **Clean Markdown**: Copy standard Markdown, ready for Obsidian, Typora, or VS Code.
 - **Beautiful PDF**: Export a print-ready PDF when you need something shareable.
+- **Copy as PNG**: Turn the current message into a shareable image directly from the hover toolbar.
+- **Batch PNG export**: Export selected messages as one PNG each; multiple messages are packed together as a ZIP.
+- **Image settings**: Configure PNG width and image scale from Settings to fit the target sharing platform.
 - **Deep Research cleanup**: Restore messy Deep Research outputs into readable Markdown.
 
 ### 🔖 Bookmarks That Actually Help
@@ -95,14 +101,26 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 ---
 
-## 🌐 Platform Support
+## 🌐 Browser Support
+
+| Browser | Status |
+| :--- | :--- |
+| **Chrome** | ✅ Fully supported, MV3 build |
+| **Firefox** | ✅ Supported, MV2 build |
+| **Safari** | ✅ Supported, Safari Web Extension build |
+
+## 🤖 AI Platform Direction
 
 | Platform | Status |
 | :--- | :--- |
-| **ChatGPT** | ✅ Fully Supported |
-| **Gemini** | ✅ Fully Supported |
-| **Claude** | ✅ Fully Supported |
-| **DeepSeek** | ✅ Fully Supported |
+| **ChatGPT** | ✅ Primary focus and actively tested |
+| **Gemini** | ⚠️ Maintenance only; active feature work is being phased out |
+| **Claude** | ⚠️ Maintenance only; active feature work is being phased out |
+| **DeepSeek** | ⚠️ Maintenance only; active feature work is being phased out |
+
+AI-MarkDone is returning to a ChatGPT-first direction. Gemini, Claude, and DeepSeek support may remain usable for existing flows, but new feature work and deeper compatibility fixes will focus on ChatGPT.
+
+For Gemini, consider [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager). For cross-platform bookmark workflows, [Timeline](https://github.com/houyanchao/Timeline) is also a project I like.
 
 ---
 
@@ -121,7 +139,18 @@ Secure, verified, and auto-updated.
 3. Open Chrome and go to `chrome://extensions/`.
 4. Enable **Developer Mode** in the top right corner.
 5. Click **Load unpacked** and select the unzipped extension folder that contains `manifest.json`.
-6. Refresh your ChatGPT or Gemini page and enjoy! 🎉
+6. Refresh your ChatGPT page and enjoy.
+
+### 🧩 Firefox And Safari
+
+Firefox and Safari builds are prepared from the same source code with browser-specific manifests and adapters:
+
+```bash
+npm run build:firefox
+npm run build:safari:webext
+```
+
+Safari distribution uses a Safari Web Extension wrapper. Release packaging is documented in [docs/runbooks/safari-extension-release.md](./docs/runbooks/safari-extension-release.md).
 
 ---
 
@@ -150,12 +179,13 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.1.2
-- Added a right-side ChatGPT directory with live previews and direct jump actions.
-- Restored full-thread Reader discovery on ChatGPT after the platform moved to incremental loading.
-- Removed the old ChatGPT message folding feature, which is no longer stable under the new dynamic loading model.
-- Fixed bookmark renaming, ChatGPT bookmark save/highlight/jump positioning, Reader prompt insertion, and several ChatGPT dynamic-loading edge cases.
-- Dynamic Annotations in Reader now support deleting annotations.
+### v4.2.0
+- Added Safari and Firefox build support with shared browser adapters and generated target manifests.
+- Added Copy as PNG and batch PNG export for sharing ChatGPT messages as images.
+- Added PNG width and image-scale settings.
+- Added expanded directory mode and a directory visibility toggle.
+- Fixed Settings layout issues, clearer invalid bookmark filename messages, and ChatGPT directory jump drift under incremental loading.
+- Clarified the project direction: ChatGPT is now the primary focus; Gemini, Claude, and DeepSeek support will gradually move to maintenance mode.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

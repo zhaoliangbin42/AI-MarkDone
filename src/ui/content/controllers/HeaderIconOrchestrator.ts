@@ -1,4 +1,5 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import { pageHeaderIconCapability } from '../../../drivers/shared/browserApi/pageHeaderIcon';
 import { Icons } from '../../../assets/icons';
 import { subscribeLocaleChange, t } from '../components/i18n';
 
@@ -19,6 +20,7 @@ export class HeaderIconOrchestrator {
     }
 
     init(): void {
+        if (!pageHeaderIconCapability.canInject) return;
         this.ensureStyles();
         this.ensureInjected();
         this.observer = new MutationObserver(() => this.scheduleEnsureInjected());

@@ -17,6 +17,9 @@
     "btnCopyAsPngCopied": {
         "message": "PNG copied!"
     },
+    "btnCopyAsPngDownloaded": {
+        "message": "PNG downloaded"
+    },
     "btnBookmark": {
         "message": "Bookmark"
     },
@@ -360,7 +363,7 @@
         "message": "PNG image scale"
     },
     "pngExportPixelRatioDesc": {
-        "message": "Controls raster sharpness. Long exports may be capped by the browser canvas limit."
+        "message": "Controls raster sharpness. Default is 1x; maximum is 3x. Long exports may still be capped for stability."
     },
     "saveBookmarkTitle": {
         "message": "Save Bookmark"

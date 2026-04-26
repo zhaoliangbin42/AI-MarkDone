@@ -1,7 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const browserCapabilitiesMock = vi.hoisted(() => ({
+    canInject: true,
+}));
+
+vi.mock('@/drivers/shared/browserApi/pageHeaderIcon', () => ({
+    pageHeaderIconCapability: browserCapabilitiesMock,
+}));
+
 import { HeaderIconOrchestrator } from '@/ui/content/controllers/HeaderIconOrchestrator';
 
 describe('HeaderIconOrchestrator', () => {
+    beforeEach(() => {
+        browserCapabilitiesMock.canInject = true;
+        document.body.innerHTML = '';
+        document.querySelector('#aimd-header-icon-style')?.remove();
+    });
+
     it('creates a shared header icon button with common hover styles', () => {
         const injectHeaderIcon = vi.fn((host: HTMLElement) => {
             document.body.appendChild(host);
@@ -57,5 +72,26 @@ describe('HeaderIconOrchestrator', () => {
         expect(onToggle).toHaveBeenCalledTimes(1);
 
         orchestrator.dispose();
+    });
+
+    it('skips page header icon injection when the browser capability disables it', () => {
+        browserCapabilitiesMock.canInject = false;
+        const injectHeaderIcon = vi.fn((host: HTMLElement) => {
+            document.body.appendChild(host);
+            return true;
+        });
+
+        const orchestrator = new HeaderIconOrchestrator(
+            {
+                injectHeaderIcon,
+            } as any,
+            { onToggle: vi.fn() }
+        );
+
+        orchestrator.init();
+
+        expect(injectHeaderIcon).not.toHaveBeenCalled();
+        expect(document.querySelector('#aimd-header-icon-btn')).toBeNull();
+        expect(document.querySelector('#aimd-header-icon-style')).toBeNull();
     });
 });

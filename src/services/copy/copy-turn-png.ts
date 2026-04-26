@@ -1,10 +1,13 @@
 import { copyImageBlobToClipboard } from '../../drivers/content/clipboard/copyImageToClipboard';
-import { renderPngBlob } from '../../drivers/content/export/renderPng';
+import { downloadBlob } from '../../drivers/content/export/downloadBlob';
+import { renderPngBlob, type RenderPngMetrics } from '../../drivers/content/export/renderPng';
 import { buildPngExportPlans, type BuildPngExportPlanOptions } from '../export/saveMessagesPng';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from '../export/saveMessagesTypes';
 import { nowMs, type CopyPngDebugSink } from './copy-png-debug';
 
-export type CopyTurnsPngResult = { ok: true; noop: boolean } | { ok: false; error: { code: string; message: string } };
+export type CopyTurnsPngResult =
+    | { ok: true; noop: boolean; fallback?: 'download' }
+    | { ok: false; error: { code: string; message: string } };
 
 export async function copyTurnsPng(
     turns: ChatTurn[],
@@ -44,12 +47,29 @@ export async function copyTurnsPng(
             return { ok: false, error: { code: 'INVALID_SELECTION', message: options.t('copyFailed') } };
         }
 
+        let renderMetrics: Partial<RenderPngMetrics> = {};
         const renderStartedAt = nowMs();
-        const blob = await renderPngBlob(result.plans[0]!);
+        const blob = await renderPngBlob({
+            ...result.plans[0]!,
+            onMetrics: (metrics) => {
+                renderMetrics = { ...metrics };
+            },
+        });
         emit({
             stage: 'render_blob',
             durationMs: Math.round(nowMs() - renderStartedAt),
             blobBytes: blob.size,
+            width: renderMetrics?.width,
+            height: renderMetrics?.height,
+            requestedPixelRatio: renderMetrics?.requestedPixelRatio,
+            effectivePixelRatio: renderMetrics?.effectivePixelRatio,
+            pixelArea: renderMetrics?.pixelArea,
+            capReason: renderMetrics?.capReason,
+            fontStatus: renderMetrics?.fontStatus,
+            strategy: renderMetrics?.strategy,
+            chunkCount: renderMetrics?.chunkCount,
+            maxChunkHeight: renderMetrics?.maxChunkHeight,
+            fontEmbedMode: renderMetrics?.fontEmbedMode,
         });
 
         const clipboardStartedAt = nowMs();
@@ -59,6 +79,8 @@ export async function copyTurnsPng(
             durationMs: Math.round(nowMs() - clipboardStartedAt),
             blobBytes: blob.size,
             result: clipboardResult.ok ? 'ok' : clipboardResult.reason,
+            errorCode: clipboardResult.ok ? undefined : clipboardResult.errorName,
+            errorMessage: clipboardResult.ok ? undefined : clipboardResult.errorMessage,
         });
         if (clipboardResult.ok) {
             emit({
@@ -82,16 +104,14 @@ export async function copyTurnsPng(
             };
         }
 
+        downloadBlob({ filename: result.plans[0]!.filename, blob });
         emit({
             stage: 'copy_error',
             durationMs: 0,
-            errorCode: 'CLIPBOARD_WRITE_FAILED',
-            errorMessage: options.t('clipboardImageWriteFailed'),
+            errorCode: clipboardResult.errorName ?? 'CLIPBOARD_WRITE_FAILED',
+            errorMessage: clipboardResult.errorMessage ?? options.t('clipboardImageWriteFailed'),
         });
-        return {
-            ok: false,
-            error: { code: 'CLIPBOARD_WRITE_FAILED', message: options.t('clipboardImageWriteFailed') },
-        };
+        return { ok: true, noop: false, fallback: 'download' };
     } catch (err: any) {
         emit({
             stage: 'copy_error',

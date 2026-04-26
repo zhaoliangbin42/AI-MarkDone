@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — ChatGPT、Gemini 等平台增强扩展</h1>
+  <h1>AI-MarkDone — 专注 ChatGPT 的提效增强扩展</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -8,14 +8,16 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
+    <img src="https://img.shields.io/badge/Version-4.2.0-10A37F" alt="Version 4.2.0">
     </br>
-    <img src="https://img.shields.io/badge/Platforms-ChatGPT%20%7C%20Gemini%20%7C%20Claude%20%7C%20DeepSeek-10A37F" alt="Platforms">
+    <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
+    <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
     <a href="https://github.com/zhaoliangbin42/AI-MarkDone">
       <img src="https://img.shields.io/github/stars/zhaoliangbin42/AI-MarkDone?style=social" alt="GitHub stars">
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>ChatGPT 右侧目录、阅读器源码复制、灵动注释、书签管理与精美 PDF 导出。</em></p>
+  <p><em>ChatGPT 右侧目录、阅读器源码复制、灵动注释、书签管理、PNG 导出与精美 PDF 导出。</em></p>
 
   中文文档 | [English](./README.md)
 </div>
@@ -34,7 +36,7 @@
 - **总是找不到刚才那一段？** 滚动很久才能回到关键内容。
 - **需要对话目录？** 希望一边留在原生页面，一边用实时预览快速跳回目标轮次。
 - **需要稳定阅读视图？** 希望一边继续聊天，一边保留清晰上下文。
-- **需要可复用输出？** 想把结果整理成标准 Markdown 或直接导出为 PDF。
+- **需要可复用输出？** 想把结果整理成标准 Markdown、PDF，或者适合分享的 PNG 图片。
 - **知识总是散落？** 需要真正能帮你整理内容的书签系统。
 - **Deep Research 输出太乱？** 希望清洗成更适合阅读和复用的结构化内容。
 
@@ -59,7 +61,8 @@
 
 ### ⚡ ChatGPT 右侧目录
 - **右侧实时目录**：进入 ChatGPT 对话页后，可以在原生页面右侧查看当前对话目录。
-- **消息预览**：用紧凑预览快速判断每一轮内容。
+- **消息预览**：用紧凑预览快速判断每一轮内容，也可以切换到展开模式，一次性看清所有消息摘要。
+- **目录开关**：不需要目录时，可以直接关闭，保持原生页面干净。
 - **点击跳转**：点击目录项即可通过与书签、阅读器定位一致的稳定锚点链路跳回目标轮次。
 - **适配新版 ChatGPT**：替代旧的消息折叠功能；折叠在 ChatGPT 新的动态加载模型下已经不再稳定。
 
@@ -74,9 +77,12 @@
 - **注释插入发送框**：选择提示词后，可以把整理好的注释内容直接插入阅读器发送框，减少手动复制粘贴。
 - **不中断聊天**：阅读模式下也能发送消息。
 
-### 📦 导出与复制（Markdown + PDF）
+### 📦 导出与复制（Markdown + PDF + PNG）
 - **标准 Markdown**：可直接用于 Obsidian、Typora、VS Code。
 - **精美 PDF**：导出适合分享或归档的 PDF。
+- **复制为 PNG**：在消息悬浮工具栏中直接将当前消息复制为适合分享的图片。
+- **批量导出 PNG**：将选中的多条消息分别渲染为 PNG，多选时会打包成 ZIP。
+- **图片参数设置**：可在设置中调整 PNG 宽度和清晰度，适配不同分享平台的视觉宽度。
 - **Deep Research 清洗**：把杂乱内容恢复成可读的 Markdown。
 
 ### 🔖 真正有用的书签
@@ -94,14 +100,26 @@
 
 ---
 
-## 🌐 平台支持
+## 🌐 浏览器支持
+
+| 浏览器 | 状态 |
+| :--- | :--- |
+| **Chrome** | ✅ 完全支持，MV3 构建 |
+| **Firefox** | ✅ 已支持，MV2 构建 |
+| **Safari** | ✅ 已支持，Safari Web Extension 构建 |
+
+## 🤖 AI 平台方向
 
 | 平台 | 状态 |
 | :--- | :--- |
-| **ChatGPT** | ✅ 完全支持 |
-| **Gemini** | ✅ 完全支持 |
-| **Claude** | ✅ 完全支持 |
-| **DeepSeek** | ✅ 完全支持 |
+| **ChatGPT** | ✅ 主力支持，重点测试与持续开发 |
+| **Gemini** | ⚠️ 维护模式，后续主动功能开发会逐步退出 |
+| **Claude** | ⚠️ 维护模式，后续主动功能开发会逐步退出 |
+| **DeepSeek** | ⚠️ 维护模式，后续主动功能开发会逐步退出 |
+
+AI-MarkDone 接下来会回到 ChatGPT-first 的方向。Gemini、Claude 和 DeepSeek 的既有功能可能仍然可用，但新的功能开发和深度适配会优先投入到 ChatGPT。
+
+Gemini 平台可以试试 [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager)。如果需要全平台书签工作流，也可以看看我很喜欢的 [Timeline](https://github.com/houyanchao/Timeline)。
 
 ---
 
@@ -120,7 +138,18 @@
 3. 打开 Chrome，进入 `chrome://extensions/`。
 4. 开启右上角“开发者模式”。
 5. 点击“加载已解压的扩展程序”，选择解压后包含 `manifest.json` 的扩展目录。
-6. 刷新 ChatGPT 或 Gemini 页面即可开始使用。
+6. 刷新 ChatGPT 页面即可开始使用。
+
+### 🧩 Firefox 与 Safari
+
+Firefox 和 Safari 由同一套源码生成，通过浏览器专属 manifest 和适配层区分：
+
+```bash
+npm run build:firefox
+npm run build:safari:webext
+```
+
+Safari 需要通过 Safari Web Extension wrapper 分发，具体流程见 [docs/runbooks/safari-extension-release.md](./docs/runbooks/safari-extension-release.md)。
 
 ---
 
@@ -149,12 +178,13 @@ npm run build
 
 ## 📅 最新更新
 
-### v4.1.2
-- 新增 ChatGPT 右侧目录，支持实时消息预览和点击跳转。
-- 针对 ChatGPT 增量加载重新设计阅读器内容发现能力，恢复完整对话识别。
-- 删除旧的 ChatGPT 消息折叠功能；新版 ChatGPT 动态加载下该功能已不再稳定。
-- 修复书签重命名、ChatGPT 书签保存/高亮/跳转定位、阅读器插入 prompt，以及若干 ChatGPT 动态加载边界问题。
-- 阅读器中的灵动注释现在支持删除注释。
+### v4.2.0
+- 新增 Safari 和 Firefox 构建支持，并统一浏览器适配层与目标 manifest 生成链路。
+- 新增复制消息为 PNG 和批量导出消息为 PNG，方便分享 ChatGPT 长回复。
+- 新增 PNG 宽度和清晰度设置。
+- 新增导航栏展开模式和导航栏开关。
+- 修复设置面板布局、书签文件命名 invalid 提示不够明确、ChatGPT 增量加载导致目录跳转偏移等问题。
+- 明确后续方向：ChatGPT 作为主力平台持续开发，Gemini、Claude、DeepSeek 会逐步进入维护模式。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)
