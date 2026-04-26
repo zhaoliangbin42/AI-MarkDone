@@ -149,6 +149,46 @@ describe('ReaderPanel (MVP)', () => {
         expect(markdownRoot.querySelector('.reader-code-block code.hljs')).toBeFalsy();
     });
 
+    it('renders dollar-delimited math and structural markdown blocks through the reader surface', async () => {
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [{
+                id: 'a',
+                userPrompt: 'Q1',
+                content: [
+                    'Inline $x+y$ math.',
+                    '',
+                    '$$',
+                    'a^2 + b^2 = c^2',
+                    '$$',
+                    '',
+                    '## Heading',
+                    '',
+                    '- First item',
+                    '- Second item',
+                    '',
+                    '> Quoted note',
+                    '',
+                    '---',
+                ].join('\n'),
+            }],
+            0,
+            'light'
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = (host as any).shadowRoot as ShadowRoot;
+        const markdownRoot = await waitFor(() => shadow.querySelector<HTMLElement>('.reader-markdown'));
+
+        expect(markdownRoot.querySelector('.katex')).toBeTruthy();
+        expect(markdownRoot.querySelector('.katex-display')).toBeTruthy();
+        expect(markdownRoot.querySelector('h2')?.textContent).toBe('Heading');
+        expect(Array.from(markdownRoot.querySelectorAll('li')).map((node) => node.textContent)).toEqual(['First item', 'Second item']);
+        expect(markdownRoot.querySelector('blockquote')?.textContent).toContain('Quoted note');
+        expect(markdownRoot.querySelector('hr')).toBeTruthy();
+    });
+
     it('keeps the code copy button right-aligned even when a code block has no language label', async () => {
         const panel = new ReaderPanel();
 

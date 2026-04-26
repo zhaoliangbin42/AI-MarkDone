@@ -99,4 +99,42 @@ describe('renderMarkdownToSanitizedHtml', () => {
         ]);
         expect(rendered.atomicUnits.every((unit) => unit.end > unit.start)).toBe(true);
     });
+
+    it('produces structural metadata without treating paragraphs as units', () => {
+        const rendered = renderMarkdownForReader(
+            [
+                'Plain paragraph should stay selectable by text slice.',
+                '',
+                '## Heading',
+                '',
+                '- First item',
+                '  - Nested item',
+                '- Second item',
+                '',
+                '> Quoted note',
+                '',
+                '---',
+            ].join('\n')
+        );
+
+        expect(rendered.atomicUnits.map((unit) => unit.kind)).toEqual([
+            'heading',
+            'list-item',
+            'list-item',
+            'list-item',
+            'blockquote',
+            'thematic-break',
+        ]);
+        expect(rendered.atomicUnits.map((unit) => unit.mode)).toEqual([
+            'structural',
+            'structural',
+            'structural',
+            'structural',
+            'structural',
+            'structural',
+        ]);
+        expect(rendered.atomicUnits.some((unit) => unit.source.includes('Plain paragraph'))).toBe(false);
+        expect(rendered.atomicUnits[0]?.source).toBe('## Heading');
+        expect(rendered.atomicUnits.some((unit) => unit.kind === 'list-item' && unit.source.includes('Nested item'))).toBe(true);
+    });
 });

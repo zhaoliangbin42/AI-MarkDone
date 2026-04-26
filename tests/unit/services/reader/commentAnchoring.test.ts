@@ -27,6 +27,7 @@ describe('commentAnchoring', () => {
         const selectedUnits: SelectedAtomicUnit[] = [{
             id: 'u1',
             kind: 'inline-code',
+            mode: 'atomic',
             start: 8,
             end: 20,
             source: '`inline code`',
@@ -120,6 +121,7 @@ describe('commentAnchoring', () => {
         const selectedUnits: SelectedAtomicUnit[] = [{
             id: 'u1',
             kind: 'inline-code',
+            mode: 'atomic',
             start: 8,
             end: 20,
             source: '`inline code`',

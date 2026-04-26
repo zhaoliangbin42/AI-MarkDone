@@ -20,11 +20,18 @@ export type ReaderAtomicUnitKind =
     | 'inline-code'
     | 'code-block'
     | 'table'
-    | 'image';
+    | 'image'
+    | 'heading'
+    | 'list-item'
+    | 'blockquote'
+    | 'thematic-break';
+
+export type ReaderAtomicUnitMode = 'atomic' | 'structural';
 
 export type ReaderAtomicUnit = {
     id: string;
     kind: ReaderAtomicUnitKind;
+    mode: ReaderAtomicUnitMode;
     start: number;
     end: number;
     source: string;
@@ -194,6 +201,7 @@ function collectReaderAtomicUnits(markdown: string): ReaderAtomicUnit[] {
         if (typeof start !== 'number' || typeof end !== 'number' || end <= start) return;
 
         let kind: ReaderAtomicUnitKind | null = null;
+        let mode: ReaderAtomicUnitMode = 'atomic';
         switch (node.type) {
             case 'inlineMath':
                 kind = 'inline-math';
@@ -213,6 +221,22 @@ function collectReaderAtomicUnits(markdown: string): ReaderAtomicUnit[] {
             case 'image':
                 kind = 'image';
                 break;
+            case 'heading':
+                kind = 'heading';
+                mode = 'structural';
+                break;
+            case 'listItem':
+                kind = 'list-item';
+                mode = 'structural';
+                break;
+            case 'blockquote':
+                kind = 'blockquote';
+                mode = 'structural';
+                break;
+            case 'thematicBreak':
+                kind = 'thematic-break';
+                mode = 'structural';
+                break;
             default:
                 break;
         }
@@ -221,6 +245,7 @@ function collectReaderAtomicUnits(markdown: string): ReaderAtomicUnit[] {
         units.push({
             id: `aimd-reader-unit-${units.length + 1}`,
             kind,
+            mode,
             start,
             end,
             source: markdown.slice(start, end),

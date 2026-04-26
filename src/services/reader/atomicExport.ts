@@ -13,6 +13,7 @@ export function buildAtomicSelectionExport(params: {
 
     const collectTextSlice = (textNode: Text): string => {
         if (!range.intersectsNode(textNode)) return '';
+        if (!textNode.data.trim()) return '';
         let start = 0;
         let end = textNode.data.length;
         if (textNode === range.startContainer) start = range.startOffset;
@@ -23,7 +24,7 @@ export function buildAtomicSelectionExport(params: {
     const visit = (node: Node): string => {
         if (node instanceof HTMLElement) {
             const unit = selectedUnitMap.get(node);
-            if (unit) return unit.source;
+            if (unit) return isBlockUnit(unit) ? `${unit.source}\n\n` : unit.source;
 
             const childParts: string[] = [];
             node.childNodes.forEach((child) => {
@@ -47,4 +48,12 @@ export function buildAtomicSelectionExport(params: {
     };
 
     return visit(root).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function isBlockUnit(unit: SelectedAtomicUnit): boolean {
+    return unit.mode === 'structural'
+        || unit.kind === 'display-math'
+        || unit.kind === 'code-block'
+        || unit.kind === 'table'
+        || unit.kind === 'image';
 }

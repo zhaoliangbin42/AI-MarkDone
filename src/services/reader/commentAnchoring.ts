@@ -257,6 +257,7 @@ function resolveAtomicRef(root: HTMLElement, ref: ReaderCommentAtomicRef): Selec
     return {
         id: element.getAttribute('data-aimd-unit-id') || '',
         kind: ref.kind,
+        mode: (element.getAttribute('data-aimd-unit-mode') || 'atomic') as SelectedAtomicUnit['mode'],
         start: ref.start,
         end: ref.end,
         source: '',
