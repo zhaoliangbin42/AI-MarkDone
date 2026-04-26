@@ -41,4 +41,29 @@ describe('copyImageBlobToClipboard', () => {
 
         expect(result).toEqual({ ok: false, reason: 'invalid_blob' });
     });
+
+    it('returns the underlying clipboard error details when image write is rejected', async () => {
+        const error = new DOMException('The request is not allowed.', 'NotAllowedError');
+        const write = vi.fn(async () => {
+            throw error;
+        });
+        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
+            this.items = items;
+        } as any);
+        vi.stubGlobal('navigator', {
+            clipboard: { write },
+        } as any);
+        vi.stubGlobal('window', {
+            ClipboardItem: ClipboardItemStub,
+        } as any);
+
+        const result = await copyImageBlobToClipboard(new Blob(['png'], { type: 'image/png' }));
+
+        expect(result).toEqual({
+            ok: false,
+            reason: 'write_failed',
+            errorName: 'NotAllowedError',
+            errorMessage: 'The request is not allowed.',
+        });
+    });
 });

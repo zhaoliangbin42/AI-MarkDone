@@ -42,7 +42,7 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[0].html).toContain('<table>');
         expect(result!.plans[1].html).toContain('&lt;script&gt;');
         expect(result!.options.width).toBe(800);
-        expect(result!.options.pixelRatio).toBe(2);
+        expect(result!.options.pixelRatio).toBe(1);
         expect(result!.options.backgroundColor).toBe('#ffffff');
     });
 

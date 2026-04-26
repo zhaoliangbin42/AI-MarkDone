@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Export: PDF and PNG now share the same sanitized Markdown document builder and align their Markdown presentation with the Reader theme, while keeping PDF and PNG media-specific rendering rules separate.
 - Export: Save Messages now consumes the global PNG width preference from Settings instead of editing PNG width inside the export dialog.
+- Export: Long PNG rendering now caps the effective clarity ratio by a total pixel budget so very tall images no longer request impractically large canvases.
+- Export: Tall PNG rendering now splits large message DOM into conservative 2000px block-level chunks before stitching the final image, avoiding oversized SVG data URLs.
+- Export: The default PNG image scale is now 1x, while Settings clearly keeps 3x as the maximum manual scale.
 
 ### Fixed
 - Bookmarks: Folder and bookmark title validation now reports specific naming problems, including forbidden title characters, slash-separated single folder names, traversal names, and control characters.
@@ -33,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Source-aware selection now preserves Markdown for fully selected headings, list items, blockquotes, and dividers while keeping partial text selections precise.
 - Reader: Made closed-unit annotation best-effort so structural selection metadata can no longer interrupt rendered Markdown, formulas, or block content in the Reader.
 - Toolbar: Copy Markdown tooltips now render in a toolbar-owned body-level layer so adjacent messages cannot cover them.
+- Export: PNG formula rendering now embeds bundled KaTeX fonts as data URLs instead of relying on extension font URLs inside the rendered image.
+- Toolbar: Copy as PNG now downloads the rendered PNG when the browser rejects image clipboard writes, preserving the rendered output instead of ending with a generic failure.
 - Toolbar: Kept the `Copy as PNG` hover action icon-only with a 30px rounded-square target, local tooltips, and a small hover bridge so moving from Copy to PNG does not collapse the action.
 
 ## [4.1.2] - 2026-04-22

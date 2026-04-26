@@ -18,7 +18,17 @@ export type CopyPngDebugEvent = {
     userChars?: number;
     htmlChars?: number;
     width?: number;
+    height?: number;
     pixelRatio?: number;
+    requestedPixelRatio?: number;
+    effectivePixelRatio?: number;
+    pixelArea?: number;
+    capReason?: string;
+    fontStatus?: string;
+    strategy?: string;
+    chunkCount?: number;
+    maxChunkHeight?: number;
+    fontEmbedMode?: string;
     blobBytes?: number;
     result?: string;
     errorCode?: string;

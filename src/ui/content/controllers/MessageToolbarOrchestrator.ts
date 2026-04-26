@@ -619,6 +619,10 @@ export class MessageToolbarOrchestrator {
                         finishDebug('noop');
                         return { ok: false, message: t('contentNotFound') };
                     }
+                    if (result.fallback === 'download') {
+                        finishDebug('download');
+                        return { ok: true, message: t('btnCopyAsPngDownloaded') };
+                    }
                     finishDebug('ok');
                     return { ok: true, message: t('btnCopyAsPngCopied') };
                 },

@@ -29,7 +29,7 @@ const baseSettings = {
     export: {
         pngWidthPreset: 'desktop',
         pngCustomWidth: 920,
-        pngPixelRatio: 2,
+        pngPixelRatio: 1,
     },
     chatgptDirectory: {
         enabled: true,
@@ -141,7 +141,7 @@ describe('SettingsTabView', () => {
         expect(controls?.contains(widthInput)).toBe(true);
         expect(presetTrigger.closest('.settings-export-width-preset')).toBeTruthy();
         expect(widthInput.closest('.settings-export-width-value')).toBeTruthy();
-        expect(pixelRatioInput.value).toBe('2');
+        expect(pixelRatioInput.value).toBe('1');
         expect(exportRows).toHaveLength(2);
 
         presetTrigger.click();

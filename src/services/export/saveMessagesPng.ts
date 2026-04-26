@@ -1,4 +1,4 @@
-import { DEFAULT_PNG_EXPORT_WIDTH } from '../../core/settings/export';
+import { DEFAULT_PNG_EXPORT_PIXEL_RATIO, DEFAULT_PNG_EXPORT_WIDTH } from '../../core/settings/export';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import {
     BUNDLED_KATEX_CSS,
@@ -35,7 +35,7 @@ export type BuildPngExportPlanOptions = Partial<PngExportOptions> & ExportDocume
 
 const DEFAULT_OPTIONS: PngExportOptions = {
     width: DEFAULT_PNG_EXPORT_WIDTH,
-    pixelRatio: 2,
+    pixelRatio: DEFAULT_PNG_EXPORT_PIXEL_RATIO,
     backgroundColor: '#ffffff',
 };
 

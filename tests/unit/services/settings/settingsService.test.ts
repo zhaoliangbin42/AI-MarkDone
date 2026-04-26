@@ -119,9 +119,9 @@ describe('settingsService', () => {
 
         expect(next.export.pngWidthPreset).toBe('mobile');
         expect(next.export.pngCustomWidth).toBe(MIN_PNG_EXPORT_WIDTH);
-        expect(next.export.pngPixelRatio).toBe(2);
+        expect(next.export.pngPixelRatio).toBe(1);
         expect(resolvePngExportWidth(next.export)).toBe(390);
-        expect(resolvePngExportPixelRatio(next.export)).toBe(2);
+        expect(resolvePngExportPixelRatio(next.export)).toBe(1);
     });
 
     it('preserves a normalized custom PNG width when writing export settings', () => {
