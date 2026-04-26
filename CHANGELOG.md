@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Made closed-unit annotation best-effort so structural selection metadata can no longer interrupt rendered Markdown, formulas, or block content in the Reader.
 - Toolbar: Copy Markdown tooltips now render in a toolbar-owned body-level layer so adjacent messages cannot cover them.
 - Export: PNG formula rendering now embeds bundled KaTeX fonts as data URLs instead of relying on extension font URLs inside the rendered image.
+- Safari: Header brand icon now renders from an inline data URL so ChatGPT pages no longer depend on loading `safari-extension://` image resources.
 - Toolbar: Copy as PNG now downloads the rendered PNG when the browser rejects image clipboard writes, preserving the rendered output instead of ending with a generic failure.
 - Toolbar: Kept the `Copy as PNG` hover action icon-only with a 30px rounded-square target, local tooltips, and a small hover bridge so moving from Copy to PNG does not collapse the action.
 

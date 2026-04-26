@@ -1,23 +1,5 @@
-declare const chrome: {
-    runtime?: {
-        getURL?: (path: string) => string;
-    };
-} | undefined;
-
-function getRuntimeUrl(path: string): string {
-    const maybeBrowser = typeof globalThis !== 'undefined' ? (globalThis as { browser?: { runtime?: { getURL?: (value: string) => string } } }).browser : undefined;
-    const browserGetUrl = maybeBrowser?.runtime?.getURL;
-    if (typeof browserGetUrl === 'function') {
-        return browserGetUrl(path);
-    }
-
-    const chromeGetUrl = typeof chrome !== 'undefined' ? chrome?.runtime?.getURL : undefined;
-    if (typeof chromeGetUrl === 'function') {
-        return chromeGetUrl(path);
-    }
-
-    return path;
-}
+const BRAND_ICON_DATA_URL =
+    'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20128%20128%22%3E%3Crect%20width%3D%22128%22%20height%3D%22128%22%20rx%3D%2228%22%20fill%3D%22%2310a37f%22%2F%3E%3Cpath%20d%3D%22M32%2088L51%2038h14l19%2050H70l-4-12H49l-4%2012H32zm22-24h8l-4-12-4%2012z%22%20fill%3D%22white%22%2F%3E%3Cpath%20d%3D%22M85%2038h12v50H85V38z%22%20fill%3D%22white%22%20opacity%3D%220.92%22%2F%3E%3Cpath%20d%3D%22M25%2099h78%22%20stroke%3D%22white%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3C%2Fsvg%3E';
 
 /**
  * Icon System - Inline SVG Icons
@@ -729,7 +711,7 @@ export const Icons = {
      */
     createBrandIcon(): HTMLImageElement {
         const img = document.createElement('img');
-        img.src = getRuntimeUrl('icons/icon128.png');
+        img.src = BRAND_ICON_DATA_URL;
         img.alt = 'AI-MarkDone';
         img.style.display = 'block';
         return img;
