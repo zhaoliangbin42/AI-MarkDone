@@ -17,9 +17,10 @@
 1. Search current token and selector usage before editing.
 2. Reuse semantic tokens and shared style entrypoints where possible.
 3. Keep host-page concerns out of component CSS.
-4. Validate that style changes stay inside the owned UI surface.
-5. Update style docs if the change alters long-lived token or layering policy.
-6. Finish with `npm run build`.
+4. When a visual bug appears as clipping, overflow, or crowding, identify the layout responsibility before changing sizes. Prefer fixing the sizing model, shrink behavior, stacking context, or overflow boundary over compensating with one-off width, padding, or z-index values.
+5. Validate that style changes stay inside the owned UI surface.
+6. Update style docs if the change alters long-lived token or layering policy.
+7. Finish with `npm run build`.
 
 ## References
 

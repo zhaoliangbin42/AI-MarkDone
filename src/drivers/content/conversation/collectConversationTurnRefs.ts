@@ -1,4 +1,4 @@
-import type { SiteAdapter } from '../adapters/base';
+import type { ConversationGroupRef, SiteAdapter } from '../adapters/base';
 import { listAssistantSegmentElements } from './assistantSegments';
 
 export type ConversationTurnRef = {
@@ -10,7 +10,64 @@ export type ConversationTurnRef = {
     turnRootEl: HTMLElement;
 };
 
+function listTopLevelAssistantMessages(rootEl: HTMLElement, selector: string, fallbackEl: HTMLElement): HTMLElement[] {
+    const candidates: HTMLElement[] = [];
+    const push = (node: Element | null) => {
+        if (node instanceof HTMLElement && !candidates.includes(node)) candidates.push(node);
+    };
+
+    try {
+        if (rootEl.matches(selector)) push(rootEl);
+        rootEl.querySelectorAll(selector).forEach(push);
+    } catch {
+        // Invalid platform selector should not prevent the adapter-provided fallback element from working.
+    }
+    push(fallbackEl);
+
+    return candidates.filter((el) => {
+        const parent = el.parentElement;
+        if (!parent) return true;
+        try {
+            const closest = parent.closest(selector);
+            return closest === null || !rootEl.contains(closest);
+        } catch {
+            return true;
+        }
+    });
+}
+
+function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupRef[]): ConversationTurnRef[] {
+    const selector = adapter.getMessageSelector();
+
+    return groupRefs.map((groupRef, index) => {
+        const messageEls = listTopLevelAssistantMessages(groupRef.assistantRootEl, selector, groupRef.assistantMessageEl);
+        const primaryMessageEl = messageEls.includes(groupRef.assistantMessageEl)
+            ? groupRef.assistantMessageEl
+            : messageEls[messageEls.length - 1] ?? groupRef.assistantMessageEl;
+        const userPrompt = groupRef.userPromptText?.trim()
+            || adapter.extractUserPrompt(primaryMessageEl)
+            || `Message ${index + 1}`;
+        const messageId = adapter.getMessageId(primaryMessageEl) || groupRef.id || null;
+
+        return {
+            index,
+            primaryMessageEl,
+            messageEls: messageEls.length > 0 ? messageEls : [primaryMessageEl],
+            userPrompt,
+            messageId,
+            turnRootEl: groupRef.assistantRootEl,
+        };
+    });
+}
+
 export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationTurnRef[] {
+    try {
+        const groupRefs = adapter.getConversationGroupRefs?.() ?? [];
+        if (groupRefs.length > 0) return mapGroupRefsToTurns(adapter, groupRefs);
+    } catch {
+        // Fall back to legacy assistant-segment discovery if a platform-owned grouping hook fails.
+    }
+
     const selector = adapter.getMessageSelector();
     const raw = listAssistantSegmentElements(adapter);
 

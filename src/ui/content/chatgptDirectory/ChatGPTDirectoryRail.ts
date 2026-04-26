@@ -349,6 +349,7 @@ export class ChatGPTDirectoryRail {
   min-height: calc(var(--aimd-space-3) * 6);
   max-height: min(78vh, 920px);
   overflow: hidden auto;
+  scrollbar-gutter: stable;
   border: 1px solid transparent;
   border-radius: var(--aimd-radius-lg);
   transition: padding 140ms var(--aimd-ease-out),
@@ -446,11 +447,15 @@ export class ChatGPTDirectoryRail {
   background: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) 26px;
   height: 30px;
   padding-inline: var(--aimd-space-2);
   border-radius: var(--aimd-radius-md);
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__item::before {
+  grid-column: 3;
+  justify-self: end;
   width: 26px;
   transform: scaleX(0.5);
 }
@@ -461,12 +466,13 @@ export class ChatGPTDirectoryRail {
   background: var(--aimd-interactive-primary);
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__label {
-  flex: 1 1 auto;
-  max-width: 210px;
+  grid-column: 2;
+  max-width: none;
   opacity: 1;
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__index {
-  max-width: 48px;
+  grid-column: 1;
+  max-width: none;
   opacity: 1;
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-hovered="1"] {

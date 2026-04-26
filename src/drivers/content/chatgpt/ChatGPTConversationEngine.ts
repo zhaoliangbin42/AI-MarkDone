@@ -30,6 +30,7 @@ type BridgeResponse = {
 type ReactTurnLike = {
     id?: string | null;
     role?: string | null;
+    author?: { role?: string | null } | null;
     messages?: unknown[];
 };
 
@@ -65,7 +66,8 @@ function truncatePreview(text: string, maxLen = 180): string {
     return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
 }
 
-function readString(record: Record<string, unknown>, key: string): string | null {
+function readString(record: Record<string, unknown> | null | undefined, key: string): string | null {
+    if (!record) return null;
     const value = record[key];
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -158,9 +160,37 @@ function getMessageId(message: unknown): string | null {
     return record ? readString(record, 'id') : null;
 }
 
+function getTurnRole(turn: ReactTurnLike | null | undefined): MessageRole | null {
+    const author = readRecord(turn?.author);
+    const role = readString(author, 'role') ?? (typeof turn?.role === 'string' ? turn.role : null);
+    if (role === 'user' || role === 'assistant') return role;
+    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = readRecord(messages[index]);
+        const messageRole = readAuthorRole(message ?? {});
+        if (messageRole === 'user' || messageRole === 'assistant') return messageRole;
+    }
+    return null;
+}
+
+function getTurnId(turn: ReactTurnLike | null | undefined): string | null {
+    return typeof turn?.id === 'string' && turn.id.trim() ? turn.id.trim() : null;
+}
+
 function getDisplayableMessageContent(message: unknown, expectedRole: MessageRole): string {
     if (!isDisplayableMessage(message, expectedRole)) return '';
     return normalizeMessageText(message.content);
+}
+
+function getLastDisplayableMessage(turn: ReactTurnLike | null | undefined, expectedRole: MessageRole): Record<string, unknown> | null {
+    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = readRecord(messages[index]);
+        if (!message || !isDisplayableMessage(message, expectedRole)) continue;
+        const content = getDisplayableMessageContent(message, expectedRole);
+        if (getMessageId(message) || content) return message;
+    }
+    return null;
 }
 
 function getReactKeys(element: HTMLElement): Array<string> {
@@ -193,6 +223,7 @@ function findStructuredTurnData(messageElement: HTMLElement): {
         for (const candidate of candidates) {
             const turn =
                 (candidate.turn as ReactTurnLike | undefined)
+                ?? (candidate.currentTurn as ReactTurnLike | undefined)
                 ?? (candidate.prevTurn as ReactTurnLike | undefined)
                 ?? null;
             const parentPromptMessage =
@@ -212,41 +243,87 @@ function findStructuredTurnData(messageElement: HTMLElement): {
     return { turn: null, parentPromptMessage: null };
 }
 
-function buildReactPropsFallback(adapter: SiteAdapter, conversationId: string): ChatGPTConversationSnapshot | null {
-    const selector = adapter.getMessageSelector();
-    const messages = Array.from(document.querySelectorAll(selector)).filter(
-        (node): node is HTMLElement => node instanceof HTMLElement,
-    );
-    if (messages.length === 0) return null;
-
-    const rounds: ChatGPTConversationRound[] = [];
+function collectStructuredTurnRefs(adapter: SiteAdapter): Array<{
+    element: HTMLElement;
+    messageElement: HTMLElement | null;
+    turn: ReactTurnLike;
+    parentPromptMessage: Record<string, unknown> | null;
+}> {
+    const refs: Array<{
+        element: HTMLElement;
+        messageElement: HTMLElement | null;
+        turn: ReactTurnLike;
+        parentPromptMessage: Record<string, unknown> | null;
+    }> = [];
     const seen = new Set<string>();
+    const push = (element: HTMLElement, messageElement: HTMLElement | null) => {
+        const { turn, parentPromptMessage } = findStructuredTurnData(element);
+        const role = getTurnRole(turn);
+        if (!turn || !role) return;
+        const id = getTurnId(turn) ?? `${role}-${refs.length + 1}`;
+        const key = `${role}:${id}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        refs.push({ element, messageElement, turn, parentPromptMessage });
+    };
 
-    for (const messageElement of messages) {
-        const { turn, parentPromptMessage } = findStructuredTurnData(messageElement);
-        const turnId = typeof turn?.id === 'string' ? turn.id : null;
-        if (!turnId || seen.has(turnId)) continue;
-        seen.add(turnId);
+    const root = adapter.getObserverContainer?.() ?? document;
+    root.querySelectorAll('[data-turn-id-container]').forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+        const messageElement = node.querySelector(adapter.getMessageSelector());
+        push(node, messageElement instanceof HTMLElement ? messageElement : null);
+    });
 
-        const turnMessages = Array.isArray(turn?.messages) ? turn.messages : [];
-        const assistantMessages = turnMessages.filter((message) => isDisplayableMessage(message, 'assistant'));
-        const assistantContent = assistantMessages
-            .map((message) => normalizeMessageText(message.content))
-            .filter(Boolean)
-            .join('\n\n')
-            .trim();
-        const userPrompt = getDisplayableMessageContent(parentPromptMessage, 'user');
-        const assistantMessage = assistantMessages.find((message) => getMessageId(message) || normalizeMessageText(message.content)) ?? null;
+    if (refs.length > 0) return refs;
+
+    root.querySelectorAll(adapter.getMessageSelector()).forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+        push(node, node);
+    });
+
+    return refs;
+}
+
+function buildReactPropsFallback(adapter: SiteAdapter, conversationId: string): ChatGPTConversationSnapshot | null {
+    const structuredTurns = collectStructuredTurnRefs(adapter);
+    if (structuredTurns.length === 0) return null;
+    const rounds: ChatGPTConversationRound[] = [];
+    let pendingUser: {
+        turnId: string | null;
+        userPrompt: string;
+        userMessageId: string | null;
+    } | null = null;
+
+    for (const ref of structuredTurns) {
+        const role = getTurnRole(ref.turn);
+
+        if (role === 'user') {
+            const userMessage = getLastDisplayableMessage(ref.turn, 'user');
+            const userPrompt = getDisplayableMessageContent(userMessage, 'user');
+            pendingUser = {
+                turnId: getTurnId(ref.turn),
+                userPrompt: userPrompt || `Message ${rounds.length + 1}`,
+                userMessageId: getMessageId(userMessage),
+            };
+            continue;
+        }
+
+        if (role !== 'assistant') continue;
+        const assistantMessage = getLastDisplayableMessage(ref.turn, 'assistant');
+        const assistantContent = getDisplayableMessageContent(assistantMessage, 'assistant');
+        const fallbackPrompt = getDisplayableMessageContent(ref.parentPromptMessage, 'user');
+        const userPrompt = pendingUser?.userPrompt || fallbackPrompt || `Message ${rounds.length + 1}`;
         rounds.push({
-            id: turnId,
+            id: getTurnId(ref.turn) ?? pendingUser?.turnId ?? `react-turn-${rounds.length + 1}`,
             position: rounds.length + 1,
-            userPrompt: userPrompt || `Message ${rounds.length + 1}`,
+            userPrompt,
             assistantContent,
             preview: truncatePreview(userPrompt || assistantContent),
-            messageId: adapter.getMessageId(messageElement),
-            userMessageId: typeof parentPromptMessage?.id === 'string' ? String(parentPromptMessage.id) : null,
-            assistantMessageId: getMessageId(assistantMessage) ?? adapter.getMessageId(messageElement),
+            messageId: (ref.messageElement ? adapter.getMessageId(ref.messageElement) : null) ?? getMessageId(assistantMessage),
+            userMessageId: pendingUser?.userMessageId ?? getMessageId(ref.parentPromptMessage),
+            assistantMessageId: getMessageId(assistantMessage) ?? (ref.messageElement ? adapter.getMessageId(ref.messageElement) : null),
         });
+        pendingUser = null;
     }
 
     if (rounds.length === 0) return null;
