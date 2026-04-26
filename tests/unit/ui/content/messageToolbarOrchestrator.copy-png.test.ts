@@ -48,7 +48,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
         }) as any;
-        orchestrator.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920 });
+        orchestrator.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920, pngPixelRatio: 2.5 });
         orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'Answer' }));
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 
@@ -62,7 +62,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
             [{ user: 'Prompt', assistant: 'Answer', index: 6 }],
             [0],
             expect.objectContaining({ title: 'PNG Width Test', count: 1 }),
-            expect.objectContaining({ png: { width: 640 } }),
+            expect.objectContaining({ png: { width: 640, pixelRatio: 2.5 } }),
         );
     });
 });

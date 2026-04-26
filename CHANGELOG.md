@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export: Added PNG export to Save Messages. A single selected message downloads as one PNG, while multiple selected messages render one PNG per message and download together as a ZIP.
 - Export: Added in-dialog PNG export progress feedback so long-running multi-message renders now report the current step and item count instead of looking stalled.
 - Settings: Added a global PNG export width preference with `Mobile`, `Tablet`, `Desktop`, and `Custom` options in the Bookmarks panel Settings tab.
+- Settings: Added a global PNG image scale preference so users can tune export sharpness up to a guarded 3x pixel ratio.
 - Settings: Added ChatGPT directory controls so users can hide the right-side directory or switch between compact preview and expanded list modes.
 - Toolbar: Added `Copy as PNG` as a hover secondary action above the message `Copy Markdown` button, so the current message can be copied directly to the clipboard as a PNG without opening export flows.
 
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Reader, Copy Markdown, and Save Messages now remove source citation controls, citation markers, and hyperlink URLs from extracted assistant markdown.
 - ChatGPT: Save Messages export now uses the same payload-backed conversation source as Reader, so exported content no longer depends on the currently hydrated DOM range.
 - Toolbar: Copy Markdown tooltips now render in a toolbar-owned body-level layer so adjacent messages cannot cover them.
+- Export: PNG rendering now caps the effective pixel ratio before hitting browser canvas limits, making long-image quality degradation explicit and stable instead of relying on renderer auto-scaling.
 - Toolbar: Kept the `Copy as PNG` hover action icon-only with a 30px rounded-square target, local tooltips, and a small hover bridge so moving from Copy to PNG does not collapse the action.
 
 ## [4.1.2] - 2026-04-22

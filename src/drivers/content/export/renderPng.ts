@@ -12,7 +12,7 @@ export type RenderPngPlan = {
 
 const ROOT_ID = 'aimd-png-export-root';
 const DEFAULT_IMAGE_TIMEOUT_MS = 1500;
-const LONG_PNG_HEIGHT_SOFT_LIMIT = 20000;
+const SAFE_CANVAS_DIMENSION_LIMIT = 16384;
 const IMAGE_PLACEHOLDER_DATA_URL =
     'data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22640%22 height=%22320%22 viewBox=%220 0 640 320%22%3E%3Crect width=%22640%22 height=%22320%22 rx=%2216%22 fill=%22%23f6f8fa%22/%3E%3Crect x=%221%22 y=%221%22 width=%22638%22 height=%22318%22 rx=%2215%22 fill=%22none%22 stroke=%22%23d0d7de%22/%3E%3Ctext x=%22320%22 y=%22162%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2220%22 fill=%22%2357606a%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
 
@@ -70,6 +70,13 @@ function replaceUnavailableImages(root: HTMLElement): void {
     }
 }
 
+function resolveSafePixelRatio(requestedPixelRatio: number, width: number, height: number): number {
+    const requested = Number.isFinite(requestedPixelRatio) && requestedPixelRatio > 0 ? requestedPixelRatio : 1;
+    const maxDimension = Math.max(1, width, height);
+    const safeRatio = Math.min(requested, SAFE_CANVAS_DIMENSION_LIMIT / maxDimension);
+    return Math.max(0.1, Math.round(safeRatio * 10000) / 10000);
+}
+
 export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
     const root = createRoot();
     const node = document.createElement('div');
@@ -84,16 +91,19 @@ export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
         replaceUnavailableImages(node);
         const exportWidth = node.scrollWidth || plan.width;
         const exportHeight = node.scrollHeight;
-        if (exportHeight > LONG_PNG_HEIGHT_SOFT_LIMIT) {
-            logger.warn('[AI-MarkDone][PNGExport] Export node exceeds soft height limit; attempting render anyway.', {
+        const effectivePixelRatio = resolveSafePixelRatio(plan.pixelRatio, exportWidth, exportHeight);
+        if (effectivePixelRatio < plan.pixelRatio) {
+            logger.warn('[AI-MarkDone][PNGExport] Export node exceeds safe canvas dimension; pixel ratio was capped.', {
                 filename: plan.filename,
                 width: exportWidth,
                 height: exportHeight,
-                pixelRatio: plan.pixelRatio,
+                requestedPixelRatio: plan.pixelRatio,
+                effectivePixelRatio,
+                canvasDimensionLimit: SAFE_CANVAS_DIMENSION_LIMIT,
             });
         }
         const blob = await toBlob(node, {
-            pixelRatio: plan.pixelRatio,
+            pixelRatio: effectivePixelRatio,
             backgroundColor: plan.backgroundColor,
             cacheBust: true,
             imagePlaceholder: IMAGE_PLACEHOLDER_DATA_URL,
@@ -102,7 +112,7 @@ export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
         if (!blob) {
             throw new Error(
                 `PNG export failed for ${plan.filename}: renderer returned an empty blob ` +
-                `(${exportWidth}x${exportHeight}, pixelRatio ${plan.pixelRatio}).`
+                `(${exportWidth}x${exportHeight}, pixelRatio ${effectivePixelRatio}).`
             );
         }
         return blob;

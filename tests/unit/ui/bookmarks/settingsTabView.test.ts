@@ -29,6 +29,7 @@ const baseSettings = {
     export: {
         pngWidthPreset: 'desktop',
         pngCustomWidth: 920,
+        pngPixelRatio: 2,
     },
     chatgptDirectory: {
         enabled: true,
@@ -126,6 +127,7 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const presetTrigger = root.querySelector<HTMLElement>('[data-role="settings-export-png-width-preset"]')!;
         const widthInput = root.querySelector<HTMLInputElement>('[data-role="settings-export-png-width"]')!;
+        const pixelRatioInput = root.querySelector<HTMLInputElement>('[data-role="settings-export-png-pixel-ratio"]')!;
         const exportRows = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
             .find((card) => card.querySelector('[data-role="settings-export-png-width-preset"]'))
             ?.querySelectorAll('.settings-row');
@@ -139,7 +141,8 @@ describe('SettingsTabView', () => {
         expect(controls?.contains(widthInput)).toBe(true);
         expect(presetTrigger.closest('.settings-export-width-preset')).toBeTruthy();
         expect(widthInput.closest('.settings-export-width-value')).toBeTruthy();
-        expect(exportRows).toHaveLength(1);
+        expect(pixelRatioInput.value).toBe('2');
+        expect(exportRows).toHaveLength(2);
 
         presetTrigger.click();
         root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="custom"]')!.click();
@@ -157,6 +160,11 @@ describe('SettingsTabView', () => {
         expect(widthInput.disabled).toBe(true);
         expect(widthInput.value).toBe('390');
         expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngWidthPreset: 'mobile' });
+
+        pixelRatioInput.value = '2.7';
+        pixelRatioInput.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(pixelRatioInput.value).toBe('2.5');
+        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngPixelRatio: 2.7 });
     });
 
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {
@@ -185,6 +193,8 @@ describe('SettingsTabView', () => {
         expect(css).toContain('width: 88px;');
         expect(css).toContain('.settings-export-width-preset .settings-select-trigger {');
         expect(css).toContain('min-width: 120px;');
+        expect(css).toContain('.settings-export-pixel-ratio-value {');
+        expect(css).toContain('width: 88px;');
         expect(css).not.toContain('--_bookmarks-settings-control-min-width');
         expect(css).not.toContain('--_bookmarks-settings-control-max-width');
         expect(css).not.toContain('flex: 1 1 190px;');

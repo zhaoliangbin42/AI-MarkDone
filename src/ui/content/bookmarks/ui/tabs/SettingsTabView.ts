@@ -1,9 +1,13 @@
 import type { AppSettings } from '../../../../../core/settings/types';
 import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
 import {
+    MAX_PNG_EXPORT_PIXEL_RATIO,
     MAX_PNG_EXPORT_WIDTH,
+    MIN_PNG_EXPORT_PIXEL_RATIO,
     MIN_PNG_EXPORT_WIDTH,
+    PNG_EXPORT_PIXEL_RATIO_STEP,
     PNG_EXPORT_WIDTH_STEP,
+    resolvePngExportPixelRatio,
     resolvePngExportWidth,
     type PngExportWidthPreset,
 } from '../../../../../core/settings/export';
@@ -75,6 +79,7 @@ type Refs = {
     export: {
         pngWidthPreset: SelectRef;
         pngWidth: NumberFieldRef;
+        pngPixelRatio: NumberFieldRef;
     };
     chatgptDirectory: {
         enabled: HTMLInputElement;
@@ -160,6 +165,15 @@ export class SettingsTabView {
             MIN_PNG_EXPORT_WIDTH,
             MAX_PNG_EXPORT_WIDTH,
             PNG_EXPORT_WIDTH_STEP,
+        );
+        const pngPixelRatio = this.createNumberRow(
+            exportGroup.body,
+            t('pngExportPixelRatioLabel'),
+            t('pngExportPixelRatioDesc'),
+            MIN_PNG_EXPORT_PIXEL_RATIO,
+            MAX_PNG_EXPORT_PIXEL_RATIO,
+            PNG_EXPORT_PIXEL_RATIO_STEP,
+            'settings-export-pixel-ratio-value',
         );
 
         const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptDirectorySettingsLabel'));
@@ -255,6 +269,7 @@ export class SettingsTabView {
             export: {
                 pngWidthPreset: pngExportWidth.preset,
                 pngWidth: pngExportWidth.width,
+                pngPixelRatio,
             },
             chatgptDirectory: {
                 enabled: chatGptDirectoryEnabled.input,
@@ -276,6 +291,7 @@ export class SettingsTabView {
         this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
+        this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
 
@@ -421,6 +437,16 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setExportSettings?.({ pngCustomWidth: raw });
         });
+        this.refs.export.pngPixelRatio.input.addEventListener('change', () => {
+            const raw = Number.parseFloat(this.refs.export.pngPixelRatio.input.value);
+            if (!Number.isFinite(raw)) {
+                this.applySettingsToDom();
+                return;
+            }
+            this.settings.export.pngPixelRatio = raw;
+            this.applySettingsToDom();
+            void this.actions.setExportSettings?.({ pngPixelRatio: raw });
+        });
         this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.enabled.checked;
             this.settings.chatgptDirectory.enabled = next;
@@ -459,6 +485,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
+        this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
         this.refs.language.setValue(s.language);
@@ -602,6 +629,32 @@ export class SettingsTabView {
         return { preset, width };
     }
 
+    private createNumberRow(
+        parent: HTMLElement,
+        labelText: string,
+        desc: string,
+        min: number,
+        max: number,
+        step: number,
+        valueClassName: string,
+    ): NumberFieldRef {
+        const item = document.createElement('div');
+        item.className = 'settings-row settings-item';
+        const info = document.createElement('div');
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        const summary = document.createElement('p');
+        summary.textContent = desc;
+        info.append(label, summary);
+
+        const field = this.createNumberField(min, max, step);
+        field.field.classList.add(valueClassName);
+        item.append(info, field.field);
+        parent.appendChild(item);
+        return field;
+    }
+
     private createNumberField(min: number, max: number, step: number): NumberFieldRef {
         const field = document.createElement('div');
         field.className = 'settings-number-field';
@@ -613,7 +666,7 @@ export class SettingsTabView {
         input.min = String(min);
         input.max = String(max);
         input.step = String(step);
-        input.inputMode = 'numeric';
+        input.inputMode = Number.isInteger(step) ? 'numeric' : 'decimal';
         field.appendChild(input);
         return { root: field, field, input };
     }

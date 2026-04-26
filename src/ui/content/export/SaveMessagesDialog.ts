@@ -1,5 +1,10 @@
 import type { Theme } from '../../../core/types/theme';
-import { DEFAULT_EXPORT_SETTINGS, resolvePngExportWidth, type ExportSettings } from '../../../core/settings/export';
+import {
+    DEFAULT_EXPORT_SETTINGS,
+    resolvePngExportPixelRatio,
+    resolvePngExportWidth,
+    type ExportSettings,
+} from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { getTokenCss } from '../../../style/tokens';
@@ -44,6 +49,7 @@ export class SaveMessagesDialog {
         return t(key, String(args));
     };
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
+    private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
 
     private state: State = {
         theme: 'light',
@@ -64,6 +70,7 @@ export class SaveMessagesDialog {
 
     setExportSettings(settings: ExportSettings): void {
         this.resolvedPngWidth = resolvePngExportWidth(settings);
+        this.resolvedPngPixelRatio = resolvePngExportPixelRatio(settings);
     }
 
     async open(
@@ -271,7 +278,7 @@ export class SaveMessagesDialog {
                     : format === 'png'
                     ? await exportTurnsPng(turns, selectedIndices, metadata, {
                           t: this.exportT,
-                          png: { width: this.resolvedPngWidth },
+                          png: { width: this.resolvedPngWidth, pixelRatio: this.resolvedPngPixelRatio },
                           onProgress: (event) => {
                               this.state.progressValue = event.total > 0 ? Math.round((event.completed / event.total) * 100) : null;
                               this.state.progressText = this.getPngProgressLabel(event.phase, event.completed, event.total, event.filename);

@@ -124,7 +124,7 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         let resolveExport!: () => void;
         vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
-            expect(options.png).toEqual({ width: 800 });
+            expect(options.png).toEqual({ width: 800, pixelRatio: 2 });
             options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;
@@ -159,12 +159,12 @@ describe('SaveMessagesDialog', () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
-            expect(options.png).toEqual({ width: 640 });
+            expect(options.png).toEqual({ width: 640, pixelRatio: 2.5 });
             return { ok: true, noop: false };
         });
 
         const dlg = new SaveMessagesDialog();
-        dlg.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920 });
+        dlg.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920, pngPixelRatio: 2.5 });
         await dlg.open(adapter, 'light');
 
         const host = document.getElementById('aimd-save-messages-dialog-host')!;

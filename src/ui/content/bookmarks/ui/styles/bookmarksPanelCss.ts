@@ -1148,6 +1148,12 @@ ${getPanelChromeCss()}
   justify-self: auto;
 }
 
+.settings-export-pixel-ratio-value {
+  min-width: 0;
+  width: 88px;
+  max-width: none;
+}
+
 .settings-export-width-preset .settings-select-trigger {
   width: auto;
   min-width: 120px;

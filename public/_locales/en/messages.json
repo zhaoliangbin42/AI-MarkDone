@@ -356,6 +356,12 @@
     "pngExportWidthPresetCustom": {
         "message": "Custom"
     },
+    "pngExportPixelRatioLabel": {
+        "message": "PNG image scale"
+    },
+    "pngExportPixelRatioDesc": {
+        "message": "Controls raster sharpness. Long exports may be capped by the browser canvas limit."
+    },
     "saveBookmarkTitle": {
         "message": "Save Bookmark"
     },

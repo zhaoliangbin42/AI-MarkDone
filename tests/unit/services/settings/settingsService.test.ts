@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PNG_EXPORT_WIDTH, MIN_PNG_EXPORT_WIDTH, resolvePngExportWidth } from '@/core/settings/export';
+import {
+    MAX_PNG_EXPORT_PIXEL_RATIO,
+    MAX_PNG_EXPORT_WIDTH,
+    MIN_PNG_EXPORT_PIXEL_RATIO,
+    MIN_PNG_EXPORT_WIDTH,
+    resolvePngExportPixelRatio,
+    resolvePngExportWidth,
+} from '@/core/settings/export';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
 import { loadAndNormalize, planGetCategory, planSetCategory } from '@/services/settings/settingsService';
 import type { CommentTemplateSegment } from '@/services/reader/commentExport';
@@ -112,18 +119,31 @@ describe('settingsService', () => {
 
         expect(next.export.pngWidthPreset).toBe('mobile');
         expect(next.export.pngCustomWidth).toBe(MIN_PNG_EXPORT_WIDTH);
+        expect(next.export.pngPixelRatio).toBe(2);
         expect(resolvePngExportWidth(next.export)).toBe(390);
+        expect(resolvePngExportPixelRatio(next.export)).toBe(2);
     });
 
     it('preserves a normalized custom PNG width when writing export settings', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'export', {
             pngWidthPreset: 'custom',
             pngCustomWidth: MAX_PNG_EXPORT_WIDTH + 37,
+            pngPixelRatio: MAX_PNG_EXPORT_PIXEL_RATIO + 1,
         }).next;
 
         expect(next.export.pngWidthPreset).toBe('custom');
         expect(next.export.pngCustomWidth).toBe(MAX_PNG_EXPORT_WIDTH);
+        expect(next.export.pngPixelRatio).toBe(MAX_PNG_EXPORT_PIXEL_RATIO);
         expect(resolvePngExportWidth(next.export)).toBe(MAX_PNG_EXPORT_WIDTH);
+        expect(resolvePngExportPixelRatio(next.export)).toBe(MAX_PNG_EXPORT_PIXEL_RATIO);
+    });
+
+    it('rounds PNG pixel ratio to the configured step and lower bound', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'export', {
+            pngPixelRatio: MIN_PNG_EXPORT_PIXEL_RATIO - 0.3,
+        }).next;
+
+        expect(next.export.pngPixelRatio).toBe(MIN_PNG_EXPORT_PIXEL_RATIO);
     });
 
     it('drops the retired source panel behavior flag when normalizing stored settings', () => {

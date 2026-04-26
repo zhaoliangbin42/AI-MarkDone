@@ -1,5 +1,10 @@
 import type { Theme } from '../../../core/types/theme';
-import { DEFAULT_EXPORT_SETTINGS, resolvePngExportWidth, type ExportSettings } from '../../../core/settings/export';
+import {
+    DEFAULT_EXPORT_SETTINGS,
+    resolvePngExportPixelRatio,
+    resolvePngExportWidth,
+    type ExportSettings,
+} from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { scrollToBookmarkTargetWithRetry } from '../../../drivers/content/bookmarks/navigation';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
@@ -92,6 +97,7 @@ export class MessageToolbarOrchestrator {
     private chatGptConversationEngine: ChatGPTConversationEngine | null = null;
     private behavior = { showSaveMessages: true, showWordCount: true };
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
+    private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
     private wordCounter = new WordCounter();
     private messageOrder: HTMLElement[] = [];
     private messagePositionByElement = new WeakMap<HTMLElement, number>();
@@ -470,6 +476,7 @@ export class MessageToolbarOrchestrator {
 
     setExportSettings(settings: ExportSettings): void {
         this.resolvedPngWidth = resolvePngExportWidth(settings);
+        this.resolvedPngPixelRatio = resolvePngExportPixelRatio(settings);
     }
 
     private getPositionForMessage(messageElement: HTMLElement): number {
@@ -601,7 +608,7 @@ export class MessageToolbarOrchestrator {
                             if (typeof args === 'string' || Array.isArray(args)) return t(key, args);
                             return t(key);
                         },
-                        png: { width: this.resolvedPngWidth },
+                        png: { width: this.resolvedPngWidth, pixelRatio: this.resolvedPngPixelRatio },
                         onDebug: emitDebug,
                     });
                     if (!result.ok) {

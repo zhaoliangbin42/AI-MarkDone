@@ -46,12 +46,14 @@ describe('buildPngExportPlans', () => {
         expect(result!.options.backgroundColor).toBe('#ffffff');
     });
 
-    it('writes a custom width into the generated PNG plans', () => {
-        const result = buildPngExportPlans(turns, [0], meta, t, { width: 420 });
+    it('writes custom width and pixel ratio into the generated PNG plans', () => {
+        const result = buildPngExportPlans(turns, [0], meta, t, { width: 420, pixelRatio: 3 });
 
         expect(result).not.toBeNull();
         expect(result!.options.width).toBe(420);
+        expect(result!.options.pixelRatio).toBe(3);
         expect(result!.plans[0].width).toBe(420);
+        expect(result!.plans[0].pixelRatio).toBe(3);
         expect(result!.plans[0].html).toContain('width: 420px;');
     });
 });

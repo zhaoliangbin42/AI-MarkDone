@@ -5,6 +5,7 @@ vi.mock('html-to-image', () => ({
 }));
 
 import { toBlob } from 'html-to-image';
+import { logger } from '../../../../../src/core/logger';
 import { renderPngBlob } from '../../../../../src/drivers/content/export/renderPng';
 
 describe('renderPngBlob', () => {
@@ -35,6 +36,33 @@ describe('renderPngBlob', () => {
             fontEmbedCSS: '',
         });
         expect(document.getElementById('aimd-png-export-root')).toBeNull();
+    });
+
+    it('caps pixel ratio before rendering when long content would exceed the safe canvas dimension', async () => {
+        const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(10000);
+        const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        await renderPngBlob({
+            filename: 'long-message.png',
+            html: '<div>long</div>',
+            width: 800,
+            pixelRatio: 2,
+            backgroundColor: '#ffffff',
+        });
+
+        expect(vi.mocked(toBlob).mock.calls[0][1]).toMatchObject({
+            pixelRatio: 1.6384,
+        });
+        expect(warn).toHaveBeenCalledWith(
+            '[AI-MarkDone][PNGExport] Export node exceeds safe canvas dimension; pixel ratio was capped.',
+            expect.objectContaining({
+                requestedPixelRatio: 2,
+                effectivePixelRatio: 1.6384,
+                canvasDimensionLimit: 16384,
+            }),
+        );
+        scrollHeight.mockRestore();
+        warn.mockRestore();
     });
 
     it('throws a useful error when html-to-image returns null', async () => {

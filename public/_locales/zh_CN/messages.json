@@ -356,6 +356,12 @@
     "pngExportWidthPresetCustom": {
         "message": "自定义"
     },
+    "pngExportPixelRatioLabel": {
+        "message": "PNG 图片倍率"
+    },
+    "pngExportPixelRatioDesc": {
+        "message": "控制位图清晰度。长图导出时可能会受浏览器 Canvas 上限保护。"
+    },
     "saveBookmarkTitle": {
         "message": "保存书签"
     },
