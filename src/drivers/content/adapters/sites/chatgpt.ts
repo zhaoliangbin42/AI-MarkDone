@@ -22,6 +22,22 @@ const detector: ThemeDetector = {
     },
 };
 
+type ChatGPTStructuredTurn = {
+    id?: string | null;
+    role?: string | null;
+    author?: { role?: string | null } | null;
+    messages?: unknown[];
+};
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
+
+function readString(record: Record<string, unknown> | null | undefined, key: string): string | null {
+    const value = record?.[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 export class ChatGPTAdapter extends SiteAdapter {
     private getTurnContainer(rootEl: HTMLElement): HTMLElement {
         const container = rootEl.closest('[data-turn-id-container]');
@@ -92,6 +108,131 @@ export class ChatGPTAdapter extends SiteAdapter {
         push(barAnchorEl ?? (userRootEl ? this.getTurnContainer(userRootEl) : null));
         push(this.getTurnContainer(assistantRootEl));
         return nodes;
+    }
+
+    private getConversationDiscoveryRoot(): ParentNode {
+        return this.getObserverContainer() ?? document;
+    }
+
+    private getStructuredTurnRole(turn: ChatGPTStructuredTurn | null): 'user' | 'assistant' | null {
+        const role = readString(readRecord(turn?.author), 'role') ?? (typeof turn?.role === 'string' ? turn.role : null);
+        if (role === 'user' || role === 'assistant') return role;
+        const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+        for (let index = messages.length - 1; index >= 0; index -= 1) {
+            const message = readRecord(messages[index]);
+            const messageRole = readString(readRecord(message?.author) ?? message, 'role');
+            if (messageRole === 'user' || messageRole === 'assistant') return messageRole;
+        }
+        return null;
+    }
+
+    private getReactRootCandidate(element: HTMLElement): any {
+        for (const key of Object.keys(element)) {
+            if (!key.startsWith('__reactFiber$') && !key.startsWith('__reactProps$')) continue;
+            const value = (element as unknown as Record<string, unknown>)[key];
+            if (value) return value;
+        }
+        return null;
+    }
+
+    private findStructuredTurnData(element: HTMLElement): ChatGPTStructuredTurn | null {
+        let fiber = this.getReactRootCandidate(element);
+        let depth = 0;
+
+        while (fiber && depth < 12) {
+            const candidates = [
+                fiber.pendingProps,
+                fiber.memoizedProps,
+                fiber.pendingProps?.value,
+                fiber.memoizedProps?.value,
+            ].filter(Boolean) as Array<Record<string, unknown>>;
+
+            for (const candidate of candidates) {
+                const turn =
+                    (candidate.turn as ChatGPTStructuredTurn | undefined)
+                    ?? (candidate.currentTurn as ChatGPTStructuredTurn | undefined)
+                    ?? (candidate.prevTurn as ChatGPTStructuredTurn | undefined)
+                    ?? null;
+                if (turn && this.getStructuredTurnRole(turn)) return turn;
+            }
+
+            fiber = fiber.return ?? null;
+            depth += 1;
+        }
+
+        return null;
+    }
+
+    private isStructuredTextContent(record: Record<string, unknown>): boolean {
+        const contentType = readString(record, 'content_type');
+        return !contentType || contentType === 'text' || contentType === 'multimodal_text';
+    }
+
+    private normalizeStructuredText(value: unknown): string {
+        if (typeof value === 'string') return value.trim();
+        if (Array.isArray(value)) {
+            return value.map((item) => this.normalizeStructuredText(item)).filter(Boolean).join('\n\n').trim();
+        }
+
+        const record = readRecord(value);
+        if (!record || !this.isStructuredTextContent(record)) return '';
+        if (Array.isArray(record.parts)) {
+            const combined = record.parts
+                .map((part) => typeof part === 'string' ? part : '')
+                .filter(Boolean)
+                .join('\n')
+                .trim();
+            if (combined) return combined;
+        }
+        return readString(record, 'text') ?? readString(record, 'content') ?? readString(record, 'markdown') ?? '';
+    }
+
+    private getStructuredTurnText(turn: ChatGPTStructuredTurn | null, expectedRole: 'user' | 'assistant'): string {
+        const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+        const texts = messages
+            .filter((message) => {
+                const record = readRecord(message);
+                if (!record) return false;
+                const role = readString(readRecord(record.author) ?? record, 'role') ?? this.getStructuredTurnRole(turn);
+                if (role !== expectedRole) return false;
+                const content = readRecord(record.content);
+                return !content || this.isStructuredTextContent(content);
+            })
+            .map((message) => this.normalizeStructuredText(readRecord(message)?.content))
+            .filter(Boolean);
+        return texts[texts.length - 1] ?? '';
+    }
+
+    private getStructuredTurnMessageId(turn: ChatGPTStructuredTurn | null, expectedRole: 'user' | 'assistant'): string | null {
+        const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+        for (let index = messages.length - 1; index >= 0; index -= 1) {
+            const record = readRecord(messages[index]);
+            if (!record) continue;
+            const role = readString(readRecord(record.author) ?? record, 'role') ?? this.getStructuredTurnRole(turn);
+            if (role !== expectedRole) continue;
+            const id = readString(record, 'id');
+            if (id) return id;
+        }
+        return typeof turn?.id === 'string' && turn.id.trim() ? turn.id.trim() : null;
+    }
+
+    private hasConversationGroupRef(refs: ConversationGroupRef[], assistantRootEl: HTMLElement, messageEl: HTMLElement, id: string): boolean {
+        return refs.some((ref) => (
+            ref.assistantRootEl === assistantRootEl
+            || ref.assistantMessageEl === messageEl
+            || ref.id === id
+        ));
+    }
+
+    private finalizeConversationGroupRefs(refs: ConversationGroupRef[]): ConversationGroupRef[] {
+        refs.sort((a, b) => {
+            if (a.assistantRootEl === b.assistantRootEl) return 0;
+            const position = a.assistantRootEl.compareDocumentPosition(b.assistantRootEl);
+            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+            if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            return a.assistantIndex - b.assistantIndex;
+        });
+        return refs.map((ref, assistantIndex) => ({ ...ref, assistantIndex }));
     }
 
     private findOfficialActionAnchor(assistantMessageElement: HTMLElement): HTMLElement | null {
@@ -293,60 +434,69 @@ export class ChatGPTAdapter extends SiteAdapter {
     getConversationGroupRefs(): ConversationGroupRef[] {
         const refs: ConversationGroupRef[] = [];
         let assistantIndex = 0;
-        const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
+        const discoveryRoot = this.getConversationDiscoveryRoot();
+        const turnContainers = Array.from(discoveryRoot.querySelectorAll('[data-turn-id-container]')).filter(
             (node): node is HTMLElement => node instanceof HTMLElement
         );
 
         if (turnContainers.length > 0) {
-            let pendingUser: { container: HTMLElement; root: HTMLElement } | null = null;
+            let pendingUser: { container: HTMLElement; root: HTMLElement; prompt: string | null } | null = null;
 
             for (const container of turnContainers) {
                 const userRootEl = this.getTurnRootFromContainer(container, 'user');
                 const assistantRootEl = this.getTurnRootFromContainer(container, 'assistant');
+                const structuredTurn = this.findStructuredTurnData(container);
+                const structuredRole = this.getStructuredTurnRole(structuredTurn);
 
-                if (userRootEl && !assistantRootEl) {
-                    pendingUser = { container, root: userRootEl };
+                if ((userRootEl && !assistantRootEl) || structuredRole === 'user') {
+                    pendingUser = {
+                        container,
+                        root: userRootEl ?? container,
+                        prompt: this.extractUserPromptFromRoot(userRootEl) ?? (this.getStructuredTurnText(structuredTurn, 'user') || null),
+                    };
                     continue;
                 }
 
-                if (!assistantRootEl) continue;
+                if (!assistantRootEl && structuredRole !== 'assistant') continue;
 
-                const messageEl = this.getAssistantMessageFromRoot(assistantRootEl);
-                if (!messageEl) continue;
-                if (!this.isVirtualizationEligibleMessage(messageEl)) continue;
+                const resolvedAssistantRootEl = assistantRootEl ?? container;
+                const messageEl = this.getAssistantMessageFromRoot(resolvedAssistantRootEl) ?? container;
+                if (messageEl !== container && !this.isVirtualizationEligibleMessage(messageEl)) continue;
                 if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
 
                 const pairedUser = pendingUser;
-                const pairedUserRoot = pairedUser?.root ?? this.getUserTurnRootFromAssistantRoot(assistantRootEl);
+                const pairedUserRoot = pairedUser?.root ?? (assistantRootEl ? this.getUserTurnRootFromAssistantRoot(assistantRootEl) : null);
                 const barAnchorEl = pairedUser?.container ?? (pairedUserRoot ? this.getTurnContainer(pairedUserRoot) : container);
                 const id = this.getMessageId(messageEl)
-                    || assistantRootEl.getAttribute('data-turn-id')
+                    || this.getStructuredTurnMessageId(structuredTurn, 'assistant')
+                    || resolvedAssistantRootEl.getAttribute('data-turn-id')
                     || `chatgpt-group-${assistantIndex}`;
+                if (this.hasConversationGroupRef(refs, resolvedAssistantRootEl, messageEl, id)) continue;
 
                 refs.push({
                     id,
-                    assistantRootEl,
+                    assistantRootEl: resolvedAssistantRootEl,
                     assistantMessageEl: messageEl,
                     userRootEl: pairedUserRoot,
-                    userPromptText: this.extractUserPromptFromRoot(pairedUserRoot),
+                    userPromptText: pairedUser?.prompt ?? this.extractUserPromptFromRoot(pairedUserRoot),
                     barAnchorEl,
-                    groupEls: this.collectGroupEls(pairedUserRoot, assistantRootEl, barAnchorEl),
+                    groupEls: this.collectGroupEls(pairedUserRoot, resolvedAssistantRootEl, barAnchorEl),
                     assistantIndex,
-                    isStreaming: this.isStreamingMessage(messageEl),
+                    isStreaming: messageEl !== container && this.isStreamingMessage(messageEl),
                 });
                 assistantIndex += 1;
                 pendingUser = null;
             }
-
-            if (refs.length > 0) return refs;
         }
 
-        const messages = Array.from(document.querySelectorAll(this.getMessageSelector())).filter(
+        const messages = Array.from(discoveryRoot.querySelectorAll(this.getMessageSelector())).filter(
             (node): node is HTMLElement => node instanceof HTMLElement
         );
 
         for (const messageEl of messages) {
-            const assistantRootEl = this.getTurnRootElement(messageEl) ?? messageEl.closest('section[data-turn="assistant"]') as HTMLElement | null ?? messageEl;
+            const assistantRootEl = this.getTurnRootElement(messageEl)
+                ?? messageEl.closest('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]') as HTMLElement | null
+                ?? messageEl;
             if (!(assistantRootEl instanceof HTMLElement)) continue;
             if (!this.isVirtualizationEligibleMessage(messageEl)) continue;
             if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
@@ -356,6 +506,7 @@ export class ChatGPTAdapter extends SiteAdapter {
             const groupEls = this.collectGroupEls(userRootEl, assistantRootEl, barAnchorEl);
             const id = this.getMessageId(messageEl)
                 || `chatgpt-group-${assistantIndex}`;
+            if (this.hasConversationGroupRef(refs, assistantRootEl, messageEl, id)) continue;
 
             refs.push({
                 id,
@@ -371,7 +522,7 @@ export class ChatGPTAdapter extends SiteAdapter {
             assistantIndex += 1;
         }
 
-        return refs;
+        return this.finalizeConversationGroupRefs(refs);
     }
 
     getHeavySubtreeRefs(bodyEls: HTMLElement[]): HTMLElement[] {

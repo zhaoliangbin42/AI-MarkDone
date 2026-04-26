@@ -17,6 +17,7 @@ This rule set covers shipped extension UI, not host-page styling.
 - Prefer semantic tokens over primitive values.
 - Prefer shared style entrypoints such as `src/style/tokens.ts` and `src/style/pageTokens.ts`.
 - Reuse existing UI style patterns before inventing new component-scoped token layers.
+- For clipping, overflow, crowding, and layering bugs, fix the layout contract first: containment, shrink behavior, overflow ownership, stacking context, and intrinsic sizing. Add new tokens only when the value represents a reusable design decision, not a local compensation.
 - Tailwind aliases must map back to `--aimd-*`; do not let Tailwind theme values become a second token source.
 - New UI modules must pass the mock-first browser visual workflow in `mocks/components/<module>/index.html` before merging into `src/ui/**`.
 

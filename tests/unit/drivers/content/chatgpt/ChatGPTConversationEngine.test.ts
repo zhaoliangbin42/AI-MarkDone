@@ -366,4 +366,69 @@ describe('ChatGPTConversationEngine', () => {
         expect(snapshot?.rounds[0]?.assistantContent).toBe('Visible answer');
         expect(snapshot?.rounds[0]?.assistantMessageId).toBe('a1');
     });
+
+    it('rebuilds a full fallback snapshot from structured turn containers when visible DOM is virtualized', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onerror?.(new Event('error')), 0);
+            return node;
+        });
+        document.body.innerHTML = `
+          <main>
+            <div data-turn-id-container id="u1"></div>
+            <div data-turn-id-container id="a1"></div>
+            <div data-turn-id-container id="u2"></div>
+            <div data-turn-id-container id="a2"></div>
+            <div data-message-author-role="assistant" data-message-id="visible-a2">
+              <div class="markdown prose">Only visible answer</div>
+            </div>
+          </main>
+        `;
+        const attachTurn = (id: string, turn: Record<string, unknown>) => {
+            const element = document.getElementById(id) as any;
+            element.__reactFiber$aimd = {
+                pendingProps: { value: { currentTurn: turn } },
+                return: null,
+            };
+        };
+        attachTurn('u1', {
+            id: 'turn-u1',
+            author: { role: 'user' },
+            messages: [{ id: 'u1-message', author: { role: 'user' }, content: { content_type: 'text', parts: ['Question 1'] } }],
+        });
+        attachTurn('a1', {
+            id: 'turn-a1',
+            author: { role: 'assistant' },
+            messages: [
+                {
+                    id: 'hidden-tool',
+                    author: { role: 'tool' },
+                    metadata: { is_visually_hidden_from_conversation: true },
+                    content: { content_type: 'text', parts: ['Hidden upload text'] },
+                },
+                { id: 'a1-message', author: { role: 'assistant' }, content: { content_type: 'text', parts: ['Answer 1'] } },
+            ],
+        });
+        attachTurn('u2', {
+            id: 'turn-u2',
+            role: 'user',
+            messages: [{ id: 'u2-message', author: { role: 'user' }, content: { content_type: 'text', parts: ['Question 2'] } }],
+        });
+        attachTurn('a2', {
+            id: 'turn-a2',
+            role: 'assistant',
+            messages: [{ id: 'a2-message', author: { role: 'assistant' }, content: { content_type: 'text', parts: ['Answer 2'] } }],
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot?.source).toBe('react-props');
+        expect(snapshot?.rounds).toHaveLength(2);
+        expect(snapshot?.rounds.map((round) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
+        expect(snapshot?.rounds.map((round) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
+        expect(snapshot?.rounds.map((round) => round.assistantMessageId)).toEqual(['a1-message', 'a2-message']);
+    });
 });

@@ -278,6 +278,238 @@
     return getMessageContent(message);
   }
 
+  function getTurnRole(turn) {
+    const role = readString(readRecord(turn?.author) || turn, 'role');
+    if (role === 'user' || role === 'assistant') return role;
+    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const messageRole = readAuthorRole(messages[index]);
+      if (messageRole === 'user' || messageRole === 'assistant') return messageRole;
+    }
+    return null;
+  }
+
+  function getTurnId(turn) {
+    return typeof turn?.id === 'string' && turn.id.trim() ? turn.id.trim() : null;
+  }
+
+  function getLastDisplayableMessage(turn, expectedRole) {
+    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = readRecord(messages[index]);
+      if (!message || !isDisplayableMessage(message, expectedRole)) continue;
+      if (getMessageId(message) || getDisplayableMessageContent(message, expectedRole)) return message;
+    }
+    return null;
+  }
+
+  function getReactRootCandidate(element) {
+    for (const key of Object.keys(element)) {
+      if (!key.startsWith('__reactFiber$') && !key.startsWith('__reactProps$')) continue;
+      if (element[key]) return element[key];
+    }
+    return null;
+  }
+
+  function findStructuredTurnData(element) {
+    let fiber = getReactRootCandidate(element);
+    let depth = 0;
+
+    while (fiber && depth < 12) {
+      const candidates = [
+        fiber.pendingProps,
+        fiber.memoizedProps,
+        fiber.pendingProps?.value,
+        fiber.memoizedProps?.value,
+      ].filter(Boolean);
+
+      for (const candidate of candidates) {
+        const turn = candidate.turn || candidate.currentTurn || candidate.prevTurn || null;
+        const parentPromptMessage = candidate.parentPromptMessage || candidate.lastUserMessage || null;
+        if (turn && getTurnRole(turn)) return { turn, parentPromptMessage };
+      }
+
+      fiber = fiber.return || null;
+      depth += 1;
+    }
+
+    return { turn: null, parentPromptMessage: null };
+  }
+
+  function collectStructuredTurnRefs() {
+    const refs = [];
+    const seen = new Set();
+    const push = (element) => {
+      if (!(element instanceof HTMLElement)) return;
+      const { turn, parentPromptMessage } = findStructuredTurnData(element);
+      const role = getTurnRole(turn);
+      if (!turn || !role) return;
+      const id = getTurnId(turn) || `${role}-${refs.length + 1}`;
+      const key = `${role}:${id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      refs.push({ element, turn, parentPromptMessage });
+    };
+
+    document.querySelectorAll('main [data-turn-id-container]').forEach(push);
+    if (refs.length > 0) return refs;
+    document.querySelectorAll('[data-message-author-role="assistant"][data-message-id]').forEach(push);
+    return refs;
+  }
+
+  function buildRoundsFromReactTurnContainers() {
+    const refs = collectStructuredTurnRefs();
+    if (refs.length === 0) return null;
+
+    const rounds = [];
+    let pendingUser = null;
+
+    for (const ref of refs) {
+      const role = getTurnRole(ref.turn);
+      if (role === 'user') {
+        const userMessage = getLastDisplayableMessage(ref.turn, 'user');
+        const userPrompt = getDisplayableMessageContent(userMessage, 'user');
+        pendingUser = {
+          turnId: getTurnId(ref.turn),
+          userPrompt: userPrompt || `Message ${rounds.length + 1}`,
+          userMessageId: getMessageId(userMessage),
+        };
+        continue;
+      }
+
+      if (role !== 'assistant') continue;
+      const assistantMessage = getLastDisplayableMessage(ref.turn, 'assistant');
+      const assistantContent = getDisplayableMessageContent(assistantMessage, 'assistant');
+      const fallbackPrompt = getDisplayableMessageContent(ref.parentPromptMessage, 'user');
+      const userPrompt = pendingUser?.userPrompt || fallbackPrompt || `Message ${rounds.length + 1}`;
+      rounds.push({
+        id: getTurnId(ref.turn) || pendingUser?.turnId || `react-turn-${rounds.length + 1}`,
+        position: rounds.length + 1,
+        userPrompt,
+        assistantContent,
+        preview: truncatePreview(userPrompt || assistantContent),
+        messageId: getMessageId(assistantMessage),
+        userMessageId: pendingUser?.userMessageId || getMessageId(ref.parentPromptMessage),
+        assistantMessageId: getMessageId(assistantMessage),
+      });
+      pendingUser = null;
+    }
+
+    return rounds.length > 0 ? rounds : null;
+  }
+
+  function getNodeMessage(node) {
+    if (!node || typeof node !== 'object') return null;
+    return readRecord(node.message);
+  }
+
+  function getPayloadCurrentNodeId(payload) {
+    return readString(payload, 'current_node')
+      || readString(payload, 'currentNode')
+      || readString(payload, 'currentLeafId')
+      || readString(payload, 'current_leaf_id');
+  }
+
+  function buildBranchNodesFromMapping(mapping, currentNodeId) {
+    if (!mapping || typeof mapping !== 'object' || !currentNodeId) return [];
+    const branch = [];
+    const seen = new Set();
+    let cursor = currentNodeId;
+
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      const node = mapping[cursor];
+      if (!node || typeof node !== 'object') break;
+      branch.push(node);
+      cursor = typeof node.parent === 'string' && node.parent ? node.parent : null;
+    }
+
+    return branch.reverse();
+  }
+
+  function buildRoundsFromMessages(nodes) {
+    const rounds = [];
+    let pendingRound = null;
+
+    for (const node of Array.isArray(nodes) ? nodes : []) {
+      const message = getNodeMessage(node);
+      if (!message) continue;
+      const role = readAuthorRole(message);
+
+      if (role === 'user') {
+        if (!isDisplayableMessage(message, 'user')) continue;
+        const userPrompt = getDisplayableMessageContent(message, 'user');
+        if (!userPrompt && !getMessageId(message)) continue;
+        pendingRound = {
+          id: typeof node.id === 'string' ? node.id : getMessageId(message) || `user-${rounds.length + 1}`,
+          position: rounds.length + 1,
+          userPrompt: userPrompt || `Message ${rounds.length + 1}`,
+          assistantContent: '',
+          preview: truncatePreview(userPrompt),
+          messageId: null,
+          userMessageId: getMessageId(message),
+          assistantMessageId: null,
+        };
+        rounds.push(pendingRound);
+        continue;
+      }
+
+      if (role !== 'assistant') continue;
+      if (!pendingRound) continue;
+      if (!isDisplayableMessage(message, 'assistant')) continue;
+
+      const assistantContent = getDisplayableMessageContent(message, 'assistant');
+      if (assistantContent) {
+        pendingRound.assistantContent = pendingRound.assistantContent
+          ? `${pendingRound.assistantContent}\n\n${assistantContent}`
+          : assistantContent;
+      }
+      pendingRound.assistantMessageId = getMessageId(message);
+      pendingRound.messageId = pendingRound.assistantMessageId || pendingRound.messageId || pendingRound.userMessageId;
+      pendingRound.preview = truncatePreview(
+        pendingRound.userPrompt || pendingRound.assistantContent || `Message ${pendingRound.position}`
+      );
+    }
+
+    return rounds.filter((round) => round.userPrompt || round.assistantContent);
+  }
+
+  function buildRoundsFromPayload(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+
+    if (Array.isArray(payload.turns)) {
+      const rounds = buildRoundsFromTurns(payload.turns);
+      return rounds.length > 0 ? rounds : null;
+    }
+
+    const mapping = readRecord(payload.mapping);
+    const currentNodeId = getPayloadCurrentNodeId(payload);
+    const branchNodes = buildBranchNodesFromMapping(mapping, currentNodeId);
+    const rounds = buildRoundsFromMessages(branchNodes);
+    return rounds.length > 0 ? rounds : null;
+  }
+
+  async function fetchConversationPayloadSnapshot(conversationId) {
+    try {
+      const response = await fetch(`/backend-api/conversation/${encodeURIComponent(conversationId)}`, {
+        credentials: 'include',
+      });
+      if (!response?.ok) return null;
+      const payload = await response.json();
+      const rounds = buildRoundsFromPayload(payload);
+      if (!rounds) return null;
+      return {
+        conversationId,
+        buildFingerprint: bridgeState.buildFingerprint,
+        rounds,
+        source: 'runtime-bridge',
+        capturedAt: nowTs(),
+      };
+    } catch {
+      return null;
+    }
+  }
+
   function buildRoundsFromTurns(turns) {
     const rounds = [];
     let pendingRound = null;
@@ -517,6 +749,25 @@
     const force = options?.force === true;
     if (!force && bridgeState.snapshotCache.has(conversationId)) {
       return bridgeState.snapshotCache.get(conversationId);
+    }
+
+    const payloadSnapshot = await fetchConversationPayloadSnapshot(conversationId);
+    if (payloadSnapshot?.rounds?.length) {
+      bridgeState.snapshotCache.set(conversationId, payloadSnapshot);
+      return payloadSnapshot;
+    }
+
+    const reactRounds = buildRoundsFromReactTurnContainers();
+    if (reactRounds?.length) {
+      const snapshot = {
+        conversationId,
+        buildFingerprint: bridgeState.buildFingerprint,
+        rounds: reactRounds,
+        source: 'runtime-bridge',
+        capturedAt: nowTs(),
+      };
+      bridgeState.snapshotCache.set(conversationId, snapshot);
+      return snapshot;
     }
 
     const bridge = await discoverBridge(conversationId);
