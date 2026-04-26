@@ -46,6 +46,8 @@ export class MessageToolbar {
     private hoverActionCloseTimer: number | null = null;
     private hoverActionTriggerInside = false;
     private hoverActionPortalInside = false;
+    private toolbarFeedbackTimer: number | null = null;
+    private toolbarFeedbackHost: HTMLElement | null = null;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean }) {
         this.theme = theme;
@@ -65,6 +67,7 @@ export class MessageToolbar {
     }
 
     dispose(): void {
+        this.clearToolbarFeedback();
         this.closeMenu();
         this.closeHoverAction();
         this.hoverActionPortal?.dispose();
@@ -80,6 +83,10 @@ export class MessageToolbar {
         this.host.setAttribute('data-aimd-theme', theme);
         ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
         this.hoverActionPortal?.setTheme(theme);
+        if (this.toolbarFeedbackHost) {
+            this.toolbarFeedbackHost.setAttribute('data-aimd-theme', theme);
+            ensureStyle(this.toolbarFeedbackHost.shadowRoot!, getTokenCss(theme), { id: 'aimd-toolbar-feedback-tokens' });
+        }
     }
 
     setPending(pending: boolean): void {
@@ -446,33 +453,93 @@ export class MessageToolbar {
     }
 
     private attachHoverFeedback(button: HTMLButtonElement, label: string, placement: 'top' | 'bottom'): void {
-        let hoverTimeout: number | null = null;
-        let feedbackElement: HTMLElement | null = null;
-
-        const removeFeedback = () => {
-            if (hoverTimeout !== null) {
-                window.clearTimeout(hoverTimeout);
-                hoverTimeout = null;
-            }
-            if (feedbackElement) {
-                feedbackElement.remove();
-                feedbackElement = null;
-            }
-        };
-
         button.addEventListener('mouseenter', () => {
-            removeFeedback();
-            hoverTimeout = window.setTimeout(() => {
-                feedbackElement = document.createElement('div');
-                feedbackElement.className = 'toolbar-hover-feedback';
-                feedbackElement.dataset.role = 'toolbar-tooltip';
-                feedbackElement.dataset.placement = placement;
-                feedbackElement.textContent = button.getAttribute('aria-label') || label;
-                button.appendChild(feedbackElement);
-            }, 100);
+            this.scheduleToolbarFeedback(button, button.getAttribute('aria-label') || label, placement);
         });
 
-        button.addEventListener('mouseleave', removeFeedback);
+        button.addEventListener('mouseleave', () => this.clearToolbarFeedback());
+    }
+
+    private scheduleToolbarFeedback(anchor: HTMLElement, label: string, placement: 'top' | 'bottom'): void {
+        this.clearToolbarFeedback();
+        this.toolbarFeedbackTimer = window.setTimeout(() => {
+            this.showToolbarFeedback(anchor, label, placement);
+        }, 100);
+    }
+
+    private clearToolbarFeedback(): void {
+        if (this.toolbarFeedbackTimer !== null) {
+            window.clearTimeout(this.toolbarFeedbackTimer);
+            this.toolbarFeedbackTimer = null;
+        }
+        this.toolbarFeedbackHost?.remove();
+        this.toolbarFeedbackHost = null;
+    }
+
+    private showToolbarFeedback(anchor: HTMLElement, label: string, placement: 'top' | 'bottom'): void {
+        const host = document.createElement('div');
+        host.className = 'aimd-toolbar-tooltip-host';
+        host.setAttribute('data-aimd-theme', this.theme);
+        const shadow = host.attachShadow({ mode: 'open' });
+        ensureStyle(shadow, getTokenCss(this.theme), { id: 'aimd-toolbar-feedback-tokens' });
+        ensureStyle(shadow, this.getToolbarFeedbackCss(), { id: 'aimd-toolbar-feedback-base', cache: 'shared' });
+
+        const feedback = document.createElement('div');
+        feedback.className = 'toolbar-hover-feedback';
+        feedback.dataset.role = 'toolbar-tooltip';
+        feedback.dataset.placement = placement;
+        feedback.textContent = label;
+        shadow.appendChild(feedback);
+
+        document.body.appendChild(host);
+        const rect = anchor.getBoundingClientRect();
+        host.style.left = `${rect.left + rect.width / 2}px`;
+        host.style.top = `${placement === 'top' ? rect.top : rect.bottom}px`;
+        this.toolbarFeedbackHost = host;
+    }
+
+    private getToolbarFeedbackCss(): string {
+        return `
+:host {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: var(--aimd-z-tooltip);
+}
+
+.toolbar-hover-feedback {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateX(-50%);
+  padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
+  background: var(--aimd-interactive-primary);
+  color: var(--aimd-text-on-primary);
+  font-size: var(--aimd-font-size-xs);
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--aimd-radius-md);
+  opacity: 0;
+  pointer-events: none;
+  animation: toolbarFeedbackFade 1.5s ease;
+}
+
+.toolbar-hover-feedback[data-placement="top"] {
+  transform: translate(-50%, calc(-100% - var(--aimd-space-3)));
+}
+
+.toolbar-hover-feedback[data-placement="bottom"] {
+  transform: translate(-50%, var(--aimd-space-3));
+}
+
+@keyframes toolbarFeedbackFade {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+`;
     }
 
     private getCss(): string {
@@ -592,36 +659,6 @@ export class MessageToolbar {
   /* Momentary feedback without looking like "active" state */
   background: var(--aimd-interactive-flash);
   color: var(--aimd-button-icon-text-hover);
-}
-
-.toolbar-hover-feedback {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  font-size: var(--aimd-font-size-xs);
-  line-height: 1;
-  white-space: nowrap;
-  border-radius: var(--aimd-radius-md);
-  opacity: 0;
-  pointer-events: none;
-  z-index: var(--aimd-z-tooltip);
-  animation: toolbarFeedbackFade 1.5s ease;
-}
-.toolbar-hover-feedback[data-placement="top"] {
-  bottom: calc(100% + var(--aimd-space-3));
-}
-.toolbar-hover-feedback[data-placement="bottom"] {
-  top: calc(100% + var(--aimd-space-3));
-}
-
-@keyframes toolbarFeedbackFade {
-  0% { opacity: 0; transform: translateX(-50%) translateY(0); }
-  20% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
-  80% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
 .icon-btn svg { width: var(--aimd-size-control-glyph-panel); height: var(--aimd-size-control-glyph-panel); display: block; }

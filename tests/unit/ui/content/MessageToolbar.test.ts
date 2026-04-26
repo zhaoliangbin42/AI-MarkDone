@@ -230,9 +230,11 @@ describe('MessageToolbar', () => {
         trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
         vi.advanceTimersByTime(100);
 
-        const triggerTooltip = trigger.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
+        const triggerTooltipHost = document.querySelector<HTMLElement>('.aimd-toolbar-tooltip-host');
+        const triggerTooltip = triggerTooltipHost?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
         expect(triggerTooltip?.textContent).toBe('Copy Markdown');
         expect(triggerTooltip?.dataset.placement).toBe('bottom');
+        expect(trigger.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
 
         const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
         const secondaryButton = portalHost.shadowRoot!.querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!;

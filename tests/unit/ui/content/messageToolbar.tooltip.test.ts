@@ -27,13 +27,15 @@ describe('MessageToolbar tooltip integration', () => {
         expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
 
         vi.advanceTimersByTime(1);
-        const feedback = button?.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
+        const feedbackHost = document.querySelector<HTMLElement>('.aimd-toolbar-tooltip-host');
+        const feedback = feedbackHost?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
         expect(feedback?.textContent).toBe('Copy markdown');
         expect(feedback?.dataset.placement).toBe('top');
         expect(document.querySelector('.aimd-tooltip')).toBeNull();
+        expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
 
         button?.dispatchEvent(new Event('mouseleave', { bubbles: true }));
-        expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
+        expect(document.querySelector('.aimd-toolbar-tooltip-host')).toBeNull();
 
         toolbar.getElement().remove();
         vi.useRealTimers();
