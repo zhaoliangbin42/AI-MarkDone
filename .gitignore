@@ -55,7 +55,20 @@ release-artifacts/
 
 # Package files
 *.zip
+*.dmg
+*.pkg
+*.ipa
 *.cjs
+
+# Apple signing and distribution artifacts
+*.p12
+*.cer
+*.key
+*.mobileprovision
+*.provisionprofile
+*.xcarchive
+*.app
+ExportOptions.plist
 
 # Temporary files
 .cache/

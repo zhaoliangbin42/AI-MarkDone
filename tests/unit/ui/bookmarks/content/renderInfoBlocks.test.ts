@@ -60,4 +60,24 @@ describe('renderInfoBlocks', () => {
         expect(listItem?.querySelectorAll('br')).toHaveLength(1);
         expect(listItem?.textContent).toBe('AlphaBeta');
     });
+
+    it('renders safe markdown links in paragraphs and list items', () => {
+        const fragment = renderInfoBlocks([
+            { type: 'paragraph', text: 'Try [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager).' },
+            { type: 'list', items: ['See [Timeline](https://github.com/houyanchao/Timeline)'] },
+        ]);
+
+        const host = document.createElement('div');
+        host.appendChild(fragment);
+
+        const paragraphLink = host.querySelector<HTMLAnchorElement>('p.info-copy a');
+        const listLink = host.querySelector<HTMLAnchorElement>('ul.info-list li a');
+
+        expect(paragraphLink?.textContent).toBe('Gemini Voyager');
+        expect(paragraphLink?.href).toBe('https://github.com/Nagi-ovo/gemini-voyager');
+        expect(paragraphLink?.target).toBe('_blank');
+        expect(paragraphLink?.rel).toBe('noopener noreferrer');
+        expect(listLink?.textContent).toBe('Timeline');
+        expect(listLink?.href).toBe('https://github.com/houyanchao/Timeline');
+    });
 });
