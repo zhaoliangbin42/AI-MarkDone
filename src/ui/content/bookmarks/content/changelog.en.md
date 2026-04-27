@@ -1,5 +1,16 @@
 # Changelog
 
+# 4.2.2
+2026-04-27
+
+This patch continues the ChatGPT content discovery and right-side directory stability work, while also reducing citation noise in Reader copy output.
+
+## Fixed
+- Removed link citation references from Reader Markdown copy output so copied content is cleaner. Thanks to GitHub user @LTong-g.
+- Further improved right-side directory stability by sharing the same discovered user-round model across previews, jumps, and scroll positioning. Thanks to GitHub user @LTong-g.
+- Fixed missing round discovery on Deep Research pages. The right-side directory can now discover Deep Research rounds and jump correctly. Reader content remains empty for Deep Research when ChatGPT only exposes research skeleton nodes, because the official Deep Research reading experience is already strong; feedback is welcome if dedicated Reader support is needed.
+- Fixed a v4.2.1 regression where Reader could fail to load ChatGPT content. Thanks to Xiaohongshu user @小红薯67542EF1.
+
 # 4.2.1
 2026-04-27
 

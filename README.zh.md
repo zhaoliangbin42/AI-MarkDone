@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.2.1-10A37F" alt="Version 4.2.1">
+    <img src="https://img.shields.io/badge/Version-4.2.2-10A37F" alt="Version 4.2.2">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -178,10 +178,10 @@ npm run build
 
 ## 📅 最新更新
 
-### v4.2.1
-- 修复 ChatGPT 更新后右侧目录定位不稳定的问题。
-- 目录点击现在使用统一的用户轮次锚点，不再混用消息数量和 DOM 定位规则。
-- 页面滚动时，目录高亮会按当前可见的用户/助手轮次范围同步，并让高亮项保持在目录附近。
+### v4.2.2
+- 删除阅读器复制内容中的 ChatGPT 链接引用噪声。
+- 进一步提升右侧导航条稳定性，并修复 Deep Research 轮次发现与跳转。
+- 修复 v4.2.1 中阅读器获取 ChatGPT 内容失败的问题。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

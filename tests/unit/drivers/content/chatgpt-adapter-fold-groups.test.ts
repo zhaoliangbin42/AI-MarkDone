@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
+import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
+import { copyMarkdownFromTurn } from '@/services/copy/copy-turn-markdown';
 
 describe('ChatGPTAdapter fold groups', () => {
     it('pairs assistant turns with their preceding user turns on the fold fixture', () => {
@@ -19,13 +21,11 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(refs.length).toBeGreaterThanOrEqual(3);
         expect(refs.some((ref) => Boolean(ref.userPromptText?.trim()))).toBe(true);
         for (const ref of refs) {
-            const userContainer = ref.userRootEl?.closest('[data-turn-id-container]');
-            const assistantContainer = ref.assistantRootEl.closest('[data-turn-id-container]');
             const assistantMessageId = ref.assistantMessageEl.getAttribute('data-message-id');
-            expect(userContainer).toBeInstanceOf(HTMLElement);
-            expect(assistantContainer).toBeInstanceOf(HTMLElement);
-            expect(ref.barAnchorEl).toBe(userContainer);
-            expect(ref.groupEls).toEqual([userContainer, assistantContainer]);
+            expect(ref.userRootEl).toBeInstanceOf(HTMLElement);
+            expect(ref.assistantRootEl).toBeInstanceOf(HTMLElement);
+            expect(ref.barAnchorEl).toBe(ref.userRootEl);
+            expect(ref.groupEls).toEqual([ref.userRootEl, ref.assistantRootEl]);
             expect(ref.id).toBe(assistantMessageId || ref.assistantRootEl.getAttribute('data-turn-id'));
         }
     });
@@ -186,6 +186,97 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['turn-a1a', 'turn-a2']);
     });
 
+    it('discovers Deep Research rounds when assistant turn wrappers lack assistant role nodes', () => {
+        document.documentElement.innerHTML = `
+            <head></head>
+            <body>
+              <main>
+                <div data-testid="conversation-turn-1" id="turn-u1" data-turn="user">
+                  <div data-message-author-role="user"><div class="whitespace-pre-wrap">Thesis prompt one</div></div>
+                </div>
+                <div data-testid="conversation-turn-2" id="turn-a1" data-turn="assistant">
+                  <div>internal://deep-research</div>
+                  <pre><code>h_{r,t}(\\tau,\\nu)</code></pre>
+                </div>
+                <div data-testid="conversation-turn-3" id="turn-u2" data-turn="user">
+                  <div data-message-author-role="user"><div class="whitespace-pre-wrap">Thesis prompt two</div></div>
+                </div>
+                <div data-testid="conversation-turn-4" id="turn-a2" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a2">
+                    <div class="markdown prose">
+                      <p>Answer two <span class="katex"><annotation encoding="application/x-tex">w_k</annotation></span></p>
+                    </div>
+                  </div>
+                </div>
+                <div data-testid="conversation-turn-5" id="turn-u3" data-turn="user">
+                  <div data-message-author-role="user"><div class="whitespace-pre-wrap">Thesis prompt three</div></div>
+                </div>
+                <div data-testid="conversation-turn-6" id="turn-a3" data-turn="assistant">
+                  <div>internal://deep-research</div>
+                </div>
+              </main>
+            </body>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const refs = adapter.getConversationGroupRefs();
+
+        expect(refs).toHaveLength(3);
+        expect(refs.map((ref) => ref.userPromptText)).toEqual([
+            'Thesis prompt one',
+            'Thesis prompt two',
+            'Thesis prompt three',
+        ]);
+        expect(refs.map((ref) => ref.barAnchorEl?.id)).toEqual(['turn-u1', 'turn-u2', 'turn-u3']);
+        expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['turn-a1', 'turn-a2', 'turn-a3']);
+        expect(refs.map((ref) => ref.assistantMessageEl.id)).toEqual(['', '', '']);
+        expect(refs[0]?.assistantMessageEl).not.toBe(refs[0]?.assistantRootEl);
+        expect(refs[0]?.assistantMessageEl.getAttribute('data-aimd-empty-assistant-message')).toBe('true');
+        expect(refs.map((ref) => ref.id)).toEqual(['turn-a1', 'a2', 'turn-a3']);
+
+        const turns = collectConversationTurnRefs(adapter);
+        expect(turns).toHaveLength(1);
+        expect(turns[0]?.userPrompt).toBe('Thesis prompt two');
+
+        const realMarkdown = copyMarkdownFromTurn(adapter, turns[0]!.messageEls);
+        expect(realMarkdown.ok).toBe(true);
+        if (realMarkdown.ok) expect(realMarkdown.markdown).toContain('$w_k$');
+    });
+
+    it('extracts user prompts from the text body without file-card labels', () => {
+        document.documentElement.innerHTML = `
+            <head></head>
+            <body>
+              <main>
+                <div data-testid="conversation-turn-1" id="turn-u1" data-turn="user">
+                  <div data-message-author-role="user">
+                    <div>
+                      <button type="button">
+                        <span>粘贴的文本 (1)(20).txt</span>
+                        <span>Document</span>
+                      </button>
+                      <div class="whitespace-pre-wrap">该论文介绍了 O-OTFS ，请帮我对 Introduction 部分进行详细的总结</div>
+                    </div>
+                  </div>
+                </div>
+                <div data-testid="conversation-turn-2" id="turn-a1" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a1">
+                    <div class="markdown prose">Answer one</div>
+                  </div>
+                </div>
+              </main>
+            </body>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const refs = adapter.getConversationGroupRefs();
+
+        expect(refs).toHaveLength(1);
+        expect(refs[0]?.userPromptText).toBe('该论文介绍了 O-OTFS ，请帮我对 Introduction 部分进行详细的总结');
+        expect(refs[0]?.userPromptText).not.toContain('粘贴的文本');
+        expect(refs[0]?.userPromptText).not.toContain('Document');
+    });
+
     it('ignores role nodes outside the scoped ChatGPT conversation root', () => {
         document.documentElement.innerHTML = `
             <head></head>
@@ -201,6 +292,37 @@ describe('ChatGPTAdapter fold groups', () => {
               <div id="portal">
                 <div data-message-author-role="user">Noise prompt</div>
                 <div data-message-author-role="assistant" data-message-id="noise"></div>
+              </div>
+            </body>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const refs = adapter.getConversationGroupRefs();
+
+        expect(refs).toHaveLength(1);
+        expect(refs[0]?.id).toBe('a1');
+        expect(refs[0]?.userPromptText).toBe('Prompt one');
+    });
+
+    it('ignores turn wrappers outside the scoped ChatGPT conversation root', () => {
+        document.documentElement.innerHTML = `
+            <head></head>
+            <body>
+              <main>
+                <div data-testid="conversation-turn-1" id="turn-u1" data-turn="user">
+                  <div data-message-author-role="user">Prompt one</div>
+                </div>
+                <div data-testid="conversation-turn-2" id="turn-a1" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a1"></div>
+                </div>
+              </main>
+              <div id="portal">
+                <div data-testid="conversation-turn-noise-1" data-turn="user">
+                  <div data-message-author-role="user">Noise prompt</div>
+                </div>
+                <div data-testid="conversation-turn-noise-2" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="noise"></div>
+                </div>
               </div>
             </body>
         `;

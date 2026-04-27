@@ -13,8 +13,10 @@ export type ConversationGroupRef = {
     id: string;
     assistantRootEl: HTMLElement;
     assistantMessageEl: HTMLElement;
+    assistantContentRootEl?: HTMLElement | null;
     userRootEl: HTMLElement | null;
     userPromptText?: string | null;
+    userPromptQuality?: 'real' | 'fallback';
     barAnchorEl?: HTMLElement | null;
     groupEls: HTMLElement[];
     assistantIndex: number;

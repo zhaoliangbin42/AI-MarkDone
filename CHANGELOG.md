@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.2] - 2026-04-27
+
+### Fixed
+- Reader: Removed ChatGPT link citation noise from extracted Markdown so copied Reader content is cleaner. Thanks to GitHub user @LTong-g.
+- ChatGPT: Further improved right-side directory stability by using DOM-discovered user rounds as the shared source for prompts, anchors, and navigation. Thanks to GitHub user @LTong-g.
+- ChatGPT: Fixed Deep Research content discovery so the right-side directory can discover the full round list and jump correctly. Reader content for Deep Research remains empty when ChatGPT only exposes research skeleton nodes, because the official Deep Research reading experience is already strong; feedback is welcome if dedicated Reader support is needed.
+- Reader: Fixed a v4.2.1 regression where ChatGPT Reader content could fail to load after DOM text fallback flattened formulas and Markdown structure. Thanks to Xiaohongshu user @小红薯67542EF1.
+
 ## [4.2.1] - 2026-04-27
 
 ### Fixed

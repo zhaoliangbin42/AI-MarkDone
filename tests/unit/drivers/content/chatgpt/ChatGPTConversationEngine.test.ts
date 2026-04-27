@@ -230,7 +230,7 @@ describe('ChatGPTConversationEngine', () => {
         expect((engine as any).liveRefreshTimer).toBeNull();
     });
 
-    it('falls back to DOM extraction if the bridge script fails to load', async () => {
+    it('does not synthesize a markdown snapshot from DOM text when the bridge script fails to load', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;
             window.setTimeout(() => script.onerror?.(new Event('error')), 0);
@@ -242,7 +242,13 @@ describe('ChatGPTConversationEngine', () => {
           </article>
           <article data-turn="assistant">
             <div data-message-author-role="assistant" data-message-id="a1">
-              <div class="markdown prose">Answer</div>
+              <div class="markdown prose">
+                Answer
+                <span class="katex">
+                  <span class="katex-html">visible rendered formula</span>
+                  <annotation encoding="application/x-tex">x = y</annotation>
+                </span>
+              </div>
             </div>
           </article>
         `;
@@ -252,15 +258,10 @@ describe('ChatGPTConversationEngine', () => {
         await vi.runAllTimersAsync();
         const snapshot = await snapshotPromise;
 
-        expect(snapshot?.source).toBe('dom');
-        expect(snapshot?.rounds).toHaveLength(1);
-        expect(snapshot?.rounds[0]).toEqual(expect.objectContaining({
-            position: 1,
-            messageId: 'a1',
-        }));
+        expect(snapshot).toBeNull();
     });
 
-    it('prefers the fuller DOM fallback when React props only expose a partial window', async () => {
+    it('prefers structured React content over DOM text even when visible DOM has more turns', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;
             window.setTimeout(() => script.onerror?.(new Event('error')), 0);
@@ -289,10 +290,12 @@ describe('ChatGPTConversationEngine', () => {
             pendingProps: {
                 turn: {
                     id: 'react-turn-1',
-                    messages: [{ id: 'a1', content: { parts: ['React answer 1'] } }],
+                    author: { role: 'assistant' },
+                    messages: [{ id: 'a1', author: { role: 'assistant' }, content: { parts: ['React answer 1'] } }],
                 },
                 parentPromptMessage: {
                     id: 'u1',
+                    author: { role: 'user' },
                     content: { parts: ['React prompt 1'] },
                 },
             },
@@ -304,9 +307,10 @@ describe('ChatGPTConversationEngine', () => {
         await vi.runAllTimersAsync();
         const snapshot = await snapshotPromise;
 
-        expect(snapshot?.source).toBe('dom');
-        expect(snapshot?.rounds).toHaveLength(2);
-        expect(snapshot?.rounds.map((round) => round.messageId)).toEqual(['a1', 'a2']);
+        expect(snapshot?.source).toBe('react-props');
+        expect(snapshot?.rounds).toHaveLength(1);
+        expect(snapshot?.rounds[0]?.assistantContent).toBe('React answer 1');
+        expect(snapshot?.rounds[0]?.messageId).toBe('a1');
     });
 
     it('ignores non-visible structured messages inside an assistant turn', async () => {

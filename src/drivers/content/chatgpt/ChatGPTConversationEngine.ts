@@ -1,6 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
 import { browser } from '../../shared/browser';
-import { collectConversationTurnRefs } from '../conversation/collectConversationTurnRefs';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from './types';
 import { RouteWatcher } from '../injection/routeWatcher';
 
@@ -336,41 +335,8 @@ function buildReactPropsFallback(adapter: SiteAdapter, conversationId: string): 
     };
 }
 
-function buildDomFallback(adapter: SiteAdapter, conversationId: string): ChatGPTConversationSnapshot | null {
-    const turns = collectConversationTurnRefs(adapter);
-    if (turns.length === 0) return null;
-    const rounds: ChatGPTConversationRound[] = turns.map((turn, index) => {
-        const assistantContent = turn.messageEls
-            .map((element) => element.textContent?.trim() ?? '')
-            .filter(Boolean)
-            .join('\n\n');
-        return {
-            id: turn.messageId ?? `dom-${index + 1}`,
-            position: index + 1,
-            userPrompt: turn.userPrompt,
-            assistantContent,
-            preview: truncatePreview(turn.userPrompt || assistantContent),
-            messageId: turn.messageId,
-            userMessageId: null,
-            assistantMessageId: turn.messageId,
-        };
-    });
-
-    return {
-        conversationId,
-        buildFingerprint: null,
-        rounds,
-        source: 'dom',
-        capturedAt: Date.now(),
-    };
-}
-
 function buildBestFallback(adapter: SiteAdapter, conversationId: string): ChatGPTConversationSnapshot | null {
-    const reactSnapshot = buildReactPropsFallback(adapter, conversationId);
-    const domSnapshot = buildDomFallback(adapter, conversationId);
-    if (!reactSnapshot) return domSnapshot;
-    if (!domSnapshot) return reactSnapshot;
-    return domSnapshot.rounds.length > reactSnapshot.rounds.length ? domSnapshot : reactSnapshot;
+    return buildReactPropsFallback(adapter, conversationId);
 }
 
 export class ChatGPTConversationEngine {

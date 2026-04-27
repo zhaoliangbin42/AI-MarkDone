@@ -15,8 +15,7 @@ import {
 function isChatGPTConversationPage(url: string): boolean {
     try {
         const parsed = new URL(url);
-        const isChatGPT = parsed.hostname === 'chatgpt.com' || parsed.hostname === 'chat.openai.com';
-        return isChatGPT && /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
+        return /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
     } catch {
         return false;
     }
@@ -34,6 +33,11 @@ function writeDebugState(patch: Record<string, string | boolean | number | null 
         }
     } catch {
     }
+}
+
+function isLowQualityPrompt(prompt: string | null | undefined): boolean {
+    const normalized = (prompt ?? '').trim();
+    return !normalized || /^Message\s+\d+$/i.test(normalized);
 }
 
 export class ChatGPTDirectoryController {
@@ -155,14 +159,14 @@ export class ChatGPTDirectoryController {
         }
         this.ensureRail();
         this.rail?.setVisible(true);
+        this.rebindObservers();
         this.snapshot = await this.engine.getSnapshot();
         this.render();
-        this.rebindObservers();
         if (!this.snapshot) this.scheduleSnapshotRetry();
         writeDebugState({
             DirectoryVisible: true,
             DirectoryReason: this.snapshot ? 'snapshot' : 'placeholder',
-            DirectoryRounds: this.snapshot?.rounds?.length ?? this.skeletonAnchors.length,
+            DirectoryRounds: this.roundPositions.length,
             DirectoryAnchors: this.skeletonAnchors.length,
         });
     }
@@ -170,9 +174,7 @@ export class ChatGPTDirectoryController {
     private render(): void {
         if (!this.rail) return;
         this.refreshRoundPositions();
-        const rounds = this.snapshot?.rounds?.length
-            ? this.snapshot.rounds
-            : this.buildPlaceholderRounds();
+        const rounds = this.buildDirectoryRounds();
         this.rail.setRounds(rounds);
         this.updateActivePosition();
     }
@@ -211,8 +213,8 @@ export class ChatGPTDirectoryController {
         const observerContainer = this.adapter.getObserverContainer();
         if (observerContainer) {
             this.mutationObserver = new MutationObserver(() => {
-                this.refreshRoundPositions();
-                this.updateActivePosition();
+                if (typeof document === 'undefined') return;
+                this.render();
             });
             this.mutationObserver.observe(observerContainer, { childList: true, subtree: true });
         }
@@ -240,17 +242,33 @@ export class ChatGPTDirectoryController {
         }));
     }
 
-    private buildPlaceholderRounds(): ChatGPTConversationRound[] {
-        return this.skeletonAnchors.map((anchor) => ({
-            id: `chatgpt-skeleton-${anchor.position}`,
-            position: anchor.position,
-            userPrompt: `Message ${anchor.position}`,
-            assistantContent: '',
-            preview: '',
-            messageId: null,
-            userMessageId: null,
-            assistantMessageId: null,
-        }));
+    private buildDirectoryRounds(): ChatGPTConversationRound[] {
+        const snapshotsByPosition = new Map<number, ChatGPTConversationRound>();
+        for (const round of this.snapshot?.rounds ?? []) {
+            snapshotsByPosition.set(round.position, round);
+        }
+
+        if (this.roundPositions.length === 0) return [];
+
+        return this.roundPositions.map((position) => {
+            const snapshot = snapshotsByPosition.get(position.position);
+            const domPrompt = position.userPromptText?.trim() ?? '';
+            const snapshotPrompt = snapshot?.userPrompt?.trim() ?? '';
+            const userPrompt = !isLowQualityPrompt(domPrompt)
+                ? domPrompt
+                : (!isLowQualityPrompt(snapshotPrompt) ? snapshotPrompt : (domPrompt || snapshotPrompt || `Message ${position.position}`));
+
+            return {
+                id: snapshot?.id ?? position.id ?? `chatgpt-skeleton-${position.position}`,
+                position: position.position,
+                userPrompt,
+                assistantContent: snapshot?.assistantContent ?? '',
+                preview: userPrompt,
+                messageId: snapshot?.messageId ?? position.messageId,
+                userMessageId: snapshot?.userMessageId ?? null,
+                assistantMessageId: snapshot?.assistantMessageId ?? position.messageId,
+            };
+        });
     }
 
     private updateActivePosition(): void {
