@@ -8,6 +8,7 @@ const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
 const PREVIEW_STYLE_ID = 'aimd-chatgpt-directory-preview-style';
 const HOVER_RADIUS = 3;
 const EXPANDED_LABEL_MAX_LENGTH = 30;
+const USER_INTERACTION_IDLE_MS = 800;
 
 function getPreviewTokenCss(): string {
     const light = getTokenCss('light').replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
@@ -33,6 +34,8 @@ export class ChatGPTDirectoryRail {
     private hoverPosition: number | null = null;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private expanded = false;
+    private userInteracting = false;
+    private interactionIdleTimer: number | null = null;
     private onSelect: (round: ChatGPTConversationRound) => void;
 
     constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void) {
@@ -61,19 +64,25 @@ export class ChatGPTDirectoryRail {
         this.listEl.className = 'rail__list';
         this.listEl.dataset.mode = this.displayMode;
         this.listEl.dataset.expanded = '0';
-        this.listEl.addEventListener('pointerenter', () => this.setExpanded(true));
+        this.listEl.addEventListener('pointerenter', () => {
+            this.markUserInteracting();
+            this.setExpanded(true);
+        });
         this.listEl.addEventListener('pointerover', (event) => {
             const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.rail__item') : null;
             if (!item) return;
+            this.markUserInteracting();
             this.setExpanded(true);
             this.setHoverPosition(Number(item.dataset.position));
         });
         this.listEl.addEventListener('pointerleave', () => {
             this.setHoverPosition(null);
             this.setExpanded(false);
+            this.releaseUserInteractionSoon();
         });
         this.listEl.addEventListener('focusin', (event) => {
             const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.rail__item') : null;
+            this.markUserInteracting();
             this.setExpanded(true);
             if (!item) return;
             this.setHoverPosition(Number(item.dataset.position));
@@ -81,6 +90,11 @@ export class ChatGPTDirectoryRail {
         this.listEl.addEventListener('focusout', () => {
             this.setHoverPosition(null);
             this.setExpanded(false);
+            this.releaseUserInteractionSoon();
+        });
+        this.listEl.addEventListener('scroll', () => {
+            this.markUserInteracting();
+            this.releaseUserInteractionSoon();
         });
         shell.appendChild(this.listEl);
         this.shadowRoot.appendChild(shell);
@@ -100,6 +114,10 @@ export class ChatGPTDirectoryRail {
     }
 
     dispose(): void {
+        if (this.interactionIdleTimer !== null) {
+            window.clearTimeout(this.interactionIdleTimer);
+            this.interactionIdleTimer = null;
+        }
         this.rootEl.remove();
         this.previewEl.remove();
     }
@@ -134,9 +152,10 @@ export class ChatGPTDirectoryRail {
         this.render();
     }
 
-    setActivePosition(position: number): void {
+    setActivePosition(position: number, options?: { follow?: boolean }): void {
         this.activePosition = position;
         this.renderActiveState();
+        if (options?.follow !== false) this.followActiveItem();
     }
 
     private render(): void {
@@ -168,6 +187,30 @@ export class ChatGPTDirectoryRail {
         for (const item of Array.from(this.listEl.querySelectorAll<HTMLElement>('.rail__item'))) {
             item.dataset.active = Number(item.dataset.position) === this.activePosition ? '1' : '0';
         }
+    }
+
+    private followActiveItem(): void {
+        if (this.userInteracting || !this.activePosition) return;
+        const item = this.listEl.querySelector<HTMLElement>(`.rail__item[data-position="${this.activePosition}"]`);
+        if (item && typeof item.scrollIntoView === 'function') {
+            item.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    private markUserInteracting(): void {
+        this.userInteracting = true;
+        if (this.interactionIdleTimer !== null) {
+            window.clearTimeout(this.interactionIdleTimer);
+            this.interactionIdleTimer = null;
+        }
+    }
+
+    private releaseUserInteractionSoon(): void {
+        if (this.interactionIdleTimer !== null) window.clearTimeout(this.interactionIdleTimer);
+        this.interactionIdleTimer = window.setTimeout(() => {
+            this.userInteracting = false;
+            this.interactionIdleTimer = null;
+        }, USER_INTERACTION_IDLE_MS);
     }
 
     private setHoverPosition(position: number | null): void {

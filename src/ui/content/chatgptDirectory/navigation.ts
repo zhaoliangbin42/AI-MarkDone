@@ -6,6 +6,14 @@ export type ChatGPTSkeletonAnchor = {
     anchorEl: HTMLElement;
 };
 
+export type ChatGPTRoundPosition = {
+    position: number;
+    jumpAnchor: HTMLElement;
+    userAnchor: HTMLElement | null;
+    assistantRoot: HTMLElement | null;
+    groupEls: HTMLElement[];
+};
+
 export type ChatGPTNavigationTarget = {
     position: number;
     messageId?: string | null;
@@ -71,69 +79,59 @@ function getAnchorForTarget(adapter: SiteAdapter, target: ChatGPTNavigationTarge
     return collectChatGPTSkeletonAnchors(adapter)[target.position - 1]?.anchorEl ?? null;
 }
 
+function pushUnique(nodes: HTMLElement[], node: HTMLElement | null | undefined): void {
+    if (node && !nodes.includes(node)) nodes.push(node);
+}
+
+export function collectChatGPTRoundPositions(adapter: SiteAdapter): ChatGPTRoundPosition[] {
+    const groupRefs = adapter.getConversationGroupRefs?.() ?? [];
+    return groupRefs
+        .map((groupRef, index): ChatGPTRoundPosition | null => {
+            const jumpAnchor = groupRef.barAnchorEl ?? groupRef.userRootEl ?? groupRef.assistantRootEl;
+            if (!(jumpAnchor instanceof HTMLElement)) return null;
+            const groupEls: HTMLElement[] = [];
+            pushUnique(groupEls, groupRef.barAnchorEl);
+            pushUnique(groupEls, groupRef.userRootEl);
+            pushUnique(groupEls, groupRef.assistantRootEl);
+            if (!groupRef.assistantRootEl || !groupRef.assistantRootEl.contains(groupRef.assistantMessageEl)) {
+                pushUnique(groupEls, groupRef.assistantMessageEl);
+            }
+            for (const groupEl of groupRef.groupEls) pushUnique(groupEls, groupEl);
+            if (groupEls.length === 0) pushUnique(groupEls, jumpAnchor);
+            return {
+                position: index + 1,
+                jumpAnchor,
+                userAnchor: groupRef.userRootEl ?? null,
+                assistantRoot: groupRef.assistantRootEl ?? null,
+                groupEls,
+            };
+        })
+        .filter((position): position is ChatGPTRoundPosition => position !== null);
+}
+
 export function collectChatGPTSkeletonAnchors(adapter: SiteAdapter): ChatGPTSkeletonAnchor[] {
-    const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
-        (node): node is HTMLElement => node instanceof HTMLElement,
-    );
-    const anchors: ChatGPTSkeletonAnchor[] = [];
-    let pendingUserContainer: HTMLElement | null = null;
-
-    for (const container of turnContainers) {
-        const userTurn = container.querySelector('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]');
-        const assistantTurn = container.querySelector('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]');
-
-        if (userTurn instanceof HTMLElement && !(assistantTurn instanceof HTMLElement)) {
-            pendingUserContainer = container;
-            continue;
-        }
-
-        if (!(assistantTurn instanceof HTMLElement)) continue;
-        anchors.push({
-            position: anchors.length + 1,
-            anchorEl: pendingUserContainer ?? container,
-        });
-        pendingUserContainer = null;
-    }
-
-    if (anchors.length > 0) return anchors;
-
-    const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
-        (node): node is HTMLElement => node instanceof HTMLElement,
-    );
-    messages.forEach((messageEl, index) => {
-        anchors.push({
-            position: index + 1,
-            anchorEl: messageEl,
-        });
-    });
-    return anchors;
+    return collectChatGPTRoundPositions(adapter).map((position) => ({
+        position: position.position,
+        anchorEl: position.jumpAnchor,
+    }));
 }
 
 export function resolveChatGPTSkeletonPositionForMessage(adapter: SiteAdapter, messageElement: HTMLElement): number | null {
-    const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
-        (node): node is HTMLElement => node instanceof HTMLElement,
-    );
-    let position = 0;
-
-    for (const container of turnContainers) {
-        const userTurn = container.querySelector('section[data-turn="user"], article[data-turn="user"], [data-turn="user"]');
-        const assistantTurn = container.querySelector('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]');
-
-        if (userTurn instanceof HTMLElement && !(assistantTurn instanceof HTMLElement)) {
-            continue;
-        }
-
-        if (!(assistantTurn instanceof HTMLElement)) continue;
-        position += 1;
-        if (container.contains(messageElement) || assistantTurn.contains(messageElement)) {
-            return position;
-        }
-    }
-
-    const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(
-        (node): node is HTMLElement => node instanceof HTMLElement,
-    );
-    const index = messages.findIndex((node) => node === messageElement || node.contains(messageElement) || messageElement.contains(node));
+    const groupRefs = adapter.getConversationGroupRefs?.() ?? [];
+    const index = groupRefs.findIndex((groupRef) => {
+        const candidates = [
+            groupRef.barAnchorEl,
+            groupRef.userRootEl,
+            groupRef.assistantRootEl,
+            groupRef.assistantMessageEl,
+            ...groupRef.groupEls,
+        ].filter((node): node is HTMLElement => node instanceof HTMLElement);
+        return candidates.some((node) => (
+            node === messageElement
+            || node.contains(messageElement)
+            || messageElement.contains(node)
+        ));
+    });
     return index >= 0 ? index + 1 : null;
 }
 

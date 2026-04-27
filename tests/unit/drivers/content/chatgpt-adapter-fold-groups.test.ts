@@ -151,4 +151,65 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(refs.map((ref) => ref.userPromptText)).toEqual(['Prompt 1', 'Prompt 2']);
         expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['a1', 'a2']);
     });
+
+    it('discovers user-round groups from current role/testid turns when legacy turn containers are absent', () => {
+        document.documentElement.innerHTML = `
+            <head></head>
+            <body>
+              <main>
+                <div data-testid="conversation-turn-1" id="turn-u1" data-turn="user">
+                  <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt one</div></div>
+                </div>
+                <div data-testid="conversation-turn-2" id="turn-a1a" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a1a"></div>
+                </div>
+                <div data-testid="conversation-turn-3" id="turn-a1b" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a1b"></div>
+                </div>
+                <div data-testid="conversation-turn-4" id="turn-u2" data-turn="user">
+                  <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt two</div></div>
+                </div>
+                <div data-testid="conversation-turn-5" id="turn-a2" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a2"></div>
+                </div>
+              </main>
+            </body>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const refs = adapter.getConversationGroupRefs();
+
+        expect(refs).toHaveLength(2);
+        expect(refs.map((ref) => ref.id)).toEqual(['a1a', 'a2']);
+        expect(refs.map((ref) => ref.userPromptText)).toEqual(['Prompt one', 'Prompt two']);
+        expect(refs.map((ref) => ref.barAnchorEl?.id)).toEqual(['turn-u1', 'turn-u2']);
+        expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['turn-a1a', 'turn-a2']);
+    });
+
+    it('ignores role nodes outside the scoped ChatGPT conversation root', () => {
+        document.documentElement.innerHTML = `
+            <head></head>
+            <body>
+              <main>
+                <div data-testid="conversation-turn-1" id="turn-u1" data-turn="user">
+                  <div data-message-author-role="user">Prompt one</div>
+                </div>
+                <div data-testid="conversation-turn-2" id="turn-a1" data-turn="assistant">
+                  <div data-message-author-role="assistant" data-message-id="a1"></div>
+                </div>
+              </main>
+              <div id="portal">
+                <div data-message-author-role="user">Noise prompt</div>
+                <div data-message-author-role="assistant" data-message-id="noise"></div>
+              </div>
+            </body>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const refs = adapter.getConversationGroupRefs();
+
+        expect(refs).toHaveLength(1);
+        expect(refs[0]?.id).toBe('a1');
+        expect(refs[0]?.userPromptText).toBe('Prompt one');
+    });
 });

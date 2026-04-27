@@ -4,6 +4,7 @@ import { chatgptMarkdownParserAdapter } from '../parser/chatgpt';
 import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 import { logger } from '../../../../core/logger';
 import { cleanChatGPTReferenceNoise } from '../../chatgpt/normalizeReaderMarkdown';
+import { collectChatGPTDomRoundRefs } from '../../chatgpt/domConversationDiscovery';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -434,6 +435,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     getConversationGroupRefs(): ConversationGroupRef[] {
         const refs: ConversationGroupRef[] = [];
         let assistantIndex = 0;
+        let usedRoleRoundDiscovery = false;
         const discoveryRoot = this.getConversationDiscoveryRoot();
         const turnContainers = Array.from(discoveryRoot.querySelectorAll('[data-turn-id-container]')).filter(
             (node): node is HTMLElement => node instanceof HTMLElement
@@ -489,37 +491,58 @@ export class ChatGPTAdapter extends SiteAdapter {
             }
         }
 
-        const messages = Array.from(discoveryRoot.querySelectorAll(this.getMessageSelector())).filter(
-            (node): node is HTMLElement => node instanceof HTMLElement
-        );
+        if (refs.length === 0) {
+            for (const roundRef of collectChatGPTDomRoundRefs(this)) {
+                if (this.hasConversationGroupRef(refs, roundRef.assistantRootEl, roundRef.assistantMessageEl, roundRef.id)) continue;
+                usedRoleRoundDiscovery = true;
+                refs.push({
+                    id: roundRef.id,
+                    assistantRootEl: roundRef.assistantRootEl,
+                    assistantMessageEl: roundRef.assistantMessageEl,
+                    userRootEl: roundRef.userRootEl,
+                    userPromptText: roundRef.userPromptText,
+                    barAnchorEl: roundRef.anchorEl,
+                    groupEls: roundRef.groupEls,
+                    assistantIndex,
+                    isStreaming: roundRef.isStreaming,
+                });
+                assistantIndex += 1;
+            }
+        }
 
-        for (const messageEl of messages) {
-            const assistantRootEl = this.getTurnRootElement(messageEl)
-                ?? messageEl.closest('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]') as HTMLElement | null
-                ?? messageEl;
-            if (!(assistantRootEl instanceof HTMLElement)) continue;
-            if (!this.isVirtualizationEligibleMessage(messageEl)) continue;
-            if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
+        if (!usedRoleRoundDiscovery) {
+            const messages = Array.from(discoveryRoot.querySelectorAll(this.getMessageSelector())).filter(
+                (node): node is HTMLElement => node instanceof HTMLElement
+            );
 
-            const userRootEl = this.getUserTurnRootFromAssistantRoot(assistantRootEl);
-            const barAnchorEl = userRootEl ? this.getTurnContainer(userRootEl) : this.getTurnContainer(assistantRootEl);
-            const groupEls = this.collectGroupEls(userRootEl, assistantRootEl, barAnchorEl);
-            const id = this.getMessageId(messageEl)
-                || `chatgpt-group-${assistantIndex}`;
-            if (this.hasConversationGroupRef(refs, assistantRootEl, messageEl, id)) continue;
+            for (const messageEl of messages) {
+                const assistantRootEl = this.getTurnRootElement(messageEl)
+                    ?? messageEl.closest('section[data-turn="assistant"], article[data-turn="assistant"], [data-turn="assistant"]') as HTMLElement | null
+                    ?? messageEl;
+                if (!(assistantRootEl instanceof HTMLElement)) continue;
+                if (!this.isVirtualizationEligibleMessage(messageEl)) continue;
+                if (refs.some((ref) => ref.assistantRootEl === assistantRootEl)) continue;
 
-            refs.push({
-                id,
-                assistantRootEl,
-                assistantMessageEl: messageEl,
-                userRootEl,
-                userPromptText: this.extractUserPromptFromRoot(userRootEl),
-                barAnchorEl,
-                groupEls,
-                assistantIndex,
-                isStreaming: this.isStreamingMessage(messageEl),
-            });
-            assistantIndex += 1;
+                const userRootEl = this.getUserTurnRootFromAssistantRoot(assistantRootEl);
+                const barAnchorEl = userRootEl ? this.getTurnContainer(userRootEl) : this.getTurnContainer(assistantRootEl);
+                const groupEls = this.collectGroupEls(userRootEl, assistantRootEl, barAnchorEl);
+                const id = this.getMessageId(messageEl)
+                    || `chatgpt-group-${assistantIndex}`;
+                if (this.hasConversationGroupRef(refs, assistantRootEl, messageEl, id)) continue;
+
+                refs.push({
+                    id,
+                    assistantRootEl,
+                    assistantMessageEl: messageEl,
+                    userRootEl,
+                    userPromptText: this.extractUserPromptFromRoot(userRootEl),
+                    barAnchorEl,
+                    groupEls,
+                    assistantIndex,
+                    isStreaming: this.isStreamingMessage(messageEl),
+                });
+                assistantIndex += 1;
+            }
         }
 
         return this.finalizeConversationGroupRefs(refs);

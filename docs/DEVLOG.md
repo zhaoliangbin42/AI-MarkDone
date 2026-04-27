@@ -4,6 +4,17 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-04-27 — v4.2.1 ChatGPT directory positioning recovery
+
+- Reworked ChatGPT directory positioning around a shared user-round position model from adapter/content-discovery output.
+- Directory clicks use the round jump anchor; scroll highlighting uses the visible user/assistant round range; rail follow stays local to the directory and yields during user interaction.
+- Updated release-facing version metadata, README latest notes, release notes, changelog, in-app changelog, and architecture SSOT for v4.2.1.
+
+Verification:
+- `npm test -- tests/unit/ui/content/chatgptDirectory.navigation.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts tests/unit/ui/bookmarks/bookmarksPanelController.test.ts tests/unit/runtimes/content/entry.test.ts` (pass)
+- `npm test -- tests/unit/governance/bookmarks-content-docs.test.ts tests/unit/governance/manifest-generation.test.ts tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/ui/content/chatgptDirectory.navigation.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts` (pass)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-03-03 — P0 Message Sending (ChatGPT-only) + UI hook + regression gates
 
 - Added message sending vertical domain (core/content driver/service) with ChatGPT adapter hooks.

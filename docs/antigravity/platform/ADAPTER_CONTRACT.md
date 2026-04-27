@@ -61,7 +61,7 @@ Adapter 不负责：
 - `getActionBarSelector()` 作为“完成态锚点”的辅助（streaming guard / pending 状态）；若平台没有明确 action bar，应返回一个尽量可靠的完成态锚点选择器。
 - `getToolbarAnchorElement()` 是“官方底部工具栏唯一真源”：必须返回对同一逻辑消息稳定且唯一的官方 toolbar/action row 锚点；不得产生副作用；拿不到应返回 `null`，调用方不得注入。
 - `getTurnRootElement?()` 用于“turn 分组”的结构性锚点：应返回包裹本段 assistant segment 的稳定容器（优先使用站点已有的 turn wrapper）；不得产生副作用；拿不到应返回 `null`（调用方回退到平台无关的 best-effort turn grouping）。
-- `getConversationGroupRefs?()` 用于平台拥有的完整对话组发现：必须返回 assistant 消息、可选 user turn、完整 body roots、可选 `userPromptText`、以及可选稳定 `barAnchorEl`/anchor hint。当平台存在外层 turn container 时，`groupEls` 应优先使用完整 container，而不是只返回内部 message section；`userPromptText` 应来自已配对的 user turn，而不是由 UI/controller 反向猜测；锚点应指向目录条、冷轮次定位或其他页面内导航能力可复用的稳定可见位置。
+- `getConversationGroupRefs?()` 用于平台拥有的完整对话组发现：必须返回 assistant 消息、可选 user turn、完整 body roots、可选 `userPromptText`、以及可选稳定 `barAnchorEl`/anchor hint。当平台存在外层 turn container 时，`groupEls` 应优先使用完整 container，而不是只返回内部 message section；当平台只暴露 role/testid/data-turn 结构时，adapter/driver 应在限定的 conversation root 内配对 user/assistant 轮次；`userPromptText` 应来自已配对的 user turn，而不是由 UI/controller 反向猜测；锚点应指向目录条、冷轮次定位或其他页面内导航能力可复用的稳定可见位置。
 - `getHeaderIconAnchorElement()` 用于页面级书签入口：应返回站点顶部 header 中稳定、唯一、可重复挂载的锚点元素；不得产生副作用；拿不到应返回 `null`。
 - `injectHeaderIcon()` 负责平台级 header icon 注入策略；必须幂等安全，允许 SPA 反复重挂；若 header 尚未可用应返回 `false`，由 runtime 统一重试。
 - `injectToolbar()` 必须是幂等安全的：允许重复调用但不会导致错误位置注入；只能注入到官方 toolbar/action row；若官方 toolbar 不存在必须返回 `false`，不得 fallback 到 content 或 append。

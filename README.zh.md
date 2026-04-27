@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.2.0-10A37F" alt="Version 4.2.0">
+    <img src="https://img.shields.io/badge/Version-4.2.1-10A37F" alt="Version 4.2.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -178,13 +178,10 @@ npm run build
 
 ## 📅 最新更新
 
-### v4.2.0
-- 新增 Safari 和 Firefox 构建支持，并统一浏览器适配层与目标 manifest 生成链路。
-- 新增复制消息为 PNG 和批量导出消息为 PNG，方便分享 ChatGPT 长回复。
-- 新增 PNG 宽度和清晰度设置。
-- 新增导航栏展开模式和导航栏开关。
-- 修复设置面板布局、书签文件命名 invalid 提示不够明确、ChatGPT 增量加载导致目录跳转偏移等问题。
-- 明确后续方向：ChatGPT 作为主力平台持续开发，Gemini、Claude、DeepSeek 会逐步进入维护模式。
+### v4.2.1
+- 修复 ChatGPT 更新后右侧目录定位不稳定的问题。
+- 目录点击现在使用统一的用户轮次锚点，不再混用消息数量和 DOM 定位规则。
+- 页面滚动时，目录高亮会按当前可见的用户/助手轮次范围同步，并让高亮项保持在目录附近。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

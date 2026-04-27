@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.2.0-10A37F" alt="Version 4.2.0">
+    <img src="https://img.shields.io/badge/Version-4.2.1-10A37F" alt="Version 4.2.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -179,13 +179,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.2.0
-- Added Safari and Firefox build support with shared browser adapters and generated target manifests.
-- Added Copy as PNG and batch PNG export for sharing ChatGPT messages as images.
-- Added PNG width and image-scale settings.
-- Added expanded directory mode and a directory visibility toggle.
-- Fixed Settings layout issues, clearer invalid bookmark filename messages, and ChatGPT directory jump drift under incremental loading.
-- Clarified the project direction: ChatGPT is now the primary focus; Gemini, Claude, and DeepSeek support will gradually move to maintenance mode.
+### v4.2.1
+- Fixed ChatGPT directory positioning after recent ChatGPT page structure changes.
+- Directory clicks now use one shared user-round anchor model instead of mixing message counts with separate DOM lookup rules.
+- Directory highlighting now follows the visible user/assistant round range and keeps the active item nearby during long-thread browsing.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
+import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -31,6 +32,66 @@ class ChatGPTTestAdapter extends SiteAdapter {
     isStreamingMessage(): boolean { return false; }
     getMessageId(messageElement: HTMLElement): string | null { return messageElement.getAttribute('data-message-id'); }
     getObserverContainer(): HTMLElement | null { return document.body; }
+    getConversationGroupRefs(): ConversationGroupRef[] {
+        const refs: ConversationGroupRef[] = [];
+        const turnContainers = Array.from(document.querySelectorAll('[data-turn-id-container]')).filter(
+            (node): node is HTMLElement => node instanceof HTMLElement,
+        );
+        let pendingUser: HTMLElement | null = null;
+        for (const container of turnContainers) {
+            const userRootEl = container.querySelector('[data-turn="user"]');
+            const assistantRootEl = container.querySelector('[data-turn="assistant"]');
+            if (userRootEl instanceof HTMLElement && !(assistantRootEl instanceof HTMLElement)) {
+                pendingUser = container;
+                continue;
+            }
+            if (!(assistantRootEl instanceof HTMLElement)) continue;
+            refs.push({
+                id: `group-${refs.length + 1}`,
+                assistantRootEl,
+                assistantMessageEl: assistantRootEl,
+                userRootEl: pendingUser,
+                userPromptText: pendingUser?.textContent?.trim() ?? null,
+                barAnchorEl: pendingUser ?? container,
+                groupEls: [pendingUser, container].filter((node): node is HTMLElement => node instanceof HTMLElement),
+                assistantIndex: refs.length,
+                isStreaming: false,
+            });
+            pendingUser = null;
+        }
+        if (refs.length > 0) return refs;
+
+        let pendingRoleUser: HTMLElement | null = null;
+        for (const roleNode of Array.from(document.querySelectorAll('[data-message-author-role]'))) {
+            if (!(roleNode instanceof HTMLElement)) continue;
+            const role = roleNode.getAttribute('data-message-author-role');
+            const turnRoot = roleNode.closest('[data-testid^="conversation-turn-"], [data-turn]') ?? roleNode;
+            const rootEl = turnRoot instanceof HTMLElement ? turnRoot : roleNode;
+            if (role === 'user') {
+                pendingRoleUser = rootEl;
+                continue;
+            }
+            if (role !== 'assistant') continue;
+            if (!pendingRoleUser) {
+                const previousRef = refs[refs.length - 1];
+                if (previousRef && !previousRef.groupEls.includes(rootEl)) previousRef.groupEls.push(rootEl);
+                continue;
+            }
+            refs.push({
+                id: roleNode.getAttribute('data-message-id') ?? `group-${refs.length + 1}`,
+                assistantRootEl: rootEl,
+                assistantMessageEl: roleNode,
+                userRootEl: pendingRoleUser,
+                userPromptText: pendingRoleUser.textContent?.trim() ?? null,
+                barAnchorEl: pendingRoleUser,
+                groupEls: [pendingRoleUser, rootEl],
+                assistantIndex: refs.length,
+                isStreaming: false,
+            });
+            pendingRoleUser = null;
+        }
+        return refs;
+    }
 }
 
 function buildSnapshot() {
@@ -71,6 +132,27 @@ function buildSkeletonDom() {
       <div data-turn-id-container id="user-2"><section data-turn="user"></section></div>
       <div data-turn-id-container id="assistant-2"><section data-turn="assistant"></section></div>
     `;
+}
+
+function setRect(element: HTMLElement, top: number, bottom: number): void {
+    element.getBoundingClientRect = vi.fn(() => ({
+        x: 0,
+        y: top,
+        top,
+        bottom,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: bottom - top,
+        toJSON: () => ({}),
+    }));
+}
+
+function setRoundRects(rects: Record<string, [number, number]>): void {
+    for (const [id, [top, bottom]] of Object.entries(rects)) {
+        const element = document.getElementById(id) as HTMLElement | null;
+        if (element) setRect(element, top, bottom);
+    }
 }
 
 describe('ChatGPTDirectoryController', () => {
@@ -343,7 +425,7 @@ describe('ChatGPTDirectoryController', () => {
         expect(items).toHaveLength(2);
     });
 
-    it('renders placeholder bars from materialized assistant messages when turn skeletons are unavailable', () => {
+    it('does not synthesize user-round placeholders from assistant-only messages', () => {
         document.body.innerHTML = `
           <main>
             <div data-message-author-role="assistant" data-message-id="a1"></div>
@@ -361,8 +443,79 @@ describe('ChatGPTDirectoryController', () => {
 
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
         const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
-        expect(items).toHaveLength(3);
-        expect(items.map((item) => item.dataset.position)).toEqual(['1', '2', '3']);
+        expect(items).toHaveLength(0);
+    });
+
+    it('marks the round whose full group range contains the reading reference line as active', () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 240],
+            'user-2': [260, 300],
+            'assistant-2': [300, 900],
+        });
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = buildSnapshot();
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+    });
+
+    it('uses the nearest round when the reading reference line falls between group ranges', () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 100],
+            'user-2': [550, 590],
+            'assistant-2': [590, 900],
+        });
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = buildSnapshot();
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+    });
+
+    it('updates active state from the window scroll fallback when the host scroll root is not the event source', async () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 900],
+            'user-2': [950, 990],
+            'assistant-2': [990, 1300],
+        });
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => buildSnapshot()), subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        setRoundRects({
+            'user-1': [-1000, -960],
+            'assistant-1': [-950, 120],
+            'user-2': [260, 300],
+            'assistant-2': [300, 900],
+        });
+        window.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+        controller.dispose();
     });
 
     it('falls back to the shared jump path only when a local skeleton anchor is unavailable', async () => {
@@ -388,5 +541,48 @@ describe('ChatGPTDirectoryController', () => {
             { position: 2, messageId: 'a2' },
             { timeoutMs: 1500, intervalMs: 120 },
         );
+    });
+});
+
+describe('ChatGPTDirectoryRail active following', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        document.body.innerHTML = '';
+    });
+
+    afterEach(() => {
+        vi.runOnlyPendingTimers();
+        vi.useRealTimers();
+        document.body.innerHTML = '';
+    });
+
+    it('scrolls the active rail item into view when active position changes', () => {
+        const rail = new ChatGPTDirectoryRail('light', vi.fn());
+        document.body.appendChild(rail.getElement());
+        rail.setRounds(buildSnapshot().rounds);
+        const item = rail.getElement().shadowRoot?.querySelector<HTMLElement>('.rail__item[data-position="2"]');
+        const scrollIntoView = vi.fn();
+        if (item) item.scrollIntoView = scrollIntoView;
+
+        rail.setActivePosition(2);
+
+        expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+        rail.dispose();
+    });
+
+    it('does not auto-scroll the rail while the user is interacting with it', () => {
+        const rail = new ChatGPTDirectoryRail('light', vi.fn());
+        document.body.appendChild(rail.getElement());
+        rail.setRounds(buildSnapshot().rounds);
+        const list = rail.getElement().shadowRoot?.querySelector<HTMLElement>('.rail__list');
+        const item = rail.getElement().shadowRoot?.querySelector<HTMLElement>('.rail__item[data-position="2"]');
+        const scrollIntoView = vi.fn();
+        if (item) item.scrollIntoView = scrollIntoView;
+
+        list?.dispatchEvent(new Event('pointerenter', { bubbles: true }));
+        rail.setActivePosition(2);
+
+        expect(scrollIntoView).not.toHaveBeenCalled();
+        rail.dispose();
     });
 });

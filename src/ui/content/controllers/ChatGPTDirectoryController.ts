@@ -5,7 +5,12 @@ import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode } from '../../../core/settings/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
-import { collectChatGPTSkeletonAnchors, navigateChatGPTDirectoryTarget, type ChatGPTSkeletonAnchor } from '../chatgptDirectory/navigation';
+import {
+    collectChatGPTRoundPositions,
+    navigateChatGPTDirectoryTarget,
+    type ChatGPTRoundPosition,
+    type ChatGPTSkeletonAnchor,
+} from '../chatgptDirectory/navigation';
 
 function isChatGPTConversationPage(url: string): boolean {
     try {
@@ -43,12 +48,14 @@ export class ChatGPTDirectoryController {
     private scrollRoot: HTMLElement | null = null;
     private mutationObserver: MutationObserver | null = null;
     private skeletonAnchors: ChatGPTSkeletonAnchor[] = [];
+    private roundPositions: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
     private rafId: number | null = null;
     private snapshotRetryTimer: number | null = null;
     private snapshotRetryCount = 0;
     private unsubscribeEngine: (() => void) | null = null;
     private initialized = false;
+    private globalScrollFallbacksBound = false;
 
     constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine) {
         this.adapter = adapter;
@@ -95,6 +102,7 @@ export class ChatGPTDirectoryController {
         this.mutationObserver = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
         this.scrollRoot = null;
+        this.unbindGlobalScrollFallbacks();
         this.rail?.dispose();
         this.rail = null;
         this.initialized = false;
@@ -161,7 +169,7 @@ export class ChatGPTDirectoryController {
 
     private render(): void {
         if (!this.rail) return;
-        this.refreshSkeletonAnchors();
+        this.refreshRoundPositions();
         const rounds = this.snapshot?.rounds?.length
             ? this.snapshot.rounds
             : this.buildPlaceholderRounds();
@@ -197,20 +205,39 @@ export class ChatGPTDirectoryController {
             this.scrollRoot = nextScrollRoot instanceof HTMLElement ? nextScrollRoot : null;
             this.scrollRoot?.addEventListener('scroll', this.handleScroll, { capture: true, passive: true } as AddEventListenerOptions);
         }
+        this.bindGlobalScrollFallbacks();
 
         this.mutationObserver?.disconnect();
         const observerContainer = this.adapter.getObserverContainer();
         if (observerContainer) {
             this.mutationObserver = new MutationObserver(() => {
-                this.refreshSkeletonAnchors();
+                this.refreshRoundPositions();
                 this.updateActivePosition();
             });
             this.mutationObserver.observe(observerContainer, { childList: true, subtree: true });
         }
     }
 
-    private refreshSkeletonAnchors(): void {
-        this.skeletonAnchors = collectChatGPTSkeletonAnchors(this.adapter);
+    private bindGlobalScrollFallbacks(): void {
+        if (this.globalScrollFallbacksBound) return;
+        window.addEventListener('scroll', this.handleScroll, { capture: true, passive: true });
+        document.addEventListener('scroll', this.handleScroll, { capture: true, passive: true });
+        this.globalScrollFallbacksBound = true;
+    }
+
+    private unbindGlobalScrollFallbacks(): void {
+        if (!this.globalScrollFallbacksBound) return;
+        window.removeEventListener('scroll', this.handleScroll, { capture: true });
+        document.removeEventListener('scroll', this.handleScroll, { capture: true });
+        this.globalScrollFallbacksBound = false;
+    }
+
+    private refreshRoundPositions(): void {
+        this.roundPositions = collectChatGPTRoundPositions(this.adapter);
+        this.skeletonAnchors = this.roundPositions.map((position) => ({
+            position: position.position,
+            anchorEl: position.jumpAnchor,
+        }));
     }
 
     private buildPlaceholderRounds(): ChatGPTConversationRound[] {
@@ -228,23 +255,58 @@ export class ChatGPTDirectoryController {
 
     private updateActivePosition(): void {
         if (!this.rail) return;
-        if (this.skeletonAnchors.length === 0) {
+        if (this.roundPositions.length === 0) {
             this.rail.setActivePosition(0);
             return;
         }
 
-        const threshold = Math.max(120, Math.round(window.innerHeight * 0.22));
-        let active = this.activePosition;
+        const referenceY = Math.round(window.innerHeight * 0.35);
+        const ranges = this.roundPositions
+            .map((position) => {
+                const range = this.getRoundViewportRange(position);
+                return range ? { position: position.position, ...range } : null;
+            })
+            .filter((range): range is { position: number; top: number; bottom: number } => range !== null);
 
-        for (const anchor of this.skeletonAnchors) {
-            const rect = anchor.anchorEl.getBoundingClientRect();
-            if (rect.top <= threshold) active = anchor.position;
-            else break;
+        let active = ranges.find((range) => range.top <= referenceY && range.bottom >= referenceY)?.position ?? 0;
+
+        if (!active && ranges.length > 0) {
+            let nearest = ranges[0]!;
+            let nearestDistance = this.getRangeDistanceFromReference(nearest, referenceY);
+            for (const range of ranges.slice(1)) {
+                const distance = this.getRangeDistanceFromReference(range, referenceY);
+                if (distance < nearestDistance) {
+                    nearest = range;
+                    nearestDistance = distance;
+                }
+            }
+            active = nearest.position;
         }
 
-        if (!active) active = this.skeletonAnchors[0]?.position ?? 0;
+        if (!active) active = this.activePosition || this.roundPositions[0]?.position || 0;
         this.activePosition = active;
         this.rail.setActivePosition(active);
+    }
+
+    private getRoundViewportRange(position: ChatGPTRoundPosition): { top: number; bottom: number } | null {
+        const nodes = position.groupEls.length ? position.groupEls : [position.jumpAnchor];
+        let top = Number.POSITIVE_INFINITY;
+        let bottom = Number.NEGATIVE_INFINITY;
+        for (const node of nodes) {
+            if (!node.isConnected) continue;
+            const rect = node.getBoundingClientRect();
+            if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) continue;
+            top = Math.min(top, rect.top);
+            bottom = Math.max(bottom, rect.bottom);
+        }
+        if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
+        return { top, bottom };
+    }
+
+    private getRangeDistanceFromReference(range: { top: number; bottom: number }, referenceY: number): number {
+        if (referenceY < range.top) return range.top - referenceY;
+        if (referenceY > range.bottom) return referenceY - range.bottom;
+        return 0;
     }
 
     private async handleSelect(round: ChatGPTConversationRound): Promise<void> {

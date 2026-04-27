@@ -1,5 +1,17 @@
 # Release Notes
 
+## v4.2.1 (2026-04-27)
+
+### Fixed
+- Fixed ChatGPT directory positioning after recent ChatGPT page structure changes.
+
+### How it works
+- ChatGPT no longer consistently exposes the old turn container we used before.
+- The directory could count messages from one source but locate them with another.
+- The new flow builds one shared user-round position model from ChatGPT's structured turns.
+- Clicks use that round's jump anchor; scrolling uses that round's visible user/assistant range.
+- The directory keeps the active item nearby without taking over while you are using the rail.
+
 ## v4.1.2 (2026-04-22)
 
 ### Added

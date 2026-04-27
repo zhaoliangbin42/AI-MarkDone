@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1] - 2026-04-27
+
+### Fixed
+- ChatGPT: Fixed right-side directory positioning after recent ChatGPT page updates. Directory clicks now use adapter-owned user-round anchors, and scroll highlighting follows the visible user/assistant round range instead of mixing message counts with separate DOM lookup rules.
+
 ## [4.2.0] - 2026-04-26
 
 ### Added

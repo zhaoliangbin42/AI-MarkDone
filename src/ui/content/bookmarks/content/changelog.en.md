@@ -1,5 +1,18 @@
 # Changelog
 
+# 4.2.1
+2026-04-27
+
+This patch fixes ChatGPT directory positioning after a recent ChatGPT page update.
+
+## Fixed
+- Fixed cases where the right-side directory could show the right list but fail to jump or highlight the correct conversation position.
+
+## How it works
+- ChatGPT stopped consistently exposing the old turn container we used before.
+- The directory could count messages from one source but locate them with another.
+- The new flow builds one shared user-round position model from ChatGPT's structured turns.
+
 # 4.2.0
 2026-04-26
 
