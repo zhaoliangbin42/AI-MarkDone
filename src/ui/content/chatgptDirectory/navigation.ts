@@ -8,6 +8,10 @@ export type ChatGPTSkeletonAnchor = {
 
 export type ChatGPTRoundPosition = {
     position: number;
+    id: string | null;
+    messageId: string | null;
+    userPromptText: string | null;
+    userPromptQuality?: 'real' | 'fallback';
     jumpAnchor: HTMLElement;
     userAnchor: HTMLElement | null;
     assistantRoot: HTMLElement | null;
@@ -100,6 +104,10 @@ export function collectChatGPTRoundPositions(adapter: SiteAdapter): ChatGPTRound
             if (groupEls.length === 0) pushUnique(groupEls, jumpAnchor);
             return {
                 position: index + 1,
+                id: groupRef.id ?? null,
+                messageId: groupRef.id ?? groupRef.assistantMessageEl.getAttribute('data-message-id') ?? null,
+                userPromptText: groupRef.userPromptText ?? null,
+                userPromptQuality: groupRef.userPromptQuality,
                 jumpAnchor,
                 userAnchor: groupRef.userRootEl ?? null,
                 assistantRoot: groupRef.assistantRootEl ?? null,

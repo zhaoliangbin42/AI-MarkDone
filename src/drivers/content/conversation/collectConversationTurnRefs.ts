@@ -36,28 +36,39 @@ function listTopLevelAssistantMessages(rootEl: HTMLElement, selector: string, fa
     });
 }
 
+function isEmptyAssistantMessageFallback(element: HTMLElement): boolean {
+    return element.getAttribute('data-aimd-empty-assistant-message') === 'true';
+}
+
 function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupRef[]): ConversationTurnRef[] {
     const selector = adapter.getMessageSelector();
+    const refs: ConversationTurnRef[] = [];
 
-    return groupRefs.map((groupRef, index) => {
+    for (const groupRef of groupRefs) {
+        if (isEmptyAssistantMessageFallback(groupRef.assistantMessageEl) && !groupRef.assistantContentRootEl) {
+            continue;
+        }
         const messageEls = listTopLevelAssistantMessages(groupRef.assistantRootEl, selector, groupRef.assistantMessageEl);
         const primaryMessageEl = messageEls.includes(groupRef.assistantMessageEl)
             ? groupRef.assistantMessageEl
             : messageEls[messageEls.length - 1] ?? groupRef.assistantMessageEl;
+        if (isEmptyAssistantMessageFallback(primaryMessageEl)) continue;
         const userPrompt = groupRef.userPromptText?.trim()
             || adapter.extractUserPrompt(primaryMessageEl)
-            || `Message ${index + 1}`;
+            || `Message ${refs.length + 1}`;
         const messageId = adapter.getMessageId(primaryMessageEl) || groupRef.id || null;
 
-        return {
-            index,
+        refs.push({
+            index: refs.length,
             primaryMessageEl,
             messageEls: messageEls.length > 0 ? messageEls : [primaryMessageEl],
             userPrompt,
             messageId,
             turnRootEl: groupRef.assistantRootEl,
-        };
-    });
+        });
+    }
+
+    return refs;
 }
 
 export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationTurnRef[] {

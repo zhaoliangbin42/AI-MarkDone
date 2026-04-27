@@ -167,6 +167,65 @@ describe('collectConversationMessageRefs', () => {
         expect(refs[0]?.messageEls[0]?.getAttribute('data-id')).toBe('a1');
     });
 
+    it('does not expose empty assistant skeleton fallbacks as copyable conversation turns', () => {
+        document.body.innerHTML = `
+          <div id="container">
+            <div data-group-root="1">
+              <section data-turn="user">skeleton prompt</section>
+              <section data-turn="assistant" id="skeleton-root"></section>
+            </div>
+            <div data-group-root="2">
+              <section data-turn="user">real prompt</section>
+              <section data-turn="assistant">
+                <div class="assistant" data-id="a2" data-prompt="legacy-p2"></div>
+              </section>
+            </div>
+          </div>
+        `;
+
+        class SkeletonAwareAdapter extends TestAdapter {
+            getConversationGroupRefs(): ConversationGroupRef[] {
+                const skeletonRoot = document.getElementById('skeleton-root') as HTMLElement;
+                const skeletonMessage = document.createElement('div');
+                skeletonMessage.setAttribute('data-aimd-empty-assistant-message', 'true');
+                const realMessage = document.querySelector('[data-id="a2"]') as HTMLElement;
+                const realRoot = realMessage.closest('[data-turn="assistant"]') as HTMLElement;
+                return [
+                    {
+                        id: 'skeleton',
+                        assistantRootEl: skeletonRoot,
+                        assistantMessageEl: skeletonMessage,
+                        assistantContentRootEl: null,
+                        userRootEl: document.querySelector('[data-group-root="1"] [data-turn="user"]') as HTMLElement,
+                        userPromptText: 'skeleton prompt',
+                        barAnchorEl: skeletonRoot,
+                        groupEls: [skeletonRoot],
+                        assistantIndex: 0,
+                        isStreaming: false,
+                    },
+                    {
+                        id: 'real',
+                        assistantRootEl: realRoot,
+                        assistantMessageEl: realMessage,
+                        assistantContentRootEl: realMessage,
+                        userRootEl: document.querySelector('[data-group-root="2"] [data-turn="user"]') as HTMLElement,
+                        userPromptText: 'real prompt',
+                        barAnchorEl: realRoot,
+                        groupEls: [realRoot],
+                        assistantIndex: 1,
+                        isStreaming: false,
+                    },
+                ];
+            }
+        }
+
+        const refs = collectConversationTurnRefs(new SkeletonAwareAdapter());
+
+        expect(refs).toHaveLength(1);
+        expect(refs[0]?.userPrompt).toBe('real prompt');
+        expect(refs[0]?.messageId).toBe('a2');
+    });
+
     it('falls back to legacy assistant discovery if platform-owned grouping fails', () => {
         document.body.innerHTML = `
           <div id="container">

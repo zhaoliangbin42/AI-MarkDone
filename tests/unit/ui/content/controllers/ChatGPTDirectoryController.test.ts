@@ -134,6 +134,16 @@ function buildSkeletonDom() {
     `;
 }
 
+function buildSkeletonDomWithCount(count: number) {
+    document.body.innerHTML = Array.from({ length: count }, (_, index) => {
+        const position = index + 1;
+        return `
+          <div data-turn-id-container id="user-${position}"><section data-turn="user"></section></div>
+          <div data-turn-id-container id="assistant-${position}"><section data-turn="assistant"></section></div>
+        `;
+    }).join('');
+}
+
 function setRect(element: HTMLElement, top: number, bottom: number): void {
     element.getBoundingClientRect = vi.fn(() => ({
         x: 0,
@@ -210,7 +220,69 @@ describe('ChatGPTDirectoryController', () => {
         expect(items[1]?.dataset.position).toBe('2');
     });
 
+    it('uses DOM-discovered prompts instead of low-quality snapshot Message labels', () => {
+        document.body.innerHTML = `
+          <div data-turn-id-container id="user-1"><section data-turn="user">真实用户问题一</section></div>
+          <div data-turn-id-container id="assistant-1"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a1"></section></div>
+          <div data-turn-id-container id="user-2"><section data-turn="user">真实用户问题二</section></div>
+          <div data-turn-id-container id="assistant-2"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a2"></section></div>
+        `;
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = {
+            ...buildSnapshot(),
+            rounds: buildSnapshot().rounds.map((round) => ({
+                ...round,
+                userPrompt: `Message ${round.position}`,
+                preview: `Message ${round.position}`,
+            })),
+        };
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        expect(items).toHaveLength(2);
+        expect(items[0]?.getAttribute('aria-label')).toContain('真实用户问题一');
+        expect(items[0]?.getAttribute('aria-label')).not.toContain('Message 1');
+        expect(items[1]?.getAttribute('aria-label')).toContain('真实用户问题二');
+    });
+
+    it('rebuilds directory rounds when ChatGPT mounts conversation DOM after SPA route change', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        document.body.innerHTML = '<main id="conversation-root"></main>';
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+        let railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        expect(railRoot?.querySelectorAll('.rail__item')).toHaveLength(0);
+
+        document.getElementById('conversation-root')!.innerHTML = `
+          <div data-turn-id-container id="user-1"><section data-turn="user">延迟挂载的问题一</section></div>
+          <div data-turn-id-container id="assistant-1"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a1"></section></div>
+          <div data-turn-id-container id="user-2"><section data-turn="user">延迟挂载的问题二</section></div>
+          <div data-turn-id-container id="assistant-2"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a2"></section></div>
+        `;
+        await Promise.resolve();
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        await vi.waitFor(() => {
+            railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+            const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+            expect(items).toHaveLength(2);
+            expect(items[0]?.getAttribute('aria-label')).toContain('延迟挂载的问题一');
+        });
+        controller.dispose();
+    });
+
     it('applies nearby hover proximity states for the directory accordion effect', () => {
+        buildSkeletonDomWithCount(4);
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = new ChatGPTDirectoryController(adapter, engine);
@@ -371,7 +443,7 @@ describe('ChatGPTDirectoryController', () => {
         expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
 
-    it('updates the rail when the engine publishes a newer snapshot', async () => {
+    it('keeps DOM-discovered round count when the engine publishes extra snapshot-only rounds', async () => {
         let onSnapshot: ((snapshot: ReturnType<typeof buildSnapshot> | null) => void) | null = null;
         const adapter = new ChatGPTTestAdapter();
         const engine = {
@@ -405,7 +477,7 @@ describe('ChatGPTDirectoryController', () => {
 
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
         const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
-        expect(items).toHaveLength(3);
+        expect(items).toHaveLength(2);
     });
 
     it('reattaches the rail host if the ChatGPT app removes the body-level node', async () => {

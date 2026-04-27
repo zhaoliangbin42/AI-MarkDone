@@ -1,5 +1,18 @@
 # Release Notes
 
+## v4.2.2 (2026-04-27)
+
+### Fixed
+- Removed ChatGPT link citation references from Reader Markdown copy output. Thanks to GitHub user @LTong-g.
+- Further improved right-side directory stability. Thanks to GitHub user @LTong-g.
+- Fixed Deep Research round discovery so the right-side directory can jump correctly. Reader content remains empty for Deep Research skeleton-only rounds unless users ask for dedicated support.
+- Fixed a v4.2.1 Reader content loading regression. Thanks to Xiaohongshu user @小红薯67542EF1.
+
+### How it works
+- ChatGPT DOM turn discovery is now the source of truth for directory rounds, prompts, anchors, and real assistant content nodes.
+- Backend, snapshot, and React payload data can enhance content, but they no longer override real DOM prompts or create directory rounds.
+- Deep Research skeleton nodes can support directory positioning without being exposed as Reader Markdown content.
+
 ## v4.2.1 (2026-04-27)
 
 ### Fixed
