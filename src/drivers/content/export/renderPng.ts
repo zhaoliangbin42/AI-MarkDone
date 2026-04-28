@@ -1,6 +1,6 @@
 import { toCanvas } from 'html-to-image';
 import { logger } from '../../../core/logger';
-import { getPngKatexFontEmbed, type PngKatexFontEmbedResult } from './pngKatexFonts';
+import { getKatexCssWithEmbeddedFonts, type KatexEmbeddedCssResult } from './katexAssets';
 
 export type RenderPngMetrics = {
     width: number;
@@ -109,7 +109,7 @@ function resolveSafePixelRatio(requestedPixelRatio: number, width: number, heigh
     return { effectivePixelRatio, capReason };
 }
 
-function createRenderOptions(plan: RenderPngPlan, pixelRatio: number, fontEmbed: PngKatexFontEmbedResult) {
+function createRenderOptions(plan: RenderPngPlan, pixelRatio: number, fontEmbed: KatexEmbeddedCssResult) {
     return {
         pixelRatio,
         backgroundColor: plan.backgroundColor,
@@ -196,11 +196,11 @@ function buildChunkNode(sourceNode: HTMLElement, blocks: HTMLElement[], index: n
     return chunk;
 }
 
-async function renderNodeToCanvas(node: HTMLElement, plan: RenderPngPlan, pixelRatio: number, fontEmbed: PngKatexFontEmbedResult): Promise<HTMLCanvasElement> {
+async function renderNodeToCanvas(node: HTMLElement, plan: RenderPngPlan, pixelRatio: number, fontEmbed: KatexEmbeddedCssResult): Promise<HTMLCanvasElement> {
     return toCanvas(node, createRenderOptions(plan, pixelRatio, fontEmbed));
 }
 
-async function renderChunkedCanvas(sourceNode: HTMLElement, plan: RenderPngPlan, pixelRatio: number, fontEmbed: PngKatexFontEmbedResult, totalHeight: number): Promise<{
+async function renderChunkedCanvas(sourceNode: HTMLElement, plan: RenderPngPlan, pixelRatio: number, fontEmbed: KatexEmbeddedCssResult, totalHeight: number): Promise<{
     canvas: HTMLCanvasElement;
     chunkCount: number;
 }> {
@@ -243,6 +243,14 @@ async function renderChunkedCanvas(sourceNode: HTMLElement, plan: RenderPngPlan,
     return { canvas: stitched, chunkCount: canvases.length };
 }
 
+function injectKatexCss(node: HTMLElement, fontEmbed: KatexEmbeddedCssResult): void {
+    if (fontEmbed.mode !== 'data-url' || !fontEmbed.css) return;
+    const style = document.createElement('style');
+    style.dataset.aimdKatexExportCss = '1';
+    style.textContent = fontEmbed.css;
+    node.prepend(style);
+}
+
 export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
     const root = createRoot();
     const node = document.createElement('div');
@@ -252,7 +260,8 @@ export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
     root.appendChild(node);
 
     try {
-        const fontEmbed = await getPngKatexFontEmbed(plan.html);
+        const fontEmbed = await getKatexCssWithEmbeddedFonts(plan.html);
+        injectKatexCss(node, fontEmbed);
         await waitForFonts();
         await waitForImages(node, plan.imageTimeoutMs ?? DEFAULT_IMAGE_TIMEOUT_MS);
         replaceUnavailableImages(node);

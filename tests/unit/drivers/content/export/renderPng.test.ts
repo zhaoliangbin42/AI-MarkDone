@@ -16,6 +16,7 @@ import { renderPngBlob } from '../../../../../src/drivers/content/export/renderP
 const KATEX_CSS = `
 @font-face{font-family:KaTeX_Main;src:url(fonts/KaTeX_Main-Regular.woff2) format("woff2")}
 .katex{font-family:KaTeX_Main}
+.katex-display > .katex > .katex-html > .tag{position:absolute;right:0}
 `;
 
 describe('renderPngBlob', () => {
@@ -104,6 +105,11 @@ describe('renderPngBlob', () => {
         });
 
         const options = vi.mocked(toCanvas).mock.calls[0][1] as any;
+        const renderedNode = vi.mocked(toCanvas).mock.calls[0][0] as HTMLElement;
+        const katexStyle = renderedNode.querySelector<HTMLStyleElement>('style[data-aimd-katex-export-css="1"]');
+        expect(katexStyle?.textContent).toContain('.katex{font-family:KaTeX_Main}');
+        expect(katexStyle?.textContent).toContain('data:font/woff2;base64');
+        expect(katexStyle?.textContent).toContain('.katex-display > .katex > .katex-html > .tag');
         expect(options.fontEmbedCSS).toContain('font-family:KaTeX_Main');
         expect(options.fontEmbedCSS).toContain('data:font/woff2;base64');
         expect(options.fontEmbedCSS).not.toContain('chrome-extension://');

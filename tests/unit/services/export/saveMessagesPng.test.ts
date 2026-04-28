@@ -36,7 +36,9 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[1].filename).toBe('A_B_C__D_-message-002.png');
         expect(result!.plans[0].html).toContain('class="message-section');
         expect(result!.plans[0].html).toContain('class="reader-markdown markdown-body"');
+        expect(result!.plans[0].html).toContain('.aimd-png-export-card .reader-markdown {\n  font-family: inherit;');
         expect(result!.plans[0].html).toContain('reader-code-block');
+        expect(result!.plans[0].html).not.toContain('katex-styles-bundled');
         expect(result!.plans[0].html).toContain('hljs');
         expect(result!.plans[0].html).not.toContain('reader-copy-code');
         expect(result!.plans[0].html).toContain('<table>');
@@ -55,5 +57,16 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[0].width).toBe(420);
         expect(result!.plans[0].pixelRatio).toBe(3);
         expect(result!.plans[0].html).toContain('width: 420px;');
+    });
+
+    it('preserves KaTeX equation tag markup without embedding handwritten KaTeX CSS in the plan', () => {
+        const result = buildPngExportPlans([
+            { user: 'u1', assistant: ['$$', 'E=mc^2 \\tag{1}', '$$'].join('\n'), index: 0 },
+        ], [0], meta, t);
+
+        expect(result).not.toBeNull();
+        expect(result!.plans[0].html).toContain('class="katex-display"');
+        expect(result!.plans[0].html).toContain('class="tag"');
+        expect(result!.plans[0].html).not.toContain('katex-styles-bundled');
     });
 });

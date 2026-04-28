@@ -32,11 +32,35 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(html).toContain('break-before: page');
         expect(html).toContain('@media print');
         expect(html).toContain('--aimd-text-primary: #000000');
-        expect(html).toContain('katex-styles-bundled');
+        expect(html).not.toContain('katex-styles-bundled');
         expect(html).toContain('class="reader-markdown markdown-body"');
+        expect(html).toContain('#aimd-pdf-export-container .reader-markdown {\n  font-family: inherit;');
         expect(html).toContain('中文用户');
         expect(html).toContain('中文内容');
         expect(html).toContain('body > *:not(#aimd-pdf-export-container) { display: none !important; }');
+    });
+
+    it('preserves KaTeX equation tag markup while leaving official KaTeX CSS to the print driver', () => {
+        const turns: ChatTurn[] = [
+            {
+                user: 'u1',
+                assistant: ['$$', 'E=mc^2 \\tag{1}', '$$'].join('\n'),
+                index: 0,
+            },
+        ];
+        const meta: ConversationMetadata = {
+            url: 'https://chatgpt.com/c/1',
+            exportedAt: new Date('2026-03-01T00:00:00.000Z').toISOString(),
+            title: 'T',
+            count: 1,
+            platform: 'ChatGPT',
+        };
+
+        const plan = buildPdfPrintPlan(turns, [0], meta, t);
+        expect(plan).not.toBeNull();
+        expect(plan!.html).toContain('class="katex-display"');
+        expect(plan!.html).toContain('class="tag"');
+        expect(plan!.html).not.toContain('katex-styles-bundled');
     });
 
     it('aligns PDF markdown rendering with the Reader theme without exporting Reader copy controls', () => {
