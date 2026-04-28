@@ -8,6 +8,34 @@ function t(key: string, args?: any): string {
     return `${key}:${String(args)}`;
 }
 
+const BASIC_MARKDOWN_SAMPLE = [
+    '# Heading 1',
+    '',
+    'Paragraph with **bold**, *emphasis*, `inline code`, and [a link](https://example.com).',
+    '',
+    '- bullet one',
+    '  - nested bullet',
+    '- bullet two',
+    '',
+    '1. ordered one',
+    '2. ordered two',
+    '',
+    '- [x] shipped',
+    '- [ ] pending',
+    '',
+    '> quoted note',
+    '',
+    '| Name | Value |',
+    '| --- | --- |',
+    '| alpha | beta |',
+    '',
+    '---',
+    '',
+    '$$',
+    'E=mc^2 \\tag{1}',
+    '$$',
+].join('\n');
+
 describe('buildPngExportPlans', () => {
     const meta: ConversationMetadata = {
         url: 'https://chatgpt.com/c/1',
@@ -68,5 +96,30 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[0].html).toContain('class="katex-display"');
         expect(result!.plans[0].html).toContain('class="tag"');
         expect(result!.plans[0].html).not.toContain('katex-styles-bundled');
+    });
+
+    it('keeps basic CommonMark and GFM structures in the real PNG export plan', () => {
+        const result = buildPngExportPlans([
+            { user: 'u1', assistant: BASIC_MARKDOWN_SAMPLE, index: 0 },
+        ], [0], meta, t);
+
+        expect(result).not.toBeNull();
+        const html = result!.plans[0].html;
+
+        expect(html).toContain('<h1>Heading 1</h1>');
+        expect(html).toContain('<strong>bold</strong>');
+        expect(html).toContain('<em>emphasis</em>');
+        expect(html).toContain('<code>inline code</code>');
+        expect(html).toContain('href="https://example.com"');
+        expect(html).toContain('<ul>');
+        expect(html).toContain('nested bullet');
+        expect(html).toContain('<ol>');
+        expect(html).toContain('contains-task-list');
+        expect(html).toContain('task-list-item');
+        expect(html).toContain('<blockquote>');
+        expect(html).toContain('<table>');
+        expect(html).toContain('<hr>');
+        expect(html).toContain('class="katex-display"');
+        expect(html).toContain('class="tag"');
     });
 });
