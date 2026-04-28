@@ -54,6 +54,41 @@ describe('ReaderCommentExportPopover', () => {
         expect(onCopy).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps the copy icon intact when the success label is shown and restored', async () => {
+        vi.useFakeTimers();
+        const { shadow, container } = createHost();
+        const popover = new ReaderCommentExportPopover();
+        const onCopy = vi.fn(async () => true);
+
+        popover.open({
+            shadow,
+            container,
+            theme: 'light',
+            preview: 'Header\n\n1. Compiled comment',
+            canCopy: true,
+            onCopy,
+            labels: {
+                title: 'Copy comments',
+                copy: 'Copy comments',
+                copied: 'Copied!',
+                empty: 'No comments yet.',
+            },
+        });
+
+        const copyButton = shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+        copyButton.click();
+        await Promise.resolve();
+
+        expect(copyButton.querySelector('.aimd-icon svg')).toBeTruthy();
+        expect(copyButton.querySelector('[data-role="copy-label"]')?.textContent).toBe('Copied!');
+
+        await vi.advanceTimersByTimeAsync(1200);
+
+        expect(copyButton.querySelector('.aimd-icon svg')).toBeTruthy();
+        expect(copyButton.querySelector('[data-role="copy-label"]')?.textContent).toBe('Copy comments');
+        vi.useRealTimers();
+    });
+
     it('uses the same rounded surface and field tokens as the main comment popover', () => {
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderCommentExportPopover.ts'), 'utf8');
 
