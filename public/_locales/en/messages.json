@@ -227,6 +227,18 @@
     "readerSettingsLabel": {
         "message": "Reader"
     },
+    "readerContentWidthLabel": {
+        "message": "Reader content width"
+    },
+    "readerContentWidthDesc": {
+        "message": "Maximum Reader body width in pixels. The content still shrinks to fit the panel."
+    },
+    "advancedSettingsLabel": {
+        "message": "Advanced Settings"
+    },
+    "advancedSettingsDesc": {
+        "message": "Show focused controls for fine-tuning extension behavior."
+    },
     "readerCommentPromptListLabel": {
         "message": "User prompts"
     },

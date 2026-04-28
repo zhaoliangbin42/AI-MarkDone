@@ -23,6 +23,11 @@ export type ChatGPTDirectorySettings = {
     mode: ChatGPTDirectoryMode;
 };
 
+export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
+export const MIN_READER_CONTENT_MAX_WIDTH_PX = 480;
+export const MAX_READER_CONTENT_MAX_WIDTH_PX = 1600;
+export const READER_CONTENT_MAX_WIDTH_STEP_PX = 20;
+
 export type AppSettings = {
     version: SettingsVersion;
     platforms: {
@@ -40,6 +45,7 @@ export type AppSettings = {
     };
     reader: {
         renderCodeInReader: boolean;
+        contentMaxWidthPx: number;
         commentExport: ReaderCommentExportSettings;
     };
     export: ExportSettings;
@@ -64,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     reader: {
         renderCodeInReader: true,
+        contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         commentExport: createDefaultReaderCommentExportSettings(),
     },
     export: DEFAULT_EXPORT_SETTINGS,

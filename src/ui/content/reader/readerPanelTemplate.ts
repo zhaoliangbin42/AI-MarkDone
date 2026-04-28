@@ -16,6 +16,7 @@ type ReaderTemplateState = {
     items: ReaderItem[];
     index: number;
     fullscreen: boolean;
+    contentMaxWidthPx: number;
     renderedHtml: string;
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
@@ -84,7 +85,7 @@ export function getReaderPanelHtml(params: {
     </div>
   </div>
   <div class="reader-body">
-    <article class="reader-content">
+    <article class="reader-content" style="--_reader-content-max-width: ${Math.max(1, Math.round(state.contentMaxWidthPx))}px;">
       <div class="reader-thread">
         <section class="reader-message reader-message--user">
           <div class="reader-message__label">User message</div>
@@ -210,7 +211,7 @@ ${getPanelChromeCss()}
 }
 
 .reader-content {
-  max-width: min(1000px, 100%);
+  max-width: min(var(--_reader-content-max-width, 1000px), 100%);
   margin: 0 auto;
 }
 

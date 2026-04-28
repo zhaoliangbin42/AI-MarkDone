@@ -2,10 +2,13 @@ import type { Theme } from '../../../core/types/theme';
 import { getTokenCss } from '../../../style/tokens';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode } from '../../../core/settings/types';
+import { chevronDownIcon, chevronUpIcon } from '../../../assets/icons';
 
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
 const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
 const PREVIEW_STYLE_ID = 'aimd-chatgpt-directory-preview-style';
+const STEP_CONTROLS_ID = 'aimd-chatgpt-directory-step-controls';
+const STEP_CONTROLS_STYLE_ID = 'aimd-chatgpt-directory-step-controls-style';
 const HOVER_RADIUS = 3;
 const EXPANDED_LABEL_MAX_LENGTH = 30;
 const USER_INTERACTION_IDLE_MS = 800;
@@ -28,6 +31,9 @@ export class ChatGPTDirectoryRail {
     private shadowRoot: ShadowRoot;
     private styleEl: HTMLStyleElement;
     private listEl: HTMLDivElement;
+    private stepControlsEl: HTMLDivElement;
+    private previousButton: HTMLButtonElement;
+    private nextButton: HTMLButtonElement;
     private previewEl: HTMLDivElement;
     private rounds: ChatGPTConversationRound[] = [];
     private activePosition = 0;
@@ -37,14 +43,18 @@ export class ChatGPTDirectoryRail {
     private userInteracting = false;
     private interactionIdleTimer: number | null = null;
     private onSelect: (round: ChatGPTConversationRound) => void;
+    private onStep: (delta: -1 | 1) => void;
 
-    constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void) {
+    constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void, onStep: (delta: -1 | 1) => void = () => undefined) {
         this.onSelect = onSelect;
+        this.onStep = onStep;
 
         const existing = document.getElementById(RAIL_ID);
         if (existing instanceof HTMLElement) existing.remove();
         const existingPreview = document.getElementById(PREVIEW_ID);
         if (existingPreview instanceof HTMLElement) existingPreview.remove();
+        const existingStepControls = document.getElementById(STEP_CONTROLS_ID);
+        if (existingStepControls instanceof HTMLElement) existingStepControls.remove();
 
         this.rootEl = document.createElement('div');
         this.rootEl.id = RAIL_ID;
@@ -99,6 +109,16 @@ export class ChatGPTDirectoryRail {
         shell.appendChild(this.listEl);
         this.shadowRoot.appendChild(shell);
 
+        this.stepControlsEl = document.createElement('div');
+        this.stepControlsEl.id = STEP_CONTROLS_ID;
+        this.stepControlsEl.className = 'aimd-chatgpt-directory-step-controls';
+        this.stepControlsEl.setAttribute('data-aimd-theme', theme);
+        this.previousButton = this.createStepButton('directory-step-previous', 'Previous message', chevronUpIcon, () => this.onStep(-1));
+        this.nextButton = this.createStepButton('directory-step-next', 'Next message', chevronDownIcon, () => this.onStep(1));
+        this.stepControlsEl.append(this.previousButton, this.nextButton);
+        this.ensureStepControlsStyle();
+        document.body.appendChild(this.stepControlsEl);
+
         this.previewEl = document.createElement('div');
         this.previewEl.id = PREVIEW_ID;
         this.previewEl.className = 'aimd-chatgpt-directory-preview';
@@ -119,17 +139,20 @@ export class ChatGPTDirectoryRail {
             this.interactionIdleTimer = null;
         }
         this.rootEl.remove();
+        this.stepControlsEl.remove();
         this.previewEl.remove();
     }
 
     setTheme(theme: Theme): void {
         this.rootEl.setAttribute('data-aimd-theme', theme);
+        this.stepControlsEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.setAttribute('data-aimd-theme', theme);
         this.styleEl.textContent = getTokenCss(theme) + this.getCss();
     }
 
     setVisible(visible: boolean): void {
         this.rootEl.style.display = visible ? 'block' : 'none';
+        this.stepControlsEl.style.display = visible ? 'flex' : 'none';
         if (!visible) {
             this.previewEl.dataset.open = '0';
             this.hoverPosition = null;
@@ -156,6 +179,29 @@ export class ChatGPTDirectoryRail {
         this.activePosition = position;
         this.renderActiveState();
         if (options?.follow !== false) this.followActiveItem();
+    }
+
+    setStepAvailability(params: { canGoPrevious: boolean; canGoNext: boolean }): void {
+        this.ensureStepControlsAttached();
+        this.previousButton.disabled = !params.canGoPrevious;
+        this.previousButton.dataset.disabled = this.previousButton.disabled ? '1' : '0';
+        this.nextButton.disabled = !params.canGoNext;
+        this.nextButton.dataset.disabled = this.nextButton.disabled ? '1' : '0';
+    }
+
+    private createStepButton(action: string, label: string, icon: string, onClick: () => void): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'aimd-chatgpt-directory-step-controls__button';
+        button.dataset.action = action;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('title', label);
+        button.innerHTML = `<span class="aimd-chatgpt-directory-step-controls__icon">${icon}</span>`;
+        button.addEventListener('click', () => {
+            if (button.disabled) return;
+            onClick();
+        });
+        return button;
     }
 
     private render(): void {
@@ -265,11 +311,24 @@ export class ChatGPTDirectoryRail {
         if (!this.previewEl.isConnected) document.body.appendChild(this.previewEl);
     }
 
+    private ensureStepControlsAttached(): void {
+        this.ensureStepControlsStyle();
+        if (!this.stepControlsEl.isConnected) document.body.appendChild(this.stepControlsEl);
+    }
+
     private ensurePreviewStyle(): void {
         if (document.getElementById(PREVIEW_STYLE_ID)) return;
         const style = document.createElement('style');
         style.id = PREVIEW_STYLE_ID;
         style.textContent = this.getPreviewCss();
+        document.head.appendChild(style);
+    }
+
+    private ensureStepControlsStyle(): void {
+        if (document.getElementById(STEP_CONTROLS_STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = STEP_CONTROLS_STYLE_ID;
+        style.textContent = this.getStepControlsCss();
         document.head.appendChild(style);
     }
 
@@ -354,6 +413,56 @@ export class ChatGPTDirectoryRail {
 
 @media (prefers-reduced-motion: reduce) {
   .aimd-chatgpt-directory-preview {
+    transition: none;
+  }
+}
+`;
+    }
+
+    private getStepControlsCss(): string {
+        return `${getPreviewTokenCss()}
+.aimd-chatgpt-directory-step-controls {
+  position: fixed;
+  right: var(--aimd-space-4, 16px);
+  bottom: var(--aimd-space-6, 24px);
+  z-index: var(--aimd-z-panel, 9000);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--aimd-space-1, 4px);
+  pointer-events: auto;
+  font-family: var(--aimd-font-family-sans);
+}
+.aimd-chatgpt-directory-step-controls__button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aimd-size-control-icon-panel-nav, 32px);
+  height: var(--aimd-size-control-icon-panel-nav, 32px);
+  color: var(--aimd-text-secondary);
+}
+.aimd-chatgpt-directory-step-controls__button:hover:not(:disabled),
+.aimd-chatgpt-directory-step-controls__button:focus-visible:not(:disabled) {
+  color: var(--aimd-interactive-primary);
+}
+.aimd-chatgpt-directory-step-controls__button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
+  outline-offset: 2px;
+}
+.aimd-chatgpt-directory-step-controls__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.aimd-chatgpt-directory-step-controls__icon,
+.aimd-chatgpt-directory-step-controls__icon svg {
+  width: var(--aimd-size-control-glyph-panel, 16px);
+  height: var(--aimd-size-control-glyph-panel, 16px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .aimd-chatgpt-directory-step-controls__button {
     transition: none;
   }
 }

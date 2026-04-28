@@ -113,6 +113,7 @@
 - UI 层负责 Shadow DOM / React UI 呈现
 - `ReaderPanel` 当前通过 surface-owned named profiles 收口多入口差异；消息工具栏与书签预览不再直接传 low-level chrome flags，而是分别选择 `conversation-reader` 与 `bookmark-preview`
 - Reader Markdown 正文恢复为单一默认主题；正文样式继续由共享 tokenized markdown contract 持有，入口不能直接传 preset、CSS 或 theme object
+- Reader 正文最大宽度由 `reader.contentMaxWidthPx` 设置驱动，默认保持 1000px；该设置只影响 Reader content inner width，并必须继续 clamp 到 Reader panel 宽度内，不改变 panel shell、fullscreen 或 Markdown 渲染链路
 
 说明：
 
@@ -129,6 +130,11 @@
   - inline comments：comment session、highlight overlay 与右侧 gutter anchor 仍局限在 Reader overlay 内，不依赖 background/storage；但 comment export 的 prompt/template 配置已提升到 settings 域持久化，Reader export popover 只负责预览与复制最终结果
 - Reader shell chrome 与正文排版都继续由 tokenized panel/template contract 持有，不再额外接入开源 Markdown 主题 preset
 - fullscreen Reader 切换仍属于 surface state change，不复用 centered panel 的 open/close transform；fullscreen Reader 只保留更轻的 fade-style motion
+
+### ChatGPT Directory
+
+- ChatGPT right-side directory rail 与右下角上一条/下一条 step controls 由同一个 `ChatGPTDirectoryController` 管理，二者共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`。
+- Step controls 是 body-level fixed surface，视觉上不属于 rail footer；隐藏/显示、主题切换和 dispose 生命周期仍由 `ChatGPTDirectoryRail` 统一持有，避免出现独立导航状态或 DOM 残留。
 
 ### Style system
 

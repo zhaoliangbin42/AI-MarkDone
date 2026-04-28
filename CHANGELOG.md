@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Settings: Added an Advanced Settings section with a Reader content width control, plus previous/next message buttons at the bottom of the ChatGPT right-side directory.
+
 ## [4.2.2] - 2026-04-27
 
 ### Fixed

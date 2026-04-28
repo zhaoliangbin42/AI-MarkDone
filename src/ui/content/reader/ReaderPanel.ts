@@ -87,6 +87,7 @@ type ReaderPanelState = {
     selectionExport: string;
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
+    contentMaxWidthPx: number;
     options: {
         profile: ReaderPanelProfile;
         showNav: boolean;
@@ -142,6 +143,7 @@ export class ReaderPanel {
         selectionExport: '',
         userPromptDisplay: formatReaderUserPromptDisplay(''),
         statusText: '',
+        contentMaxWidthPx: 1000,
         options: {
             profile: 'conversation-reader',
             showNav: true,
@@ -180,6 +182,13 @@ export class ReaderPanel {
 
     setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
         this.commentExportSettings = settings;
+    }
+
+    setContentMaxWidthPx(widthPx: number): void {
+        const next = Number.isFinite(widthPx) ? Math.max(1, Math.round(widthPx)) : 1000;
+        if (this.state.contentMaxWidthPx === next) return;
+        this.state.contentMaxWidthPx = next;
+        if (this.state.visible) this.render();
     }
 
     getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template'] } | null {
@@ -513,6 +522,7 @@ export class ReaderPanel {
                 items: this.state.items,
                 index: this.state.index,
                 fullscreen: this.state.fullscreen,
+                contentMaxWidthPx: this.state.contentMaxWidthPx,
                 renderedHtml: this.state.renderedHtml,
                 userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,

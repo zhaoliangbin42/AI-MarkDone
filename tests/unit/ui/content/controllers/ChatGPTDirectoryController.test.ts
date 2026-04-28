@@ -614,6 +614,68 @@ describe('ChatGPTDirectoryController', () => {
             { timeoutMs: 1500, intervalMs: 120 },
         );
     });
+
+    it('adds separated page-bottom step controls that jump to adjacent active rounds and disable at the ends', async () => {
+        buildSkeletonDomWithCount(3);
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+        const middleAnchor = document.getElementById('user-2') as HTMLElement;
+        const tailAnchor = document.getElementById('user-3') as HTMLElement;
+        middleAnchor.scrollIntoView = vi.fn();
+        tailAnchor.scrollIntoView = vi.fn();
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = {
+            ...buildSnapshot(),
+            rounds: [
+                ...buildSnapshot().rounds,
+                {
+                    id: 'round-3',
+                    position: 3,
+                    userPrompt: 'Third question',
+                    assistantContent: 'Third answer',
+                    preview: 'Third question',
+                    messageId: 'a3',
+                    userMessageId: 'u3',
+                    assistantMessageId: 'a3',
+                },
+            ],
+        };
+        (controller as any).render();
+        (controller as any).activePosition = 2;
+        (controller as any).syncStepControls();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const stepControls = document.getElementById('aimd-chatgpt-directory-step-controls') as HTMLElement;
+        const previous = stepControls?.querySelector<HTMLButtonElement>('[data-action="directory-step-previous"]')!;
+        const next = stepControls?.querySelector<HTMLButtonElement>('[data-action="directory-step-next"]')!;
+
+        expect(stepControls?.parentElement).toBe(document.body);
+        expect(railRoot?.querySelector('[data-action="directory-step-previous"]')).toBeNull();
+        expect(previous.disabled).toBe(false);
+        expect(next.disabled).toBe(false);
+
+        next.click();
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(tailAnchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+
+        (controller as any).activePosition = 3;
+        (controller as any).syncStepControls();
+        expect(next.disabled).toBe(true);
+        expect(previous.disabled).toBe(false);
+
+        previous.click();
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(middleAnchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+
+        (controller as any).activePosition = 1;
+        (controller as any).syncStepControls();
+        expect(previous.disabled).toBe(true);
+        expect(next.disabled).toBe(false);
+    });
 });
 
 describe('ChatGPTDirectoryRail active following', () => {
