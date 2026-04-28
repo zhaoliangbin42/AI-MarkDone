@@ -145,8 +145,12 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(html).toContain('<ul>');
         expect(html).toContain('nested bullet');
         expect(html).toContain('<ol>');
+        expect(html).toContain('.reader-markdown :where(ul:not(.contains-task-list)) {\n  list-style-type: disc;');
+        expect(html).toContain('.reader-markdown :where(ol) {\n  list-style-type: decimal;');
+        expect(html).toContain('.reader-markdown :where(li:not(.task-list-item)) {\n  display: list-item;');
         expect(html).toContain('contains-task-list');
         expect(html).toContain('task-list-item');
+        expect(html).toContain('.reader-markdown :where(.contains-task-list) {\n  padding-left: 0;\n  list-style: none;');
         expect(html).toContain('<blockquote>');
         expect(html).toContain('<table>');
         expect(html).toContain('<hr>');

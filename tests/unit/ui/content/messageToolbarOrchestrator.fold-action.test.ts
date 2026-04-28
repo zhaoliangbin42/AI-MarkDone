@@ -124,7 +124,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         `;
     }
 
-    it('uses ChatGPTConversationEngine snapshot to open Reader with payload-first items', async () => {
+    it('uses the shared DOM-discovered Reader source when opening Reader from a visible ChatGPT message', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -173,12 +173,12 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
         expect(readerPanel.show).toHaveBeenCalledWith(
             [
                 expect.objectContaining({
                     userPrompt: 'Hello from user',
-                    content: 'Formula: $x = y + z$',
+                    content: expect.any(Function),
                     meta: expect.objectContaining({
                         platformId: 'chatgpt',
                         messageId: 'a1',
@@ -192,7 +192,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         );
     });
 
-    it('opens ChatGPT Reader at the current DOM message by identity instead of DOM-local position', async () => {
+    it('opens ChatGPT Reader at the current DOM message from the shared DOM Reader source', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -226,10 +226,11 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         expect(readerPanel.show).toHaveBeenCalledWith(
             expect.any(Array),
-            2,
+            0,
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
+        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
     });
 
     it('saves ChatGPT bookmarks with payload positions instead of DOM-local positions', async () => {

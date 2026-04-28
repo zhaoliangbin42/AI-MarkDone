@@ -49,9 +49,7 @@ function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupR
             continue;
         }
         const messageEls = listTopLevelAssistantMessages(groupRef.assistantRootEl, selector, groupRef.assistantMessageEl);
-        const primaryMessageEl = messageEls.includes(groupRef.assistantMessageEl)
-            ? groupRef.assistantMessageEl
-            : messageEls[messageEls.length - 1] ?? groupRef.assistantMessageEl;
+        const primaryMessageEl = messageEls[messageEls.length - 1] ?? groupRef.assistantMessageEl;
         if (isEmptyAssistantMessageFallback(primaryMessageEl)) continue;
         const userPrompt = groupRef.userPromptText?.trim()
             || adapter.extractUserPrompt(primaryMessageEl)

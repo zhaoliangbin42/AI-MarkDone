@@ -24,7 +24,8 @@ import {
     type CopyPngDebugEvent,
 } from '../../../services/copy/copy-png-debug';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
-import { buildReaderItemFromTurn, collectReaderItems, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
+import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
+import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
 import { resolveContent } from '../../../services/reader/types';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
@@ -37,7 +38,6 @@ import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
-import { buildChatGPTReaderItems } from '../../../services/reader/chatgptReaderItems';
 import { resolveChatGPTConversationRound } from '../../../drivers/content/chatgpt/chatgptConversationSource';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
 
@@ -142,6 +142,17 @@ export class MessageToolbarOrchestrator {
     private getUserPromptForElement(messageElement: HTMLElement): string {
         const turn = this.getTurnRefForElement(messageElement);
         return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
+    }
+
+    private async getReaderTurnForElement(messageElement: HTMLElement): Promise<{ user: string; assistant: string; index: number } | null> {
+        const result = await collectReaderContent(this.adapter, messageElement, {
+            chatGptConversationEngine: this.chatGptConversationEngine,
+            pageUrl: this.getBookmarkPageUrl(),
+        });
+        const item = result.items[result.startIndex] ?? null;
+        if (!item) return null;
+        const [turn] = await readerItemsToChatTurns([item]);
+        return turn ?? null;
     }
 
     private async resolveToolbarBookmarkTarget(messageElement: HTMLElement): Promise<ToolbarBookmarkTarget | null> {
@@ -545,9 +556,9 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                const res = this.getMergedMarkdownForElement(messageElement);
-                if (!res.ok) return { ok: false, message: res.error.message };
-                const ok = await copyTextToClipboard(res.markdown);
+                const turn = await this.getReaderTurnForElement(messageElement);
+                if (!turn) return { ok: false, message: t('contentNotFound') };
+                const ok = await copyTextToClipboard(turn.assistant);
                 return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
             },
             hoverAction: {
@@ -584,17 +595,11 @@ export class MessageToolbarOrchestrator {
                         return guard;
                     }
                     const collectStartedAt = nowMs();
-                    const markdownResult = this.getMergedMarkdownForElement(messageElement);
-                    if (!markdownResult.ok) {
-                        finishDebug(markdownResult.error.code);
-                        return { ok: false, message: markdownResult.error.message };
+                    const currentTurn = await this.getReaderTurnForElement(messageElement);
+                    if (!currentTurn) {
+                        finishDebug('NO_MESSAGE');
+                        return { ok: false, message: t('contentNotFound') };
                     }
-                    const fallbackPosition = this.getPositionForMessage(messageElement);
-                    const currentTurn = {
-                        user: this.getUserPromptForElement(messageElement),
-                        assistant: markdownResult.markdown,
-                        index: fallbackPosition > 0 ? fallbackPosition - 1 : 0,
-                    };
                     const metadata = buildConversationMetadata(this.adapter, 1);
                     emitDebug({
                         stage: 'collect_turns',
@@ -639,21 +644,10 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                let itemsResult = null as ReturnType<typeof collectReaderItems> | ReturnType<typeof buildChatGPTReaderItems> | null;
-                if (this.adapter.getPlatformId() === 'chatgpt' && this.chatGptConversationEngine) {
-                    const snapshot = await this.chatGptConversationEngine.getSnapshot();
-                    const startTarget = {
-                        messageId: this.adapter.getMessageId(messageElement),
-                        userPrompt: this.getUserPromptForElement(messageElement),
-                    };
-                    if (snapshot?.rounds?.length) {
-                        itemsResult = buildChatGPTReaderItems(snapshot, startTarget, this.getBookmarkPageUrl());
-                    }
-                }
-                if (!itemsResult) {
-                    this.rebuildTurnIndex();
-                    itemsResult = collectReaderItems(this.adapter, messageElement);
-                }
+                const itemsResult = await collectReaderContent(this.adapter, messageElement, {
+                    chatGptConversationEngine: this.chatGptConversationEngine,
+                    pageUrl: this.getBookmarkPageUrl(),
+                });
                 const { items, startIndex } = itemsResult;
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 await this.readerPanel.show(items, startIndex, this.theme, {
@@ -676,6 +670,7 @@ export class MessageToolbarOrchestrator {
                     if (guard) return guard;
                     await saveMessagesDialog.open(this.adapter, this.theme, {
                         chatGptConversationEngine: this.chatGptConversationEngine,
+                        startMessageElement: messageElement,
                     });
                 },
             });

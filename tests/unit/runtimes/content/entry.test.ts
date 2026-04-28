@@ -12,7 +12,12 @@ const themeManagerCtor = vi.fn(function () {
     return { init: themeInit, subscribe: themeSubscribe };
 });
 const readerPanelCtor = vi.fn(function () {
-    return { setTheme: vi.fn(), setRenderCodeInReader: vi.fn(), setCommentExportSettings: vi.fn() };
+    return {
+        setTheme: vi.fn(),
+        setRenderCodeInReader: vi.fn(),
+        setContentMaxWidthPx: vi.fn(),
+        setCommentExportSettings: vi.fn(),
+    };
 });
 const sendControllerCtor = vi.fn(function () {
     return { setTheme: vi.fn() };

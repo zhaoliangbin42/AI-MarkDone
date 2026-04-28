@@ -53,6 +53,26 @@ ${markdownSelector} {
   font-family: inherit;
 }
 
+${markdownSelector} :where(ul:not(.contains-task-list)) {
+  list-style-type: disc;
+  list-style-position: outside;
+}
+${markdownSelector} :where(ul:not(.contains-task-list) ul:not(.contains-task-list)) {
+  list-style-type: circle;
+}
+${markdownSelector} :where(ul:not(.contains-task-list) ul:not(.contains-task-list) ul:not(.contains-task-list)) {
+  list-style-type: square;
+}
+${markdownSelector} :where(ol) {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+${markdownSelector} :where(li:not(.task-list-item)) {
+  display: list-item;
+  list-style-type: inherit;
+  list-style-position: inherit;
+}
+
 ${markdownSelector} .reader-code-block {
   margin: 0 0 1em;
   border-radius: var(--aimd-radius-xl);

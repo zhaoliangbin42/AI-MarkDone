@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Export: PDF and PNG rendering now use the bundled official KaTeX stylesheet for formulas, preserving equation tags without maintaining a handwritten KaTeX CSS subset.
+- Export: Save Messages now uses the same Reader content source as Reader, Copy Markdown, and Copy as PNG, preventing export-only source drift.
+- Export: PDF and PNG rendering now preserves Markdown list markers even on pages that reset list styles.
 
 ## [4.2.2] - 2026-04-27
 
@@ -54,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Directory rail rows now keep their index, label, and active marker inside a stable grid when long histories introduce vertical scrolling.
 - ChatGPT: Directory jumps now re-align after host-side hydration shifts while yielding to manual user scrolling or pointer input.
 - ChatGPT: Reader, Copy Markdown, and Save Messages now remove source citation controls, citation markers, and hyperlink URLs from extracted assistant markdown.
-- ChatGPT: Save Messages export now uses the same payload-backed conversation source as Reader, so exported content no longer depends on the currently hydrated DOM range.
+- ChatGPT: Save Messages export now uses the same Reader content source as Reader, so exported content no longer depends on the currently hydrated DOM range.
 - Export: PNG rendering now caps the effective pixel ratio before hitting browser canvas limits, making long-image quality degradation explicit and stable instead of relying on renderer auto-scaling.
 - Reader: Source-aware selection now preserves Markdown for fully selected headings, list items, blockquotes, and dividers while keeping partial text selections precise.
 - Reader: Made closed-unit annotation best-effort so structural selection metadata can no longer interrupt rendered Markdown, formulas, or block content in the Reader.
