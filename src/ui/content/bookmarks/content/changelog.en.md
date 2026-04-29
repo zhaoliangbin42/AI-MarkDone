@@ -1,5 +1,18 @@
 # Changelog
 
+# 4.2.3
+2026-04-29
+
+This release focuses on small but useful Reader and ChatGPT navigation improvements, plus two polish fixes reported by users.
+
+## Added
+- Added a Reader panel width control at the bottom of Advanced Settings for users who want to tune the reading layout. Thanks to Xiaohongshu user @Z..（研一版）.
+- Added previous and next message shortcuts in the lower-right page controls for faster ChatGPT conversation navigation. Thanks to Xiaohongshu user @特立独行的猫之工程师.
+
+## Fixed
+- Fixed duplicate `Copy annotations` buttons in the Reader header. Thanks to GitHub user @LTong-g.
+- Fixed overlapping numbered formulas in PDF exports. Thanks to GitHub user @LTong-g.
+
 # 4.2.2
 2026-04-27
 
