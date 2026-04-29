@@ -1,7 +1,6 @@
 import { DEFAULT_PNG_EXPORT_PIXEL_RATIO, DEFAULT_PNG_EXPORT_WIDTH } from '../../core/settings/export';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import {
-    BUNDLED_KATEX_CSS,
     buildMessageDocument,
     buildScopedMarkdownCss,
     renderMarkdownForPngExport,
@@ -161,7 +160,6 @@ export function buildPngExportPlans(
         return {
             filename: `${baseName}-message-${String(messageNumber).padStart(3, '0')}.png`,
             html: `
-<style id="katex-styles-bundled">${BUNDLED_KATEX_CSS}</style>
 <style>${css}</style>
 <div class="${PNG_CONTAINER_CLASS}">
 ${message.html}

@@ -4,7 +4,23 @@ vi.mock('@/services/copy/copy-turn-png', () => ({
     copyTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
+vi.mock('@/services/reader/readerContentSource', () => ({
+    collectReaderContent: vi.fn(async () => ({
+        items: [
+            { id: 'm1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 7 } },
+        ],
+        startIndex: 0,
+        metadataSource: 'dom',
+    })),
+    readerItemsToChatTurns: vi.fn(async (items: any[]) => items.map((item, index) => ({
+        user: item.userPrompt,
+        assistant: item.content,
+        index,
+    }))),
+}));
+
 import { copyTurnsPng } from '@/services/copy/copy-turn-png';
+import { collectReaderContent } from '@/services/reader/readerContentSource';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 
@@ -49,7 +65,6 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
         }) as any;
         orchestrator.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920, pngPixelRatio: 2.5 });
-        orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'Answer' }));
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 
         const assistant = document.querySelector('.assistant-message') as HTMLElement;
@@ -59,10 +74,13 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         await copyAction.hoverAction.onClick();
 
         expect(copyTurnsPng).toHaveBeenCalledWith(
-            [{ user: 'Prompt', assistant: 'Answer', index: 6 }],
+            [{ user: 'Prompt', assistant: 'Answer', index: 0 }],
             [0],
             expect.objectContaining({ title: 'PNG Width Test', count: 1 }),
             expect.objectContaining({ png: { width: 640, pixelRatio: 2.5 } }),
         );
+        expect(collectReaderContent).toHaveBeenCalledWith(expect.any(TestAdapter), assistant, expect.objectContaining({
+            pageUrl: window.location.href,
+        }));
     });
 });

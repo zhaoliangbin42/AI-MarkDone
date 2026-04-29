@@ -7,15 +7,16 @@ import {
 } from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
 import { getTokenCss } from '../../../style/tokens';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
-    collectConversationTurnsAsync,
     exportTurnsMarkdown,
     exportTurnsPdf,
     exportTurnsPng,
 } from '../../../services/export/saveMessagesFacade';
+import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/icons';
 import { OverlaySession } from '../overlay/OverlaySession';
@@ -76,15 +77,20 @@ export class SaveMessagesDialog {
     async open(
         adapter: SiteAdapter,
         theme: Theme,
-        options?: { chatGptConversationEngine?: ChatGPTConversationEngine | null }
+        options?: {
+            chatGptConversationEngine?: ChatGPTConversationEngine | null;
+            startMessageElement?: HTMLElement | null;
+        }
     ): Promise<void> {
         this.focusLifecycle.capture();
         this.adapter = adapter;
         this.state.theme = theme;
 
-        const { turns, metadata } = await collectConversationTurnsAsync(adapter, {
+        const { items } = await collectReaderContent(adapter, options?.startMessageElement ?? null, {
             chatGptConversationEngine: options?.chatGptConversationEngine ?? null,
         });
+        const turns = await readerItemsToChatTurns(items);
+        const metadata = buildConversationMetadata(adapter, turns.length);
         this.turns = turns;
         this.metadata = metadata;
         this.state.turnsCount = turns.length;

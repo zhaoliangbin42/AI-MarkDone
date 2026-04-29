@@ -45,6 +45,16 @@ describe('settingsService', () => {
         expect(next.reader.commentExport.template).toEqual(template);
     });
 
+    it('merges reader content width settings while preserving other reader settings', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'reader', {
+            contentMaxWidthPx: 1647,
+        }).next;
+
+        expect(next.reader.renderCodeInReader).toBe(DEFAULT_SETTINGS.reader.renderCodeInReader);
+        expect(next.reader.commentExport).toEqual(DEFAULT_SETTINGS.reader.commentExport);
+        expect(next.reader.contentMaxWidthPx).toBe(1600);
+    });
+
     it('drops retired ChatGPT-specific settings when normalizing stored settings', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,
@@ -87,6 +97,7 @@ describe('settingsService', () => {
         } as any);
 
         expect(next.reader.renderCodeInReader).toBe(false);
+        expect(next.reader.contentMaxWidthPx).toBe(1000);
         expect(next.reader.commentExport.prompts).toEqual([
             expect.objectContaining({ id: 'prompt-1', title: 'Precise Revision' }),
             expect.objectContaining({ id: 'prompt-2', title: 'Point-by-Point Revision' }),

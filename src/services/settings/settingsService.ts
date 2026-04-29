@@ -7,6 +7,7 @@ import {
     migrateSortMode,
     normalizeBehaviorSettings,
     normalizeChatGPTDirectorySettings,
+    normalizeReaderContentMaxWidthPx,
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
@@ -68,6 +69,11 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         patch.renderCodeInReader
                         ?? cur.reader.renderCodeInReader
                         ?? DEFAULT_SETTINGS.reader.renderCodeInReader
+                    ),
+                    contentMaxWidthPx: normalizeReaderContentMaxWidthPx(
+                        patch.contentMaxWidthPx
+                        ?? cur.reader.contentMaxWidthPx
+                        ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx
                     ),
                     commentExport: normalizeReaderCommentExportSettings({
                         ...cur.reader.commentExport,

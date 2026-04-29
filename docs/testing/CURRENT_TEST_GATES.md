@@ -63,9 +63,11 @@ For ChatGPT-only payload/store-first, directory-rail, or ChatGPT bookmark-positi
 - Reader locate / jump-to-message
 - toolbar bookmark save/highlight
 - bookmarks panel Go and cross-page pending navigation
-- Save Messages export source, when the change touches conversation snapshot collection
+- Save Messages export source, when the change touches Reader content source, conversation snapshot fallback, or export turn conversion
 
 If those entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation. For ChatGPT bookmark-position or directory-navigation work, the focused set should cover `tests/unit/ui/content/chatgptDirectory.navigation.test.ts`, `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanelController.test.ts`, and `tests/unit/runtimes/content/entry.test.ts`. If the work changes the directory rail settings surface, also cover `tests/unit/services/settings/settingsService.test.ts` and `tests/unit/ui/bookmarks/settingsTabView.test.ts`.
+
+For Save Messages source changes, verification must prove the dialog enters through `readerContentSource`, does not call legacy adapter-based export collection, and does not force-refresh ChatGPT snapshots from the export layer. Keep at least one real `SaveMessagesDialog` trigger-path test plus service-level coverage for `ReaderItem[]` to `ChatTurn[]` conversion.
 
 For ChatGPT content-discovery changes, browser evidence is part of the gate, not an optional manual check. Before editing shared collectors, verify the proposed source order on representative conversations, route changes, and refreshes. The accepted source order is backend conversation payload first, then structurally scoped turn data (`data-turn-id-container`, `data-testid^="conversation-turn-"`, `data-turn`, or role-backed turns inside the conversation root), then lower-quality store/visible-DOM fallbacks. Lower-quality fallbacks must not replace a fuller snapshot for the same conversation, and assistant-only DOM counts must not create extra user rounds. Focused unit coverage should include `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts`, `tests/unit/drivers/content/chatgpt/chatgptConversationBridge.test.ts`, `tests/unit/drivers/content/chatgpt-adapter-fold-groups.test.ts`, and `tests/unit/drivers/content/conversation/collectConversationMessageRefs.test.ts`.
 

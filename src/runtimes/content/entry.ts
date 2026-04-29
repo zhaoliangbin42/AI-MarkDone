@@ -130,6 +130,7 @@ if (adapter) {
     void setLocale(lastLocale);
     if (cachedSettings?.reader) {
         readerPanel.setRenderCodeInReader(Boolean(cachedSettings.reader.renderCodeInReader));
+        readerPanel.setContentMaxWidthPx(cachedSettings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
         readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
     }
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
@@ -145,6 +146,7 @@ if (adapter) {
         else disableRuntime();
         syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
+        readerPanel.setContentMaxWidthPx(snap.settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);

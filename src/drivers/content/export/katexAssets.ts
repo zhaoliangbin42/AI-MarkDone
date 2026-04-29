@@ -1,6 +1,6 @@
 import { browser } from '../../shared/browser';
 
-export type PngKatexFontEmbedResult = {
+export type KatexEmbeddedCssResult = {
     mode: 'none' | 'data-url';
     css: string;
 };
@@ -8,7 +8,7 @@ export type PngKatexFontEmbedResult = {
 const KATEX_CSS_PATH = 'vendor/katex/katex.min.css';
 const FONT_URL_RE = /url\((['"]?)(fonts\/[^)'"]+\.woff2)\1\)/gi;
 
-let fontEmbedPromise: Promise<string> | null = null;
+let embeddedCssPromise: Promise<string> | null = null;
 
 export function hasKatexMarkup(html: string): boolean {
     return /\bclass\s*=\s*["'][^"']*\bkatex\b/i.test(html || '');
@@ -27,6 +27,10 @@ function getRuntimeUrl(path: string): string {
     } catch {
         return path;
     }
+}
+
+export function getKatexStylesheetHref(): string {
+    return getRuntimeUrl(KATEX_CSS_PATH);
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -52,8 +56,8 @@ async function fetchFontDataUrl(path: string): Promise<string> {
     return `url("data:font/woff2;base64,${base64}")`;
 }
 
-async function buildFontEmbedCss(): Promise<string> {
-    const css = await fetchText(getRuntimeUrl(KATEX_CSS_PATH));
+async function buildEmbeddedCss(): Promise<string> {
+    const css = await fetchText(getKatexStylesheetHref());
     const paths = Array.from(new Set(Array.from(css.matchAll(FONT_URL_RE)).map((match) => match[2])));
     const replacements = new Map<string, string>();
     await Promise.all(paths.map(async (path) => {
@@ -62,13 +66,13 @@ async function buildFontEmbedCss(): Promise<string> {
     return css.replace(FONT_URL_RE, (_match, _quote, path) => replacements.get(path) || `url("${path}")`);
 }
 
-export async function getPngKatexFontEmbed(html: string): Promise<PngKatexFontEmbedResult> {
+export async function getKatexCssWithEmbeddedFonts(html: string): Promise<KatexEmbeddedCssResult> {
     if (!hasKatexMarkup(html)) return { mode: 'none', css: '' };
-    if (!fontEmbedPromise) {
-        fontEmbedPromise = buildFontEmbedCss().catch((error) => {
-            fontEmbedPromise = null;
+    if (!embeddedCssPromise) {
+        embeddedCssPromise = buildEmbeddedCss().catch((error) => {
+            embeddedCssPromise = null;
             throw error;
         });
     }
-    return { mode: 'data-url', css: await fontEmbedPromise };
+    return { mode: 'data-url', css: await embeddedCssPromise };
 }

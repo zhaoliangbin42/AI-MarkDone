@@ -3,25 +3,31 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
-    collectConversationTurnsAsync: vi.fn(async () => ({
-        turns: [
-            { user: 'u1', assistant: 'a1', index: 0 },
-            { user: 'u2', assistant: 'a2', index: 1 },
-        ],
-        metadata: {
-            url: 'https://chatgpt.com/c/1',
-            exportedAt: new Date('2026-03-01T00:00:00.000Z').toISOString(),
-            title: 'T',
-            count: 2,
-            platform: 'ChatGPT',
-        },
-    })),
     exportTurnsMarkdown: vi.fn(async () => ({ ok: true, noop: false })),
     exportTurnsPdf: vi.fn(async () => ({ ok: true, noop: false })),
     exportTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
-import { collectConversationTurnsAsync, exportTurnsMarkdown, exportTurnsPdf, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
+vi.mock('../../../../src/services/reader/readerContentSource', () => ({
+    collectReaderContent: vi.fn(async () => ({
+        items: [
+            { id: 'r1', userPrompt: 'u1', content: 'a1', meta: { position: 1 } },
+            { id: 'r2', userPrompt: 'u2', content: async () => 'a2', meta: { position: 2 } },
+        ],
+        startIndex: 0,
+        metadataSource: 'chatgpt-snapshot',
+    })),
+    readerItemsToChatTurns: vi.fn(async (items: any[]) =>
+        Promise.all(items.map(async (item, index) => ({
+            user: item.userPrompt,
+            assistant: typeof item.content === 'function' ? await item.content() : item.content,
+            index,
+        }))),
+    ),
+}));
+
+import { exportTurnsMarkdown, exportTurnsPdf, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
+import { collectReaderContent, readerItemsToChatTurns } from '../../../../src/services/reader/readerContentSource';
 import { SaveMessagesDialog } from '../../../../src/ui/content/export/SaveMessagesDialog';
 import { setLocale } from '../../../../src/ui/content/components/i18n';
 
@@ -69,7 +75,8 @@ describe('SaveMessagesDialog', () => {
 
         const host = document.getElementById('aimd-save-messages-dialog-host');
         expect(host).toBeTruthy();
-        expect(collectConversationTurnsAsync).toHaveBeenCalledTimes(1);
+        expect(collectReaderContent).toHaveBeenCalledTimes(1);
+        expect(readerItemsToChatTurns).toHaveBeenCalledTimes(1);
 
         const shadow = host!.shadowRoot!;
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/export/SaveMessagesDialog.ts'), 'utf8');
@@ -119,12 +126,33 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsPng).toHaveBeenCalledTimes(1);
     });
 
+    it('opens from the Reader content source without forcing a ChatGPT snapshot refresh', async () => {
+        await setLocale('en');
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getMessageId: () => 'a1',
+            extractUserPrompt: () => 'u1',
+        } as any;
+        const chatGptConversationEngine: any = {
+            getSnapshot: vi.fn(async () => null),
+            forceRefreshCurrentConversation: vi.fn(),
+        };
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light', { chatGptConversationEngine });
+
+        expect(collectReaderContent).toHaveBeenCalledWith(adapter, null, {
+            chatGptConversationEngine,
+        });
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
+    });
+
     it('uses an image icon for PNG and shows progress while PNG export is running', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         let resolveExport!: () => void;
         vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
-            expect(options.png).toEqual({ width: 800, pixelRatio: 2 });
+            expect(options.png).toEqual({ width: 800, pixelRatio: 1 });
             options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;

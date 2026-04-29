@@ -14,18 +14,6 @@ export type ExportDocumentBuildOptions = {
     renderMarkdown?: (markdown: string) => string;
 };
 
-export const BUNDLED_KATEX_CSS = `
-/* KaTeX v0.16.8 minimal (bundled) */
-.katex{font:normal 1.21em KaTeX_Main,Times New Roman,serif;line-height:1.2;text-indent:0;text-rendering:auto}
-.katex *{box-sizing:border-box}
-.katex .katex-mathml{position:absolute;clip:rect(1px,1px,1px,1px);padding:0;border:0;height:1px;width:1px;overflow:hidden}
-.katex .katex-html{display:inline-block}
-.katex .base{position:relative;display:inline-block;white-space:nowrap;width:min-content}
-.katex .strut{display:inline-block}
-.katex-display{display:block;margin:1em 0;text-align:center}
-.katex-display>.katex{display:inline-block;text-align:left}
-`;
-
 export function escapeExportHtml(text: string): string {
     return (text || '')
         .replace(/&/g, '&amp;')
@@ -60,6 +48,30 @@ export function buildScopedMarkdownCss(containerSelector: string): string {
     const markdownSelector = `${containerSelector} .reader-markdown`;
     return `
 ${getMarkdownThemeCss(markdownSelector)}
+
+${markdownSelector} {
+  font-family: inherit;
+}
+
+${markdownSelector} :where(ul:not(.contains-task-list)) {
+  list-style-type: disc;
+  list-style-position: outside;
+}
+${markdownSelector} :where(ul:not(.contains-task-list) ul:not(.contains-task-list)) {
+  list-style-type: circle;
+}
+${markdownSelector} :where(ul:not(.contains-task-list) ul:not(.contains-task-list) ul:not(.contains-task-list)) {
+  list-style-type: square;
+}
+${markdownSelector} :where(ol) {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+${markdownSelector} :where(li:not(.task-list-item)) {
+  display: list-item;
+  list-style-type: inherit;
+  list-style-position: inherit;
+}
 
 ${markdownSelector} .reader-code-block {
   margin: 0 0 1em;

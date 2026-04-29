@@ -8,6 +8,34 @@ function t(key: string, args?: any): string {
     return `${key}:${String(args)}`;
 }
 
+const BASIC_MARKDOWN_SAMPLE = [
+    '# Heading 1',
+    '',
+    'Paragraph with **bold**, *emphasis*, `inline code`, and [a link](https://example.com).',
+    '',
+    '- bullet one',
+    '  - nested bullet',
+    '- bullet two',
+    '',
+    '1. ordered one',
+    '2. ordered two',
+    '',
+    '- [x] shipped',
+    '- [ ] pending',
+    '',
+    '> quoted note',
+    '',
+    '| Name | Value |',
+    '| --- | --- |',
+    '| alpha | beta |',
+    '',
+    '---',
+    '',
+    '$$',
+    'E=mc^2 \\tag{1}',
+    '$$',
+].join('\n');
+
 describe('buildPngExportPlans', () => {
     const meta: ConversationMetadata = {
         url: 'https://chatgpt.com/c/1',
@@ -36,7 +64,9 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[1].filename).toBe('A_B_C__D_-message-002.png');
         expect(result!.plans[0].html).toContain('class="message-section');
         expect(result!.plans[0].html).toContain('class="reader-markdown markdown-body"');
+        expect(result!.plans[0].html).toContain('.aimd-png-export-card .reader-markdown {\n  font-family: inherit;');
         expect(result!.plans[0].html).toContain('reader-code-block');
+        expect(result!.plans[0].html).not.toContain('katex-styles-bundled');
         expect(result!.plans[0].html).toContain('hljs');
         expect(result!.plans[0].html).not.toContain('reader-copy-code');
         expect(result!.plans[0].html).toContain('<table>');
@@ -55,5 +85,45 @@ describe('buildPngExportPlans', () => {
         expect(result!.plans[0].width).toBe(420);
         expect(result!.plans[0].pixelRatio).toBe(3);
         expect(result!.plans[0].html).toContain('width: 420px;');
+    });
+
+    it('preserves KaTeX equation tag markup without embedding handwritten KaTeX CSS in the plan', () => {
+        const result = buildPngExportPlans([
+            { user: 'u1', assistant: ['$$', 'E=mc^2 \\tag{1}', '$$'].join('\n'), index: 0 },
+        ], [0], meta, t);
+
+        expect(result).not.toBeNull();
+        expect(result!.plans[0].html).toContain('class="katex-display"');
+        expect(result!.plans[0].html).toContain('class="tag"');
+        expect(result!.plans[0].html).not.toContain('katex-styles-bundled');
+    });
+
+    it('keeps basic CommonMark and GFM structures in the real PNG export plan', () => {
+        const result = buildPngExportPlans([
+            { user: 'u1', assistant: BASIC_MARKDOWN_SAMPLE, index: 0 },
+        ], [0], meta, t);
+
+        expect(result).not.toBeNull();
+        const html = result!.plans[0].html;
+
+        expect(html).toContain('<h1>Heading 1</h1>');
+        expect(html).toContain('<strong>bold</strong>');
+        expect(html).toContain('<em>emphasis</em>');
+        expect(html).toContain('<code>inline code</code>');
+        expect(html).toContain('href="https://example.com"');
+        expect(html).toContain('<ul>');
+        expect(html).toContain('nested bullet');
+        expect(html).toContain('<ol>');
+        expect(html).toContain('.reader-markdown :where(ul:not(.contains-task-list)) {\n  list-style-type: disc;');
+        expect(html).toContain('.reader-markdown :where(ol) {\n  list-style-type: decimal;');
+        expect(html).toContain('.reader-markdown :where(li:not(.task-list-item)) {\n  display: list-item;');
+        expect(html).toContain('contains-task-list');
+        expect(html).toContain('task-list-item');
+        expect(html).toContain('.reader-markdown :where(.contains-task-list) {\n  padding-left: 0;\n  list-style: none;');
+        expect(html).toContain('<blockquote>');
+        expect(html).toContain('<table>');
+        expect(html).toContain('<hr>');
+        expect(html).toContain('class="katex-display"');
+        expect(html).toContain('class="tag"');
     });
 });

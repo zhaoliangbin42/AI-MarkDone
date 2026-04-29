@@ -1,4 +1,11 @@
-import { DEFAULT_SETTINGS, type AppSettings } from './types';
+import {
+    DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
+    MAX_READER_CONTENT_MAX_WIDTH_PX,
+    MIN_READER_CONTENT_MAX_WIDTH_PX,
+    READER_CONTENT_MAX_WIDTH_STEP_PX,
+    DEFAULT_SETTINGS,
+    type AppSettings,
+} from './types';
 import { normalizeExportSettings } from './export';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
@@ -39,6 +46,13 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
     };
 }
 
+export function normalizeReaderContentMaxWidthPx(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_READER_CONTENT_MAX_WIDTH_PX;
+    const clamped = Math.min(MAX_READER_CONTENT_MAX_WIDTH_PX, Math.max(MIN_READER_CONTENT_MAX_WIDTH_PX, numeric));
+    return Math.round(clamped / READER_CONTENT_MAX_WIDTH_STEP_PX) * READER_CONTENT_MAX_WIDTH_STEP_PX;
+}
+
 /**
  * Merge stored settings with defaults (keeps v3 but tolerates missing new fields).
  */
@@ -52,6 +66,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
+            contentMaxWidthPx: normalizeReaderContentMaxWidthPx((stored.reader as any)?.contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
         export: normalizeExportSettings((stored as any).export),
@@ -96,6 +111,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
         reader: {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
+            contentMaxWidthPx: normalizeReaderContentMaxWidthPx((behavior as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
         export: normalizeExportSettings(undefined),
@@ -129,6 +145,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         behavior: normalizeBehaviorSettings(behavior),
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
+            contentMaxWidthPx: normalizeReaderContentMaxWidthPx((reader as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,
         export: normalizeExportSettings((rec as any).export),

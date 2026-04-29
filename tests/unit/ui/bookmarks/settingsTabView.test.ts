@@ -167,6 +167,34 @@ describe('SettingsTabView', () => {
         expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngPixelRatio: 2.7 });
     });
 
+    it('keeps advanced reader width settings collapsed until the footer action is opened', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetReaderSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const advancedButton = root.querySelector<HTMLButtonElement>('[data-role="settings-advanced-toggle"]')!;
+
+        expect(advancedButton).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-content-width"]')).toBeNull();
+
+        advancedButton.click();
+        const widthInput = root.querySelector<HTMLInputElement>('[data-role="settings-reader-content-width"]')!;
+        expect(widthInput).toBeTruthy();
+        expect(widthInput.value).toBe('1000');
+
+        widthInput.value = '1611';
+        widthInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(widthInput.value).toBe('1600');
+        expect(onSetReaderSettings).toHaveBeenCalledWith({ contentMaxWidthPx: 1611 });
+    });
+
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {
         const css = getBookmarksPanelCss();
 

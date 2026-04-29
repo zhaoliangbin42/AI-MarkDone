@@ -1,6 +1,5 @@
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import {
-    BUNDLED_KATEX_CSS,
     buildMessageDocument,
     buildScopedMarkdownCss,
     escapeExportHtml,
@@ -118,7 +117,6 @@ ${scopedMarkdownCss}
 `;
 
     let html = `
-<style id="katex-styles-bundled">${BUNDLED_KATEX_CSS}</style>
 <style>${baseCss}</style>
 
 <div class="pdf-title-page">

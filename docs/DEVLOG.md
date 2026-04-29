@@ -4,6 +4,17 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-04-28 — Reader advanced width setting + ChatGPT directory step controls
+
+- Added a collapsed Advanced Settings section for low-frequency tuning and moved Reader content width into `reader.contentMaxWidthPx` with a 1000px default.
+- Reader content width now affects only the inner Reader body and remains clamped to the panel width.
+- Added ChatGPT previous/next message step controls as a body-level surface that shares the directory controller and navigation helper.
+
+Verification:
+- `npm run test -- tests/unit/services/settings/settingsService.test.ts tests/unit/ui/bookmarks/settingsTabView.test.ts tests/unit/ui/reader/readerPanel.presentation.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts` (pass)
+- `npm run test -- tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts` (pass after moving step controls out of the rail footer)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-04-27 — v4.2.1 ChatGPT directory positioning recovery
 
 - Reworked ChatGPT directory positioning around a shared user-round position model from adapter/content-discovery output.

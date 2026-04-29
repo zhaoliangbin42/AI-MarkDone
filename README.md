@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.2.2-10A37F" alt="Version 4.2.2">
+    <img src="https://img.shields.io/badge/Version-4.2.3-10A37F" alt="Version 4.2.3">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -179,10 +179,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.2.2
-- Removed ChatGPT link citation references from Reader copy output for cleaner Markdown.
-- Further stabilized the right-side ChatGPT directory and Deep Research round discovery.
-- Fixed a v4.2.1 Reader content loading regression.
+### v4.2.3
+- Added Reader panel width control in Advanced Settings.
+- Added lower-right previous/next message shortcuts for ChatGPT conversations.
+- Fixed duplicate Reader `Copy annotations` buttons and overlapping numbered formulas in PDF export.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

@@ -1,5 +1,10 @@
 import type { AppSettings } from '../../../../../core/settings/types';
-import { DEFAULT_SETTINGS } from '../../../../../core/settings/types';
+import {
+    DEFAULT_SETTINGS,
+    MAX_READER_CONTENT_MAX_WIDTH_PX,
+    MIN_READER_CONTENT_MAX_WIDTH_PX,
+    READER_CONTENT_MAX_WIDTH_STEP_PX,
+} from '../../../../../core/settings/types';
 import {
     MAX_PNG_EXPORT_PIXEL_RATIO,
     MAX_PNG_EXPORT_WIDTH,
@@ -76,6 +81,11 @@ type Refs = {
         templateButton: HTMLButtonElement;
         templateSummary: HTMLElement;
     };
+    advanced: {
+        root: HTMLElement;
+        button: HTMLButtonElement;
+        body: HTMLElement;
+    };
     export: {
         pngWidthPreset: SelectRef;
         pngWidth: NumberFieldRef;
@@ -100,6 +110,7 @@ export class SettingsTabView {
     private readonly promptSettingsPopover = new ReaderPromptSettingsPopover();
     private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
     private readonly outsideDismissBoundary: TransientOutsideDismissBoundaryHandle;
+    private advancedExpanded = false;
 
     constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions }) {
         this.modal = params.modal;
@@ -232,6 +243,8 @@ export class SettingsTabView {
         backup.appendChild(exportBtn);
         storageGroup.body.appendChild(backup);
 
+        const advancedGroup = this.createAdvancedSettingsGroup();
+
         content.append(
             platformsGroup.root,
             behaviorGroup.root,
@@ -239,7 +252,8 @@ export class SettingsTabView {
             exportGroup.root,
             chatGptDirectoryGroup.root,
             languageGroup.root,
-            storageGroup.root
+            storageGroup.root,
+            advancedGroup.root,
         );
         scroll.appendChild(content);
         this.root.appendChild(scroll);
@@ -266,6 +280,7 @@ export class SettingsTabView {
                 templateButton: templateRow.button,
                 templateSummary: templateRow.summary,
             },
+            advanced: advancedGroup,
             export: {
                 pngWidthPreset: pngExportWidth.preset,
                 pngWidth: pngExportWidth.width,
@@ -294,6 +309,7 @@ export class SettingsTabView {
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
+        this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
         this.applySettingsToDom();
@@ -349,6 +365,7 @@ export class SettingsTabView {
                 renderCodeInReader: Boolean(
                     params.settings.reader?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader,
                 ),
+                contentMaxWidthPx: params.settings.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
                 commentExport: normalizeReaderCommentExportSettings(params.settings.reader?.commentExport),
             },
         };
@@ -420,6 +437,10 @@ export class SettingsTabView {
         this.refs.reader.templateButton.addEventListener('click', (event) => {
             event.preventDefault();
             this.openTemplateSettingsPopover();
+        });
+        this.refs.advanced.button.addEventListener('click', () => {
+            this.advancedExpanded = !this.advancedExpanded;
+            this.renderAdvancedSettings();
         });
         this.refs.export.pngWidthPreset.onChange((value) => {
             const nextPreset = value as PngExportWidthPreset;
@@ -502,6 +523,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.enabled);
 
         this.refs.storageText.textContent = usagePercent;
+        this.renderAdvancedSettings();
 
         const storageFill = this.root.querySelector<HTMLElement>('[data-field="storage_bar"]');
         if (storageFill) {
@@ -653,6 +675,72 @@ export class SettingsTabView {
         item.append(info, field.field);
         parent.appendChild(item);
         return field;
+    }
+
+    private createAdvancedSettingsGroup(): Refs['advanced'] {
+        const root = document.createElement('div');
+        root.className = 'settings-advanced';
+        root.dataset.expanded = '0';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'settings-advanced-toggle';
+        button.setAttribute('aria-expanded', 'false');
+        button.innerHTML = `
+          <span class="settings-advanced-toggle__label">${t('advancedSettingsLabel')}</span>
+          <span class="settings-advanced-toggle__hint">${t('advancedSettingsDesc')}</span>
+        `;
+
+        const body = document.createElement('div');
+        body.className = 'settings-advanced-body';
+        body.dataset.role = 'settings-advanced-body';
+
+        root.append(button, body);
+        return { root, button, body };
+    }
+
+    private renderAdvancedSettings(): void {
+        const { root, button, body } = this.refs.advanced;
+        root.dataset.expanded = this.advancedExpanded ? '1' : '0';
+        button.setAttribute('aria-expanded', this.advancedExpanded ? 'true' : 'false');
+        body.replaceChildren();
+        if (!this.advancedExpanded) return;
+
+        const readerSection = document.createElement('div');
+        readerSection.className = 'settings-advanced-section';
+        const title = document.createElement('h4');
+        title.className = 'settings-advanced-section__title';
+        title.textContent = t('readerSettingsLabel');
+        readerSection.appendChild(title);
+        const width = this.createNumberRow(
+            readerSection,
+            t('readerContentWidthLabel'),
+            t('readerContentWidthDesc'),
+            MIN_READER_CONTENT_MAX_WIDTH_PX,
+            MAX_READER_CONTENT_MAX_WIDTH_PX,
+            READER_CONTENT_MAX_WIDTH_STEP_PX,
+            'settings-reader-content-width-value',
+        );
+        width.input.dataset.role = 'settings-reader-content-width';
+        width.input.value = String(this.settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
+        width.input.addEventListener('change', () => {
+            const raw = Number.parseInt(width.input.value, 10);
+            if (!Number.isFinite(raw)) {
+                this.applySettingsToDom();
+                return;
+            }
+            this.settings.reader.contentMaxWidthPx = this.normalizeReaderContentWidth(raw);
+            width.input.value = String(this.settings.reader.contentMaxWidthPx);
+            this.applySettingsToDom();
+            void this.actions.setReaderSettings?.({ contentMaxWidthPx: raw });
+        });
+
+        body.appendChild(readerSection);
+    }
+
+    private normalizeReaderContentWidth(value: number): number {
+        const clamped = Math.min(MAX_READER_CONTENT_MAX_WIDTH_PX, Math.max(MIN_READER_CONTENT_MAX_WIDTH_PX, value));
+        return Math.round(clamped / READER_CONTENT_MAX_WIDTH_STEP_PX) * READER_CONTENT_MAX_WIDTH_STEP_PX;
     }
 
     private createNumberField(min: number, max: number, step: number): NumberFieldRef {

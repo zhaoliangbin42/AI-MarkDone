@@ -189,6 +189,25 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('uses a configured reader content width while keeping the panel-width clamp', async () => {
+        const panel = new ReaderPanel();
+        panel.setContentMaxWidthPx(1280);
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const content = shadow.querySelector<HTMLElement>('.reader-content');
+            const styleText = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent ?? '').join('\n');
+
+            expect(content?.style.getPropertyValue('--_reader-content-max-width')).toBe('1280px');
+            expect(styleText).toContain('max-width: min(var(--_reader-content-max-width, 1000px), 100%);');
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('keeps the same shell mounted through async content rendering and promotes it to open after the entering frames', async () => {
         const panel = new ReaderPanel();
 

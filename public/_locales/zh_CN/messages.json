@@ -227,6 +227,18 @@
     "readerSettingsLabel": {
         "message": "阅读器"
     },
+    "readerContentWidthLabel": {
+        "message": "阅读器内容宽度"
+    },
+    "readerContentWidthDesc": {
+        "message": "阅读器正文的最大像素宽度。内容仍会自动收缩以适配面板。"
+    },
+    "advancedSettingsLabel": {
+        "message": "高级设置"
+    },
+    "advancedSettingsDesc": {
+        "message": "展示少量用于微调扩展行为的高级控制项。"
+    },
     "readerCommentPromptListLabel": {
         "message": "用户提示词"
     },

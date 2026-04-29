@@ -146,7 +146,7 @@ export class ReaderCommentExportPopover {
           </div>
           <pre class="reader-comment-export__preview" data-role="preview"></pre>
           <div class="reader-comment-export__actions">
-            <button class="secondary-btn secondary-btn--primary reader-comment-export__btn" type="button" data-action="copy">${createIcon(copyIcon).outerHTML}<span>${labels.copy}</span></button>
+            <button class="secondary-btn secondary-btn--primary reader-comment-export__btn" type="button" data-action="copy">${createIcon(copyIcon).outerHTML}<span data-role="copy-label">${labels.copy}</span></button>
           </div>
         `;
 
@@ -166,10 +166,11 @@ export class ReaderCommentExportPopover {
 
         copyButton.addEventListener('click', async () => {
             const ok = await params.onCopy();
+            const label = copyButton.querySelector<HTMLElement>('[data-role="copy-label"]');
             if (ok) {
-                copyButton.querySelector('span')!.textContent = labels.copied;
+                if (label) label.textContent = labels.copied;
                 window.setTimeout(() => {
-                    if (this.rootEl) copyButton.querySelector('span')!.textContent = labels.copy;
+                    if (this.rootEl && label) label.textContent = labels.copy;
                 }, 1200);
             }
         });

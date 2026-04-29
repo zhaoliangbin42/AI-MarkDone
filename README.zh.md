@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.2.2-10A37F" alt="Version 4.2.2">
+    <img src="https://img.shields.io/badge/Version-4.2.3-10A37F" alt="Version 4.2.3">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -178,10 +178,10 @@ npm run build
 
 ## 📅 最新更新
 
-### v4.2.2
-- 删除阅读器复制内容中的 ChatGPT 链接引用噪声。
-- 进一步提升右侧导航条稳定性，并修复 Deep Research 轮次发现与跳转。
-- 修复 v4.2.1 中阅读器获取 ChatGPT 内容失败的问题。
+### v4.2.3
+- 新增阅读器面板宽度设置，作为高级设置放在 Settings 底部。
+- 新增 ChatGPT 页面右下角上一条/下一条消息快捷跳转。
+- 修复阅读器“复制注释”按钮重复，以及 PDF 导出编号公式重叠的问题。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)
