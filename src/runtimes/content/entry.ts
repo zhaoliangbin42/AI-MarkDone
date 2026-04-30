@@ -1,7 +1,7 @@
 import { getAdapter } from '../../drivers/content/adapters/registry';
 import type { Theme } from '../../core/types/theme';
 import { ThemeManager } from '../../drivers/content/theme/theme-manager';
-import { MathClickHandler } from '../../drivers/content/math/math-click';
+import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
 import { isExtRequest } from '../../contracts/protocol';
@@ -41,7 +41,7 @@ const writeDebugState = (patch: Record<string, string | boolean | number | null 
 const adapter = getAdapter();
 if (adapter) {
     const themeManager = new ThemeManager();
-    const mathClick = new MathClickHandler();
+    const mathClick = new FormulaAssetHoverController();
     const readerPanel = new ReaderPanel();
     const sendController = new SendController();
     const settingsClient = new SettingsClient();

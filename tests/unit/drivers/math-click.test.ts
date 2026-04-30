@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { MathClickHandler } from '@/drivers/content/math/math-click';
 
 function setClipboardMock() {
@@ -11,6 +12,34 @@ function setClipboardMock() {
 }
 
 describe('MathClickHandler', () => {
+    it('emits hover context from the same extracted LaTeX source', () => {
+        const onFormulaHoverEnter = vi.fn();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="math-inline">
+            <span class="katex">
+              <annotation encoding="application/x-tex">x_1 + y</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ onFormulaHoverEnter });
+        handler.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        expect(onFormulaHoverEnter).toHaveBeenCalledWith(expect.objectContaining({
+            element: container.querySelector('.math-inline'),
+            anchor: target,
+            source: 'x_1 + y',
+            displayMode: false,
+        }));
+
+        handler.disable();
+        container.remove();
+    });
+
     it('uses the resolved interactive highlight token for inline formula hover', () => {
         document.documentElement.style.setProperty('--aimd-interactive-highlight', 'rgba(37, 99, 235, 0.12)');
         const container = document.createElement('div');

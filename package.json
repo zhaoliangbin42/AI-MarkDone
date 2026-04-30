@@ -8,9 +8,9 @@
         "dev": "vite",
         "build": "npm run build:chrome && npm run build:firefox",
         "build:all:webext": "npm run build && npm run build:safari:webext",
-        "build:chrome": "tsc && vite build --config vite.config.chrome.ts && vite build --config vite.config.chrome.background.ts",
-        "build:firefox": "tsc && vite build --config vite.config.firefox.ts && vite build --config vite.config.firefox.background.ts",
-        "build:safari:webext": "tsc && vite build --config vite.config.safari.ts && vite build --config vite.config.safari.background.ts",
+        "build:chrome": "tsc && vite build --config vite.config.chrome.ts && vite build --config vite.config.chrome.background.ts && vite build --config vite.config.chrome.formula-renderer.ts",
+        "build:firefox": "tsc && vite build --config vite.config.firefox.ts && vite build --config vite.config.firefox.background.ts && vite build --config vite.config.firefox.formula-renderer.ts",
+        "build:safari:webext": "tsc && vite build --config vite.config.safari.ts && vite build --config vite.config.safari.background.ts && vite build --config vite.config.safari.formula-renderer.ts",
         "postbuild:chrome": "tsx scripts/prepare-extension-target.ts chrome && npm run verify:entry-format:chrome",
         "postbuild:firefox": "tsx scripts/prepare-extension-target.ts firefox && npm run verify:entry-format:firefox",
         "postbuild:safari:webext": "tsx scripts/prepare-extension-target.ts safari && npm run verify:entry-format:safari",
@@ -30,6 +30,8 @@
         "verify:entry-format:safari": "bash scripts/verify-extension-entry-format.sh safari"
     },
     "dependencies": {
+        "@mathjax/mathjax-newcm-font": "^4.1.1",
+        "@mathjax/src": "^4.1.1",
         "html-to-image": "^1.11.13",
         "jszip": "^3.10.1",
         "rehype-highlight": "^7.0.2",

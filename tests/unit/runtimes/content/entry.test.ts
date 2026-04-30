@@ -115,8 +115,8 @@ vi.mock('@/drivers/content/theme/theme-manager', () => ({
     ThemeManager: themeManagerCtor,
 }));
 
-vi.mock('@/drivers/content/math/math-click', () => ({
-    MathClickHandler: mathClickCtor,
+vi.mock('@/ui/content/controllers/FormulaAssetHoverController', () => ({
+    FormulaAssetHoverController: mathClickCtor,
 }));
 
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({

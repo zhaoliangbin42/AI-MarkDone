@@ -18,5 +18,7 @@ export const extensionAssets = {
         'vendor/katex/*.css',
         'vendor/katex/fonts/*',
         'page-bridges/*.js',
+        'formula-renderer.html',
+        'formula-renderer.js',
     ],
 } as const;

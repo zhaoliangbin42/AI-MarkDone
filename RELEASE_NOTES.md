@@ -1,5 +1,13 @@
 # Release Notes
 
+## Unreleased
+
+### Added
+- Added formula hover actions for copying or saving a single formula as PNG or SVG while keeping normal formula click-to-copy source behavior unchanged.
+
+### Changed
+- Formula image rendering now loads through an isolated renderer only when a PNG/SVG formula action is used, keeping normal page startup and toolbar injection lighter.
+
 ## v4.2.3 (2026-04-29)
 
 ### Added

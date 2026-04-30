@@ -41,6 +41,7 @@
 | Platform noise filtering (structural only) | `adapter.isNoiseNode()` + placeholder | `src/drivers/content/adapters/*`, `src/services/copy/copy-markdown.ts` | parity fixtures | 噪声过滤不基于文本，避免 i18n 漂移。 |
 | Streaming guard (pending state) | `adapter.isStreamingMessage()` → disable actions | `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | (covered by manual) | 流式阶段禁用按钮，不影响注入与后续重试。 |
 | LaTeX click-to-copy | Enable on injected message containers | `src/drivers/content/math/math-click.ts` | `tests/unit/drivers/math-click.test.ts` | 默认开启，在不破坏页面交互的前提下复制 LaTeX。适合只想快速拿走单个公式，不必先复制整段内容再二次提取。 |
+| Formula PNG/SVG copy and save | Hover a formula → `Copy as PNG` / `Copy as SVG` / `Save as PNG` / `Save as SVG` | `src/drivers/content/math/math-click.ts`, `src/ui/content/controllers/FormulaAssetHoverController.ts`, `src/services/math/formulaAssetActions.ts`, `src/services/math/formulaAssetRenderer.ts`, `src/runtimes/formula-renderer/entry.ts`, `src/drivers/content/clipboard/copySvgToClipboard.ts`, `src/drivers/content/export/renderFormulaPng.ts` | `tests/unit/drivers/math-click.test.ts`, `tests/unit/ui/content/FormulaAssetHoverController.test.ts`, `tests/unit/services/math/formulaAssetActions.test.ts`, `tests/unit/services/math/formulaAssetRenderer.test.ts`, `tests/unit/drivers/content/clipboard/copySvgToClipboard.test.ts`, `tests/unit/drivers/content/export/renderFormulaPng.test.ts` | 四个 hover 动作必须与点击复制源码共用同一个 LaTeX 提取入口；单公式 SVG 由按需加载的 iframe MathJax renderer 生成，不得静态打入 `content.js`；content-side renderer client 必须缓存同 key SVG asset 并复用 in-flight 请求；PNG 由同一份 SVG rasterize；默认公式字号固定为 36px；不改变整条消息 PNG 导出链路。 |
 
 #### Copy goldens（回归策略）
 
@@ -54,6 +55,7 @@
 
 - selection 非空（用户正在选择文本）时 **不触发复制**，不拦截事件链。
 - 仅在确认要复制时才 `preventDefault/stopPropagation`（尽量不干扰宿主交互）。
+- hover 公式时可以展示单公式 PNG/SVG 复制与保存动作；这些动作必须继续消费同一份 LaTeX source，不得增加第二套公式源码解析链路。
 
 ---
 

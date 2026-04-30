@@ -20,7 +20,22 @@ type ListenerRecord = {
     target: HTMLElement;
     mouseenter: EventListener;
     mouseleave: EventListener;
+    focusin: EventListener;
+    focusout: EventListener;
     click: EventListener;
+};
+
+export type MathFormulaHoverContext = {
+    element: Element;
+    anchor: HTMLElement;
+    source: string;
+    displayMode: boolean;
+};
+
+export type MathClickHandlerOptions = {
+    onFormulaHoverEnter?: (context: MathFormulaHoverContext) => void;
+    onFormulaHoverLeave?: () => void;
+    onFormulaDisable?: () => void;
 };
 
 /**
@@ -39,6 +54,8 @@ export class MathClickHandler {
     private elementListeners = new Map<Element, ListenerRecord>();
     private pendingNodes = new Set<Element>();
     private idleTimer: number | ReturnType<typeof setTimeout> | null = null;
+
+    constructor(private readonly options: MathClickHandlerOptions = {}) {}
 
     enable(container: HTMLElement): void {
         ensureMathClickStyle();
@@ -82,18 +99,21 @@ export class MathClickHandler {
         this.observers.clear();
 
         this.elementListeners.forEach((listeners) => {
-            const { target, mouseenter, mouseleave, click } = listeners;
+            const { target, mouseenter, mouseleave, focusin, focusout, click } = listeners;
             target.style.backgroundColor = '';
             target.style.cursor = '';
             target.style.transition = '';
             target.removeEventListener('mouseenter', mouseenter);
             target.removeEventListener('mouseleave', mouseleave);
+            target.removeEventListener('focusin', focusin);
+            target.removeEventListener('focusout', focusout);
             target.removeEventListener('click', click);
         });
         this.elementListeners.clear();
         this.activeElements.clear();
         this.pendingNodes.clear();
         this.clearIdleTimer();
+        this.options.onFormulaDisable?.();
     }
 
     private processContainer(container: HTMLElement): void {
@@ -221,10 +241,12 @@ export class MathClickHandler {
 
         const mouseenterHandler = () => {
             targetEl.style.backgroundColor = hoverBackground;
+            this.notifyFormulaHoverEnter(element, targetEl);
         };
 
         const mouseleaveHandler = () => {
             targetEl.style.backgroundColor = '';
+            this.options.onFormulaHoverLeave?.();
         };
 
         const clickHandler = async (e: Event) => {
@@ -243,12 +265,16 @@ export class MathClickHandler {
 
         targetEl.addEventListener('mouseenter', mouseenterHandler);
         targetEl.addEventListener('mouseleave', mouseleaveHandler);
+        targetEl.addEventListener('focusin', mouseenterHandler);
+        targetEl.addEventListener('focusout', mouseleaveHandler);
         targetEl.addEventListener('click', clickHandler);
 
         this.elementListeners.set(element, {
             target: targetEl,
             mouseenter: mouseenterHandler,
             mouseleave: mouseleaveHandler,
+            focusin: mouseenterHandler,
+            focusout: mouseleaveHandler,
             click: clickHandler,
         });
     }
@@ -268,6 +294,18 @@ export class MathClickHandler {
         }
 
         return highlight;
+    }
+
+    private notifyFormulaHoverEnter(element: Element, anchor: HTMLElement): void {
+        if (!this.options.onFormulaHoverEnter) return;
+        const source = extractLatexSource(element);
+        if (!source) return;
+        this.options.onFormulaHoverEnter({
+            element,
+            anchor,
+            source,
+            displayMode: isDisplayMathElement(element),
+        });
     }
 
     private async handleClick(element: Element): Promise<void> {
@@ -304,4 +342,10 @@ export class MathClickHandler {
             }
         }, 1500);
     }
+}
+
+function isDisplayMathElement(element: Element): boolean {
+    return element.classList.contains('katex-display')
+        || element.classList.contains('math-block')
+        || Boolean(element.closest('.katex-display, .math-block'));
 }

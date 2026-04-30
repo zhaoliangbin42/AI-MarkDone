@@ -408,6 +408,7 @@ export class MessageToolbar {
         this.clearHoverActionCloseTimer();
         this.getHoverActionPortal().open({
             anchorEl: anchor,
+            id: action.hoverAction.id,
             label: action.hoverAction.label,
             tooltip: action.hoverAction.tooltip || action.hoverAction.label,
             icon: action.hoverAction.icon,

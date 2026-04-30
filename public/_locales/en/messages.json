@@ -20,6 +20,24 @@
     "btnCopyAsPngDownloaded": {
         "message": "PNG downloaded"
     },
+    "formulaCopyAsPng": {
+        "message": "Copy as PNG"
+    },
+    "formulaCopyAsSvg": {
+        "message": "Copy as SVG"
+    },
+    "formulaSaveAsPng": {
+        "message": "Save as PNG"
+    },
+    "formulaSaveAsSvg": {
+        "message": "Save as SVG"
+    },
+    "formulaAssetSaved": {
+        "message": "Saved"
+    },
+    "formulaAssetRendering": {
+        "message": "Rendering..."
+    },
     "btnBookmark": {
         "message": "Bookmark"
     },

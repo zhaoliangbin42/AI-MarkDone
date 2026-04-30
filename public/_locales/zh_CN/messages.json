@@ -20,6 +20,24 @@
     "btnCopyAsPngDownloaded": {
         "message": "PNG 已下载"
     },
+    "formulaCopyAsPng": {
+        "message": "复制为PNG"
+    },
+    "formulaCopyAsSvg": {
+        "message": "复制为SVG"
+    },
+    "formulaSaveAsPng": {
+        "message": "保存为PNG"
+    },
+    "formulaSaveAsSvg": {
+        "message": "保存为SVG"
+    },
+    "formulaAssetSaved": {
+        "message": "已保存"
+    },
+    "formulaAssetRendering": {
+        "message": "正在渲染..."
+    },
     "btnBookmark": {
         "message": "书签"
     },

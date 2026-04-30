@@ -82,6 +82,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **Clean Markdown**: Copy standard Markdown, ready for Obsidian, Typora, or VS Code.
 - **Beautiful PDF**: Export a print-ready PDF when you need something shareable.
 - **Copy as PNG**: Turn the current message into a shareable image directly from the hover toolbar.
+- **Formula assets**: Copy or save a single formula as PNG or SVG from the formula hover actions.
 - **Batch PNG export**: Export selected messages as one PNG each; multiple messages are packed together as a ZIP.
 - **Image settings**: Configure PNG width and image scale from Settings to fit the target sharing platform.
 - **Deep Research cleanup**: Restore messy Deep Research outputs into readable Markdown.
@@ -95,6 +96,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 ### 🧮 One-Click LaTeX Copy
 - **Click-to-copy**: Copy LaTeX from inline (`$...$`) and block (`$$...$$`) formulas.
 - **No selection hassle**: Grab exactly one formula without breaking the text.
+- **Image-ready formulas**: Hover a formula to copy or save it as PNG/SVG while keeping normal click-to-copy source behavior.
 
 ### 📊 Word Count
 - **Real-time stats**: Words and characters for the current message, minus code noise.
@@ -179,10 +181,9 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### v4.2.3
-- Added Reader panel width control in Advanced Settings.
-- Added lower-right previous/next message shortcuts for ChatGPT conversations.
-- Fixed duplicate Reader `Copy annotations` buttons and overlapping numbered formulas in PDF export.
+### Unreleased
+- Added formula hover actions to copy or save a single formula as PNG or SVG.
+- Kept formula image rendering isolated from the main content script so normal browsing and toolbar startup stay lighter.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

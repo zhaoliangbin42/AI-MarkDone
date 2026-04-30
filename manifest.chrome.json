@@ -52,7 +52,9 @@
                 "_locales/*/messages.json",
                 "vendor/katex/*.css",
                 "vendor/katex/fonts/*",
-                "page-bridges/*.js"
+                "page-bridges/*.js",
+                "formula-renderer.html",
+                "formula-renderer.js"
             ],
             "matches": [
                 "https://chatgpt.com/*",

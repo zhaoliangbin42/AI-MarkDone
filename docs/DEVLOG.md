@@ -4,6 +4,21 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-01 — Formula PNG/SVG hover actions + isolated MathJax renderer
+
+- Added formula hover actions for copying or saving a single formula as PNG/SVG while preserving direct click-to-copy LaTeX source.
+- Moved MathJax formula asset rendering into an on-demand extension iframe renderer so MathJax is not bundled into `content.js`.
+- Added content-side SVG asset caching, in-flight request reuse, renderer timeout handling, and pending-action guarding.
+- Updated target manifests/builds so Chrome, Firefox, and Safari ship `formula-renderer.html` and `formula-renderer.js` as web-accessible renderer assets.
+
+Verification:
+- `npm run type-check` (pass)
+- Target formula/render/toolbar/manifest test set (pass; 41 tests)
+- `npm run test:smoke` (pass; 15 tests)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+- `npm run build:safari:webext` (pass; Safari WebExtension + entry verification)
+- `rg "MathJax|@mathjax|MathJaxNewcmFont" dist-*/content.js` (no matches)
+
 ## 2026-04-28 — Reader advanced width setting + ChatGPT directory step controls
 
 - Added a collapsed Advanced Settings section for low-frequency tuning and moved Reader content width into `reader.contentMaxWidthPx` with a 1000px default.

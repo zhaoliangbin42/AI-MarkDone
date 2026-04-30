@@ -19,6 +19,7 @@ export function prepareExtensionTarget(target: ExtensionTarget): void {
     copyPngFiles(resolve(process.cwd(), 'public/icons'), join(distDir, 'icons'));
     cpSync(resolve(process.cwd(), 'public/_locales'), join(distDir, '_locales'), { recursive: true });
     cpSync(resolve(process.cwd(), 'public/page-bridges'), join(distDir, 'page-bridges'), { recursive: true });
+    cpSync(resolve(process.cwd(), 'public/formula-renderer.html'), join(distDir, 'formula-renderer.html'));
     mkdirSync(join(distDir, 'src/popup'), { recursive: true });
     cpSync(resolve(process.cwd(), 'src/popup/popup.html'), join(distDir, 'src/popup/popup.html'));
     mkdirSync(join(distDir, 'vendor/katex'), { recursive: true });
