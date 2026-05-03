@@ -24,6 +24,7 @@ const baseSettings = {
                 { type: 'text', value: '\nMy comment is:\n' },
                 { type: 'token', key: 'user_comment' },
             ],
+            promptPosition: 'top',
         },
     },
     export: {
@@ -193,6 +194,34 @@ describe('SettingsTabView', () => {
 
         expect(widthInput.value).toBe('1600');
         expect(onSetReaderSettings).toHaveBeenCalledWith({ contentMaxWidthPx: 1611 });
+    });
+
+    it('wires the reader comment prompt position toggle without replacing prompts or template', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetReaderSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const promptPositionToggle = root.querySelector<HTMLInputElement>('[data-role="settings-reader-prompt-position-bottom"]')!;
+
+        expect(promptPositionToggle).toBeTruthy();
+        expect(promptPositionToggle.checked).toBe(false);
+
+        promptPositionToggle.checked = true;
+        promptPositionToggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetReaderSettings).toHaveBeenCalledWith({
+            commentExport: {
+                prompts: baseSettings.reader.commentExport.prompts,
+                template: baseSettings.reader.commentExport.template,
+                promptPosition: 'bottom',
+            },
+        });
     });
 
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {

@@ -4,6 +4,17 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-04 — Reader annotation prompt position setting
+
+- Added a `reader.commentExport.promptPosition` setting so copied Reader annotations can keep the selected user prompt above the annotations by default or append it below them.
+- Kept Reader annotation storage, Reader body rendering, and platform collection unchanged; only the annotation export compilation/settings path owns the order.
+- Synced the Reader feature contract, current-state SSOT, changelog, and English/Chinese Settings labels.
+
+Verification:
+- `npm run test -- tests/unit/services/reader/commentExport.test.ts tests/unit/services/settings/settingsService.test.ts tests/unit/ui/bookmarks/settingsTabView.test.ts tests/integration/reader/reader-panel.comment.test.ts tests/unit/ui/sending/sendPopover.test.ts tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts` (pass; 59 tests)
+- `npm run test -- tests/unit/governance/i18n-keys.test.ts tests/unit/ui/i18n/i18n.test.ts` (pass; 5 tests)
+- `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-05-01 — Formula PNG/SVG hover actions + isolated MathJax renderer
 
 - Added formula hover actions for copying or saving a single formula as PNG/SVG while preserving direct click-to-copy LaTeX source.

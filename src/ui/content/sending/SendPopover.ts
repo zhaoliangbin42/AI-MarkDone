@@ -1,6 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
-import type { CommentTemplateSegment, ReaderCommentPrompt } from '../../../core/settings/readerCommentExport';
+import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { readComposer, writeComposer } from '../../../drivers/content/sending/composerPort';
 import { sendText } from '../../../services/sending/sendService';
@@ -25,6 +25,7 @@ type State = {
 type CommentInsertContext = {
     prompts: ReaderCommentPrompt[];
     template: CommentTemplateSegment[];
+    promptPosition: ReaderCommentPromptPosition;
     comments: ReaderCommentRecord[];
 };
 
@@ -328,6 +329,7 @@ export class SendPopover {
         const resolved = resolveReaderCommentExportPrompts({
             prompts: context.prompts,
             template: context.template,
+            promptPosition: context.promptPosition,
         }, promptId);
 
         if (context.comments.length < 1) {

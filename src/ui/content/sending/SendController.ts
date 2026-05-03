@@ -1,7 +1,7 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
-import type { CommentTemplateSegment, ReaderCommentPrompt } from '../../../core/settings/readerCommentExport';
+import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
 import { SendModal } from './SendModal';
 import { SendPopover } from './SendPopover';
 
@@ -41,6 +41,7 @@ export class SendController {
         commentInsert?: {
             prompts: ReaderCommentPrompt[];
             template: CommentTemplateSegment[];
+            promptPosition: ReaderCommentPromptPosition;
             comments: ReaderCommentRecord[];
         } | null;
     }): void {

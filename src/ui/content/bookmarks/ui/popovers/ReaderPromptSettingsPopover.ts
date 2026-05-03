@@ -453,6 +453,7 @@ export class ReaderPromptSettingsPopover {
         return {
             prompts: settings.prompts.map((prompt) => ({ ...prompt })),
             template: settings.template.map((segment) => ({ ...segment })),
+            promptPosition: settings.promptPosition,
         };
     }
 }

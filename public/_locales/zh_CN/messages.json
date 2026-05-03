@@ -263,6 +263,12 @@
     "readerCommentPromptListDesc": {
         "message": "管理用于注释导出的可复用提示词前缀。"
     },
+    "readerCommentPromptPositionBottomLabel": {
+        "message": "将提示词放在注释下方"
+    },
+    "readerCommentPromptPositionBottomDesc": {
+        "message": "开启后，复制内容会先显示注释列表，再把选中的用户提示词追加到底部。"
+    },
     "readerCommentTemplateSettingsLabel": {
         "message": "注释复制模板"
     },

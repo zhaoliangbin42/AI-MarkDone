@@ -24,6 +24,7 @@ import {
 import {
     buildCommentsExport,
     createDefaultReaderCommentExportSettings,
+    normalizeReaderCommentExportSettings,
     resolveReaderCommentExportPrompts,
     type ReaderCommentExportSettings,
 } from '../../../services/reader/commentExport';
@@ -181,7 +182,7 @@ export class ReaderPanel {
     }
 
     setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
-        this.commentExportSettings = settings;
+        this.commentExportSettings = normalizeReaderCommentExportSettings(settings);
     }
 
     setContentMaxWidthPx(widthPx: number): void {
@@ -191,12 +192,13 @@ export class ReaderPanel {
         if (this.state.visible) this.render();
     }
 
-    getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template'] } | null {
+    getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template']; promptPosition: ReaderCommentExportSettings['promptPosition'] } | null {
         const comments = this.getCurrentComments();
         return {
             comments: comments.map((record) => ({ ...record })),
             prompts: this.commentExportSettings.prompts.map((prompt) => ({ ...prompt })),
             template: this.commentExportSettings.template.map((segment) => ({ ...segment })),
+            promptPosition: this.commentExportSettings.promptPosition,
         };
     }
 

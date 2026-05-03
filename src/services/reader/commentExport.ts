@@ -1,9 +1,11 @@
-import type { ReaderCommentExportSettings, ReaderCommentPrompt } from '../../core/settings/readerCommentExport';
+import type { ReaderCommentExportSettings, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../core/settings/readerCommentExport';
 import {
     createDefaultCommentTemplate,
     createDefaultReaderCommentPrompts,
     createDefaultReaderCommentExportSettings,
+    DEFAULT_READER_COMMENT_PROMPT_POSITION,
     normalizeCommentTemplate,
+    normalizeReaderCommentExportSettings,
     type CommentTemplateSegment,
 } from '../../core/settings/readerCommentExport';
 import type { ReaderCommentRecord } from './commentSession';
@@ -13,9 +15,16 @@ export type { CommentTemplateSegment, CommentTemplateTokenKey, ReaderCommentExpo
 export type ReaderCommentExportPrompts = {
     userPrompt: string;
     commentTemplate: CommentTemplateSegment[];
+    promptPosition?: ReaderCommentPromptPosition;
 };
 
-export { createDefaultCommentTemplate, createDefaultReaderCommentPrompts, createDefaultReaderCommentExportSettings, normalizeCommentTemplate };
+export {
+    createDefaultCommentTemplate,
+    createDefaultReaderCommentPrompts,
+    createDefaultReaderCommentExportSettings,
+    normalizeCommentTemplate,
+    normalizeReaderCommentExportSettings,
+};
 
 export function resolvePromptById(settings: ReaderCommentExportSettings, promptId?: string | null): ReaderCommentPrompt | null {
     if (settings.prompts.length < 1) return null;
@@ -34,6 +43,7 @@ export function resolveReaderCommentExportPrompts(settings: ReaderCommentExportS
     return {
         userPrompt: prompt.content,
         commentTemplate: settings.template,
+        promptPosition: settings.promptPosition ?? DEFAULT_READER_COMMENT_PROMPT_POSITION,
     };
 }
 
@@ -69,5 +79,8 @@ export function buildCommentsExport(
 
     if (lines.length < 1) return '';
     const prefix = prompts.userPrompt.trim();
-    return prefix ? [prefix, '', ...lines].join('\n') : lines.join('\n');
+    if (!prefix) return lines.join('\n');
+    return prompts.promptPosition === 'bottom'
+        ? [...lines, '', prefix].join('\n')
+        : [prefix, '', ...lines].join('\n');
 }

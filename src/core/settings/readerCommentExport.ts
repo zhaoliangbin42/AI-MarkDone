@@ -10,10 +10,15 @@ export type ReaderCommentPrompt = {
     content: string;
 };
 
+export type ReaderCommentPromptPosition = 'top' | 'bottom';
+
 export type ReaderCommentExportSettings = {
     prompts: ReaderCommentPrompt[];
     template: CommentTemplateSegment[];
+    promptPosition: ReaderCommentPromptPosition;
 };
+
+export const DEFAULT_READER_COMMENT_PROMPT_POSITION: ReaderCommentPromptPosition = 'top';
 
 const DEFAULT_READER_COMMENT_PROMPTS: ReaderCommentPrompt[] = [
     {
@@ -72,6 +77,7 @@ export function createDefaultReaderCommentExportSettings(): ReaderCommentExportS
     return {
         prompts: createDefaultReaderCommentPrompts(),
         template: createDefaultCommentTemplate(),
+        promptPosition: DEFAULT_READER_COMMENT_PROMPT_POSITION,
     };
 }
 
@@ -146,6 +152,10 @@ export function normalizeReaderCommentPrompts(value: unknown): ReaderCommentProm
     return prompts;
 }
 
+export function normalizeReaderCommentPromptPosition(value: unknown): ReaderCommentPromptPosition {
+    return value === 'bottom' ? 'bottom' : DEFAULT_READER_COMMENT_PROMPT_POSITION;
+}
+
 export function normalizeReaderCommentExportSettings(value: unknown): ReaderCommentExportSettings {
     if (!isRecord(value)) return createDefaultReaderCommentExportSettings();
     const prompts = normalizeReaderCommentPrompts(value.prompts);
@@ -154,5 +164,6 @@ export function normalizeReaderCommentExportSettings(value: unknown): ReaderComm
     return {
         prompts,
         template: template.length > 0 ? template : createDefaultCommentTemplate(),
+        promptPosition: normalizeReaderCommentPromptPosition(value.promptPosition),
     };
 }

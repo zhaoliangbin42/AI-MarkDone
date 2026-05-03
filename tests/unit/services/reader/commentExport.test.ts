@@ -43,6 +43,7 @@ describe('commentExport', () => {
         expect(resolveReaderCommentExportPrompts(settings as any, 'p2')).toEqual({
             userPrompt: 'Second prompt',
             commentTemplate: settings.template,
+            promptPosition: 'top',
         });
     });
 
@@ -125,6 +126,32 @@ describe('commentExport', () => {
                 '1. alpha',
                 '   --',
                 '   beta',
+            ].join('\n'),
+        );
+    });
+
+    it('places the user prompt after comments when configured', () => {
+        const result = buildCommentsExport(
+            [makeComment({ sourceMarkdown: 'alpha', comment: 'beta' })],
+            {
+                userPrompt: 'Line 1\nLine 2',
+                promptPosition: 'bottom',
+                commentTemplate: [
+                    { type: 'token', key: 'selected_source' },
+                    { type: 'text', value: '\n--\n' },
+                    { type: 'token', key: 'user_comment' },
+                ],
+            },
+        );
+
+        expect(result).toBe(
+            [
+                '1. alpha',
+                '   --',
+                '   beta',
+                '',
+                'Line 1',
+                'Line 2',
             ].join('\n'),
         );
     });

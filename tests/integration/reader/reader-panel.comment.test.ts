@@ -130,7 +130,7 @@ describe('ReaderPanel comments', () => {
         getSelectionSpy.mockRestore();
     });
 
-    it('copies compiled comments from source markdown using settings-backed prompts and a read-only export popover', async () => {
+    it('copies compiled comments with the selected prompt below annotations when configured', async () => {
         const { writeText } = setClipboardMock();
         const panel = new ReaderPanel();
         panel.setCommentExportSettings({
@@ -144,6 +144,7 @@ describe('ReaderPanel comments', () => {
                 { type: 'text', value: '\nMy comment is:\n' },
                 { type: 'token', key: 'user_comment' },
             ],
+            promptPosition: 'bottom',
         });
 
         await panel.show(
@@ -192,12 +193,12 @@ describe('ReaderPanel comments', () => {
 
         expect(writeText).toHaveBeenCalledWith(
             [
-                'Summarize these comments:',
-                '',
                 '1. Regarding',
                 '   Before `code` and $x+y$ after',
                 '   My comment is:',
                 '   Needs clarification',
+                '',
+                'Summarize these comments:',
             ].join('\n'),
         );
         getSelectionSpy.mockRestore();

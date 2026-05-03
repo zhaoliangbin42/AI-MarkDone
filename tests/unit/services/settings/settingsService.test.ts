@@ -43,6 +43,7 @@ describe('settingsService', () => {
         expect(next.reader.commentExport.prompts).toHaveLength(2);
         expect(next.reader.commentExport.prompts[0]?.id).toBe('prompt-1');
         expect(next.reader.commentExport.template).toEqual(template);
+        expect(next.reader.commentExport.promptPosition).toBe('top');
     });
 
     it('merges reader content width settings while preserving other reader settings', () => {
@@ -110,6 +111,25 @@ describe('settingsService', () => {
             { type: 'token', key: 'user_comment' },
             { type: 'text', value: '\n</annotation>' },
         ]);
+        expect(next.reader.commentExport.promptPosition).toBe('top');
+    });
+
+    it('normalizes and preserves reader comment prompt position settings', () => {
+        const bottom = planSetCategory(DEFAULT_SETTINGS, 'reader', {
+            commentExport: {
+                promptPosition: 'bottom',
+            },
+        }).next;
+
+        expect(bottom.reader.commentExport.promptPosition).toBe('bottom');
+
+        const invalid = planSetCategory(bottom, 'reader', {
+            commentExport: {
+                promptPosition: 'side',
+            },
+        }).next;
+
+        expect(invalid.reader.commentExport.promptPosition).toBe('top');
     });
 
     it('adds default export settings when normalizing stored settings', () => {

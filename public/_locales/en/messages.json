@@ -263,6 +263,12 @@
     "readerCommentPromptListDesc": {
         "message": "Manage reusable prompt headers for annotation export."
     },
+    "readerCommentPromptPositionBottomLabel": {
+        "message": "Place prompt below annotations"
+    },
+    "readerCommentPromptPositionBottomDesc": {
+        "message": "When enabled, copied annotations appear first and the selected user prompt is appended at the bottom."
+    },
     "readerCommentTemplateSettingsLabel": {
         "message": "Annotations copy template"
     },

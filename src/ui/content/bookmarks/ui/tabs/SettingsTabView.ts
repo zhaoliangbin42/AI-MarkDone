@@ -76,6 +76,7 @@ type Refs = {
     };
     reader: {
         renderCodeInReader: HTMLInputElement;
+        promptPositionBottom: HTMLInputElement;
         promptsButton: HTMLButtonElement;
         promptsSummary: HTMLElement;
         templateButton: HTMLButtonElement;
@@ -148,6 +149,11 @@ export class SettingsTabView {
 
         const readerGroup = this.createGroup(Icons.bookOpen, t('readerSettingsLabel'));
         const renderCodeInReader = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
+        const promptPositionBottom = this.createToggle(
+            readerGroup.body,
+            t('readerCommentPromptPositionBottomLabel'),
+            t('readerCommentPromptPositionBottomDesc'),
+        );
         const promptsRow = this.createActionRow(
             readerGroup.body,
             t('readerCommentPromptListLabel'),
@@ -275,6 +281,7 @@ export class SettingsTabView {
             },
             reader: {
                 renderCodeInReader: renderCodeInReader.input,
+                promptPositionBottom: promptPositionBottom.input,
                 promptsButton: promptsRow.button,
                 promptsSummary: promptsRow.summary,
                 templateButton: templateRow.button,
@@ -302,6 +309,7 @@ export class SettingsTabView {
         this.refs.behavior.enableClickToCopy.dataset.role = 'settings-click-to-copy';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
         this.refs.reader.renderCodeInReader.dataset.role = 'settings-render-code-reader';
+        this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-prompt-position-bottom';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
         this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
@@ -430,6 +438,11 @@ export class SettingsTabView {
             this.settings.reader.renderCodeInReader = next;
             void this.actions.setReaderSettings?.({ renderCodeInReader: next });
         });
+        this.refs.reader.promptPositionBottom.addEventListener('change', () => {
+            const next = this.getReaderCommentExport();
+            next.promptPosition = this.refs.reader.promptPositionBottom.checked ? 'bottom' : 'top';
+            this.updateReaderCommentExport(next);
+        });
         this.refs.reader.promptsButton.addEventListener('click', (event) => {
             event.preventDefault();
             this.openPromptSettingsPopover();
@@ -500,6 +513,7 @@ export class SettingsTabView {
         this.refs.behavior.enableClickToCopy.checked = Boolean(s.behavior.enableClickToCopy);
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
         this.refs.reader.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
+        this.refs.reader.promptPositionBottom.checked = commentExport.promptPosition === 'bottom';
         this.refs.reader.promptsSummary.textContent = this.formatPromptSummary(commentExport);
         this.refs.reader.templateSummary.textContent = this.formatTemplateSummary(commentExport.template);
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
@@ -520,6 +534,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.enableClickToCopy);
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.reader.renderCodeInReader);
+        this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
 
         this.refs.storageText.textContent = usagePercent;
@@ -792,6 +807,7 @@ export class SettingsTabView {
             commentExport: {
                 prompts: next.prompts.map((prompt) => ({ ...prompt })),
                 template: next.template.map((segment) => ({ ...segment })),
+                promptPosition: next.promptPosition,
             },
         };
         this.applySettingsToDom();
@@ -826,6 +842,7 @@ export class SettingsTabView {
     }
 
     private buildTemplatePreview(template: CommentTemplateSegment[]): string {
+        const commentExport = this.getReaderCommentExport();
         return buildCommentsExport(
             [
                 {
@@ -859,8 +876,9 @@ export class SettingsTabView {
                     updatedAt: 2,
                 },
             ],
-                {
-                userPrompt: this.getReaderCommentExport().prompts[0]?.content ?? '',
+            {
+                userPrompt: commentExport.prompts[0]?.content ?? '',
+                promptPosition: commentExport.promptPosition,
                 commentTemplate: template,
             },
         );
