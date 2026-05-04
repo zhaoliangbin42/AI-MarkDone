@@ -245,18 +245,25 @@ describe('BookmarksPanel', () => {
         const changelogTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="changelog"]');
         const aboutTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="about"]');
         const faqTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="faq"]');
+        const sponsorTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="sponsor"]');
         const platformTrigger = shadow.querySelector<HTMLButtonElement>('.platform-dropdown__trigger');
         const bookmarksPanel = shadow.querySelector<HTMLElement>('.tab-panel--bookmarks');
         const settingsPanel = shadow.querySelector<HTMLElement>('.settings-panel');
         const changelogPanel = shadow.querySelector<HTMLElement>('.changelog-panel');
         const aboutPanel = shadow.querySelector<HTMLElement>('.about-panel');
         const faqPanel = shadow.querySelector<HTMLElement>('.faq-panel');
+        const sponsorPanel = shadow.querySelector<HTMLElement>('.sponsor-panel');
 
         expect(panelWindow).toBeTruthy();
         expect(settingsTabButton).toBeTruthy();
         expect(changelogTabButton).toBeTruthy();
         expect(aboutTabButton).toBeTruthy();
         expect(faqTabButton).toBeTruthy();
+        expect(sponsorTabButton).toBeTruthy();
+        const tabIds = Array.from(shadow.querySelectorAll<HTMLElement>('[data-action="set-bookmarks-tab"]')).map((node) => node.dataset.tab);
+        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'sponsor']);
+        expect(sponsorTabButton?.textContent).toContain('Buy Me Coffee');
+        expect(sponsorTabButton?.innerHTML).toContain('aimd-icon');
         expect(bookmarksPanel?.querySelector('.bookmarks-tab-content')).toBeTruthy();
         expect(bookmarksPanel?.querySelector('.toolbar-row--bookmarks')).toBeTruthy();
         expect(bookmarksPanel?.querySelector('.batch-bar')).toBeTruthy();
@@ -265,6 +272,7 @@ describe('BookmarksPanel', () => {
         expect(changelogPanel?.dataset.active).toBe('0');
         expect(aboutPanel?.dataset.active).toBe('0');
         expect(faqPanel?.dataset.active).toBe('0');
+        expect(sponsorPanel?.dataset.active).toBe('0');
         expect(panelWindow?.querySelector('.panel-footer')).toBeNull();
 
         platformTrigger!.click();
@@ -277,12 +285,14 @@ describe('BookmarksPanel', () => {
         const refreshedChangelogPanel = shadow.querySelector<HTMLElement>('.changelog-panel');
         const refreshedAboutPanel = shadow.querySelector<HTMLElement>('.about-panel');
         const refreshedFaqPanel = shadow.querySelector<HTMLElement>('.faq-panel');
+        const refreshedSponsorPanel = shadow.querySelector<HTMLElement>('.sponsor-panel');
 
         expect(refreshedSettingsPanel?.dataset.active).toBe('1');
         expect(refreshedBookmarksPanel?.dataset.active).toBe('0');
         expect(refreshedChangelogPanel?.dataset.active).toBe('0');
         expect(refreshedAboutPanel?.dataset.active).toBe('0');
         expect(refreshedFaqPanel?.dataset.active).toBe('0');
+        expect(refreshedSponsorPanel?.dataset.active).toBe('0');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Settings');
         expect(refreshedSettingsPanel?.querySelector('.aimd-settings')).toBeTruthy();
         expect(refreshedSettingsPanel?.querySelector('.settings-card')).toBeTruthy();
@@ -311,12 +321,14 @@ describe('BookmarksPanel', () => {
         const refreshedSettingsTab = shadow.querySelector<HTMLElement>('.settings-panel');
         const refreshedAboutTab = shadow.querySelector<HTMLElement>('.about-panel');
         const refreshedFaqTab = shadow.querySelector<HTMLElement>('.faq-panel');
+        const refreshedSponsorTab = shadow.querySelector<HTMLElement>('.sponsor-panel');
 
         expect(refreshedChangelogTab?.dataset.active).toBe('1');
         expect(refreshedBookmarksTab?.dataset.active).toBe('0');
         expect(refreshedSettingsTab?.dataset.active).toBe('0');
         expect(refreshedAboutTab?.dataset.active).toBe('0');
         expect(refreshedFaqTab?.dataset.active).toBe('0');
+        expect(refreshedSponsorTab?.dataset.active).toBe('0');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
         expect(refreshedChangelogTab?.querySelector('.aimd-changelog')).toBeTruthy();
         expect(refreshedChangelogTab?.querySelector('.info-section')).toBeTruthy();
@@ -331,8 +343,8 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About');
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(2);
-        expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeTruthy();
-        expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(2);
+        expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeNull();
+        expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(0);
         expect(refreshedAboutActiveTab?.querySelector('.social-follow-card')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-brand-mark')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelector('.info-hero__body')).toBeNull();
@@ -343,15 +355,11 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.querySelector('.info-profile__bio')?.textContent).toContain('graduate student');
         expect(refreshedAboutActiveTab?.querySelector('[data-action="contact-email"]')).toBeNull();
         const sponsorCta = refreshedAboutActiveTab?.querySelector<HTMLAnchorElement>('[data-action="sponsor-github"]');
-        expect(sponsorCta?.tagName).toBe('A');
-        expect(sponsorCta?.href).toBe('https://github.com/zhaoliangbin42/AI-MarkDone');
-        expect(sponsorCta?.target).toBe('_blank');
-        expect(sponsorCta?.rel).toContain('noopener');
-        expect(sponsorCta?.rel).toContain('noreferrer');
-        expect(refreshedAboutActiveTab?.textContent).toContain('Support Development');
-        expect(refreshedAboutActiveTab?.textContent).toContain('AI-MarkDone is open source. Star us on GitHub.');
-        expect(refreshedAboutActiveTab?.textContent).toContain('If this project helps you');
-        expect(refreshedAboutActiveTab?.textContent).toContain('Support the project with a coffee if you want to.');
+        expect(sponsorCta).toBeNull();
+        expect(refreshedAboutActiveTab?.textContent).not.toContain('Support Development');
+        expect(refreshedAboutActiveTab?.textContent).not.toContain('AI-MarkDone is open source. Star us on GitHub.');
+        expect(refreshedAboutActiveTab?.textContent).not.toContain('If this project helps you');
+        expect(refreshedAboutActiveTab?.textContent).not.toContain('Support the project with a coffee if you want to.');
         expect(refreshedAboutActiveTab?.textContent).toContain('Why I built AI-MarkDone');
         expect(refreshedAboutActiveTab?.textContent).toContain('copy the whole block first');
         expect(refreshedAboutActiveTab?.textContent).toContain('Feedback and contact');
@@ -359,6 +367,27 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.textContent).toContain('Xiaohongshu');
         expect(refreshedAboutActiveTab?.textContent).toContain('Follow me');
         expect(refreshedAboutActiveTab?.textContent).toContain('Find me on Xiaohongshu');
+
+        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="sponsor"]')!.click();
+
+        const refreshedSponsorActiveTab = shadow.querySelector<HTMLElement>('.sponsor-panel');
+        const sponsorCtaActive = refreshedSponsorActiveTab?.querySelector<HTMLAnchorElement>('[data-action="sponsor-github"]');
+        expect(refreshedSponsorActiveTab?.dataset.active).toBe('1');
+        expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Buy Me Coffee');
+        expect(refreshedSponsorActiveTab?.querySelector('.aimd-sponsor')).toBeTruthy();
+        expect(refreshedSponsorActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(2);
+        expect(sponsorCtaActive?.tagName).toBe('A');
+        expect(sponsorCtaActive?.href).toBe('https://github.com/zhaoliangbin42/AI-MarkDone');
+        expect(sponsorCtaActive?.target).toBe('_blank');
+        expect(sponsorCtaActive?.rel).toContain('noopener');
+        expect(sponsorCtaActive?.rel).toContain('noreferrer');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('Support Development');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('AI-MarkDone is open source. Star us on GitHub.');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('If this project helps you');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('Support the project with a coffee if you want to.');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('Thanks to Sponsors');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('@匿名（Danke!）');
+        expect(refreshedSponsorActiveTab?.textContent).toContain('@。（特别喜欢那个目录条功能，请你喝瓶水）');
 
         faqTabButton!.click();
 
@@ -379,10 +408,10 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.1.2',
+                pendingVersion: '4.2.3',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.1.0',
+                previousVersion: '4.2.2',
             },
         } as any);
 
@@ -432,15 +461,15 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.1.2");
-        expect(modal?.textContent).toContain('2026-04-22');
-        expect(modal?.textContent).toContain('right-side ChatGPT directory');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.2.3");
+        expect(modal?.textContent).toContain('2026-04-29');
+        expect(modal?.textContent).toContain('Reader panel width control');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.1.2');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.2.3');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -448,10 +477,10 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.1.2',
+                pendingVersion: '4.2.3',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.1.0',
+                previousVersion: '4.2.2',
             },
         } as any);
 
@@ -505,7 +534,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.1.2');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.2.3');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
@@ -667,7 +696,7 @@ describe('BookmarksPanel', () => {
             Array.from(shadow.querySelectorAll('.tab-btn span'))
                 .map((node) => node.textContent?.trim() ?? '')
                 .filter(Boolean),
-        ).toEqual(['书签', '设置', '更新日志', '常见问题', '关于我']);
+        ).toEqual(['书签', '设置', '更新日志', '常见问题', '关于我', '请我喝咖啡']);
         expect(shadow.querySelector<HTMLElement>('.settings-panel')?.textContent).toContain('存储占用');
 
         panel.hide();
@@ -3024,7 +3053,7 @@ describe('BookmarksPanel', () => {
         panel.hide();
     });
 
-    it('replays the support burst effect when the about panel is clicked', async () => {
+    it('replays the support burst effect when the coffee panel is clicked', async () => {
         const snapshot = {
             vm: {
                 query: '',
@@ -3068,12 +3097,12 @@ describe('BookmarksPanel', () => {
         await panel.show();
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
-        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="about"]')!.click();
+        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="sponsor"]')!.click();
 
-        const aboutPanel = shadow.querySelector<HTMLElement>('.about-panel');
-        expect(aboutPanel).toBeTruthy();
+        const sponsorPanel = shadow.querySelector<HTMLElement>('.sponsor-panel');
+        expect(sponsorPanel).toBeTruthy();
 
-        aboutPanel!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 280, clientY: 320 }));
+        sponsorPanel!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 280, clientY: 320 }));
 
         expect(shadow.querySelectorAll('.sponsor-burst-piece').length).toBeGreaterThan(0);
 

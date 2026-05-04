@@ -2089,6 +2089,17 @@ ${getPanelChromeCss()}
     );
 }
 
+.sponsor-card--donate {
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 32%, var(--aimd-border-strong));
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent), transparent 62%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent),
+      color-mix(in srgb, var(--aimd-bg-primary) 90%, var(--aimd-bg-secondary))
+    );
+}
+
 .sponsor-section-head {
   width: 100%;
   display: grid;
@@ -2178,6 +2189,28 @@ ${getPanelChromeCss()}
   font-size: var(--aimd-text-base);
   font-weight: 500;
   color: var(--aimd-text-primary);
+}
+
+.sponsor-thanks-list {
+  width: min(100%, 520px);
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sponsor-thanks-item {
+  min-width: 0;
+  padding: var(--aimd-space-3) var(--aimd-space-4);
+  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
+  color: var(--aimd-text-primary);
+  font-size: var(--_bookmarks-body-copy-size);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sponsor-thanks-item:first-child {
+  border-top: 0;
 }
 
 .qr-image-wrapper,

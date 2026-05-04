@@ -1,11 +1,9 @@
-import { Icons } from '../../../../../assets/icons';
 import { loadBookmarksDoc } from '../../content/loader';
 import { parseBookmarksDoc } from '../../content/parser';
 import { t } from '../../../components/i18n';
 import { renderInfoBlocks } from './renderInfoBlocks';
 
 export type AboutTabViewActions = {
-    githubUrl: string;
     getAssetUrl: (assetPath: string) => string;
 };
 
@@ -67,62 +65,6 @@ export class AboutTabView {
             infoSections.appendChild(container);
         }
 
-        const openSource = document.createElement('section');
-        openSource.className = 'sponsor-card sponsor-card--primary';
-        openSource.innerHTML = `
-          <div class="sponsor-section-head">
-            <div class="sponsor-section-icon">${Icons.github}</div>
-            <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">${t('supportDevelopment')}</div>
-            </div>
-          </div>
-          <p class="sponsor-section-body">${t('supportDevDesc')}</p>
-          <div class="sponsor-action-row">
-            <a
-              class="primary-btn sponsor-cta-button"
-              data-action="sponsor-github"
-              href="${actions.githubUrl}"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              ${Icons.github}
-              ${t('starOnGitHub')}
-            </a>
-          </div>
-        `;
-
-        const donate = document.createElement('section');
-        donate.className = 'sponsor-card sponsor-card--secondary';
-        const bmc = actions.getAssetUrl('icons/bmc_qr.png');
-        const wechat = actions.getAssetUrl('icons/wechat_qr.png');
-        donate.innerHTML = `
-          <div class="sponsor-section-head">
-            <div class="sponsor-section-icon sponsor-section-icon--warm">${Icons.coffee}</div>
-            <div class="sponsor-section-copy">
-              <div class="sponsor-section-label">${t('ifProjectHelps')}</div>
-            </div>
-          </div>
-          <p class="sponsor-section-body">${t('supportCoffeeDesc')}</p>
-          <div class="sponsor-qr-grid">
-            <article class="sponsor-qr-card">
-              <div class="sponsor-qr-meta">
-                <strong>${t('buyMeCoffee')}</strong>
-              </div>
-              <div class="sponsor-qr-frame">
-                <img src="${bmc}" alt="Buy Me A Coffee QR code" class="sponsor-qr-image">
-              </div>
-            </article>
-            <article class="sponsor-qr-card">
-              <div class="sponsor-qr-meta">
-                <strong>${t('wechatAppreciationCode')}</strong>
-              </div>
-              <div class="sponsor-qr-frame">
-                <img src="${wechat}" alt="WeChat appreciation code" class="sponsor-qr-image">
-              </div>
-            </article>
-          </div>
-        `;
-
         const socialFollow = document.createElement('section');
         socialFollow.className = 'social-follow-card';
         socialFollow.innerHTML = `
@@ -136,7 +78,7 @@ export class AboutTabView {
           </div>
         `;
 
-        shell.append(hero, profileCard, infoSections, openSource, donate, socialFollow);
+        shell.append(hero, profileCard, infoSections, socialFollow);
         this.root.replaceChildren(celebration, shell);
     }
 }

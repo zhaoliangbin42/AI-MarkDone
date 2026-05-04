@@ -90,6 +90,7 @@
 - content UI 负责意图触发与界面交互
 - `BookmarksPanel` 现在主要承担 shell / overlay lifecycle / tab orchestration
 - `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相
+- bookmarks 信息页职责已经拆开：`AboutTabView` 只持有个人介绍/项目背景/小红书入口，`SponsorTabView` 作为最后一个 `请我喝咖啡` tab 持有付款二维码、GitHub 支持入口与感谢赞助名单
 - 书签树渲染与 virtualization 已收口到 `BookmarksTreeViewport`
 - `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot
 - `BookmarksPanel`、`BookmarkSaveDialog` 与 `SaveMessagesDialog` 已直接复用通用 `OverlaySession`；Bookmarks family 不再保留独立 overlay wrapper

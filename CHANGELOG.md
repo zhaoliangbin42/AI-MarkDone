@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - ChatGPT: Formula hover actions can now copy or save a single formula as PNG or SVG while keeping normal formula click-to-copy source behavior unchanged.
+- Bookmarks: Added a dedicated Buy Me Coffee tab for payment QR codes, GitHub support, and sponsor thanks while keeping About focused on the author and project background.
 - Settings: Added a dedicated Formula section to control Markdown click-copy and the PNG/SVG formula image actions shown on hover.
 - Settings: Added a Reader annotations option to place the selected user prompt below copied annotations instead of above them.
 - Settings: Added a ChatGPT directory option so expanded Prompt labels can keep the default first 15 characters or show the first and last 15 characters.

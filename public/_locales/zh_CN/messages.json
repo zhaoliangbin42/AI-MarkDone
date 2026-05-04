@@ -948,7 +948,7 @@
         "message": "常见问题"
     },
     "tabSponsor": {
-        "message": "赞助"
+        "message": "请我喝咖啡"
     },
     "allLabel": {
         "message": "全部"
@@ -1318,6 +1318,15 @@
     },
     "sponsorWechatAlt": {
         "message": "微信赞赏码"
+    },
+    "sponsorThanksTitle": {
+        "message": "感谢赞助"
+    },
+    "sponsorThanksDesc": {
+        "message": "每一份支持，都会变成 AI-MarkDone 继续更新的动力。"
+    },
+    "sponsorThanksAriaLabel": {
+        "message": "赞助感谢名单"
     },
     "exportAllBookmarksLabel": {
         "message": "导出全部书签"
