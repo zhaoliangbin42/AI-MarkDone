@@ -21,8 +21,8 @@
 | Platform support policy | Capability behavior is defined here, support level lives in `CAPABILITY_MATRIX.md` | 把“产品能力”与“平台支持状态”分开治理，减少文档职责混叠。 |
 | UI entrypoints | **No global toolbar** (remove `RewriteToolbar`) | 减少注入点与 UI 干扰；聚焦“每条消息工具栏 + ReaderPanel”。 |
 | Action icon click | Background sends `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 先用扩展图标作为稳定入口（无需额外注入点）；后续再评估页面内入口模块化实现。 |
-| Per-message toolbar placement | Prefer the official action bar row (same line); fallback after message content, aligned right | 避免把官方工具栏挤到下方；同时保留无 action bar 场景的稳定可见兜底。 |
-| Injection algorithm | MO as signal + debounced scan + idempotent retry + route rebind | SPA/React 更稳定；允许短暂失败但最终一致。 |
+| Per-message toolbar placement | Official action bar row only; no content fallback | 避免把官方工具栏挤到下方；官方 action row 缺失时不注入，等待后续 DOM 信号重扫。 |
+| Injection algorithm | MO as signal + debounced scan + action-anchor hydration rescan + route rebind | SPA/React 更稳定；message 可先出现、官方 action bar 后补出现，重扫必须事件驱动且幂等。 |
 | LaTeX click-to-copy | Enabled by default; configurable from Settings `Formula` | 功能性优先，同时允许用户按公式工作流关闭 Markdown 点击复制或筛选 PNG/SVG 图片动作。 |
 | ChatGPT conversation directory | Treated as a ChatGPT-only navigation layer backed by the internal conversation payload | 目录条负责完整历史导航；官方线程继续承担正文显示与输入交互；跳转后的轻量校准只能修正 host hydration 导致的位置漂移，且必须让位于用户主动滚动、触摸、指针或键盘导航。 |
 
@@ -198,7 +198,7 @@
 
 ### D.2 手工验收清单（在支持的平台上）
 
-- 刷新 / 切换对话 / 连续生成：每条 assistant 消息最终出现工具栏（不重复、不漂移）
+- 刷新 / 切换对话 / 连续生成：每条已出现官方 action bar 的 assistant 消息最终出现工具栏（不重复、不漂移）
 - Copy Markdown：复制当前消息内容
 - Reader：打开/翻页/复制，关闭无残留
 - LaTeX click：可用且不影响用户选择/复制公式文本（selection guard 生效）

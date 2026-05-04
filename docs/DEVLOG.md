@@ -4,6 +4,15 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-04 — ChatGPT message toolbar anchor hydration
+
+- Made message-toolbar injection respond to official action-row hydration after the assistant message node already exists.
+- Kept toolbar placement strict: official action row only, no content fallback, no polling, and no adapter selector changes.
+- Verification:
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.official-anchor.test.ts tests/unit/ui/content/messageToolbarOrchestrator.scheduler.test.ts` (pass; 8 tests)
+  - `npm run test -- tests/unit/drivers/chatgpt-adapter-injection.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts` (pass; 23 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-05-04 — Formula interaction settings
 
 - Added a dedicated `formula` settings category for Markdown click-copy and the four formula PNG/SVG copy/save hover actions.

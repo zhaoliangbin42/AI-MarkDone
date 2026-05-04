@@ -81,6 +81,7 @@
   - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 通过 `readerContentSource` 共享正文供给：优先复用现有 DOM-discovered `ConversationTurnRef[]` / `collectReaderItems()` Reader collection path；ChatGPT snapshot 只在没有可用 DOM start element 时作为 fallback，导出层不再自行 force refresh 或选择另一条正文来源
   - ChatGPT Reader 的 `jump to message`、右侧目录条、书签面板的同页/跨页定位入口都复用同一条 directory navigation helper；非 ChatGPT 平台仍保持原有 bookmark/conversation navigation 路径
   - ChatGPT 工具栏书签保存与高亮会先通过 skeleton/container 轮次映射到 payload 的绝对 `position`，再复用现有 `url + position` 书签身份，不改变底层存储 schema
+  - 消息工具栏只注入到 adapter 返回的官方 action row；若 assistant message 先出现而官方 action row 后 hydrate，`MessageToolbarOrchestrator` 只把 action-anchor mutation 作为事件信号触发一次 debounced full rescan，不使用长期轮询或正文 fallback
   - `drivers/content/virtualization/*` 与相关设计文档目前只保留为历史实验资产，不构成现行 shipping path
 
 ### Bookmarks

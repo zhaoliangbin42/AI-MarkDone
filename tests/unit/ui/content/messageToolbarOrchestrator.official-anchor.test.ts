@@ -105,7 +105,7 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         expect(getToolbarCount()).toBe(1);
     });
 
-    it('injects once when the official toolbar appears later', () => {
+    it('injects once when the official toolbar appears through an action-bar mutation', () => {
         document.body.innerHTML = `
           <div class="assistant-message" data-message-id="m1">
             <div class="content">First</div>
@@ -126,9 +126,17 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         actionBar.appendChild(document.createElement('button'));
         message.appendChild(actionBar);
 
-        (orchestrator as any).scanAndInject();
-        (orchestrator as any).scanAndInject();
+        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
 
+        (orchestrator as any).handleObservedMutations([
+            {
+                addedNodes: [actionBar],
+                removedNodes: [],
+            },
+        ]);
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
+
+        expect(fullScanSpy).toHaveBeenCalledTimes(1);
         expect(actionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
         expect(getToolbarCount()).toBe(1);
     });

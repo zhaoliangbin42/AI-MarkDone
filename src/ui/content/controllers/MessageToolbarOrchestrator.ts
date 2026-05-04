@@ -1103,6 +1103,19 @@ export class MessageToolbarOrchestrator {
         }
     }
 
+    private nodeContainsActionBarAnchor(node: Node): boolean {
+        if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return false;
+        if (node instanceof Element && this.isToolbarManagedHostNode(node)) return false;
+
+        try {
+            const selector = this.adapter.getActionBarSelector();
+            if (node instanceof Element && node.matches(selector)) return true;
+            return node.querySelector(selector) instanceof HTMLElement;
+        } catch {
+            return false;
+        }
+    }
+
     private handleObservedMutations(mutations: ArrayLike<MutationRecord | { addedNodes?: ArrayLike<Node>; removedNodes?: ArrayLike<Node> }>): void {
         let shouldSchedule = false;
 
@@ -1117,7 +1130,12 @@ export class MessageToolbarOrchestrator {
             const addedNodes = Array.from(mutation.addedNodes || []);
             for (const node of addedNodes) {
                 const candidates = this.collectMutationMessageCandidates(node);
-                if (candidates.length === 0) continue;
+                if (candidates.length === 0) {
+                    if (!this.nodeContainsActionBarAnchor(node)) continue;
+                    this.needsFullRescan = true;
+                    shouldSchedule = true;
+                    continue;
+                }
                 for (const candidate of candidates) {
                     this.dirtyMessages.add(candidate);
                 }
