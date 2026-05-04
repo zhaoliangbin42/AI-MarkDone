@@ -1,7 +1,7 @@
 import type { Theme } from '../../../core/types/theme';
 import { getTokenCss } from '../../../style/tokens';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
-import type { ChatGPTDirectoryMode } from '../../../core/settings/types';
+import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
 import { chevronDownIcon, chevronUpIcon } from '../../../assets/icons';
 
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
@@ -10,7 +10,8 @@ const PREVIEW_STYLE_ID = 'aimd-chatgpt-directory-preview-style';
 const STEP_CONTROLS_ID = 'aimd-chatgpt-directory-step-controls';
 const STEP_CONTROLS_STYLE_ID = 'aimd-chatgpt-directory-step-controls-style';
 const HOVER_RADIUS = 3;
-const EXPANDED_LABEL_MAX_LENGTH = 30;
+const EXPANDED_LABEL_HEAD_LENGTH = 15;
+const EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH = 30;
 const USER_INTERACTION_IDLE_MS = 800;
 
 function getPreviewTokenCss(): string {
@@ -19,11 +20,15 @@ function getPreviewTokenCss(): string {
     return `${light}\n${dark}`;
 }
 
-function formatExpandedLabel(value: string): string {
+function formatExpandedLabel(value: string, mode: ChatGPTDirectoryPromptLabelMode): string {
     const normalized = value.replace(/\s+/g, ' ').trim();
     const chars = Array.from(normalized);
-    if (chars.length <= EXPANDED_LABEL_MAX_LENGTH) return normalized;
-    return `${chars.slice(0, EXPANDED_LABEL_MAX_LENGTH).join('')}…`;
+    if (mode === 'headTail') {
+        if (chars.length <= EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH) return normalized;
+        return `${chars.slice(0, EXPANDED_LABEL_HEAD_LENGTH).join('')}…${chars.slice(-EXPANDED_LABEL_HEAD_LENGTH).join('')}`;
+    }
+    if (chars.length <= EXPANDED_LABEL_HEAD_LENGTH) return normalized;
+    return `${chars.slice(0, EXPANDED_LABEL_HEAD_LENGTH).join('')}…`;
 }
 
 export class ChatGPTDirectoryRail {
@@ -39,6 +44,7 @@ export class ChatGPTDirectoryRail {
     private activePosition = 0;
     private hoverPosition: number | null = null;
     private displayMode: ChatGPTDirectoryMode = 'preview';
+    private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
     private expanded = false;
     private userInteracting = false;
     private interactionIdleTimer: number | null = null;
@@ -74,6 +80,7 @@ export class ChatGPTDirectoryRail {
         this.listEl.className = 'rail__list';
         this.listEl.dataset.mode = this.displayMode;
         this.listEl.dataset.expanded = '0';
+        this.listEl.dataset.promptLabelMode = this.promptLabelMode;
         this.listEl.addEventListener('pointerenter', () => {
             this.markUserInteracting();
             this.setExpanded(true);
@@ -170,6 +177,12 @@ export class ChatGPTDirectoryRail {
         this.renderHoverState();
     }
 
+    setPromptLabelMode(mode: ChatGPTDirectoryPromptLabelMode): void {
+        this.promptLabelMode = mode === 'headTail' ? 'headTail' : 'head';
+        this.listEl.dataset.promptLabelMode = this.promptLabelMode;
+        this.render();
+    }
+
     setRounds(rounds: ChatGPTConversationRound[]): void {
         this.rounds = rounds.slice();
         this.render();
@@ -220,7 +233,7 @@ export class ChatGPTDirectoryRail {
             index.textContent = `#${round.position}`;
             const label = document.createElement('span');
             label.className = 'rail__label';
-            label.textContent = formatExpandedLabel(round.userPrompt || `Message ${round.position}`);
+            label.textContent = formatExpandedLabel(round.userPrompt || `Message ${round.position}`, this.promptLabelMode);
             button.append(index, label);
             this.listEl.appendChild(button);
         }
@@ -484,7 +497,8 @@ export class ChatGPTDirectoryRail {
   transition: width 140ms var(--aimd-ease-out);
 }
 :host([data-mode="expanded"][data-expanded="1"]) {
-  width: min(280px, calc(100vw - 32px));
+  width: fit-content;
+  max-width: calc(100vw - 32px);
 }
 .rail {
   display: flex;
@@ -509,6 +523,8 @@ export class ChatGPTDirectoryRail {
               box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] {
+  width: max-content;
+  max-width: 100%;
   gap: var(--aimd-space-1);
   padding: var(--aimd-space-2);
   scrollbar-gutter: stable;
@@ -619,6 +635,14 @@ export class ChatGPTDirectoryRail {
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__label {
   grid-column: 2;
+  inline-size: 15em;
+  max-inline-size: 15em;
+  max-width: none;
+  opacity: 1;
+}
+.rail__list[data-mode="expanded"][data-expanded="1"][data-prompt-label-mode="headTail"] .rail__label {
+  inline-size: 30em;
+  max-inline-size: 30em;
   max-width: none;
   opacity: 1;
 }

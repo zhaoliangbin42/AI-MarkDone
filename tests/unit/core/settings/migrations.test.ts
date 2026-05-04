@@ -38,12 +38,21 @@ describe('settings migrations', () => {
     it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {
         const next = loadAndNormalize({
             version: 3,
-            chatgptDirectory: { enabled: false, mode: 'dense' },
+            chatgptDirectory: { enabled: false, mode: 'dense', promptLabelMode: 'tail' },
             chatgpt: { showConversationDirectory: false },
         } as any);
 
-        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'preview' });
+        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
         expect(next).not.toHaveProperty('chatgpt');
+    });
+
+    it('preserves the ChatGPT directory prompt label mode when normalizing stored settings', () => {
+        const next = loadAndNormalize({
+            version: 3,
+            chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail' },
+        } as any);
+
+        expect(next.chatgptDirectory).toEqual({ enabled: true, mode: 'expanded', promptLabelMode: 'headTail' });
     });
 
     it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {

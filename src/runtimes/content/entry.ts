@@ -114,6 +114,7 @@ if (adapter) {
             ...settings,
         };
         chatGptDirectory.setDisplayMode(next.mode === 'expanded' ? 'expanded' : 'preview');
+        chatGptDirectory.setPromptLabelMode(next.promptLabelMode === 'headTail' ? 'headTail' : 'head');
         chatGptDirectory.setEnabled(Boolean(next.enabled));
     };
 

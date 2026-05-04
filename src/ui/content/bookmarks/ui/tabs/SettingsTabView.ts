@@ -102,6 +102,7 @@ type Refs = {
     chatgptDirectory: {
         enabled: HTMLInputElement;
         mode: SelectRef;
+        promptLabelMode: HTMLInputElement;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -229,6 +230,11 @@ export class SettingsTabView {
             ],
             'chatgpt-directory-mode',
         );
+        const chatGptDirectoryPromptLabelMode = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryPromptLabelModeLabel'),
+            t('chatgptDirectoryPromptLabelModeDesc'),
+        );
 
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -321,6 +327,7 @@ export class SettingsTabView {
             chatgptDirectory: {
                 enabled: chatGptDirectoryEnabled.input,
                 mode: chatGptDirectoryMode,
+                promptLabelMode: chatGptDirectoryPromptLabelMode.input,
             },
             language,
             storageText,
@@ -343,6 +350,7 @@ export class SettingsTabView {
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
+        this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
@@ -531,6 +539,11 @@ export class SettingsTabView {
             this.settings.chatgptDirectory.mode = next;
             void this.actions.setChatGptDirectorySettings?.({ mode: next });
         });
+        this.refs.chatgptDirectory.promptLabelMode.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.promptLabelMode.checked ? 'headTail' : 'head';
+            this.settings.chatgptDirectory.promptLabelMode = next;
+            void this.actions.setChatGptDirectorySettings?.({ promptLabelMode: next });
+        });
         // Language
         this.refs.language.onChange((value) => {
             this.settings.language = value as any;
@@ -564,6 +577,7 @@ export class SettingsTabView {
         this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
+        this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -577,6 +591,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.reader.renderCodeInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
+        this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
 
         this.refs.storageText.textContent = usagePercent;
         this.renderAdvancedSettings();

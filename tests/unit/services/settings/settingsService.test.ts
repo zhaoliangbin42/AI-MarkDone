@@ -81,14 +81,15 @@ describe('settingsService', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptDirectory', {
             enabled: false,
             mode: 'expanded',
+            promptLabelMode: 'headTail',
             showFoldDock: true,
         }).next;
 
-        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded' });
+        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded', promptLabelMode: 'headTail' });
         expect(next).not.toHaveProperty('chatgpt');
 
-        const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense' }).next;
-        expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview' });
+        const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense', promptLabelMode: 'tail' }).next;
+        expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

@@ -599,6 +599,12 @@
     "chatgptDirectoryModeExpanded": {
         "message": "展开列表"
     },
+    "chatgptDirectoryPromptLabelModeLabel": {
+        "message": "显示 Prompt 结尾"
+    },
+    "chatgptDirectoryPromptLabelModeDesc": {
+        "message": "在展开目录条中同时显示 Prompt 前 15 个字符和后 15 个字符。"
+    },
     "reader": {
         "message": "阅读器"
     },

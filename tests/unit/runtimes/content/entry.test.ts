@@ -74,6 +74,7 @@ const headerIconCtor = vi.fn(function () {
 const directoryInit = vi.fn();
 const directorySetEnabled = vi.fn();
 const directorySetDisplayMode = vi.fn();
+const directorySetPromptLabelMode = vi.fn();
 const directorySetTheme = vi.fn();
 const directoryDispose = vi.fn();
 const directoryCtor = vi.fn(function () {
@@ -81,6 +82,7 @@ const directoryCtor = vi.fn(function () {
         init: directoryInit,
         setEnabled: directorySetEnabled,
         setDisplayMode: directorySetDisplayMode,
+        setPromptLabelMode: directorySetPromptLabelMode,
         setTheme: directorySetTheme,
         dispose: directoryDispose,
     };
@@ -244,7 +246,7 @@ describe('content runtime entry', () => {
                 },
             },
             export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
-            chatgptDirectory: { enabled: false, mode: 'expanded' },
+            chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
             bookmarks: { sortMode: 'alpha-asc' },
         });
         vi.resetModules();
@@ -256,6 +258,7 @@ describe('content runtime entry', () => {
         expect(directoryInit).toHaveBeenCalledTimes(1);
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
+        expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
     });
 
@@ -308,7 +311,7 @@ describe('content runtime entry', () => {
                     },
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
-                chatgptDirectory: { enabled: false, mode: 'expanded' },
+                chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
                 bookmarks: { sortMode: 'alpha-asc' },
             },
         });
@@ -318,6 +321,7 @@ describe('content runtime entry', () => {
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
+        expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,
@@ -348,7 +352,7 @@ describe('content runtime entry', () => {
                     },
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
-                chatgptDirectory: { enabled: true, mode: 'preview' },
+                chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
                 bookmarks: { sortMode: 'alpha-asc' },
             },
         });
@@ -357,6 +361,7 @@ describe('content runtime entry', () => {
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('preview');
+        expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('head');
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({

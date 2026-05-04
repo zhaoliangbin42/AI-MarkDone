@@ -19,10 +19,12 @@ import { DEFAULT_FORMULA_SETTINGS } from './formula';
 export type SettingsVersion = 3;
 
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
+export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
 
 export type ChatGPTDirectorySettings = {
     enabled: boolean;
     mode: ChatGPTDirectoryMode;
+    promptLabelMode: ChatGPTDirectoryPromptLabelMode;
 };
 
 export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
@@ -78,7 +80,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
-    chatgptDirectory: { enabled: true, mode: 'preview' },
+    chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
 };

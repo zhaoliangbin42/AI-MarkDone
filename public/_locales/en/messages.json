@@ -599,6 +599,12 @@
     "chatgptDirectoryModeExpanded": {
         "message": "Expanded list"
     },
+    "chatgptDirectoryPromptLabelModeLabel": {
+        "message": "Show prompt endings"
+    },
+    "chatgptDirectoryPromptLabelModeDesc": {
+        "message": "In expanded directory mode, show the first 15 and last 15 prompt characters."
+    },
     "reader": {
         "message": "Reader"
     },

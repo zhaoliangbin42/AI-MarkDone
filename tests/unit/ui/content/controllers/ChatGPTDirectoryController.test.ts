@@ -381,8 +381,8 @@ describe('ChatGPTDirectoryController', () => {
         expect(list?.dataset.mode).toBe('expanded');
         expect(list?.dataset.expanded).toBe('0');
         expect(items[0]?.querySelector<HTMLElement>('.rail__index')?.textContent).toBe('#1');
-        expect(items[0]?.textContent).toContain('This is a very long user promp…');
-        expect(items[0]?.querySelector<HTMLElement>('.rail__label')?.textContent).toHaveLength(31);
+        expect(items[0]?.textContent).toContain('This is a very …');
+        expect(items[0]?.querySelector<HTMLElement>('.rail__label')?.textContent).toHaveLength(16);
 
         list?.dispatchEvent(new Event('pointerenter', { bubbles: true }));
         items[1]?.dispatchEvent(new Event('pointerover', { bubbles: true }));
@@ -394,6 +394,40 @@ describe('ChatGPTDirectoryController', () => {
         list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
         expect(list?.dataset.expanded).toBe('0');
         expect(items.every((item) => item.dataset.hovered === undefined)).toBe(true);
+    });
+
+    it('renders expanded labels with prompt endings when the head-tail setting is enabled', () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        controller.setDisplayMode('expanded');
+        controller.setPromptLabelMode('headTail');
+        (controller as any).snapshot = {
+            ...buildSnapshot(),
+            rounds: [
+                {
+                    ...buildSnapshot().rounds[0],
+                    userPrompt: 'Repeated prefix segment with unique ending marker',
+                },
+                {
+                    ...buildSnapshot().rounds[1],
+                    userPrompt: 'Short prompt',
+                },
+            ],
+        };
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const labels = Array.from(railRoot?.querySelectorAll<HTMLElement>('.rail__label') ?? []);
+        const style = railRoot?.querySelector('style')?.textContent ?? '';
+
+        expect(labels[0]?.textContent).toBe('Repeated prefix…e ending marker');
+        expect(labels[1]?.textContent).toBe('Short prompt');
+        expect(style).toContain('width: fit-content');
+        expect(style).toContain('inline-size: 15em');
+        expect(style).toContain('inline-size: 30em');
     });
 
     it('ships scoped token styles for the body-level directory preview', () => {

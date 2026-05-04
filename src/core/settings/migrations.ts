@@ -57,10 +57,14 @@ export function migrateSortMode(oldMode: unknown): AppSettings['bookmarks']['sor
 export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['chatgptDirectory'] {
     const record = isRecord(value) ? value : {};
     const mode = (record as any).mode === 'expanded' ? 'expanded' : DEFAULT_SETTINGS.chatgptDirectory.mode;
+    const promptLabelMode = (record as any).promptLabelMode === 'headTail'
+        ? 'headTail'
+        : DEFAULT_SETTINGS.chatgptDirectory.promptLabelMode;
 
     return {
         enabled: Boolean((record as any).enabled ?? DEFAULT_SETTINGS.chatgptDirectory.enabled),
         mode,
+        promptLabelMode,
     };
 }
 

@@ -44,6 +44,7 @@ const baseSettings = {
     chatgptDirectory: {
         enabled: true,
         mode: 'preview',
+        promptLabelMode: 'head',
     },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
@@ -87,9 +88,11 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const enabled = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
         const mode = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-mode"]')!;
+        const promptLabelMode = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-prompt-label-mode"]')!;
 
         expect(enabled.checked).toBe(true);
         expect(mode.textContent?.trim()).toBeTruthy();
+        expect(promptLabelMode.checked).toBe(false);
 
         enabled.checked = false;
         enabled.dispatchEvent(new Event('change', { bubbles: true }));
@@ -98,6 +101,14 @@ describe('SettingsTabView', () => {
         mode.click();
         root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="expanded"]')!.click();
         expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ mode: 'expanded' });
+
+        promptLabelMode.checked = true;
+        promptLabelMode.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ promptLabelMode: 'headTail' });
+
+        promptLabelMode.checked = false;
+        promptLabelMode.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ promptLabelMode: 'head' });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {
