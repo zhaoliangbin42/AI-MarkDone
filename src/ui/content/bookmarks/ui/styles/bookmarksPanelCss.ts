@@ -1570,6 +1570,34 @@ ${getPanelChromeCss()}
   overflow-wrap: anywhere;
 }
 
+.formula-asset-settings {
+  width: min(520px, calc(100% - var(--aimd-space-6)));
+}
+
+.formula-asset-settings__list {
+  display: grid;
+  gap: var(--aimd-space-2);
+}
+
+.formula-asset-settings__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--aimd-space-3);
+  min-height: var(--aimd-size-control-action-panel);
+  padding: var(--aimd-space-2) var(--aimd-space-3);
+  border-radius: var(--_bookmarks-row-radius);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+}
+
+.formula-asset-settings__label {
+  min-width: 0;
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+}
+
 .reader-comment-template-editor__token {
   display: inline-flex;
   align-items: center;

@@ -4,6 +4,19 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-04 — Formula interaction settings
+
+- Added a dedicated `formula` settings category for Markdown click-copy and the four formula PNG/SVG copy/save hover actions.
+- Kept formula source extraction, MathJax rendering, PNG rasterization, clipboard, and download services unchanged; Settings only gates click interception and hover action visibility.
+- Preserved legacy `behavior.enableClickToCopy` as a migration/compatibility input for `formula.clickCopyMarkdown`.
+- Kept the shared toolbar hover portal inside viewport bounds for left/right edge inline formulas and flipped it below the anchor when there is not enough top space.
+- Verification:
+  - `npm run test -- tests/unit/services/settings/settingsService.test.ts tests/unit/core/settings/migrations.test.ts tests/unit/drivers/math-click.test.ts tests/unit/ui/content/FormulaAssetHoverController.test.ts tests/unit/ui/bookmarks/settingsTabView.test.ts tests/unit/runtimes/content/entry.test.ts` (pass; 49 tests)
+  - `npm run test -- tests/unit/ui/components/ToolbarHoverActionPortal.test.ts tests/unit/ui/content/MessageToolbar.test.ts tests/unit/ui/content/FormulaAssetHoverController.test.ts` (pass; 18 tests)
+  - `npm run type-check` (pass)
+  - `npm run test:smoke` (pass; 15 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-05-04 — Reader annotation prompt position setting
 
 - Added a `reader.commentExport.promptPosition` setting so copied Reader annotations can keep the selected user prompt above the annotations by default or append it below them.

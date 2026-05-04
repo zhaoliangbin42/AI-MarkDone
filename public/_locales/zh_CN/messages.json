@@ -803,6 +803,33 @@
     "clickToCopyDesc": {
         "message": "启用消息中数学公式点击复制功能"
     },
+    "formulaSettingsLabel": {
+        "message": "公式"
+    },
+    "formulaClickCopyMarkdownLabel": {
+        "message": "公式点击复制为 Markdown"
+    },
+    "formulaClickCopyMarkdownDesc": {
+        "message": "点击公式时复制原始 LaTeX / Markdown 源码。"
+    },
+    "formulaAssetActionsLabel": {
+        "message": "公式点击复制为图片"
+    },
+    "formulaAssetActionsDesc": {
+        "message": "配置公式悬浮菜单中显示哪些 PNG / SVG 复制和保存动作。"
+    },
+    "formulaAssetActionsPopupTitle": {
+        "message": "公式图片动作"
+    },
+    "formulaAssetActionsSummaryAll": {
+        "message": "已启用全部动作"
+    },
+    "formulaAssetActionsSummaryNone": {
+        "message": "未启用图片动作"
+    },
+    "formulaAssetActionsSummaryCount": {
+        "message": "已启用 $1 个动作"
+    },
     "contextOnlySaveLabel": {
         "message": "书签 > 仅保存部分文本"
     },

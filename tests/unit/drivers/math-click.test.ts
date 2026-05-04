@@ -105,6 +105,32 @@ describe('MathClickHandler', () => {
         document.documentElement.style.removeProperty('--aimd-interactive-flash');
     });
 
+    it('does not intercept formula clicks when Markdown click-copy is disabled', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="katex">
+            <annotation encoding="application/x-tex">x_1 + y</annotation>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ clickCopyMarkdown: false });
+        handler.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        const allowed = target.dispatchEvent(click);
+        await Promise.resolve();
+
+        expect(allowed).toBe(true);
+        expect(click.defaultPrevented).toBe(false);
+        expect(writeText).not.toHaveBeenCalled();
+
+        handler.disable();
+        container.remove();
+    });
+
     it('observes streaming DOM updates and attaches to new math nodes', async () => {
         vi.useFakeTimers();
         const { writeText } = setClipboardMock();

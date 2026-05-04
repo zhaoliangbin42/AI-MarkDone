@@ -38,6 +38,7 @@ export class ToolbarHoverActionPortal {
     private onWindowScroll: (() => void) | null = null;
     private hoverTooltipTimer: number | null = null;
     private hoverTooltipEl: HTMLElement | null = null;
+    private positionFrame: number | null = null;
 
     constructor(theme: Theme) {
         this.host = document.createElement('div');
@@ -95,10 +96,12 @@ export class ToolbarHoverActionPortal {
 
         this.positionToAnchor(params.anchorEl);
         this.host.dataset.open = '1';
+        this.scheduleReposition();
         this.installGlobalHandlers();
     }
 
     close(): void {
+        this.cancelReposition();
         this.clearTooltip();
         this.host.dataset.open = '0';
         this.currentAnchor = null;
@@ -140,8 +143,37 @@ export class ToolbarHoverActionPortal {
 
     private positionToAnchor(anchorEl: HTMLElement): void {
         const rect = anchorEl.getBoundingClientRect();
-        this.host.style.left = `${rect.left + (rect.width / 2)}px`;
-        this.host.style.top = `${rect.top}px`;
+        const actionRect = this.actionsRoot.getBoundingClientRect();
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
+        const margin = 8;
+        const width = actionRect.width || this.actionsRoot.scrollWidth || this.actionsRoot.offsetWidth || 0;
+        const height = actionRect.height || this.actionsRoot.scrollHeight || this.actionsRoot.offsetHeight || 0;
+        const rawCenter = rect.left + (rect.width / 2);
+        const rawLeft = rawCenter - (width / 2);
+        const maxLeft = Math.max(margin, viewportWidth - margin - width);
+        const left = Math.min(maxLeft, Math.max(margin, rawLeft));
+        const anchorOffset = Math.min(Math.max(rawCenter - left, margin), Math.max(margin, width - margin));
+        const placeBelow = rect.top - height - margin < margin;
+
+        this.host.dataset.placement = placeBelow ? 'bottom' : 'top';
+        this.host.style.setProperty('--aimd-toolbar-hover-anchor-x', `${Math.round(anchorOffset)}px`);
+        this.host.style.left = `${Math.round(left)}px`;
+        this.host.style.top = `${Math.round(placeBelow ? rect.bottom : rect.top)}px`;
+    }
+
+    private scheduleReposition(): void {
+        this.cancelReposition();
+        this.positionFrame = window.requestAnimationFrame(() => {
+            this.positionFrame = null;
+            if (!this.currentAnchor || !this.host.isConnected) return;
+            this.positionToAnchor(this.currentAnchor);
+        });
+    }
+
+    private cancelReposition(): void {
+        if (this.positionFrame === null) return;
+        window.cancelAnimationFrame(this.positionFrame);
+        this.positionFrame = null;
     }
 
     private renderActions(actions: ToolbarHoverPortalAction[]): void {
@@ -228,8 +260,12 @@ export class ToolbarHoverActionPortal {
   gap: var(--aimd-space-2);
   max-width: min(92vw, 560px);
   flex-wrap: wrap;
-  transform: translate(-50%, calc(-100% - var(--aimd-space-2)));
+  transform: translateY(calc(-100% - var(--aimd-space-2)));
   pointer-events: auto;
+}
+
+:host([data-placement="bottom"]) .toolbar-hover-actions {
+  transform: translateY(var(--aimd-space-2));
 }
 
 .toolbar-hover-action {
@@ -267,7 +303,7 @@ export class ToolbarHoverActionPortal {
 
 .toolbar-hover-bridge {
   position: absolute;
-  left: 50%;
+  left: var(--aimd-toolbar-hover-anchor-x, 50%);
   top: calc(-1 * var(--aimd-space-3));
   width: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-4));
   height: var(--aimd-space-4);
@@ -278,6 +314,11 @@ export class ToolbarHoverActionPortal {
 
 :host([data-layout="multi"]) .toolbar-hover-bridge {
   width: min(92vw, 560px);
+}
+
+:host([data-placement="bottom"]) .toolbar-hover-bridge {
+  top: 0;
+  transform: translate(-50%, calc(-1 * var(--aimd-space-2)));
 }
 
 .toolbar-hover-feedback {

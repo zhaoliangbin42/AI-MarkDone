@@ -24,6 +24,7 @@ import {
     type ReaderCommentExportSettings,
 } from '../../../../../core/settings/readerCommentExport';
 import type { BookmarksStorageUsageResponse } from '../../../../../contracts/protocol';
+import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../../../core/settings/formula';
 import type { ModalHost } from '../../../components/ModalHost';
 import { setLocale, t } from '../../../components/i18n';
 import { createIcon } from '../../../components/Icon';
@@ -36,12 +37,14 @@ import {
 import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from '../components/BookmarksInlineSelect';
 import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
+import { FormulaAssetSettingsPopover } from '../popovers/FormulaAssetSettingsPopover';
 
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
     setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<void> | void;
     setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<void> | void;
     setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
+    setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<void> | void;
     setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
@@ -71,8 +74,12 @@ type Refs = {
     behavior: {
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
-        enableClickToCopy: HTMLInputElement;
         saveContextOnly: HTMLInputElement;
+    };
+    formula: {
+        clickCopyMarkdown: HTMLInputElement;
+        assetActionsButton: HTMLButtonElement;
+        assetActionsSummary: HTMLElement;
     };
     reader: {
         renderCodeInReader: HTMLInputElement;
@@ -110,6 +117,7 @@ export class SettingsTabView {
     private selectRefs: SelectRef[] = [];
     private readonly promptSettingsPopover = new ReaderPromptSettingsPopover();
     private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
+    private readonly formulaAssetSettingsPopover = new FormulaAssetSettingsPopover();
     private readonly outsideDismissBoundary: TransientOutsideDismissBoundaryHandle;
     private advancedExpanded = false;
 
@@ -144,8 +152,20 @@ export class SettingsTabView {
         const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
         const showSaveMessages = this.createToggle(behaviorGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
         const showWordCount = this.createToggle(behaviorGroup.body, t('wordCountLabel'), t('wordCountDesc'));
-        const enableClickToCopy = this.createToggle(behaviorGroup.body, t('clickToCopyLabel'), t('clickToCopyDesc'));
         const saveContextOnly = this.createToggle(behaviorGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
+
+        const formulaGroup = this.createGroup(Icons.sigma, t('formulaSettingsLabel'));
+        const formulaClickCopyMarkdown = this.createToggle(
+            formulaGroup.body,
+            t('formulaClickCopyMarkdownLabel'),
+            t('formulaClickCopyMarkdownDesc'),
+        );
+        const formulaAssetActions = this.createActionRow(
+            formulaGroup.body,
+            t('formulaAssetActionsLabel'),
+            t('formulaAssetActionsDesc'),
+            'settings-formula-asset-actions',
+        );
 
         const readerGroup = this.createGroup(Icons.bookOpen, t('readerSettingsLabel'));
         const renderCodeInReader = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
@@ -254,6 +274,7 @@ export class SettingsTabView {
         content.append(
             platformsGroup.root,
             behaviorGroup.root,
+            formulaGroup.root,
             readerGroup.root,
             exportGroup.root,
             chatGptDirectoryGroup.root,
@@ -276,8 +297,12 @@ export class SettingsTabView {
             behavior: {
                 showSaveMessages: showSaveMessages.input,
                 showWordCount: showWordCount.input,
-                enableClickToCopy: enableClickToCopy.input,
                 saveContextOnly: saveContextOnly.input,
+            },
+            formula: {
+                clickCopyMarkdown: formulaClickCopyMarkdown.input,
+                assetActionsButton: formulaAssetActions.button,
+                assetActionsSummary: formulaAssetActions.summary,
             },
             reader: {
                 renderCodeInReader: renderCodeInReader.input,
@@ -306,8 +331,9 @@ export class SettingsTabView {
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
-        this.refs.behavior.enableClickToCopy.dataset.role = 'settings-click-to-copy';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
+        this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
+        this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
         this.refs.reader.renderCodeInReader.dataset.role = 'settings-render-code-reader';
         this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-prompt-position-bottom';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
@@ -335,6 +361,7 @@ export class SettingsTabView {
         this.closeSelectMenus();
         this.promptSettingsPopover.close();
         this.templateSettingsPopover.close();
+        this.formulaAssetSettingsPopover.close();
     }
 
     consumeEscape(): boolean {
@@ -344,6 +371,10 @@ export class SettingsTabView {
         }
         if (this.promptSettingsPopover.isOpen()) {
             this.promptSettingsPopover.close();
+            return true;
+        }
+        if (this.formulaAssetSettingsPopover.isOpen()) {
+            this.formulaAssetSettingsPopover.close();
             return true;
         }
         const hasOpenSelect = this.selectRefs.some((selectRef) => selectRef.shell.dataset.open === '1');
@@ -366,6 +397,7 @@ export class SettingsTabView {
             ...params.settings,
             platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
+            formula: this.normalizeFormulaSettings(params.settings.formula),
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
             chatgptDirectory: { ...DEFAULT_SETTINGS.chatgptDirectory, ...params.settings.chatgptDirectory },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
@@ -406,11 +438,6 @@ export class SettingsTabView {
             this.settings.behavior.showWordCount = next;
             void this.actions.setBehaviorSettings?.({ showWordCount: next });
         });
-        this.refs.behavior.enableClickToCopy.addEventListener('change', () => {
-            const next = this.refs.behavior.enableClickToCopy.checked;
-            this.settings.behavior.enableClickToCopy = next;
-            void this.actions.setBehaviorSettings?.({ enableClickToCopy: next });
-        });
         this.refs.behavior.saveContextOnly.addEventListener('change', async () => {
             const wantOn = this.refs.behavior.saveContextOnly.checked;
             if (wantOn && !this.settings.behavior._contextOnlyConfirmed) {
@@ -432,6 +459,19 @@ export class SettingsTabView {
                 saveContextOnly: wantOn,
                 _contextOnlyConfirmed: this.settings.behavior._contextOnlyConfirmed,
             });
+        });
+        this.refs.formula.clickCopyMarkdown.addEventListener('change', () => {
+            const next = this.refs.formula.clickCopyMarkdown.checked;
+            this.settings.formula = this.normalizeFormulaSettings({
+                ...this.settings.formula,
+                clickCopyMarkdown: next,
+            });
+            this.applySettingsToDom();
+            void this.actions.setFormulaSettings?.({ clickCopyMarkdown: next });
+        });
+        this.refs.formula.assetActionsButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.openFormulaAssetSettingsPopover();
         });
         this.refs.reader.renderCodeInReader.addEventListener('change', () => {
             const next = this.refs.reader.renderCodeInReader.checked;
@@ -510,8 +550,9 @@ export class SettingsTabView {
 
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
-        this.refs.behavior.enableClickToCopy.checked = Boolean(s.behavior.enableClickToCopy);
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
+        this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
+        this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
         this.refs.reader.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
         this.refs.reader.promptPositionBottom.checked = commentExport.promptPosition === 'bottom';
         this.refs.reader.promptsSummary.textContent = this.formatPromptSummary(commentExport);
@@ -531,8 +572,8 @@ export class SettingsTabView {
         this.syncToggle(this.refs.platforms.deepseek);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
-        this.syncToggle(this.refs.behavior.enableClickToCopy);
         this.syncToggle(this.refs.behavior.saveContextOnly);
+        this.syncToggle(this.refs.formula.clickCopyMarkdown);
         this.syncToggle(this.refs.reader.renderCodeInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
@@ -814,6 +855,22 @@ export class SettingsTabView {
         void this.actions.setReaderSettings?.({ commentExport: this.settings.reader.commentExport });
     }
 
+    private normalizeFormulaSettings(settings: unknown): FormulaSettings {
+        const record = settings && typeof settings === 'object' ? settings as Partial<FormulaSettings> : {};
+        const assetActions: Partial<FormulaSettings['assetActions']> = record.assetActions && typeof record.assetActions === 'object'
+            ? record.assetActions
+            : {};
+        return {
+            clickCopyMarkdown: Boolean(record.clickCopyMarkdown ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown),
+            assetActions: {
+                copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
+                copySvg: Boolean(assetActions.copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
+                savePng: Boolean(assetActions.savePng ?? DEFAULT_FORMULA_SETTINGS.assetActions.savePng),
+                saveSvg: Boolean(assetActions.saveSvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.saveSvg),
+            },
+        };
+    }
+
     private createPromptId(): string {
         return `prompt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     }
@@ -839,6 +896,14 @@ export class SettingsTabView {
             .replace(/\s+/g, ' ')
             .trim();
         return normalized || t('readerCommentTemplateSettingsDesc');
+    }
+
+    private formatFormulaAssetActionsSummary(settings: FormulaSettings): string {
+        const actions = settings.assetActions;
+        const count = [actions.copyPng, actions.copySvg, actions.savePng, actions.saveSvg].filter(Boolean).length;
+        if (count === 0) return t('formulaAssetActionsSummaryNone');
+        if (count === 4) return t('formulaAssetActionsSummaryAll');
+        return t('formulaAssetActionsSummaryCount', [String(count)]);
     }
 
     private buildTemplatePreview(template: CommentTemplateSegment[]): string {
@@ -957,6 +1022,30 @@ export class SettingsTabView {
                     ...current,
                     template,
                 });
+            },
+        });
+    }
+
+    private openFormulaAssetSettingsPopover(): void {
+        this.dismissTransientUi();
+        this.formulaAssetSettingsPopover.open({
+            parent: this.root,
+            settings: this.settings.formula,
+            labels: {
+                title: t('formulaAssetActionsPopupTitle'),
+                close: t('btnClose'),
+                copyPng: t('formulaCopyAsPng'),
+                copySvg: t('formulaCopyAsSvg'),
+                savePng: t('formulaSaveAsPng'),
+                saveSvg: t('formulaSaveAsSvg'),
+            },
+            onChange: (assetActions) => {
+                this.settings.formula = this.normalizeFormulaSettings({
+                    ...this.settings.formula,
+                    assetActions,
+                });
+                this.applySettingsToDom();
+                void this.actions.setFormulaSettings?.({ assetActions: this.settings.formula.assetActions });
             },
         });
     }

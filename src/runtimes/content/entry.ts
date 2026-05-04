@@ -60,8 +60,8 @@ if (adapter) {
         bookmarksController,
         chatGptConversationEngine: chatGptConversationEngine ?? undefined,
         onMessageInjected: (messageElement) => {
-            const behavior = settingsClient.getCached()?.behavior ?? DEFAULT_SETTINGS.behavior;
-            if (behavior.enableClickToCopy) {
+            const formula = resolveFormulaSettings(settingsClient.getCached()?.formula);
+            if (shouldEnableFormulaInteractions(formula)) {
                 mathClick.enable(messageElement);
             }
         },
@@ -86,6 +86,16 @@ if (adapter) {
         for (const messageElement of discoverMessageElements(document, adapter.getMessageSelector())) {
             mathClick.enable(messageElement);
         }
+    };
+
+    const syncFormulaSettings = (settings: typeof DEFAULT_SETTINGS.formula | undefined) => {
+        const next = resolveFormulaSettings(settings);
+        mathClick.setFormulaSettings(next);
+        if (!runtimeEnabled) {
+            mathClick.disable();
+            return;
+        }
+        syncClickToCopy(shouldEnableFormulaInteractions(next));
     };
 
     const initChatGptIfNeeded = () => {
@@ -133,6 +143,7 @@ if (adapter) {
         readerPanel.setContentMaxWidthPx(cachedSettings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
         readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
     }
+    mathClick.setFormulaSettings(resolveFormulaSettings(cachedSettings?.formula));
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     messageToolbars.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     settingsClient.subscribe((snap) => {
@@ -144,7 +155,7 @@ if (adapter) {
         syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
         if (nextRuntimeEnabled) enableRuntime();
         else disableRuntime();
-        syncClickToCopy(Boolean(snap.settings.behavior.enableClickToCopy));
+        syncFormulaSettings(snap.settings.formula);
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
         readerPanel.setContentMaxWidthPx(snap.settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
@@ -187,4 +198,25 @@ if (adapter) {
             : scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
         void pendingNavigation;
     }
+}
+
+function resolveFormulaSettings(settings: typeof DEFAULT_SETTINGS.formula | undefined): typeof DEFAULT_SETTINGS.formula {
+    return {
+        ...DEFAULT_SETTINGS.formula,
+        ...settings,
+        assetActions: {
+            ...DEFAULT_SETTINGS.formula.assetActions,
+            ...settings?.assetActions,
+        },
+    };
+}
+
+function shouldEnableFormulaInteractions(settings: typeof DEFAULT_SETTINGS.formula): boolean {
+    return Boolean(
+        settings.clickCopyMarkdown
+        || settings.assetActions.copyPng
+        || settings.assetActions.copySvg
+        || settings.assetActions.savePng
+        || settings.assetActions.saveSvg
+    );
 }

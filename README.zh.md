@@ -22,6 +22,10 @@
   中文文档 | [English](./README.md)
 </div>
 
+AI-MarkDone 是一个开源 ChatGPT 浏览器扩展，面向长对话阅读、对话目录导航、源码级复制、书签整理、Markdown 导出、PDF 导出与 PNG 图片分享。它帮助用户把 ChatGPT 输出整理成可阅读、可复用、可归档的知识内容，同时尽量不打断原本的对话流程。
+
+**适合用于：** ChatGPT 阅读模式、对话目录跳转、Markdown 复制、LaTeX 公式复制、公式 PNG/SVG 导出、消息书签、Deep Research 清洗、PDF 导出与可分享的 PNG 截图。
+
 ---
 
 <p align="center">
@@ -41,6 +45,19 @@
 - **Deep Research 输出太乱？** 希望清洗成更适合阅读和复用的结构化内容。
 
 如果这些问题你都遇到过，**AI-MarkDone** 就是为此而做。
+
+---
+
+## 🔎 搜索友好摘要
+
+| 需求 | AI-MarkDone 提供什么 |
+| :--- | :--- |
+| ChatGPT 长对话导航 | 右侧对话目录、消息预览，以及回到目标轮次的稳定跳转 |
+| ChatGPT 阅读模式 | 独立阅读视图、Markdown 渲染与键盘切换 |
+| 复制 ChatGPT 回答为 Markdown | 对公式、代码块、表格、图片与局部选区进行源码级复制 |
+| 导出 ChatGPT 消息 | Markdown、PDF、PNG 与 ZIP 打包导出流程 |
+| 保存重要 AI 回答 | 支持文件夹、预览、回到原文位置的消息书签 |
+| 整理研究笔记 | Deep Research 清洗、公式图片资产、灵动注释与结构化追问输入 |
 
 ---
 
@@ -96,6 +113,7 @@
 - **点击即复制**：支持行内公式与块级公式。
 - **无需手动选区**：精确提取单个公式。
 - **公式图片复制**：鼠标悬浮到公式上方即可复制或保存为 PNG / SVG，同时保留原来的点击复制源码行为。
+- **公式设置**：可单独控制公式点击是否复制 Markdown，以及悬浮菜单中显示哪些 PNG / SVG 复制或保存动作。
 
 ### 📊 字数统计
 - **实时统计**：显示当前消息的字数与字符数，并排除代码噪音。
@@ -208,6 +226,17 @@ npm run build
 
 本项目使用了 [Tailwind CSS](https://tailwindcss.com/)，感谢 Tailwind 团队。
 
+## ⭐ Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/#zhaoliangbin42/AI-MarkDone&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zhaoliangbin42/ai-markdone&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zhaoliangbin42/ai-markdone&type=Date" />
+      <img alt="AI-MarkDone GitHub star 增长趋势" src="https://api.star-history.com/svg?repos=zhaoliangbin42/ai-markdone&type=Date" />
+    </picture>
+  </a>
+</p>
 
 ## 📜 许可与联系
 

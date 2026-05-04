@@ -3,6 +3,7 @@ import { browser } from '../../../drivers/shared/browser';
 import { showEphemeralTooltip } from '../../../utils/tooltip';
 import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal';
 import { runFormulaAssetAction, type FormulaAssetAction } from '../../../services/math/formulaAssetActions';
+import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
 
 export class FormulaAssetHoverController {
     private readonly mathClick: MathClickHandler;
@@ -13,6 +14,7 @@ export class FormulaAssetHoverController {
     private hoverActionPortalInside = false;
     private activeContext: MathFormulaHoverContext | null = null;
     private actionPending = false;
+    private formulaSettings: FormulaSettings = structuredClone(DEFAULT_FORMULA_SETTINGS);
 
     constructor() {
         this.mathClick = new MathClickHandler({
@@ -28,6 +30,18 @@ export class FormulaAssetHoverController {
 
     disable(): void {
         this.mathClick.disable();
+    }
+
+    setFormulaSettings(settings: FormulaSettings): void {
+        this.formulaSettings = {
+            clickCopyMarkdown: Boolean(settings.clickCopyMarkdown),
+            assetActions: {
+                ...DEFAULT_FORMULA_SETTINGS.assetActions,
+                ...settings.assetActions,
+            },
+        };
+        this.mathClick.setClickCopyMarkdown(this.formulaSettings.clickCopyMarkdown);
+        if (!this.hasEnabledAssetAction()) this.closeHoverAction();
     }
 
     private getHoverActionPortal(): ToolbarHoverActionPortal {
@@ -96,32 +110,13 @@ export class FormulaAssetHoverController {
     }
 
     private openHoverAction(context: MathFormulaHoverContext): void {
+        const actions = this.createHoverActions(context);
+        if (actions.length < 1) return;
         this.clearHoverActionOpenTimer();
         this.clearHoverActionCloseTimer();
         this.getHoverActionPortal().open({
             anchorEl: context.anchor,
-            actions: [
-                {
-                    id: 'copy_formula_png',
-                    label: getI18nLabel('formulaCopyAsPng', 'Copy as PNG'),
-                    onClick: () => void this.handleFormulaAssetAction(context, 'copy_png'),
-                },
-                {
-                    id: 'copy_formula_svg',
-                    label: getI18nLabel('formulaCopyAsSvg', 'Copy as SVG'),
-                    onClick: () => void this.handleFormulaAssetAction(context, 'copy_svg'),
-                },
-                {
-                    id: 'save_formula_png',
-                    label: getI18nLabel('formulaSaveAsPng', 'Save as PNG'),
-                    onClick: () => void this.handleFormulaAssetAction(context, 'save_png'),
-                },
-                {
-                    id: 'save_formula_svg',
-                    label: getI18nLabel('formulaSaveAsSvg', 'Save as SVG'),
-                    onClick: () => void this.handleFormulaAssetAction(context, 'save_svg'),
-                },
-            ],
+            actions,
             onPointerEnter: () => {
                 this.hoverActionPortalInside = true;
                 this.clearHoverActionCloseTimer();
@@ -132,6 +127,45 @@ export class FormulaAssetHoverController {
             },
             onRequestClose: () => this.closeHoverAction(),
         });
+    }
+
+    private hasEnabledAssetAction(): boolean {
+        const actions = this.formulaSettings.assetActions;
+        return actions.copyPng || actions.copySvg || actions.savePng || actions.saveSvg;
+    }
+
+    private createHoverActions(context: MathFormulaHoverContext): Array<{ id: string; label: string; onClick: () => void }> {
+        const enabled = this.formulaSettings.assetActions;
+        const actions: Array<{ id: string; label: string; onClick: () => void }> = [];
+        if (enabled.copyPng) {
+            actions.push({
+                id: 'copy_formula_png',
+                label: getI18nLabel('formulaCopyAsPng', 'Copy as PNG'),
+                onClick: () => void this.handleFormulaAssetAction(context, 'copy_png'),
+            });
+        }
+        if (enabled.copySvg) {
+            actions.push({
+                id: 'copy_formula_svg',
+                label: getI18nLabel('formulaCopyAsSvg', 'Copy as SVG'),
+                onClick: () => void this.handleFormulaAssetAction(context, 'copy_svg'),
+            });
+        }
+        if (enabled.savePng) {
+            actions.push({
+                id: 'save_formula_png',
+                label: getI18nLabel('formulaSaveAsPng', 'Save as PNG'),
+                onClick: () => void this.handleFormulaAssetAction(context, 'save_png'),
+            });
+        }
+        if (enabled.saveSvg) {
+            actions.push({
+                id: 'save_formula_svg',
+                label: getI18nLabel('formulaSaveAsSvg', 'Save as SVG'),
+                onClick: () => void this.handleFormulaAssetAction(context, 'save_svg'),
+            });
+        }
+        return actions;
     }
 
     private async handleFormulaAssetAction(context: MathFormulaHoverContext, action: FormulaAssetAction): Promise<void> {

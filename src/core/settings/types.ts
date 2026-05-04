@@ -13,6 +13,8 @@ import type { ReaderCommentExportSettings } from './readerCommentExport';
 import type { ExportSettings } from './export';
 import { DEFAULT_EXPORT_SETTINGS } from './export';
 import { createDefaultReaderCommentExportSettings } from './readerCommentExport';
+import type { FormulaSettings } from './formula';
+import { DEFAULT_FORMULA_SETTINGS } from './formula';
 
 export type SettingsVersion = 3;
 
@@ -48,6 +50,7 @@ export type AppSettings = {
         contentMaxWidthPx: number;
         commentExport: ReaderCommentExportSettings;
     };
+    formula: FormulaSettings;
     export: ExportSettings;
     chatgptDirectory: ChatGPTDirectorySettings;
     bookmarks: {
@@ -73,6 +76,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         commentExport: createDefaultReaderCommentExportSettings(),
     },
+    formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: { enabled: true, mode: 'preview' },
     bookmarks: { sortMode: 'alpha-asc' },
@@ -84,6 +88,7 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         value === 'platforms'
         || value === 'behavior'
         || value === 'reader'
+        || value === 'formula'
         || value === 'export'
         || value === 'chatgptDirectory'
         || value === 'bookmarks'

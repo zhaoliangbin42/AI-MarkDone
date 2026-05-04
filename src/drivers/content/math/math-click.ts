@@ -36,6 +36,7 @@ export type MathClickHandlerOptions = {
     onFormulaHoverEnter?: (context: MathFormulaHoverContext) => void;
     onFormulaHoverLeave?: () => void;
     onFormulaDisable?: () => void;
+    clickCopyMarkdown?: boolean;
 };
 
 /**
@@ -56,6 +57,10 @@ export class MathClickHandler {
     private idleTimer: number | ReturnType<typeof setTimeout> | null = null;
 
     constructor(private readonly options: MathClickHandlerOptions = {}) {}
+
+    setClickCopyMarkdown(enabled: boolean): void {
+        this.options.clickCopyMarkdown = enabled;
+    }
 
     enable(container: HTMLElement): void {
         ensureMathClickStyle();
@@ -252,6 +257,7 @@ export class MathClickHandler {
         const clickHandler = async (e: Event) => {
             if (!(e instanceof MouseEvent)) return;
             if (e.button !== 0) return;
+            if (this.options.clickCopyMarkdown === false) return;
 
             // Why: when click-to-copy is enabled by default, we must avoid breaking user text selection/copy flows.
             // If the user has an active selection, do not intercept the click and let the page handle it normally.

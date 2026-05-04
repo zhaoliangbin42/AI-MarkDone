@@ -12,6 +12,15 @@ const baseSettings = {
         saveContextOnly: true,
         _contextOnlyConfirmed: true,
     },
+    formula: {
+        clickCopyMarkdown: true,
+        assetActions: {
+            copyPng: true,
+            copySvg: true,
+            savePng: true,
+            saveSvg: true,
+        },
+    },
     reader: {
         renderCodeInReader: true,
         commentExport: {
@@ -113,6 +122,51 @@ describe('SettingsTabView', () => {
 
         exportButton?.click();
         expect(onExportAllBookmarks).toHaveBeenCalledTimes(1);
+    });
+
+    it('wires formula Markdown toggle and asset action popover to scoped formula settings', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetFormulaSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setFormulaSettings: onSetFormulaSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const markdownToggle = root.querySelector<HTMLInputElement>('[data-role="settings-formula-click-copy-markdown"]')!;
+        const assetButton = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-asset-actions"]')!;
+
+        expect(markdownToggle.checked).toBe(true);
+        markdownToggle.checked = false;
+        markdownToggle.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetFormulaSettings).toHaveBeenCalledWith({ clickCopyMarkdown: false });
+
+        assetButton.click();
+        const popover = root.querySelector<HTMLElement>('.formula-asset-settings');
+        expect(popover).toBeTruthy();
+        const toggles = Array.from(root.querySelectorAll<HTMLInputElement>('[data-role^="settings-formula-asset-action-"]'));
+        expect(toggles.map((input) => input.dataset.role)).toEqual([
+            'settings-formula-asset-action-copy-png',
+            'settings-formula-asset-action-copy-svg',
+            'settings-formula-asset-action-save-png',
+            'settings-formula-asset-action-save-svg',
+        ]);
+
+        toggles[0]!.checked = false;
+        toggles[0]!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetFormulaSettings).toHaveBeenLastCalledWith({
+            assetActions: {
+                copyPng: false,
+                copySvg: true,
+                savePng: true,
+                saveSvg: true,
+            },
+        });
     });
 
     it('keeps PNG export width presets and custom width in sync inside Settings', () => {

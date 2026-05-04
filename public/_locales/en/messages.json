@@ -803,6 +803,33 @@
     "clickToCopyDesc": {
         "message": "Enable click-to-copy for math formulas"
     },
+    "formulaSettingsLabel": {
+        "message": "Formula"
+    },
+    "formulaClickCopyMarkdownLabel": {
+        "message": "Formula click copies Markdown"
+    },
+    "formulaClickCopyMarkdownDesc": {
+        "message": "Click a formula to copy its original LaTeX / Markdown source."
+    },
+    "formulaAssetActionsLabel": {
+        "message": "Formula image actions"
+    },
+    "formulaAssetActionsDesc": {
+        "message": "Configure which PNG / SVG copy and save actions appear on formula hover."
+    },
+    "formulaAssetActionsPopupTitle": {
+        "message": "Formula image actions"
+    },
+    "formulaAssetActionsSummaryAll": {
+        "message": "All actions enabled"
+    },
+    "formulaAssetActionsSummaryNone": {
+        "message": "No image actions enabled"
+    },
+    "formulaAssetActionsSummaryCount": {
+        "message": "$1 action(s) enabled"
+    },
     "contextOnlySaveLabel": {
         "message": "Bookmark > Context-Only Save"
     },

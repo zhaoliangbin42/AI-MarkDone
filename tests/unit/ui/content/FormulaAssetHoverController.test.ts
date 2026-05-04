@@ -87,4 +87,79 @@ describe('FormulaAssetHoverController', () => {
         container.remove();
         vi.useRealTimers();
     });
+
+    it('filters hover actions through formula asset settings', async () => {
+        vi.useFakeTimers();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="math-inline">
+            <span class="katex">
+              <annotation encoding="application/x-tex">x_1 + y</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const controller = new FormulaAssetHoverController();
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            assetActions: {
+                copyPng: false,
+                copySvg: true,
+                savePng: false,
+                saveSvg: true,
+            },
+        });
+        controller.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+
+        const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host');
+        const buttons = Array.from(portalHost?.shadowRoot?.querySelectorAll<HTMLButtonElement>('[data-role="toolbar-hover-action"]') ?? []);
+        expect(buttons.map((button) => button.textContent)).toEqual([
+            'Copy as SVG',
+            'Save as SVG',
+        ]);
+
+        controller.disable();
+        container.remove();
+        vi.useRealTimers();
+    });
+
+    it('does not open the hover portal when all formula asset actions are disabled', async () => {
+        vi.useFakeTimers();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="math-inline">
+            <span class="katex">
+              <annotation encoding="application/x-tex">x_1 + y</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const controller = new FormulaAssetHoverController();
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            assetActions: {
+                copyPng: false,
+                copySvg: false,
+                savePng: false,
+                saveSvg: false,
+            },
+        });
+        controller.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+
+        controller.disable();
+        container.remove();
+        vi.useRealTimers();
+    });
 });

@@ -7,6 +7,7 @@ import {
     type AppSettings,
 } from './types';
 import { normalizeExportSettings } from './export';
+import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from './formula';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -22,6 +23,23 @@ export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behav
         enableClickToCopy: Boolean((record as any).enableClickToCopy ?? DEFAULT_SETTINGS.behavior.enableClickToCopy),
         saveContextOnly: Boolean((record as any).saveContextOnly ?? DEFAULT_SETTINGS.behavior.saveContextOnly),
         _contextOnlyConfirmed: Boolean((record as any)._contextOnlyConfirmed ?? DEFAULT_SETTINGS.behavior._contextOnlyConfirmed),
+    };
+}
+
+export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unknown): FormulaSettings {
+    const record = isRecord(formula) ? formula : {};
+    const legacyRecord = isRecord(legacyBehavior) ? legacyBehavior : {};
+    const assetActions = isRecord((record as any).assetActions) ? (record as any).assetActions : {};
+    const fallbackClickCopyMarkdown = (legacyRecord as any).enableClickToCopy ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown;
+
+    return {
+        clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
+        assetActions: {
+            copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
+            copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
+            savePng: Boolean((assetActions as any).savePng ?? DEFAULT_FORMULA_SETTINGS.assetActions.savePng),
+            saveSvg: Boolean((assetActions as any).saveSvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.saveSvg),
+        },
     };
 }
 
@@ -69,6 +87,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((stored.reader as any)?.contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
+        formula: normalizeFormulaSettings((stored as any).formula, stored.behavior),
         export: normalizeExportSettings((stored as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((stored as any).chatgptDirectory),
         bookmarks: {
@@ -114,6 +133,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((behavior as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
+        formula: normalizeFormulaSettings(undefined, behavior),
         export: normalizeExportSettings(undefined),
         chatgptDirectory: normalizeChatGPTDirectorySettings(undefined),
         bookmarks: {
@@ -148,6 +168,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((reader as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,
+        formula: normalizeFormulaSettings((rec as any).formula, behavior),
         export: normalizeExportSettings((rec as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((rec as any).chatgptDirectory),
         bookmarks: {

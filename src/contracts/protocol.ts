@@ -21,6 +21,7 @@ export type SettingsCategory =
     | 'platforms'
     | 'behavior'
     | 'reader'
+    | 'formula'
     | 'export'
     | 'chatgptDirectory'
     | 'bookmarks'

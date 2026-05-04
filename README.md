@@ -22,6 +22,10 @@
   [中文文档](./README.zh.md) | English
 </div>
 
+AI-MarkDone is an open-source ChatGPT browser extension for long conversations, research reading, source-aware copying, bookmarks, Markdown export, PDF export, and PNG image sharing. It helps users turn ChatGPT outputs into reusable knowledge without leaving the conversation page.
+
+**Use it for:** ChatGPT reading mode, conversation outline navigation, Markdown copy, LaTeX formula copy, formula PNG/SVG export, message bookmarks, Deep Research cleanup, PDF export, and shareable PNG snapshots.
+
 ---
 
 <p align="center">
@@ -41,6 +45,19 @@
 - **Deep Research looks like a dump?** You want AI output cleaned up so it is readable and reusable.
 
 If any of these sound familiar, **AI-MarkDone** is built exactly for you.
+
+---
+
+## 🔎 Search-Friendly Summary
+
+| Need | What AI-MarkDone Provides |
+| :--- | :--- |
+| ChatGPT long conversation navigation | A right-side conversation outline with previews and direct jump back to the target turn |
+| ChatGPT reading mode | A stable Reader view with Markdown rendering and keyboard navigation |
+| Copy ChatGPT answers to Markdown | Source-aware Markdown copy for formulas, code blocks, tables, images, and selected passages |
+| Export ChatGPT messages | Markdown, PDF, PNG, and ZIP workflows for reusable deliverables |
+| Save important AI answers | Message bookmarks with folders, previews, and return-to-source navigation |
+| Prepare research notes | Deep Research cleanup, formula assets, annotations, and structured follow-up input |
 
 ---
 
@@ -97,6 +114,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **Click-to-copy**: Copy LaTeX from inline (`$...$`) and block (`$$...$$`) formulas.
 - **No selection hassle**: Grab exactly one formula without breaking the text.
 - **Image-ready formulas**: Hover a formula to copy or save it as PNG/SVG while keeping normal click-to-copy source behavior.
+- **Formula settings**: Choose whether formula clicks copy Markdown and which PNG/SVG copy or save actions appear on hover.
 
 ### 📊 Word Count
 - **Real-time stats**: Words and characters for the current message, minus code noise.
@@ -208,6 +226,18 @@ If this extension saves you time, consider buying me a coffee to support future 
 ## 🙏 Acknowledgements
 
 Built with [Tailwind CSS](https://tailwindcss.com/). Thanks to the Tailwind team.
+
+## ⭐ Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/#zhaoliangbin42/AI-MarkDone&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zhaoliangbin42/ai-markdone&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zhaoliangbin42/ai-markdone&type=Date" />
+      <img alt="AI-MarkDone GitHub star history" src="https://api.star-history.com/svg?repos=zhaoliangbin42/ai-markdone&type=Date" />
+    </picture>
+  </a>
+</p>
 
 ## 📜 License & Contact
 

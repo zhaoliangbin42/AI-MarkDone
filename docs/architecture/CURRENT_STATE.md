@@ -104,6 +104,8 @@
 - `ReaderPanel`、`SaveMessagesDialog`、`BookmarkSaveDialog` 与 `BookmarksPanel` 现在都通过 stable shell/backdrop ownership 保持首次 mount 的外层节点；后续内容刷新只更新内部内容区，不再重建进入动画绑定的外层 DOM
 - `ModalHost` 现在和 `panel-window` 家族一样遵守单次 dismiss/close 提交；已进入 `closing` 的 surface 不再重复触发 dismiss 回调或恢复逻辑
 - `ModalHost` 与 `panel-window` 家族现在都使用共享 focus lifecycle：打开前捕获 opener，打开稳定后把焦点移入 surface，关闭后再恢复焦点
+- Settings tab 中的公式配置写入独立 `formula` category；旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT
+- `ToolbarHoverActionPortal` 是消息工具栏 hover 次动作与公式 hover 图片动作的共享 anchored portal；它负责 viewport clamp、anchor bridge 定位与顶部空间不足时的下翻，不允许调用方各自实现一次性边界补偿
 
 ### Reader / Copy / Sending
 
@@ -130,6 +132,7 @@
 - Reader 当前已经拥有两条稳定的“只在 Reader 内部生效”的扩展链路：
   - atomic closed-unit source selection：普通文本保留原生选区，closed unit 按整单元高亮与源码复制
   - inline comments：comment session、highlight overlay 与右侧 gutter anchor 仍局限在 Reader overlay 内，不依赖 background/storage；但 comment export 的 prompt/template/prompt-position 配置已提升到 settings 域持久化，Reader export popover 只负责预览与复制最终结果
+- 公式点击复制与单公式 PNG/SVG hover 动作由 `FormulaAssetHoverController` 统一承载，运行时只消费 `formula` settings 做 gating；LaTeX source 提取、MathJax iframe renderer、PNG rasterize、clipboard/download services 仍保持独立，不感知 Settings UI
 - Reader shell chrome 与正文排版都继续由 tokenized panel/template contract 持有，不再额外接入开源 Markdown 主题 preset
 - fullscreen Reader 切换仍属于 surface state change，不复用 centered panel 的 open/close transform；fullscreen Reader 只保留更轻的 fade-style motion
 

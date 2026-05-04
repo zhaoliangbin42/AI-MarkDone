@@ -188,4 +188,28 @@ describe('settingsService', () => {
 
         expect(next.behavior).not.toHaveProperty('showViewSource');
     });
+
+    it('writes scoped formula settings without changing behavior flags', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'formula', {
+            clickCopyMarkdown: false,
+            assetActions: {
+                copyPng: false,
+                copySvg: true,
+                savePng: false,
+                saveSvg: true,
+                retiredAction: true,
+            },
+        }).next;
+
+        expect(next.formula).toEqual({
+            clickCopyMarkdown: false,
+            assetActions: {
+                copyPng: false,
+                copySvg: true,
+                savePng: false,
+                saveSvg: true,
+            },
+        });
+        expect(next.behavior).toEqual(DEFAULT_SETTINGS.behavior);
+    });
 });

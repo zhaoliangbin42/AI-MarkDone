@@ -335,6 +335,20 @@ export class BookmarksPanel {
                 };
                 await settingsClientRpc.setCategory('reader', patch);
             },
+            setFormulaSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    formula: {
+                        ...this.uiState.settings.formula,
+                        ...patch,
+                        assetActions: {
+                            ...this.uiState.settings.formula.assetActions,
+                            ...patch.assetActions,
+                        },
+                    },
+                };
+                await settingsClientRpc.setCategory('formula', patch);
+            },
             setExportSettings: async (patch) => {
                 this.uiState.settings = {
                     ...this.uiState.settings,

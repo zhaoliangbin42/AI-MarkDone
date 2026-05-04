@@ -23,7 +23,7 @@
 | Action icon click | Background sends `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 先用扩展图标作为稳定入口（无需额外注入点）；后续再评估页面内入口模块化实现。 |
 | Per-message toolbar placement | Prefer the official action bar row (same line); fallback after message content, aligned right | 避免把官方工具栏挤到下方；同时保留无 action bar 场景的稳定可见兜底。 |
 | Injection algorithm | MO as signal + debounced scan + idempotent retry + route rebind | SPA/React 更稳定；允许短暂失败但最终一致。 |
-| LaTeX click-to-copy | Enabled by default (no UI toggle) | 功能性优先；后续再引入可审计的开关。 |
+| LaTeX click-to-copy | Enabled by default; configurable from Settings `Formula` | 功能性优先，同时允许用户按公式工作流关闭 Markdown 点击复制或筛选 PNG/SVG 图片动作。 |
 | ChatGPT conversation directory | Treated as a ChatGPT-only navigation layer backed by the internal conversation payload | 目录条负责完整历史导航；官方线程继续承担正文显示与输入交互；跳转后的轻量校准只能修正 host hydration 导致的位置漂移，且必须让位于用户主动滚动、触摸、指针或键盘导航。 |
 
 ---
@@ -40,8 +40,8 @@
 | Rule-based conversion stability (whitespace/indent/newlines) | Copy pipeline | `src/services/markdown-parser/**` | `tests/parity/copy/*` + goldens | golden 对齐作为输出真值。 |
 | Platform noise filtering (structural only) | `adapter.isNoiseNode()` + placeholder | `src/drivers/content/adapters/*`, `src/services/copy/copy-markdown.ts` | parity fixtures | 噪声过滤不基于文本，避免 i18n 漂移。 |
 | Streaming guard (pending state) | `adapter.isStreamingMessage()` → disable actions | `src/ui/content/controllers/MessageToolbarOrchestrator.ts` | (covered by manual) | 流式阶段禁用按钮，不影响注入与后续重试。 |
-| LaTeX click-to-copy | Enable on injected message containers | `src/drivers/content/math/math-click.ts` | `tests/unit/drivers/math-click.test.ts` | 默认开启，在不破坏页面交互的前提下复制 LaTeX。适合只想快速拿走单个公式，不必先复制整段内容再二次提取。 |
-| Formula PNG/SVG copy and save | Hover a formula → `Copy as PNG` / `Copy as SVG` / `Save as PNG` / `Save as SVG` | `src/drivers/content/math/math-click.ts`, `src/ui/content/controllers/FormulaAssetHoverController.ts`, `src/services/math/formulaAssetActions.ts`, `src/services/math/formulaAssetRenderer.ts`, `src/runtimes/formula-renderer/entry.ts`, `src/drivers/content/clipboard/copySvgToClipboard.ts`, `src/drivers/content/export/renderFormulaPng.ts` | `tests/unit/drivers/math-click.test.ts`, `tests/unit/ui/content/FormulaAssetHoverController.test.ts`, `tests/unit/services/math/formulaAssetActions.test.ts`, `tests/unit/services/math/formulaAssetRenderer.test.ts`, `tests/unit/drivers/content/clipboard/copySvgToClipboard.test.ts`, `tests/unit/drivers/content/export/renderFormulaPng.test.ts` | 四个 hover 动作必须与点击复制源码共用同一个 LaTeX 提取入口；单公式 SVG 由按需加载的 iframe MathJax renderer 生成，不得静态打入 `content.js`；content-side renderer client 必须缓存同 key SVG asset 并复用 in-flight 请求；PNG 由同一份 SVG rasterize；默认公式字号固定为 36px；不改变整条消息 PNG 导出链路。 |
+| LaTeX click-to-copy | Enable on injected message containers; Settings `formula.clickCopyMarkdown` gates click interception | `src/drivers/content/math/math-click.ts`, `src/core/settings/formula.ts` | `tests/unit/drivers/math-click.test.ts`, `tests/unit/services/settings/settingsService.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts` | 默认开启，在不破坏页面交互的前提下复制 LaTeX；关闭后点击公式不复制、不拦截宿主事件，但不影响仍启用的公式图片 hover 动作。适合只想快速拿走单个公式，不必先复制整段内容再二次提取。 |
+| Formula PNG/SVG copy and save | Hover a formula → enabled subset of `Copy as PNG` / `Copy as SVG` / `Save as PNG` / `Save as SVG`; Settings `formula.assetActions` gates visibility | `src/drivers/content/math/math-click.ts`, `src/ui/content/controllers/FormulaAssetHoverController.ts`, `src/ui/content/components/ToolbarHoverActionPortal.ts`, `src/services/math/formulaAssetActions.ts`, `src/services/math/formulaAssetRenderer.ts`, `src/runtimes/formula-renderer/entry.ts`, `src/drivers/content/clipboard/copySvgToClipboard.ts`, `src/drivers/content/export/renderFormulaPng.ts`, `src/core/settings/formula.ts` | `tests/unit/drivers/math-click.test.ts`, `tests/unit/ui/content/FormulaAssetHoverController.test.ts`, `tests/unit/ui/components/ToolbarHoverActionPortal.test.ts`, `tests/unit/services/math/formulaAssetActions.test.ts`, `tests/unit/services/math/formulaAssetRenderer.test.ts`, `tests/unit/drivers/content/clipboard/copySvgToClipboard.test.ts`, `tests/unit/drivers/content/export/renderFormulaPng.test.ts` | 四个 hover 动作必须与点击复制源码共用同一个 LaTeX 提取入口；Settings 可隐藏任意 PNG/SVG copy/save 动作，四个动作全关时不显示 hover 菜单；公式 hover 菜单必须 clamp 在 viewport 内，行内公式位于最左/最右侧时不得越出屏幕，顶部空间不足时可翻到公式下方；单公式 SVG 由按需加载的 iframe MathJax renderer 生成，不得静态打入 `content.js`；content-side renderer client 必须缓存同 key SVG asset 并复用 in-flight 请求；PNG 由同一份 SVG rasterize；默认公式字号固定为 36px；不改变整条消息 PNG 导出链路。 |
 
 #### Copy goldens（回归策略）
 
@@ -51,11 +51,11 @@
 
 #### LaTeX click safety guard（必须落实，避免破坏宿主页面）
 
-当 LaTeX click 默认常开时，必须满足：
+当 LaTeX click 默认开启或被用户重新开启时，必须满足：
 
 - selection 非空（用户正在选择文本）时 **不触发复制**，不拦截事件链。
 - 仅在确认要复制时才 `preventDefault/stopPropagation`（尽量不干扰宿主交互）。
-- hover 公式时可以展示单公式 PNG/SVG 复制与保存动作；这些动作必须继续消费同一份 LaTeX source，不得增加第二套公式源码解析链路。
+- hover 公式时可以展示 Settings 允许的单公式 PNG/SVG 复制与保存动作；这些动作必须继续消费同一份 LaTeX source，不得增加第二套公式源码解析链路。
 
 ---
 
@@ -136,6 +136,7 @@
 |---|---|---|---|---|
 | Read all settings (normalized) | `settings:getAll` | `src/core/settings/*`, `src/services/settings/settingsService.ts`, `src/runtimes/background/handlers/settings.ts` | `tests/unit/core/settings/migrations.test.ts`, `tests/unit/runtimes/background/settings-handler.test.ts` | 老用户升级后 `app_settings` 不丢；新字段 merge defaults。 |
 | Set settings category | `settings:setCategory` | `src/services/settings/settingsService.ts`, `src/drivers/background/storage/syncStoragePort.ts` | unit tests | Service 只做 plan；background 统一落盘。 |
+| Formula preferences | Settings tab `Formula` → Markdown click-copy toggle + PNG/SVG action popup | `src/core/settings/formula.ts`, `src/services/settings/settingsService.ts`, `src/ui/content/bookmarks/ui/tabs/SettingsTabView.ts`, `src/ui/content/controllers/FormulaAssetHoverController.ts`, `src/runtimes/content/entry.ts` | `tests/unit/services/settings/settingsService.test.ts`, `tests/unit/core/settings/migrations.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts`, `tests/unit/ui/content/FormulaAssetHoverController.test.ts`, `tests/unit/runtimes/content/entry.test.ts` | 公式设置由 `formula` category 持久化；旧 `behavior.enableClickToCopy` 只作为迁移/兼容输入；关闭 Markdown 点击复制不得关闭仍启用的图片动作；关闭全部图片动作不得影响 Markdown 点击复制。 |
 | Export preferences | Settings tab `Export` → preset + width + image scale | `src/core/settings/export.ts`, `src/services/settings/settingsService.ts`, `src/ui/content/bookmarks/ui/tabs/SettingsTabView.ts`, `src/runtimes/content/entry.ts` | `tests/unit/services/settings/settingsService.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts`, `tests/unit/runtimes/background/settings-handler.test.ts` | PNG 导出宽度与图片倍率由全局 settings 真相持有；宽度支持 mobile / tablet / desktop / custom；图片倍率支持 1x–3x 并在渲染时受浏览器 Canvas 上限保护。 |
 | Advanced settings surface | Settings tab footer → collapsible advanced section | `src/ui/content/bookmarks/ui/tabs/SettingsTabView.ts`, `src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts` | `tests/unit/ui/bookmarks/settingsTabView.test.ts` | 高级设置默认收起，只承载少量低频调参项；展开状态不持久化，实际设置值仍写入对应 settings category，不新增 `advanced` 顶层配置域。 |
 | Reset to defaults | `settings:reset` | 同上 | unit tests | reset 后可再次读取并得到 defaults。 |

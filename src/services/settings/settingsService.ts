@@ -7,6 +7,7 @@ import {
     migrateSortMode,
     normalizeBehaviorSettings,
     normalizeChatGPTDirectorySettings,
+    normalizeFormulaSettings,
     normalizeReaderContentMaxWidthPx,
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
@@ -80,6 +81,20 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         ...(isRecord(patch.commentExport) ? patch.commentExport : {}),
                     }),
                 },
+            };
+            return { next };
+        }
+        case 'formula': {
+            const next: AppSettings = {
+                ...cur,
+                formula: normalizeFormulaSettings({
+                    ...cur.formula,
+                    ...(isRecord(value) ? value : {}),
+                    assetActions: {
+                        ...cur.formula.assetActions,
+                        ...(isRecord((value as any)?.assetActions) ? (value as any).assetActions : {}),
+                    },
+                }, cur.behavior),
             };
             return { next };
         }

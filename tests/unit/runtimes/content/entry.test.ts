@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const ensurePageTokens = vi.fn();
 const mathClickEnable = vi.fn();
 const mathClickDisable = vi.fn();
+const mathClickSetFormulaSettings = vi.fn();
 const mathClickCtor = vi.fn(function () {
-    return { enable: mathClickEnable, disable: mathClickDisable };
+    return { enable: mathClickEnable, disable: mathClickDisable, setFormulaSettings: mathClickSetFormulaSettings };
 });
 const themeInit = vi.fn();
 const themeSubscribe = vi.fn();
@@ -231,6 +232,10 @@ describe('content runtime entry', () => {
                 saveContextOnly: false,
                 _contextOnlyConfirmed: false,
             },
+            formula: {
+                clickCopyMarkdown: true,
+                assetActions: { copyPng: true, copySvg: true, savePng: true, saveSvg: true },
+            },
             reader: {
                 renderCodeInReader: true,
                 commentExport: {
@@ -291,6 +296,10 @@ describe('content runtime entry', () => {
                     saveContextOnly: false,
                     _contextOnlyConfirmed: true,
                 },
+                formula: {
+                    clickCopyMarkdown: false,
+                    assetActions: { copyPng: false, copySvg: true, savePng: false, saveSvg: true },
+                },
                 reader: {
                     renderCodeInReader: false,
                     commentExport: {
@@ -310,6 +319,10 @@ describe('content runtime entry', () => {
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
+        expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
+            clickCopyMarkdown: false,
+            assetActions: { copyPng: false, copySvg: true, savePng: false, saveSvg: true },
+        });
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
 
         settingsSubscriber!({
@@ -322,6 +335,10 @@ describe('content runtime entry', () => {
                     enableClickToCopy: true,
                     saveContextOnly: false,
                     _contextOnlyConfirmed: true,
+                },
+                formula: {
+                    clickCopyMarkdown: true,
+                    assetActions: { copyPng: true, copySvg: true, savePng: true, saveSvg: true },
                 },
                 reader: {
                     renderCodeInReader: true,
@@ -360,13 +377,17 @@ describe('content runtime entry', () => {
             settings: {
                 language: 'en',
                 platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
-                behavior: {
-                    showSaveMessages: true,
-                    showWordCount: true,
-                    enableClickToCopy: false,
-                    saveContextOnly: false,
-                    _contextOnlyConfirmed: true,
-                },
+            behavior: {
+                showSaveMessages: true,
+                showWordCount: true,
+                enableClickToCopy: false,
+                saveContextOnly: false,
+                _contextOnlyConfirmed: true,
+            },
+            formula: {
+                clickCopyMarkdown: false,
+                assetActions: { copyPng: true, copySvg: false, savePng: true, saveSvg: false },
+            },
                 reader: {
                     renderCodeInReader: true,
                     commentExport: {
@@ -400,6 +421,10 @@ describe('content runtime entry', () => {
                 saveContextOnly: false,
                 _contextOnlyConfirmed: true,
             },
+            formula: {
+                clickCopyMarkdown: false,
+                assetActions: { copyPng: true, copySvg: false, savePng: true, saveSvg: false },
+            },
             reader: {
                 renderCodeInReader: false,
                 commentExport: cachedCommentExport,
@@ -412,5 +437,9 @@ describe('content runtime entry', () => {
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
         expect(reader?.setCommentExportSettings).toHaveBeenCalledWith(cachedCommentExport);
+        expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
+            clickCopyMarkdown: false,
+            assetActions: { copyPng: true, copySvg: false, savePng: true, saveSvg: false },
+        });
     });
 });

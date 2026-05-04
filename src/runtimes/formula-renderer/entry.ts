@@ -28,6 +28,8 @@ const tex = new TeX({
 const svg = new SVG({
     font: new MathJaxNewcmFont(),
     fontCache: 'none',
+    displayOverflow: 'overflow',
+    linebreaks: { inline: false },
 });
 const html = mathjax.document('', {
     InputJax: tex,
@@ -87,7 +89,9 @@ function renderFormulaSvgAsset(request: FormulaRendererRequest): FormulaSvgAsset
     const root = createMeasurementRoot(fontSizePx);
     try {
         root.appendChild(rendered);
-        const svgElement = root.querySelector('svg');
+        const svgElements = root.querySelectorAll('svg');
+        if (svgElements.length > 1) throw new Error('MathJax produced split SVG output.');
+        const svgElement = svgElements[0];
         if (!(svgElement instanceof SVGSVGElement)) throw new Error('MathJax did not produce SVG output.');
         const viewBox = svgElement.getAttribute('viewBox') || '0 0 1 1';
         const size = readSvgSize(svgElement, fontSizePx);
@@ -127,4 +131,3 @@ window.addEventListener('message', (event: MessageEvent) => {
     }
     event.source?.postMessage(response, { targetOrigin: event.origin || '*' });
 });
-
