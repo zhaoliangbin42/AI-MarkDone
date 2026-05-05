@@ -46,4 +46,14 @@ describe('extension manifest generation', () => {
         expect(safari.browser_action?.default_icon).toEqual(extensionAssets.icons);
         expect(safari.web_accessible_resources).toEqual(extensionAssets.webAccessibleResources);
     });
+
+    it('lets AMO assign the Firefox MV2 add-on id while keeping required Gecko metadata', () => {
+        const firefox = buildManifest('firefox') as any;
+
+        expect(firefox.browser_specific_settings?.gecko?.id).toBeUndefined();
+        expect(firefox.browser_specific_settings?.gecko?.strict_min_version).toBe('109.0');
+        expect(firefox.browser_specific_settings?.gecko?.data_collection_permissions).toEqual({
+            required: ['none'],
+        });
+    });
 });

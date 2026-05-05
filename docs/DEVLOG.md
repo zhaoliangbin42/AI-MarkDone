@@ -9,6 +9,7 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 - Bumped package and generated manifest versions to `4.3.0`.
 - Updated release-facing changelog copy, README platform direction, release notes, platform capability SSOT, and in-panel Chinese/English changelog entries for the user-approved v4.3.0 bullets.
 - Synced Settings release copy and platform SSOT with the Toolbar & Page Actions grouping and the v4.5.0 platform retirement notice: Gemini, Claude, and DeepSeek support will be retired, and ChatGPT will be the only supported platform.
+- Removed the fixed Firefox MV2 `browser_specific_settings.gecko.id` after AMO rejected the v4.3.0 zip with a duplicate add-on ID; AMO can assign/bind the ID for MV2 while the manifest keeps Gecko minimum-version and data-collection metadata.
 - Generated fresh Chrome, Firefox, Safari WebExtension, and Safari Xcode wrapper zip artifacts under `release/`, with `AI-MarkDone-v4.3.0-SHA256SUMS.txt`.
 - Safari DMG remains blocked until a signed exported `AI-MarkDone.app` is provided via `SAFARI_APP_PATH`.
 - Verification:

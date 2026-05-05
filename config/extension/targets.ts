@@ -19,7 +19,6 @@ export const extensionTargets = {
         hostPermissionPlacement: 'permissions',
         webAccessibleResourcesStyle: 'mv2',
         gecko: {
-            id: 'ai-markdone@zhaoliangbin.com',
             strictMinVersion: '109.0',
             dataCollectionPermissions: {
                 required: ['none'],

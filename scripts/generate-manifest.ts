@@ -65,7 +65,6 @@ export function buildManifest(target: ExtensionTarget): Manifest {
         const firefoxConfig = extensionTargets.firefox;
         manifest.browser_specific_settings = {
             gecko: {
-                id: firefoxConfig.gecko.id,
                 strict_min_version: firefoxConfig.gecko.strictMinVersion,
                 data_collection_permissions: {
                     required: [...firefoxConfig.gecko.dataCollectionPermissions.required],
