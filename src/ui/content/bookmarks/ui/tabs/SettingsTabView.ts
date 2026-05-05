@@ -148,21 +148,20 @@ export class SettingsTabView {
             claude: this.createToggle(platformsGroup.body, `${Icons.claude} Claude`, t('enableOnClaude')),
             deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} DeepSeek`, t('enableOnDeepseek')),
         };
+        const platformRetirementNotice = this.createNotice(platformsGroup.body, t('platformRetirementNotice'));
 
-        // Behavior group
-        const behaviorGroup = this.createGroup(Icons.settings, t('behavior'));
-        const showSaveMessages = this.createToggle(behaviorGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
-        const showWordCount = this.createToggle(behaviorGroup.body, t('wordCountLabel'), t('wordCountDesc'));
-        const saveContextOnly = this.createToggle(behaviorGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
+        const pageActionsGroup = this.createGroup(Icons.settings, t('toolbarPageActionsSettingsLabel'));
+        const showSaveMessages = this.createToggle(pageActionsGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
+        const showWordCount = this.createToggle(pageActionsGroup.body, t('wordCountLabel'), t('wordCountDesc'));
+        const saveContextOnly = this.createToggle(pageActionsGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
 
-        const formulaGroup = this.createGroup(Icons.sigma, t('formulaSettingsLabel'));
         const formulaClickCopyMarkdown = this.createToggle(
-            formulaGroup.body,
+            pageActionsGroup.body,
             t('formulaClickCopyMarkdownLabel'),
             t('formulaClickCopyMarkdownDesc'),
         );
         const formulaAssetActions = this.createActionRow(
-            formulaGroup.body,
+            pageActionsGroup.body,
             t('formulaAssetActionsLabel'),
             t('formulaAssetActionsDesc'),
             'settings-formula-asset-actions',
@@ -188,9 +187,8 @@ export class SettingsTabView {
             'settings-reader-template',
         );
 
-        const exportGroup = this.createGroup(Icons.download, t('export'));
         const pngExportWidth = this.createPngExportWidthRow(
-            exportGroup.body,
+            pageActionsGroup.body,
             t('pngExportWidthPresetLabel'),
             t('pngExportWidthPresetDesc'),
             [
@@ -205,7 +203,7 @@ export class SettingsTabView {
             PNG_EXPORT_WIDTH_STEP,
         );
         const pngPixelRatio = this.createNumberRow(
-            exportGroup.body,
+            pageActionsGroup.body,
             t('pngExportPixelRatioLabel'),
             t('pngExportPixelRatioDesc'),
             MIN_PNG_EXPORT_PIXEL_RATIO,
@@ -279,10 +277,8 @@ export class SettingsTabView {
 
         content.append(
             platformsGroup.root,
-            behaviorGroup.root,
-            formulaGroup.root,
+            pageActionsGroup.root,
             readerGroup.root,
-            exportGroup.root,
             chatGptDirectoryGroup.root,
             languageGroup.root,
             storageGroup.root,
@@ -336,6 +332,7 @@ export class SettingsTabView {
         this.refs.platforms.gemini.dataset.role = 'settings-platform-gemini';
         this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
+        platformRetirementNotice.dataset.role = 'settings-platform-retirement-notice';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
@@ -651,6 +648,14 @@ export class SettingsTabView {
         item.append(info, toggle);
         parent.appendChild(item);
         return { root: item, input };
+    }
+
+    private createNotice(parent: HTMLElement, text: string): HTMLElement {
+        const notice = document.createElement('p');
+        notice.className = 'settings-notice settings-platform-retirement-notice';
+        notice.textContent = text;
+        parent.appendChild(notice);
+        return notice;
     }
 
     private createActionRow(parent: HTMLElement, labelText: string, desc: string, role: string): {

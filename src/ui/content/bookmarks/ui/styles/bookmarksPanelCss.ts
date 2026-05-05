@@ -949,6 +949,16 @@ ${getPanelChromeCss()}
   overflow-wrap: anywhere;
 }
 
+.settings-notice {
+  margin: 8px 0 0;
+  padding: 10px var(--aimd-space-3);
+  border-radius: var(--aimd-radius-md);
+  background: color-mix(in srgb, var(--aimd-interactive-selected) 54%, transparent);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.6;
+}
+
 .sponsor-section-note,
 .qr-card-label,
 .qr-card-label-link {

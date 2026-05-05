@@ -578,6 +578,12 @@
     "behavior": {
         "message": "配置"
     },
+    "toolbarPageActionsSettingsLabel": {
+        "message": "工具栏与页面操作"
+    },
+    "platformRetirementNotice": {
+        "message": "从 v4.5.0 开始，Gemini、Claude 和 DeepSeek 适配将下线。ChatGPT 将作为本插件唯一支持的平台。"
+    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT 目录条"
     },

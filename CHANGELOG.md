@@ -5,20 +5,18 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.3.0] - 2026-05-05
 
 ### Added
-- ChatGPT: Formula hover actions can now copy or save a single formula as PNG or SVG while keeping normal formula click-to-copy source behavior unchanged.
-- Bookmarks: Added a dedicated Buy Me Coffee tab for payment QR codes, GitHub support, and sponsor thanks while keeping About focused on the author and project background.
-- Settings: Added a dedicated Formula section to control Markdown click-copy and the PNG/SVG formula image actions shown on hover.
-- Settings: Added a Reader annotations option to place the selected user prompt below copied annotations instead of above them.
-- Settings: Added a ChatGPT directory option so expanded Prompt labels can keep the default first 15 characters or show the first and last 15 characters.
-
-### Changed
-- Formula image rendering now loads only when a formula PNG/SVG action is used, keeping normal page startup and toolbar injection lighter.
+- Formula hover actions can now copy or save a single formula as PNG or SVG, making it easier to prepare presentation slides without rebuilding formulas by hand.
+- Settings: Added formula PNG/SVG copy and save controls under Toolbar & Page Actions.
+- Reader annotations can now place the selected user prompt before or after copied annotations. Thanks to Xiaohongshu user @momo.
+- ChatGPT directory expanded mode can now show the first 15 and last 15 prompt characters from Settings, helping distinguish messages when many prompts start the same way.
+- Settings: Grouped toolbar, formula, and export controls together and added a v4.5.0 platform support notice for Gemini, Claude, and DeepSeek.
 
 ### Fixed
-- ChatGPT: Message toolbars now attach more reliably when ChatGPT hydrates the official message action bar after the message content appears.
+- Export: Fixed a case where numbered formulas could overlap text in PDF exports. Thanks to GitHub user @LTong-g.
+- ChatGPT: Improved message bottom toolbar injection stability. Thanks to Xiaohongshu user @去码头整点橙汁.
 
 ## [4.2.3] - 2026-04-29
 

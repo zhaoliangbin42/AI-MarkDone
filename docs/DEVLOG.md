@@ -4,6 +4,18 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-05 — v4.3.0 release preparation
+
+- Bumped package and generated manifest versions to `4.3.0`.
+- Updated release-facing changelog copy, README platform direction, release notes, platform capability SSOT, and in-panel Chinese/English changelog entries for the user-approved v4.3.0 bullets.
+- Synced Settings release copy and platform SSOT with the Toolbar & Page Actions grouping and the v4.5.0 platform retirement notice: Gemini, Claude, and DeepSeek support will be retired, and ChatGPT will be the only supported platform.
+- Generated fresh Chrome, Firefox, Safari WebExtension, and Safari Xcode wrapper zip artifacts under `release/`, with `AI-MarkDone-v4.3.0-SHA256SUMS.txt`.
+- Safari DMG remains blocked until a signed exported `AI-MarkDone.app` is provided via `SAFARI_APP_PATH`.
+- Verification:
+  - `npm run release:verify` (pass; smoke 15 tests, acceptance 64 tests, Chrome/Firefox/Safari WebExtension builds + entry verification)
+  - `npm run package:safari:xcode` (pass; generated `safari-build/AI-MarkDone`)
+  - Release zip manifest spot-check (pass; Chrome MV3 `4.3.0`, Firefox MV2 `4.3.0`, Safari WebExtension MV2 `4.3.0`)
+
 ## 2026-05-04 — ChatGPT message toolbar anchor hydration
 
 - Made message-toolbar injection respond to official action-row hydration after the assistant message node already exists.

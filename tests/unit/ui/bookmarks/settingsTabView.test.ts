@@ -51,6 +51,55 @@ const baseSettings = {
 } as any;
 
 describe('SettingsTabView', () => {
+    it('groups toolbar, formula, and export settings under page actions while keeping Reader and Directory separate', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const view = new SettingsTabView({ modal });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const groupTitles = Array.from(root.querySelectorAll<HTMLElement>('.settings-group-title'))
+            .map((title) => title.textContent?.replace(/\s+/g, ' ').trim());
+        expect(groupTitles).toEqual([
+            'platforms',
+            'toolbarPageActionsSettingsLabel',
+            'readerSettingsLabel',
+            'chatgptDirectorySettingsLabel',
+            'settingsLanguageLabel',
+            'dataAndStorage',
+        ]);
+
+        const pageActionsGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('toolbarPageActionsSettingsLabel'))!;
+        expect(pageActionsGroup.querySelector('[data-role="settings-show-save-messages"]')).toBeTruthy();
+        expect(pageActionsGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
+        expect(pageActionsGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
+
+        const readerGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('readerSettingsLabel'))!;
+        expect(readerGroup.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeNull();
+
+        const directoryGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptDirectorySettingsLabel'))!;
+        expect(directoryGroup.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeTruthy();
+    });
+
+    it('shows a platform retirement notice for non-ChatGPT adapters', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const view = new SettingsTabView({ modal });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const notice = view.getElement().querySelector<HTMLElement>('[data-role="settings-platform-retirement-notice"]');
+
+        expect(notice?.textContent).toBe('platformRetirementNotice');
+    });
+
     it('does not expose retired ChatGPT folding or directory visibility controls', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const actions = {
@@ -194,9 +243,9 @@ describe('SettingsTabView', () => {
         const presetTrigger = root.querySelector<HTMLElement>('[data-role="settings-export-png-width-preset"]')!;
         const widthInput = root.querySelector<HTMLInputElement>('[data-role="settings-export-png-width"]')!;
         const pixelRatioInput = root.querySelector<HTMLInputElement>('[data-role="settings-export-png-pixel-ratio"]')!;
-        const exportRows = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
+        const exportCard = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
             .find((card) => card.querySelector('[data-role="settings-export-png-width-preset"]'))
-            ?.querySelectorAll('.settings-row');
+        const exportControls = exportCard?.querySelectorAll('[data-role^="settings-export-png-"]');
         const combinedRow = presetTrigger.closest<HTMLElement>('.settings-export-width-row');
         const controls = presetTrigger.closest<HTMLElement>('.settings-export-width-controls');
 
@@ -208,7 +257,7 @@ describe('SettingsTabView', () => {
         expect(presetTrigger.closest('.settings-export-width-preset')).toBeTruthy();
         expect(widthInput.closest('.settings-export-width-value')).toBeTruthy();
         expect(pixelRatioInput.value).toBe('1');
-        expect(exportRows).toHaveLength(2);
+        expect(exportControls).toHaveLength(3);
 
         presetTrigger.click();
         root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="custom"]')!.click();

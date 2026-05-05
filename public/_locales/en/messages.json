@@ -578,6 +578,12 @@
     "behavior": {
         "message": "Behavior"
     },
+    "toolbarPageActionsSettingsLabel": {
+        "message": "Toolbar & Page Actions"
+    },
+    "platformRetirementNotice": {
+        "message": "Starting in v4.5.0, Gemini, Claude, and DeepSeek support will be retired. ChatGPT will be the only supported platform for this extension."
+    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT Directory"
     },

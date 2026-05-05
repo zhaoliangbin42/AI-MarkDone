@@ -1,5 +1,21 @@
 # Changelog
 
+# 4.3.0
+2026-05-05
+
+This release improves formula image export, Dynamic Annotation copy output, and ChatGPT directory readability, while also addressing user-reported export and toolbar stability issues.
+
+## Added
+- Added single-formula image export with PNG and SVG support, making it easier to prepare presentation slides without rebuilding formulas by hand.
+- Added settings to choose which formula image copy and save buttons appear on hover under Toolbar & Page Actions.
+- Dynamic Annotation can now place the selected user prompt before or after copied annotations. Thanks to Xiaohongshu user @momo.
+- Expanded ChatGPT directory mode can now show the first 15 and last 15 prompt characters from Settings, making messages easier to distinguish when many prompts start the same way.
+- Grouped toolbar, formula, and export controls together in Settings, and added a v4.5.0 notice that Gemini, Claude, and DeepSeek support will be retired.
+
+## Fixed
+- Fixed a case where numbered formulas could overlap text in PDF exports. Thanks to GitHub user @LTong-g.
+- Improved message bottom toolbar injection stability. Thanks to Xiaohongshu user @去码头整点橙汁.
+
 # 4.2.3
 2026-04-29
 
@@ -42,7 +58,7 @@ This patch fixes ChatGPT directory positioning after a recent ChatGPT page updat
 
 After reading user feedback, I realized that Gemini, DeepSeek, and Claude have each started to accumulate platform-specific compatibility issues. Given the time and energy I can realistically put into this project, I would rather focus deeply on ChatGPT than try to keep building a large, all-in-one extension. ChatGPT already has enough efficiency problems worth solving, and it is also the platform I use most in daily work, so my own understanding is much deeper there.
 
-Practice is the real test. I believe I can only build truly useful productivity features when I have felt the workflow pain myself. There are also already other projects that cover some of these cross-platform needs. After thinking it through, I have decided to gradually step back from active Gemini, DeepSeek, and Claude development and return AI-MarkDone to its original focus: ChatGPT.
+Practice is the real test. I believe I can only build truly useful productivity features when I have felt the workflow pain myself. There are also already other projects that cover some of these cross-platform needs. After thinking it through, I have decided to retire Gemini, DeepSeek, and Claude support starting in v4.5.0 and return AI-MarkDone to its original focus: ChatGPT as the only supported platform.
 
 Of course, there are good alternatives for those platforms.
 

@@ -1,6 +1,8 @@
 # Platform Capability Matrix
 
 > **Purpose**: 只表达“当前支持哪些宿主平台、有哪些平台特有差异”。具体能力如何工作，请以 `docs/FEATURES.md` 为准。
+>
+> **Release policy**: v4.3.0 仍构建并校验四个平台适配；从 v4.5.0 开始，Gemini、Claude、DeepSeek 适配将下线，ChatGPT 将成为唯一支持的 AI 平台。
 
 ---
 
@@ -9,9 +11,9 @@
 | Platform | Status | Host patterns | Notable deltas |
 |:---|:---:|:---|:---|
 | ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader 与右侧 conversation directory rail；保留 classic host 链接与权限一致性门禁。 |
-| Gemini | ✅ Active | `gemini.google.com` | 支持 Gemini-specific DOM 结构与 thought/noise 过滤。 |
-| Claude | ✅ Active | `claude.ai` | 支持 Claude action-row 缺席时的稳定注入与发送桥接。 |
-| DeepSeek | ✅ Active | `chat.deepseek.com` | 支持 DeepSeek DOM 结构、噪音过滤与消息入口。 |
+| Gemini | ⚠️ Retires in v4.5.0 | `gemini.google.com` | v4.3.0 仍构建校验；支持 Gemini-specific DOM 结构与 thought/noise 过滤。 |
+| Claude | ⚠️ Retires in v4.5.0 | `claude.ai` | v4.3.0 仍构建校验；支持 Claude action-row 缺席时的稳定注入与发送桥接。 |
+| DeepSeek | ⚠️ Retires in v4.5.0 | `chat.deepseek.com` | v4.3.0 仍构建校验；支持 DeepSeek DOM 结构、噪音过滤与消息入口。 |
 
 说明：
 

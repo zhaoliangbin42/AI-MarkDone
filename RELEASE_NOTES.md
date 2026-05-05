@@ -1,12 +1,17 @@
 # Release Notes
 
-## Unreleased
+## v4.3.0 (2026-05-05)
 
 ### Added
-- Added formula hover actions for copying or saving a single formula as PNG or SVG while keeping normal formula click-to-copy source behavior unchanged.
+- Added single-formula image export with PNG and SVG support for presentation-ready formula assets.
+- Added settings to customize which formula image copy and save actions appear on hover under Toolbar & Page Actions.
+- Dynamic Annotation can now place the selected user prompt before or after copied annotations. Thanks to Xiaohongshu user @momo.
+- Expanded ChatGPT directory mode can now show the first 15 and last 15 prompt characters from Settings.
+- Grouped toolbar, formula, and export controls together in Settings and added a v4.5.0 platform support notice for Gemini, Claude, and DeepSeek.
 
-### Changed
-- Formula image rendering now loads through an isolated renderer only when a PNG/SVG formula action is used, keeping normal page startup and toolbar injection lighter.
+### Fixed
+- Fixed a case where numbered formulas could overlap text in PDF exports. Thanks to GitHub user @LTong-g.
+- Improved message bottom toolbar injection stability. Thanks to Xiaohongshu user @去码头整点橙汁.
 
 ## v4.2.3 (2026-04-29)
 
