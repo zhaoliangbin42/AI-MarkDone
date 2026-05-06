@@ -111,4 +111,28 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         expect(result.markdown).not.toContain('https://example.com');
         expect(result.markdown).not.toContain('Sources');
     });
+
+    it('removes ChatGPT webpage citation pills and their empty state wrapper', () => {
+        document.body.innerHTML = `
+          <div data-message-author-role="assistant" data-message-id="a1">
+            <div class="markdown prose">
+<p>Useful answer<span data-state="closed"><span data-testid="webpage-citation-pill"><a href="https://github.blog/changelog/2026-03-25-updates-to-our-privacy-statement-and-terms-of-service-how-we-use-your-data/"><span>github.blog</span><span>+2</span></a></span></span> continues.</p>
+            </div>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const message = document.querySelector(adapter.getMessageSelector());
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toBe('Useful answer continues.');
+        expect(result.markdown).not.toContain('github.blog');
+        expect(result.markdown).not.toContain('+2');
+        expect(result.markdown).not.toContain('https://github.blog');
+    });
 });

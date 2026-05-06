@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export: Fixed a case where numbered formulas could overlap text in PDF exports. Thanks to GitHub user @LTong-g.
 - ChatGPT: Improved message bottom toolbar injection stability. Thanks to Xiaohongshu user @去码头整点橙汁.
 
+### Fixed
+- ChatGPT: Webpage citation pills are now removed from copied and exported message content, including their visible domain labels, grouped-source counts, and hidden links.
+
 ## [4.2.3] - 2026-04-29
 
 ### Added
