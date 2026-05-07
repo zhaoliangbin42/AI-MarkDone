@@ -325,6 +325,21 @@ export class ChatGPTAdapter extends SiteAdapter {
         return !!stopButton;
     }
 
+    normalizeDOM(root: HTMLElement): void {
+        root.querySelectorAll('[data-testid="webpage-citation-pill"]').forEach((pill) => {
+            const wrapper = pill.parentElement;
+            pill.remove();
+
+            if (
+                wrapper instanceof HTMLElement &&
+                wrapper.matches('span[data-state]') &&
+                wrapper.childNodes.length === 0
+            ) {
+                wrapper.remove();
+            }
+        });
+    }
+
     cleanMarkdown(markdown: string): string {
         return cleanChatGPTReferenceNoise(markdown);
     }
