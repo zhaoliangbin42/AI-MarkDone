@@ -1,7 +1,7 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "4.3.0",
+    "version": "4.3.1",
     "description": "All you need for ChatGPT, Gemini, Claude & DeepSeek: reader mode, message folding, bookmarks, LaTeX copy & Markdown export.",
     "type": "module",
     "scripts": {
@@ -15,7 +15,7 @@
         "postbuild:firefox": "tsx scripts/prepare-extension-target.ts firefox && npm run verify:entry-format:firefox",
         "postbuild:safari:webext": "tsx scripts/prepare-extension-target.ts safari && npm run verify:entry-format:safari",
         "release:verify": "npm run test:smoke && npm run test:acceptance && npm run build:all:webext",
-        "package:safari:xcode": "npm run build:safari:webext && xcrun safari-web-extension-converter dist-safari --project-location safari-build --bundle-identifier com.zhaoliangbin.aimarkdone --app-name \"AI-MarkDone\" --copy-resources --no-open --no-prompt --force",
+        "package:safari:xcode": "tsx scripts/package-safari-xcode.ts",
         "package:safari:dmg": "tsx scripts/package-safari-dmg.ts",
         "preview": "vite preview",
         "type-check": "tsc --noEmit",

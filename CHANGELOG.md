@@ -5,10 +5,11 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.3.1] - 2026-05-07
 
 ### Fixed
-- ChatGPT: Removed webpage citation pills from copied and exported message content, including their visible domain labels, grouped-source counts, and hidden links. Thanks to GitHub user @LTong-g.
+- Firefox: Fixed toolbar insertion failures on ChatGPT. Thanks to Xiaohongshu user @圆桶烤肉拌厚切三文鱼.
+- Reader: Further reduced hyperlink and file citation noise in copied and exported content. Thanks to GitHub user @LTong-g.
 
 ## [4.3.0] - 2026-05-05
 
@@ -22,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Export: Fixed a case where numbered formulas could overlap text in PDF exports. Thanks to GitHub user @LTong-g.
 - ChatGPT: Improved message bottom toolbar injection stability. Thanks to Xiaohongshu user @去码头整点橙汁.
-- Firefox: Fixed shared runtime compatibility issues that could prevent ChatGPT message toolbars and formula actions from appearing.
 
 ## [4.2.3] - 2026-04-29
 

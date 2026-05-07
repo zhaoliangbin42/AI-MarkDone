@@ -34,7 +34,7 @@ export const extensionTargets = {
         hostPermissionPlacement: 'permissions',
         webAccessibleResourcesStyle: 'mv2',
         bundle: {
-            bundleIdentifier: 'com.zhaoliangbin.aimarkdone',
+            bundleIdentifier: 'com.Liangbin.aimarkdone',
             productName: 'AI-MarkDone',
         },
     },

@@ -18,6 +18,10 @@ function readSafariDmgScript(): string {
     return readFileSync(resolve(process.cwd(), 'scripts/package-safari-dmg.ts'), 'utf-8');
 }
 
+function readSafariXcodeScript(): string {
+    return readFileSync(resolve(process.cwd(), 'scripts/package-safari-xcode.ts'), 'utf-8');
+}
+
 describe('release scripts', () => {
     it('runs all automated release gates including Safari web extension build', () => {
         const scripts = readPackageJson().scripts || {};
@@ -31,13 +35,18 @@ describe('release scripts', () => {
     it('keeps Safari Xcode packaging as an explicit manual command', () => {
         const scripts = readPackageJson().scripts || {};
         const releaseGuide = readReleaseGuide();
+        const safariXcodeScript = readSafariXcodeScript();
 
-        expect(scripts['package:safari:xcode']).toContain('npm run build:safari:webext');
-        expect(scripts['package:safari:xcode']).toContain('xcrun safari-web-extension-converter dist-safari');
-        expect(scripts['package:safari:xcode']).toContain('--copy-resources');
-        expect(scripts['package:safari:xcode']).toContain('--no-open');
-        expect(scripts['package:safari:xcode']).toContain('--no-prompt');
-        expect(scripts['package:safari:xcode']).toContain('--force');
+        expect(scripts['package:safari:xcode']).toBe('tsx scripts/package-safari-xcode.ts');
+        expect(safariXcodeScript).toContain("run('npm', ['run', 'build:safari:webext'])");
+        expect(safariXcodeScript).toContain('safari-web-extension-converter');
+        expect(safariXcodeScript).toContain('safariBundle.bundleIdentifier');
+        expect(safariXcodeScript).toContain('MARKETING_VERSION');
+        expect(safariXcodeScript).toContain('CURRENT_PROJECT_VERSION');
+        expect(safariXcodeScript).toContain('--copy-resources');
+        expect(safariXcodeScript).toContain('--no-open');
+        expect(safariXcodeScript).toContain('--no-prompt');
+        expect(safariXcodeScript).toContain('--force');
         expect(scripts['release:verify']).not.toContain('package:safari:xcode');
         expect(releaseGuide).toContain('npm run package:safari:xcode');
         expect(releaseGuide).toContain('Every explicit release flow must run Safari Xcode packaging');

@@ -1,5 +1,14 @@
 # Changelog
 
+# 4.3.1
+2026-05-07
+
+This patch focuses on Firefox toolbar stability and cleaner Reader output for citation-heavy ChatGPT content.
+
+## Fixed
+- Fixed Firefox toolbar insertion failures on ChatGPT. Thanks to Xiaohongshu user @圆桶烤肉拌厚切三文鱼.
+- Further reduced hyperlink and file citation noise in Reader copy and export output. Thanks to GitHub user @LTong-g.
+
 # 4.3.0
 2026-05-05
 

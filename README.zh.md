@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.3.0-10A37F" alt="Version 4.3.0">
+    <img src="https://img.shields.io/badge/Version-4.3.1-10A37F" alt="Version 4.3.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -198,11 +198,9 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.3.0
-- 新增单个公式导出为 PNG / SVG，并支持自定义公式图片操作按钮。
-- 灵动注释的“用户 prompt”位置可以选择放在注释前面或后面。
-- ChatGPT 目录展开模式可显示 Prompt 前 15 个字符和后 15 个字符。
-- 修复 PDF 导出中带编号公式可能重叠的问题，并提升消息底部工具栏注入稳定性。
+### 4.3.1
+- 修复 Firefox 中 ChatGPT 工具栏插入失败的问题（感谢小红书用户 @圆桶烤肉拌厚切三文鱼）。
+- 进一步对阅读器复制和导出内容中的超链接、文件引用降噪（感谢 GitHub 用户 @LTong-g）。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

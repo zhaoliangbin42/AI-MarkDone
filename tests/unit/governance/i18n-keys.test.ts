@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-type MessagesJson = Record<string, { message?: string }>;
+type MessagesJson = Record<string, { message?: string; description?: string }>;
 
 function readJson(filePath: string): any {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -40,6 +40,11 @@ function loadCatalog(locale: 'en' | 'zh_CN'): Set<string> {
     const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
     const json = readJson(filePath) as MessagesJson;
     return new Set(Object.keys(json));
+}
+
+function loadMessages(locale: 'en' | 'zh_CN'): MessagesJson {
+    const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
+    return readJson(filePath) as MessagesJson;
 }
 
 describe('governance: i18n key coverage', () => {
@@ -103,6 +108,40 @@ describe('governance: i18n key coverage', () => {
             for (const literal of check.banned) {
                 const quotedLiteral = new RegExp(`['"\`]${literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`);
                 if (quotedLiteral.test(src)) failures.push({ filePath: check.filePath, literal });
+            }
+        }
+
+        expect(failures).toEqual([]);
+    });
+
+    it('locale message descriptions satisfy Safari App Store validation', () => {
+        const failures: Array<{ locale: string; key: string; reason: string }> = [];
+
+        for (const locale of ['en', 'zh_CN'] as const) {
+            const messages = loadMessages(locale);
+            for (const [key, value] of Object.entries(messages)) {
+                if (typeof value.description !== 'string') {
+                    failures.push({ locale, key, reason: 'description must be a string' });
+                    continue;
+                }
+
+                if (value.description.length > 112) {
+                    failures.push({ locale, key, reason: 'description must be 112 characters or fewer' });
+                }
+            }
+        }
+
+        expect(failures).toEqual([]);
+    });
+
+    it('localized extension description stays within Safari App Store length limits', () => {
+        const failures: Array<{ locale: string; length: number; message?: string }> = [];
+
+        for (const locale of ['en', 'zh_CN'] as const) {
+            const messages = loadMessages(locale);
+            const message = messages.extDescription?.message;
+            if (typeof message !== 'string' || message.length > 112) {
+                failures.push({ locale, length: message?.length ?? 0, message });
             }
         }
 

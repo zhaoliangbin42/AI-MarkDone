@@ -1,1406 +1,1874 @@
 {
     "extName": {
-        "message": "AI-MarkDone"
+        "message": "AI-MarkDone",
+        "description": "Message for extName"
     },
     "extDescription": {
-        "message": "All you need for ChatGPT, Gemini, Claude & DeepSeek: reader mode, conversation directory, bookmarks, LaTeX copy & Markdown export."
+        "message": "AI-MarkDone for ChatGPT: reader mode, directory, bookmarks, PNG/PDF export, LaTeX copy, and Markdown copy.",
+        "description": "Message for extDescription"
     },
     "btnCopy": {
-        "message": "Copy Markdown"
+        "message": "Copy Markdown",
+        "description": "Message for btnCopy"
     },
     "btnCopied": {
-        "message": "Copied!"
+        "message": "Copied!",
+        "description": "Message for btnCopied"
     },
     "btnCopyAsPng": {
-        "message": "Copy as PNG"
+        "message": "Copy as PNG",
+        "description": "Message for btnCopyAsPng"
     },
     "btnCopyAsPngCopied": {
-        "message": "PNG copied!"
+        "message": "PNG copied!",
+        "description": "Message for btnCopyAsPngCopied"
     },
     "btnCopyAsPngDownloaded": {
-        "message": "PNG downloaded"
+        "message": "PNG downloaded",
+        "description": "Message for btnCopyAsPngDownloaded"
     },
     "formulaCopyAsPng": {
-        "message": "Copy as PNG"
+        "message": "Copy as PNG",
+        "description": "Message for formulaCopyAsPng"
     },
     "formulaCopyAsSvg": {
-        "message": "Copy as SVG"
+        "message": "Copy as SVG",
+        "description": "Message for formulaCopyAsSvg"
     },
     "formulaSaveAsPng": {
-        "message": "Save as PNG"
+        "message": "Save as PNG",
+        "description": "Message for formulaSaveAsPng"
     },
     "formulaSaveAsSvg": {
-        "message": "Save as SVG"
+        "message": "Save as SVG",
+        "description": "Message for formulaSaveAsSvg"
     },
     "formulaAssetSaved": {
-        "message": "Saved"
+        "message": "Saved",
+        "description": "Message for formulaAssetSaved"
     },
     "formulaAssetRendering": {
-        "message": "Rendering..."
+        "message": "Rendering...",
+        "description": "Message for formulaAssetRendering"
     },
     "btnBookmark": {
-        "message": "Bookmark"
+        "message": "Bookmark",
+        "description": "Message for btnBookmark"
     },
     "btnRemoveBookmark": {
-        "message": "Remove Bookmark"
+        "message": "Remove Bookmark",
+        "description": "Message for btnRemoveBookmark"
     },
     "btnReader": {
-        "message": "Reader"
+        "message": "Reader",
+        "description": "Message for btnReader"
     },
     "btnSaveAs": {
-        "message": "Save as"
+        "message": "Save as",
+        "description": "Message for btnSaveAs"
     },
     "btnExport": {
-        "message": "Export"
+        "message": "Export",
+        "description": "Message for btnExport"
     },
     "btnWordCount": {
-        "message": "Word Count"
+        "message": "Word Count",
+        "description": "Message for btnWordCount"
     },
     "btnClose": {
-        "message": "Close"
+        "message": "Close",
+        "description": "Message for btnClose"
     },
     "btnDelete": {
-        "message": "Delete"
+        "message": "Delete",
+        "description": "Message for btnDelete"
     },
     "btnEdit": {
-        "message": "Edit"
+        "message": "Edit",
+        "description": "Message for btnEdit"
     },
     "btnConfigure": {
-        "message": "Configure"
+        "message": "Configure",
+        "description": "Message for btnConfigure"
     },
     "btnBack": {
-        "message": "Back"
+        "message": "Back",
+        "description": "Message for btnBack"
     },
     "btnCancel": {
-        "message": "Cancel"
+        "message": "Cancel",
+        "description": "Message for btnCancel"
     },
     "btnOk": {
-        "message": "OK"
+        "message": "OK",
+        "description": "Message for btnOk"
     },
     "changelogNoticeTitle": {
-        "message": "What's new in AI-MarkDone $1"
+        "message": "What's new in AI-MarkDone $1",
+        "description": "Message for changelogNoticeTitle"
     },
     "changelogNoticeViewAll": {
-        "message": "View full changelog"
+        "message": "View full changelog",
+        "description": "Message for changelogNoticeViewAll"
     },
     "btnReset": {
-        "message": "Reset"
+        "message": "Reset",
+        "description": "Message for btnReset"
     },
     "btnSave": {
-        "message": "Save"
+        "message": "Save",
+        "description": "Message for btnSave"
     },
     "loading": {
-        "message": "Loading..."
+        "message": "Loading...",
+        "description": "Message for loading"
     },
     "noContent": {
-        "message": "No content"
+        "message": "No content",
+        "description": "Message for noContent"
     },
     "openingPreview": {
-        "message": "Opening Preview..."
+        "message": "Opening Preview...",
+        "description": "Message for openingPreview"
     },
     "saving": {
-        "message": "Saving..."
+        "message": "Saving...",
+        "description": "Message for saving"
     },
     "done": {
-        "message": "Done"
+        "message": "Done",
+        "description": "Message for done"
     },
     "copyAppSettings": {
-        "message": "Copy App Settings"
+        "message": "Copy App Settings",
+        "description": "Message for copyAppSettings"
     },
     "resetAppSettings": {
-        "message": "Reset App Settings"
+        "message": "Reset App Settings",
+        "description": "Message for resetAppSettings"
     },
     "readerTitle": {
-        "message": "AI-Markdone Reader"
+        "message": "AI-Markdone Reader",
+        "description": "Message for readerTitle"
     },
     "toggleFullscreen": {
-        "message": "Toggle fullscreen"
+        "message": "Toggle fullscreen",
+        "description": "Message for toggleFullscreen"
     },
     "previousMessage": {
-        "message": "Previous message"
+        "message": "Previous message",
+        "description": "Message for previousMessage"
     },
     "nextMessage": {
-        "message": "Next message"
+        "message": "Next message",
+        "description": "Message for nextMessage"
     },
     "navigateHint": {
-        "message": "\"← →\" to navigate"
+        "message": "\"← →\" to navigate",
+        "description": "Message for navigateHint"
     },
     "typeYourMessage": {
-        "message": "Type your message..."
+        "message": "Type your message...",
+        "description": "Message for typeYourMessage"
     },
     "saveMessages": {
-        "message": "Save Messages"
+        "message": "Save Messages",
+        "description": "Message for saveMessages"
     },
     "selectAll": {
-        "message": "Select All"
+        "message": "Select All",
+        "description": "Message for selectAll"
     },
     "deselectAll": {
-        "message": "Deselect All"
+        "message": "Deselect All",
+        "description": "Message for deselectAll"
     },
     "readerMode": {
-        "message": "Reader Mode"
+        "message": "Reader Mode",
+        "description": "Message for readerMode"
     },
     "contentNotFound": {
-        "message": "Content not found"
+        "message": "Content not found",
+        "description": "Message for contentNotFound"
     },
     "copyFailed": {
-        "message": "Copy failed"
+        "message": "Copy failed",
+        "description": "Message for copyFailed"
     },
     "clipboardImageWriteFailed": {
-        "message": "PNG copy failed"
+        "message": "PNG copy failed",
+        "description": "Message for clipboardImageWriteFailed"
     },
     "clipboardImageWriteUnsupported": {
-        "message": "This browser does not support copying PNG images"
+        "message": "This browser does not support copying PNG images",
+        "description": "Message for clipboardImageWriteUnsupported"
     },
     "openFailed": {
-        "message": "Open failed"
+        "message": "Open failed",
+        "description": "Message for openFailed"
     },
     "exportOptions": {
-        "message": "Export Options"
+        "message": "Export Options",
+        "description": "Message for exportOptions"
     },
     "selectExportMethod": {
-        "message": "Choose export method:"
+        "message": "Choose export method:",
+        "description": "Message for selectExportMethod"
     },
     "keepFolderStructure": {
-        "message": "Keep Folder Structure"
+        "message": "Keep Folder Structure",
+        "description": "Message for keepFolderStructure"
     },
     "exportAsFolders": {
-        "message": "Export as hierarchical folders and bookmarks"
+        "message": "Export as hierarchical folders and bookmarks",
+        "description": "Message for exportAsFolders"
     },
     "flatList": {
-        "message": "Flat List"
+        "message": "Flat List",
+        "description": "Message for flatList"
     },
     "exportBookmarksOnly": {
-        "message": "Export bookmarks only, without folders"
+        "message": "Export bookmarks only, without folders",
+        "description": "Message for exportBookmarksOnly"
     },
     "export": {
-        "message": "Export"
+        "message": "Export",
+        "description": "Message for export"
     },
     "renameTo": {
-        "message": "Rename to"
+        "message": "Rename to",
+        "description": "Message for renameTo"
     },
     "autoRename": {
-        "message": "Auto Rename"
+        "message": "Auto Rename",
+        "description": "Message for autoRename"
     },
     "clickCopy": {
-        "message": "Click copy"
+        "message": "Click copy",
+        "description": "Message for clickCopy"
     },
     "btnCopyText": {
-        "message": "Copy"
+        "message": "Copy",
+        "description": "Message for btnCopyText"
     },
     "readerCommentAction": {
-        "message": "Annotate"
+        "message": "Annotate",
+        "description": "Message for readerCommentAction"
     },
     "readerCommentAddTitle": {
-        "message": "Add annotation"
+        "message": "Add annotation",
+        "description": "Message for readerCommentAddTitle"
     },
     "readerCommentEditTitle": {
-        "message": "Edit annotation"
+        "message": "Edit annotation",
+        "description": "Message for readerCommentEditTitle"
     },
     "readerCommentPlaceholder": {
-        "message": "Write your annotation..."
+        "message": "Write your annotation...",
+        "description": "Message for readerCommentPlaceholder"
     },
     "readerCommentSave": {
-        "message": "Save annotation"
+        "message": "Save annotation",
+        "description": "Message for readerCommentSave"
     },
     "readerCommentSaved": {
-        "message": "Annotation saved"
+        "message": "Annotation saved",
+        "description": "Message for readerCommentSaved"
     },
     "readerCommentDeleted": {
-        "message": "Annotation deleted"
+        "message": "Annotation deleted",
+        "description": "Message for readerCommentDeleted"
     },
     "readerCommentCopyComments": {
-        "message": "Copy annotations"
+        "message": "Copy annotations",
+        "description": "Message for readerCommentCopyComments"
     },
     "readerCommentCopyEmpty": {
-        "message": "No annotations to copy yet."
+        "message": "No annotations to copy yet.",
+        "description": "Message for readerCommentCopyEmpty"
     },
     "readerCommentUserPrompt": {
-        "message": "User prompt"
+        "message": "User prompt",
+        "description": "Message for readerCommentUserPrompt"
     },
     "readerCommentTemplate": {
-        "message": "Annotation template"
+        "message": "Annotation template",
+        "description": "Message for readerCommentTemplate"
     },
     "readerCommentTemplateHint": {
-        "message": "Insert tokens with the buttons above. Token labels are localized; export uses stable internal placeholders."
+        "message": "Insert tokens with the buttons above. Token labels are localized; export uses stable internal placeholders.",
+        "description": "Message for readerCommentTemplateHint"
     },
     "readerCommentTemplatePlaceholder": {
-        "message": "Write your annotation template here..."
+        "message": "Write your annotation template here...",
+        "description": "Message for readerCommentTemplatePlaceholder"
     },
     "readerCommentTemplateInsertSelectedSource": {
-        "message": "Insert selected source"
+        "message": "Insert selected source",
+        "description": "Message for readerCommentTemplateInsertSelectedSource"
     },
     "readerCommentTemplateInsertPlaceholder": {
-        "message": "Insert placeholder"
+        "message": "Insert placeholder",
+        "description": "Message for readerCommentTemplateInsertPlaceholder"
     },
     "readerCommentTemplateInsertUserComment": {
-        "message": "Insert user annotation"
+        "message": "Insert user annotation",
+        "description": "Message for readerCommentTemplateInsertUserComment"
     },
     "readerCommentTemplateTokenSelectedSource": {
-        "message": "Selected source"
+        "message": "Selected source",
+        "description": "Message for readerCommentTemplateTokenSelectedSource"
     },
     "readerCommentTemplateTokenUserComment": {
-        "message": "User annotation"
+        "message": "User annotation",
+        "description": "Message for readerCommentTemplateTokenUserComment"
     },
     "readerSettingsLabel": {
-        "message": "Reader"
+        "message": "Reader",
+        "description": "Message for readerSettingsLabel"
     },
     "readerContentWidthLabel": {
-        "message": "Reader content width"
+        "message": "Reader content width",
+        "description": "Message for readerContentWidthLabel"
     },
     "readerContentWidthDesc": {
-        "message": "Maximum Reader body width in pixels. The content still shrinks to fit the panel."
+        "message": "Maximum Reader body width in pixels. The content still shrinks to fit the panel.",
+        "description": "Message for readerContentWidthDesc"
     },
     "advancedSettingsLabel": {
-        "message": "Advanced Settings"
+        "message": "Advanced Settings",
+        "description": "Message for advancedSettingsLabel"
     },
     "advancedSettingsDesc": {
-        "message": "Show focused controls for fine-tuning extension behavior."
+        "message": "Show focused controls for fine-tuning extension behavior.",
+        "description": "Message for advancedSettingsDesc"
     },
     "readerCommentPromptListLabel": {
-        "message": "User prompts"
+        "message": "User prompts",
+        "description": "Message for readerCommentPromptListLabel"
     },
     "readerCommentPromptListDesc": {
-        "message": "Manage reusable prompt headers for annotation export."
+        "message": "Manage reusable prompt headers for annotation export.",
+        "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
-        "message": "Place prompt below annotations"
+        "message": "Place prompt below annotations",
+        "description": "Message for readerCommentPromptPositionBottomLabel"
     },
     "readerCommentPromptPositionBottomDesc": {
-        "message": "When enabled, copied annotations appear first and the selected user prompt is appended at the bottom."
+        "message": "When enabled, copied annotations appear first and the selected user prompt is appended at the bottom.",
+        "description": "Message for readerCommentPromptPositionBottomDesc"
     },
     "readerCommentTemplateSettingsLabel": {
-        "message": "Annotations copy template"
+        "message": "Annotations copy template",
+        "description": "Message for readerCommentTemplateSettingsLabel"
     },
     "readerCommentTemplateSettingsDesc": {
-        "message": "Configure the reusable template for copied annotations."
+        "message": "Configure the reusable template for copied annotations.",
+        "description": "Message for readerCommentTemplateSettingsDesc"
     },
     "readerCommentTemplatePreviewLabel": {
-        "message": "Preview"
+        "message": "Preview",
+        "description": "Message for readerCommentTemplatePreviewLabel"
     },
     "readerCommentTemplateRestoreDefault": {
-        "message": "Restore default"
+        "message": "Restore default",
+        "description": "Message for readerCommentTemplateRestoreDefault"
     },
     "readerCommentPromptAdd": {
-        "message": "Add prompt"
+        "message": "Add prompt",
+        "description": "Message for readerCommentPromptAdd"
     },
     "readerCommentPromptRestoreDefaults": {
-        "message": "Restore starter prompts"
+        "message": "Restore starter prompts",
+        "description": "Message for readerCommentPromptRestoreDefaults"
     },
     "readerCommentPromptRestoreDefaultsTitle": {
-        "message": "Restore starter prompts"
+        "message": "Restore starter prompts",
+        "description": "Message for readerCommentPromptRestoreDefaultsTitle"
     },
     "readerCommentPromptRestoreDefaultsMessage": {
-        "message": "Restoring the starter prompts will replace all of your current prompts. Do you want to continue?"
+        "message": "Restoring the starter prompts will replace all of your current prompts. Do you want to continue?",
+        "description": "Message for readerCommentPromptRestoreDefaultsMessage"
     },
     "readerCommentPromptEdit": {
-        "message": "Edit prompt"
+        "message": "Edit prompt",
+        "description": "Message for readerCommentPromptEdit"
     },
     "readerCommentPromptActive": {
-        "message": "Active"
+        "message": "Active",
+        "description": "Message for readerCommentPromptActive"
     },
     "readerCommentPromptSelect": {
-        "message": "Use"
+        "message": "Use",
+        "description": "Message for readerCommentPromptSelect"
     },
     "readerCommentPromptUntitled": {
-        "message": "Untitled prompt"
+        "message": "Untitled prompt",
+        "description": "Message for readerCommentPromptUntitled"
     },
     "readerCommentPromptEmpty": {
-        "message": "No prompt text yet."
+        "message": "No prompt text yet.",
+        "description": "Message for readerCommentPromptEmpty"
     },
     "readerCommentPromptTitleLabel": {
-        "message": "Prompt title"
+        "message": "Prompt title",
+        "description": "Message for readerCommentPromptTitleLabel"
     },
     "readerCommentPromptContentLabel": {
-        "message": "Prompt content"
+        "message": "Prompt content",
+        "description": "Message for readerCommentPromptContentLabel"
     },
     "readerCommentPromptTitlePlaceholder": {
-        "message": "Name this prompt"
+        "message": "Name this prompt",
+        "description": "Message for readerCommentPromptTitlePlaceholder"
     },
     "readerCommentPromptContentPlaceholder": {
-        "message": "Write the prompt header shown above copied annotations..."
+        "message": "Write the prompt header shown above copied annotations...",
+        "description": "Message for readerCommentPromptContentPlaceholder"
     },
     "readerCommentPromptDeleteTitle": {
-        "message": "Delete prompt"
+        "message": "Delete prompt",
+        "description": "Message for readerCommentPromptDeleteTitle"
     },
     "readerCommentPromptDeleteMessage": {
-        "message": "Delete this prompt from Reader settings?"
+        "message": "Delete this prompt from Reader settings?",
+        "description": "Message for readerCommentPromptDeleteMessage"
     },
     "readerCommentPromptPickerTitle": {
-        "message": "Choose prompt"
+        "message": "Choose prompt",
+        "description": "Message for readerCommentPromptPickerTitle"
     },
     "readerCommentPromptPickerEmpty": {
-        "message": "No prompts available."
+        "message": "No prompts available.",
+        "description": "Message for readerCommentPromptPickerEmpty"
     },
     "readerCommentInsertIntoSend": {
-        "message": "Insert annotations"
+        "message": "Insert annotations",
+        "description": "Message for readerCommentInsertIntoSend"
     },
     "saveMessagesTitle": {
-        "message": "Save Messages As"
+        "message": "Save Messages As",
+        "description": "Message for saveMessagesTitle"
     },
     "formatMarkdown": {
-        "message": "Markdown"
+        "message": "Markdown",
+        "description": "Message for formatMarkdown"
     },
     "formatPdf": {
-        "message": "PDF"
+        "message": "PDF",
+        "description": "Message for formatPdf"
     },
     "formatPng": {
-        "message": "PNG"
+        "message": "PNG",
+        "description": "Message for formatPng"
     },
     "pngExportPreparing": {
-        "message": "Preparing PNG export $1"
+        "message": "Preparing PNG export $1",
+        "description": "Message for pngExportPreparing"
     },
     "pngExportRendering": {
-        "message": "Rendering $1"
+        "message": "Rendering $1",
+        "description": "Message for pngExportRendering"
     },
     "pngExportRenderingWithFilename": {
-        "message": "Rendering $1: $2"
+        "message": "Rendering $1: $2",
+        "description": "Message for pngExportRenderingWithFilename"
     },
     "pngExportZipping": {
-        "message": "Packaging ZIP $1"
+        "message": "Packaging ZIP $1",
+        "description": "Message for pngExportZipping"
     },
     "pngExportZippingWithFilename": {
-        "message": "Packaging ZIP $1: $2"
+        "message": "Packaging ZIP $1: $2",
+        "description": "Message for pngExportZippingWithFilename"
     },
     "pngExportDownloading": {
-        "message": "Downloading export"
+        "message": "Downloading export",
+        "description": "Message for pngExportDownloading"
     },
     "pngExportDownloadingWithFilename": {
-        "message": "Downloading $1"
+        "message": "Downloading $1",
+        "description": "Message for pngExportDownloadingWithFilename"
     },
     "pngExportDone": {
-        "message": "PNG export ready $1"
+        "message": "PNG export ready $1",
+        "description": "Message for pngExportDone"
     },
     "pngExportWidthPresetLabel": {
-        "message": "PNG image width"
+        "message": "PNG image width",
+        "description": "Message for pngExportWidthPresetLabel"
     },
     "pngExportWidthPresetDesc": {
-        "message": "Choose the default card width used for PNG exports."
+        "message": "Choose the default card width used for PNG exports.",
+        "description": "Message for pngExportWidthPresetDesc"
     },
     "pngExportWidthValueLabel": {
-        "message": "Width value"
+        "message": "Width value",
+        "description": "Message for pngExportWidthValueLabel"
     },
     "pngExportWidthValueDesc": {
-        "message": "Preset widths stay fixed. Choose Custom to edit the PNG width in pixels."
+        "message": "Preset widths stay fixed. Choose Custom to edit the PNG width in pixels.",
+        "description": "Message for pngExportWidthValueDesc"
     },
     "pngExportWidthPresetMobile": {
-        "message": "Mobile"
+        "message": "Mobile",
+        "description": "Message for pngExportWidthPresetMobile"
     },
     "pngExportWidthPresetTablet": {
-        "message": "Tablet"
+        "message": "Tablet",
+        "description": "Message for pngExportWidthPresetTablet"
     },
     "pngExportWidthPresetDesktop": {
-        "message": "Desktop"
+        "message": "Desktop",
+        "description": "Message for pngExportWidthPresetDesktop"
     },
     "pngExportWidthPresetCustom": {
-        "message": "Custom"
+        "message": "Custom",
+        "description": "Message for pngExportWidthPresetCustom"
     },
     "pngExportPixelRatioLabel": {
-        "message": "PNG image scale"
+        "message": "PNG image scale",
+        "description": "Message for pngExportPixelRatioLabel"
     },
     "pngExportPixelRatioDesc": {
-        "message": "Controls raster sharpness. Default is 1x; maximum is 3x. Long exports may still be capped for stability."
+        "message": "Controls raster sharpness. Default is 1x; maximum is 3x. Long exports may still be capped for stability.",
+        "description": "Message for pngExportPixelRatioDesc"
     },
     "saveBookmarkTitle": {
-        "message": "Save Bookmark"
+        "message": "Save Bookmark",
+        "description": "Message for saveBookmarkTitle"
     },
     "labelTitle": {
-        "message": "Title"
+        "message": "Title",
+        "description": "Message for labelTitle"
     },
     "labelFolder": {
-        "message": "Folder"
+        "message": "Folder",
+        "description": "Message for labelFolder"
     },
     "languageChanged": {
-        "message": "Language Changed"
+        "message": "Language Changed",
+        "description": "Message for languageChanged"
     },
     "reloadMessage": {
-        "message": "Please reload the page to apply the new language setting."
+        "message": "Please reload the page to apply the new language setting.",
+        "description": "Message for reloadMessage"
     },
     "reloadNow": {
-        "message": "Reload Now"
+        "message": "Reload Now",
+        "description": "Message for reloadNow"
     },
     "later": {
-        "message": "Later"
+        "message": "Later",
+        "description": "Message for later"
     },
     "confirmRename": {
-        "message": "Confirm rename"
+        "message": "Confirm rename",
+        "description": "Message for confirmRename"
     },
     "cancelRename": {
-        "message": "Cancel rename"
+        "message": "Cancel rename",
+        "description": "Message for cancelRename"
     },
     "sendMessage": {
-        "message": "Send message"
+        "message": "Send message",
+        "description": "Message for sendMessage"
     },
     "jumpToMessage": {
-        "message": "Jump to current message"
+        "message": "Jump to current message",
+        "description": "Message for jumpToMessage"
     },
     "collapse": {
-        "message": "Collapse"
+        "message": "Collapse",
+        "description": "Message for collapse"
     },
     "send": {
-        "message": "Send"
+        "message": "Send",
+        "description": "Message for send"
     },
     "search": {
-        "message": "Search..."
+        "message": "Search...",
+        "description": "Message for search"
     },
     "sortByTime": {
-        "message": "Sort by: Time"
+        "message": "Sort by: Time",
+        "description": "Message for sortByTime"
     },
     "sortAlpha": {
-        "message": "Sort by: A-Z"
+        "message": "Sort by: A-Z",
+        "description": "Message for sortAlpha"
     },
     "sortByTimeLabel": {
-        "message": "Sort by time"
+        "message": "Sort by time",
+        "description": "Message for sortByTimeLabel"
     },
     "sortAlphaLabel": {
-        "message": "Sort alphabetically"
+        "message": "Sort alphabetically",
+        "description": "Message for sortAlphaLabel"
     },
     "sortByTimeAscTitle": {
-        "message": "Sort by: Time (Oldest first)"
+        "message": "Sort by: Time (Oldest first)",
+        "description": "Message for sortByTimeAscTitle"
     },
     "sortByTimeDescTitle": {
-        "message": "Sort by: Time (Newest first)"
+        "message": "Sort by: Time (Newest first)",
+        "description": "Message for sortByTimeDescTitle"
     },
     "sortAlphaAscTitle": {
-        "message": "Sort by: A-Z"
+        "message": "Sort by: A-Z",
+        "description": "Message for sortAlphaAscTitle"
     },
     "sortAlphaDescTitle": {
-        "message": "Sort by: Z-A"
+        "message": "Sort by: Z-A",
+        "description": "Message for sortAlphaDescTitle"
     },
     "createFolder": {
-        "message": "Create new folder"
+        "message": "Create new folder",
+        "description": "Message for createFolder"
     },
     "importBookmarks": {
-        "message": "Import bookmarks"
+        "message": "Import bookmarks",
+        "description": "Message for importBookmarks"
     },
     "exportBookmarks": {
-        "message": "Export bookmarks"
+        "message": "Export bookmarks",
+        "description": "Message for exportBookmarks"
     },
     "toggleFolder": {
-        "message": "Toggle folder"
+        "message": "Toggle folder",
+        "description": "Message for toggleFolder"
     },
     "selectFolderAndChildren": {
-        "message": "Select $1 and all children"
+        "message": "Select $1 and all children",
+        "description": "Message for selectFolderAndChildren"
     },
     "selectBookmarkItem": {
-        "message": "Select $1"
+        "message": "Select $1",
+        "description": "Message for selectBookmarkItem"
     },
     "newSubfolder": {
-        "message": "New Subfolder"
+        "message": "New Subfolder",
+        "description": "Message for newSubfolder"
     },
     "createSubfolder": {
-        "message": "Create subfolder"
+        "message": "Create subfolder",
+        "description": "Message for createSubfolder"
     },
     "rename": {
-        "message": "Rename"
+        "message": "Rename",
+        "description": "Message for rename"
     },
     "renameFolder": {
-        "message": "Rename folder"
+        "message": "Rename folder",
+        "description": "Message for renameFolder"
     },
     "moveFolder": {
-        "message": "Move folder"
+        "message": "Move folder",
+        "description": "Message for moveFolder"
     },
     "delete": {
-        "message": "Delete"
+        "message": "Delete",
+        "description": "Message for delete"
     },
     "deleteFolder": {
-        "message": "Delete folder"
+        "message": "Delete folder",
+        "description": "Message for deleteFolder"
     },
     "deleteFolderConfirm": {
-        "message": "Delete \"$1\" and its subfolders?"
+        "message": "Delete \"$1\" and its subfolders?",
+        "description": "Message for deleteFolderConfirm"
     },
     "openConversation": {
-        "message": "Open in Conversation"
+        "message": "Open in Conversation",
+        "description": "Message for openConversation"
     },
     "openConversationLabel": {
-        "message": "Open conversation"
+        "message": "Open conversation",
+        "description": "Message for openConversationLabel"
     },
     "edit": {
-        "message": "Edit"
+        "message": "Edit",
+        "description": "Message for edit"
     },
     "editBookmark": {
-        "message": "Edit bookmark"
+        "message": "Edit bookmark",
+        "description": "Message for editBookmark"
     },
     "deleteBookmark": {
-        "message": "Delete bookmark"
+        "message": "Delete bookmark",
+        "description": "Message for deleteBookmark"
     },
     "titleRequired": {
-        "message": "Title is required"
+        "message": "Title is required",
+        "description": "Message for titleRequired"
     },
     "titleTooLong": {
-        "message": "Title must be 100 characters or less"
+        "message": "Title must be 100 characters or less",
+        "description": "Message for titleTooLong"
     },
     "titleForbiddenChars": {
-        "message": "Title contains invalid characters"
+        "message": "Title contains invalid characters",
+        "description": "Message for titleForbiddenChars"
     },
     "titleForbiddenCharsDetailed": {
-        "message": "Title cannot contain: $1"
+        "message": "Title cannot contain: $1",
+        "description": "Message for titleForbiddenCharsDetailed"
     },
     "errorCalculating": {
-        "message": "Error calculating"
+        "message": "Error calculating",
+        "description": "Message for errorCalculating"
     },
     "inputMessage": {
-        "message": "Input Message"
+        "message": "Input Message",
+        "description": "Message for inputMessage"
     },
     "enterBookmarkTitle": {
-        "message": "Enter bookmark title..."
+        "message": "Enter bookmark title...",
+        "description": "Message for enterBookmarkTitle"
     },
     "renameBookmarkLabel": {
-        "message": "Rename bookmark"
+        "message": "Rename bookmark",
+        "description": "Message for renameBookmarkLabel"
     },
     "saveBookmark": {
-        "message": "Save Bookmark"
+        "message": "Save Bookmark",
+        "description": "Message for saveBookmark"
     },
     "moveBookmarksToFolder": {
-        "message": "Move Bookmarks to Folder"
+        "message": "Move Bookmarks to Folder",
+        "description": "Message for moveBookmarksToFolder"
     },
     "newFolder": {
-        "message": "New Folder"
+        "message": "New Folder",
+        "description": "Message for newFolder"
     },
     "newSubfolderTitle": {
-        "message": "New Subfolder"
+        "message": "New Subfolder",
+        "description": "Message for newSubfolderTitle"
     },
     "enterFolderName": {
-        "message": "Enter folder name"
+        "message": "Enter folder name",
+        "description": "Message for enterFolderName"
     },
     "loadingFolders": {
-        "message": "Loading folders..."
+        "message": "Loading folders...",
+        "description": "Message for loadingFolders"
     },
     "general": {
-        "message": "General"
+        "message": "General",
+        "description": "Message for general"
     },
     "language": {
-        "message": "Language"
+        "message": "Language",
+        "description": "Message for language"
     },
     "platforms": {
-        "message": "Platforms"
+        "message": "Platforms",
+        "description": "Message for platforms"
     },
     "behavior": {
-        "message": "Behavior"
+        "message": "Behavior",
+        "description": "Message for behavior"
     },
     "toolbarPageActionsSettingsLabel": {
-        "message": "Toolbar & Page Actions"
+        "message": "Toolbar & Page Actions",
+        "description": "Message for toolbarPageActionsSettingsLabel"
     },
     "platformRetirementNotice": {
-        "message": "Starting in v4.5.0, Gemini, Claude, and DeepSeek support will be retired. ChatGPT will be the only supported platform for this extension."
+        "message": "Starting in v4.5.0, Gemini, Claude, and DeepSeek support will be retired. ChatGPT will be the only supported platform for this extension.",
+        "description": "Message for platformRetirementNotice"
     },
     "chatgptDirectorySettingsLabel": {
-        "message": "ChatGPT Directory"
+        "message": "ChatGPT Directory",
+        "description": "Message for chatgptDirectorySettingsLabel"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "Show ChatGPT directory"
+        "message": "Show ChatGPT directory",
+        "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "Show the right-side conversation directory on ChatGPT pages."
+        "message": "Show the right-side conversation directory on ChatGPT pages.",
+        "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "Directory display mode"
+        "message": "Directory display mode",
+        "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "Choose how message previews appear from the right-side directory."
+        "message": "Choose how message previews appear from the right-side directory.",
+        "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "Compact preview"
+        "message": "Compact preview",
+        "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "Expanded list"
+        "message": "Expanded list",
+        "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
-        "message": "Show prompt endings"
+        "message": "Show prompt endings",
+        "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "In expanded directory mode, show the first 15 and last 15 prompt characters."
+        "message": "In expanded directory mode, show the first 15 and last 15 prompt characters.",
+        "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "reader": {
-        "message": "Reader"
+        "message": "Reader",
+        "description": "Message for reader"
     },
     "supportDevelopment": {
-        "message": "Support Development"
+        "message": "Support Development",
+        "description": "Message for supportDevelopment"
     },
     "ifProjectHelps": {
-        "message": "If this project helps you"
+        "message": "If this project helps you",
+        "description": "Message for ifProjectHelps"
     },
     "noFoldersYet": {
-        "message": "No folders yet"
+        "message": "No folders yet",
+        "description": "Message for noFoldersYet"
     },
     "createFirstFolder": {
-        "message": "Create your first folder to organize bookmarks"
+        "message": "Create your first folder to organize bookmarks",
+        "description": "Message for createFirstFolder"
     },
     "noResultsTitle": {
-        "message": "No results"
+        "message": "No results",
+        "description": "Message for noResultsTitle"
     },
     "noResultsHint": {
-        "message": "Try clearing search, platform, or folder filters."
+        "message": "Try clearing search, platform, or folder filters.",
+        "description": "Message for noResultsHint"
     },
     "clearFiltersBtn": {
-        "message": "Clear filters"
+        "message": "Clear filters",
+        "description": "Message for clearFiltersBtn"
     },
     "migrationComplete": {
-        "message": "Migration Complete"
+        "message": "Migration Complete",
+        "description": "Message for migrationComplete"
     },
     "migratedBookmarks": {
-        "message": "Migrated $1 bookmark(s) to \"Import\" folder"
+        "message": "Migrated $1 bookmark(s) to \"Import\" folder",
+        "description": "Message for migratedBookmarks"
     },
     "deleteSelected": {
-        "message": "Delete selected items"
+        "message": "Delete selected items",
+        "description": "Message for deleteSelected"
     },
     "moveSelected": {
-        "message": "Move selected items"
+        "message": "Move selected items",
+        "description": "Message for moveSelected"
     },
     "exportSelected": {
-        "message": "Export selected items"
+        "message": "Export selected items",
+        "description": "Message for exportSelected"
     },
     "clearSelection": {
-        "message": "Clear selection"
+        "message": "Clear selection",
+        "description": "Message for clearSelection"
     },
     "batchDelete": {
-        "message": "Delete"
+        "message": "Delete",
+        "description": "Message for batchDelete"
     },
     "batchMove": {
-        "message": "Move To"
+        "message": "Move To",
+        "description": "Message for batchMove"
     },
     "batchExport": {
-        "message": "Export"
+        "message": "Export",
+        "description": "Message for batchExport"
     },
     "batchClear": {
-        "message": "Clear"
+        "message": "Clear",
+        "description": "Message for batchClear"
     },
     "maxDepthExceeded": {
-        "message": "Maximum Depth Exceeded"
+        "message": "Maximum Depth Exceeded",
+        "description": "Message for maxDepthExceeded"
     },
     "maxDepthMessage": {
-        "message": "Maximum folder depth of 3 levels reached."
+        "message": "Maximum folder depth of 3 levels reached.",
+        "description": "Message for maxDepthMessage"
     },
     "failedToCreateFolder": {
-        "message": "Failed to Create Folder"
+        "message": "Failed to Create Folder",
+        "description": "Message for failedToCreateFolder"
     },
     "folderNameExists": {
-        "message": "Folder name already exists."
+        "message": "Folder name already exists.",
+        "description": "Message for folderNameExists"
     },
     "folderNameNoSlash": {
-        "message": "Folder name cannot contain \"/\"."
+        "message": "Folder name cannot contain \"/\".",
+        "description": "Message for folderNameNoSlash"
     },
     "folderNameTooLong": {
-        "message": "Folder name must be $1 characters or less."
+        "message": "Folder name must be $1 characters or less.",
+        "description": "Message for folderNameTooLong"
     },
     "folderNameTraversal": {
-        "message": "Folder name cannot contain \"..\"."
+        "message": "Folder name cannot contain \"..\".",
+        "description": "Message for folderNameTraversal"
     },
     "folderNameInvalidChars": {
-        "message": "Folder name contains invalid characters."
+        "message": "Folder name contains invalid characters.",
+        "description": "Message for folderNameInvalidChars"
     },
     "folderNameControlChars": {
-        "message": "Folder name cannot contain control characters."
+        "message": "Folder name cannot contain control characters.",
+        "description": "Message for folderNameControlChars"
     },
     "folderPathSegmentInvalid": {
-        "message": "Invalid folder name \"$1\": $2"
+        "message": "Invalid folder name \"$1\": $2",
+        "description": "Message for folderPathSegmentInvalid"
     },
     "spacesCollapsed": {
-        "message": "Consecutive spaces were collapsed."
+        "message": "Consecutive spaces were collapsed.",
+        "description": "Message for spacesCollapsed"
     },
     "failedToRename": {
-        "message": "Failed to Rename"
+        "message": "Failed to Rename",
+        "description": "Message for failedToRename"
     },
     "deleteBookmarkTitle": {
-        "message": "Delete Bookmark"
+        "message": "Delete Bookmark",
+        "description": "Message for deleteBookmarkTitle"
     },
     "deleteBookmarkMessage": {
-        "message": "Are you sure you want to delete this bookmark?"
+        "message": "Are you sure you want to delete this bookmark?",
+        "description": "Message for deleteBookmarkMessage"
     },
     "noItemsSelected": {
-        "message": "No Items Selected"
+        "message": "No Items Selected",
+        "description": "Message for noItemsSelected"
     },
     "pleaseSelectToExport": {
-        "message": "Please select items to export"
+        "message": "Please select items to export",
+        "description": "Message for pleaseSelectToExport"
     },
     "noBookmarksSelected": {
-        "message": "No Bookmarks Selected"
+        "message": "No Bookmarks Selected",
+        "description": "Message for noBookmarksSelected"
     },
     "noBookmarksToMove": {
-        "message": "No Bookmarks to Move"
+        "message": "No Bookmarks to Move",
+        "description": "Message for noBookmarksToMove"
     },
     "noBookmarksToMoveNote": {
-        "message": "Note: Folders cannot be moved, only bookmarks."
+        "message": "Note: Folders cannot be moved, only bookmarks.",
+        "description": "Message for noBookmarksToMoveNote"
     },
     "storageFull": {
-        "message": "Storage Full"
+        "message": "Storage Full",
+        "description": "Message for storageFull"
     },
     "storageWarning": {
-        "message": "Storage Warning"
+        "message": "Storage Warning",
+        "description": "Message for storageWarning"
     },
     "importSuccessful": {
-        "message": "Import Successful"
+        "message": "Import Successful",
+        "description": "Message for importSuccessful"
     },
     "importFailed": {
-        "message": "Import Failed"
+        "message": "Import Failed",
+        "description": "Message for importFailed"
     },
     "conversation": {
-        "message": "Conversation"
+        "message": "Conversation",
+        "description": "Message for conversation"
     },
     "bookmark": {
-        "message": "Bookmark"
+        "message": "Bookmark",
+        "description": "Message for bookmark"
     },
     "copyMarkdown": {
-        "message": "Copy Markdown"
+        "message": "Copy Markdown",
+        "description": "Message for copyMarkdown"
     },
     "close": {
-        "message": "Close"
+        "message": "Close",
+        "description": "Message for close"
     },
     "failedToCreateFolderError": {
-        "message": "Failed to create folder: $1"
+        "message": "Failed to create folder: $1",
+        "description": "Message for failedToCreateFolderError"
     },
     "failedToRenameError": {
-        "message": "Failed to rename: $1"
+        "message": "Failed to rename: $1",
+        "description": "Message for failedToRenameError"
     },
     "failedToDeleteError": {
-        "message": "Failed to delete: $1"
+        "message": "Failed to delete: $1",
+        "description": "Message for failedToDeleteError"
     },
     "failedToMoveError": {
-        "message": "Failed to move: $1"
+        "message": "Failed to move: $1",
+        "description": "Message for failedToMoveError"
     },
     "unknownError": {
-        "message": "Unknown error"
+        "message": "Unknown error",
+        "description": "Message for unknownError"
     },
     "sponsor": {
-        "message": "Sponsor"
+        "message": "Sponsor",
+        "description": "Message for sponsor"
     },
     "settings": {
-        "message": "Settings"
+        "message": "Settings",
+        "description": "Message for settings"
     },
     "bookmarks": {
-        "message": "Bookmarks"
+        "message": "Bookmarks",
+        "description": "Message for bookmarks"
     },
     "settingsLanguageLabel": {
-        "message": "Language"
+        "message": "Language",
+        "description": "Message for settingsLanguageLabel"
     },
     "settingsLanguageDesc": {
-        "message": "Choose your preferred language"
+        "message": "Choose your preferred language",
+        "description": "Message for settingsLanguageDesc"
     },
     "languageAuto": {
-        "message": "Auto (Browser Language)"
+        "message": "Auto (Browser Language)",
+        "description": "Message for languageAuto"
     },
     "languageEnglish": {
-        "message": "English"
+        "message": "English",
+        "description": "Message for languageEnglish"
     },
     "languageZhCN": {
-        "message": "简体中文"
+        "message": "简体中文",
+        "description": "Message for languageZhCN"
     },
     "enableOnChatGPT": {
-        "message": "Enable extension on ChatGPT"
+        "message": "Enable extension on ChatGPT",
+        "description": "Message for enableOnChatGPT"
     },
     "enableOnGemini": {
-        "message": "Enable extension on Gemini"
+        "message": "Enable extension on Gemini",
+        "description": "Message for enableOnGemini"
     },
     "enableOnClaude": {
-        "message": "Enable extension on Claude"
+        "message": "Enable extension on Claude",
+        "description": "Message for enableOnClaude"
     },
     "enableOnDeepseek": {
-        "message": "Enable extension on DeepSeek"
+        "message": "Enable extension on DeepSeek",
+        "description": "Message for enableOnDeepseek"
     },
     "saveMessagesLabel": {
-        "message": "Save Messages"
+        "message": "Save Messages",
+        "description": "Message for saveMessagesLabel"
     },
     "saveMessagesDesc": {
-        "message": "Show \"Save as\" button in toolbar"
+        "message": "Show \"Save as\" button in toolbar",
+        "description": "Message for saveMessagesDesc"
     },
     "wordCountLabel": {
-        "message": "Toolbar > Word Count"
+        "message": "Toolbar > Word Count",
+        "description": "Message for wordCountLabel"
     },
     "wordCountDesc": {
-        "message": "Show word count statistics in toolbar"
+        "message": "Show word count statistics in toolbar",
+        "description": "Message for wordCountDesc"
     },
     "clickToCopyLabel": {
-        "message": "Message > Click to Copy"
+        "message": "Message > Click to Copy",
+        "description": "Message for clickToCopyLabel"
     },
     "clickToCopyDesc": {
-        "message": "Enable click-to-copy for math formulas"
+        "message": "Enable click-to-copy for math formulas",
+        "description": "Message for clickToCopyDesc"
     },
     "formulaSettingsLabel": {
-        "message": "Formula"
+        "message": "Formula",
+        "description": "Message for formulaSettingsLabel"
     },
     "formulaClickCopyMarkdownLabel": {
-        "message": "Formula click copies Markdown"
+        "message": "Formula click copies Markdown",
+        "description": "Message for formulaClickCopyMarkdownLabel"
     },
     "formulaClickCopyMarkdownDesc": {
-        "message": "Click a formula to copy its original LaTeX / Markdown source."
+        "message": "Click a formula to copy its original LaTeX / Markdown source.",
+        "description": "Message for formulaClickCopyMarkdownDesc"
     },
     "formulaAssetActionsLabel": {
-        "message": "Formula image actions"
+        "message": "Formula image actions",
+        "description": "Message for formulaAssetActionsLabel"
     },
     "formulaAssetActionsDesc": {
-        "message": "Configure which PNG / SVG copy and save actions appear on formula hover."
+        "message": "Configure which PNG / SVG copy and save actions appear on formula hover.",
+        "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {
-        "message": "Formula image actions"
+        "message": "Formula image actions",
+        "description": "Message for formulaAssetActionsPopupTitle"
     },
     "formulaAssetActionsSummaryAll": {
-        "message": "All actions enabled"
+        "message": "All actions enabled",
+        "description": "Message for formulaAssetActionsSummaryAll"
     },
     "formulaAssetActionsSummaryNone": {
-        "message": "No image actions enabled"
+        "message": "No image actions enabled",
+        "description": "Message for formulaAssetActionsSummaryNone"
     },
     "formulaAssetActionsSummaryCount": {
-        "message": "$1 action(s) enabled"
+        "message": "$1 action(s) enabled",
+        "description": "Message for formulaAssetActionsSummaryCount"
     },
     "contextOnlySaveLabel": {
-        "message": "Bookmark > Context-Only Save"
+        "message": "Bookmark > Context-Only Save",
+        "description": "Message for contextOnlySaveLabel"
     },
     "contextOnlySaveDesc": {
-        "message": "Save space by keeping only 500 chars. Full preview will be specific to the context."
+        "message": "Save space by keeping only 500 chars. Full preview will be specific to the context.",
+        "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
-        "message": "Reader > Render Code Blocks"
+        "message": "Reader > Render Code Blocks",
+        "description": "Message for renderCodeBlocksLabel"
     },
     "renderCodeBlocksDesc": {
-        "message": "Display syntax-highlighted code in Reader Mode"
+        "message": "Display syntax-highlighted code in Reader Mode",
+        "description": "Message for renderCodeBlocksDesc"
     },
     "supportDevDesc": {
-        "message": "AI-MarkDone is open source. Star us on GitHub."
+        "message": "AI-MarkDone is open source. Star us on GitHub.",
+        "description": "Message for supportDevDesc"
     },
     "starOnGitHub": {
-        "message": "Star on GitHub"
+        "message": "Star on GitHub",
+        "description": "Message for starOnGitHub"
     },
     "supportCoffeeDesc": {
-        "message": "Support the project with a coffee if you want to."
+        "message": "Support the project with a coffee if you want to.",
+        "description": "Message for supportCoffeeDesc"
     },
     "buyMeCoffee": {
-        "message": "Buy Me a Coffee"
+        "message": "Buy Me a Coffee",
+        "description": "Message for buyMeCoffee"
     },
     "wechatAppreciationCode": {
-        "message": "微信赞赏码"
+        "message": "微信赞赏码",
+        "description": "Message for wechatAppreciationCode"
     },
     "xiaohongshuAccount": {
-        "message": "Xiaohongshu"
+        "message": "Xiaohongshu",
+        "description": "Message for xiaohongshuAccount"
     },
     "findMeOnXiaohongshu": {
-        "message": "Find me on Xiaohongshu"
+        "message": "Find me on Xiaohongshu",
+        "description": "Message for findMeOnXiaohongshu"
     },
     "followMe": {
-        "message": "Follow me"
+        "message": "Follow me",
+        "description": "Message for followMe"
     },
     "aboutProfileBio": {
-        "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me."
+        "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me.",
+        "description": "Message for aboutProfileBio"
     },
     "selectFolderLabel": {
-        "message": "Select folder"
+        "message": "Select folder",
+        "description": "Message for selectFolderLabel"
     },
     "movingBookmarks": {
-        "message": "Moving <strong>$1</strong> bookmark(s)"
+        "message": "Moving <strong>$1</strong> bookmark(s)",
+        "description": "Message for movingBookmarks"
     },
     "deleteBookmarkConfirm": {
-        "message": "Delete bookmark \"$1\"?"
+        "message": "Delete bookmark \"$1\"?",
+        "description": "Message for deleteBookmarkConfirm"
     },
     "deleteBookmarkTip": {
-        "message": "Tip: You can export your bookmarks first to create a backup."
+        "message": "Tip: You can export your bookmarks first to create a backup.",
+        "description": "Message for deleteBookmarkTip"
     },
     "noBookmarksSelectedMessage": {
-        "message": "No bookmarks selected"
+        "message": "No bookmarks selected",
+        "description": "Message for noBookmarksSelectedMessage"
     },
     "pleaseSelectToMove": {
-        "message": "Please select items to move"
+        "message": "Please select items to move",
+        "description": "Message for pleaseSelectToMove"
     },
     "storageQuotaExceeded": {
-        "message": "Storage quota exceeded"
+        "message": "Storage quota exceeded",
+        "description": "Message for storageQuotaExceeded"
     },
     "storageGettingFull": {
-        "message": "Storage is getting full"
+        "message": "Storage is getting full",
+        "description": "Message for storageGettingFull"
     },
     "notEnoughStorageForImport": {
-        "message": "Not enough storage space for import"
+        "message": "Not enough storage space for import",
+        "description": "Message for notEnoughStorageForImport"
     },
     "importedBookmarks": {
-        "message": "Imported $1 bookmark$2"
+        "message": "Imported $1 bookmark$2",
+        "description": "Message for importedBookmarks"
     },
     "skippedDuplicates": {
-        "message": "skipped $1 duplicate$2"
+        "message": "skipped $1 duplicate$2",
+        "description": "Message for skippedDuplicates"
     },
     "importFailedMessage": {
-        "message": "Import failed: $1"
+        "message": "Import failed: $1",
+        "description": "Message for importFailedMessage"
     },
     "maxDepthSubfolderMessage": {
-        "message": "Cannot create subfolder: Maximum folder depth is $1 levels.\\n\\nPlease create a new root folder or organize within existing folders."
+        "message": "Cannot create subfolder: Maximum folder depth is $1 levels.\\n\\nPlease create a new root folder or organize within existing folders.",
+        "description": "Message for maxDepthSubfolderMessage"
     },
     "maxDepthFolderMessage": {
-        "message": "Cannot create folder: Maximum folder depth is $1 levels.\\n\\nCurrent path would be: $2\\nDepth: $3\\n\\nPlease create a new root folder or organize within existing folders."
+        "message": "Cannot create folder: Maximum folder depth is $1 levels.\\n\\nCurrent path would be: $2\\nDepth: $3\\n\\nPlease create a new root folder or organize within existing folders.",
+        "description": "Message for maxDepthFolderMessage"
     },
     "failedToCreateFolderMessage": {
-        "message": "Failed to create folder: $1"
+        "message": "Failed to create folder: $1",
+        "description": "Message for failedToCreateFolderMessage"
     },
     "failedToRenameFolderMessage": {
-        "message": "Failed to rename folder: $1"
+        "message": "Failed to rename folder: $1",
+        "description": "Message for failedToRenameFolderMessage"
     },
     "folderNameEmpty": {
-        "message": "Folder name cannot be empty"
+        "message": "Folder name cannot be empty",
+        "description": "Message for folderNameEmpty"
     },
     "creatingSubfolderIn": {
-        "message": "Creating subfolder in: $1"
+        "message": "Creating subfolder in: $1",
+        "description": "Message for creatingSubfolderIn"
     },
     "createFirstFolderBtn": {
-        "message": "Create First Folder"
+        "message": "Create First Folder",
+        "description": "Message for createFirstFolderBtn"
     },
     "tabBookmarks": {
-        "message": "Bookmarks"
+        "message": "Bookmarks",
+        "description": "Message for tabBookmarks"
     },
     "tabSettings": {
-        "message": "Settings"
+        "message": "Settings",
+        "description": "Message for tabSettings"
     },
     "tabChangelog": {
-        "message": "Changelog"
+        "message": "Changelog",
+        "description": "Message for tabChangelog"
     },
     "tabAbout": {
-        "message": "About"
+        "message": "About",
+        "description": "Message for tabAbout"
     },
     "tabFaq": {
-        "message": "FAQ"
+        "message": "FAQ",
+        "description": "Message for tabFaq"
     },
     "tabSponsor": {
-        "message": "Buy Me Coffee"
+        "message": "Buy Me Coffee",
+        "description": "Message for tabSponsor"
     },
     "allLabel": {
-        "message": "All"
+        "message": "All",
+        "description": "Message for allLabel"
     },
     "foldersLabel": {
-        "message": "Folders"
+        "message": "Folders",
+        "description": "Message for foldersLabel"
     },
     "refreshBtn": {
-        "message": "Refresh"
+        "message": "Refresh",
+        "description": "Message for refreshBtn"
     },
     "repairBtn": {
-        "message": "Repair"
+        "message": "Repair",
+        "description": "Message for repairBtn"
     },
     "settingsTabPlaceholder": {
-        "message": "Settings are UI-only in this rewrite stage. Bookmark data actions remain available here."
+        "message": "Settings are UI-only in this rewrite stage. Bookmark data actions remain available here.",
+        "description": "Message for settingsTabPlaceholder"
     },
     "sponsorTabPlaceholder": {
-        "message": "If you find AI-MarkDone useful, consider supporting the project."
+        "message": "If you find AI-MarkDone useful, consider supporting the project.",
+        "description": "Message for sponsorTabPlaceholder"
     },
     "openGithubRepo": {
-        "message": "Open GitHub repository"
+        "message": "Open GitHub repository",
+        "description": "Message for openGithubRepo"
     },
     "saveContextOnlyConfirm": {
-        "message": "Save context only? (OK=yes, Cancel=no)"
+        "message": "Save context only? (OK=yes, Cancel=no)",
+        "description": "Message for saveContextOnlyConfirm"
     },
     "repairConfirm": {
-        "message": "Run repair? This may remove corrupted entries (quarantine is preserved)."
+        "message": "Run repair? This may remove corrupted entries (quarantine is preserved).",
+        "description": "Message for repairConfirm"
     },
     "promptNewFolderPath": {
-        "message": "New folder path (e.g. Work/Project)"
+        "message": "New folder path (e.g. Work/Project)",
+        "description": "Message for promptNewFolderPath"
     },
     "promptNewFolderName": {
-        "message": "Enter folder name"
+        "message": "Enter folder name",
+        "description": "Message for promptNewFolderName"
     },
     "promptTargetParentFolder": {
-        "message": "Target parent folder path (empty for root)"
+        "message": "Target parent folder path (empty for root)",
+        "description": "Message for promptTargetParentFolder"
     },
     "promptTargetFolderPath": {
-        "message": "Target folder path"
+        "message": "Target folder path",
+        "description": "Message for promptTargetFolderPath"
     },
     "folderPathPlaceholder": {
-        "message": "Work/Project"
+        "message": "Work/Project",
+        "description": "Message for folderPathPlaceholder"
     },
     "folderNamePlaceholder": {
-        "message": "Folder"
+        "message": "Folder",
+        "description": "Message for folderNamePlaceholder"
     },
     "noSelectionLabel": {
-        "message": "No selection"
+        "message": "No selection",
+        "description": "Message for noSelectionLabel"
     },
     "selectToPreview": {
-        "message": "Select a bookmark to preview."
+        "message": "Select a bookmark to preview.",
+        "description": "Message for selectToPreview"
     },
     "previewNotAvailable": {
-        "message": "Preview not available."
+        "message": "Preview not available.",
+        "description": "Message for previewNotAvailable"
     },
     "exportedStatus": {
-        "message": "Exported"
+        "message": "Exported",
+        "description": "Message for exportedStatus"
     },
     "importedStatus": {
-        "message": "Imported"
+        "message": "Imported",
+        "description": "Message for importedStatus"
     },
     "repairedStatus": {
-        "message": "Repaired"
+        "message": "Repaired",
+        "description": "Message for repairedStatus"
     },
     "movedStatus": {
-        "message": "Moved"
+        "message": "Moved",
+        "description": "Message for movedStatus"
     },
     "deletedStatus": {
-        "message": "Deleted"
+        "message": "Deleted",
+        "description": "Message for deletedStatus"
     },
     "folderCreatedStatus": {
-        "message": "Folder created"
+        "message": "Folder created",
+        "description": "Message for folderCreatedStatus"
     },
     "renamedStatus": {
-        "message": "Renamed"
+        "message": "Renamed",
+        "description": "Message for renamedStatus"
     },
     "selectedCount": {
-        "message": "$1 selected"
+        "message": "$1 selected",
+        "description": "Message for selectedCount"
     },
     "storageUsedLabel": {
-        "message": "Storage Used"
+        "message": "Storage Used",
+        "description": "Message for storageUsedLabel"
     },
     "storageCalculating": {
-        "message": "Calculating..."
+        "message": "Calculating...",
+        "description": "Message for storageCalculating"
     },
     "backupTitle": {
-        "message": "Back up your data"
+        "message": "Back up your data",
+        "description": "Message for backupTitle"
     },
     "backupWarning": {
-        "message": "⚠️ Uninstalling the extension will delete all bookmarks."
+        "message": "⚠️ Uninstalling the extension will delete all bookmarks.",
+        "description": "Message for backupWarning"
     },
     "exportAllBtn": {
-        "message": "Export All"
+        "message": "Export All",
+        "description": "Message for exportAllBtn"
     },
     "selectMessagesLabel": {
-        "message": "Select messages to save:"
+        "message": "Select messages to save:",
+        "description": "Message for selectMessagesLabel"
     },
     "formatLabel": {
-        "message": "Format:"
+        "message": "Format:",
+        "description": "Message for formatLabel"
     },
     "selectedCountMessages": {
-        "message": "$1 / $2 selected"
+        "message": "$1 / $2 selected",
+        "description": "Message for selectedCountMessages"
     },
     "dataAndStorage": {
-        "message": "Data & Storage"
+        "message": "Data & Storage",
+        "description": "Message for dataAndStorage"
     },
     "deleteSelectedTitle": {
-        "message": "Delete Selected Items"
+        "message": "Delete Selected Items",
+        "description": "Message for deleteSelectedTitle"
     },
     "deletePermanentlyPrefix": {
-        "message": "This will permanently delete:"
+        "message": "This will permanently delete:",
+        "description": "Message for deletePermanentlyPrefix"
     },
     "rootFoldersCount": {
-        "message": "$1 root folder(s)"
+        "message": "$1 root folder(s)",
+        "description": "Message for rootFoldersCount"
     },
     "subFoldersCount": {
-        "message": "$1 subfolder(s)"
+        "message": "$1 subfolder(s)",
+        "description": "Message for subFoldersCount"
     },
     "bookmarksCount": {
-        "message": "$1 bookmark(s)"
+        "message": "$1 bookmark(s)",
+        "description": "Message for bookmarksCount"
     },
     "failedToExtractUserMessage": {
-        "message": "Failed to extract user message. Please try again."
+        "message": "Failed to extract user message. Please try again.",
+        "description": "Message for failedToExtractUserMessage"
     },
     "failedToPrepareBookmark": {
-        "message": "Failed to prepare bookmark. Please try again."
+        "message": "Failed to prepare bookmark. Please try again.",
+        "description": "Message for failedToPrepareBookmark"
     },
     "failedToToggleBookmark": {
-        "message": "Failed to toggle bookmark"
+        "message": "Failed to toggle bookmark",
+        "description": "Message for failedToToggleBookmark"
     },
     "failedToRenderContent": {
-        "message": "Failed to render content"
+        "message": "Failed to render content",
+        "description": "Message for failedToRenderContent"
     },
     "exitFullscreen": {
-        "message": "Exit fullscreen"
+        "message": "Exit fullscreen",
+        "description": "Message for exitFullscreen"
     },
     "importStatusNormal": {
-        "message": "Normal import"
+        "message": "Normal import",
+        "description": "Message for importStatusNormal"
     },
     "importStatusRename": {
-        "message": "Rename & merge"
+        "message": "Rename & merge",
+        "description": "Message for importStatusRename"
     },
     "importStatusMoveToImport": {
-        "message": "Move to Import"
+        "message": "Move to Import",
+        "description": "Message for importStatusMoveToImport"
     },
     "importStatusDuplicate": {
-        "message": "Skip (duplicate)"
+        "message": "Skip (duplicate)",
+        "description": "Message for importStatusDuplicate"
     },
     "importActionRenameMerge": {
-        "message": "Rename & Merge"
+        "message": "Rename & Merge",
+        "description": "Message for importActionRenameMerge"
     },
     "importActionMerge": {
-        "message": "Merge"
+        "message": "Merge",
+        "description": "Message for importActionMerge"
     },
     "importConfirmationTitle": {
-        "message": "Import Confirmation"
+        "message": "Import Confirmation",
+        "description": "Message for importConfirmationTitle"
     },
     "importingCount": {
-        "message": "Importing <strong>$1</strong> bookmark(s)."
+        "message": "Importing <strong>$1</strong> bookmark(s).",
+        "description": "Message for importingCount"
     },
     "importSummaryNormal": {
-        "message": "Normal"
+        "message": "Normal",
+        "description": "Message for importSummaryNormal"
     },
     "importSummaryRenamed": {
-        "message": "Renamed"
+        "message": "Renamed",
+        "description": "Message for importSummaryRenamed"
     },
     "importSummaryToImport": {
-        "message": "To Import"
+        "message": "To Import",
+        "description": "Message for importSummaryToImport"
     },
     "importSummarySkipped": {
-        "message": "Skipped"
+        "message": "Skipped",
+        "description": "Message for importSummarySkipped"
     },
     "folderLabel": {
-        "message": "Folder:"
+        "message": "Folder:",
+        "description": "Message for folderLabel"
     },
     "renamedToLabel": {
-        "message": "Renamed to:"
+        "message": "Renamed to:",
+        "description": "Message for renamedToLabel"
     },
     "existingEntryLabel": {
-        "message": "Existing entry:"
+        "message": "Existing entry:",
+        "description": "Message for existingEntryLabel"
     },
     "pendingImportLabel": {
-        "message": "Pending import:"
+        "message": "Pending import:",
+        "description": "Message for pendingImportLabel"
     },
     "actionCannotBeUndone": {
-        "message": "This action cannot be undone."
+        "message": "This action cannot be undone.",
+        "description": "Message for actionCannotBeUndone"
     },
     "exportMetadata": {
-        "message": "Exported from $1 on $2"
+        "message": "Exported from $1 on $2",
+        "description": "Message for exportMetadata"
     },
     "exportMessagePrefix": {
-        "message": "Message $1"
+        "message": "Message $1",
+        "description": "Message for exportMessagePrefix"
     },
     "exportUserLabel": {
-        "message": "User"
+        "message": "User",
+        "description": "Message for exportUserLabel"
     },
     "exportAssistantLabel": {
-        "message": "Assistant"
+        "message": "Assistant",
+        "description": "Message for exportAssistantLabel"
     },
     "pdfExportedFrom": {
-        "message": "Exported from $1"
+        "message": "Exported from $1",
+        "description": "Message for pdfExportedFrom"
     },
     "pdfMessagesCount": {
-        "message": "$1 message(s)"
+        "message": "$1 message(s)",
+        "description": "Message for pdfMessagesCount"
     },
     "pdfMessagePrefix": {
-        "message": "Message $1"
+        "message": "Message $1",
+        "description": "Message for pdfMessagePrefix"
     },
     "pdfUserLabel": {
-        "message": "User"
+        "message": "User",
+        "description": "Message for pdfUserLabel"
     },
     "pdfAssistantLabel": {
-        "message": "Assistant"
+        "message": "Assistant",
+        "description": "Message for pdfAssistantLabel"
     },
     "allPlatforms": {
-        "message": "All Platforms"
+        "message": "All Platforms",
+        "description": "Message for allPlatforms"
     },
     "contextOnlyConfirmTitle": {
-        "message": "Enable Context-Only Save?"
+        "message": "Enable Context-Only Save?",
+        "description": "Message for contextOnlyConfirmTitle"
     },
     "contextOnlyConfirmSummary": {
-        "message": "This will save only 500 characters (250 from start + 250 from end) for new bookmarks."
+        "message": "This will save only 500 characters (250 from start + 250 from end) for new bookmarks.",
+        "description": "Message for contextOnlyConfirmSummary"
     },
     "contextOnlyBenefitTitle": {
-        "message": "Benefit:"
+        "message": "Benefit:",
+        "description": "Message for contextOnlyBenefitTitle"
     },
     "contextOnlyBenefitDesc": {
-        "message": "Significantly reduces storage usage."
+        "message": "Significantly reduces storage usage.",
+        "description": "Message for contextOnlyBenefitDesc"
     },
     "contextOnlyTradeoffTitle": {
-        "message": "Trade-off:"
+        "message": "Trade-off:",
+        "description": "Message for contextOnlyTradeoffTitle"
     },
     "contextOnlyTradeoffDesc": {
-        "message": "Full text preview will not be available in the bookmark panel."
+        "message": "Full text preview will not be available in the bookmark panel.",
+        "description": "Message for contextOnlyTradeoffDesc"
     },
     "contextOnlyEnable": {
-        "message": "Enable"
+        "message": "Enable",
+        "description": "Message for contextOnlyEnable"
     },
     "noFoldersCreateHint": {
-        "message": "No folders yet. Create one to get started!"
+        "message": "No folders yet. Create one to get started!",
+        "description": "Message for noFoldersCreateHint"
     },
     "loadingText": {
-        "message": "Loading..."
+        "message": "Loading...",
+        "description": "Message for loadingText"
     },
     "positionNotAvailable": {
-        "message": "Position not available"
+        "message": "Position not available",
+        "description": "Message for positionNotAvailable"
     },
     "clipboardWriteFailed": {
-        "message": "Clipboard write failed"
+        "message": "Clipboard write failed",
+        "description": "Message for clipboardWriteFailed"
     },
     "savedStatus": {
-        "message": "Saved"
+        "message": "Saved",
+        "description": "Message for savedStatus"
     },
     "removedStatus": {
-        "message": "Removed"
+        "message": "Removed",
+        "description": "Message for removedStatus"
     },
     "sendFailed": {
-        "message": "Send failed"
+        "message": "Send failed",
+        "description": "Message for sendFailed"
     },
     "sendEmpty": {
-        "message": "Empty"
+        "message": "Empty",
+        "description": "Message for sendEmpty"
     },
     "sendingStatus": {
-        "message": "Sending..."
+        "message": "Sending...",
+        "description": "Message for sendingStatus"
     },
     "sentStatus": {
-        "message": "Sent"
+        "message": "Sent",
+        "description": "Message for sentStatus"
     },
     "paginationLabel": {
-        "message": "Pagination"
+        "message": "Pagination",
+        "description": "Message for paginationLabel"
     },
     "goToPage": {
-        "message": "Go to $1"
+        "message": "Go to $1",
+        "description": "Message for goToPage"
     },
     "readerPagerHint": {
-        "message": "Arrow keys ready"
+        "message": "Arrow keys ready",
+        "description": "Message for readerPagerHint"
     },
     "resizeSendPopover": {
-        "message": "Resize send popover"
+        "message": "Resize send popover",
+        "description": "Message for resizeSendPopover"
     },
     "searchBookmarksPlaceholder": {
-        "message": "Search bookmarks"
+        "message": "Search bookmarks",
+        "description": "Message for searchBookmarksPlaceholder"
     },
     "untitledLabel": {
-        "message": "(untitled)"
+        "message": "(untitled)",
+        "description": "Message for untitledLabel"
     },
     "emptyBookmarksHint": {
-        "message": "Create a folder or import bookmarks to start browsing saved messages."
+        "message": "Create a folder or import bookmarks to start browsing saved messages.",
+        "description": "Message for emptyBookmarksHint"
     },
     "settingsPlatformChatgptDesc": {
-        "message": "Enable AI-MarkDone on ChatGPT."
+        "message": "Enable AI-MarkDone on ChatGPT.",
+        "description": "Message for settingsPlatformChatgptDesc"
     },
     "settingsPlatformGeminiDesc": {
-        "message": "Enable AI-MarkDone on Gemini."
+        "message": "Enable AI-MarkDone on Gemini.",
+        "description": "Message for settingsPlatformGeminiDesc"
     },
     "settingsPlatformClaudeDesc": {
-        "message": "Enable AI-MarkDone on Claude."
+        "message": "Enable AI-MarkDone on Claude.",
+        "description": "Message for settingsPlatformClaudeDesc"
     },
     "settingsPlatformDeepseekDesc": {
-        "message": "Enable AI-MarkDone on DeepSeek."
+        "message": "Enable AI-MarkDone on DeepSeek.",
+        "description": "Message for settingsPlatformDeepseekDesc"
     },
     "settingsShowSaveMessagesLabel": {
-        "message": "Show Save Messages"
+        "message": "Show Save Messages",
+        "description": "Message for settingsShowSaveMessagesLabel"
     },
     "settingsShowSaveMessagesDesc": {
-        "message": "Show the Save Messages action where export is supported."
+        "message": "Show the Save Messages action where export is supported.",
+        "description": "Message for settingsShowSaveMessagesDesc"
     },
     "settingsShowWordCountLabel": {
-        "message": "Show Word Count"
+        "message": "Show Word Count",
+        "description": "Message for settingsShowWordCountLabel"
     },
     "settingsShowWordCountDesc": {
-        "message": "Display word count information for saved and rendered content."
+        "message": "Display word count information for saved and rendered content.",
+        "description": "Message for settingsShowWordCountDesc"
     },
     "settingsEnableClickToCopyLabel": {
-        "message": "Enable click-to-copy"
+        "message": "Enable click-to-copy",
+        "description": "Message for settingsEnableClickToCopyLabel"
     },
     "settingsEnableClickToCopyDesc": {
-        "message": "Copy message content directly when supported surfaces are clicked."
+        "message": "Copy message content directly when supported surfaces are clicked.",
+        "description": "Message for settingsEnableClickToCopyDesc"
     },
     "settingsSaveContextOnlyLabel": {
-        "message": "Save context only"
+        "message": "Save context only",
+        "description": "Message for settingsSaveContextOnlyLabel"
     },
     "settingsSaveContextOnlyDesc": {
-        "message": "Only save the conversation context instead of the full thread when exporting or bookmarking."
+        "message": "Only save the conversation context instead of the full thread when exporting or bookmarking.",
+        "description": "Message for settingsSaveContextOnlyDesc"
     },
     "settingsRenderCodeInReaderLabel": {
-        "message": "Render code in Reader"
+        "message": "Render code in Reader",
+        "description": "Message for settingsRenderCodeInReaderLabel"
     },
     "settingsRenderCodeInReaderDesc": {
-        "message": "Render fenced code blocks with reader formatting instead of raw plain text."
+        "message": "Render fenced code blocks with reader formatting instead of raw plain text.",
+        "description": "Message for settingsRenderCodeInReaderDesc"
     },
     "settingsInterfaceLanguageLabel": {
-        "message": "Interface language"
+        "message": "Interface language",
+        "description": "Message for settingsInterfaceLanguageLabel"
     },
     "settingsInterfaceLanguageDesc": {
-        "message": "Auto follows the browser, or pin the UI to a specific locale."
+        "message": "Auto follows the browser, or pin the UI to a specific locale.",
+        "description": "Message for settingsInterfaceLanguageDesc"
     },
     "backupBookmarksHint": {
-        "message": "Export everything before major refactors or browser reinstalls."
+        "message": "Export everything before major refactors or browser reinstalls.",
+        "description": "Message for backupBookmarksHint"
     },
     "sponsorOpenSourceTitle": {
-        "message": "Open source support"
+        "message": "Open source support",
+        "description": "Message for sponsorOpenSourceTitle"
     },
     "sponsorOpenSourceNote": {
-        "message": "Star the repository to help the project stay visible."
+        "message": "Star the repository to help the project stay visible.",
+        "description": "Message for sponsorOpenSourceNote"
     },
     "sponsorOpenSourceBody": {
-        "message": "If the project is useful, starring the repository is the fastest way to help. It improves discoverability and makes continued maintenance easier to justify."
+        "message": "If the project is useful, starring the repository is the fastest way to help. It improves discoverability and makes continued maintenance easier to justify.",
+        "description": "Message for sponsorOpenSourceBody"
     },
     "sponsorDonateTitle": {
-        "message": "Donate"
+        "message": "Donate",
+        "description": "Message for sponsorDonateTitle"
     },
     "sponsorDonateNote": {
-        "message": "Support development directly with the existing sponsor channels."
+        "message": "Support development directly with the existing sponsor channels.",
+        "description": "Message for sponsorDonateNote"
     },
     "sponsorDonateBody": {
-        "message": "If AI-MarkDone saves you time, you can also support development directly through the same two channels used in the shipped sponsor tab."
+        "message": "If AI-MarkDone saves you time, you can also support development directly through the same two channels used in the shipped sponsor tab.",
+        "description": "Message for sponsorDonateBody"
     },
     "sponsorBmcNote": {
-        "message": "Quick international support"
+        "message": "Quick international support",
+        "description": "Message for sponsorBmcNote"
     },
     "sponsorBmcAlt": {
-        "message": "Buy Me a Coffee QR code"
+        "message": "Buy Me a Coffee QR code",
+        "description": "Message for sponsorBmcAlt"
     },
     "sponsorWechatNote": {
-        "message": "Direct appreciation in WeChat"
+        "message": "Direct appreciation in WeChat",
+        "description": "Message for sponsorWechatNote"
     },
     "sponsorWechatAlt": {
-        "message": "WeChat appreciation code"
+        "message": "WeChat appreciation code",
+        "description": "Message for sponsorWechatAlt"
     },
     "sponsorThanksTitle": {
-        "message": "Thanks to Sponsors"
+        "message": "Thanks to Sponsors",
+        "description": "Message for sponsorThanksTitle"
     },
     "sponsorThanksDesc": {
-        "message": "Every bit of support makes AI-MarkDone easier to keep improving."
+        "message": "Every bit of support makes AI-MarkDone easier to keep improving.",
+        "description": "Message for sponsorThanksDesc"
     },
     "sponsorThanksAriaLabel": {
-        "message": "Sponsor thank-you list"
+        "message": "Sponsor thank-you list",
+        "description": "Message for sponsorThanksAriaLabel"
     },
     "exportAllBookmarksLabel": {
-        "message": "Export all bookmarks"
+        "message": "Export all bookmarks",
+        "description": "Message for exportAllBookmarksLabel"
     },
     "moveBookmarkLabel": {
-        "message": "Move bookmark"
+        "message": "Move bookmark",
+        "description": "Message for moveBookmarkLabel"
     },
     "expandFolderLabel": {
-        "message": "Expand folder"
+        "message": "Expand folder",
+        "description": "Message for expandFolderLabel"
     },
     "collapseFolderLabel": {
-        "message": "Collapse folder"
+        "message": "Collapse folder",
+        "description": "Message for collapseFolderLabel"
     },
     "deleteSelectedMessage": {
-        "message": "Delete selected items?"
+        "message": "Delete selected items?",
+        "description": "Message for deleteSelectedMessage"
     },
     "confirmAction": {
-        "message": "Confirm"
+        "message": "Confirm",
+        "description": "Message for confirmAction"
     },
     "importMergeReviewTitle": {
-        "message": "Import merge review"
+        "message": "Import merge review",
+        "description": "Message for importMergeReviewTitle"
     },
     "importMergeSummaryHeading": {
-        "message": "Summary"
+        "message": "Summary",
+        "description": "Message for importMergeSummaryHeading"
     },
     "importMergeDetailsHeading": {
-        "message": "Details"
+        "message": "Details",
+        "description": "Message for importMergeDetailsHeading"
     },
     "importMergeSummaryImported": {
-        "message": "Imported"
+        "message": "Imported",
+        "description": "Message for importMergeSummaryImported"
     },
     "importMergeSummarySkippedDuplicates": {
-        "message": "Skipped duplicates"
+        "message": "Skipped duplicates",
+        "description": "Message for importMergeSummarySkippedDuplicates"
     },
     "importMergeSummaryRenamedTitles": {
-        "message": "Renamed titles"
+        "message": "Renamed titles",
+        "description": "Message for importMergeSummaryRenamedTitles"
     },
     "importMergeSummaryFolderFallbacks": {
-        "message": "Folder fallbacks"
+        "message": "Folder fallbacks",
+        "description": "Message for importMergeSummaryFolderFallbacks"
     },
     "importMergeImportedBookmarksTitle": {
-        "message": "Imported bookmarks"
+        "message": "Imported bookmarks",
+        "description": "Message for importMergeImportedBookmarksTitle"
     },
     "importMergeImportedBookmarksDetail": {
-        "message": "$1 bookmarks were added or updated."
+        "message": "$1 bookmarks were added or updated.",
+        "description": "Message for importMergeImportedBookmarksDetail"
     },
     "importMergeDuplicateBookmarksTitle": {
-        "message": "Duplicate bookmarks"
+        "message": "Duplicate bookmarks",
+        "description": "Message for importMergeDuplicateBookmarksTitle"
     },
     "importMergeDuplicateBookmarksDetail": {
-        "message": "$1 duplicates were skipped."
+        "message": "$1 duplicates were skipped.",
+        "description": "Message for importMergeDuplicateBookmarksDetail"
     },
     "importMergeRenamedTitlesTitle": {
-        "message": "Renamed titles"
+        "message": "Renamed titles",
+        "description": "Message for importMergeRenamedTitlesTitle"
     },
     "importMergeRenamedTitlesDetail": {
-        "message": "$1 titles were renamed to avoid conflicts."
+        "message": "$1 titles were renamed to avoid conflicts.",
+        "description": "Message for importMergeRenamedTitlesDetail"
     },
     "importMergeWarningTitle": {
-        "message": "Warning"
+        "message": "Warning",
+        "description": "Message for importMergeWarningTitle"
     },
     "importMergeStatusDuplicate": {
-        "message": "Duplicate"
+        "message": "Duplicate",
+        "description": "Message for importMergeStatusDuplicate"
     },
     "importMergeStatusInfo": {
-        "message": "Info"
+        "message": "Info",
+        "description": "Message for importMergeStatusInfo"
     },
     "streamingStatus": {
-        "message": "Streaming..."
+        "message": "Streaming...",
+        "description": "Message for streamingStatus"
     }
 }

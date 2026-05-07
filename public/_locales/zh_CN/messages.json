@@ -1,1406 +1,1874 @@
 {
     "extName": {
-        "message": "AI-MarkDone"
+        "message": "AI-MarkDone",
+        "description": "Message for extName"
     },
     "extDescription": {
-        "message": "AI 专业提效神器：阅读模式、对话目录、书签管理、LaTeX 公式复制与 Markdown 导出。支持 ChatGPT、Gemini、Claude 和 DeepSeek。"
+        "message": "AI 专业提效神器：阅读模式、对话目录、书签管理、LaTeX 公式复制与 Markdown 导出。支持 ChatGPT、Gemini、Claude 和 DeepSeek。",
+        "description": "Message for extDescription"
     },
     "btnCopy": {
-        "message": "复制 Markdown"
+        "message": "复制 Markdown",
+        "description": "Message for btnCopy"
     },
     "btnCopied": {
-        "message": "已复制!"
+        "message": "已复制!",
+        "description": "Message for btnCopied"
     },
     "btnCopyAsPng": {
-        "message": "复制为 PNG"
+        "message": "复制为 PNG",
+        "description": "Message for btnCopyAsPng"
     },
     "btnCopyAsPngCopied": {
-        "message": "PNG 已复制!"
+        "message": "PNG 已复制!",
+        "description": "Message for btnCopyAsPngCopied"
     },
     "btnCopyAsPngDownloaded": {
-        "message": "PNG 已下载"
+        "message": "PNG 已下载",
+        "description": "Message for btnCopyAsPngDownloaded"
     },
     "formulaCopyAsPng": {
-        "message": "复制为PNG"
+        "message": "复制为PNG",
+        "description": "Message for formulaCopyAsPng"
     },
     "formulaCopyAsSvg": {
-        "message": "复制为SVG"
+        "message": "复制为SVG",
+        "description": "Message for formulaCopyAsSvg"
     },
     "formulaSaveAsPng": {
-        "message": "保存为PNG"
+        "message": "保存为PNG",
+        "description": "Message for formulaSaveAsPng"
     },
     "formulaSaveAsSvg": {
-        "message": "保存为SVG"
+        "message": "保存为SVG",
+        "description": "Message for formulaSaveAsSvg"
     },
     "formulaAssetSaved": {
-        "message": "已保存"
+        "message": "已保存",
+        "description": "Message for formulaAssetSaved"
     },
     "formulaAssetRendering": {
-        "message": "正在渲染..."
+        "message": "正在渲染...",
+        "description": "Message for formulaAssetRendering"
     },
     "btnBookmark": {
-        "message": "书签"
+        "message": "书签",
+        "description": "Message for btnBookmark"
     },
     "btnRemoveBookmark": {
-        "message": "移除书签"
+        "message": "移除书签",
+        "description": "Message for btnRemoveBookmark"
     },
     "btnReader": {
-        "message": "阅读器"
+        "message": "阅读器",
+        "description": "Message for btnReader"
     },
     "btnSaveAs": {
-        "message": "另存为"
+        "message": "另存为",
+        "description": "Message for btnSaveAs"
     },
     "btnExport": {
-        "message": "导出"
+        "message": "导出",
+        "description": "Message for btnExport"
     },
     "btnWordCount": {
-        "message": "字数统计"
+        "message": "字数统计",
+        "description": "Message for btnWordCount"
     },
     "btnClose": {
-        "message": "关闭"
+        "message": "关闭",
+        "description": "Message for btnClose"
     },
     "btnDelete": {
-        "message": "删除"
+        "message": "删除",
+        "description": "Message for btnDelete"
     },
     "btnEdit": {
-        "message": "编辑"
+        "message": "编辑",
+        "description": "Message for btnEdit"
     },
     "btnConfigure": {
-        "message": "配置"
+        "message": "配置",
+        "description": "Message for btnConfigure"
     },
     "btnBack": {
-        "message": "返回"
+        "message": "返回",
+        "description": "Message for btnBack"
     },
     "btnCancel": {
-        "message": "取消"
+        "message": "取消",
+        "description": "Message for btnCancel"
     },
     "btnOk": {
-        "message": "确定"
+        "message": "确定",
+        "description": "Message for btnOk"
     },
     "changelogNoticeTitle": {
-        "message": "AI-MarkDone $1 更新内容"
+        "message": "AI-MarkDone $1 更新内容",
+        "description": "Message for changelogNoticeTitle"
     },
     "changelogNoticeViewAll": {
-        "message": "查看完整更新日志"
+        "message": "查看完整更新日志",
+        "description": "Message for changelogNoticeViewAll"
     },
     "btnReset": {
-        "message": "重置"
+        "message": "重置",
+        "description": "Message for btnReset"
     },
     "btnSave": {
-        "message": "保存"
+        "message": "保存",
+        "description": "Message for btnSave"
     },
     "loading": {
-        "message": "加载中..."
+        "message": "加载中...",
+        "description": "Message for loading"
     },
     "noContent": {
-        "message": "无内容"
+        "message": "无内容",
+        "description": "Message for noContent"
     },
     "openingPreview": {
-        "message": "打开预览..."
+        "message": "打开预览...",
+        "description": "Message for openingPreview"
     },
     "saving": {
-        "message": "保存中..."
+        "message": "保存中...",
+        "description": "Message for saving"
     },
     "done": {
-        "message": "完成"
+        "message": "完成",
+        "description": "Message for done"
     },
     "copyAppSettings": {
-        "message": "复制应用设置"
+        "message": "复制应用设置",
+        "description": "Message for copyAppSettings"
     },
     "resetAppSettings": {
-        "message": "重置应用设置"
+        "message": "重置应用设置",
+        "description": "Message for resetAppSettings"
     },
     "readerTitle": {
-        "message": "AI-Markdone 阅读器"
+        "message": "AI-Markdone 阅读器",
+        "description": "Message for readerTitle"
     },
     "toggleFullscreen": {
-        "message": "切换全屏"
+        "message": "切换全屏",
+        "description": "Message for toggleFullscreen"
     },
     "previousMessage": {
-        "message": "上一条消息"
+        "message": "上一条消息",
+        "description": "Message for previousMessage"
     },
     "nextMessage": {
-        "message": "下一条消息"
+        "message": "下一条消息",
+        "description": "Message for nextMessage"
     },
     "navigateHint": {
-        "message": "\"← →\" 切换消息"
+        "message": "\"← →\" 切换消息",
+        "description": "Message for navigateHint"
     },
     "typeYourMessage": {
-        "message": "输入你的消息..."
+        "message": "输入你的消息...",
+        "description": "Message for typeYourMessage"
     },
     "saveMessages": {
-        "message": "保存消息"
+        "message": "保存消息",
+        "description": "Message for saveMessages"
     },
     "selectAll": {
-        "message": "全选"
+        "message": "全选",
+        "description": "Message for selectAll"
     },
     "deselectAll": {
-        "message": "取消全选"
+        "message": "取消全选",
+        "description": "Message for deselectAll"
     },
     "readerMode": {
-        "message": "阅读模式"
+        "message": "阅读模式",
+        "description": "Message for readerMode"
     },
     "contentNotFound": {
-        "message": "内容未找到"
+        "message": "内容未找到",
+        "description": "Message for contentNotFound"
     },
     "copyFailed": {
-        "message": "复制失败"
+        "message": "复制失败",
+        "description": "Message for copyFailed"
     },
     "clipboardImageWriteFailed": {
-        "message": "PNG 复制失败"
+        "message": "PNG 复制失败",
+        "description": "Message for clipboardImageWriteFailed"
     },
     "clipboardImageWriteUnsupported": {
-        "message": "当前浏览器不支持复制 PNG 图片"
+        "message": "当前浏览器不支持复制 PNG 图片",
+        "description": "Message for clipboardImageWriteUnsupported"
     },
     "openFailed": {
-        "message": "打开失败"
+        "message": "打开失败",
+        "description": "Message for openFailed"
     },
     "exportOptions": {
-        "message": "导出选项"
+        "message": "导出选项",
+        "description": "Message for exportOptions"
     },
     "selectExportMethod": {
-        "message": "选择导出方式:"
+        "message": "选择导出方式:",
+        "description": "Message for selectExportMethod"
     },
     "keepFolderStructure": {
-        "message": "保留文件夹结构"
+        "message": "保留文件夹结构",
+        "description": "Message for keepFolderStructure"
     },
     "exportAsFolders": {
-        "message": "导出为分层的文件夹和书签"
+        "message": "导出为分层的文件夹和书签",
+        "description": "Message for exportAsFolders"
     },
     "flatList": {
-        "message": "扁平列表"
+        "message": "扁平列表",
+        "description": "Message for flatList"
     },
     "exportBookmarksOnly": {
-        "message": "仅导出所有书签，不含文件夹"
+        "message": "仅导出所有书签，不含文件夹",
+        "description": "Message for exportBookmarksOnly"
     },
     "export": {
-        "message": "导出"
+        "message": "导出",
+        "description": "Message for export"
     },
     "renameTo": {
-        "message": "重命名为"
+        "message": "重命名为",
+        "description": "Message for renameTo"
     },
     "autoRename": {
-        "message": "自动重命名"
+        "message": "自动重命名",
+        "description": "Message for autoRename"
     },
     "clickCopy": {
-        "message": "点击复制"
+        "message": "点击复制",
+        "description": "Message for clickCopy"
     },
     "btnCopyText": {
-        "message": "复制"
+        "message": "复制",
+        "description": "Message for btnCopyText"
     },
     "readerCommentAction": {
-        "message": "注释"
+        "message": "注释",
+        "description": "Message for readerCommentAction"
     },
     "readerCommentAddTitle": {
-        "message": "添加注释"
+        "message": "添加注释",
+        "description": "Message for readerCommentAddTitle"
     },
     "readerCommentEditTitle": {
-        "message": "编辑注释"
+        "message": "编辑注释",
+        "description": "Message for readerCommentEditTitle"
     },
     "readerCommentPlaceholder": {
-        "message": "输入你的注释..."
+        "message": "输入你的注释...",
+        "description": "Message for readerCommentPlaceholder"
     },
     "readerCommentSave": {
-        "message": "保存注释"
+        "message": "保存注释",
+        "description": "Message for readerCommentSave"
     },
     "readerCommentSaved": {
-        "message": "注释已保存"
+        "message": "注释已保存",
+        "description": "Message for readerCommentSaved"
     },
     "readerCommentDeleted": {
-        "message": "注释已删除"
+        "message": "注释已删除",
+        "description": "Message for readerCommentDeleted"
     },
     "readerCommentCopyComments": {
-        "message": "复制注释"
+        "message": "复制注释",
+        "description": "Message for readerCommentCopyComments"
     },
     "readerCommentCopyEmpty": {
-        "message": "当前还没有可复制的注释。"
+        "message": "当前还没有可复制的注释。",
+        "description": "Message for readerCommentCopyEmpty"
     },
     "readerCommentUserPrompt": {
-        "message": "用户提示词"
+        "message": "用户提示词",
+        "description": "Message for readerCommentUserPrompt"
     },
     "readerCommentTemplate": {
-        "message": "注释模板"
+        "message": "注释模板",
+        "description": "Message for readerCommentTemplate"
     },
     "readerCommentTemplateHint": {
-        "message": "使用上方按钮插入占位标签。标签文案可本地化，导出时会使用稳定的内部占位符。"
+        "message": "使用上方按钮插入占位标签。标签文案可本地化，导出时会使用稳定的内部占位符。",
+        "description": "Message for readerCommentTemplateHint"
     },
     "readerCommentTemplatePlaceholder": {
-        "message": "在这里编写注释模板..."
+        "message": "在这里编写注释模板...",
+        "description": "Message for readerCommentTemplatePlaceholder"
     },
     "readerCommentTemplateInsertSelectedSource": {
-        "message": "插入选中文字"
+        "message": "插入选中文字",
+        "description": "Message for readerCommentTemplateInsertSelectedSource"
     },
     "readerCommentTemplateInsertPlaceholder": {
-        "message": "插入占位符"
+        "message": "插入占位符",
+        "description": "Message for readerCommentTemplateInsertPlaceholder"
     },
     "readerCommentTemplateInsertUserComment": {
-        "message": "插入用户注释"
+        "message": "插入用户注释",
+        "description": "Message for readerCommentTemplateInsertUserComment"
     },
     "readerCommentTemplateTokenSelectedSource": {
-        "message": "选中文字"
+        "message": "选中文字",
+        "description": "Message for readerCommentTemplateTokenSelectedSource"
     },
     "readerCommentTemplateTokenUserComment": {
-        "message": "用户注释"
+        "message": "用户注释",
+        "description": "Message for readerCommentTemplateTokenUserComment"
     },
     "readerSettingsLabel": {
-        "message": "阅读器"
+        "message": "阅读器",
+        "description": "Message for readerSettingsLabel"
     },
     "readerContentWidthLabel": {
-        "message": "阅读器内容宽度"
+        "message": "阅读器内容宽度",
+        "description": "Message for readerContentWidthLabel"
     },
     "readerContentWidthDesc": {
-        "message": "阅读器正文的最大像素宽度。内容仍会自动收缩以适配面板。"
+        "message": "阅读器正文的最大像素宽度。内容仍会自动收缩以适配面板。",
+        "description": "Message for readerContentWidthDesc"
     },
     "advancedSettingsLabel": {
-        "message": "高级设置"
+        "message": "高级设置",
+        "description": "Message for advancedSettingsLabel"
     },
     "advancedSettingsDesc": {
-        "message": "展示少量用于微调扩展行为的高级控制项。"
+        "message": "展示少量用于微调扩展行为的高级控制项。",
+        "description": "Message for advancedSettingsDesc"
     },
     "readerCommentPromptListLabel": {
-        "message": "用户提示词"
+        "message": "用户提示词",
+        "description": "Message for readerCommentPromptListLabel"
     },
     "readerCommentPromptListDesc": {
-        "message": "管理用于注释导出的可复用提示词前缀。"
+        "message": "管理用于注释导出的可复用提示词前缀。",
+        "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
-        "message": "将提示词放在注释下方"
+        "message": "将提示词放在注释下方",
+        "description": "Message for readerCommentPromptPositionBottomLabel"
     },
     "readerCommentPromptPositionBottomDesc": {
-        "message": "开启后，复制内容会先显示注释列表，再把选中的用户提示词追加到底部。"
+        "message": "开启后，复制内容会先显示注释列表，再把选中的用户提示词追加到底部。",
+        "description": "Message for readerCommentPromptPositionBottomDesc"
     },
     "readerCommentTemplateSettingsLabel": {
-        "message": "注释复制模板"
+        "message": "注释复制模板",
+        "description": "Message for readerCommentTemplateSettingsLabel"
     },
     "readerCommentTemplateSettingsDesc": {
-        "message": "配置复制注释时使用的唯一模板。"
+        "message": "配置复制注释时使用的唯一模板。",
+        "description": "Message for readerCommentTemplateSettingsDesc"
     },
     "readerCommentTemplatePreviewLabel": {
-        "message": "预览"
+        "message": "预览",
+        "description": "Message for readerCommentTemplatePreviewLabel"
     },
     "readerCommentTemplateRestoreDefault": {
-        "message": "恢复默认"
+        "message": "恢复默认",
+        "description": "Message for readerCommentTemplateRestoreDefault"
     },
     "readerCommentPromptAdd": {
-        "message": "添加提示词"
+        "message": "添加提示词",
+        "description": "Message for readerCommentPromptAdd"
     },
     "readerCommentPromptRestoreDefaults": {
-        "message": "恢复默认提示词"
+        "message": "恢复默认提示词",
+        "description": "Message for readerCommentPromptRestoreDefaults"
     },
     "readerCommentPromptRestoreDefaultsTitle": {
-        "message": "恢复默认提示词"
+        "message": "恢复默认提示词",
+        "description": "Message for readerCommentPromptRestoreDefaultsTitle"
     },
     "readerCommentPromptRestoreDefaultsMessage": {
-        "message": "恢复默认提示词会覆盖你当前的全部提示词。确定要继续吗？"
+        "message": "恢复默认提示词会覆盖你当前的全部提示词。确定要继续吗？",
+        "description": "Message for readerCommentPromptRestoreDefaultsMessage"
     },
     "readerCommentPromptEdit": {
-        "message": "编辑提示词"
+        "message": "编辑提示词",
+        "description": "Message for readerCommentPromptEdit"
     },
     "readerCommentPromptActive": {
-        "message": "当前"
+        "message": "当前",
+        "description": "Message for readerCommentPromptActive"
     },
     "readerCommentPromptSelect": {
-        "message": "使用"
+        "message": "使用",
+        "description": "Message for readerCommentPromptSelect"
     },
     "readerCommentPromptUntitled": {
-        "message": "未命名提示词"
+        "message": "未命名提示词",
+        "description": "Message for readerCommentPromptUntitled"
     },
     "readerCommentPromptEmpty": {
-        "message": "还没有填写提示词内容。"
+        "message": "还没有填写提示词内容。",
+        "description": "Message for readerCommentPromptEmpty"
     },
     "readerCommentPromptTitleLabel": {
-        "message": "提示词标题"
+        "message": "提示词标题",
+        "description": "Message for readerCommentPromptTitleLabel"
     },
     "readerCommentPromptContentLabel": {
-        "message": "提示词内容"
+        "message": "提示词内容",
+        "description": "Message for readerCommentPromptContentLabel"
     },
     "readerCommentPromptTitlePlaceholder": {
-        "message": "给这个提示词起个名字"
+        "message": "给这个提示词起个名字",
+        "description": "Message for readerCommentPromptTitlePlaceholder"
     },
     "readerCommentPromptContentPlaceholder": {
-        "message": "填写复制注释时显示在最前面的提示词..."
+        "message": "填写复制注释时显示在最前面的提示词...",
+        "description": "Message for readerCommentPromptContentPlaceholder"
     },
     "readerCommentPromptDeleteTitle": {
-        "message": "删除提示词"
+        "message": "删除提示词",
+        "description": "Message for readerCommentPromptDeleteTitle"
     },
     "readerCommentPromptDeleteMessage": {
-        "message": "要从阅读器设置中删除这条提示词吗？"
+        "message": "要从阅读器设置中删除这条提示词吗？",
+        "description": "Message for readerCommentPromptDeleteMessage"
     },
     "readerCommentPromptPickerTitle": {
-        "message": "选择提示词"
+        "message": "选择提示词",
+        "description": "Message for readerCommentPromptPickerTitle"
     },
     "readerCommentPromptPickerEmpty": {
-        "message": "当前还没有可用的提示词。"
+        "message": "当前还没有可用的提示词。",
+        "description": "Message for readerCommentPromptPickerEmpty"
     },
     "readerCommentInsertIntoSend": {
-        "message": "插入注释"
+        "message": "插入注释",
+        "description": "Message for readerCommentInsertIntoSend"
     },
     "saveMessagesTitle": {
-        "message": "保存消息"
+        "message": "保存消息",
+        "description": "Message for saveMessagesTitle"
     },
     "formatMarkdown": {
-        "message": "Markdown"
+        "message": "Markdown",
+        "description": "Message for formatMarkdown"
     },
     "formatPdf": {
-        "message": "PDF"
+        "message": "PDF",
+        "description": "Message for formatPdf"
     },
     "formatPng": {
-        "message": "PNG"
+        "message": "PNG",
+        "description": "Message for formatPng"
     },
     "pngExportPreparing": {
-        "message": "正在准备 PNG 导出 $1"
+        "message": "正在准备 PNG 导出 $1",
+        "description": "Message for pngExportPreparing"
     },
     "pngExportRendering": {
-        "message": "正在渲染 $1"
+        "message": "正在渲染 $1",
+        "description": "Message for pngExportRendering"
     },
     "pngExportRenderingWithFilename": {
-        "message": "正在渲染 $1：$2"
+        "message": "正在渲染 $1：$2",
+        "description": "Message for pngExportRenderingWithFilename"
     },
     "pngExportZipping": {
-        "message": "正在打包 ZIP $1"
+        "message": "正在打包 ZIP $1",
+        "description": "Message for pngExportZipping"
     },
     "pngExportZippingWithFilename": {
-        "message": "正在打包 ZIP $1：$2"
+        "message": "正在打包 ZIP $1：$2",
+        "description": "Message for pngExportZippingWithFilename"
     },
     "pngExportDownloading": {
-        "message": "正在下载导出文件"
+        "message": "正在下载导出文件",
+        "description": "Message for pngExportDownloading"
     },
     "pngExportDownloadingWithFilename": {
-        "message": "正在下载 $1"
+        "message": "正在下载 $1",
+        "description": "Message for pngExportDownloadingWithFilename"
     },
     "pngExportDone": {
-        "message": "PNG 导出已完成 $1"
+        "message": "PNG 导出已完成 $1",
+        "description": "Message for pngExportDone"
     },
     "pngExportWidthPresetLabel": {
-        "message": "PNG 图片宽度"
+        "message": "PNG 图片宽度",
+        "description": "Message for pngExportWidthPresetLabel"
     },
     "pngExportWidthPresetDesc": {
-        "message": "选择 PNG 导出默认使用的卡片宽度。"
+        "message": "选择 PNG 导出默认使用的卡片宽度。",
+        "description": "Message for pngExportWidthPresetDesc"
     },
     "pngExportWidthValueLabel": {
-        "message": "宽度值"
+        "message": "宽度值",
+        "description": "Message for pngExportWidthValueLabel"
     },
     "pngExportWidthValueDesc": {
-        "message": "预设宽度会保持固定。选择“自定义”后，才可以按像素修改 PNG 宽度。"
+        "message": "预设宽度会保持固定。选择“自定义”后，才可以按像素修改 PNG 宽度。",
+        "description": "Message for pngExportWidthValueDesc"
     },
     "pngExportWidthPresetMobile": {
-        "message": "手机"
+        "message": "手机",
+        "description": "Message for pngExportWidthPresetMobile"
     },
     "pngExportWidthPresetTablet": {
-        "message": "平板"
+        "message": "平板",
+        "description": "Message for pngExportWidthPresetTablet"
     },
     "pngExportWidthPresetDesktop": {
-        "message": "电脑"
+        "message": "电脑",
+        "description": "Message for pngExportWidthPresetDesktop"
     },
     "pngExportWidthPresetCustom": {
-        "message": "自定义"
+        "message": "自定义",
+        "description": "Message for pngExportWidthPresetCustom"
     },
     "pngExportPixelRatioLabel": {
-        "message": "PNG 图片倍率"
+        "message": "PNG 图片倍率",
+        "description": "Message for pngExportPixelRatioLabel"
     },
     "pngExportPixelRatioDesc": {
-        "message": "控制位图清晰度。默认 1x，最大 3x。长图导出时仍可能为了稳定性自动降级。"
+        "message": "控制位图清晰度。默认 1x，最大 3x。长图导出时仍可能为了稳定性自动降级。",
+        "description": "Message for pngExportPixelRatioDesc"
     },
     "saveBookmarkTitle": {
-        "message": "保存书签"
+        "message": "保存书签",
+        "description": "Message for saveBookmarkTitle"
     },
     "labelTitle": {
-        "message": "标题"
+        "message": "标题",
+        "description": "Message for labelTitle"
     },
     "labelFolder": {
-        "message": "文件夹"
+        "message": "文件夹",
+        "description": "Message for labelFolder"
     },
     "languageChanged": {
-        "message": "语言已更改"
+        "message": "语言已更改",
+        "description": "Message for languageChanged"
     },
     "reloadMessage": {
-        "message": "请刷新页面以应用新的语言设置。"
+        "message": "请刷新页面以应用新的语言设置。",
+        "description": "Message for reloadMessage"
     },
     "reloadNow": {
-        "message": "立即刷新"
+        "message": "立即刷新",
+        "description": "Message for reloadNow"
     },
     "later": {
-        "message": "稍后"
+        "message": "稍后",
+        "description": "Message for later"
     },
     "confirmRename": {
-        "message": "确认重命名"
+        "message": "确认重命名",
+        "description": "Message for confirmRename"
     },
     "cancelRename": {
-        "message": "取消重命名"
+        "message": "取消重命名",
+        "description": "Message for cancelRename"
     },
     "sendMessage": {
-        "message": "发送消息"
+        "message": "发送消息",
+        "description": "Message for sendMessage"
     },
     "jumpToMessage": {
-        "message": "跳转到当前消息"
+        "message": "跳转到当前消息",
+        "description": "Message for jumpToMessage"
     },
     "collapse": {
-        "message": "收起"
+        "message": "收起",
+        "description": "Message for collapse"
     },
     "send": {
-        "message": "发送"
+        "message": "发送",
+        "description": "Message for send"
     },
     "search": {
-        "message": "搜索..."
+        "message": "搜索...",
+        "description": "Message for search"
     },
     "sortByTime": {
-        "message": "按时间排序"
+        "message": "按时间排序",
+        "description": "Message for sortByTime"
     },
     "sortAlpha": {
-        "message": "按字母排序"
+        "message": "按字母排序",
+        "description": "Message for sortAlpha"
     },
     "sortByTimeLabel": {
-        "message": "按时间排序"
+        "message": "按时间排序",
+        "description": "Message for sortByTimeLabel"
     },
     "sortAlphaLabel": {
-        "message": "按字母排序"
+        "message": "按字母排序",
+        "description": "Message for sortAlphaLabel"
     },
     "sortByTimeAscTitle": {
-        "message": "按时间排序（最旧优先）"
+        "message": "按时间排序（最旧优先）",
+        "description": "Message for sortByTimeAscTitle"
     },
     "sortByTimeDescTitle": {
-        "message": "按时间排序（最新优先）"
+        "message": "按时间排序（最新优先）",
+        "description": "Message for sortByTimeDescTitle"
     },
     "sortAlphaAscTitle": {
-        "message": "按字母排序（A-Z）"
+        "message": "按字母排序（A-Z）",
+        "description": "Message for sortAlphaAscTitle"
     },
     "sortAlphaDescTitle": {
-        "message": "按字母排序（Z-A）"
+        "message": "按字母排序（Z-A）",
+        "description": "Message for sortAlphaDescTitle"
     },
     "createFolder": {
-        "message": "创建新文件夹"
+        "message": "创建新文件夹",
+        "description": "Message for createFolder"
     },
     "importBookmarks": {
-        "message": "导入书签"
+        "message": "导入书签",
+        "description": "Message for importBookmarks"
     },
     "exportBookmarks": {
-        "message": "导出书签"
+        "message": "导出书签",
+        "description": "Message for exportBookmarks"
     },
     "toggleFolder": {
-        "message": "展开/折叠文件夹"
+        "message": "展开/折叠文件夹",
+        "description": "Message for toggleFolder"
     },
     "selectFolderAndChildren": {
-        "message": "选择 $1 及其所有子项"
+        "message": "选择 $1 及其所有子项",
+        "description": "Message for selectFolderAndChildren"
     },
     "selectBookmarkItem": {
-        "message": "选择 $1"
+        "message": "选择 $1",
+        "description": "Message for selectBookmarkItem"
     },
     "newSubfolder": {
-        "message": "新建子文件夹"
+        "message": "新建子文件夹",
+        "description": "Message for newSubfolder"
     },
     "createSubfolder": {
-        "message": "创建子文件夹"
+        "message": "创建子文件夹",
+        "description": "Message for createSubfolder"
     },
     "rename": {
-        "message": "重命名"
+        "message": "重命名",
+        "description": "Message for rename"
     },
     "renameFolder": {
-        "message": "重命名文件夹"
+        "message": "重命名文件夹",
+        "description": "Message for renameFolder"
     },
     "moveFolder": {
-        "message": "移动文件夹"
+        "message": "移动文件夹",
+        "description": "Message for moveFolder"
     },
     "delete": {
-        "message": "删除"
+        "message": "删除",
+        "description": "Message for delete"
     },
     "deleteFolder": {
-        "message": "删除文件夹"
+        "message": "删除文件夹",
+        "description": "Message for deleteFolder"
     },
     "deleteFolderConfirm": {
-        "message": "删除“$1”及其子文件夹？"
+        "message": "删除“$1”及其子文件夹？",
+        "description": "Message for deleteFolderConfirm"
     },
     "openConversation": {
-        "message": "在对话中打开"
+        "message": "在对话中打开",
+        "description": "Message for openConversation"
     },
     "openConversationLabel": {
-        "message": "打开对话"
+        "message": "打开对话",
+        "description": "Message for openConversationLabel"
     },
     "edit": {
-        "message": "编辑"
+        "message": "编辑",
+        "description": "Message for edit"
     },
     "editBookmark": {
-        "message": "编辑书签"
+        "message": "编辑书签",
+        "description": "Message for editBookmark"
     },
     "deleteBookmark": {
-        "message": "删除书签"
+        "message": "删除书签",
+        "description": "Message for deleteBookmark"
     },
     "titleRequired": {
-        "message": "标题不能为空"
+        "message": "标题不能为空",
+        "description": "Message for titleRequired"
     },
     "titleTooLong": {
-        "message": "标题长度不能超过 100 个字符"
+        "message": "标题长度不能超过 100 个字符",
+        "description": "Message for titleTooLong"
     },
     "titleForbiddenChars": {
-        "message": "标题包含非法字符"
+        "message": "标题包含非法字符",
+        "description": "Message for titleForbiddenChars"
     },
     "titleForbiddenCharsDetailed": {
-        "message": "标题不能包含以下字符：$1"
+        "message": "标题不能包含以下字符：$1",
+        "description": "Message for titleForbiddenCharsDetailed"
     },
     "errorCalculating": {
-        "message": "计算错误"
+        "message": "计算错误",
+        "description": "Message for errorCalculating"
     },
     "inputMessage": {
-        "message": "输入消息"
+        "message": "输入消息",
+        "description": "Message for inputMessage"
     },
     "enterBookmarkTitle": {
-        "message": "输入书签标题..."
+        "message": "输入书签标题...",
+        "description": "Message for enterBookmarkTitle"
     },
     "renameBookmarkLabel": {
-        "message": "重命名书签"
+        "message": "重命名书签",
+        "description": "Message for renameBookmarkLabel"
     },
     "saveBookmark": {
-        "message": "保存书签"
+        "message": "保存书签",
+        "description": "Message for saveBookmark"
     },
     "moveBookmarksToFolder": {
-        "message": "移动书签到文件夹"
+        "message": "移动书签到文件夹",
+        "description": "Message for moveBookmarksToFolder"
     },
     "newFolder": {
-        "message": "新建文件夹"
+        "message": "新建文件夹",
+        "description": "Message for newFolder"
     },
     "newSubfolderTitle": {
-        "message": "新建子文件夹"
+        "message": "新建子文件夹",
+        "description": "Message for newSubfolderTitle"
     },
     "enterFolderName": {
-        "message": "输入文件夹名称"
+        "message": "输入文件夹名称",
+        "description": "Message for enterFolderName"
     },
     "loadingFolders": {
-        "message": "加载文件夹中..."
+        "message": "加载文件夹中...",
+        "description": "Message for loadingFolders"
     },
     "general": {
-        "message": "通用"
+        "message": "通用",
+        "description": "Message for general"
     },
     "language": {
-        "message": "语言"
+        "message": "语言",
+        "description": "Message for language"
     },
     "platforms": {
-        "message": "平台"
+        "message": "平台",
+        "description": "Message for platforms"
     },
     "behavior": {
-        "message": "配置"
+        "message": "配置",
+        "description": "Message for behavior"
     },
     "toolbarPageActionsSettingsLabel": {
-        "message": "工具栏与页面操作"
+        "message": "工具栏与页面操作",
+        "description": "Message for toolbarPageActionsSettingsLabel"
     },
     "platformRetirementNotice": {
-        "message": "从 v4.5.0 开始，Gemini、Claude 和 DeepSeek 适配将下线。ChatGPT 将作为本插件唯一支持的平台。"
+        "message": "从 v4.5.0 开始，Gemini、Claude 和 DeepSeek 适配将下线。ChatGPT 将作为本插件唯一支持的平台。",
+        "description": "Message for platformRetirementNotice"
     },
     "chatgptDirectorySettingsLabel": {
-        "message": "ChatGPT 目录条"
+        "message": "ChatGPT 目录条",
+        "description": "Message for chatgptDirectorySettingsLabel"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "显示 ChatGPT 目录条"
+        "message": "显示 ChatGPT 目录条",
+        "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "在 ChatGPT 对话页面显示右侧对话目录条。"
+        "message": "在 ChatGPT 对话页面显示右侧对话目录条。",
+        "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "目录条显示方式"
+        "message": "目录条显示方式",
+        "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "选择右侧目录条展示消息预览的方式。"
+        "message": "选择右侧目录条展示消息预览的方式。",
+        "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "紧凑预览"
+        "message": "紧凑预览",
+        "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "展开列表"
+        "message": "展开列表",
+        "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
-        "message": "显示 Prompt 结尾"
+        "message": "显示 Prompt 结尾",
+        "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "在展开目录条中同时显示 Prompt 前 15 个字符和后 15 个字符。"
+        "message": "在展开目录条中同时显示 Prompt 前 15 个字符和后 15 个字符。",
+        "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "reader": {
-        "message": "阅读器"
+        "message": "阅读器",
+        "description": "Message for reader"
     },
     "supportDevelopment": {
-        "message": "支持开发"
+        "message": "支持开发",
+        "description": "Message for supportDevelopment"
     },
     "ifProjectHelps": {
-        "message": "如果这个项目对你有帮助"
+        "message": "如果这个项目对你有帮助",
+        "description": "Message for ifProjectHelps"
     },
     "noFoldersYet": {
-        "message": "暂无文件夹"
+        "message": "暂无文件夹",
+        "description": "Message for noFoldersYet"
     },
     "createFirstFolder": {
-        "message": "创建第一个文件夹来整理书签"
+        "message": "创建第一个文件夹来整理书签",
+        "description": "Message for createFirstFolder"
     },
     "noResultsTitle": {
-        "message": "无结果"
+        "message": "无结果",
+        "description": "Message for noResultsTitle"
     },
     "noResultsHint": {
-        "message": "尝试清空搜索、平台或文件夹过滤条件。"
+        "message": "尝试清空搜索、平台或文件夹过滤条件。",
+        "description": "Message for noResultsHint"
     },
     "clearFiltersBtn": {
-        "message": "清空过滤"
+        "message": "清空过滤",
+        "description": "Message for clearFiltersBtn"
     },
     "migrationComplete": {
-        "message": "迁移完成"
+        "message": "迁移完成",
+        "description": "Message for migrationComplete"
     },
     "migratedBookmarks": {
-        "message": "已将 $1 个书签迁移到 \"Import\" 文件夹"
+        "message": "已将 $1 个书签迁移到 \"Import\" 文件夹",
+        "description": "Message for migratedBookmarks"
     },
     "deleteSelected": {
-        "message": "删除选中项"
+        "message": "删除选中项",
+        "description": "Message for deleteSelected"
     },
     "moveSelected": {
-        "message": "移动选中项"
+        "message": "移动选中项",
+        "description": "Message for moveSelected"
     },
     "exportSelected": {
-        "message": "导出选中项"
+        "message": "导出选中项",
+        "description": "Message for exportSelected"
     },
     "clearSelection": {
-        "message": "清除选择"
+        "message": "清除选择",
+        "description": "Message for clearSelection"
     },
     "batchDelete": {
-        "message": "删除"
+        "message": "删除",
+        "description": "Message for batchDelete"
     },
     "batchMove": {
-        "message": "移动到"
+        "message": "移动到",
+        "description": "Message for batchMove"
     },
     "batchExport": {
-        "message": "导出"
+        "message": "导出",
+        "description": "Message for batchExport"
     },
     "batchClear": {
-        "message": "清除"
+        "message": "清除",
+        "description": "Message for batchClear"
     },
     "maxDepthExceeded": {
-        "message": "超出最大深度"
+        "message": "超出最大深度",
+        "description": "Message for maxDepthExceeded"
     },
     "maxDepthMessage": {
-        "message": "文件夹最大深度为 3 层。"
+        "message": "文件夹最大深度为 3 层。",
+        "description": "Message for maxDepthMessage"
     },
     "failedToCreateFolder": {
-        "message": "创建文件夹失败"
+        "message": "创建文件夹失败",
+        "description": "Message for failedToCreateFolder"
     },
     "folderNameExists": {
-        "message": "文件夹名称已存在。"
+        "message": "文件夹名称已存在。",
+        "description": "Message for folderNameExists"
     },
     "folderNameNoSlash": {
-        "message": "文件夹名称不能包含 \"/\"。"
+        "message": "文件夹名称不能包含 \"/\"。",
+        "description": "Message for folderNameNoSlash"
     },
     "folderNameTooLong": {
-        "message": "文件夹名称长度不能超过 $1 个字符。"
+        "message": "文件夹名称长度不能超过 $1 个字符。",
+        "description": "Message for folderNameTooLong"
     },
     "folderNameTraversal": {
-        "message": "文件夹名称不能包含 \"..\"。"
+        "message": "文件夹名称不能包含 \"..\"。",
+        "description": "Message for folderNameTraversal"
     },
     "folderNameInvalidChars": {
-        "message": "文件夹名称包含非法字符。"
+        "message": "文件夹名称包含非法字符。",
+        "description": "Message for folderNameInvalidChars"
     },
     "folderNameControlChars": {
-        "message": "文件夹名称不能包含控制字符。"
+        "message": "文件夹名称不能包含控制字符。",
+        "description": "Message for folderNameControlChars"
     },
     "folderPathSegmentInvalid": {
-        "message": "文件夹名称“$1”无效：$2"
+        "message": "文件夹名称“$1”无效：$2",
+        "description": "Message for folderPathSegmentInvalid"
     },
     "spacesCollapsed": {
-        "message": "连续空格已被合并。"
+        "message": "连续空格已被合并。",
+        "description": "Message for spacesCollapsed"
     },
     "failedToRename": {
-        "message": "重命名失败"
+        "message": "重命名失败",
+        "description": "Message for failedToRename"
     },
     "deleteBookmarkTitle": {
-        "message": "删除书签"
+        "message": "删除书签",
+        "description": "Message for deleteBookmarkTitle"
     },
     "deleteBookmarkMessage": {
-        "message": "确定要删除这个书签吗？"
+        "message": "确定要删除这个书签吗？",
+        "description": "Message for deleteBookmarkMessage"
     },
     "noItemsSelected": {
-        "message": "未选择任何项目"
+        "message": "未选择任何项目",
+        "description": "Message for noItemsSelected"
     },
     "pleaseSelectToExport": {
-        "message": "请选择要导出的项目"
+        "message": "请选择要导出的项目",
+        "description": "Message for pleaseSelectToExport"
     },
     "noBookmarksSelected": {
-        "message": "未选择书签"
+        "message": "未选择书签",
+        "description": "Message for noBookmarksSelected"
     },
     "noBookmarksToMove": {
-        "message": "没有可移动的书签"
+        "message": "没有可移动的书签",
+        "description": "Message for noBookmarksToMove"
     },
     "noBookmarksToMoveNote": {
-        "message": "注意：只能移动书签，不能移动文件夹。"
+        "message": "注意：只能移动书签，不能移动文件夹。",
+        "description": "Message for noBookmarksToMoveNote"
     },
     "storageFull": {
-        "message": "存储空间已满"
+        "message": "存储空间已满",
+        "description": "Message for storageFull"
     },
     "storageWarning": {
-        "message": "存储空间警告"
+        "message": "存储空间警告",
+        "description": "Message for storageWarning"
     },
     "importSuccessful": {
-        "message": "导入成功"
+        "message": "导入成功",
+        "description": "Message for importSuccessful"
     },
     "importFailed": {
-        "message": "导入失败"
+        "message": "导入失败",
+        "description": "Message for importFailed"
     },
     "conversation": {
-        "message": "对话"
+        "message": "对话",
+        "description": "Message for conversation"
     },
     "bookmark": {
-        "message": "书签"
+        "message": "书签",
+        "description": "Message for bookmark"
     },
     "copyMarkdown": {
-        "message": "复制 Markdown"
+        "message": "复制 Markdown",
+        "description": "Message for copyMarkdown"
     },
     "close": {
-        "message": "关闭"
+        "message": "关闭",
+        "description": "Message for close"
     },
     "failedToCreateFolderError": {
-        "message": "创建文件夹失败：$1"
+        "message": "创建文件夹失败：$1",
+        "description": "Message for failedToCreateFolderError"
     },
     "failedToRenameError": {
-        "message": "重命名失败：$1"
+        "message": "重命名失败：$1",
+        "description": "Message for failedToRenameError"
     },
     "failedToDeleteError": {
-        "message": "删除失败：$1"
+        "message": "删除失败：$1",
+        "description": "Message for failedToDeleteError"
     },
     "failedToMoveError": {
-        "message": "移动失败：$1"
+        "message": "移动失败：$1",
+        "description": "Message for failedToMoveError"
     },
     "unknownError": {
-        "message": "未知错误"
+        "message": "未知错误",
+        "description": "Message for unknownError"
     },
     "sponsor": {
-        "message": "支持一下"
+        "message": "支持一下",
+        "description": "Message for sponsor"
     },
     "settings": {
-        "message": "设置"
+        "message": "设置",
+        "description": "Message for settings"
     },
     "bookmarks": {
-        "message": "书签"
+        "message": "书签",
+        "description": "Message for bookmarks"
     },
     "settingsLanguageLabel": {
-        "message": "语言"
+        "message": "语言",
+        "description": "Message for settingsLanguageLabel"
     },
     "settingsLanguageDesc": {
-        "message": "选择你的首选语言"
+        "message": "选择你的首选语言",
+        "description": "Message for settingsLanguageDesc"
     },
     "languageAuto": {
-        "message": "自动（浏览器语言）"
+        "message": "自动（浏览器语言）",
+        "description": "Message for languageAuto"
     },
     "languageEnglish": {
-        "message": "English"
+        "message": "English",
+        "description": "Message for languageEnglish"
     },
     "languageZhCN": {
-        "message": "简体中文"
+        "message": "简体中文",
+        "description": "Message for languageZhCN"
     },
     "enableOnChatGPT": {
-        "message": "在 ChatGPT 上启用扩展"
+        "message": "在 ChatGPT 上启用扩展",
+        "description": "Message for enableOnChatGPT"
     },
     "enableOnGemini": {
-        "message": "在 Gemini 上启用扩展"
+        "message": "在 Gemini 上启用扩展",
+        "description": "Message for enableOnGemini"
     },
     "enableOnClaude": {
-        "message": "在 Claude 上启用扩展"
+        "message": "在 Claude 上启用扩展",
+        "description": "Message for enableOnClaude"
     },
     "enableOnDeepseek": {
-        "message": "在 DeepSeek 上启用扩展"
+        "message": "在 DeepSeek 上启用扩展",
+        "description": "Message for enableOnDeepseek"
     },
     "saveMessagesLabel": {
-        "message": "工具栏 > 消息导出"
+        "message": "工具栏 > 消息导出",
+        "description": "Message for saveMessagesLabel"
     },
     "saveMessagesDesc": {
-        "message": "在工具栏中显示\"另存为\"按钮"
+        "message": "在工具栏中显示\"另存为\"按钮",
+        "description": "Message for saveMessagesDesc"
     },
     "wordCountLabel": {
-        "message": "工具栏 > 字数统计"
+        "message": "工具栏 > 字数统计",
+        "description": "Message for wordCountLabel"
     },
     "wordCountDesc": {
-        "message": "在工具栏中显示字数统计"
+        "message": "在工具栏中显示字数统计",
+        "description": "Message for wordCountDesc"
     },
     "clickToCopyLabel": {
-        "message": "消息 > 点击复制"
+        "message": "消息 > 点击复制",
+        "description": "Message for clickToCopyLabel"
     },
     "clickToCopyDesc": {
-        "message": "启用消息中数学公式点击复制功能"
+        "message": "启用消息中数学公式点击复制功能",
+        "description": "Message for clickToCopyDesc"
     },
     "formulaSettingsLabel": {
-        "message": "公式"
+        "message": "公式",
+        "description": "Message for formulaSettingsLabel"
     },
     "formulaClickCopyMarkdownLabel": {
-        "message": "公式点击复制为 Markdown"
+        "message": "公式点击复制为 Markdown",
+        "description": "Message for formulaClickCopyMarkdownLabel"
     },
     "formulaClickCopyMarkdownDesc": {
-        "message": "点击公式时复制原始 LaTeX / Markdown 源码。"
+        "message": "点击公式时复制原始 LaTeX / Markdown 源码。",
+        "description": "Message for formulaClickCopyMarkdownDesc"
     },
     "formulaAssetActionsLabel": {
-        "message": "公式点击复制为图片"
+        "message": "公式点击复制为图片",
+        "description": "Message for formulaAssetActionsLabel"
     },
     "formulaAssetActionsDesc": {
-        "message": "配置公式悬浮菜单中显示哪些 PNG / SVG 复制和保存动作。"
+        "message": "配置公式悬浮菜单中显示哪些 PNG / SVG 复制和保存动作。",
+        "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {
-        "message": "公式图片动作"
+        "message": "公式图片动作",
+        "description": "Message for formulaAssetActionsPopupTitle"
     },
     "formulaAssetActionsSummaryAll": {
-        "message": "已启用全部动作"
+        "message": "已启用全部动作",
+        "description": "Message for formulaAssetActionsSummaryAll"
     },
     "formulaAssetActionsSummaryNone": {
-        "message": "未启用图片动作"
+        "message": "未启用图片动作",
+        "description": "Message for formulaAssetActionsSummaryNone"
     },
     "formulaAssetActionsSummaryCount": {
-        "message": "已启用 $1 个动作"
+        "message": "已启用 $1 个动作",
+        "description": "Message for formulaAssetActionsSummaryCount"
     },
     "contextOnlySaveLabel": {
-        "message": "书签 > 仅保存部分文本"
+        "message": "书签 > 仅保存部分文本",
+        "description": "Message for contextOnlySaveLabel"
     },
     "contextOnlySaveDesc": {
-        "message": "保存书签时仅保留 500 字符以节省空间。（书签预览时内容将不完整，但不影响跳转原页面查看）"
+        "message": "保存书签时仅保留 500 字符以节省空间。（书签预览时内容将不完整，但不影响跳转原页面查看）",
+        "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
-        "message": "阅读器 > 渲染代码块"
+        "message": "阅读器 > 渲染代码块",
+        "description": "Message for renderCodeBlocksLabel"
     },
     "renderCodeBlocksDesc": {
-        "message": "在阅读器模式下显示代码块，否则显示占位符。"
+        "message": "在阅读器模式下显示代码块，否则显示占位符。",
+        "description": "Message for renderCodeBlocksDesc"
     },
     "supportDevDesc": {
-        "message": "AI-MarkDone 是开源项目。在 GitHub 点个星星支持下。"
+        "message": "AI-MarkDone 是开源项目。在 GitHub 点个星星支持下。",
+        "description": "Message for supportDevDesc"
     },
     "starOnGitHub": {
-        "message": "在 GitHub 点个星星"
+        "message": "在 GitHub 点个星星",
+        "description": "Message for starOnGitHub"
     },
     "supportCoffeeDesc": {
-        "message": "如果你愿意，也可以请我喝杯咖啡。"
+        "message": "如果你愿意，也可以请我喝杯咖啡。",
+        "description": "Message for supportCoffeeDesc"
     },
     "buyMeCoffee": {
-        "message": "Buy Me a Coffee"
+        "message": "Buy Me a Coffee",
+        "description": "Message for buyMeCoffee"
     },
     "wechatAppreciationCode": {
-        "message": "微信赞赏码"
+        "message": "微信赞赏码",
+        "description": "Message for wechatAppreciationCode"
     },
     "xiaohongshuAccount": {
-        "message": "小红书"
+        "message": "小红书",
+        "description": "Message for xiaohongshuAccount"
     },
     "findMeOnXiaohongshu": {
-        "message": "在小红书找到我"
+        "message": "在小红书找到我",
+        "description": "Message for findMeOnXiaohongshu"
     },
     "followMe": {
-        "message": "关注我"
+        "message": "关注我",
+        "description": "Message for followMe"
     },
     "aboutProfileBio": {
-        "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。"
+        "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。",
+        "description": "Message for aboutProfileBio"
     },
     "selectFolderLabel": {
-        "message": "选择文件夹"
+        "message": "选择文件夹",
+        "description": "Message for selectFolderLabel"
     },
     "movingBookmarks": {
-        "message": "正在移动 <strong>$1</strong> 个书签"
+        "message": "正在移动 <strong>$1</strong> 个书签",
+        "description": "Message for movingBookmarks"
     },
     "deleteBookmarkConfirm": {
-        "message": "删除书签\"$1\"？"
+        "message": "删除书签\"$1\"？",
+        "description": "Message for deleteBookmarkConfirm"
     },
     "deleteBookmarkTip": {
-        "message": "提示：你可以先导出书签以创建备份，避免数据丢失。"
+        "message": "提示：你可以先导出书签以创建备份，避免数据丢失。",
+        "description": "Message for deleteBookmarkTip"
     },
     "noBookmarksSelectedMessage": {
-        "message": "未选择书签"
+        "message": "未选择书签",
+        "description": "Message for noBookmarksSelectedMessage"
     },
     "pleaseSelectToMove": {
-        "message": "请选择要移动的项目"
+        "message": "请选择要移动的项目",
+        "description": "Message for pleaseSelectToMove"
     },
     "storageQuotaExceeded": {
-        "message": "存储配额已超出"
+        "message": "存储配额已超出",
+        "description": "Message for storageQuotaExceeded"
     },
     "storageGettingFull": {
-        "message": "存储空间即将用完"
+        "message": "存储空间即将用完",
+        "description": "Message for storageGettingFull"
     },
     "notEnoughStorageForImport": {
-        "message": "导入所需的存储空间不足"
+        "message": "导入所需的存储空间不足",
+        "description": "Message for notEnoughStorageForImport"
     },
     "importedBookmarks": {
-        "message": "已导入 $1 个书签$2"
+        "message": "已导入 $1 个书签$2",
+        "description": "Message for importedBookmarks"
     },
     "skippedDuplicates": {
-        "message": "跳过 $1 个重复项$2"
+        "message": "跳过 $1 个重复项$2",
+        "description": "Message for skippedDuplicates"
     },
     "importFailedMessage": {
-        "message": "导入失败：$1"
+        "message": "导入失败：$1",
+        "description": "Message for importFailedMessage"
     },
     "maxDepthSubfolderMessage": {
-        "message": "无法创建子文件夹：文件夹最大深度为 $1 层。\\n\\n请创建新的根文件夹或在现有文件夹中整理。"
+        "message": "无法创建子文件夹：文件夹最大深度为 $1 层。\\n\\n请创建新的根文件夹或在现有文件夹中整理。",
+        "description": "Message for maxDepthSubfolderMessage"
     },
     "maxDepthFolderMessage": {
-        "message": "无法创建文件夹：文件夹最大深度为 $1 层。\\n\\n当前路径为：$2\\n深度：$3\\n\\n请创建新的根文件夹或在现有文件夹中整理。"
+        "message": "无法创建文件夹：文件夹最大深度为 $1 层。\\n\\n当前路径为：$2\\n深度：$3\\n\\n请创建新的根文件夹或在现有文件夹中整理。",
+        "description": "Message for maxDepthFolderMessage"
     },
     "failedToCreateFolderMessage": {
-        "message": "创建文件夹失败：$1"
+        "message": "创建文件夹失败：$1",
+        "description": "Message for failedToCreateFolderMessage"
     },
     "failedToRenameFolderMessage": {
-        "message": "重命名文件夹失败：$1"
+        "message": "重命名文件夹失败：$1",
+        "description": "Message for failedToRenameFolderMessage"
     },
     "folderNameEmpty": {
-        "message": "文件夹名称不能为空"
+        "message": "文件夹名称不能为空",
+        "description": "Message for folderNameEmpty"
     },
     "creatingSubfolderIn": {
-        "message": "在以下位置创建子文件夹：$1"
+        "message": "在以下位置创建子文件夹：$1",
+        "description": "Message for creatingSubfolderIn"
     },
     "createFirstFolderBtn": {
-        "message": "创建第一个文件夹"
+        "message": "创建第一个文件夹",
+        "description": "Message for createFirstFolderBtn"
     },
     "tabBookmarks": {
-        "message": "书签"
+        "message": "书签",
+        "description": "Message for tabBookmarks"
     },
     "tabSettings": {
-        "message": "设置"
+        "message": "设置",
+        "description": "Message for tabSettings"
     },
     "tabChangelog": {
-        "message": "更新日志"
+        "message": "更新日志",
+        "description": "Message for tabChangelog"
     },
     "tabAbout": {
-        "message": "关于我"
+        "message": "关于我",
+        "description": "Message for tabAbout"
     },
     "tabFaq": {
-        "message": "常见问题"
+        "message": "常见问题",
+        "description": "Message for tabFaq"
     },
     "tabSponsor": {
-        "message": "请我喝咖啡"
+        "message": "请我喝咖啡",
+        "description": "Message for tabSponsor"
     },
     "allLabel": {
-        "message": "全部"
+        "message": "全部",
+        "description": "Message for allLabel"
     },
     "foldersLabel": {
-        "message": "文件夹"
+        "message": "文件夹",
+        "description": "Message for foldersLabel"
     },
     "refreshBtn": {
-        "message": "刷新"
+        "message": "刷新",
+        "description": "Message for refreshBtn"
     },
     "repairBtn": {
-        "message": "修复"
+        "message": "修复",
+        "description": "Message for repairBtn"
     },
     "settingsTabPlaceholder": {
-        "message": "本阶段「设置」仅做界面占位；书签数据相关操作仍可在此使用。"
+        "message": "本阶段「设置」仅做界面占位；书签数据相关操作仍可在此使用。",
+        "description": "Message for settingsTabPlaceholder"
     },
     "sponsorTabPlaceholder": {
-        "message": "如果你觉得 AI-MarkDone 有帮助，可以考虑支持项目持续迭代。"
+        "message": "如果你觉得 AI-MarkDone 有帮助，可以考虑支持项目持续迭代。",
+        "description": "Message for sponsorTabPlaceholder"
     },
     "openGithubRepo": {
-        "message": "打开 GitHub 仓库"
+        "message": "打开 GitHub 仓库",
+        "description": "Message for openGithubRepo"
     },
     "saveContextOnlyConfirm": {
-        "message": "仅保存上下文？（确定=是，取消=否）"
+        "message": "仅保存上下文？（确定=是，取消=否）",
+        "description": "Message for saveContextOnlyConfirm"
     },
     "repairConfirm": {
-        "message": "执行修复？这可能会移除损坏条目（隔离区会保留）。"
+        "message": "执行修复？这可能会移除损坏条目（隔离区会保留）。",
+        "description": "Message for repairConfirm"
     },
     "promptNewFolderPath": {
-        "message": "新建文件夹路径（例如 Work/Project）"
+        "message": "新建文件夹路径（例如 Work/Project）",
+        "description": "Message for promptNewFolderPath"
     },
     "promptNewFolderName": {
-        "message": "输入文件夹名称"
+        "message": "输入文件夹名称",
+        "description": "Message for promptNewFolderName"
     },
     "promptTargetParentFolder": {
-        "message": "目标父文件夹路径（根目录留空）"
+        "message": "目标父文件夹路径（根目录留空）",
+        "description": "Message for promptTargetParentFolder"
     },
     "promptTargetFolderPath": {
-        "message": "目标文件夹路径"
+        "message": "目标文件夹路径",
+        "description": "Message for promptTargetFolderPath"
     },
     "folderPathPlaceholder": {
-        "message": "Work/Project"
+        "message": "Work/Project",
+        "description": "Message for folderPathPlaceholder"
     },
     "folderNamePlaceholder": {
-        "message": "文件夹"
+        "message": "文件夹",
+        "description": "Message for folderNamePlaceholder"
     },
     "noSelectionLabel": {
-        "message": "未选择"
+        "message": "未选择",
+        "description": "Message for noSelectionLabel"
     },
     "selectToPreview": {
-        "message": "选择一条书签以预览。"
+        "message": "选择一条书签以预览。",
+        "description": "Message for selectToPreview"
     },
     "previewNotAvailable": {
-        "message": "预览不可用。"
+        "message": "预览不可用。",
+        "description": "Message for previewNotAvailable"
     },
     "exportedStatus": {
-        "message": "已导出"
+        "message": "已导出",
+        "description": "Message for exportedStatus"
     },
     "importedStatus": {
-        "message": "已导入"
+        "message": "已导入",
+        "description": "Message for importedStatus"
     },
     "repairedStatus": {
-        "message": "已修复"
+        "message": "已修复",
+        "description": "Message for repairedStatus"
     },
     "movedStatus": {
-        "message": "已移动"
+        "message": "已移动",
+        "description": "Message for movedStatus"
     },
     "deletedStatus": {
-        "message": "已删除"
+        "message": "已删除",
+        "description": "Message for deletedStatus"
     },
     "folderCreatedStatus": {
-        "message": "文件夹已创建"
+        "message": "文件夹已创建",
+        "description": "Message for folderCreatedStatus"
     },
     "renamedStatus": {
-        "message": "已重命名"
+        "message": "已重命名",
+        "description": "Message for renamedStatus"
     },
     "selectedCount": {
-        "message": "已选择 $1 项"
+        "message": "已选择 $1 项",
+        "description": "Message for selectedCount"
     },
     "storageUsedLabel": {
-        "message": "存储占用"
+        "message": "存储占用",
+        "description": "Message for storageUsedLabel"
     },
     "storageCalculating": {
-        "message": "计算中..."
+        "message": "计算中...",
+        "description": "Message for storageCalculating"
     },
     "backupTitle": {
-        "message": "数据备份"
+        "message": "数据备份",
+        "description": "Message for backupTitle"
     },
     "backupWarning": {
-        "message": "⚠️ 卸载扩展将清空所有书签。"
+        "message": "⚠️ 卸载扩展将清空所有书签。",
+        "description": "Message for backupWarning"
     },
     "exportAllBtn": {
-        "message": "导出全部"
+        "message": "导出全部",
+        "description": "Message for exportAllBtn"
     },
     "selectMessagesLabel": {
-        "message": "选择要保存的消息："
+        "message": "选择要保存的消息：",
+        "description": "Message for selectMessagesLabel"
     },
     "formatLabel": {
-        "message": "格式："
+        "message": "格式：",
+        "description": "Message for formatLabel"
     },
     "selectedCountMessages": {
-        "message": "已选 $1 / $2"
+        "message": "已选 $1 / $2",
+        "description": "Message for selectedCountMessages"
     },
     "dataAndStorage": {
-        "message": "数据与存储"
+        "message": "数据与存储",
+        "description": "Message for dataAndStorage"
     },
     "deleteSelectedTitle": {
-        "message": "删除选中项"
+        "message": "删除选中项",
+        "description": "Message for deleteSelectedTitle"
     },
     "deletePermanentlyPrefix": {
-        "message": "这将永久删除："
+        "message": "这将永久删除：",
+        "description": "Message for deletePermanentlyPrefix"
     },
     "rootFoldersCount": {
-        "message": "$1 个根文件夹"
+        "message": "$1 个根文件夹",
+        "description": "Message for rootFoldersCount"
     },
     "subFoldersCount": {
-        "message": "$1 个子文件夹"
+        "message": "$1 个子文件夹",
+        "description": "Message for subFoldersCount"
     },
     "bookmarksCount": {
-        "message": "$1 个书签"
+        "message": "$1 个书签",
+        "description": "Message for bookmarksCount"
     },
     "failedToExtractUserMessage": {
-        "message": "提取用户消息失败，请重试。"
+        "message": "提取用户消息失败，请重试。",
+        "description": "Message for failedToExtractUserMessage"
     },
     "failedToPrepareBookmark": {
-        "message": "准备书签失败，请重试。"
+        "message": "准备书签失败，请重试。",
+        "description": "Message for failedToPrepareBookmark"
     },
     "failedToToggleBookmark": {
-        "message": "切换书签状态失败"
+        "message": "切换书签状态失败",
+        "description": "Message for failedToToggleBookmark"
     },
     "failedToRenderContent": {
-        "message": "渲染内容失败"
+        "message": "渲染内容失败",
+        "description": "Message for failedToRenderContent"
     },
     "exitFullscreen": {
-        "message": "退出全屏"
+        "message": "退出全屏",
+        "description": "Message for exitFullscreen"
     },
     "importStatusNormal": {
-        "message": "正常导入"
+        "message": "正常导入",
+        "description": "Message for importStatusNormal"
     },
     "importStatusRename": {
-        "message": "重命名并合并"
+        "message": "重命名并合并",
+        "description": "Message for importStatusRename"
     },
     "importStatusMoveToImport": {
-        "message": "移动到 Import"
+        "message": "移动到 Import",
+        "description": "Message for importStatusMoveToImport"
     },
     "importStatusDuplicate": {
-        "message": "跳过（重复）"
+        "message": "跳过（重复）",
+        "description": "Message for importStatusDuplicate"
     },
     "importActionRenameMerge": {
-        "message": "重命名并合并"
+        "message": "重命名并合并",
+        "description": "Message for importActionRenameMerge"
     },
     "importActionMerge": {
-        "message": "合并"
+        "message": "合并",
+        "description": "Message for importActionMerge"
     },
     "importConfirmationTitle": {
-        "message": "导入确认"
+        "message": "导入确认",
+        "description": "Message for importConfirmationTitle"
     },
     "importingCount": {
-        "message": "正在导入 <strong>$1</strong> 个书签。"
+        "message": "正在导入 <strong>$1</strong> 个书签。",
+        "description": "Message for importingCount"
     },
     "importSummaryNormal": {
-        "message": "正常"
+        "message": "正常",
+        "description": "Message for importSummaryNormal"
     },
     "importSummaryRenamed": {
-        "message": "重命名"
+        "message": "重命名",
+        "description": "Message for importSummaryRenamed"
     },
     "importSummaryToImport": {
-        "message": "转入 Import"
+        "message": "转入 Import",
+        "description": "Message for importSummaryToImport"
     },
     "importSummarySkipped": {
-        "message": "跳过"
+        "message": "跳过",
+        "description": "Message for importSummarySkipped"
     },
     "folderLabel": {
-        "message": "文件夹："
+        "message": "文件夹：",
+        "description": "Message for folderLabel"
     },
     "renamedToLabel": {
-        "message": "重命名为："
+        "message": "重命名为：",
+        "description": "Message for renamedToLabel"
     },
     "existingEntryLabel": {
-        "message": "已有条目："
+        "message": "已有条目：",
+        "description": "Message for existingEntryLabel"
     },
     "pendingImportLabel": {
-        "message": "待导入："
+        "message": "待导入：",
+        "description": "Message for pendingImportLabel"
     },
     "actionCannotBeUndone": {
-        "message": "此操作无法撤销。"
+        "message": "此操作无法撤销。",
+        "description": "Message for actionCannotBeUndone"
     },
     "exportMetadata": {
-        "message": "导出自 $1，时间：$2"
+        "message": "导出自 $1，时间：$2",
+        "description": "Message for exportMetadata"
     },
     "exportMessagePrefix": {
-        "message": "消息 $1"
+        "message": "消息 $1",
+        "description": "Message for exportMessagePrefix"
     },
     "exportUserLabel": {
-        "message": "用户"
+        "message": "用户",
+        "description": "Message for exportUserLabel"
     },
     "exportAssistantLabel": {
-        "message": "助手"
+        "message": "助手",
+        "description": "Message for exportAssistantLabel"
     },
     "pdfExportedFrom": {
-        "message": "导出自 $1"
+        "message": "导出自 $1",
+        "description": "Message for pdfExportedFrom"
     },
     "pdfMessagesCount": {
-        "message": "共 $1 条消息"
+        "message": "共 $1 条消息",
+        "description": "Message for pdfMessagesCount"
     },
     "pdfMessagePrefix": {
-        "message": "消息 $1"
+        "message": "消息 $1",
+        "description": "Message for pdfMessagePrefix"
     },
     "pdfUserLabel": {
-        "message": "用户"
+        "message": "用户",
+        "description": "Message for pdfUserLabel"
     },
     "pdfAssistantLabel": {
-        "message": "助手"
+        "message": "助手",
+        "description": "Message for pdfAssistantLabel"
     },
     "allPlatforms": {
-        "message": "全部平台"
+        "message": "全部平台",
+        "description": "Message for allPlatforms"
     },
     "contextOnlyConfirmTitle": {
-        "message": "启用仅保存上下文吗？"
+        "message": "启用仅保存上下文吗？",
+        "description": "Message for contextOnlyConfirmTitle"
     },
     "contextOnlyConfirmSummary": {
-        "message": "该功能会对新书签仅保存 500 个字符（开头 250 + 结尾 250）。"
+        "message": "该功能会对新书签仅保存 500 个字符（开头 250 + 结尾 250）。",
+        "description": "Message for contextOnlyConfirmSummary"
     },
     "contextOnlyBenefitTitle": {
-        "message": "收益："
+        "message": "收益：",
+        "description": "Message for contextOnlyBenefitTitle"
     },
     "contextOnlyBenefitDesc": {
-        "message": "显著降低存储占用。"
+        "message": "显著降低存储占用。",
+        "description": "Message for contextOnlyBenefitDesc"
     },
     "contextOnlyTradeoffTitle": {
-        "message": "代价："
+        "message": "代价：",
+        "description": "Message for contextOnlyTradeoffTitle"
     },
     "contextOnlyTradeoffDesc": {
-        "message": "书签面板中将无法查看完整文本预览。"
+        "message": "书签面板中将无法查看完整文本预览。",
+        "description": "Message for contextOnlyTradeoffDesc"
     },
     "contextOnlyEnable": {
-        "message": "启用"
+        "message": "启用",
+        "description": "Message for contextOnlyEnable"
     },
     "noFoldersCreateHint": {
-        "message": "暂无文件夹，请先创建一个开始使用。"
+        "message": "暂无文件夹，请先创建一个开始使用。",
+        "description": "Message for noFoldersCreateHint"
     },
     "loadingText": {
-        "message": "加载中..."
+        "message": "加载中...",
+        "description": "Message for loadingText"
     },
     "positionNotAvailable": {
-        "message": "无法获取位置"
+        "message": "无法获取位置",
+        "description": "Message for positionNotAvailable"
     },
     "clipboardWriteFailed": {
-        "message": "写入剪贴板失败"
+        "message": "写入剪贴板失败",
+        "description": "Message for clipboardWriteFailed"
     },
     "savedStatus": {
-        "message": "已保存"
+        "message": "已保存",
+        "description": "Message for savedStatus"
     },
     "removedStatus": {
-        "message": "已移除"
+        "message": "已移除",
+        "description": "Message for removedStatus"
     },
     "sendFailed": {
-        "message": "发送失败"
+        "message": "发送失败",
+        "description": "Message for sendFailed"
     },
     "sendEmpty": {
-        "message": "内容为空"
+        "message": "内容为空",
+        "description": "Message for sendEmpty"
     },
     "sendingStatus": {
-        "message": "发送中..."
+        "message": "发送中...",
+        "description": "Message for sendingStatus"
     },
     "sentStatus": {
-        "message": "已发送"
+        "message": "已发送",
+        "description": "Message for sentStatus"
     },
     "paginationLabel": {
-        "message": "分页"
+        "message": "分页",
+        "description": "Message for paginationLabel"
     },
     "goToPage": {
-        "message": "跳转到 $1"
+        "message": "跳转到 $1",
+        "description": "Message for goToPage"
     },
     "readerPagerHint": {
-        "message": "也可用方向键"
+        "message": "也可用方向键",
+        "description": "Message for readerPagerHint"
     },
     "resizeSendPopover": {
-        "message": "调整发送浮层大小"
+        "message": "调整发送浮层大小",
+        "description": "Message for resizeSendPopover"
     },
     "searchBookmarksPlaceholder": {
-        "message": "搜索书签"
+        "message": "搜索书签",
+        "description": "Message for searchBookmarksPlaceholder"
     },
     "untitledLabel": {
-        "message": "（未命名）"
+        "message": "（未命名）",
+        "description": "Message for untitledLabel"
     },
     "emptyBookmarksHint": {
-        "message": "创建一个文件夹，或导入书签后开始浏览已保存的消息。"
+        "message": "创建一个文件夹，或导入书签后开始浏览已保存的消息。",
+        "description": "Message for emptyBookmarksHint"
     },
     "settingsPlatformChatgptDesc": {
-        "message": "在 ChatGPT 上启用 AI-MarkDone。"
+        "message": "在 ChatGPT 上启用 AI-MarkDone。",
+        "description": "Message for settingsPlatformChatgptDesc"
     },
     "settingsPlatformGeminiDesc": {
-        "message": "在 Gemini 上启用 AI-MarkDone。"
+        "message": "在 Gemini 上启用 AI-MarkDone。",
+        "description": "Message for settingsPlatformGeminiDesc"
     },
     "settingsPlatformClaudeDesc": {
-        "message": "在 Claude 上启用 AI-MarkDone。"
+        "message": "在 Claude 上启用 AI-MarkDone。",
+        "description": "Message for settingsPlatformClaudeDesc"
     },
     "settingsPlatformDeepseekDesc": {
-        "message": "在 DeepSeek 上启用 AI-MarkDone。"
+        "message": "在 DeepSeek 上启用 AI-MarkDone。",
+        "description": "Message for settingsPlatformDeepseekDesc"
     },
     "settingsShowSaveMessagesLabel": {
-        "message": "显示保存消息"
+        "message": "显示保存消息",
+        "description": "Message for settingsShowSaveMessagesLabel"
     },
     "settingsShowSaveMessagesDesc": {
-        "message": "在支持导出的地方显示“保存消息”操作。"
+        "message": "在支持导出的地方显示“保存消息”操作。",
+        "description": "Message for settingsShowSaveMessagesDesc"
     },
     "settingsShowWordCountLabel": {
-        "message": "显示字数统计"
+        "message": "显示字数统计",
+        "description": "Message for settingsShowWordCountLabel"
     },
     "settingsShowWordCountDesc": {
-        "message": "为保存和渲染后的内容显示字数信息。"
+        "message": "为保存和渲染后的内容显示字数信息。",
+        "description": "Message for settingsShowWordCountDesc"
     },
     "settingsEnableClickToCopyLabel": {
-        "message": "启用点击复制"
+        "message": "启用点击复制",
+        "description": "Message for settingsEnableClickToCopyLabel"
     },
     "settingsEnableClickToCopyDesc": {
-        "message": "在支持的区域中点击即可复制消息内容。"
+        "message": "在支持的区域中点击即可复制消息内容。",
+        "description": "Message for settingsEnableClickToCopyDesc"
     },
     "settingsSaveContextOnlyLabel": {
-        "message": "仅保存上下文"
+        "message": "仅保存上下文",
+        "description": "Message for settingsSaveContextOnlyLabel"
     },
     "settingsSaveContextOnlyDesc": {
-        "message": "导出或收藏时只保存上下文摘要，而不是完整线程。"
+        "message": "导出或收藏时只保存上下文摘要，而不是完整线程。",
+        "description": "Message for settingsSaveContextOnlyDesc"
     },
     "settingsRenderCodeInReaderLabel": {
-        "message": "在阅读器中渲染代码"
+        "message": "在阅读器中渲染代码",
+        "description": "Message for settingsRenderCodeInReaderLabel"
     },
     "settingsRenderCodeInReaderDesc": {
-        "message": "在阅读器中以格式化样式展示代码块，而不是原始纯文本。"
+        "message": "在阅读器中以格式化样式展示代码块，而不是原始纯文本。",
+        "description": "Message for settingsRenderCodeInReaderDesc"
     },
     "settingsInterfaceLanguageLabel": {
-        "message": "界面语言"
+        "message": "界面语言",
+        "description": "Message for settingsInterfaceLanguageLabel"
     },
     "settingsInterfaceLanguageDesc": {
-        "message": "可跟随浏览器语言，也可以固定为指定语言。"
+        "message": "可跟随浏览器语言，也可以固定为指定语言。",
+        "description": "Message for settingsInterfaceLanguageDesc"
     },
     "backupBookmarksHint": {
-        "message": "在大改动或重装浏览器前，建议先导出全部书签做备份。"
+        "message": "在大改动或重装浏览器前，建议先导出全部书签做备份。",
+        "description": "Message for backupBookmarksHint"
     },
     "sponsorOpenSourceTitle": {
-        "message": "开源支持"
+        "message": "开源支持",
+        "description": "Message for sponsorOpenSourceTitle"
     },
     "sponsorOpenSourceNote": {
-        "message": "为仓库点个 Star，能让项目被更多人看到。"
+        "message": "为仓库点个 Star，能让项目被更多人看到。",
+        "description": "Message for sponsorOpenSourceNote"
     },
     "sponsorOpenSourceBody": {
-        "message": "如果这个项目对你有帮助，点亮 Star 是最直接的支持方式。它能提升项目曝光度，也让持续维护更有动力。"
+        "message": "如果这个项目对你有帮助，点亮 Star 是最直接的支持方式。它能提升项目曝光度，也让持续维护更有动力。",
+        "description": "Message for sponsorOpenSourceBody"
     },
     "sponsorDonateTitle": {
-        "message": "请作者喝杯咖啡"
+        "message": "请作者喝杯咖啡",
+        "description": "Message for sponsorDonateTitle"
     },
     "sponsorDonateNote": {
-        "message": "也可以通过现有赞助渠道直接支持开发。"
+        "message": "也可以通过现有赞助渠道直接支持开发。",
+        "description": "Message for sponsorDonateNote"
     },
     "sponsorDonateBody": {
-        "message": "如果 AI-MarkDone 为你节省了时间，也欢迎通过现有赞助方式支持后续开发。"
+        "message": "如果 AI-MarkDone 为你节省了时间，也欢迎通过现有赞助方式支持后续开发。",
+        "description": "Message for sponsorDonateBody"
     },
     "sponsorBmcNote": {
-        "message": "适合国际用户的快速支持方式"
+        "message": "适合国际用户的快速支持方式",
+        "description": "Message for sponsorBmcNote"
     },
     "sponsorBmcAlt": {
-        "message": "Buy Me a Coffee 二维码"
+        "message": "Buy Me a Coffee 二维码",
+        "description": "Message for sponsorBmcAlt"
     },
     "sponsorWechatNote": {
-        "message": "通过微信直接表达支持"
+        "message": "通过微信直接表达支持",
+        "description": "Message for sponsorWechatNote"
     },
     "sponsorWechatAlt": {
-        "message": "微信赞赏码"
+        "message": "微信赞赏码",
+        "description": "Message for sponsorWechatAlt"
     },
     "sponsorThanksTitle": {
-        "message": "感谢赞助"
+        "message": "感谢赞助",
+        "description": "Message for sponsorThanksTitle"
     },
     "sponsorThanksDesc": {
-        "message": "每一份支持，都会变成 AI-MarkDone 继续更新的动力。"
+        "message": "每一份支持，都会变成 AI-MarkDone 继续更新的动力。",
+        "description": "Message for sponsorThanksDesc"
     },
     "sponsorThanksAriaLabel": {
-        "message": "赞助感谢名单"
+        "message": "赞助感谢名单",
+        "description": "Message for sponsorThanksAriaLabel"
     },
     "exportAllBookmarksLabel": {
-        "message": "导出全部书签"
+        "message": "导出全部书签",
+        "description": "Message for exportAllBookmarksLabel"
     },
     "moveBookmarkLabel": {
-        "message": "移动书签"
+        "message": "移动书签",
+        "description": "Message for moveBookmarkLabel"
     },
     "expandFolderLabel": {
-        "message": "展开文件夹"
+        "message": "展开文件夹",
+        "description": "Message for expandFolderLabel"
     },
     "collapseFolderLabel": {
-        "message": "收起文件夹"
+        "message": "收起文件夹",
+        "description": "Message for collapseFolderLabel"
     },
     "deleteSelectedMessage": {
-        "message": "要删除已选中的项目吗？"
+        "message": "要删除已选中的项目吗？",
+        "description": "Message for deleteSelectedMessage"
     },
     "confirmAction": {
-        "message": "确认"
+        "message": "确认",
+        "description": "Message for confirmAction"
     },
     "importMergeReviewTitle": {
-        "message": "导入结果概览"
+        "message": "导入结果概览",
+        "description": "Message for importMergeReviewTitle"
     },
     "importMergeSummaryHeading": {
-        "message": "导入摘要"
+        "message": "导入摘要",
+        "description": "Message for importMergeSummaryHeading"
     },
     "importMergeDetailsHeading": {
-        "message": "详细结果"
+        "message": "详细结果",
+        "description": "Message for importMergeDetailsHeading"
     },
     "importMergeSummaryImported": {
-        "message": "导入成功"
+        "message": "导入成功",
+        "description": "Message for importMergeSummaryImported"
     },
     "importMergeSummarySkippedDuplicates": {
-        "message": "跳过重复"
+        "message": "跳过重复",
+        "description": "Message for importMergeSummarySkippedDuplicates"
     },
     "importMergeSummaryRenamedTitles": {
-        "message": "重命名标题"
+        "message": "重命名标题",
+        "description": "Message for importMergeSummaryRenamedTitles"
     },
     "importMergeSummaryFolderFallbacks": {
-        "message": "文件夹回退"
+        "message": "文件夹回退",
+        "description": "Message for importMergeSummaryFolderFallbacks"
     },
     "importMergeImportedBookmarksTitle": {
-        "message": "已导入书签"
+        "message": "已导入书签",
+        "description": "Message for importMergeImportedBookmarksTitle"
     },
     "importMergeImportedBookmarksDetail": {
-        "message": "已新增或更新 $1 条书签。"
+        "message": "已新增或更新 $1 条书签。",
+        "description": "Message for importMergeImportedBookmarksDetail"
     },
     "importMergeDuplicateBookmarksTitle": {
-        "message": "重复书签"
+        "message": "重复书签",
+        "description": "Message for importMergeDuplicateBookmarksTitle"
     },
     "importMergeDuplicateBookmarksDetail": {
-        "message": "已跳过 $1 条重复书签。"
+        "message": "已跳过 $1 条重复书签。",
+        "description": "Message for importMergeDuplicateBookmarksDetail"
     },
     "importMergeRenamedTitlesTitle": {
-        "message": "已重命名标题"
+        "message": "已重命名标题",
+        "description": "Message for importMergeRenamedTitlesTitle"
     },
     "importMergeRenamedTitlesDetail": {
-        "message": "为避免冲突，已重命名 $1 个标题。"
+        "message": "为避免冲突，已重命名 $1 个标题。",
+        "description": "Message for importMergeRenamedTitlesDetail"
     },
     "importMergeWarningTitle": {
-        "message": "提示"
+        "message": "提示",
+        "description": "Message for importMergeWarningTitle"
     },
     "importMergeStatusDuplicate": {
-        "message": "重复"
+        "message": "重复",
+        "description": "Message for importMergeStatusDuplicate"
     },
     "importMergeStatusInfo": {
-        "message": "信息"
+        "message": "信息",
+        "description": "Message for importMergeStatusInfo"
     },
     "streamingStatus": {
-        "message": "生成中..."
+        "message": "生成中...",
+        "description": "Message for streamingStatus"
     }
 }

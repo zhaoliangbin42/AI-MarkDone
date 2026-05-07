@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.3.0-10A37F" alt="Version 4.3.0">
+    <img src="https://img.shields.io/badge/Version-4.3.1-10A37F" alt="Version 4.3.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -199,11 +199,9 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.3.0
-- Added PNG/SVG export for individual formulas, plus settings for choosing which formula image actions appear.
-- Dynamic Annotation can place the selected user prompt before or after copied annotations.
-- Expanded ChatGPT directory labels can show both the first and last 15 prompt characters.
-- Fixed numbered-formula overlap in PDF exports and improved message bottom toolbar injection stability.
+### 4.3.1
+- Fixed Firefox toolbar insertion failures on ChatGPT. Thanks to Xiaohongshu user @圆桶烤肉拌厚切三文鱼.
+- Further reduced hyperlink and file citation noise in Reader copy and export output. Thanks to GitHub user @LTong-g.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)
