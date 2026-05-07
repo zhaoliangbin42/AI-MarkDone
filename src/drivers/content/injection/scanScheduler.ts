@@ -81,7 +81,7 @@ export class ScanScheduler {
             | undefined;
 
         if (typeof ric === 'function') {
-            ric(run, { timeout: this.options.idleTimeoutMs });
+            ric.call(globalScope, run, { timeout: this.options.idleTimeoutMs });
         } else {
             window.setTimeout(run, 0);
         }

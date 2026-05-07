@@ -161,4 +161,53 @@ describe('MathClickHandler', () => {
         container.remove();
         vi.useRealTimers();
     });
+
+    it('calls requestIdleCallback and cancelIdleCallback with window binding for Firefox', async () => {
+        vi.useFakeTimers();
+        const originalRequestIdleCallback = (window as any).requestIdleCallback;
+        const originalCancelIdleCallback = (window as any).cancelIdleCallback;
+        const callbacks = new Map<number, () => void>();
+        let nextId = 0;
+        const requestIdleCallback = vi.fn(function (
+            this: Window,
+            callback: () => void,
+            _opts?: { timeout: number }
+        ) {
+            expect(this).toBe(window);
+            const id = ++nextId;
+            callbacks.set(id, callback);
+            return id;
+        });
+        const cancelIdleCallback = vi.fn(function (this: Window, id: number) {
+            expect(this).toBe(window);
+            callbacks.delete(id);
+        });
+        (window as any).requestIdleCallback = requestIdleCallback;
+        (window as any).cancelIdleCallback = cancelIdleCallback;
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const handler = new MathClickHandler();
+
+        try {
+            handler.enable(container);
+
+            const newNode = document.createElement('span');
+            newNode.className = 'katex-error';
+            newNode.textContent = '\\beta_1';
+            container.appendChild(newNode);
+
+            await Promise.resolve();
+
+            expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+            handler.disable();
+            expect(cancelIdleCallback).toHaveBeenCalledWith(1);
+        } finally {
+            handler.disable();
+            container.remove();
+            (window as any).requestIdleCallback = originalRequestIdleCallback;
+            (window as any).cancelIdleCallback = originalCancelIdleCallback;
+            vi.useRealTimers();
+        }
+    });
 });

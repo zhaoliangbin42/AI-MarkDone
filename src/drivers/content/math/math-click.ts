@@ -204,7 +204,7 @@ export class MathClickHandler {
         const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
 
         if (typeof (globalScope as any).requestIdleCallback === 'function') {
-            this.idleTimer = (globalScope as any).requestIdleCallback(flush, { timeout: 200 });
+            this.idleTimer = (globalScope as any).requestIdleCallback.call(globalScope, flush, { timeout: 200 });
         } else {
             this.idleTimer = globalScope.setTimeout(flush, 16);
         }
@@ -226,7 +226,7 @@ export class MathClickHandler {
 
         const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
         if (typeof (globalScope as any).cancelIdleCallback === 'function') {
-            (globalScope as any).cancelIdleCallback(this.idleTimer as number);
+            (globalScope as any).cancelIdleCallback.call(globalScope, this.idleTimer as number);
         } else {
             globalScope.clearTimeout(this.idleTimer);
         }

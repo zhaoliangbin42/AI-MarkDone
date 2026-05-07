@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Export: Fixed a case where numbered formulas could overlap text in PDF exports. Thanks to GitHub user @LTong-g.
 - ChatGPT: Improved message bottom toolbar injection stability. Thanks to Xiaohongshu user @去码头整点橙汁.
+- Firefox: Fixed shared runtime compatibility issues that could prevent ChatGPT message toolbars and formula actions from appearing.
 
 ## [4.2.3] - 2026-04-29
 

@@ -111,4 +111,36 @@ describe('ScanScheduler', () => {
 
         expect(scanFn).not.toHaveBeenCalled();
     });
+
+    it('calls requestIdleCallback with window binding for Firefox', () => {
+        const originalRequestIdleCallback = (window as any).requestIdleCallback;
+        const scanFn = vi.fn();
+        const requestIdleCallback = vi.fn(function (
+            this: Window,
+            callback: () => void,
+            _opts?: { timeout: number }
+        ) {
+            expect(this).toBe(window);
+            callback();
+            return 1;
+        });
+        (window as any).requestIdleCallback = requestIdleCallback;
+
+        try {
+            const scheduler = new ScanScheduler(scanFn, {
+                debounceMs: 120,
+                minIntervalMs: 250,
+                idleTimeoutMs: 200,
+                maxWaitMs: 1000,
+            });
+
+            scheduler.schedule('init');
+            vi.advanceTimersByTime(250);
+
+            expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+            expect(scanFn).toHaveBeenCalledTimes(1);
+        } finally {
+            (window as any).requestIdleCallback = originalRequestIdleCallback;
+        }
+    });
 });

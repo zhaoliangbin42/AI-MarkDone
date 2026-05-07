@@ -27,14 +27,27 @@ function supportsConstructedStylesheets(shadowRoot: ShadowRoot): boolean {
         && 'adoptedStyleSheets' in shadowRoot;
 }
 
+function getAdoptedStyleSheets(shadowRoot: ShadowRoot): CSSStyleSheet[] | null {
+    const sheets = ((shadowRoot as any).adoptedStyleSheets || []) as unknown;
+    if (!Array.isArray(sheets)) return null;
+    if (typeof (sheets as CSSStyleSheet[]).some !== 'function') return null;
+    if (typeof (sheets as CSSStyleSheet[]).filter !== 'function') return null;
+    return sheets as CSSStyleSheet[];
+}
+
 function removeExistingRecord(shadowRoot: ShadowRoot, record: RootStyleRecord): void {
     if (record.kind === 'tag') {
         record.styleEl.remove();
         return;
     }
 
-    const currentSheets = ((shadowRoot as any).adoptedStyleSheets || []) as CSSStyleSheet[];
-    (shadowRoot as any).adoptedStyleSheets = currentSheets.filter((sheet) => sheet !== record.sheet);
+    const currentSheets = getAdoptedStyleSheets(shadowRoot);
+    if (!currentSheets) return;
+    try {
+        (shadowRoot as any).adoptedStyleSheets = currentSheets.filter((sheet) => sheet !== record.sheet);
+    } catch {
+        // If the browser rejects assignment, leave the orphaned constructed sheet alone and let callers fall back.
+    }
 }
 
 function ensureRootStyle(shadowRoot: ShadowRoot, cssText: string, id: string): HTMLStyleElement {
@@ -63,6 +76,11 @@ function ensureSharedStyle(shadowRoot: ShadowRoot, cssText: string, id: string):
         return ensureRootStyle(shadowRoot, cssText, id);
     }
 
+    const currentSheets = getAdoptedStyleSheets(shadowRoot);
+    if (!currentSheets) {
+        return ensureRootStyle(shadowRoot, cssText, id);
+    }
+
     const registry = getRootRegistry(shadowRoot);
     const key = `${id}::${cssText}`;
     const existing = registry.get(id);
@@ -76,14 +94,21 @@ function ensureSharedStyle(shadowRoot: ShadowRoot, cssText: string, id: string):
 
     let sheet = sharedSheetRegistry.get(key);
     if (!sheet) {
-        sheet = new CSSStyleSheet();
-        sheet.replaceSync(cssText);
+        try {
+            sheet = new CSSStyleSheet();
+            sheet.replaceSync(cssText);
+        } catch {
+            return ensureRootStyle(shadowRoot, cssText, id);
+        }
         sharedSheetRegistry.set(key, sheet);
     }
 
-    const currentSheets = ((shadowRoot as any).adoptedStyleSheets || []) as CSSStyleSheet[];
-    if (!currentSheets.includes(sheet)) {
-        (shadowRoot as any).adoptedStyleSheets = [...currentSheets, sheet];
+    if (!currentSheets.some((candidate) => candidate === sheet)) {
+        try {
+            (shadowRoot as any).adoptedStyleSheets = [...currentSheets, sheet];
+        } catch {
+            return ensureRootStyle(shadowRoot, cssText, id);
+        }
     }
     registry.set(id, { kind: 'sheet', key, sheet });
     return sheet;

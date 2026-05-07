@@ -66,4 +66,67 @@ describe('shadow style registry', () => {
             (globalThis as any).CSSStyleSheet = originalSheet;
         }
     });
+
+    it('falls back to root-scoped style tags when adoptedStyleSheets is not an array', () => {
+        class FakeSheet {
+            replaceSync = vi.fn();
+        }
+
+        const originalSheet = (globalThis as any).CSSStyleSheet;
+        (globalThis as any).CSSStyleSheet = FakeSheet;
+
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        Object.defineProperty(shadow, 'adoptedStyleSheets', {
+            configurable: true,
+            writable: true,
+            value: { length: 0 },
+        });
+
+        try {
+            expect(() => {
+                ensureStyle(shadow, '.firefox { color: red; }', { id: 'toolbar-base', cache: 'shared' });
+            }).not.toThrow();
+
+            const styles = shadow.querySelectorAll('style[data-aimd-style-id="toolbar-base"]');
+            expect(styles).toHaveLength(1);
+            expect(styles[0]?.textContent).toContain('.firefox');
+        } finally {
+            (globalThis as any).CSSStyleSheet = originalSheet;
+        }
+    });
+
+    it('falls back to root-scoped style tags when adoptedStyleSheets lacks membership helpers', () => {
+        class FakeSheet {
+            replaceSync = vi.fn();
+        }
+
+        const originalSheet = (globalThis as any).CSSStyleSheet;
+        (globalThis as any).CSSStyleSheet = FakeSheet;
+
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const sheets: unknown[] = [];
+        Object.defineProperty(sheets, 'some', {
+            configurable: true,
+            value: undefined,
+        });
+        Object.defineProperty(shadow, 'adoptedStyleSheets', {
+            configurable: true,
+            writable: true,
+            value: sheets,
+        });
+
+        try {
+            expect(() => {
+                ensureStyle(shadow, '.firefox-array { color: red; }', { id: 'toolbar-base', cache: 'shared' });
+            }).not.toThrow();
+
+            const styles = shadow.querySelectorAll('style[data-aimd-style-id="toolbar-base"]');
+            expect(styles).toHaveLength(1);
+            expect(styles[0]?.textContent).toContain('.firefox-array');
+        } finally {
+            (globalThis as any).CSSStyleSheet = originalSheet;
+        }
+    });
 });

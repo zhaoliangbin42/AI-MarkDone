@@ -10,6 +10,8 @@ openspec/
 
 # Build output
 coverage/
+build/
+output/
 dist/
 deployment.zip
 *.crx
