@@ -144,6 +144,16 @@ Click the extension icon to open the bookmarks panel, then go to Settings. From 
 
 I do not like tools that dump every feature on every user, so this part is meant to stay flexible.
 
+## Where does Google Drive backup save my bookmarks?
+
+Open the bookmarks panel, go to Settings, then Data & Sync. The Google Drive row can connect your Drive account and save a verified bookmark snapshot.
+
+Backups are saved in your own Google Drive under `AI-MarkDone/Backups/bookmarks`. AI-MarkDone does not run a backup server, and the snapshot does not include OAuth tokens, passwords, or extension settings.
+
+The current version is a bookmark backup flow, not real-time two-way sync. Restoring from Drive first shows a safe merge preview: new cloud-only bookmarks can be added, local-only bookmarks are kept, duplicates are skipped, and conflicts keep the local copy by default.
+
+If backup fails, check whether Google authorization is still connected and whether the Drive API/OAuth configuration is available in this build. Development or self-hosted Chrome builds must provide `AIMD_GOOGLE_CLIENT_ID` at build time. If you see `Invalid OAuth2 Client ID`, the build usually did not inject the client ID, or the Google Cloud Chrome Extension OAuth client is not bound to the current extension ID. You can delete backup JSON files directly from Google Drive if you no longer need them.
+
 ## How do I use the ChatGPT conversation directory?
 
 Open a ChatGPT conversation. The directory appears on the right side of the page.

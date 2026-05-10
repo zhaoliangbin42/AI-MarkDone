@@ -38,6 +38,7 @@ import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from 
 import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 import { FormulaAssetSettingsPopover } from '../popovers/FormulaAssetSettingsPopover';
+import { CloudBackupSettingsPanel, type CloudBackupSettingsPanelActions } from '../cloudBackup/CloudBackupSettingsPanel';
 
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
@@ -49,6 +50,7 @@ export type SettingsTabViewActions = {
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
+    cloudBackup?: CloudBackupSettingsPanelActions;
 };
 
 type SelectRef = {
@@ -242,8 +244,16 @@ export class SettingsTabView {
             { value: 'zh_CN', label: t('languageZhCN') },
         ], 'language');
 
-        // Data & storage group (legacy shows storage usage + export)
-        const storageGroup = this.createGroup(Icons.database, t('dataAndStorage'));
+        // Data & sync group (cloud backup + local storage/export)
+        const storageGroup = this.createGroup(Icons.database, t('dataAndSync'));
+        if (this.actions.cloudBackup) {
+            const cloudBackup = new CloudBackupSettingsPanel({
+                modal: this.modal,
+                actions: this.actions.cloudBackup,
+            });
+            storageGroup.body.appendChild(cloudBackup.getElement());
+        }
+
         const storageInfo = document.createElement('div');
         storageInfo.className = 'settings-storage-info';
         storageInfo.innerHTML = `

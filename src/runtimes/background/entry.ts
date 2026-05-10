@@ -1,5 +1,6 @@
 import { PROTOCOL_VERSION, isExtRequest, type ExtResponse } from '../../contracts/protocol';
 import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNotice } from './handlers/bookmarks';
+import { handleCloudBackupRequest } from './handlers/cloudBackup';
 import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
 
@@ -101,6 +102,8 @@ runtime?.onMessage?.addListener?.((msg: unknown, _sender: any, sendResponse: (r:
     void (async () => {
         const settings = await handleSettingsRequest(msg);
         if (settings) return settings;
+        const cloudBackup = await handleCloudBackupRequest(msg);
+        if (cloudBackup) return cloudBackup;
         return handleBookmarksRequest(msg);
     })().then((result) => {
         if (result) {

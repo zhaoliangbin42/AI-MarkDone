@@ -1665,6 +1665,85 @@ ${getPanelChromeCss()}
 .storage-progress-bar.warning { background: var(--aimd-color-warning); }
 .storage-progress-bar.critical { background: var(--aimd-color-danger); }
 
+.cloud-backup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: var(--aimd-space-3);
+  margin-bottom: var(--aimd-space-3);
+  padding-bottom: var(--aimd-space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
+}
+
+.cloud-backup-row__info {
+  display: grid;
+  gap: var(--aimd-space-1);
+  min-width: 0;
+}
+
+.cloud-backup-row__info .settings-item-label,
+.cloud-backup-row__info .settings-item-warning-text {
+  display: block;
+}
+
+.cloud-backup-row__status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: min(100%, 42rem);
+  padding: var(--aimd-space-2) var(--aimd-space-3);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  border-radius: var(--aimd-radius-md);
+  color: var(--aimd-text-secondary);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 88%, transparent);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.cloud-backup-row__status--error {
+  border-color: color-mix(in srgb, var(--aimd-color-warning) 46%, var(--aimd-border-default));
+  color: color-mix(in srgb, var(--aimd-color-warning) 68%, var(--aimd-text-primary));
+  background: color-mix(in srgb, var(--aimd-color-warning) 10%, var(--aimd-bg-surface));
+}
+
+.cloud-backup-row__actions,
+.cloud-backup-settings-modal__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--aimd-space-2);
+}
+
+.cloud-backup-row__button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 560px) {
+  .cloud-backup-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cloud-backup-row__actions {
+    justify-content: flex-start;
+  }
+}
+
+.cloud-backup-settings-modal {
+  display: grid;
+  gap: var(--aimd-space-3);
+}
+
+.cloud-backup-settings-modal__status,
+.cloud-backup-settings-modal__privacy {
+  margin: 0;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-sm);
+  line-height: var(--aimd-line-height-normal);
+}
+
 .settings-backup-warning {
   margin-top: 6px;
   padding-top: 16px;

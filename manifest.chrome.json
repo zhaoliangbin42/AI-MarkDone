@@ -6,14 +6,16 @@
     "default_locale": "en",
     "permissions": [
         "clipboardWrite",
-        "storage"
+        "storage",
+        "identity"
     ],
     "host_permissions": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://gemini.google.com/*",
         "https://claude.ai/*",
-        "https://chat.deepseek.com/*"
+        "https://chat.deepseek.com/*",
+        "https://www.googleapis.com/*"
     ],
     "content_scripts": [
         {

@@ -26,8 +26,24 @@ export function buildManifest(target: ExtensionTarget): Manifest {
         ],
     };
 
+    if (target === 'chrome') {
+        manifest.permissions = [
+            ...(manifest.permissions as string[]),
+            'identity',
+        ];
+        const googleClientId = process.env.AIMD_GOOGLE_CLIENT_ID?.trim();
+        if (googleClientId) {
+            manifest.oauth2 = {
+                client_id: googleClientId,
+                scopes: ['https://www.googleapis.com/auth/drive.file'],
+            };
+        }
+    }
+
     if (targetConfig.hostPermissionPlacement === 'host_permissions') {
-        manifest.host_permissions = [...SUPPORTED_HOST_PATTERNS];
+        manifest.host_permissions = target === 'chrome'
+            ? [...SUPPORTED_HOST_PATTERNS, 'https://www.googleapis.com/*']
+            : [...SUPPORTED_HOST_PATTERNS];
     } else {
         manifest.permissions = [
             ...(manifest.permissions as string[]),

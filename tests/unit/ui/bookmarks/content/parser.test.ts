@@ -10,17 +10,17 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-04-22');
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-05-07');
         expect(en.entries[0]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
-                text: expect.stringContaining('incremental loading'),
+                text: expect.stringContaining('Firefox toolbar stability'),
             }),
         );
-        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(['新增', '变更', '修复', '移除']);
-        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(['Added', 'Changed', 'Fixed', 'Removed']);
+        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(['修复']);
+        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(['Fixed']);
     });
 
     it('parses about markdown into title, lead, and sections', () => {
@@ -54,7 +54,7 @@ describe('bookmarks content parser', () => {
 
         expect(en.title).toBe('FAQ');
         expect(en.leadBlocks).toEqual([]);
-        expect(en.items).toHaveLength(15);
+        expect(en.items).toHaveLength(16);
         expect(en.items[0]?.question).toContain('Which platforms does this extension support');
         expect(en.items[0]?.blocks[0]).toEqual(
             expect.objectContaining({

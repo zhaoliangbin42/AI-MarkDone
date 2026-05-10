@@ -54,6 +54,7 @@
 - `pure/domain service`
   - `src/services/settings/*`
   - `src/services/bookmarks/*`
+  - `src/services/cloudBackup/*`
 - `content-facing feature service`
   - `src/services/copy/*`
   - `src/services/reader/*`
@@ -102,10 +103,16 @@
 
 - Content/UI 通过协议发起 intent
 - Background 执行存储写入、恢复、广播并返回结果
+- Background 执行云端备份 provider 副作用，包括 OAuth/identity、Google Drive API 调用、上传后回读校验、provider 错误映射
 
 例外：
 
 - 如果某项副作用必须在 content 侧执行，必须在 `BLUEPRINT.md` 与 `REFACTOR_CHECKLIST.md` 中明确记录原因与边界
+
+禁止：
+
+- UI 或 Service 直接 import `src/drivers/background/cloudBackup/*`
+- 云备份凭据、OAuth token、WebDAV/app password 等进入 `storage.sync`、书签 snapshot 或导出 payload
 
 ---
 

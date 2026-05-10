@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last Updated: February 4, 2026**
+**Last Updated: May 11, 2026**
 
 ## Data Collection
 
@@ -31,19 +31,29 @@ You can delete stored data at any time by clearing the extension's site data / e
 
 Some preferences may be stored using the browser's **sync storage** (if supported and enabled in your browser/account), which may sync those preferences across your devices. This is provided by the browser vendor's sync service.
 
+## Google Drive Backup (Optional)
+
+Google Drive backup is optional and user-initiated. If you connect Google Drive from Settings → Data & Sync, AI-MarkDone can upload verified bookmark snapshot files directly from your browser to your own Google Drive.
+
+- AI-MarkDone does not operate a backup server and does not receive these files.
+- Backup v1 only includes bookmarks. It does not include settings, OAuth tokens, account passwords, or other cloud credentials.
+- Google Drive authorization is stored by the browser/extension identity system and can be disconnected from Settings.
+- Backup files are saved in a visible Google Drive folder: `AI-MarkDone/Backups/bookmarks`.
+
 ## Permissions Used
 
 - **storage**: Save user preferences locally in your browser
 - **clipboardWrite**: Copy content when you click copy buttons
 - **host permissions**: Inject UI on supported websites (ChatGPT, Gemini, Claude, DeepSeek)
+- **identity / Google API host permission (Chrome only)**: Let you optionally connect Google Drive for bookmark backups
 
 ## Your Privacy
 
 - ✅ Complete privacy - we see nothing
 - ✅ Works offline for core features after installation
 - ✅ Open source - code is auditable
-- ✅ No third-party services
+- ✅ No AI-MarkDone backend service
 
 ---
 
-**In short: We don't have a server. Your data stays in your browser storage, and some settings may sync via your browser's sync feature if enabled.**
+**In short: We don't have a server. Your data stays in your browser storage, and optional Google Drive backups go directly to the Google Drive account you connect.**

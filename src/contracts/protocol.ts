@@ -13,7 +13,14 @@ export type ProtocolErrorCode =
     | 'MIGRATION_IN_PROGRESS'
     | 'NOT_FOUND'
     | 'INVALID_PATH'
-    | 'CONFLICT';
+    | 'CONFLICT'
+    | 'AUTH_REQUIRED'
+    | 'PERMISSION_DENIED'
+    | 'RATE_LIMITED'
+    | 'PROVIDER_UNAVAILABLE'
+    | 'INTEGRITY_MISMATCH'
+    | 'SNAPSHOT_CORRUPTED'
+    | 'SCHEMA_UNSUPPORTED';
 
 export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
 
@@ -89,6 +96,20 @@ export type BookmarksStorageUsageResponse = {
     warningLevel: 'none' | 'warning' | 'critical';
 };
 
+export type CloudBackupProviderId = 'googleDrive';
+export type CloudBackupRestoreStrategy = 'previewOnly' | 'safeMerge' | 'replaceLocal';
+export type CloudBackupStatusPayload = { provider: CloudBackupProviderId };
+export type CloudBackupConnectPayload = { provider: CloudBackupProviderId };
+export type CloudBackupDisconnectPayload = { provider: CloudBackupProviderId };
+export type CloudBackupBackupNowPayload = { provider: CloudBackupProviderId };
+export type CloudBackupListSnapshotsPayload = { provider: CloudBackupProviderId };
+export type CloudBackupPreviewRestorePayload = {
+    provider: CloudBackupProviderId;
+    snapshotId: string;
+    strategy?: CloudBackupRestoreStrategy;
+};
+export type CloudBackupDeleteSnapshotPayload = { provider: CloudBackupProviderId; snapshotId: string };
+
 export type SettingsGetCategoryPayload = { category: SettingsCategory };
 export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
 
@@ -118,7 +139,14 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:get'; payload: BookmarksUiStateGetPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:set'; payload: BookmarksUiStateSetPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:get' }
-    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:ack'; payload: BookmarksChangelogNoticeAckPayload };
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:ack'; payload: BookmarksChangelogNoticeAckPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:status'; payload: CloudBackupStatusPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:connect'; payload: CloudBackupConnectPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:disconnect'; payload: CloudBackupDisconnectPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:backupNow'; payload: CloudBackupBackupNowPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:listSnapshots'; payload: CloudBackupListSnapshotsPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:previewRestore'; payload: CloudBackupPreviewRestorePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:deleteSnapshot'; payload: CloudBackupDeleteSnapshotPayload };
 
 export type ExtResponse =
     | { v: ProtocolVersion; id: RequestId; ok: true; type: ExtRequest['type']; data?: unknown }
@@ -164,6 +192,13 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'bookmarks:uiState:set',
         'bookmarks:changelogNotice:get',
         'bookmarks:changelogNotice:ack',
+        'cloudBackup:status',
+        'cloudBackup:connect',
+        'cloudBackup:disconnect',
+        'cloudBackup:backupNow',
+        'cloudBackup:listSnapshots',
+        'cloudBackup:previewRestore',
+        'cloudBackup:deleteSnapshot',
     ]);
 
     return allowedTypes.has(type);

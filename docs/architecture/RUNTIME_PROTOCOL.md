@@ -120,14 +120,26 @@
 - `bookmarks:uiState:set`
 - `bookmarks:changelogNotice:get`
 - `bookmarks:changelogNotice:ack`
+- `cloudBackup:status`
+- `cloudBackup:connect`
+- `cloudBackup:disconnect`
+- `cloudBackup:backupNow`
+- `cloudBackup:listSnapshots`
+- `cloudBackup:previewRestore`
+- `cloudBackup:deleteSnapshot`
 
 用途：
 
 - 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
 - changelog install/update notice 的本地读取与确认
+- Chrome v1 Google Drive 书签云备份；Settings/UI 只能发送协议请求，不能直接调用 Google Drive provider 或 Chrome identity
 
 关键语义：
 
+- `cloudBackup:status`
+  - 返回本地保存的连接/最近备份状态，并附带 provider 的只读配置诊断
+  - Chrome Google Drive provider 会在不触发登录的前提下检查当前 manifest 是否具备 `identity` permission 与 `oauth2.client_id`
+  - 缺少 `AIMD_GOOGLE_CLIENT_ID` 构建注入、Client ID 格式明显错误、或 Chrome identity 不可用时，UI 应显示配置错误，不应直接触发 Google 授权
 - `bookmarks:bulkRemove`
   - payload 现在支持：
     - `items`
@@ -140,6 +152,18 @@
     - 递归删除命中的 folder 与其后代
     - 删除这些 folder 下的书签
     - 修正相关 folder index 与 bookmarks UI state
+
+- `cloudBackup:backupNow`
+  - 在 `backgroundStorageQueue` 中捕获一致的本地书签集合
+  - 复用现有 `exportBookmarks(..., preserveStructure: true)` 生成 v2.0 export payload
+  - 包装为 `CloudBackupSnapshotV1`，上传到 Google Drive 可见文件夹 `AI-MarkDone/Backups/bookmarks`
+  - 上传成功后回读并校验 `payloadHash`
+- `cloudBackup:previewRestore`
+  - 下载并校验 snapshot
+  - 复用 `parseImportData` 解析书签 payload
+  - 生成安全合并预览；不写本地 storage，不传播删除
+- `cloudBackup:deleteSnapshot`
+  - 删除用户选中的云端 snapshot；不会修改本地书签
 
 ---
 

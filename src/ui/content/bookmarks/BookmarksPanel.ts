@@ -2,7 +2,8 @@ import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types
 import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
-import { browser } from '../../../drivers/shared/browser';
+import { cloudBackupClient } from '../../../drivers/shared/clients/cloudBackupClient';
+import { browser, browserInfo } from '../../../drivers/shared/browser';
 import {
     bookmarkIcon,
     coffeeIcon,
@@ -28,6 +29,8 @@ import type { ReaderPanel } from '../reader/ReaderPanel';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { logger } from '../../../core/logger';
+import type { CloudBackupProviderId } from '../../../contracts/protocol';
+import type { CloudBackupSnapshotSummary } from '../../../core/cloudBackup/types';
 import { eventWithinTransientRoot } from '../components/transientUi';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
@@ -387,6 +390,22 @@ export class BookmarksPanel {
             exportAllBookmarks: async () => {
                 await this.exportAll();
             },
+            cloudBackup: browserInfo.isChrome ? {
+                status: async (provider) => {
+                    const result = await cloudBackupClient.status(provider);
+                    if (!result.ok) return { connected: false, lastError: result.message };
+                    return result.data ?? { connected: false };
+                },
+                openSettings: async () => {
+                    await this.showGoogleDriveBackupSettings();
+                },
+                backupNow: async (provider) => {
+                    await this.backupToCloud(provider);
+                },
+                restore: async (provider) => {
+                    await this.previewCloudRestore(provider);
+                },
+            } : undefined,
         };
     }
 
@@ -856,5 +875,182 @@ export class BookmarksPanel {
         if (result.ok) {
             downloadJson('ai-markdone-bookmarks.json', result.data.payload);
         }
+    }
+
+    private async backupToCloud(provider: CloudBackupProviderId): Promise<void> {
+        const result = await cloudBackupClient.backupNow(provider);
+        await this.modalHost?.alert({
+            kind: result.ok ? 'info' : 'error',
+            title: result.ok ? tr('cloudBackupCompleteTitle', 'Backup complete') : tr('cloudBackupErrorTitle', 'Cloud backup failed'),
+            message: result.ok
+                ? tr('cloudBackupCompleteDesc', 'A verified bookmark snapshot was saved to your Google Drive.')
+                : result.message,
+            confirmText: tr('btnOk', 'OK'),
+        });
+    }
+
+    private async previewCloudRestore(provider: CloudBackupProviderId): Promise<void> {
+        const list = await cloudBackupClient.listSnapshots(provider);
+        if (!list.ok) {
+            await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Cloud backup failed'), message: list.message, confirmText: tr('btnOk', 'OK') });
+            return;
+        }
+        const snapshots = list.data.snapshots ?? [];
+        if (snapshots.length === 0) {
+            await this.modalHost?.alert({
+                kind: 'info',
+                title: tr('cloudBackupNoSnapshotsTitle', 'No cloud backups found'),
+                message: tr('cloudBackupNoSnapshotsDesc', 'Google Drive does not have any AI-MarkDone bookmark backups yet.'),
+                confirmText: tr('btnOk', 'OK'),
+            });
+            return;
+        }
+        const selected = await this.chooseCloudSnapshot(snapshots);
+        if (!selected) return;
+        const preview = await cloudBackupClient.previewRestore({ provider, snapshotId: selected.snapshotId, strategy: 'safeMerge' });
+        if (!preview.ok) {
+            await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Cloud backup failed'), message: preview.message, confirmText: tr('btnOk', 'OK') });
+            return;
+        }
+        const plan = preview.data.plan ?? {};
+        await this.modalHost?.alert({
+            kind: 'info',
+            title: tr('cloudBackupRestorePreviewTitle', 'Restore preview'),
+            message: tr('cloudBackupRestorePreviewDesc', 'Safe merge would add $1 bookmark(s), keep $2 local-only bookmark(s), skip $3 duplicate(s), and leave $4 conflict(s) unchanged.', [
+                String(plan.bookmarksToUpsert?.length ?? 0),
+                String(plan.localOnlyCount ?? 0),
+                String(plan.duplicateCount ?? 0),
+                String(plan.conflictCount ?? 0),
+            ]),
+            confirmText: tr('btnOk', 'OK'),
+        });
+    }
+
+    private async chooseCloudSnapshot(snapshots: CloudBackupSnapshotSummary[]): Promise<CloudBackupSnapshotSummary | null> {
+        const modal = this.modalHost;
+        if (!modal) return snapshots[0] ?? null;
+        return new Promise((resolve) => {
+            const body = document.createElement('div');
+            body.className = 'cloud-backup-settings-modal';
+
+            const description = document.createElement('p');
+            description.className = 'cloud-backup-settings-modal__privacy';
+            description.textContent = tr(
+                'cloudBackupChooseSnapshotDesc',
+                'Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.',
+            );
+
+            const select = document.createElement('select');
+            select.className = 'aimd-field-control aimd-field-control--standalone';
+            select.dataset.role = 'cloud-backup-snapshot-select';
+            snapshots.forEach((snapshot, index) => {
+                const option = document.createElement('option');
+                option.value = snapshot.snapshotId;
+                const createdAt = Number.isNaN(Date.parse(snapshot.createdAt))
+                    ? snapshot.createdAt
+                    : new Date(snapshot.createdAt).toLocaleString();
+                option.textContent = `${createdAt} · ${snapshot.name}`;
+                if (index === 0) option.selected = true;
+                select.appendChild(option);
+            });
+
+            body.append(description, select);
+            void modal.showCustom({
+                kind: 'info',
+                title: tr('cloudBackupChooseSnapshotTitle', 'Choose cloud backup'),
+                body,
+                footer: (footer, close) => {
+                    const cancel = document.createElement('button');
+                    cancel.type = 'button';
+                    cancel.className = 'mock-modal__button mock-modal__button--secondary';
+                    cancel.textContent = tr('btnCancel', 'Cancel');
+                    cancel.dataset.action = 'modal-cancel';
+                    cancel.addEventListener('click', () => {
+                        close();
+                        resolve(null);
+                    });
+
+                    const confirm = document.createElement('button');
+                    confirm.type = 'button';
+                    confirm.className = 'mock-modal__button mock-modal__button--primary';
+                    confirm.textContent = tr('cloudBackupRestore', 'Preview restore');
+                    confirm.dataset.action = 'modal-confirm';
+                    confirm.addEventListener('click', () => {
+                        const selected = snapshots.find((snapshot) => snapshot.snapshotId === select.value) ?? snapshots[0] ?? null;
+                        close();
+                        resolve(selected);
+                    });
+
+                    footer.append(cancel, confirm);
+                    window.setTimeout(() => select.focus(), 0);
+                },
+                onDismiss: () => resolve(null),
+            });
+        });
+    }
+
+    private async showGoogleDriveBackupSettings(): Promise<void> {
+        const modal = this.modalHost;
+        if (!modal) return;
+        const body = document.createElement('div');
+        body.className = 'cloud-backup-settings-modal';
+
+        const status = document.createElement('p');
+        status.className = 'cloud-backup-settings-modal__status';
+        status.textContent = tr('cloudBackupStatusChecking', 'Checking Google Drive status...');
+        body.appendChild(status);
+
+        const privacy = document.createElement('p');
+        privacy.className = 'cloud-backup-settings-modal__privacy';
+        privacy.textContent = tr('cloudBackupPrivacyNote', 'Backups are written directly to your Google Drive. AI-MarkDone does not run a backup server or include credentials in snapshots.');
+        body.appendChild(privacy);
+
+        const actions = document.createElement('div');
+        actions.className = 'cloud-backup-settings-modal__actions';
+        body.appendChild(actions);
+
+        const setStatus = async () => {
+            const result = await cloudBackupClient.status('googleDrive');
+            status.textContent = result.ok
+                ? tr(result.data?.connected ? 'cloudBackupConnectedStatus' : 'cloudBackupDisconnected', result.data?.connected ? 'Connected' : 'Not connected')
+                : result.message;
+        };
+
+        const connect = document.createElement('button');
+        connect.type = 'button';
+        connect.className = 'secondary-btn';
+        connect.textContent = tr('cloudBackupConnect', 'Connect');
+        connect.addEventListener('click', () => void (async () => {
+            const result = await cloudBackupClient.connect('googleDrive');
+            status.textContent = result.ok ? tr('cloudBackupConnectedStatus', 'Connected') : result.message;
+        })());
+
+        const list = document.createElement('button');
+        list.type = 'button';
+        list.className = 'secondary-btn';
+        list.textContent = tr('cloudBackupTestListSnapshots', 'Test backup list');
+        list.addEventListener('click', () => void (async () => {
+            const result = await cloudBackupClient.listSnapshots('googleDrive');
+            status.textContent = result.ok
+                ? tr('cloudBackupSnapshotCount', '$1 cloud backup(s) found.', [String(result.data.snapshots?.length ?? 0)])
+                : result.message;
+        })());
+
+        const disconnect = document.createElement('button');
+        disconnect.type = 'button';
+        disconnect.className = 'secondary-btn';
+        disconnect.textContent = tr('cloudBackupDisconnect', 'Disconnect');
+        disconnect.addEventListener('click', () => void (async () => {
+            const result = await cloudBackupClient.disconnect('googleDrive');
+            status.textContent = result.ok ? tr('cloudBackupDisconnected', 'Not connected') : result.message;
+        })());
+
+        actions.append(connect, list, disconnect);
+        await setStatus();
+        await modal.showCustom({
+            kind: 'info',
+            title: tr('cloudBackupGoogleDriveSettingsTitle', 'Google Drive backup settings'),
+            body,
+        });
     }
 }

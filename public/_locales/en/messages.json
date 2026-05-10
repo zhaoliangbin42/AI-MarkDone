@@ -1399,6 +1399,102 @@
         "message": "Export All",
         "description": "Message for exportAllBtn"
     },
+    "dataAndSync": {
+        "message": "Data & Sync",
+        "description": "Settings group label for local data and cloud sync"
+    },
+    "cloudBackupGoogleDriveDesc": {
+        "message": "Save verified bookmark snapshots to your own Google Drive.",
+        "description": "Google Drive cloud backup row description"
+    },
+    "cloudBackupDisconnected": {
+        "message": "Not connected",
+        "description": "Cloud backup disconnected status"
+    },
+    "cloudBackupConnectedStatus": {
+        "message": "Connected",
+        "description": "Cloud backup connected status"
+    },
+    "cloudBackupConfigMissingStatus": {
+        "message": "Google Drive setup is missing",
+        "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
+    },
+    "cloudBackupSettings": {
+        "message": "Cloud backup settings",
+        "description": "Cloud backup settings button label"
+    },
+    "cloudBackupConnect": {
+        "message": "Connect",
+        "description": "Connect cloud backup provider"
+    },
+    "cloudBackupDisconnect": {
+        "message": "Disconnect",
+        "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupBackupNow": {
+        "message": "Back up now",
+        "description": "Run a cloud backup now"
+    },
+    "cloudBackupRestore": {
+        "message": "Preview restore",
+        "description": "Preview restoring from cloud backup"
+    },
+    "cloudBackupCompleteTitle": {
+        "message": "Backup complete",
+        "description": "Cloud backup completion title"
+    },
+    "cloudBackupCompleteDesc": {
+        "message": "A verified bookmark snapshot was saved to your Google Drive.",
+        "description": "Cloud backup completion message"
+    },
+    "cloudBackupErrorTitle": {
+        "message": "Cloud backup failed",
+        "description": "Cloud backup error title"
+    },
+    "cloudBackupNoSnapshotsTitle": {
+        "message": "No cloud backups found",
+        "description": "No cloud backups found title"
+    },
+    "cloudBackupNoSnapshotsDesc": {
+        "message": "Google Drive does not have any AI-MarkDone bookmark backups yet.",
+        "description": "No cloud backups found message"
+    },
+    "cloudBackupRestorePreviewTitle": {
+        "message": "Restore preview",
+        "description": "Cloud restore preview title"
+    },
+    "cloudBackupRestorePreviewDesc": {
+        "message": "Safe merge would add $1 bookmark(s), keep $2 local-only bookmark(s), skip $3 duplicate(s), and leave $4 conflict(s) unchanged.",
+        "description": "Cloud restore preview summary"
+    },
+    "cloudBackupStatusChecking": {
+        "message": "Checking Google Drive status...",
+        "description": "Cloud backup status check message"
+    },
+    "cloudBackupPrivacyNote": {
+        "message": "Backups are written directly to your Google Drive. AI-MarkDone does not run a backup server or include credentials in snapshots.",
+        "description": "Cloud backup privacy note"
+    },
+    "cloudBackupTestListSnapshots": {
+        "message": "Test backup list",
+        "description": "Test listing cloud backups"
+    },
+    "cloudBackupSnapshotCount": {
+        "message": "$1 cloud backup(s) found.",
+        "description": "Cloud backup snapshot count"
+    },
+    "cloudBackupGoogleDriveSettingsTitle": {
+        "message": "Google Drive backup settings",
+        "description": "Google Drive cloud backup settings title"
+    },
+    "cloudBackupChooseSnapshotTitle": {
+        "message": "Choose cloud backup",
+        "description": "Title for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupChooseSnapshotDesc": {
+        "message": "Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.",
+        "description": "Description for the Google Drive restore snapshot picker"
+    },
     "selectMessagesLabel": {
         "message": "Select messages to save:",
         "description": "Message for selectMessagesLabel"

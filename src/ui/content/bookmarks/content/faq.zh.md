@@ -147,6 +147,16 @@
 
 我一直不太喜欢那种“功能很多，但全都硬塞给你”的工具，所以这里尽量做成了能自己裁剪的样子。
 
+## Google Drive 云备份会把书签保存到哪里？
+
+打开书签管理面板，进入设置里的“数据与同步”，就可以在 Google Drive 这一栏连接你的 Drive 账号，并保存一份经过校验的书签快照。
+
+备份文件会保存到你自己的 Google Drive：`AI-MarkDone/Backups/bookmarks`。AI-MarkDone 不运行备份服务器，快照里也不会包含 OAuth token、密码或扩展设置。
+
+当前版本是书签备份，不是实时双向同步。从 Drive 恢复时会先显示安全合并预览：云端独有书签可以新增，本地独有书签会保留，重复项会跳过，冲突项默认保留本地版本。
+
+如果备份失败，可以先检查 Google 授权是否仍然连接，以及当前构建是否配置了可用的 Drive OAuth。开发或自托管构建需要在构建 Chrome 版本时提供 `AIMD_GOOGLE_CLIENT_ID`；如果看到 `Invalid OAuth2 Client ID`，通常表示构建里没有注入 Client ID，或 Google Cloud 中的 Chrome Extension OAuth Client 没有绑定当前扩展 ID。你也可以直接在 Google Drive 中删除不需要的备份 JSON 文件。
+
 ## ChatGPT 右侧目录怎么用？
 
 打开 ChatGPT 对话页后，右侧会出现目录条。

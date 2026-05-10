@@ -1399,6 +1399,102 @@
         "message": "导出全部",
         "description": "Message for exportAllBtn"
     },
+    "dataAndSync": {
+        "message": "数据与同步",
+        "description": "Settings group label for local data and cloud sync"
+    },
+    "cloudBackupGoogleDriveDesc": {
+        "message": "将经过校验的书签快照保存到你自己的 Google Drive。",
+        "description": "Google Drive cloud backup row description"
+    },
+    "cloudBackupDisconnected": {
+        "message": "未连接",
+        "description": "Cloud backup disconnected status"
+    },
+    "cloudBackupConnectedStatus": {
+        "message": "已连接",
+        "description": "Cloud backup connected status"
+    },
+    "cloudBackupConfigMissingStatus": {
+        "message": "Google Drive 构建配置缺失",
+        "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
+    },
+    "cloudBackupSettings": {
+        "message": "云备份设置",
+        "description": "Cloud backup settings button label"
+    },
+    "cloudBackupConnect": {
+        "message": "连接",
+        "description": "Connect cloud backup provider"
+    },
+    "cloudBackupDisconnect": {
+        "message": "断开连接",
+        "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupBackupNow": {
+        "message": "立即备份",
+        "description": "Run a cloud backup now"
+    },
+    "cloudBackupRestore": {
+        "message": "预览恢复",
+        "description": "Preview restoring from cloud backup"
+    },
+    "cloudBackupCompleteTitle": {
+        "message": "备份完成",
+        "description": "Cloud backup completion title"
+    },
+    "cloudBackupCompleteDesc": {
+        "message": "已将经过校验的书签快照保存到你的 Google Drive。",
+        "description": "Cloud backup completion message"
+    },
+    "cloudBackupErrorTitle": {
+        "message": "云备份失败",
+        "description": "Cloud backup error title"
+    },
+    "cloudBackupNoSnapshotsTitle": {
+        "message": "没有找到云端备份",
+        "description": "No cloud backups found title"
+    },
+    "cloudBackupNoSnapshotsDesc": {
+        "message": "Google Drive 中还没有 AI-MarkDone 书签备份。",
+        "description": "No cloud backups found message"
+    },
+    "cloudBackupRestorePreviewTitle": {
+        "message": "恢复预览",
+        "description": "Cloud restore preview title"
+    },
+    "cloudBackupRestorePreviewDesc": {
+        "message": "安全合并将新增 $1 个书签，保留 $2 个仅本地书签，跳过 $3 个重复项，并保持 $4 个冲突项不变。",
+        "description": "Cloud restore preview summary"
+    },
+    "cloudBackupStatusChecking": {
+        "message": "正在检查 Google Drive 状态...",
+        "description": "Cloud backup status check message"
+    },
+    "cloudBackupPrivacyNote": {
+        "message": "备份会直接写入你的 Google Drive。AI-MarkDone 不运行备份服务器，也不会把凭据写入快照。",
+        "description": "Cloud backup privacy note"
+    },
+    "cloudBackupTestListSnapshots": {
+        "message": "测试备份列表",
+        "description": "Test listing cloud backups"
+    },
+    "cloudBackupSnapshotCount": {
+        "message": "找到 $1 个云端备份。",
+        "description": "Cloud backup snapshot count"
+    },
+    "cloudBackupGoogleDriveSettingsTitle": {
+        "message": "Google Drive 备份设置",
+        "description": "Google Drive cloud backup settings title"
+    },
+    "cloudBackupChooseSnapshotTitle": {
+        "message": "选择云端备份",
+        "description": "Title for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupChooseSnapshotDesc": {
+        "message": "选择要检查的 Google Drive 备份。此步骤只预览安全合并，不会修改本地书签。",
+        "description": "Description for the Google Drive restore snapshot picker"
+    },
     "selectMessagesLabel": {
         "message": "选择要保存的消息：",
         "description": "Message for selectMessagesLabel"

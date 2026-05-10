@@ -52,14 +52,14 @@ describe('supported hosts consistency', () => {
         const safariContentHosts = normalizeHosts(safari.content_scripts?.flatMap((entry) => entry.matches || []) || []);
         const popupLinkHosts = popupHosts();
 
-        expect(sourceHosts).toEqual(chromeHosts);
-        expect(chromeHosts).toEqual(firefoxHosts);
-        expect(chromeHosts).toEqual(safariHosts);
-        expect(chromeHosts).toEqual(chromeContentHosts);
-        expect(chromeHosts).toEqual(firefoxContentHosts);
-        expect(chromeHosts).toEqual(safariContentHosts);
+        expect(sourceHosts).toEqual(chromeContentHosts);
+        expect(sourceHosts).toEqual(firefoxHosts);
+        expect(sourceHosts).toEqual(safariHosts);
+        expect(sourceHosts).toEqual(firefoxContentHosts);
+        expect(sourceHosts).toEqual(safariContentHosts);
+        expect(chromeHosts).toEqual([...sourceHosts, 'www.googleapis.com'].sort());
         expect(popupLinkHosts.length).toBeGreaterThan(0);
-        expect(popupLinkHosts.every((host) => chromeHosts.includes(host))).toBe(true);
+        expect(popupLinkHosts.every((host) => sourceHosts.includes(host))).toBe(true);
     });
 
     it('defines an acceptance gate script for release-level parity checks', () => {

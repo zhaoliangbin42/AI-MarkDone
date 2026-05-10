@@ -68,7 +68,7 @@ describe('SettingsTabView', () => {
             'readerSettingsLabel',
             'chatgptDirectorySettingsLabel',
             'settingsLanguageLabel',
-            'dataAndStorage',
+            'dataAndSync',
         ]);
 
         const pageActionsGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
@@ -183,6 +183,81 @@ describe('SettingsTabView', () => {
         exportButton?.click();
         expect(onExportAllBookmarks).toHaveBeenCalledTimes(1);
     });
+
+    it('renders Google Drive cloud backup as the first Data & Sync row and wires safe actions', async () => {
+        const modal = { confirm: vi.fn(async () => true), alert: vi.fn(async () => undefined), showCustom: vi.fn() } as any;
+        const cloudBackup = {
+            status: vi.fn(async () => ({ connected: true })),
+            openSettings: vi.fn(async () => undefined),
+            backupNow: vi.fn(async () => undefined),
+            restore: vi.fn(async () => undefined),
+        };
+        const onExportAllBookmarks = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: {
+                exportAllBookmarks: onExportAllBookmarks,
+                cloudBackup,
+            },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
+        });
+
+        const root = view.getElement();
+        const group = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((candidate) => candidate.querySelector('.settings-group-title')?.textContent?.includes('dataAndSync'))!;
+        const rows = Array.from(group.children[1]?.children ?? []);
+        const googleDriveRow = root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-row"]')!;
+        await Promise.resolve();
+
+        expect(googleDriveRow).toBeTruthy();
+        expect(rows[0]).toBe(googleDriveRow);
+        expect(googleDriveRow.textContent).toContain('Google Drive');
+        expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).toBe('cloudBackupConnectedStatus');
+        expect(root.querySelector('[data-role="cloud-backup-provider-dropbox"]')).toBeNull();
+        expect(root.querySelector('[data-role="cloud-backup-provider-jianguoyun"]')).toBeNull();
+
+        root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-settings"]')!.click();
+        root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-backup-now"]')!.click();
+        root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-restore"]')!.click();
+
+        expect(cloudBackup.status).toHaveBeenCalledWith('googleDrive');
+        expect(cloudBackup.openSettings).toHaveBeenCalledTimes(1);
+        expect(cloudBackup.backupNow).toHaveBeenCalledWith('googleDrive');
+        expect(cloudBackup.restore).toHaveBeenCalledWith('googleDrive');
+        expect(onExportAllBookmarks).not.toHaveBeenCalled();
+    });
+
+    it('shows a compact Google Drive configuration warning instead of raw build diagnostics', async () => {
+        const modal = { confirm: vi.fn(async () => true), alert: vi.fn(async () => undefined), showCustom: vi.fn() } as any;
+        const cloudBackup = {
+            status: vi.fn(async () => ({
+                configured: false,
+                connected: false,
+                lastError: 'Google Drive backup is not configured in this build. Rebuild Chrome with AIMD_GOOGLE_CLIENT_ID set to the Google OAuth Chrome Extension client ID.',
+            })),
+        };
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { cloudBackup },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        await Promise.resolve();
+
+        const status = view.getElement().querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')!;
+        expect(status.textContent).toBe('cloudBackupConfigMissingStatus');
+        expect(status.title).toContain('AIMD_GOOGLE_CLIENT_ID');
+        expect(status.classList.contains('cloud-backup-row__status--error')).toBe(true);
+    });
+
 
     it('wires formula Markdown toggle and asset action popover to scoped formula settings', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;

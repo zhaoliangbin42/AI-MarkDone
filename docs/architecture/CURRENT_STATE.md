@@ -55,6 +55,7 @@
 - runtime 协议：`src/contracts/protocol.ts`
 - 平台契约：`src/contracts/platform.ts`
 - 存储契约：`src/contracts/storage.ts`
+- Chrome Google Drive 书签云备份位于 Settings → Data & Sync。它不是实时同步系统，而是用户主动触发的不可变 bookmark snapshot 备份：本地读取仍通过 bookmarks storage/index，云端副作用经 `cloudBackup:*` runtime protocol 和 background provider 执行。
 
 当前 content ↔ background 协议已经具备：
 
