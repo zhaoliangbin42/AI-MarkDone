@@ -262,6 +262,45 @@ describe('renderPngBlob', () => {
         scrollHeight.mockRestore();
     });
 
+    it('splits low-height chunks by DOM complexity without changing the height trigger', async () => {
+        const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2500);
+        const offsetHeight = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(50);
+        const onMetrics = vi.fn();
+        const denseSpans = Array.from({ length: 650 }, (_, index) => `<span class="token">token-${index}</span>`).join('');
+        const html = `
+<div class="aimd-png-export-card">
+  <div class="reader-markdown markdown-body">
+    <p>plain-start</p>
+    <pre><code>${denseSpans}</code></pre>
+    <p>plain-end</p>
+  </div>
+</div>`;
+
+        await renderPngBlob({
+            filename: 'complexity-budget.png',
+            html,
+            width: 800,
+            pixelRatio: 1,
+            backgroundColor: '#ffffff',
+            onMetrics,
+        });
+
+        expect(toCanvas).toHaveBeenCalledTimes(3);
+        const renderedHtml = vi.mocked(toCanvas).mock.calls.map((call) => (call[0] as HTMLElement).textContent || '');
+        expect(renderedHtml[0]).toContain('plain-start');
+        expect(renderedHtml[0]).not.toContain('token-0');
+        expect(renderedHtml[1]).toContain('token-0');
+        expect(renderedHtml[1]).toContain('token-649');
+        expect(renderedHtml[1]).not.toContain('plain-end');
+        expect(renderedHtml[2]).toContain('plain-end');
+        expect(onMetrics).toHaveBeenCalledWith(expect.objectContaining({
+            strategy: 'chunked',
+            chunkCount: 3,
+        }));
+        scrollHeight.mockRestore();
+        offsetHeight.mockRestore();
+    });
+
     it('throws a useful error when html-to-image canvas rendering fails', async () => {
         vi.mocked(toCanvas).mockRejectedValueOnce(new Error('render-fail'));
 
@@ -272,5 +311,19 @@ describe('renderPngBlob', () => {
             pixelRatio: 2,
             backgroundColor: '#ffffff',
         })).rejects.toThrow('PNG export failed');
+    });
+
+    it('preserves abort errors instead of wrapping them as PNG export failures', async () => {
+        const abort = new AbortController();
+        abort.abort();
+
+        await expect(renderPngBlob({
+            filename: 'cancelled.png',
+            html: '<div>cancelled</div>',
+            width: 800,
+            pixelRatio: 2,
+            backgroundColor: '#ffffff',
+            signal: abort.signal,
+        })).rejects.toMatchObject({ name: 'AbortError' });
     });
 });

@@ -1,11 +1,27 @@
 import type { Theme } from '../../core/types/theme';
 import { getTokenCss } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
+import { xIcon } from '../../assets/icons';
 import { createIcon } from './components/Icon';
 import { t } from './components/i18n';
 import { ToolbarHoverActionPortal } from './components/ToolbarHoverActionPortal';
 
 export type ToolbarActionResult = { ok: true; message?: string } | { ok: false; message: string };
+
+export type ToolbarTaskProgressEvent = {
+    label?: string;
+    completed?: number;
+    total?: number;
+    value?: number | null;
+    indeterminate?: boolean;
+};
+
+export type ToolbarActionContext = {
+    signal: AbortSignal;
+    onProgress: (event: ToolbarTaskProgressEvent) => void;
+};
+
+const TASK_CANCELLED_LABEL = 'Cancelled';
 
 export type MessageToolbarMenuItem = {
     id: string;
@@ -27,7 +43,7 @@ export type MessageToolbarAction = {
         label: string;
         tooltip?: string;
         icon: string;
-        onClick: () => Promise<void | ToolbarActionResult>;
+        onClick: (context?: ToolbarActionContext) => Promise<void | ToolbarActionResult>;
     };
 };
 
@@ -48,6 +64,8 @@ export class MessageToolbar {
     private hoverActionPortalInside = false;
     private toolbarFeedbackTimer: number | null = null;
     private toolbarFeedbackHost: HTMLElement | null = null;
+    private taskProgressTimer: number | null = null;
+    private activeTaskAbort: AbortController | null = null;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean }) {
         this.theme = theme;
@@ -68,6 +86,7 @@ export class MessageToolbar {
 
     dispose(): void {
         this.clearToolbarFeedback();
+        this.closeTaskProgress();
         this.closeMenu();
         this.closeHoverAction();
         this.hoverActionPortal?.dispose();
@@ -200,6 +219,46 @@ export class MessageToolbar {
         menu.dataset.role = 'menu';
         menu.dataset.open = '0';
         bar.appendChild(menu);
+
+        const taskProgress = document.createElement('div');
+        taskProgress.className = 'task-progress';
+        taskProgress.dataset.role = 'task-progress';
+        taskProgress.dataset.open = '0';
+        taskProgress.dataset.indeterminate = '1';
+
+        const taskBody = document.createElement('div');
+        taskBody.className = 'task-progress__body';
+
+        const taskLabel = document.createElement('div');
+        taskLabel.className = 'task-progress__label';
+        taskLabel.dataset.field = 'task-progress-label';
+        taskLabel.textContent = t('btnCopyAsPng');
+
+        const taskTrack = document.createElement('div');
+        taskTrack.className = 'task-progress__track';
+        taskTrack.setAttribute('aria-hidden', 'true');
+
+        const taskFill = document.createElement('div');
+        taskFill.className = 'task-progress__fill';
+        taskFill.dataset.field = 'task-progress-fill';
+        taskTrack.appendChild(taskFill);
+        taskBody.append(taskLabel, taskTrack);
+
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'task-progress__cancel';
+        cancel.dataset.action = 'cancel-task';
+        cancel.setAttribute('aria-label', t('btnCancel'));
+        cancel.appendChild(createIcon(xIcon));
+        cancel.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.activeTaskAbort?.abort();
+            this.updateTaskProgress({ label: this.getTaskCancelledLabel(), value: 0, indeterminate: false });
+        });
+
+        taskProgress.append(taskBody, cancel);
+        bar.appendChild(taskProgress);
 
         wrap.appendChild(bar);
         this.shadow.appendChild(wrap);
@@ -427,23 +486,30 @@ export class MessageToolbar {
 
     private async handleHoverActionClick(action: MessageToolbarAction, button: HTMLButtonElement): Promise<void> {
         if (!action.hoverAction) return;
+        const abort = new AbortController();
+        this.activeTaskAbort = abort;
+        this.openTaskProgress(button, { label: action.hoverAction.label, value: 0, indeterminate: false });
         try {
             button.disabled = true;
-            this.setStatus('info', 'Working…');
-            const res = await action.hoverAction.onClick();
-            if (!res) {
-                this.setStatus('idle', '');
+            const res = await action.hoverAction.onClick({
+                signal: abort.signal,
+                onProgress: (event) => this.updateTaskProgress(event),
+            });
+            if (abort.signal.aborted) {
+                this.finishTaskProgress(this.getTaskCancelledLabel());
+            } else if (!res) {
+                this.closeTaskProgress();
             } else if (res.ok) {
-                this.setStatus('success', res.message || 'Done');
+                this.finishTaskProgress(res.message || 'Done');
                 button.setAttribute('data-flash', '1');
                 window.setTimeout(() => button.removeAttribute('data-flash'), 650);
             } else {
-                this.setStatus('error', res.message || 'Failed');
+                this.finishTaskProgress(res.message || 'Failed');
             }
         } catch {
-            this.setStatus('error', 'Failed');
+            this.finishTaskProgress(abort.signal.aborted ? this.getTaskCancelledLabel() : 'Failed');
         } finally {
-            window.setTimeout(() => this.setStatus('idle', ''), 1200);
+            if (this.activeTaskAbort === abort) this.activeTaskAbort = null;
             if (this.pending && action.disabledWhenPending) {
                 button.disabled = true;
             } else {
@@ -451,6 +517,64 @@ export class MessageToolbar {
             }
             this.closeHoverAction();
         }
+    }
+
+    private openTaskProgress(anchor: HTMLElement, initial: ToolbarTaskProgressEvent): void {
+        this.clearToolbarFeedback();
+        this.closeHoverAction();
+        if (this.taskProgressTimer !== null) {
+            window.clearTimeout(this.taskProgressTimer);
+            this.taskProgressTimer = null;
+        }
+        const progress = this.shadow.querySelector<HTMLElement>('[data-role="task-progress"]');
+        if (!progress) return;
+        progress.dataset.open = '1';
+        progress.dataset.anchorAction = anchor.dataset.action || '';
+        progress.dataset.indeterminate = '0';
+        const fill = progress.querySelector<HTMLElement>('[data-field="task-progress-fill"]');
+        if (fill) fill.style.width = '0%';
+        this.updateTaskProgress(initial);
+    }
+
+    private updateTaskProgress(event: ToolbarTaskProgressEvent): void {
+        const progress = this.shadow.querySelector<HTMLElement>('[data-role="task-progress"]');
+        if (!progress || progress.dataset.open !== '1') return;
+        const label = progress.querySelector<HTMLElement>('[data-field="task-progress-label"]');
+        const fill = progress.querySelector<HTMLElement>('[data-field="task-progress-fill"]');
+        if (event.label && label) label.textContent = event.label;
+
+        const hasRatio = Number.isFinite(event.completed) && Number.isFinite(event.total) && (event.total ?? 0) > 0;
+        const explicitValue = typeof event.value === 'number' && Number.isFinite(event.value) ? event.value : null;
+        const value = explicitValue ?? (hasRatio ? Math.round(((event.completed ?? 0) / Math.max(1, event.total ?? 1)) * 100) : null);
+        const indeterminate = event.indeterminate ?? value === null;
+        progress.dataset.indeterminate = indeterminate ? '1' : '0';
+        if (fill && value !== null) {
+            fill.style.width = `${Math.max(0, Math.min(100, value))}%`;
+        } else if (fill && indeterminate) {
+            fill.style.width = '38%';
+        }
+    }
+
+    private finishTaskProgress(label: string): void {
+        this.updateTaskProgress({ label, value: 100, indeterminate: false });
+        if (this.taskProgressTimer !== null) window.clearTimeout(this.taskProgressTimer);
+        this.taskProgressTimer = window.setTimeout(() => this.closeTaskProgress(), 1200);
+    }
+
+    private closeTaskProgress(): void {
+        if (this.taskProgressTimer !== null) {
+            window.clearTimeout(this.taskProgressTimer);
+            this.taskProgressTimer = null;
+        }
+        const progress = this.shadow.querySelector<HTMLElement>('[data-role="task-progress"]');
+        if (!progress) return;
+        progress.dataset.open = '0';
+        progress.dataset.indeterminate = '0';
+    }
+
+    private getTaskCancelledLabel(): string {
+        const translated = t('copyPngCancelled');
+        return translated && translated !== 'copyPngCancelled' ? translated : TASK_CANCELLED_LABEL;
     }
 
     private attachHoverFeedback(button: HTMLButtonElement, label: string, placement: 'top' | 'bottom'): void {
@@ -680,6 +804,91 @@ export class MessageToolbar {
 }
 .status[data-kind="success"] { border-color: var(--aimd-state-success-border); }
 .status[data-kind="error"] { border-color: var(--aimd-state-error-border); }
+
+.task-progress {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + var(--aimd-space-2));
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 100%;
+  display: none;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  padding: var(--aimd-space-2);
+  border-radius: var(--aimd-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 99%, var(--aimd-bg-primary));
+  color: var(--aimd-text-primary);
+  box-shadow: var(--aimd-shadow-lg);
+  z-index: var(--aimd-z-tooltip);
+}
+.task-progress[data-open="1"] {
+  display: flex;
+}
+.task-progress__body {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: grid;
+  gap: var(--aimd-space-1);
+}
+.task-progress__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.2;
+}
+.task-progress__track {
+  position: relative;
+  height: var(--aimd-space-1);
+  overflow: hidden;
+  border-radius: var(--aimd-radius-full);
+  background: color-mix(in srgb, var(--aimd-border-default) 70%, transparent);
+}
+.task-progress__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--aimd-interactive-primary);
+  transition: width var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+.task-progress[data-indeterminate="1"] .task-progress__fill {
+  animation: taskProgressIndeterminate 1.1s var(--aimd-ease-in-out) infinite;
+}
+.task-progress__cancel {
+  all: unset;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: var(--aimd-size-control-icon-toolbar);
+  height: var(--aimd-size-control-icon-toolbar);
+  border-radius: var(--aimd-radius-lg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--aimd-button-icon-text);
+}
+.task-progress__cancel:hover {
+  background: var(--aimd-toolbar-hover);
+  color: var(--aimd-button-icon-text-hover);
+}
+.task-progress__cancel:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: 2px;
+}
+.task-progress__cancel .aimd-icon,
+.task-progress__cancel .aimd-icon svg {
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
+  display: block;
+}
+
+@keyframes taskProgressIndeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(260%); }
+}
 
 .menu {
   position: absolute;

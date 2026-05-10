@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../src/drivers/content/export/renderPng', () => ({
     renderPngBlob: vi.fn(async (plan: any) => {
+        plan.onProgress?.({ phase: 'rendering_chunk', completed: 1, total: 3 });
         plan.onMetrics?.({
             width: 1200,
             height: 12000,
@@ -130,5 +131,28 @@ describe('copyTurnsPng', () => {
         });
         expect(JSON.stringify(onDebug.mock.calls)).not.toContain('u2');
         expect(JSON.stringify(onDebug.mock.calls)).not.toContain('a2');
+    });
+
+    it('passes renderer progress and abort signal through while avoiding clipboard writes after cancellation', async () => {
+        const abort = new AbortController();
+        const onProgress = vi.fn();
+        const blob = new Blob(['png'], { type: 'image/png' });
+        vi.mocked(renderPngBlob).mockImplementationOnce(async (plan: any) => {
+            expect(plan.signal).toBe(abort.signal);
+            plan.onProgress?.({ phase: 'rendering_chunk', completed: 1, total: 2 });
+            abort.abort();
+            return blob;
+        });
+
+        const result = await copyTurnsPng(turns, [0], metadata, { t, signal: abort.signal, onProgress });
+
+        expect(result).toEqual({
+            ok: false,
+            cancelled: true,
+            error: { code: 'CANCELLED', message: 'btnCancel' },
+        });
+        expect(onProgress).toHaveBeenCalledWith({ phase: 'rendering_chunk', completed: 1, total: 2 });
+        expect(copyImageBlobToClipboard).not.toHaveBeenCalled();
+        expect(downloadBlob).not.toHaveBeenCalled();
     });
 });

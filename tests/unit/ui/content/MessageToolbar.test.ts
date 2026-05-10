@@ -323,4 +323,122 @@ describe('MessageToolbar', () => {
         toolbar.getElement().remove();
         vi.useRealTimers();
     });
+
+    it('shows a toolbar-width cancellable progress panel while Copy PNG runs', async () => {
+        vi.useFakeTimers();
+        let resolveCopy: ((value: { ok: true; message: string }) => void) | null = null;
+        let receivedSignal: AbortSignal | null = null;
+        const onCopyPng = vi.fn((ctx: any) => {
+            receivedSignal = ctx.signal;
+            ctx.onProgress({ label: 'Rendering 1/3', completed: 1, total: 3 });
+            return new Promise<{ ok: true; message: string }>((resolve) => {
+                resolveCopy = resolve;
+            });
+        });
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                tooltip: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const, message: 'Copied!' })),
+                hoverAction: {
+                    id: 'copy_png',
+                    label: 'Copy as PNG',
+                    icon: '<svg viewBox="0 0 16 16"></svg>',
+                    onClick: onCopyPng,
+                },
+            },
+        ], { showStats: false });
+
+        document.body.appendChild(toolbar.getElement());
+        const trigger = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+        trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        vi.advanceTimersByTime(100);
+
+        const secondaryButton = document
+            .querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!
+            .shadowRoot!
+            .querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!;
+        secondaryButton.click();
+        await Promise.resolve();
+
+        const shadow = toolbar.getElement().shadowRoot!;
+        const progress = shadow.querySelector<HTMLElement>('[data-role="task-progress"]')!;
+        const label = shadow.querySelector<HTMLElement>('[data-field="task-progress-label"]')!;
+        const fill = shadow.querySelector<HTMLElement>('[data-field="task-progress-fill"]')!;
+        const cancel = shadow.querySelector<HTMLButtonElement>('[data-action="cancel-task"]')!;
+        const css = shadow.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-base"]')?.textContent ?? '';
+
+        expect(progress.dataset.open).toBe('1');
+        expect(label.textContent).toBe('Rendering 1/3');
+        expect(fill.style.width).toBe('33%');
+        expect(css).toContain('.task-progress {');
+        expect(css).toContain('width: 100%;');
+        expect(cancel.getAttribute('aria-label')).toBe('btnCancel');
+
+        cancel.click();
+        expect(receivedSignal?.aborted).toBe(true);
+
+        resolveCopy?.({ ok: true, message: 'PNG copied!' });
+        await Promise.resolve();
+        expect(label.textContent).toBe('Cancelled');
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        vi.useRealTimers();
+    });
+
+    it('keeps determinate progress at zero until completed work is reported', async () => {
+        vi.useFakeTimers();
+        let resolveCopy: ((value: { ok: true; message: string }) => void) | null = null;
+        const onCopyPng = vi.fn((ctx: any) => {
+            ctx.onProgress({ label: 'Preparing', value: 0, indeterminate: false });
+            ctx.onProgress({ label: 'Rendering 1/3', completed: 1, total: 3, indeterminate: false });
+            return new Promise<{ ok: true; message: string }>((resolve) => {
+                resolveCopy = resolve;
+            });
+        });
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                tooltip: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const, message: 'Copied!' })),
+                hoverAction: {
+                    id: 'copy_png',
+                    label: 'Copy as PNG',
+                    icon: '<svg viewBox="0 0 16 16"></svg>',
+                    onClick: onCopyPng,
+                },
+            },
+        ], { showStats: false });
+
+        document.body.appendChild(toolbar.getElement());
+        const trigger = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+        trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        vi.advanceTimersByTime(100);
+
+        document
+            .querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!
+            .shadowRoot!
+            .querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!
+            .click();
+        await Promise.resolve();
+
+        const shadow = toolbar.getElement().shadowRoot!;
+        const progress = shadow.querySelector<HTMLElement>('[data-role="task-progress"]')!;
+        const fill = shadow.querySelector<HTMLElement>('[data-field="task-progress-fill"]')!;
+
+        expect(progress.dataset.indeterminate).toBe('0');
+        expect(fill.style.width).toBe('33%');
+
+        resolveCopy?.({ ok: true, message: 'PNG copied!' });
+        await Promise.resolve();
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        vi.useRealTimers();
+    });
 });
