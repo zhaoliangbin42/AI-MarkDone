@@ -151,8 +151,13 @@ ${getPanelChromeCss()}
 
 .progress-panel {
   display: grid;
-  gap: var(--aimd-space-2);
+  gap: var(--aimd-space-3);
   margin-top: var(--aimd-space-4);
+}
+
+.progress-row {
+  display: grid;
+  gap: var(--aimd-space-2);
 }
 
 .progress-label {

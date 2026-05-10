@@ -71,16 +71,88 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         const actions = orchestrator.getActionsForMessage(assistant, () => null);
         const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
 
-        await copyAction.hoverAction.onClick();
+        const abort = new AbortController();
+        const onProgress = vi.fn();
+        await copyAction.hoverAction.onClick({ signal: abort.signal, onProgress });
 
         expect(copyTurnsPng).toHaveBeenCalledWith(
             [{ user: 'Prompt', assistant: 'Answer', index: 0 }],
             [0],
             expect.objectContaining({ title: 'PNG Width Test', count: 1 }),
-            expect.objectContaining({ png: { width: 640, pixelRatio: 2.5 } }),
+            expect.objectContaining({
+                png: { width: 640, pixelRatio: 2.5 },
+                signal: abort.signal,
+                onProgress: expect.any(Function),
+            }),
         );
         expect(collectReaderContent).toHaveBeenCalledWith(expect.any(TestAdapter), assistant, expect.objectContaining({
             pageUrl: window.location.href,
         }));
+    });
+
+    it('maps renderer progress into toolbar progress labels', async () => {
+        document.body.innerHTML = `
+          <title>PNG Progress Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">Answer</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        vi.mocked(copyTurnsPng).mockImplementationOnce(async (_turns, _selected, _metadata, options: any) => {
+            options.onProgress({ phase: 'rendering_chunk', completed: 2, total: 4 });
+            return { ok: true, noop: false };
+        });
+
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
+            readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
+        }) as any;
+        orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
+
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
+        const onProgress = vi.fn();
+
+        await copyAction.hoverAction.onClick({ signal: new AbortController().signal, onProgress });
+
+        expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+            label: expect.any(String),
+            completed: 2,
+            total: 4,
+            indeterminate: false,
+        }));
+    });
+
+    it('reports cancelled Copy PNG as a short cancellation message', async () => {
+        document.body.innerHTML = `
+          <title>PNG Cancel Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">Answer</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        vi.mocked(copyTurnsPng).mockResolvedValueOnce({
+            ok: false,
+            cancelled: true,
+            error: {
+                code: 'CANCELLED',
+                message: 'PNG export failed for message.png (800x4000, pixelRatio 1): Operation cancelled.',
+            },
+        });
+
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
+            readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
+        }) as any;
+        orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
+
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
+
+        const result = await copyAction.hoverAction.onClick({ signal: new AbortController().signal, onProgress: vi.fn() });
+
+        expect(result).toEqual({ ok: false, message: 'Cancelled' });
     });
 });
