@@ -1,5 +1,6 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { highlightElement, scrollToBookmarkTargetWithRetry, type ScrollResult } from '../../../drivers/content/bookmarks/navigation';
+import { collectConversationTurnRefs } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 
 export type ChatGPTSkeletonAnchor = {
     position: number;
@@ -88,29 +89,29 @@ function pushUnique(nodes: HTMLElement[], node: HTMLElement | null | undefined):
 }
 
 export function collectChatGPTRoundPositions(adapter: SiteAdapter): ChatGPTRoundPosition[] {
-    const groupRefs = adapter.getConversationGroupRefs?.() ?? [];
-    return groupRefs
-        .map((groupRef, index): ChatGPTRoundPosition | null => {
-            const jumpAnchor = groupRef.barAnchorEl ?? groupRef.userRootEl ?? groupRef.assistantRootEl;
+    const turns = collectConversationTurnRefs(adapter);
+    return turns
+        .map((turn, index): ChatGPTRoundPosition | null => {
+            const jumpAnchor = turn.jumpAnchorEl ?? turn.userRootEl ?? turn.assistantRootEl ?? turn.turnRootEl;
             if (!(jumpAnchor instanceof HTMLElement)) return null;
             const groupEls: HTMLElement[] = [];
-            pushUnique(groupEls, groupRef.barAnchorEl);
-            pushUnique(groupEls, groupRef.userRootEl);
-            pushUnique(groupEls, groupRef.assistantRootEl);
-            if (!groupRef.assistantRootEl || !groupRef.assistantRootEl.contains(groupRef.assistantMessageEl)) {
-                pushUnique(groupEls, groupRef.assistantMessageEl);
+            pushUnique(groupEls, turn.jumpAnchorEl);
+            pushUnique(groupEls, turn.userRootEl);
+            pushUnique(groupEls, turn.assistantRootEl);
+            if (!turn.assistantRootEl || !turn.assistantRootEl.contains(turn.primaryMessageEl)) {
+                pushUnique(groupEls, turn.primaryMessageEl);
             }
-            for (const groupEl of groupRef.groupEls) pushUnique(groupEls, groupEl);
+            for (const groupEl of turn.groupEls ?? []) pushUnique(groupEls, groupEl);
             if (groupEls.length === 0) pushUnique(groupEls, jumpAnchor);
             return {
                 position: index + 1,
-                id: groupRef.id ?? null,
-                messageId: groupRef.id ?? groupRef.assistantMessageEl.getAttribute('data-message-id') ?? null,
-                userPromptText: groupRef.userPromptText ?? null,
-                userPromptQuality: groupRef.userPromptQuality,
+                id: turn.messageId,
+                messageId: turn.messageId ?? turn.primaryMessageEl.getAttribute('data-message-id') ?? null,
+                userPromptText: turn.userPrompt,
+                userPromptQuality: turn.userPromptQuality,
                 jumpAnchor,
-                userAnchor: groupRef.userRootEl ?? null,
-                assistantRoot: groupRef.assistantRootEl ?? null,
+                userAnchor: turn.userRootEl ?? null,
+                assistantRoot: turn.assistantRootEl ?? turn.turnRootEl,
                 groupEls,
             };
         })
@@ -125,14 +126,14 @@ export function collectChatGPTSkeletonAnchors(adapter: SiteAdapter): ChatGPTSkel
 }
 
 export function resolveChatGPTSkeletonPositionForMessage(adapter: SiteAdapter, messageElement: HTMLElement): number | null {
-    const groupRefs = adapter.getConversationGroupRefs?.() ?? [];
-    const index = groupRefs.findIndex((groupRef) => {
+    const turns = collectConversationTurnRefs(adapter);
+    const index = turns.findIndex((turn) => {
         const candidates = [
-            groupRef.barAnchorEl,
-            groupRef.userRootEl,
-            groupRef.assistantRootEl,
-            groupRef.assistantMessageEl,
-            ...groupRef.groupEls,
+            turn.jumpAnchorEl,
+            turn.userRootEl,
+            turn.assistantRootEl,
+            turn.primaryMessageEl,
+            ...(turn.groupEls ?? []),
         ].filter((node): node is HTMLElement => node instanceof HTMLElement);
         return candidates.some((node) => (
             node === messageElement

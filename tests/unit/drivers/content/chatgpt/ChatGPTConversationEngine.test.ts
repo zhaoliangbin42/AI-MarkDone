@@ -437,4 +437,67 @@ describe('ChatGPTConversationEngine', () => {
         expect(snapshot?.rounds.map((round) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
         expect(snapshot?.rounds.map((round) => round.assistantMessageId)).toEqual(['a1-message', 'a2-message']);
     });
+
+    it('rebuilds all semantic turn wrappers when structured data lives below the wrapper', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onerror?.(new Event('error')), 0);
+            return node;
+        });
+        document.body.innerHTML = `
+          <main>
+            <section data-testid="conversation-turn-u1" data-turn="user"><div id="u1-carrier"></div></section>
+            <section data-testid="conversation-turn-a1" data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="visible-a1"><div class="markdown prose"></div></div>
+              <div id="a1-carrier"></div>
+            </section>
+            <section data-testid="conversation-turn-u2" data-turn="user"><div id="u2-carrier"></div></section>
+            <section data-testid="conversation-turn-a2" data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="visible-a2"><div class="markdown prose">Only visible answer</div></div>
+              <div id="a2-carrier"></div>
+            </section>
+          </main>
+        `;
+        const attachTurn = (id: string, turn: Record<string, unknown>) => {
+            const carrier = document.getElementById(id) as any;
+            carrier.__reactFiber$aimd = {
+                pendingProps: { turn },
+                return: null,
+            };
+        };
+        attachTurn('u1-carrier', {
+            id: 'turn-u1',
+            author: { role: 'user' },
+            messages: [{ id: 'u1-message', author: { role: 'user' }, content: { content_type: 'text', parts: ['Question 1'] } }],
+        });
+        attachTurn('a1-carrier', {
+            id: 'turn-a1',
+            author: { role: 'assistant' },
+            messages: [{ id: 'a1-message', author: { role: 'assistant' }, content: { content_type: 'text', parts: ['Answer 1 from local turn data'] } }],
+        });
+        attachTurn('u2-carrier', {
+            id: 'turn-u2',
+            author: { role: 'user' },
+            messages: [{ id: 'u2-message', author: { role: 'user' }, content: { content_type: 'text', parts: ['Question 2'] } }],
+        });
+        attachTurn('a2-carrier', {
+            id: 'turn-a2',
+            author: { role: 'assistant' },
+            messages: [{ id: 'a2-message', author: { role: 'assistant' }, content: { content_type: 'text', parts: ['Answer 2 from local turn data'] } }],
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot?.source).toBe('react-props');
+        expect(snapshot?.rounds).toHaveLength(2);
+        expect(snapshot?.rounds.map((round) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
+        expect(snapshot?.rounds.map((round) => round.assistantContent)).toEqual([
+            'Answer 1 from local turn data',
+            'Answer 2 from local turn data',
+        ]);
+        expect(snapshot?.rounds.map((round) => round.messageId)).toEqual(['visible-a1', 'visible-a2']);
+    });
 });

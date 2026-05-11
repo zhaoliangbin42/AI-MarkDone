@@ -235,10 +235,15 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(refs.map((ref) => ref.id)).toEqual(['turn-a1', 'a2', 'turn-a3']);
 
         const turns = collectConversationTurnRefs(adapter);
-        expect(turns).toHaveLength(1);
-        expect(turns[0]?.userPrompt).toBe('Thesis prompt two');
+        expect(turns).toHaveLength(3);
+        expect(turns.map((turn) => turn.userPrompt)).toEqual([
+            'Thesis prompt one',
+            'Thesis prompt two',
+            'Thesis prompt three',
+        ]);
+        expect(turns.map((turn) => turn.messageId)).toEqual(['turn-a1', 'a2', 'turn-a3']);
 
-        const realMarkdown = copyMarkdownFromTurn(adapter, turns[0]!.messageEls);
+        const realMarkdown = copyMarkdownFromTurn(adapter, turns[1]!.messageEls);
         expect(realMarkdown.ok).toBe(true);
         if (realMarkdown.ok) expect(realMarkdown.markdown).toContain('$w_k$');
     });

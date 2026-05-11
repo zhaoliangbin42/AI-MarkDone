@@ -33,14 +33,6 @@ export async function collectReaderContent(
     startMessageElement: HTMLElement | null,
     options?: ReaderContentSourceOptions,
 ): Promise<ReaderContentSourceResult> {
-    const fallbackStart = getFallbackStartElement(adapter, startMessageElement);
-    if (fallbackStart) {
-        return {
-            ...collectReaderItems(adapter, fallbackStart),
-            metadataSource: 'dom',
-        };
-    }
-
     if (adapter.getPlatformId?.() === 'chatgpt' && options?.chatGptConversationEngine) {
         try {
             const snapshot = await options.chatGptConversationEngine.getSnapshot();
@@ -53,8 +45,16 @@ export async function collectReaderContent(
                 return { ...result, metadataSource: 'chatgpt-snapshot' };
             }
         } catch {
-            // Fall through to the empty result; the DOM Reader path is only used when a start element exists.
+            // Fall through to the DOM Reader path when the structured ChatGPT snapshot is unavailable.
         }
+    }
+
+    const fallbackStart = getFallbackStartElement(adapter, startMessageElement);
+    if (fallbackStart) {
+        return {
+            ...collectReaderItems(adapter, fallbackStart),
+            metadataSource: 'dom',
+        };
     }
 
     return { items: [], startIndex: 0, metadataSource: 'dom' };

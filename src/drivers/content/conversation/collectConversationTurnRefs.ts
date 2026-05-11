@@ -6,8 +6,15 @@ export type ConversationTurnRef = {
     primaryMessageEl: HTMLElement;
     messageEls: HTMLElement[];
     userPrompt: string;
+    userPromptQuality?: 'real' | 'fallback';
     messageId: string | null;
     turnRootEl: HTMLElement;
+    assistantRootEl?: HTMLElement | null;
+    assistantContentRootEl?: HTMLElement | null;
+    userRootEl?: HTMLElement | null;
+    jumpAnchorEl?: HTMLElement | null;
+    groupEls?: HTMLElement[];
+    isStreaming?: boolean;
 };
 
 function listTopLevelAssistantMessages(rootEl: HTMLElement, selector: string, fallbackEl: HTMLElement): HTMLElement[] {
@@ -36,21 +43,13 @@ function listTopLevelAssistantMessages(rootEl: HTMLElement, selector: string, fa
     });
 }
 
-function isEmptyAssistantMessageFallback(element: HTMLElement): boolean {
-    return element.getAttribute('data-aimd-empty-assistant-message') === 'true';
-}
-
 function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupRef[]): ConversationTurnRef[] {
     const selector = adapter.getMessageSelector();
     const refs: ConversationTurnRef[] = [];
 
     for (const groupRef of groupRefs) {
-        if (isEmptyAssistantMessageFallback(groupRef.assistantMessageEl) && !groupRef.assistantContentRootEl) {
-            continue;
-        }
         const messageEls = listTopLevelAssistantMessages(groupRef.assistantRootEl, selector, groupRef.assistantMessageEl);
         const primaryMessageEl = messageEls[messageEls.length - 1] ?? groupRef.assistantMessageEl;
-        if (isEmptyAssistantMessageFallback(primaryMessageEl)) continue;
         const userPrompt = groupRef.userPromptText?.trim()
             || adapter.extractUserPrompt(primaryMessageEl)
             || `Message ${refs.length + 1}`;
@@ -61,8 +60,15 @@ function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupR
             primaryMessageEl,
             messageEls: messageEls.length > 0 ? messageEls : [primaryMessageEl],
             userPrompt,
+            userPromptQuality: groupRef.userPromptQuality,
             messageId,
             turnRootEl: groupRef.assistantRootEl,
+            assistantRootEl: groupRef.assistantRootEl,
+            assistantContentRootEl: groupRef.assistantContentRootEl ?? null,
+            userRootEl: groupRef.userRootEl,
+            jumpAnchorEl: groupRef.barAnchorEl ?? groupRef.userRootEl ?? groupRef.assistantRootEl,
+            groupEls: groupRef.groupEls,
+            isStreaming: groupRef.isStreaming,
         });
     }
 
@@ -71,8 +77,10 @@ function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupR
 
 export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationTurnRef[] {
     try {
-        const groupRefs = adapter.getConversationGroupRefs?.() ?? [];
-        if (groupRefs.length > 0) return mapGroupRefsToTurns(adapter, groupRefs);
+        if (adapter.getConversationGroupRefs) {
+            const groupRefs = adapter.getConversationGroupRefs();
+            return groupRefs.length > 0 ? mapGroupRefsToTurns(adapter, groupRefs) : [];
+        }
     } catch {
         // Fall back to legacy assistant-segment discovery if a platform-owned grouping hook fails.
     }
