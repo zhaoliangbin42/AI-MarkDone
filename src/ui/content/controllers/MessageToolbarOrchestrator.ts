@@ -1049,6 +1049,7 @@ export class MessageToolbarOrchestrator {
     }
 
     private async syncReaderTailPages(): Promise<void> {
+        if (this.adapter.getPlatformId() === 'chatgpt') return;
         if (typeof this.readerPanel.isShowingConversationReader !== 'function') return;
         if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
         if (typeof this.readerPanel.appendItem !== 'function') return;

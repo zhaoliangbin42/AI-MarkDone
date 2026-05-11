@@ -124,7 +124,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         `;
     }
 
-    it('uses the shared DOM-discovered Reader source when opening Reader from a visible ChatGPT message', async () => {
+    it('uses the shared ChatGPT snapshot Reader source when opening Reader from a visible message', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -173,12 +173,12 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
         expect(readerPanel.show).toHaveBeenCalledWith(
             [
                 expect.objectContaining({
                     userPrompt: 'Hello from user',
-                    content: expect.any(Function),
+                    content: 'Formula: $x = y + z$',
                     meta: expect.objectContaining({
                         platformId: 'chatgpt',
                         messageId: 'a1',
@@ -192,7 +192,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         );
     });
 
-    it('opens ChatGPT Reader at the current DOM message from the shared DOM Reader source', async () => {
+    it('opens ChatGPT Reader at the matching snapshot round from the shared Reader source', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -226,11 +226,48 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         expect(readerPanel.show).toHaveBeenCalledWith(
             expect.any(Array),
-            0,
+            2,
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
-        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not append DOM-derived tail pages into a ChatGPT snapshot-backed Reader', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a2">
+                <div class="markdown prose">Answer 2</div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [
+                { id: 'chatgpt-a1', userPrompt: 'Question 1', content: 'Snapshot answer 1' },
+            ]),
+            appendItem: vi.fn(async () => undefined),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).not.toHaveBeenCalled();
     });
 
     it('saves ChatGPT bookmarks with payload positions instead of DOM-local positions', async () => {

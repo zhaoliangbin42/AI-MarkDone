@@ -122,6 +122,7 @@ flowchart TD
 - Reader 与 Save Messages 导出必须只通过 `readerContentSource` 获取正文，并消费同一份 `ReaderItem[]`。
 - ChatGPT 正文完整性由 `ChatGPTConversationEngine snapshot` 负责；DOM markdown collection 不再作为 ChatGPT 长对话的主内容源。
 - 右侧目录条、step controls、Reader locate、书签 Go 共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影；它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
+- ChatGPT Reader 打开后的内容页集不得再通过 DOM tail append 补齐；snapshot 是完整页集来源，DOM Reader collection 只在 snapshot 不可用时兜底。
 - 两个投影允许的差异只在职责上：snapshot 投影回答“每一轮的完整内容是什么”，DOM anchor 投影回答“这一轮在页面哪里、如何跳过去”。不得再引入第三套 ChatGPT 轮次发现入口。
 
 ### Bookmarks
