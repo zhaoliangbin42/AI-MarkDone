@@ -5,6 +5,7 @@ import { CloudBackupProviderError, type CloudBackupProvider } from './provider';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+const GOOGLE_OAUTH_REVOKE_API = 'https://oauth2.googleapis.com/revoke';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 type ChromeManifest = {
@@ -44,7 +45,7 @@ function getConfiguredGoogleClientId(): string {
     if (!clientId) {
         throw new CloudBackupProviderError(
             'PROVIDER_UNAVAILABLE',
-            'Google Drive backup is not configured in this build. Rebuild Chrome with AIMD_GOOGLE_CLIENT_ID set to the Google OAuth Chrome Extension client ID.',
+            'Google Drive backup is missing the Chrome manifest OAuth client ID. Regenerate Chrome from config/extension/cloudBackup.ts with the public Chrome Extension OAuth client ID.',
         );
     }
     if (!clientId.endsWith('.apps.googleusercontent.com')) {
@@ -130,15 +131,34 @@ async function requestToken(interactive: boolean): Promise<string> {
     });
 }
 
-async function revokeTokenIfAny(): Promise<void> {
+async function getCachedTokenIfAny(): Promise<string | null> {
     const identity = getChromeIdentity();
-    if (!identity?.getAuthToken || !identity?.removeCachedAuthToken) return;
-    const token = await new Promise<string | null>((resolve) => {
+    if (!identity?.getAuthToken) return null;
+    return new Promise<string | null>((resolve) => {
         identity.getAuthToken({ interactive: false, scopes: [DRIVE_SCOPE] }, (value: string | undefined) => {
             resolve(value ?? null);
         });
     });
-    if (!token) return;
+}
+
+async function revokeGoogleGrant(token: string): Promise<void> {
+    await fetch(`${GOOGLE_OAUTH_REVOKE_API}?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+}
+
+async function revokeTokenIfAny(): Promise<void> {
+    const identity = getChromeIdentity();
+    const token = await getCachedTokenIfAny();
+    if (token) {
+        await revokeGoogleGrant(token);
+    }
+    if (identity?.clearAllCachedAuthTokens) {
+        await identity.clearAllCachedAuthTokens();
+        return;
+    }
+    if (!token || !identity?.removeCachedAuthToken) return;
     await new Promise<void>((resolve) => identity.removeCachedAuthToken({ token }, () => resolve()));
 }
 

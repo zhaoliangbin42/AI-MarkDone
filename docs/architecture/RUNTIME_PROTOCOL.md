@@ -139,7 +139,9 @@
 - `cloudBackup:status`
   - 返回本地保存的连接/最近备份状态，并附带 provider 的只读配置诊断
   - Chrome Google Drive provider 会在不触发登录的前提下检查当前 manifest 是否具备 `identity` permission 与 `oauth2.client_id`
-  - 缺少 `AIMD_GOOGLE_CLIENT_ID` 构建注入、Client ID 格式明显错误、或 Chrome identity 不可用时，UI 应显示配置错误，不应直接触发 Google 授权
+  - 缺少 `config/extension/cloudBackup.ts` 中的 Chrome Extension OAuth Client ID、Client ID 格式明显错误、或 Chrome identity 不可用时，UI 应显示配置错误，不应直接触发 Google 授权
+- `cloudBackup:disconnect`
+  - 必须清除 background 保存的连接状态，并先用当前 cached token 调用 Google OAuth revoke endpoint 取消服务器侧授权，再调用 `chrome.identity.clearAllCachedAuthTokens()` 清理 Chrome identity 缓存；老 Chrome 环境才退回单 token `removeCachedAuthToken`
 - `bookmarks:bulkRemove`
   - payload 现在支持：
     - `items`

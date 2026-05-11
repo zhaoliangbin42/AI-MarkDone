@@ -9,13 +9,20 @@
         "storage",
         "identity"
     ],
+    "oauth2": {
+        "client_id": "731206378409-mbf1j0ar77manlqu5360edplddbne3kv.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/drive.file"
+        ]
+    },
     "host_permissions": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://gemini.google.com/*",
         "https://claude.ai/*",
         "https://chat.deepseek.com/*",
-        "https://www.googleapis.com/*"
+        "https://www.googleapis.com/*",
+        "https://oauth2.googleapis.com/*"
     ],
     "content_scripts": [
         {

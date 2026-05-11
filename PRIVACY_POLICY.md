@@ -33,7 +33,7 @@ Some preferences may be stored using the browser's **sync storage** (if supporte
 
 ## Google Drive Backup (Optional)
 
-Google Drive backup is optional and user-initiated. If you connect Google Drive from Settings → Data & Sync, AI-MarkDone can upload verified bookmark snapshot files directly from your browser to your own Google Drive.
+Google Drive backup is optional and user-initiated. If you connect Google Drive from Settings → Data Management, AI-MarkDone can upload verified bookmark snapshot files directly from your browser to your own Google Drive.
 
 - AI-MarkDone does not operate a backup server and does not receive these files.
 - Backup v1 only includes bookmarks. It does not include settings, OAuth tokens, account passwords, or other cloud credentials.

@@ -882,6 +882,36 @@ ${getPanelChromeCss()}
   z-index: var(--_bookmarks-inline-menu-z);
 }
 
+.settings-section {
+  display: grid;
+  gap: var(--aimd-space-3);
+  min-width: 0;
+}
+
+.settings-section-body {
+  display: grid;
+  gap: var(--aimd-space-3);
+  min-width: 0;
+}
+
+.settings-data-card {
+  display: grid;
+  gap: var(--aimd-space-3);
+  min-width: 0;
+  padding: var(--aimd-space-4);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 58%, transparent);
+  border-radius: var(--aimd-radius-lg);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 82%, var(--aimd-bg-surface));
+}
+
+.settings-data-card__title {
+  margin: 0;
+  color: var(--aimd-text-primary);
+  font-size: var(--_bookmarks-settings-title-size);
+  line-height: 1.45;
+  font-weight: var(--_bookmarks-item-title-weight);
+}
+
 .card-title {
   display: inline-flex;
   align-items: center;
@@ -1668,11 +1698,9 @@ ${getPanelChromeCss()}
 .cloud-backup-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: start;
+  align-items: center;
   gap: var(--aimd-space-3);
-  margin-bottom: var(--aimd-space-3);
-  padding-bottom: var(--aimd-space-4);
-  border-bottom: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
+  min-width: 0;
 }
 
 .cloud-backup-row__info {
@@ -1681,31 +1709,12 @@ ${getPanelChromeCss()}
   min-width: 0;
 }
 
-.cloud-backup-row__info .settings-item-label,
-.cloud-backup-row__info .settings-item-warning-text {
-  display: block;
-}
-
 .cloud-backup-row__status {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: min(100%, 42rem);
-  padding: var(--aimd-space-2) var(--aimd-space-3);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
-  border-radius: var(--aimd-radius-md);
   color: var(--aimd-text-secondary);
-  background: color-mix(in srgb, var(--aimd-bg-surface) 88%, transparent);
-  font-size: var(--aimd-text-xs);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-  white-space: normal;
 }
 
 .cloud-backup-row__status--error {
-  border-color: color-mix(in srgb, var(--aimd-color-warning) 46%, var(--aimd-border-default));
   color: color-mix(in srgb, var(--aimd-color-warning) 68%, var(--aimd-text-primary));
-  background: color-mix(in srgb, var(--aimd-color-warning) 10%, var(--aimd-bg-surface));
 }
 
 .cloud-backup-row__actions,
@@ -1724,6 +1733,7 @@ ${getPanelChromeCss()}
 @media (max-width: 560px) {
   .cloud-backup-row {
     grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .cloud-backup-row__actions {
@@ -1736,21 +1746,16 @@ ${getPanelChromeCss()}
   gap: var(--aimd-space-3);
 }
 
-.cloud-backup-settings-modal__status,
-.cloud-backup-settings-modal__privacy {
+.cloud-backup-settings-modal > p {
   margin: 0;
   color: var(--aimd-text-secondary);
-  font-size: var(--aimd-text-sm);
   line-height: var(--aimd-line-height-normal);
 }
 
 .settings-backup-warning {
-  margin-top: 6px;
-  padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
+  margin-top: var(--aimd-space-2);
 }
 
-.export-backup-btn,
 .primary-btn,
 .secondary-btn {
   all: unset;
@@ -1765,15 +1770,6 @@ ${getPanelChromeCss()}
   cursor: pointer;
 }
 
-.export-backup-btn {
-  width: 100%;
-  margin-top: 12px;
-  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
-  color: var(--aimd-text-primary);
-}
-
-.export-backup-btn:hover,
 .secondary-btn:hover {
   background: var(--aimd-button-secondary-hover);
 }

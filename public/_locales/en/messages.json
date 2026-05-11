@@ -1399,9 +1399,17 @@
         "message": "Export All",
         "description": "Message for exportAllBtn"
     },
-    "dataAndSync": {
-        "message": "Data & Sync",
-        "description": "Settings group label for local data and cloud sync"
+    "dataManagement": {
+        "message": "Data Management",
+        "description": "Settings group label for cloud sync and local data backup"
+    },
+    "syncCardTitle": {
+        "message": "Sync",
+        "description": "Settings data management card title for cloud sync"
+    },
+    "localBackupTitle": {
+        "message": "Local backup",
+        "description": "Settings data backup card label for local export"
     },
     "cloudBackupGoogleDriveDesc": {
         "message": "Save verified bookmark snapshots to your own Google Drive.",
@@ -1427,9 +1435,17 @@
         "message": "Connect",
         "description": "Connect cloud backup provider"
     },
+    "cloudBackupLoginGoogleDrive": {
+        "message": "Sign in to Google Drive",
+        "description": "Primary action for connecting Google Drive cloud backup"
+    },
     "cloudBackupDisconnect": {
         "message": "Disconnect",
         "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupLogoutGoogleDrive": {
+        "message": "Sign out",
+        "description": "Action for disconnecting Google Drive cloud backup"
     },
     "cloudBackupBackupNow": {
         "message": "Back up now",
@@ -1475,9 +1491,17 @@
         "message": "Backups are written directly to your Google Drive. AI-MarkDone does not run a backup server or include credentials in snapshots.",
         "description": "Cloud backup privacy note"
     },
+    "cloudBackupStatusLabel": {
+        "message": "Status",
+        "description": "Google Drive cloud backup status label"
+    },
     "cloudBackupTestListSnapshots": {
         "message": "Test backup list",
         "description": "Test listing cloud backups"
+    },
+    "cloudBackupTestConnection": {
+        "message": "Test connection",
+        "description": "Test Google Drive cloud backup connection"
     },
     "cloudBackupSnapshotCount": {
         "message": "$1 cloud backup(s) found.",

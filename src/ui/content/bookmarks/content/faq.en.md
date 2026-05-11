@@ -146,13 +146,15 @@ I do not like tools that dump every feature on every user, so this part is meant
 
 ## Where does Google Drive backup save my bookmarks?
 
-Open the bookmarks panel, go to Settings, then Data & Sync. The Google Drive row can connect your Drive account and save a verified bookmark snapshot.
+Open the bookmarks panel, go to Settings, then Data Management. The Sync card can connect your Google Drive account and save a verified bookmark snapshot.
 
 Backups are saved in your own Google Drive under `AI-MarkDone/Backups/bookmarks`. AI-MarkDone does not run a backup server, and the snapshot does not include OAuth tokens, passwords, or extension settings.
 
 The current version is a bookmark backup flow, not real-time two-way sync. Restoring from Drive first shows a safe merge preview: new cloud-only bookmarks can be added, local-only bookmarks are kept, duplicates are skipped, and conflicts keep the local copy by default.
 
-If backup fails, check whether Google authorization is still connected and whether the Drive API/OAuth configuration is available in this build. Development or self-hosted Chrome builds must provide `AIMD_GOOGLE_CLIENT_ID` at build time. If you see `Invalid OAuth2 Client ID`, the build usually did not inject the client ID, or the Google Cloud Chrome Extension OAuth client is not bound to the current extension ID. You can delete backup JSON files directly from Google Drive if you no longer need them.
+Clicking “Sign out” first asks Google to revoke AI-MarkDone’s current Drive OAuth grant, then clears the authorization state cached by Chrome identity for AI-MarkDone. The next “Sign in to Google Drive” action will ask Chrome to start Google sign-in or consent again as needed; if you are still signed into the same Google account in Chrome, the account selection step may be shorter, but AI-MarkDone will not reuse the old signed-out token.
+
+If backup fails, check whether Google authorization is still connected and whether the Drive API/OAuth configuration is available in this build. Chrome builds ship the public Chrome Extension OAuth client ID from `config/extension/cloudBackup.ts`; development overrides may still use `AIMD_GOOGLE_CLIENT_ID`. If you see `Invalid OAuth2 Client ID`, the configured Google Cloud Chrome Extension OAuth client is likely not bound to the current extension ID. You can delete backup JSON files directly from Google Drive if you no longer need them.
 
 ## How do I use the ChatGPT conversation directory?
 

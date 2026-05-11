@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION } from '../../../config/extension/cloudBackup';
 import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
 type ChromeManifest = {
@@ -57,7 +58,7 @@ describe('supported hosts consistency', () => {
         expect(sourceHosts).toEqual(safariHosts);
         expect(sourceHosts).toEqual(firefoxContentHosts);
         expect(sourceHosts).toEqual(safariContentHosts);
-        expect(chromeHosts).toEqual([...sourceHosts, 'www.googleapis.com'].sort());
+        expect(chromeHosts).toEqual(normalizeHosts([...SUPPORTED_HOST_PATTERNS, GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION]));
         expect(popupLinkHosts.length).toBeGreaterThan(0);
         expect(popupLinkHosts.every((host) => sourceHosts.includes(host))).toBe(true);
     });

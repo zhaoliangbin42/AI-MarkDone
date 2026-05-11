@@ -2,6 +2,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extensionAssets } from '../config/extension/assets';
+import {
+    GOOGLE_DRIVE_API_HOST_PERMISSION,
+    cloudBackupTargets,
+    GOOGLE_OAUTH_REVOKE_HOST_PERMISSION,
+    isValidGoogleOAuthClientId,
+} from '../config/extension/cloudBackup';
 import { SUPPORTED_HOST_PATTERNS } from '../config/extension/hosts';
 import { extensionMeta } from '../config/extension/meta';
 import { type ExtensionTarget, extensionTargets } from '../config/extension/targets';
@@ -14,6 +20,7 @@ export function isExtensionTarget(value: string): value is ExtensionTarget {
 
 export function buildManifest(target: ExtensionTarget): Manifest {
     const targetConfig = extensionTargets[target] as any;
+    const googleDriveCloudBackup = cloudBackupTargets[target].googleDrive;
     const manifest: Manifest = {
         manifest_version: targetConfig.manifestVersion,
         name: `__MSG_${extensionMeta.displayNameMessageKey}__`,
@@ -26,23 +33,24 @@ export function buildManifest(target: ExtensionTarget): Manifest {
         ],
     };
 
-    if (target === 'chrome') {
+    if (target === 'chrome' && googleDriveCloudBackup.enabled) {
         manifest.permissions = [
             ...(manifest.permissions as string[]),
             'identity',
         ];
-        const googleClientId = process.env.AIMD_GOOGLE_CLIENT_ID?.trim();
-        if (googleClientId) {
-            manifest.oauth2 = {
-                client_id: googleClientId,
-                scopes: ['https://www.googleapis.com/auth/drive.file'],
-            };
+        const googleClientId = process.env.AIMD_GOOGLE_CLIENT_ID?.trim() || googleDriveCloudBackup.clientId?.trim() || '';
+        if (!isValidGoogleOAuthClientId(googleClientId)) {
+            throw new Error('Google Drive OAuth client id is missing or invalid for the Chrome manifest.');
         }
+        manifest.oauth2 = {
+            client_id: googleClientId,
+            scopes: [...googleDriveCloudBackup.scopes],
+        };
     }
 
     if (targetConfig.hostPermissionPlacement === 'host_permissions') {
-        manifest.host_permissions = target === 'chrome'
-            ? [...SUPPORTED_HOST_PATTERNS, 'https://www.googleapis.com/*']
+        manifest.host_permissions = googleDriveCloudBackup.enabled
+            ? [...SUPPORTED_HOST_PATTERNS, GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION]
             : [...SUPPORTED_HOST_PATTERNS];
     } else {
         manifest.permissions = [

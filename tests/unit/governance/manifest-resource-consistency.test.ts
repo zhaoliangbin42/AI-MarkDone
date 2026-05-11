@@ -51,6 +51,7 @@ describe('manifest resource consistency', () => {
         expect(resourceMatches.length).toBeGreaterThan(0);
         expect(resourceMatches).toEqual(normalized(SUPPORTED_HOST_PATTERNS));
         expect(chrome.host_permissions).toContain('https://www.googleapis.com/*');
+        expect(chrome.host_permissions).toContain('https://oauth2.googleapis.com/*');
     });
 
     it('toolbar/action icon paths should stay aligned across manifests', () => {

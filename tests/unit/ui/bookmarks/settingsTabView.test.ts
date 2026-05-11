@@ -68,7 +68,7 @@ describe('SettingsTabView', () => {
             'readerSettingsLabel',
             'chatgptDirectorySettingsLabel',
             'settingsLanguageLabel',
-            'dataAndSync',
+            'dataManagement',
         ]);
 
         const pageActionsGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
@@ -173,22 +173,25 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const platformIcons = root.querySelectorAll('.settings-card:first-child .settings-label__icon');
         const storageFill = root.querySelector('.storage-fill');
-        const exportButton = root.querySelector<HTMLButtonElement>('.export-backup-btn');
+        const exportButton = root.querySelector<HTMLButtonElement>('[data-role="settings-export-all-bookmarks"]');
 
         expect(root.classList.contains('aimd-settings')).toBe(true);
         expect(platformIcons).toHaveLength(4);
         expect(storageFill?.getAttribute('style')).toContain('50%');
         expect(exportButton).toBeTruthy();
+        expect(exportButton?.classList.contains('secondary-btn')).toBe(true);
 
         exportButton?.click();
         expect(onExportAllBookmarks).toHaveBeenCalledTimes(1);
     });
 
-    it('renders Google Drive cloud backup as the first Data & Sync row and wires safe actions', async () => {
+    it('renders Data Management with Sync and Data Backup cards and wires safe actions', async () => {
         const modal = { confirm: vi.fn(async () => true), alert: vi.fn(async () => undefined), showCustom: vi.fn() } as any;
         const cloudBackup = {
             status: vi.fn(async () => ({ connected: true })),
             openSettings: vi.fn(async () => undefined),
+            connect: vi.fn(async () => ({ connected: true })),
+            disconnect: vi.fn(async () => ({ connected: false })),
             backupNow: vi.fn(async () => undefined),
             restore: vi.fn(async () => undefined),
         };
@@ -208,27 +211,88 @@ describe('SettingsTabView', () => {
 
         const root = view.getElement();
         const group = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
-            .find((candidate) => candidate.querySelector('.settings-group-title')?.textContent?.includes('dataAndSync'))!;
-        const rows = Array.from(group.children[1]?.children ?? []);
+            .find((candidate) => candidate.querySelector('.settings-group-title')?.textContent?.includes('dataManagement'))!;
+        const cards = Array.from(group.querySelectorAll<HTMLElement>('.settings-data-card'));
         const googleDriveRow = root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-row"]')!;
         await Promise.resolve();
 
+        expect(group.classList.contains('settings-card')).toBe(false);
+        expect(cards).toHaveLength(2);
+        expect(cards[0].dataset.role).toBe('settings-sync-card');
+        expect(cards[0].textContent).toContain('syncCardTitle');
+        expect(cards[1].dataset.role).toBe('settings-data-backup-card');
+        expect(cards[1].textContent).toContain('backupTitle');
         expect(googleDriveRow).toBeTruthy();
-        expect(rows[0]).toBe(googleDriveRow);
+        expect(cards[0].contains(googleDriveRow)).toBe(true);
         expect(googleDriveRow.textContent).toContain('Google Drive');
+        expect(googleDriveRow.querySelector('strong')?.textContent).toBe('Google Drive');
+        expect(cards[1].querySelector('[data-role="settings-local-backup-row"] strong')?.textContent).toBe('localBackupTitle');
         expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).toBe('cloudBackupConnectedStatus');
         expect(root.querySelector('[data-role="cloud-backup-provider-dropbox"]')).toBeNull();
         expect(root.querySelector('[data-role="cloud-backup-provider-jianguoyun"]')).toBeNull();
+        expect(root.querySelector('.cloud-backup-row__text-button')).toBeNull();
+        expect(root.querySelector('.export-backup-btn')).toBeNull();
 
         root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-settings"]')!.click();
         root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-backup-now"]')!.click();
         root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-restore"]')!.click();
+        root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-disconnect"]')!.click();
 
         expect(cloudBackup.status).toHaveBeenCalledWith('googleDrive');
         expect(cloudBackup.openSettings).toHaveBeenCalledTimes(1);
         expect(cloudBackup.backupNow).toHaveBeenCalledWith('googleDrive');
         expect(cloudBackup.restore).toHaveBeenCalledWith('googleDrive');
+        expect(cloudBackup.disconnect).toHaveBeenCalledWith('googleDrive');
         expect(onExportAllBookmarks).not.toHaveBeenCalled();
+    });
+
+    it('omits the Google Drive login entry when the runtime has no cloud backup capability', () => {
+        const modal = { confirm: vi.fn(async () => true), alert: vi.fn(async () => undefined), showCustom: vi.fn() } as any;
+
+        const view = new SettingsTabView({
+            modal,
+            actions: {},
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        expect(root.querySelector('[data-role="settings-sync-card"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="cloud-backup-google-drive-connect"]')).toBeNull();
+        expect(root.querySelector('[data-role="cloud-backup-google-drive-row"]')).toBeNull();
+    });
+
+    it('shows a direct Google Drive login button when cloud backup is disconnected', async () => {
+        const modal = { confirm: vi.fn(async () => true), alert: vi.fn(async () => undefined), showCustom: vi.fn() } as any;
+        const cloudBackup = {
+            status: vi.fn(async () => ({ configured: true, connected: false })),
+            connect: vi.fn(async () => ({ connected: true })),
+            openSettings: vi.fn(async () => undefined),
+        };
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { cloudBackup },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        await Promise.resolve();
+
+        const root = view.getElement();
+        const loginButton = root.querySelector<HTMLButtonElement>('[data-role="cloud-backup-google-drive-connect"]')!;
+        expect(loginButton).toBeTruthy();
+        expect(loginButton.textContent).toContain('cloudBackupLoginGoogleDrive');
+        expect(root.querySelector('[data-role="cloud-backup-google-drive-disconnect"]')).toBeNull();
+
+        loginButton.click();
+        await Promise.resolve();
+
+        expect(cloudBackup.connect).toHaveBeenCalledWith('googleDrive');
     });
 
     it('shows a compact Google Drive configuration warning instead of raw build diagnostics', async () => {
@@ -237,7 +301,7 @@ describe('SettingsTabView', () => {
             status: vi.fn(async () => ({
                 configured: false,
                 connected: false,
-                lastError: 'Google Drive backup is not configured in this build. Rebuild Chrome with AIMD_GOOGLE_CLIENT_ID set to the Google OAuth Chrome Extension client ID.',
+                lastError: 'Google Drive backup is missing the Chrome manifest OAuth client ID. Regenerate Chrome from config/extension/cloudBackup.ts with the public Chrome Extension OAuth client ID.',
             })),
         };
 
@@ -254,8 +318,17 @@ describe('SettingsTabView', () => {
 
         const status = view.getElement().querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')!;
         expect(status.textContent).toBe('cloudBackupConfigMissingStatus');
-        expect(status.title).toContain('AIMD_GOOGLE_CLIENT_ID');
+        expect(status.title).toContain('Chrome manifest OAuth client ID');
         expect(status.classList.contains('cloud-backup-row__status--error')).toBe(true);
+    });
+
+    it('keeps cloud backup controls on shared settings and button styles', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).not.toContain('cloud-backup-row__text-button');
+        expect(css).not.toContain('export-backup-btn');
+        expect(css).toContain('.settings-label strong');
+        expect(css).toContain('.secondary-btn--primary');
     });
 
 

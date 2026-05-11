@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
-- Chrome: Added a Google Drive bookmark backup entry under Settings → Data & Sync, with verified snapshot upload and restore preview.
+- Chrome: Added a Google Drive bookmark backup entry under Settings → Data Management, with manifest-based OAuth configuration, verified snapshot upload, and restore preview.
 
 ## [4.3.1] - 2026-05-07
 

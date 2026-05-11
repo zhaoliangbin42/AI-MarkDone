@@ -396,6 +396,22 @@ export class BookmarksPanel {
                     if (!result.ok) return { connected: false, lastError: result.message };
                     return result.data ?? { connected: false };
                 },
+                connect: async (provider) => {
+                    const result = await cloudBackupClient.connect(provider);
+                    if (!result.ok) {
+                        await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Cloud backup failed'), message: result.message, confirmText: tr('btnOk', 'OK') });
+                        return { connected: false };
+                    }
+                    return { connected: true };
+                },
+                disconnect: async (provider) => {
+                    const result = await cloudBackupClient.disconnect(provider);
+                    if (!result.ok) {
+                        await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Cloud backup failed'), message: result.message, confirmText: tr('btnOk', 'OK') });
+                        return { connected: true };
+                    }
+                    return { connected: false };
+                },
                 openSettings: async () => {
                     await this.showGoogleDriveBackupSettings();
                 },
@@ -934,7 +950,6 @@ export class BookmarksPanel {
             body.className = 'cloud-backup-settings-modal';
 
             const description = document.createElement('p');
-            description.className = 'cloud-backup-settings-modal__privacy';
             description.textContent = tr(
                 'cloudBackupChooseSnapshotDesc',
                 'Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.',
@@ -995,15 +1010,26 @@ export class BookmarksPanel {
         const body = document.createElement('div');
         body.className = 'cloud-backup-settings-modal';
 
-        const status = document.createElement('p');
-        status.className = 'cloud-backup-settings-modal__status';
-        status.textContent = tr('cloudBackupStatusChecking', 'Checking Google Drive status...');
-        body.appendChild(status);
-
+        const summary = document.createElement('div');
+        summary.className = 'settings-label settings-item-info';
+        const title = document.createElement('strong');
+        title.textContent = 'Google Drive';
         const privacy = document.createElement('p');
-        privacy.className = 'cloud-backup-settings-modal__privacy';
         privacy.textContent = tr('cloudBackupPrivacyNote', 'Backups are written directly to your Google Drive. AI-MarkDone does not run a backup server or include credentials in snapshots.');
-        body.appendChild(privacy);
+        summary.append(title, privacy);
+        body.appendChild(summary);
+
+        const statusRow = document.createElement('div');
+        statusRow.className = 'settings-row settings-item';
+        const statusInfo = document.createElement('div');
+        statusInfo.className = 'settings-label settings-item-info';
+        const statusTitle = document.createElement('strong');
+        statusTitle.textContent = tr('cloudBackupStatusLabel', 'Status');
+        const status = document.createElement('p');
+        status.textContent = tr('cloudBackupStatusChecking', 'Checking Google Drive status...');
+        statusInfo.append(statusTitle, status);
+        statusRow.appendChild(statusInfo);
+        body.appendChild(statusRow);
 
         const actions = document.createElement('div');
         actions.className = 'cloud-backup-settings-modal__actions';
@@ -1019,7 +1045,7 @@ export class BookmarksPanel {
         const connect = document.createElement('button');
         connect.type = 'button';
         connect.className = 'secondary-btn';
-        connect.textContent = tr('cloudBackupConnect', 'Connect');
+        connect.textContent = tr('cloudBackupLoginGoogleDrive', 'Sign in to Google Drive');
         connect.addEventListener('click', () => void (async () => {
             const result = await cloudBackupClient.connect('googleDrive');
             status.textContent = result.ok ? tr('cloudBackupConnectedStatus', 'Connected') : result.message;
@@ -1028,7 +1054,7 @@ export class BookmarksPanel {
         const list = document.createElement('button');
         list.type = 'button';
         list.className = 'secondary-btn';
-        list.textContent = tr('cloudBackupTestListSnapshots', 'Test backup list');
+        list.textContent = tr('cloudBackupTestConnection', 'Test connection');
         list.addEventListener('click', () => void (async () => {
             const result = await cloudBackupClient.listSnapshots('googleDrive');
             status.textContent = result.ok
@@ -1039,7 +1065,7 @@ export class BookmarksPanel {
         const disconnect = document.createElement('button');
         disconnect.type = 'button';
         disconnect.className = 'secondary-btn';
-        disconnect.textContent = tr('cloudBackupDisconnect', 'Disconnect');
+        disconnect.textContent = tr('cloudBackupLogoutGoogleDrive', 'Sign out');
         disconnect.addEventListener('click', () => void (async () => {
             const result = await cloudBackupClient.disconnect('googleDrive');
             status.textContent = result.ok ? tr('cloudBackupDisconnected', 'Not connected') : result.message;

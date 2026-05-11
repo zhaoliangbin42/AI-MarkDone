@@ -149,13 +149,15 @@
 
 ## Google Drive 云备份会把书签保存到哪里？
 
-打开书签管理面板，进入设置里的“数据与同步”，就可以在 Google Drive 这一栏连接你的 Drive 账号，并保存一份经过校验的书签快照。
+打开书签管理面板，进入设置里的“数据管理”，就可以在“同步”卡片中连接你的 Google Drive 账号，并保存一份经过校验的书签快照。
 
 备份文件会保存到你自己的 Google Drive：`AI-MarkDone/Backups/bookmarks`。AI-MarkDone 不运行备份服务器，快照里也不会包含 OAuth token、密码或扩展设置。
 
 当前版本是书签备份，不是实时双向同步。从 Drive 恢复时会先显示安全合并预览：云端独有书签可以新增，本地独有书签会保留，重复项会跳过，冲突项默认保留本地版本。
 
-如果备份失败，可以先检查 Google 授权是否仍然连接，以及当前构建是否配置了可用的 Drive OAuth。开发或自托管构建需要在构建 Chrome 版本时提供 `AIMD_GOOGLE_CLIENT_ID`；如果看到 `Invalid OAuth2 Client ID`，通常表示构建里没有注入 Client ID，或 Google Cloud 中的 Chrome Extension OAuth Client 没有绑定当前扩展 ID。你也可以直接在 Google Drive 中删除不需要的备份 JSON 文件。
+点击“退出登录”会先请求 Google 撤销 AI-MarkDone 当前的 Drive OAuth 授权，再清除 Chrome identity 为 AI-MarkDone 缓存的授权状态。再次点击“登录 Google Drive”时，Chrome 会按需重新弹出 Google 登录或授权页面；如果你仍在 Chrome 中登录同一个 Google 账号，账号选择步骤可能会更短，但不会复用 AI-MarkDone 已退出的旧 token。
+
+如果备份失败，可以先检查 Google 授权是否仍然连接，以及当前构建是否配置了可用的 Drive OAuth。Chrome 构建会从 `config/extension/cloudBackup.ts` 带上公开的 Chrome Extension OAuth Client ID；开发调试仍可用 `AIMD_GOOGLE_CLIENT_ID` 临时覆盖。如果看到 `Invalid OAuth2 Client ID`，通常表示 Google Cloud 中配置的 Chrome Extension OAuth Client 没有绑定当前扩展 ID。你也可以直接在 Google Drive 中删除不需要的备份 JSON 文件。
 
 ## ChatGPT 右侧目录怎么用？
 

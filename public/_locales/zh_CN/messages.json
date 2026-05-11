@@ -1399,9 +1399,17 @@
         "message": "导出全部",
         "description": "Message for exportAllBtn"
     },
-    "dataAndSync": {
-        "message": "数据与同步",
-        "description": "Settings group label for local data and cloud sync"
+    "dataManagement": {
+        "message": "数据管理",
+        "description": "Settings group label for cloud sync and local data backup"
+    },
+    "syncCardTitle": {
+        "message": "同步",
+        "description": "Settings data management card title for cloud sync"
+    },
+    "localBackupTitle": {
+        "message": "本地数据",
+        "description": "Settings data backup card label for local export"
     },
     "cloudBackupGoogleDriveDesc": {
         "message": "将经过校验的书签快照保存到你自己的 Google Drive。",
@@ -1427,9 +1435,17 @@
         "message": "连接",
         "description": "Connect cloud backup provider"
     },
+    "cloudBackupLoginGoogleDrive": {
+        "message": "登录 Google Drive",
+        "description": "Primary action for connecting Google Drive cloud backup"
+    },
     "cloudBackupDisconnect": {
         "message": "断开连接",
         "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupLogoutGoogleDrive": {
+        "message": "退出登录",
+        "description": "Action for disconnecting Google Drive cloud backup"
     },
     "cloudBackupBackupNow": {
         "message": "立即备份",
@@ -1475,9 +1491,17 @@
         "message": "备份会直接写入你的 Google Drive。AI-MarkDone 不运行备份服务器，也不会把凭据写入快照。",
         "description": "Cloud backup privacy note"
     },
+    "cloudBackupStatusLabel": {
+        "message": "状态",
+        "description": "Google Drive cloud backup status label"
+    },
     "cloudBackupTestListSnapshots": {
         "message": "测试备份列表",
         "description": "Test listing cloud backups"
+    },
+    "cloudBackupTestConnection": {
+        "message": "测试连接",
+        "description": "Test Google Drive cloud backup connection"
     },
     "cloudBackupSnapshotCount": {
         "message": "找到 $1 个云端备份。",

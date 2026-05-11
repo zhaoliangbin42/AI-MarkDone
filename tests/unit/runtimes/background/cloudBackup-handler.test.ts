@@ -157,7 +157,7 @@ describe('background cloud backup handler', () => {
         const provider: CloudBackupProvider = {
             getConfigurationStatus: vi.fn(() => ({
                 configured: false,
-                message: 'Google Drive backup is not configured in this build. Rebuild Chrome with AIMD_GOOGLE_CLIENT_ID set to the Google OAuth Chrome Extension client ID.',
+                message: 'Google Drive backup is missing the Chrome manifest OAuth client ID. Regenerate Chrome from config/extension/cloudBackup.ts with the public Chrome Extension OAuth client ID.',
             })),
             connect: vi.fn(),
             disconnect: vi.fn(),
@@ -176,7 +176,7 @@ describe('background cloud backup handler', () => {
         expect((res as any).response.data).toMatchObject({
             configured: false,
             connected: false,
-            lastError: expect.stringContaining('AIMD_GOOGLE_CLIENT_ID'),
+            lastError: expect.stringContaining('Chrome manifest OAuth client ID'),
         });
         expect(provider.connect).not.toHaveBeenCalled();
     });
@@ -185,7 +185,7 @@ describe('background cloud backup handler', () => {
         const store: StorageMap = {
             'aimd:cloud_backup:status:googleDrive:v1': {
                 connected: false,
-                lastError: 'Google Drive backup is not configured in this build. Rebuild Chrome with AIMD_GOOGLE_CLIENT_ID set to the Google OAuth Chrome Extension client ID.',
+                lastError: 'Google Drive backup is missing the Chrome manifest OAuth client ID. Regenerate Chrome from config/extension/cloudBackup.ts with the public Chrome Extension OAuth client ID.',
             },
         };
         (globalThis as any).browser = createInMemoryBrowser(store);

@@ -51,7 +51,10 @@ async function readStatus(): Promise<Record<string, unknown>> {
 
 function isStaleBuildConfigurationError(value: unknown): boolean {
     return typeof value === 'string'
-        && value.includes('Google Drive backup is not configured in this build');
+        && (
+            value.includes('Google Drive backup is not configured in this build')
+            || value.includes('Google Drive backup is missing the Chrome manifest OAuth client ID')
+        );
 }
 
 async function readCloudBackupStatus(): Promise<Record<string, unknown>> {

@@ -87,11 +87,12 @@
 
 ### 2.3.4 Cloud Backup 闭环（Chrome Google Drive v1）
 
-1. UI 只呈现 Settings → Data & Sync，并通过 `cloudBackup:*` runtime protocol 提交连接、备份、列表、恢复预览等用户意图
+1. UI 只呈现 Settings → Data Management → Sync，并通过 `cloudBackup:*` runtime protocol 提交连接、备份、列表、恢复预览等用户意图
 2. Service 只编排用例：构建书签 snapshot、校验下载结果、生成恢复计划；不得持有 browser API、OAuth、provider token 或直接读写 extension storage
 3. Background driver/provider 作为云端副作用边界：Chrome identity、Google Drive API、上传后回读校验、provider 错误映射都收敛在 background 侧
 4. 本地书签写入继续复用 bookmarks 的 storage/index 与现有导入导出能力；云备份 v1 是用户主动触发的不可变 snapshot 备份，不是实时同步系统
 5. 恢复默认只做安全合并预览；真正写入本地前必须进入 background storage queue，并写入 pre-restore emergency snapshot
+6. Build config 由 `config/extension/cloudBackup.ts` 驱动：Chrome 生成 manifest `oauth2.client_id` + `drive.file` scope；Firefox/Safari v1 保持入口关闭，后续需要单独 auth strategy
 
 ---
 
