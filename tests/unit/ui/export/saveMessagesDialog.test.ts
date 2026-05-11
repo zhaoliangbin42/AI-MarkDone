@@ -191,7 +191,7 @@ describe('SaveMessagesDialog', () => {
         expect(shadow.textContent).toContain('Current message 2/5');
         expect(shadow.textContent).toContain('1/2');
         expect(shadow.textContent).toContain('message-001.png');
-        expect(shadow.querySelector('[data-action="cancel-png-export"]')).toBeNull();
+        expect(shadow.querySelector<HTMLButtonElement>('[data-action="cancel-png-export"]')?.textContent).toBe('Cancel');
 
         resolveExport();
         await flushUi();
@@ -229,6 +229,43 @@ describe('SaveMessagesDialog', () => {
         shadow.querySelector<HTMLButtonElement>('[data-action="close-panel"]')!.click();
         expect(signal?.aborted).toBe(true);
         expect(shadow.querySelector<HTMLElement>('.panel-window--save')?.dataset.motionState).toBe('closing');
+
+        resolveExport();
+        await flushUi();
+    });
+
+    it('cancels a running PNG export from the explicit cancel button without closing first', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        let signal: AbortSignal | null = null;
+        let resolveExport!: () => void;
+        vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
+            signal = options.signal;
+            options.onProgress?.({
+                phase: 'rendering',
+                completed: 0,
+                total: 2,
+                filename: 'message-001.png',
+                current: { phase: 'rendering_chunk', completed: 1, total: 4 },
+            });
+            await new Promise<void>((resolve) => {
+                resolveExport = resolve;
+            });
+            return { ok: false, cancelled: true, error: { code: 'CANCELLED', message: 'pngExportCancelled' } };
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLElement>('[data-action="set-format"][data-format="png"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await flushUi();
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="cancel-png-export"]')!.click();
+        expect(signal?.aborted).toBe(true);
+        expect(shadow.querySelector<HTMLElement>('.panel-window--save')?.dataset.motionState).not.toBe('closing');
 
         resolveExport();
         await flushUi();

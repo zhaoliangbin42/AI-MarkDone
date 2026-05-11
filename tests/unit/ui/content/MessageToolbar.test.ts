@@ -369,13 +369,16 @@ describe('MessageToolbar', () => {
         const fill = shadow.querySelector<HTMLElement>('[data-field="task-progress-fill"]')!;
         const cancel = shadow.querySelector<HTMLButtonElement>('[data-action="cancel-task"]')!;
         const css = shadow.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-base"]')?.textContent ?? '';
+        const progressCss = shadow.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-task-progress-panel-base"]')?.textContent ?? '';
 
         expect(progress.dataset.open).toBe('1');
         expect(label.textContent).toBe('Rendering 1/3');
         expect(fill.style.width).toBe('33%');
-        expect(css).toContain('.task-progress {');
-        expect(css).toContain('width: 100%;');
+        expect(css).not.toContain('.task-progress {');
+        expect(progressCss).toContain('.task-progress {');
+        expect(progressCss).toContain('width: 100%;');
         expect(cancel.getAttribute('aria-label')).toBe('btnCancel');
+        expect(cancel.dataset.tooltip).toBe('btnCancel');
 
         cancel.click();
         expect(receivedSignal?.aborted).toBe(true);

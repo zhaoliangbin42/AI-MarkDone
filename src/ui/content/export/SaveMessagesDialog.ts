@@ -246,6 +246,9 @@ export class SaveMessagesDialog {
             case 'save-turns':
                 await this.save();
                 return;
+            case 'cancel-png-export':
+                this.cancelPngExport();
+                return;
             default:
                 return;
         }
@@ -266,6 +269,14 @@ export class SaveMessagesDialog {
     private deselectAll(): void {
         this.state.selected.clear();
         this.render();
+    }
+
+    private cancelPngExport(): void {
+        this.pngExportAbort?.abort();
+        if (this.state.format === 'png' && this.state.saving) {
+            this.state.progressText = this.getLabel('pngExportCancelled', 'PNG export cancelled');
+            this.render();
+        }
     }
 
     private async save(): Promise<void> {
@@ -325,8 +336,10 @@ export class SaveMessagesDialog {
         const selectAllLabel = this.getLabel('selectAll', 'Select all');
         const deselectAllLabel = this.getLabel('deselectAll', 'Deselect all');
         const saveLabel = this.state.saving ? this.getLabel('saving', 'Saving') : this.getLabel('btnSave', 'Save');
+        const cancelLabel = this.getLabel('btnCancel', 'Cancel');
         const countLabel = this.getSelectedCountLabel();
         const showProgress = this.state.format === 'png' && this.state.saving && (Boolean(this.state.progressText) || Boolean(this.state.currentProgressText));
+        const showCancel = this.state.format === 'png' && this.state.saving;
         const totalProgressValue = this.state.progressValue ?? 0;
         const currentProgressValue = this.state.currentProgressValue ?? 0;
 
@@ -378,6 +391,7 @@ export class SaveMessagesDialog {
     </div>
     <div class="footer-cluster">
       <div class="counter">${escapeHtml(countLabel)}</div>
+      ${showCancel ? `<button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="cancel-png-export">${escapeHtml(cancelLabel)}</button>` : ''}
       <button class="secondary-btn secondary-btn--compact secondary-btn--primary" data-action="save-turns" ${this.state.selected.size === 0 || this.state.saving ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
     </div>
   </div>

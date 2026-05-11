@@ -88,6 +88,7 @@
 
 1. 常规 UI 原语优先复用项目已有的基础组件和主题能力。
    - button、tabs、modal、popover、drawer、form 这类不要为单个模块再造一套视觉系统
+   - 长任务反馈统一复用 task progress primitive；tooltip 只解释短悬停语义，不承载持续任务状态
 2. 页面内 UI 必须渲染到 Shadow DOM。
    - 宿主创建、样式注入、主题接线都要在受控 UI 容器内完成
 3. 不要在组件里硬写颜色、圆角、间距、阴影、z-index。
@@ -210,6 +211,7 @@ Token 提升规则：
 - 如果某个值只服务于单一模块的内部结构，可保留为组件私有变量
 - 不允许把 mock 中的裸颜色、裸阴影、裸圆角、裸间距长期留在 shipped UI 中而不收敛来源
 - panel/header/footer/icon-button/action-button 这类 chrome 结构一旦被 2 个以上 overlay 模块复用，必须下沉到共享 primitive，而不是复制一份近似 CSS
+- 可取消长任务进度（例如 Copy as PNG、批量 PNG 导出）必须走共享 progress primitive 或明确复用同一进度状态合同；不要把进度 DOM/CSS 内联到单个高频组件里
 - panel primitive 与 modal primitive 可以并存，但 modal primitive 必须被明确视为正式 subtype，并继续复用同一套 control state 语义
 - 模块私有变量只允许表达结构 personality；不允许继续承载跨模块共享的 chrome 尺寸
 - enter/exit keyframes 一旦被 2 个或以上 overlay/modal surface 复用，必须收敛到共享 chrome contract；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似 motion

@@ -145,8 +145,8 @@ ${getPanelChromeCss()}
 
 .segmented .aimd-icon,
 .segmented .aimd-icon svg {
-  width: 16px;
-  height: 16px;
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
 }
 
 .progress-panel {
@@ -169,7 +169,7 @@ ${getPanelChromeCss()}
 
 .progress-track {
   position: relative;
-  height: 8px;
+  height: var(--aimd-space-2);
   overflow: hidden;
   border-radius: var(--aimd-radius-full);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, var(--aimd-border-default));
