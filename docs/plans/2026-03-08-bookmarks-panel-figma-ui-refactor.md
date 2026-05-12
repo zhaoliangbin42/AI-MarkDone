@@ -82,7 +82,7 @@ Check:
 - `docs/architecture/BLUEPRINT.md`
 - `docs/architecture/DEPENDENCY_RULES.md`
 - `docs/FEATURES.md`
-- `docs/style/STYLE_ARCHITECTURE.md`
+- `docs/design.md`
 
 Expected: every planned file change stays in UI/style only.
 

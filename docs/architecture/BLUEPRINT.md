@@ -212,8 +212,7 @@ Surface profile / motion ownership 规则补充：
 
 权威规范：
 
-- Tokens 规范：`docs/antigravity/style/TOKEN_REFERENCE.md`
-- 样式系统：`docs/style/STYLE_SYSTEM.md`
+- 设计与样式系统：`docs/design.md`
 
 工程落地要求：
 

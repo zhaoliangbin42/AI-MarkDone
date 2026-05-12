@@ -25,7 +25,7 @@ AI-MarkDone 的页面内 UI 同时存在两类明显不同的 surface：
 - Tailwind 必须使用 `tw` 前缀并禁用 Preflight
 - Toolbar、inline message UI、其他高频重复注入 surface 禁止使用 Tailwind
 - 所有新 UI 模块在迁入插件前，必须先通过 `mocks/components/<module>/index.html` 的 mock-first 浏览器视觉验收
-- Ariakit 退出活跃规范链，保留为历史参考文档
+- Ariakit 退出活跃规范链；后续活跃样式规则统一维护在 `docs/design.md`
 
 ## Consequences
 
@@ -38,8 +38,7 @@ AI-MarkDone 的页面内 UI 同时存在两类明显不同的 surface：
   - 必须额外维护 Tailwind alias 边界与浏览器视觉验收流程
   - 后续需要引入并维护 `OverlayHost`、`ShadowStyleRegistry` 等基础能力
 - 后续需要同步维护的文档或代码区域
-  - `docs/style/STYLE_SYSTEM.md`
-  - `docs/style/STYLE_ARCHITECTURE.md`
+  - `docs/design.md`
   - `docs/testing/TESTING_BLUEPRINT.md`
   - `docs/testing/CURRENT_TEST_GATES.md`
   - `.codex/rules/style-guide.md`

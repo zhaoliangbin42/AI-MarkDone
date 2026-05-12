@@ -9,8 +9,7 @@
 ## Start Here
 
 - Read `.codex/rules/style-guide.md`
-- Read `docs/style/STYLE_SYSTEM.md`
-- Read `docs/style/STYLE_ARCHITECTURE.md`
+- Read `docs/design.md`
 
 ## Workflow
 
@@ -26,8 +25,7 @@
 
 - `.codex/rules/critical-rules.md`
 - `.codex/rules/style-guide.md`
-- `docs/style/STYLE_SYSTEM.md`
-- `docs/style/STYLE_ARCHITECTURE.md`
+- `docs/design.md`
 
 ## Done When
 

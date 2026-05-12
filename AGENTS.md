@@ -97,7 +97,7 @@ Start here:
 - [docs/architecture/BROWSER_COMPATIBILITY.md](docs/architecture/BROWSER_COMPATIBILITY.md)
 - [docs/antigravity/platform/ADAPTER_CONTRACT.md](docs/antigravity/platform/ADAPTER_CONTRACT.md)
 - [docs/antigravity/platform/CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md)
-- [docs/style/STYLE_SYSTEM.md](docs/style/STYLE_SYSTEM.md)
+- [docs/design.md](docs/design.md)
 - [docs/testing/CURRENT_TEST_GATES.md](docs/testing/CURRENT_TEST_GATES.md)
 - [docs/testing/TESTING_BLUEPRINT.md](docs/testing/TESTING_BLUEPRINT.md)
 - [docs/governance/DOCS_GOVERNANCE.md](docs/governance/DOCS_GOVERNANCE.md)
@@ -113,7 +113,7 @@ Start here:
 - Runtime messaging or background/content boundaries
   - read `docs/architecture/RUNTIME_PROTOCOL.md`
 - Style-system or theme changes
-  - read `docs/style/STYLE_SYSTEM.md`
+  - read `docs/design.md`
 - Testing or release gates
   - read `docs/testing/CURRENT_TEST_GATES.md`
   - read `docs/testing/TESTING_BLUEPRINT.md`

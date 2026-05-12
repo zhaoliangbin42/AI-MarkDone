@@ -26,6 +26,5 @@ This rule set covers shipped extension UI, not host-page styling.
 - `src/style/reference-tokens.ts`
 - `src/style/system-tokens.ts`
 - `src/style/tokens.ts`
-- `docs/style/STYLE_SYSTEM.md`
-- `docs/style/STYLE_ARCHITECTURE.md`
+- `docs/design.md`
 - `docs/testing/TESTING_BLUEPRINT.md`

@@ -15,8 +15,7 @@
 **Files:**
 - Modify: `src/style/tokens.ts`
 - Modify: `src/style/shadow.ts`
-- Review: `docs/style/STYLE_SYSTEM.md`
-- Review: `docs/style/STYLE_ARCHITECTURE.md`
+- Review: `docs/design.md`
 
 **Step 1: Add a shadow style registry design**
 

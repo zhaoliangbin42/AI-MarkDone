@@ -63,8 +63,7 @@
 
 - Review: `src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts`
 - Review: `src/style/tokens.ts`
-- Review: `docs/style/STYLE_SYSTEM.md`
-- Review: `docs/style/STYLE_ARCHITECTURE.md`
+- Review: `docs/design.md`
 
 **Checklist**
 

@@ -104,4 +104,4 @@
 - 依赖规则：`docs/architecture/DEPENDENCY_RULES.md`
 - 重写 checklist：`docs/refactor/REFACTOR_CHECKLIST.md`
 - 测试蓝图：`docs/testing/TESTING_BLUEPRINT.md`
-- 样式系统：`docs/style/STYLE_SYSTEM.md`
+- 样式系统：`docs/design.md`
