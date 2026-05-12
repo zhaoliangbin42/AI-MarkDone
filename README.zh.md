@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.3.1-10A37F" alt="Version 4.3.1">
+    <img src="https://img.shields.io/badge/Version-4.4.0-10A37F" alt="Version 4.4.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -198,9 +198,9 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.3.1
-- 修复 Firefox 中 ChatGPT 工具栏插入失败的问题（感谢小红书用户 @圆桶烤肉拌厚切三文鱼）。
-- 进一步对阅读器复制和导出内容中的超链接、文件引用降噪（感谢 GitHub 用户 @LTong-g）。
+### 4.4.0
+- 提升导出 PNG 的性能，并添加进度条和取消能力，缓解复杂消息导出时的等待焦虑（感谢 GitHub 用户 @LTong-g 贡献代码）。
+- 更新 ChatGPT 内容发现链路，修复阅读器和导出功能只能识别最近几条消息的问题（感谢小红书用户 @Jim 和 @全是恶意）。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

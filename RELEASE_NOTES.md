@@ -1,5 +1,25 @@
 # Release Notes
 
+## v4.4.0 (2026-05-12)
+
+This release significantly improves PNG export reliability and restores full ChatGPT content discovery after recent page changes.
+
+### Added
+- Copy as PNG now shows a cancellable progress panel while rendering.
+- Save Messages PNG export now shows both current-message progress and total export progress.
+
+### Changed
+- Improved PNG export rendering performance for formula-heavy, code-heavy, table-heavy, and image-heavy messages. Thanks to GitHub user @LTong-g.
+
+### Fixed
+- Fixed ChatGPT content discovery so Reader and export are no longer limited to only the last few visible messages after recent ChatGPT page changes. Thanks to Xiaohongshu users @Jim and @全是恶意.
+- Closing the Save Messages dialog during PNG export now cancels the active export instead of only hiding the dialog.
+
+### How it works
+- Earlier PNG export already split tall content by height, but a single visually short block can still contain a very complex DOM tree when it includes many formulas, code tokens, tables, or images.
+- This version also considers DOM complexity when deciding where to split rendering work. Smaller render chunks give the browser more chances to breathe and reduce long stalls during PNG generation.
+- Progress is now surfaced in the UI so long PNG exports no longer feel like a frozen button.
+
 ## v4.3.1 (2026-05-07)
 
 ### Fixed
