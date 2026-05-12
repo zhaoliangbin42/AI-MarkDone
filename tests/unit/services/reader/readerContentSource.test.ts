@@ -41,7 +41,7 @@ describe('readerContentSource', () => {
         vi.clearAllMocks();
     });
 
-    it('uses the DOM-discovered Reader source first when a message element is available', async () => {
+    it('prefers ChatGPT structured snapshot content even when a message element is available', async () => {
         const messageElement = document.createElement('article');
         const adapter: any = {
             getPlatformId: () => 'chatgpt',
@@ -73,12 +73,17 @@ describe('readerContentSource', () => {
             pageUrl: 'https://chatgpt.com/c/1#hash',
         });
 
-        expect(result.metadataSource).toBe('dom');
-        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(result.metadataSource).toBe('chatgpt-snapshot');
+        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
         expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
-        expect(collectReaderItems).toHaveBeenCalledTimes(1);
-        expect(buildChatGPTReaderItems).not.toHaveBeenCalled();
-        expect(result.items[0]?.content).toBe('- dom bullet');
+        expect(collectReaderItems).not.toHaveBeenCalled();
+        expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(1);
+        expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
+            expect.objectContaining({ conversationId: 'conv-1' }),
+            { messageId: 'a1', userPrompt: 'Payload prompt' },
+            'https://chatgpt.com/c/1#hash',
+        );
+        expect(result.items[0]?.content).toBe('- payload bullet');
     });
 
     it('uses the ChatGPT snapshot path without forcing a refresh when DOM Reader collection is unavailable', async () => {

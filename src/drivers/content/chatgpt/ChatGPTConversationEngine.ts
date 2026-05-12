@@ -35,6 +35,10 @@ type ReactTurnLike = {
 
 type MessageRole = 'user' | 'assistant';
 
+const SEMANTIC_TURN_SELECTOR = '[data-turn="user"], [data-turn="assistant"]';
+const LEGACY_TURN_CONTAINER_SELECTOR = '[data-turn-id-container]';
+const MAX_REACT_CARRIER_SCAN = 120;
+
 function isChatGPTConversationPage(url: string): boolean {
     try {
         const parsed = new URL(url);
@@ -242,6 +246,50 @@ function findStructuredTurnData(messageElement: HTMLElement): {
     return { turn: null, parentPromptMessage: null };
 }
 
+function findStructuredTurnDataInScope(scope: HTMLElement): {
+    carrier: HTMLElement;
+    turn: ReactTurnLike | null;
+    parentPromptMessage: Record<string, unknown> | null;
+} {
+    const own = findStructuredTurnData(scope);
+    if (own.turn || own.parentPromptMessage) {
+        return { carrier: scope, ...own };
+    }
+
+    let scanned = 0;
+    const candidates = Array.from(scope.querySelectorAll('*'));
+    for (const node of candidates) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (getReactKeys(node).length === 0) continue;
+        scanned += 1;
+        if (scanned > MAX_REACT_CARRIER_SCAN) break;
+        const data = findStructuredTurnData(node);
+        if (data.turn || data.parentPromptMessage) {
+            return { carrier: node, ...data };
+        }
+    }
+
+    return { carrier: scope, turn: null, parentPromptMessage: null };
+}
+
+function listStructuredTurnScopes(root: ParentNode, messageSelector: string): HTMLElement[] {
+    const scopes: HTMLElement[] = [];
+    const push = (node: Element | null) => {
+        if (!(node instanceof HTMLElement)) return;
+        if (scopes.includes(node)) return;
+        scopes.push(node);
+    };
+
+    root.querySelectorAll(LEGACY_TURN_CONTAINER_SELECTOR).forEach(push);
+    if (scopes.length > 0) return scopes;
+
+    root.querySelectorAll(SEMANTIC_TURN_SELECTOR).forEach(push);
+    if (scopes.length > 0) return scopes;
+
+    root.querySelectorAll(messageSelector).forEach(push);
+    return scopes;
+}
+
 function collectStructuredTurnRefs(adapter: SiteAdapter): Array<{
     element: HTMLElement;
     messageElement: HTMLElement | null;
@@ -255,29 +303,24 @@ function collectStructuredTurnRefs(adapter: SiteAdapter): Array<{
         parentPromptMessage: Record<string, unknown> | null;
     }> = [];
     const seen = new Set<string>();
-    const push = (element: HTMLElement, messageElement: HTMLElement | null) => {
-        const { turn, parentPromptMessage } = findStructuredTurnData(element);
+    const push = (scope: HTMLElement, messageElement: HTMLElement | null) => {
+        const { carrier, turn, parentPromptMessage } = findStructuredTurnDataInScope(scope);
         const role = getTurnRole(turn);
         if (!turn || !role) return;
         const id = getTurnId(turn) ?? `${role}-${refs.length + 1}`;
         const key = `${role}:${id}`;
         if (seen.has(key)) return;
         seen.add(key);
-        refs.push({ element, messageElement, turn, parentPromptMessage });
+        refs.push({ element: carrier, messageElement, turn, parentPromptMessage });
     };
 
     const root = adapter.getObserverContainer?.() ?? document;
-    root.querySelectorAll('[data-turn-id-container]').forEach((node) => {
-        if (!(node instanceof HTMLElement)) return;
-        const messageElement = node.querySelector(adapter.getMessageSelector());
-        push(node, messageElement instanceof HTMLElement ? messageElement : null);
-    });
-
-    if (refs.length > 0) return refs;
-
-    root.querySelectorAll(adapter.getMessageSelector()).forEach((node) => {
-        if (!(node instanceof HTMLElement)) return;
-        push(node, node);
+    const messageSelector = adapter.getMessageSelector();
+    listStructuredTurnScopes(root, messageSelector).forEach((scope) => {
+        const messageElement = scope.matches(messageSelector)
+            ? scope
+            : scope.querySelector(messageSelector);
+        push(scope, messageElement instanceof HTMLElement ? messageElement : null);
     });
 
     return refs;

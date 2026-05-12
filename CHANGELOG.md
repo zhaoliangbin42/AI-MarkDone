@@ -5,6 +5,20 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## [4.4.0] - 2026-05-12
+### Added
+- Export: Copy as PNG now replaces the generic working status with a progress panel that shows render progress and a cancel button.
+- Export: Save Messages PNG export now shows both the current message render progress and the total export progress while exporting multiple messages.
+
+### Changed
+- Export: Copy as PNG and Save Messages PNG export now split dense rendered content by DOM complexity as well as height, reducing long browser stalls on messages with many formulas, code blocks, tables, or images. Thanks to GitHub user @LTong-g.
+
+### Fixed
+- Export: Closing the Save Messages dialog during PNG export now cancels the in-progress export instead of only hiding the dialog.
+- Reader: Fixed ChatGPT content discovery after recent page structure changes so Reader and export can recover more than the last few visible messages again. Thanks to Xiaohongshu users @Jim and @全是恶意.
+
 ## [4.3.1] - 2026-05-07
 
 ### Fixed

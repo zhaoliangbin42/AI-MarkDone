@@ -1,5 +1,22 @@
 # Changelog
 
+# 4.4.0
+2026-05-12
+
+Thanks to GitHub user @LTong-g for contributing code. This release significantly improves Export as PNG.
+
+## How it works
+
+Previously, PNG export rendered the content and split the work by height. In practice, a block with many formulas, code blocks, tables, or images can still be expensive even when it is not visually very tall, because the underlying DOM tree is complex. @LTong-g's approach keeps the height-based split and also considers DOM complexity, so complex messages are rendered in smaller work units before the final image is assembled. This reduces long browser stalls during Copy as PNG and batch PNG export.
+
+PNG export also now shows progress feedback. Copy as PNG uses a cancellable progress panel, and Save Messages shows both the current message progress and the total export progress. The goal is simple: when an export takes time, the UI should say what is happening instead of making the button look stuck.
+
+Feedback and code contributions are welcome. I want future updates to keep sharing the reasoning behind changes, both to satisfy curiosity and to make it easier for more people to participate.
+
+## Changed
+- Improved PNG export performance and added visible progress feedback. Thanks to GitHub user @LTong-g.
+- Updated ChatGPT content discovery so Reader and export can recover more than the last few visible messages again. Thanks to Xiaohongshu users @Jim and @全是恶意.
+
 # 4.3.1
 2026-05-07
 

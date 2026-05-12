@@ -167,7 +167,7 @@ describe('collectConversationMessageRefs', () => {
         expect(refs[0]?.messageEls[0]?.getAttribute('data-id')).toBe('a1');
     });
 
-    it('does not expose empty assistant skeleton fallbacks as copyable conversation turns', () => {
+    it('keeps adapter-owned skeleton rounds in the shared conversation turn model', () => {
         document.body.innerHTML = `
           <div id="container">
             <div data-group-root="1">
@@ -221,9 +221,11 @@ describe('collectConversationMessageRefs', () => {
 
         const refs = collectConversationTurnRefs(new SkeletonAwareAdapter());
 
-        expect(refs).toHaveLength(1);
-        expect(refs[0]?.userPrompt).toBe('real prompt');
-        expect(refs[0]?.messageId).toBe('a2');
+        expect(refs).toHaveLength(2);
+        expect(refs.map((ref) => ref.userPrompt)).toEqual(['skeleton prompt', 'real prompt']);
+        expect(refs.map((ref) => ref.messageId)).toEqual(['skeleton', 'a2']);
+        expect(refs[0]?.primaryMessageEl.getAttribute('data-aimd-empty-assistant-message')).toBe('true');
+        expect(refs[0]?.turnRootEl.id).toBe('skeleton-root');
     });
 
     it('falls back to legacy assistant discovery if platform-owned grouping fails', () => {

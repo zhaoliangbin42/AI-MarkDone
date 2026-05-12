@@ -1,11 +1,20 @@
 import type { Theme } from '../../core/types/theme';
 import { getTokenCss } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
+import { TooltipDelegate } from '../../utils/tooltip';
 import { createIcon } from './components/Icon';
+import { TaskProgressPanel, type TaskProgressUpdate } from './components/TaskProgressPanel';
 import { t } from './components/i18n';
 import { ToolbarHoverActionPortal } from './components/ToolbarHoverActionPortal';
 
 export type ToolbarActionResult = { ok: true; message?: string } | { ok: false; message: string };
+
+export type ToolbarTaskProgressEvent = TaskProgressUpdate;
+
+export type ToolbarActionContext = {
+    signal: AbortSignal;
+    onProgress: (event: ToolbarTaskProgressEvent) => void;
+};
 
 export type MessageToolbarMenuItem = {
     id: string;
@@ -27,7 +36,7 @@ export type MessageToolbarAction = {
         label: string;
         tooltip?: string;
         icon: string;
-        onClick: () => Promise<void | ToolbarActionResult>;
+        onClick: (context?: ToolbarActionContext) => Promise<void | ToolbarActionResult>;
     };
 };
 
@@ -48,6 +57,9 @@ export class MessageToolbar {
     private hoverActionPortalInside = false;
     private toolbarFeedbackTimer: number | null = null;
     private toolbarFeedbackHost: HTMLElement | null = null;
+    private taskProgressPanel: TaskProgressPanel;
+    private tooltipDelegate: TooltipDelegate;
+    private activeTaskAbort: AbortController | null = null;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean }) {
         this.theme = theme;
@@ -59,6 +71,15 @@ export class MessageToolbar {
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-base', cache: 'shared' });
+        ensureStyle(this.shadow, TaskProgressPanel.getCss(), { id: 'aimd-task-progress-panel-base', cache: 'shared' });
+        this.tooltipDelegate = new TooltipDelegate(this.shadow, { upgradeTitles: false });
+        this.taskProgressPanel = new TaskProgressPanel({
+            cancelLabel: t('btnCancel'),
+            onCancel: () => {
+                this.activeTaskAbort?.abort();
+                this.updateTaskProgress({ label: this.getTaskCancelledLabel(), value: 0, indeterminate: false });
+            },
+        });
         this.mount();
     }
 
@@ -68,6 +89,8 @@ export class MessageToolbar {
 
     dispose(): void {
         this.clearToolbarFeedback();
+        this.taskProgressPanel.dispose();
+        this.tooltipDelegate.disconnect();
         this.closeMenu();
         this.closeHoverAction();
         this.hoverActionPortal?.dispose();
@@ -200,6 +223,8 @@ export class MessageToolbar {
         menu.dataset.role = 'menu';
         menu.dataset.open = '0';
         bar.appendChild(menu);
+
+        bar.appendChild(this.taskProgressPanel.getElement());
 
         wrap.appendChild(bar);
         this.shadow.appendChild(wrap);
@@ -427,23 +452,30 @@ export class MessageToolbar {
 
     private async handleHoverActionClick(action: MessageToolbarAction, button: HTMLButtonElement): Promise<void> {
         if (!action.hoverAction) return;
+        const abort = new AbortController();
+        this.activeTaskAbort = abort;
+        this.openTaskProgress(button, { label: action.hoverAction.label, value: 0, indeterminate: false });
         try {
             button.disabled = true;
-            this.setStatus('info', 'Working…');
-            const res = await action.hoverAction.onClick();
-            if (!res) {
-                this.setStatus('idle', '');
+            const res = await action.hoverAction.onClick({
+                signal: abort.signal,
+                onProgress: (event) => this.updateTaskProgress(event),
+            });
+            if (abort.signal.aborted) {
+                this.finishTaskProgress(this.getTaskCancelledLabel());
+            } else if (!res) {
+                this.closeTaskProgress();
             } else if (res.ok) {
-                this.setStatus('success', res.message || 'Done');
+                this.finishTaskProgress(res.message || 'Done');
                 button.setAttribute('data-flash', '1');
                 window.setTimeout(() => button.removeAttribute('data-flash'), 650);
             } else {
-                this.setStatus('error', res.message || 'Failed');
+                this.finishTaskProgress(res.message || 'Failed');
             }
         } catch {
-            this.setStatus('error', 'Failed');
+            this.finishTaskProgress(abort.signal.aborted ? this.getTaskCancelledLabel() : 'Failed');
         } finally {
-            window.setTimeout(() => this.setStatus('idle', ''), 1200);
+            if (this.activeTaskAbort === abort) this.activeTaskAbort = null;
             if (this.pending && action.disabledWhenPending) {
                 button.disabled = true;
             } else {
@@ -451,6 +483,30 @@ export class MessageToolbar {
             }
             this.closeHoverAction();
         }
+    }
+
+    private openTaskProgress(anchor: HTMLElement, initial: ToolbarTaskProgressEvent): void {
+        void anchor;
+        this.clearToolbarFeedback();
+        this.closeHoverAction();
+        this.taskProgressPanel.open(initial);
+    }
+
+    private updateTaskProgress(event: ToolbarTaskProgressEvent): void {
+        this.taskProgressPanel.update(event);
+    }
+
+    private finishTaskProgress(label: string): void {
+        this.taskProgressPanel.finish(label);
+    }
+
+    private closeTaskProgress(): void {
+        this.taskProgressPanel.close();
+    }
+
+    private getTaskCancelledLabel(): string {
+        const translated = t('copyPngCancelled');
+        return translated && translated !== 'copyPngCancelled' ? translated : 'Cancelled';
     }
 
     private attachHoverFeedback(button: HTMLButtonElement, label: string, placement: 'top' | 'bottom'): void {

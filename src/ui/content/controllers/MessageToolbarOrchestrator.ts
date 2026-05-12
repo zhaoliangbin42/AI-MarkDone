@@ -23,11 +23,12 @@ import {
     nowMs,
     type CopyPngDebugEvent,
 } from '../../../services/copy/copy-png-debug';
+import type { RenderProgressEvent } from '../../../drivers/content/export/renderControl';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
 import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
 import { resolveContent } from '../../../services/reader/types';
-import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
+import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
 import type { SendController } from '../sending/SendController';
@@ -565,7 +566,7 @@ export class MessageToolbarOrchestrator {
                 id: 'copy_png',
                 label: t('btnCopyAsPng'),
                 icon: imageIcon,
-                onClick: async () => {
+                onClick: async (ctx?: ToolbarActionContext) => {
                     const debugEnabled = isCopyPngDebugEnabled();
                     const copyStartedAt = nowMs();
                     const debugEvents: CopyPngDebugEvent[] = [];
@@ -615,9 +616,14 @@ export class MessageToolbarOrchestrator {
                         },
                         png: { width: this.resolvedPngWidth, pixelRatio: this.resolvedPngPixelRatio },
                         onDebug: emitDebug,
+                        signal: ctx?.signal,
+                        onProgress: (event) => {
+                            ctx?.onProgress(this.formatCopyPngProgress(event));
+                        },
                     });
                     if (!result.ok) {
                         finishDebug(result.error.code);
+                        if (result.cancelled) return { ok: false, message: this.getCopyPngCancelledLabel() };
                         return { ok: false, message: result.error.message };
                     }
                     if (result.noop) {
@@ -1049,6 +1055,7 @@ export class MessageToolbarOrchestrator {
     }
 
     private async syncReaderTailPages(): Promise<void> {
+        if (this.adapter.getPlatformId() === 'chatgpt') return;
         if (typeof this.readerPanel.isShowingConversationReader !== 'function') return;
         if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
         if (typeof this.readerPanel.appendItem !== 'function') return;
@@ -1114,6 +1121,58 @@ export class MessageToolbarOrchestrator {
         } catch {
             return false;
         }
+    }
+
+    private formatCopyPngProgress(event: RenderProgressEvent): {
+        label: string;
+        completed?: number;
+        total?: number;
+        value?: number;
+        indeterminate?: boolean;
+    } {
+        const completed = event.completed;
+        const total = event.total;
+        const hasRatio = Number.isFinite(completed) && Number.isFinite(total) && (total ?? 0) > 0;
+        const base = hasRatio ? `${completed}/${total}` : '0/1';
+        switch (event.phase) {
+            case 'preparing':
+                return { label: t('pngExportPreparing', base), value: 0, indeterminate: false };
+            case 'loading_assets':
+                return { label: t('pngExportPreparing', base), value: 0, indeterminate: false };
+            case 'rendering':
+                return {
+                    label: t('pngExportRendering', hasRatio ? base : '0/1'),
+                    completed,
+                    total,
+                    value: hasRatio ? undefined : 0,
+                    indeterminate: false,
+                };
+            case 'rendering_chunk':
+                return {
+                    label: t('pngExportRendering', base),
+                    completed,
+                    total,
+                    indeterminate: !hasRatio,
+                };
+            case 'stitching':
+                return {
+                    label: t('pngExportRendering', base),
+                    completed,
+                    total,
+                    indeterminate: !hasRatio,
+                };
+            case 'encoding':
+                return { label: t('pngExportDownloading'), value: 95, indeterminate: false };
+            case 'done':
+                return { label: t('pngExportDone', '1/1'), completed: 1, total: 1 };
+            default:
+                return { label: t('btnCopyAsPng'), indeterminate: true };
+        }
+    }
+
+    private getCopyPngCancelledLabel(): string {
+        const translated = t('copyPngCancelled');
+        return translated && translated !== 'copyPngCancelled' ? translated : 'Cancelled';
     }
 
     private handleObservedMutations(mutations: ArrayLike<MutationRecord | { addedNodes?: ArrayLike<Node>; removedNodes?: ArrayLike<Node> }>): void {

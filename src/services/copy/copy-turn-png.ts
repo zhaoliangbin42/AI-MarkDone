@@ -1,13 +1,14 @@
 import { copyImageBlobToClipboard } from '../../drivers/content/clipboard/copyImageToClipboard';
 import { downloadBlob } from '../../drivers/content/export/downloadBlob';
 import { renderPngBlob, type RenderPngMetrics } from '../../drivers/content/export/renderPng';
+import { isRenderAbortError, throwIfAborted, type RenderProgressEvent } from '../../drivers/content/export/renderControl';
 import { buildPngExportPlans, type BuildPngExportPlanOptions } from '../export/saveMessagesPng';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from '../export/saveMessagesTypes';
 import { nowMs, type CopyPngDebugSink } from './copy-png-debug';
 
 export type CopyTurnsPngResult =
     | { ok: true; noop: boolean; fallback?: 'download' }
-    | { ok: false; error: { code: string; message: string } };
+    | { ok: false; error: { code: string; message: string }; cancelled?: boolean };
 
 export async function copyTurnsPng(
     turns: ChatTurn[],
@@ -17,6 +18,8 @@ export async function copyTurnsPng(
         t: TranslateFn;
         png?: BuildPngExportPlanOptions;
         onDebug?: CopyPngDebugSink;
+        onProgress?: (event: RenderProgressEvent) => void;
+        signal?: AbortSignal;
     },
 ): Promise<CopyTurnsPngResult> {
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
@@ -28,6 +31,7 @@ export async function copyTurnsPng(
     });
 
     try {
+        throwIfAborted(options.signal);
         const buildPlanStartedAt = nowMs();
         const result = buildPngExportPlans(turns, selectedIndices, metadata, options.t, options.png);
         if (!result || result.plans.length < 1) return { ok: true, noop: true };
@@ -51,10 +55,13 @@ export async function copyTurnsPng(
         const renderStartedAt = nowMs();
         const blob = await renderPngBlob({
             ...result.plans[0]!,
+            signal: options.signal,
+            onProgress: options.onProgress,
             onMetrics: (metrics) => {
                 renderMetrics = { ...metrics };
             },
         });
+        throwIfAborted(options.signal);
         emit({
             stage: 'render_blob',
             durationMs: Math.round(nowMs() - renderStartedAt),
@@ -73,6 +80,8 @@ export async function copyTurnsPng(
         });
 
         const clipboardStartedAt = nowMs();
+        options.onProgress?.({ phase: 'encoding' });
+        throwIfAborted(options.signal);
         const clipboardResult = await copyImageBlobToClipboard(blob);
         emit({
             stage: 'clipboard_write',
@@ -91,6 +100,7 @@ export async function copyTurnsPng(
             return { ok: true, noop: false };
         }
 
+        throwIfAborted(options.signal);
         if (clipboardResult.reason === 'unsupported') {
             emit({
                 stage: 'copy_error',
@@ -104,6 +114,7 @@ export async function copyTurnsPng(
             };
         }
 
+        throwIfAborted(options.signal);
         downloadBlob({ filename: result.plans[0]!.filename, blob });
         emit({
             stage: 'copy_error',
@@ -113,6 +124,15 @@ export async function copyTurnsPng(
         });
         return { ok: true, noop: false, fallback: 'download' };
     } catch (err: any) {
+        if (isRenderAbortError(err)) {
+            emit({
+                stage: 'copy_error',
+                durationMs: 0,
+                errorCode: 'CANCELLED',
+                errorMessage: options.t('btnCancel'),
+            });
+            return { ok: false, cancelled: true, error: { code: 'CANCELLED', message: options.t('btnCancel') } };
+        }
         emit({
             stage: 'copy_error',
             durationMs: 0,

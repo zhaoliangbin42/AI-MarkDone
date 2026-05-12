@@ -1,6 +1,7 @@
 import { toCanvas } from 'html-to-image';
 import { logger } from '../../../core/logger';
 import { getKatexCssWithEmbeddedFonts, type KatexEmbeddedCssResult } from './katexAssets';
+import { isRenderAbortError, throwIfAborted, yieldToBrowser, type RenderProgressEvent } from './renderControl';
 
 export type RenderPngMetrics = {
     width: number;
@@ -24,6 +25,8 @@ export type RenderPngPlan = {
     backgroundColor: string;
     imageTimeoutMs?: number;
     onMetrics?: (metrics: RenderPngMetrics) => void;
+    onProgress?: (event: RenderProgressEvent) => void;
+    signal?: AbortSignal;
 };
 
 type PixelRatioResult = {
@@ -38,8 +41,18 @@ const SAFE_CANVAS_PIXEL_AREA_LIMIT = 24_000_000;
 const CHUNK_HEIGHT_TRIGGER = 2000;
 const MAX_CHUNK_HEIGHT = 2000;
 const TARGET_CHUNK_HEIGHT = 2000;
+const TARGET_CHUNK_NODE_COUNT = 900;
+const TARGET_CHUNK_COMPLEX_NODE_COUNT = 120;
+const TARGET_CHUNK_TEXT_CHARS = 16000;
 const IMAGE_PLACEHOLDER_DATA_URL =
     'data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22640%22 height=%22320%22 viewBox=%220 0 640 320%22%3E%3Crect width=%22640%22 height=%22320%22 rx=%2216%22 fill=%22%23f6f8fa%22/%3E%3Crect x=%221%22 y=%221%22 width=%22638%22 height=%22318%22 rx=%2215%22 fill=%22none%22 stroke=%22%23d0d7de%22/%3E%3Ctext x=%22320%22 y=%22162%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2220%22 fill=%22%2357606a%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
+
+type BlockCost = {
+    height: number;
+    nodes: number;
+    complexNodes: number;
+    textChars: number;
+};
 
 function createRoot(): HTMLElement {
     document.getElementById(ROOT_ID)?.remove();
@@ -143,23 +156,67 @@ function collectChunkBlocks(node: HTMLElement): HTMLElement[] {
     return Array.from(card.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
 }
 
+function estimateBlockCost(block: HTMLElement, fallbackHeight: number): BlockCost {
+    const descendants = Array.from(block.querySelectorAll('*'));
+    const complexNodes = descendants.filter((node) => {
+        if (!(node instanceof Element)) return false;
+        return node.matches([
+            'img',
+            'svg',
+            'canvas',
+            'table',
+            'thead',
+            'tbody',
+            'tr',
+            'td',
+            'th',
+            'pre',
+            'code',
+            '.reader-code-block',
+            '.reader-code-block *',
+            '.katex',
+            '.katex *',
+            'mjx-container',
+            'mjx-container *',
+        ].join(','));
+    }).length;
+    return {
+        height: readElementHeight(block, fallbackHeight),
+        nodes: descendants.length + 1,
+        complexNodes,
+        textChars: block.textContent?.length ?? 0,
+    };
+}
+
+function wouldExceedChunkBudget(current: BlockCost, next: BlockCost): boolean {
+    // Low-height content can still stall html-to-image when rich DOM nodes pile up.
+    return current.height + next.height > TARGET_CHUNK_HEIGHT
+        || current.nodes + next.nodes > TARGET_CHUNK_NODE_COUNT
+        || current.complexNodes + next.complexNodes > TARGET_CHUNK_COMPLEX_NODE_COUNT
+        || current.textChars + next.textChars > TARGET_CHUNK_TEXT_CHARS;
+}
+
 function groupBlocks(blocks: HTMLElement[], totalHeight: number): HTMLElement[][] {
     if (blocks.length === 0) return [];
-    const measured = blocks.map((block) => readElementHeight(block, 0));
     const fallbackHeight = Math.max(1, Math.ceil(totalHeight / blocks.length));
-    const heights = measured.map((height) => height > 0 ? height : fallbackHeight);
+    const costs = blocks.map((block) => estimateBlockCost(block, fallbackHeight));
     const groups: HTMLElement[][] = [];
     let current: HTMLElement[] = [];
-    let currentHeight = 0;
+    let currentCost: BlockCost = { height: 0, nodes: 0, complexNodes: 0, textChars: 0 };
     blocks.forEach((block, index) => {
-        const height = heights[index] ?? fallbackHeight;
-        if (current.length > 0 && currentHeight + height > TARGET_CHUNK_HEIGHT) {
+        const cost = costs[index] ?? estimateBlockCost(block, fallbackHeight);
+        if (current.length > 0 && wouldExceedChunkBudget(currentCost, cost)) {
             groups.push(current);
             current = [];
-            currentHeight = 0;
+            currentCost = { height: 0, nodes: 0, complexNodes: 0, textChars: 0 };
         }
         current.push(block);
-        currentHeight += height;
+        currentCost = {
+            height: currentCost.height + cost.height,
+            nodes: currentCost.nodes + cost.nodes,
+            complexNodes: currentCost.complexNodes + cost.complexNodes,
+            textChars: currentCost.textChars + cost.textChars,
+        };
     });
     if (current.length > 0) groups.push(current);
     return groups;
@@ -212,17 +269,25 @@ async function renderChunkedCanvas(sourceNode: HTMLElement, plan: RenderPngPlan,
 
     const canvases: HTMLCanvasElement[] = [];
     for (let index = 0; index < groups.length; index += 1) {
+        throwIfAborted(plan.signal);
+        plan.onProgress?.({ phase: 'rendering_chunk', completed: index, total: groups.length });
+        await yieldToBrowser(plan.signal);
         const chunkNode = buildChunkNode(sourceNode, groups[index]!, index);
         sourceNode.parentElement?.appendChild(chunkNode);
         try {
             await waitForImages(chunkNode, plan.imageTimeoutMs ?? DEFAULT_IMAGE_TIMEOUT_MS);
             replaceUnavailableImages(chunkNode);
             canvases.push(await renderNodeToCanvas(chunkNode, plan, pixelRatio, fontEmbed));
+            plan.onProgress?.({ phase: 'rendering_chunk', completed: index + 1, total: groups.length });
+            await yieldToBrowser(plan.signal);
         } finally {
             chunkNode.remove();
         }
     }
 
+    throwIfAborted(plan.signal);
+    plan.onProgress?.({ phase: 'stitching', completed: groups.length, total: groups.length });
+    await yieldToBrowser(plan.signal);
     const width = Math.max(...canvases.map((canvas) => canvas.width));
     const height = canvases.reduce((sum, canvas) => sum + canvas.height, 0);
     if (width > SAFE_CANVAS_DIMENSION_LIMIT || height > SAFE_CANVAS_DIMENSION_LIMIT) {
@@ -252,6 +317,8 @@ function injectKatexCss(node: HTMLElement, fontEmbed: KatexEmbeddedCssResult): v
 }
 
 export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
+    throwIfAborted(plan.signal);
+    plan.onProgress?.({ phase: 'preparing' });
     const root = createRoot();
     const node = document.createElement('div');
     node.style.width = `${plan.width}px`;
@@ -262,9 +329,14 @@ export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
     try {
         const fontEmbed = await getKatexCssWithEmbeddedFonts(plan.html);
         injectKatexCss(node, fontEmbed);
+        await yieldToBrowser(plan.signal);
+        plan.onProgress?.({ phase: 'loading_assets' });
         await waitForFonts();
+        throwIfAborted(plan.signal);
         await waitForImages(node, plan.imageTimeoutMs ?? DEFAULT_IMAGE_TIMEOUT_MS);
+        throwIfAborted(plan.signal);
         replaceUnavailableImages(node);
+        await yieldToBrowser(plan.signal);
         const exportWidth = node.scrollWidth || plan.width;
         const exportHeight = node.scrollHeight;
         const { effectivePixelRatio, capReason } = resolveSafePixelRatio(plan.pixelRatio, exportWidth, exportHeight);
@@ -285,9 +357,15 @@ export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
         }
 
         const strategy = exportHeight > CHUNK_HEIGHT_TRIGGER ? 'chunked' : 'single';
+        plan.onProgress?.({ phase: 'rendering', completed: 0, total: strategy === 'chunked' ? undefined : 1 });
+        await yieldToBrowser(plan.signal);
         const rendered = strategy === 'chunked'
             ? await renderChunkedCanvas(node, plan, effectivePixelRatio, fontEmbed, exportHeight)
             : { canvas: await renderNodeToCanvas(node, plan, effectivePixelRatio, fontEmbed), chunkCount: 1 };
+        throwIfAborted(plan.signal);
+        if (strategy === 'single') {
+            plan.onProgress?.({ phase: 'rendering', completed: 1, total: 1 });
+        }
         plan.onMetrics?.({
             width: exportWidth,
             height: exportHeight,
@@ -301,8 +379,14 @@ export async function renderPngBlob(plan: RenderPngPlan): Promise<Blob> {
             maxChunkHeight: strategy === 'chunked' ? MAX_CHUNK_HEIGHT : undefined,
             fontEmbedMode: fontEmbed.mode,
         });
-        return await canvasToBlob(rendered.canvas);
+        plan.onProgress?.({ phase: 'encoding' });
+        await yieldToBrowser(plan.signal);
+        const blob = await canvasToBlob(rendered.canvas);
+        throwIfAborted(plan.signal);
+        plan.onProgress?.({ phase: 'done' });
+        return blob;
     } catch (err: any) {
+        if (isRenderAbortError(err)) throw err;
         if (err?.message?.startsWith('PNG export failed')) throw err;
         const exportWidth = node.scrollWidth || plan.width;
         const exportHeight = node.scrollHeight;

@@ -10,7 +10,7 @@ import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
 import { getTokenCss } from '../../../style/tokens';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import type { TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
+import type { ExportProgressEvent, TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
     exportTurnsMarkdown,
     exportTurnsPdf,
@@ -35,6 +35,8 @@ type State = {
     turnsCount: number;
     progressText: string;
     progressValue: number | null;
+    currentProgressText: string;
+    currentProgressValue: number | null;
 };
 
 export class SaveMessagesDialog {
@@ -60,10 +62,13 @@ export class SaveMessagesDialog {
         turnsCount: 0,
         progressText: '',
         progressValue: null,
+        currentProgressText: '',
+        currentProgressValue: null,
     };
     private closing = false;
     private motionNeedsOpen = false;
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
+    private pngExportAbort: AbortController | null = null;
 
     isOpen(): boolean {
         return Boolean(this.overlaySession);
@@ -99,6 +104,8 @@ export class SaveMessagesDialog {
         this.state.saving = false;
         this.state.progressText = '';
         this.state.progressValue = null;
+        this.state.currentProgressText = '';
+        this.state.currentProgressValue = null;
         if (this.overlaySession && this.closing) {
             cancelSurfaceMotionClose({
                 shell: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window'),
@@ -114,6 +121,7 @@ export class SaveMessagesDialog {
 
     close(): void {
         if (this.closing) return;
+        this.pngExportAbort?.abort();
         const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
         const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
         if (this.overlaySession && panel) {
@@ -238,6 +246,9 @@ export class SaveMessagesDialog {
             case 'save-turns':
                 await this.save();
                 return;
+            case 'cancel-png-export':
+                this.cancelPngExport();
+                return;
             default:
                 return;
         }
@@ -260,6 +271,14 @@ export class SaveMessagesDialog {
         this.render();
     }
 
+    private cancelPngExport(): void {
+        this.pngExportAbort?.abort();
+        if (this.state.format === 'png' && this.state.saving) {
+            this.state.progressText = this.getLabel('pngExportCancelled', 'PNG export cancelled');
+            this.render();
+        }
+    }
+
     private async save(): Promise<void> {
         if (!this.adapter || !this.metadata) return;
         if (this.state.selected.size === 0 || this.state.saving) return;
@@ -272,7 +291,11 @@ export class SaveMessagesDialog {
         this.state.saving = true;
         this.state.progressText = '';
         this.state.progressValue = null;
+        this.state.currentProgressText = '';
+        this.state.currentProgressValue = null;
         this.render();
+        const pngAbort = format === 'png' ? new AbortController() : null;
+        this.pngExportAbort = pngAbort;
 
         try {
             const res =
@@ -285,9 +308,9 @@ export class SaveMessagesDialog {
                     ? await exportTurnsPng(turns, selectedIndices, metadata, {
                           t: this.exportT,
                           png: { width: this.resolvedPngWidth, pixelRatio: this.resolvedPngPixelRatio },
+                          signal: pngAbort?.signal,
                           onProgress: (event) => {
-                              this.state.progressValue = event.total > 0 ? Math.round((event.completed / event.total) * 100) : null;
-                              this.state.progressText = this.getPngProgressLabel(event.phase, event.completed, event.total, event.filename);
+                              this.applyPngProgress(event);
                               if (this.overlaySession && !this.closing) this.render();
                           },
                       })
@@ -297,6 +320,7 @@ export class SaveMessagesDialog {
             if (format !== 'pdf') this.close();
         } finally {
             this.state.saving = false;
+            if (this.pngExportAbort === pngAbort) this.pngExportAbort = null;
             if (this.overlaySession && !this.closing) this.render();
         }
     }
@@ -312,9 +336,12 @@ export class SaveMessagesDialog {
         const selectAllLabel = this.getLabel('selectAll', 'Select all');
         const deselectAllLabel = this.getLabel('deselectAll', 'Deselect all');
         const saveLabel = this.state.saving ? this.getLabel('saving', 'Saving') : this.getLabel('btnSave', 'Save');
+        const cancelLabel = this.getLabel('btnCancel', 'Cancel');
         const countLabel = this.getSelectedCountLabel();
-        const showProgress = this.state.format === 'png' && this.state.saving && Boolean(this.state.progressText);
-        const progressValue = this.state.progressValue ?? 0;
+        const showProgress = this.state.format === 'png' && this.state.saving && (Boolean(this.state.progressText) || Boolean(this.state.currentProgressText));
+        const showCancel = this.state.format === 'png' && this.state.saving;
+        const totalProgressValue = this.state.progressValue ?? 0;
+        const currentProgressValue = this.state.currentProgressValue ?? 0;
 
         return `
 <div class="panel-window panel-window--dialog panel-window--save" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
@@ -342,9 +369,18 @@ export class SaveMessagesDialog {
     </div>
     ${showProgress ? `
     <div class="progress-panel">
-      <div class="progress-label">${escapeHtml(this.state.progressText)}</div>
-      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressValue}">
-        <div class="progress-fill" style="width: ${progressValue}%"></div>
+      ${this.state.currentProgressText ? `
+      <div class="progress-row">
+        <div class="progress-label">${escapeHtml(this.state.currentProgressText)}</div>
+        <div class="progress-track" role="progressbar" aria-label="${escapeHtml(this.getLabel('pngExportCurrentProgressLabel', 'Current message'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${currentProgressValue}">
+          <div class="progress-fill" style="width: ${currentProgressValue}%"></div>
+        </div>
+      </div>` : ''}
+      <div class="progress-row">
+        <div class="progress-label">${escapeHtml(this.state.progressText)}</div>
+        <div class="progress-track" role="progressbar" aria-label="${escapeHtml(this.getLabel('pngExportTotalProgressLabel', 'Total export'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${totalProgressValue}">
+          <div class="progress-fill" style="width: ${totalProgressValue}%"></div>
+        </div>
       </div>
     </div>` : ''}
   </div>
@@ -355,6 +391,7 @@ export class SaveMessagesDialog {
     </div>
     <div class="footer-cluster">
       <div class="counter">${escapeHtml(countLabel)}</div>
+      ${showCancel ? `<button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="cancel-png-export">${escapeHtml(cancelLabel)}</button>` : ''}
       <button class="secondary-btn secondary-btn--compact secondary-btn--primary" data-action="save-turns" ${this.state.selected.size === 0 || this.state.saving ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
     </div>
   </div>
@@ -381,6 +418,70 @@ ${getSaveMessagesDialogCss(this.state.theme)}
         const translated = t('selectedCountMessages', [count, total]);
         if (!translated || translated === 'selectedCountMessages') return `${count}/${total} selected`;
         return translated;
+    }
+
+    private applyPngProgress(event: ExportProgressEvent): void {
+        this.state.progressValue = event.total > 0 ? Math.round((event.completed / event.total) * 100) : null;
+        this.state.progressText = this.getPngProgressLabel(event.phase, event.completed, event.total, event.filename);
+
+        if (event.current) {
+            this.state.currentProgressValue = this.resolveCurrentPngProgressValue(event.current.completed, event.current.total, event.current.phase);
+            this.state.currentProgressText = this.getCurrentPngProgressLabel(
+                event.current.phase,
+                event.current.completed,
+                event.current.total,
+                event.filename,
+            );
+            return;
+        }
+
+        if (event.phase === 'rendering') {
+            this.state.currentProgressValue = 0;
+            this.state.currentProgressText = event.filename
+                ? this.getLabel('pngExportCurrentPreparingWithFilename', `Current message 0/1: ${event.filename}`, ['0/1', event.filename])
+                : this.getLabel('pngExportCurrentPreparing', 'Current message 0/1', ['0/1']);
+            return;
+        }
+
+        this.state.currentProgressValue = null;
+        this.state.currentProgressText = '';
+    }
+
+    private resolveCurrentPngProgressValue(completed?: number, total?: number, phase?: string): number | null {
+        if (Number.isFinite(completed) && Number.isFinite(total) && (total ?? 0) > 0) {
+            return Math.round(((completed ?? 0) / Math.max(1, total ?? 1)) * 100);
+        }
+        if (phase === 'encoding') return 95;
+        if (phase === 'done') return 100;
+        return 0;
+    }
+
+    private getCurrentPngProgressLabel(phase: string, completed?: number, total?: number, filename?: string): string {
+        const hasRatio = Number.isFinite(completed) && Number.isFinite(total) && (total ?? 0) > 0;
+        const base = hasRatio ? `${completed}/${total}` : '0/1';
+        switch (phase) {
+            case 'preparing':
+            case 'loading_assets':
+                return filename
+                    ? this.getLabel('pngExportCurrentPreparingWithFilename', `Current message ${base}: ${filename}`, [base, filename])
+                    : this.getLabel('pngExportCurrentPreparing', `Current message ${base}`, [base]);
+            case 'rendering':
+            case 'rendering_chunk':
+            case 'stitching':
+                return filename
+                    ? this.getLabel('pngExportCurrentRenderingWithFilename', `Current message ${base}: ${filename}`, [base, filename])
+                    : this.getLabel('pngExportCurrentRendering', `Current message ${base}`, [base]);
+            case 'encoding':
+                return filename
+                    ? this.getLabel('pngExportCurrentEncodingWithFilename', `Encoding current message: ${filename}`, [filename])
+                    : this.getLabel('pngExportCurrentEncoding', 'Encoding current message');
+            case 'done':
+                return filename
+                    ? this.getLabel('pngExportCurrentDoneWithFilename', `Current message ready: ${filename}`, [filename])
+                    : this.getLabel('pngExportCurrentDone', 'Current message ready');
+            default:
+                return base;
+        }
     }
 
     private getPngProgressLabel(phase: string, completed: number, total: number, filename?: string): string {

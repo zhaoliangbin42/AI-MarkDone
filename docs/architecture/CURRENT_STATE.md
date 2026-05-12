@@ -74,15 +74,57 @@
 - 主要实现在 `src/drivers/content/adapters/sites/*`
 - 平台差异已集中在 driver 层，而不是 UI 或 service 层
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
-  - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main [data-turn-id-container]` 锚定的结构化 React turn 数据还原完整 user/assistant 轮次，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
+  - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main` 内的结构化 turn scope（旧 `[data-turn-id-container]` 或语义 `[data-turn="user"|"assistant"]` wrapper）读取 React turn 数据，并允许在该 turn scope 内查找承载 `turn/currentTurn/prevTurn` props 的 React carrier，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
   - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 负责把完整历史呈现为页面右侧目录条；官方线程继续作为正文显示层；目录条由独立的 `chatgptDirectory` 设置控制，可关闭或在 compact preview / expanded list 两种显示模式之间切换，并可在 expanded list 中选择只显示 Prompt 开头或同时显示开头与结尾，不复用 `platforms.chatgpt` 平台总开关
   - `ChatGPTDirectoryRail` 的滚动与展开样式归组件 Shadow DOM 持有；长目录出现垂直滚动条时，expanded 条目必须用明确的 grid 列分配编号、可收缩文案和右侧短线，并保持滚动槽稳定，避免 hover/active 条目被 scrollbar 挤压或裁切。expanded label 的可见宽度应优先由 CSS intrinsic sizing 与字符宽度预算表达，而不是固定像素宽度、一次性宽度 token 或 JS 测量补偿。
   - `src/ui/content/chatgptDirectory/navigation.ts` 现在是 ChatGPT 目录条同页跳转的稳定入口：优先消费 adapter/content-discovery 产出的用户轮次位置模型，点击使用该轮次的 `jumpAnchor`，滚动高亮使用该轮次的可见 user/assistant DOM 范围；命中 anchor 后会用短生命周期的位置校准抵消官方 hydration/layout shift，但不会抢占焦点，且用户主动滚动、触摸、指针或键盘导航会中止后续校准
-  - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 通过 `readerContentSource` 共享正文供给：优先复用现有 DOM-discovered `ConversationTurnRef[]` / `collectReaderItems()` Reader collection path；ChatGPT snapshot 只在没有可用 DOM start element 时作为 fallback，导出层不再自行 force refresh 或选择另一条正文来源
+  - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 通过 `readerContentSource` 共享正文供给：ChatGPT 上优先消费 `ChatGPTConversationEngine` 的完整 snapshot（payload first，随后结构化 turn 数据），避免被当前 DOM hydration/virtualization 范围截断；snapshot 不可用时才 fallback 到 adapter-owned DOM Reader collection，导出层不再自行 force refresh 或选择另一条正文来源
   - ChatGPT Reader 的 `jump to message`、右侧目录条、书签面板的同页/跨页定位入口都复用同一条 directory navigation helper；非 ChatGPT 平台仍保持原有 bookmark/conversation navigation 路径
   - ChatGPT 工具栏书签保存与高亮会先通过 skeleton/container 轮次映射到 payload 的绝对 `position`，再复用现有 `url + position` 书签身份，不改变底层存储 schema
   - 消息工具栏只注入到 adapter 返回的官方 action row；若 assistant message 先出现而官方 action row 后 hydrate，`MessageToolbarOrchestrator` 只把 action-anchor mutation 作为事件信号触发一次 debounced full rescan，不使用长期轮询或正文 fallback
   - `drivers/content/virtualization/*` 与相关设计文档目前只保留为历史实验资产，不构成现行 shipping path
+
+ChatGPT 内容发现链路必须保持一条共享 family、两个投影：
+
+```mermaid
+flowchart TD
+    Root["ChatGPT conversation root"]
+    Payload["Backend payload mapping/current_node"]
+    Scope["Structured turn scope in main<br/>data-turn-id-container or data-turn=user/assistant"]
+    Carrier["Scoped React carrier<br/>turn/currentTurn/prevTurn props"]
+    Snapshot["ChatGPTConversationEngine snapshot<br/>complete ordered rounds"]
+    ReaderSource["readerContentSource"]
+    ReaderItems["ReaderItem[]"]
+    Reader["ReaderPanel"]
+    Export["Save Messages export<br/>Markdown/PDF/PNG"]
+    AdapterGroups["Adapter-owned DOM group refs<br/>user/assistant roots, anchors, groupEls"]
+    TurnRefs["collectConversationTurnRefs"]
+    Directory["ChatGPTDirectoryController/Rail"]
+    Navigation["navigateChatGPTDirectoryTarget"]
+    DomFallback["DOM collectReaderItems fallback<br/>only when snapshot is unavailable"]
+
+    Root --> Payload
+    Root --> Scope
+    Scope --> Carrier
+    Payload --> Snapshot
+    Carrier --> Snapshot
+    Snapshot --> ReaderSource
+    ReaderSource --> ReaderItems
+    ReaderItems --> Reader
+    ReaderItems --> Export
+    Root --> AdapterGroups
+    AdapterGroups --> TurnRefs
+    TurnRefs --> Directory
+    TurnRefs --> Navigation
+    ReaderSource -. fallback .-> DomFallback
+```
+
+- Reader 与 Save Messages 导出必须只通过 `readerContentSource` 获取正文，并消费同一份 `ReaderItem[]`。
+- ChatGPT 正文完整性由 `ChatGPTConversationEngine snapshot` 负责；DOM markdown collection 不再作为 ChatGPT 长对话的主内容源。
+- 右侧目录条、step controls、Reader locate、书签 Go 共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影；它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
+- ChatGPT Reader 打开后的内容页集不得再通过 DOM tail append 补齐；snapshot 是完整页集来源，DOM Reader collection 只在 snapshot 不可用时兜底。
+- 两个投影允许的差异只在职责上：snapshot 投影回答“每一轮的完整内容是什么”，DOM anchor 投影回答“这一轮在页面哪里、如何跳过去”。不得再引入第三套 ChatGPT 轮次发现入口。
+- 该链路的变更边界必须局限在 ChatGPT 内容发现、Reader/Save Messages 正文供给、目录/定位投影及其测试/SSOT；不得改变书签存储 schema、导出 formatter、Reader 渲染主题、平台开关、发送链路或非 ChatGPT 平台的内容采集语义。
 
 ### Bookmarks
 
@@ -116,7 +158,7 @@
 - content driver 负责 DOM 采集、剪贴板、导出、发送桥接
 - UI 层负责 Shadow DOM / React UI 呈现
 - `ReaderPanel` 当前通过 surface-owned named profiles 收口多入口差异；消息工具栏与书签预览不再直接传 low-level chrome flags，而是分别选择 `conversation-reader` 与 `bookmark-preview`
-- `readerContentSource` 是 Reader 正文供给的共享 service 入口；Reader、Save Messages 导出和当前消息 Copy Markdown / Copy PNG 均消费同一份 `ReaderItem[]`，导出只将 `ReaderItem.content` resolve 为 `ChatTurn[]` 后交给既有 Markdown/PDF/PNG formatter
+- `readerContentSource` 是 Reader 正文供给的共享 service 入口；Reader、Save Messages 导出和当前消息 Copy Markdown / Copy PNG 均消费同一份 `ReaderItem[]`。ChatGPT 正文优先来自 `ChatGPTConversationEngine` 完整 snapshot，DOM Reader collection 仅作兜底，导出只将 `ReaderItem.content` resolve 为 `ChatTurn[]` 后交给既有 Markdown/PDF/PNG formatter
 - `saveMessagesFacade` 只保留 `exportTurnsMarkdown` / `exportTurnsPdf` / `exportTurnsPng` 这组格式化与副作用入口；它不再从 adapter 收集 turns，也不再拥有 ChatGPT snapshot refresh fallback
 - Reader Markdown 正文恢复为单一默认主题；正文样式继续由共享 tokenized markdown contract 持有，入口不能直接传 preset、CSS 或 theme object
 - Reader 正文最大宽度由 `reader.contentMaxWidthPx` 设置驱动，默认保持 1000px；该设置只影响 Reader content inner width，并必须继续 clamp 到 Reader panel 宽度内，不改变 panel shell、fullscreen 或 Markdown 渲染链路

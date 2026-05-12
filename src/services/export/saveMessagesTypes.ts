@@ -1,3 +1,5 @@
+import type { RenderProgressEvent } from '../../drivers/content/export/renderControl';
+
 export interface ChatTurn {
     user: string;
     assistant: string; // markdown
@@ -23,6 +25,7 @@ export type ExportProgressEvent = {
     completed: number;
     total: number;
     filename?: string;
+    current?: RenderProgressEvent;
 };
 
 export type ExportProgressCallback = (event: ExportProgressEvent) => void;

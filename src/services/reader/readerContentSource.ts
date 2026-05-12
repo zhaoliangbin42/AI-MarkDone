@@ -28,36 +28,49 @@ function getFallbackStartElement(adapter: SiteAdapter, messageElement: HTMLEleme
     return messageElement ?? adapter.getLastMessageElement();
 }
 
+async function collectChatGPTSnapshotReaderContent(
+    adapter: SiteAdapter,
+    startMessageElement: HTMLElement | null,
+    options: ReaderContentSourceOptions,
+): Promise<ReaderContentSourceResult | null> {
+    if (adapter.getPlatformId?.() !== 'chatgpt' || !options.chatGptConversationEngine) return null;
+
+    try {
+        const snapshot = await options.chatGptConversationEngine.getSnapshot();
+        if (!snapshot?.rounds?.length) return null;
+        const result = buildChatGPTReaderItems(
+            snapshot,
+            getStartTarget(adapter, startMessageElement),
+            options.pageUrl ?? window.location.href,
+        );
+        return { ...result, metadataSource: 'chatgpt-snapshot' };
+    } catch {
+        return null;
+    }
+}
+
+function collectDomFallbackReaderContent(
+    adapter: SiteAdapter,
+    startMessageElement: HTMLElement | null,
+): ReaderContentSourceResult {
+    const fallbackStart = getFallbackStartElement(adapter, startMessageElement);
+    if (!fallbackStart) return { items: [], startIndex: 0, metadataSource: 'dom' };
+
+    return {
+        ...collectReaderItems(adapter, fallbackStart),
+        metadataSource: 'dom',
+    };
+}
+
 export async function collectReaderContent(
     adapter: SiteAdapter,
     startMessageElement: HTMLElement | null,
     options?: ReaderContentSourceOptions,
 ): Promise<ReaderContentSourceResult> {
-    const fallbackStart = getFallbackStartElement(adapter, startMessageElement);
-    if (fallbackStart) {
-        return {
-            ...collectReaderItems(adapter, fallbackStart),
-            metadataSource: 'dom',
-        };
-    }
-
-    if (adapter.getPlatformId?.() === 'chatgpt' && options?.chatGptConversationEngine) {
-        try {
-            const snapshot = await options.chatGptConversationEngine.getSnapshot();
-            if (snapshot?.rounds?.length) {
-                const result = buildChatGPTReaderItems(
-                    snapshot,
-                    getStartTarget(adapter, startMessageElement),
-                    options.pageUrl ?? window.location.href,
-                );
-                return { ...result, metadataSource: 'chatgpt-snapshot' };
-            }
-        } catch {
-            // Fall through to the empty result; the DOM Reader path is only used when a start element exists.
-        }
-    }
-
-    return { items: [], startIndex: 0, metadataSource: 'dom' };
+    const chatGptSnapshotContent = options
+        ? await collectChatGPTSnapshotReaderContent(adapter, startMessageElement, options)
+        : null;
+    return chatGptSnapshotContent ?? collectDomFallbackReaderContent(adapter, startMessageElement);
 }
 
 export async function readerItemsToChatTurns(items: ReaderItem[]): Promise<ChatTurn[]> {
