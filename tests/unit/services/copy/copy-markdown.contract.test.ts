@@ -135,4 +135,48 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         expect(result.markdown).not.toContain('+2');
         expect(result.markdown).not.toContain('https://github.blog');
     });
+
+    it('preserves rendered math as markdown formulas inside HTML table cells', () => {
+        const mathParserAdapter: MarkdownParserAdapter = {
+            ...parserAdapter,
+            isMathNode: (node) => node.classList.contains('katex') || node.classList.contains('katex-display'),
+            isBlockMath: (node) => node.classList.contains('katex-display'),
+            extractLatex: (node) => ({ latex: node.getAttribute('data-latex') || '', isBlock: node.classList.contains('katex-display') }),
+        };
+        class MathTableAdapter extends FakeAdapter {
+            getMarkdownParserAdapter(): MarkdownParserAdapter {
+                return mathParserAdapter;
+            }
+        }
+
+        document.body.innerHTML = `
+          <div class="assistant">
+            <div class="content">
+              <table>
+                <thead>
+                  <tr><th>Formula</th><th>Meaning</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><span class="katex" data-latex="x_1 + y">rendered math</span></td><td>inline math</td></tr>
+                  <tr><td><span class="katex-display" data-latex="\\\\frac{a}{b}">rendered block math</span></td><td>display math in table</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="actions"></div>
+          </div>
+        `;
+
+        const adapter = new MathTableAdapter();
+        const message = document.querySelector('.assistant');
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toContain('| $x_1 + y$ | inline math |');
+        expect(result.markdown).toContain('| $\\\\frac{a}{b}$ | display math in table |');
+        expect(result.markdown).not.toContain('rendered math');
+    });
 });

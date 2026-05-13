@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Settings: Added a global interface font size control in Advanced Settings, limited to 12px–20px with stepper buttons and live token-based refresh across extension surfaces.
 
+### Fixed
+- Reader: Preserved rendered formulas inside HTML table cells when converting page content back to Markdown, so Reader can render those table formulas with KaTeX instead of flattening them to visible text.
+
 ## [4.4.0] - 2026-05-12
 ### Added
 - Export: Copy as PNG now replaces the generic working status with a progress panel that shows render progress and a cancel button.

@@ -52,6 +52,22 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(html).toContain('katex-display');
     });
 
+    it('renders math inside GFM table cells', () => {
+        const html = renderMarkdownToSanitizedHtml(
+            [
+                '| Formula | Meaning |',
+                '| --- | --- |',
+                '| $x_1 + y$ | inline math in table |',
+                '| $\\\\frac{a}{b}$ | fraction in table |',
+            ].join('\n')
+        );
+
+        expect(html).toContain('<table>');
+        expect(html).toContain('katex');
+        expect(html).toContain('x_1');
+        expect(html).toContain('frac');
+    });
+
     it('supports optional soft line breaks for print-style rendering', () => {
         const html = renderMarkdownToSanitizedHtml('line 1\nline 2', { softBreaks: true });
         expect(html).toContain('line 1<br');
