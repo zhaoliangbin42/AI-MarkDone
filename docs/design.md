@@ -418,15 +418,18 @@ For this project, style-system migrations should prefer documentation and mock c
 
 ## 13. Current Runtime Alignment Notes
 
-The current runtime is stable, but the next implementation phases should use this document to retire the remaining style debt in small batches.
+As of May 13, 2026, the active runtime style system is aligned to this document. The shipped UI is governed by custom CSS plus `--aimd-*` tokens; Tailwind, prefixed utility aliases, and external runtime style frameworks are not part of the product styling chain.
+
+The Chrome production chain has been verified against the unpacked `dist-chrome` build after extension reload. The ChatGPT toolbar, bookmarks panel, settings surface, tree/list controls, and changelog info modal rendered through the tokenized Shadow DOM path without AI-MarkDone style-injection warnings.
 
 | Area | Current Signal | Migration Direction |
 |:--|:--|:--|
-| `src/popup/popup.html` | The unsupported-page popup is a static extension document and cannot rely on Shadow DOM runtime injection. | Keep a minimal public-token fallback subset only; do not copy reference/system token tables. |
-| `src/ui/content/bookmarks/*` | Bookmarks has the highest style density and the largest private-variable set. | Private variables may remain only for local geometry; reusable visual meaning belongs in shared tokens or primitives. |
+| `src/popup/popup.html` | The unsupported-page popup is a static extension document and cannot rely on Shadow DOM runtime injection. | Keep only the minimal public-token fallback subset; do not copy reference/system token tables. This is the lone documented raw color fallback in shipped UI. |
+| `src/ui/content/components/ModalHost.ts` + `modalHostCss.ts` | Alert, confirm, prompt, custom info modal, changelog notice, import review, and destructive confirmation flows share one dialog shell. | New modal-like UI must enter through this host or a documented shared primitive, not local dialog chrome. |
+| `src/ui/content/bookmarks/*` | Bookmarks remains the densest style surface, but it now consumes public tokens and keeps private `--_bookmarks-*` variables for local geometry, layering, and focus composition. | Reusable visual meaning belongs in shared tokens or primitives; private variables must not become color/font/shadow systems. |
 | Static visual coverage | Mock-first workflow exists and should stay aligned with real tokens/components. | Keep design-system and page-system mocks current whenever shared tokens or primitives change. |
 
-These notes are not permission to destabilize working UI. They define the order of future cleanup once the document system is settled.
+These notes are not permission to destabilize working UI. They define the current baseline and the boundaries for future cleanup once new customization work starts.
 
 ## 14. Review Rubric
 
