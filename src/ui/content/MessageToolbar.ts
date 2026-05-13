@@ -99,6 +99,7 @@ export class MessageToolbar {
 
     setPlacement(placement: 'actionbar' | 'content'): void {
         this.host.setAttribute('data-aimd-placement', placement);
+        this.syncNoteVisibility();
     }
 
     setTheme(theme: Theme): void {
@@ -122,6 +123,14 @@ export class MessageToolbar {
             if (btn) btn.disabled = pending;
         }
         if (note) note.textContent = pending ? t('streamingStatus') : '';
+        this.syncNoteVisibility();
+    }
+
+    private syncNoteVisibility(): void {
+        const note = this.shadow.querySelector<HTMLElement>('[data-field="note"]');
+        if (!note) return;
+        const placement = this.host.getAttribute('data-aimd-placement');
+        note.hidden = placement === 'actionbar' || this.pending || note.textContent.trim().length === 0;
     }
 
     setStats(lines: string[]): void {
@@ -622,8 +631,12 @@ export class MessageToolbar {
 }
 :host([data-aimd-placement="actionbar"]) .icon-btn { width: var(--aimd-size-control-icon-toolbar); height: var(--aimd-size-control-icon-toolbar); border-radius: 10px; }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
-:host([data-aimd-placement="actionbar"]) .note { display: none !important; }
-:host([data-aimd-pending="1"]) .note { display: none !important; }
+:host([data-aimd-placement="actionbar"]) .note,
+:host([data-aimd-pending="1"]) .note,
+.note[hidden],
+.note:empty {
+  display: none;
+}
 :host([data-aimd-placement="actionbar"]) .status {
   position: absolute;
   right: 6px;
@@ -770,7 +783,7 @@ export class MessageToolbar {
   .bar,
   .icon-btn,
   .menu-item {
-    transition: none !important;
+    transition: none;
   }
 }
 `;

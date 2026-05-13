@@ -75,6 +75,7 @@ button { cursor: pointer; }
 ${getInputFieldCss()}
 ${getPanelChromeCss()}
 
+/* Panel shell */
 .aimd-scroll {
   min-height: 0;
   overflow: auto;
@@ -241,6 +242,7 @@ ${getPanelChromeCss()}
   overflow: auto;
 }
 
+/* Navigation tabs */
 .bookmarks-body,
 .tab-panel {
   min-height: 0;
@@ -304,6 +306,7 @@ ${getPanelChromeCss()}
   background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
 }
 
+/* Bookmark tree toolbar */
 .toolbar-row--bookmarks {
   display: flex;
   align-items: center;
@@ -451,6 +454,7 @@ ${getPanelChromeCss()}
   flex: 0 0 auto;
 }
 
+/* Bookmark tree */
 .tree-panel {
   flex: 1;
   min-height: 0;
@@ -862,7 +866,7 @@ ${getPanelChromeCss()}
   min-width: 0;
   margin: 0 auto;
   display: grid;
-  gap: 16px;
+  gap: var(--aimd-space-4);
 }
 
 .settings-card {
@@ -871,8 +875,8 @@ ${getPanelChromeCss()}
   min-width: 0;
   position: relative;
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
+  padding: calc(var(--aimd-space-4) + var(--aimd-space-1) / 2);
   border-radius: var(--_bookmarks-card-radius);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
@@ -901,7 +905,7 @@ ${getPanelChromeCss()}
   justify-content: space-between;
   min-width: 0;
   gap: var(--aimd-space-3);
-  padding: 10px 0;
+  padding: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2) 0;
   border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 46%, transparent);
 }
 
@@ -913,12 +917,15 @@ ${getPanelChromeCss()}
 .settings-label {
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .settings-label strong {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: var(--aimd-space-1);
+  min-width: 0;
   font-size: var(--_bookmarks-settings-title-size);
   line-height: 1.45;
   font-weight: var(--_bookmarks-item-title-weight);
@@ -1146,7 +1153,7 @@ ${getPanelChromeCss()}
 .settings-export-width-controls .settings-export-width-preset {
   flex: 0 0 auto;
   min-width: 0;
-  width: auto;
+  width: fit-content;
   justify-self: auto;
 }
 
@@ -1165,7 +1172,7 @@ ${getPanelChromeCss()}
 }
 
 .settings-export-width-preset .settings-select-trigger {
-  width: auto;
+  width: fit-content;
   min-width: 120px;
 }
 
@@ -1775,7 +1782,7 @@ ${getPanelChromeCss()}
 .info-hero__title {
   margin: 0;
   color: var(--aimd-text-primary);
-  font-size: clamp(22px, 4vw, 28px);
+  font-size: var(--aimd-panel-title-size);
   line-height: 1.2;
   font-weight: 600;
 }
@@ -2342,11 +2349,24 @@ ${getPanelChromeCss()}
   }
 
   .toolbar-row--bookmarks {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(132px, var(--_bookmarks-sidebar-width));
+    align-items: center;
+    gap: var(--_bookmarks-toolbar-gap);
   }
 
   .platform-dropdown__trigger {
     width: 100%;
+  }
+
+  .toolbar-row--bookmarks > .toolbar-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-row--bookmarks > .platform-dropdown {
+    min-width: 0;
   }
 
   .batch-bar {

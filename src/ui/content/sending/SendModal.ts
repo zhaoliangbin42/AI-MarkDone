@@ -222,12 +222,12 @@ ${getModalMotionCss()}
   display: grid;
   justify-items: center;
   align-items: start;
-  padding: 12vh 24px 24px;
+  padding: var(--aimd-panel-top) var(--aimd-space-6) var(--aimd-space-6);
   pointer-events: none;
 }
 
 .dialog {
-  width: min(720px, calc(100vw - 48px));
+  width: min(var(--aimd-panel-max-width), calc(100vw - var(--aimd-space-6) * 2));
   background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
@@ -283,7 +283,7 @@ ${getModalMotionCss()}
   resize: vertical;
   min-height: 140px;
   margin: var(--aimd-space-4);
-  padding: 10px 12px;
+  padding: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2) var(--aimd-space-3);
   border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
@@ -302,7 +302,7 @@ ${getModalMotionCss()}
   background: color-mix(in srgb, var(--aimd-bg-surface) 90%, var(--aimd-bg-secondary));
 }
 .status {
-  min-height: 18px;
+  min-height: calc(var(--aimd-text-xs) * 1.5);
   font-size: var(--aimd-font-size-xs);
   color: var(--aimd-text-secondary);
 }
@@ -312,7 +312,7 @@ ${getModalMotionCss()}
 }
 .btn {
   min-height: var(--aimd-size-control-action-panel);
-  padding: 0 14px;
+  padding: 0 calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
   border-radius: var(--aimd-radius-full);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
   background: var(--aimd-button-secondary-bg);

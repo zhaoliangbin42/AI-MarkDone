@@ -377,26 +377,28 @@ export class ChatGPTDirectoryRail {
     private getPreviewCss(): string {
         return `${getPreviewTokenCss()}
 .aimd-chatgpt-directory-preview {
+  --_directory-preview-width: 280px;
+  --_directory-preview-gap: var(--aimd-space-3);
   position: fixed;
   left: 0;
   top: 0;
-  width: 280px;
-  max-width: min(280px, calc(100vw - 32px));
-  padding: var(--aimd-space-3, 12px) var(--aimd-space-3, 12px);
-  border-radius: var(--aimd-radius-lg, 12px);
-  background: var(--aimd-bg-surface, rgba(255, 255, 255, 0.96));
+  width: var(--_directory-preview-width);
+  max-width: min(var(--_directory-preview-width), calc(100vw - (var(--_directory-preview-gap) * 2)));
+  padding: var(--aimd-space-3);
+  border-radius: var(--aimd-radius-lg);
+  background: var(--aimd-bg-surface);
   background: color-mix(in srgb, var(--aimd-bg-surface) 92%, transparent);
-  color: var(--aimd-text-primary, #111827);
-  box-shadow: var(--aimd-shadow-lg, 0 22px 56px rgba(148, 163, 184, 0.24));
+  color: var(--aimd-text-primary);
+  box-shadow: var(--aimd-shadow-lg);
   border: 1px solid color-mix(in srgb, var(--aimd-border-subtle) 72%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   pointer-events: none;
   opacity: 0;
-  translate: var(--aimd-space-1, 4px) 0;
+  translate: var(--aimd-space-1) 0;
   transition: opacity 120ms var(--aimd-ease-in-out),
               translate 120ms var(--aimd-ease-out);
-  z-index: var(--aimd-z-tooltip, 10000);
+  z-index: var(--aimd-z-tooltip);
   font-family: var(--aimd-font-family-sans);
   box-sizing: border-box;
 }
@@ -408,18 +410,18 @@ export class ChatGPTDirectoryRail {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
-  padding: 0 var(--aimd-space-2, 8px);
-  border-radius: var(--aimd-radius-full, 999px);
-  background: var(--aimd-interactive-selected, rgba(37, 99, 235, 0.12));
+  padding: 0 var(--aimd-space-2);
+  border-radius: var(--aimd-radius-full);
+  background: var(--aimd-interactive-selected);
   color: var(--aimd-interactive-primary);
-  font-size: var(--aimd-text-base, 16px);
+  font-size: var(--aimd-text-base);
   font-weight: var(--aimd-font-semibold);
   line-height: 1;
-  margin-bottom: var(--aimd-space-2, 8px);
+  margin-bottom: var(--aimd-space-2);
 }
 .aimd-chatgpt-directory-preview__body {
-  color: var(--aimd-text-secondary, #374151);
-  font-size: var(--aimd-font-size-sm, 14px);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-font-size-sm);
   line-height: 1.45;
   white-space: normal;
 }
@@ -436,13 +438,13 @@ export class ChatGPTDirectoryRail {
         return `${getPreviewTokenCss()}
 .aimd-chatgpt-directory-step-controls {
   position: fixed;
-  right: var(--aimd-space-4, 16px);
-  bottom: var(--aimd-space-6, 24px);
-  z-index: var(--aimd-z-panel, 9000);
+  right: var(--aimd-space-4);
+  bottom: var(--aimd-space-6);
+  z-index: var(--aimd-z-panel);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--aimd-space-1, 4px);
+  gap: var(--aimd-space-1);
   pointer-events: auto;
   font-family: var(--aimd-font-family-sans);
 }
@@ -453,8 +455,8 @@ export class ChatGPTDirectoryRail {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--aimd-size-control-icon-panel-nav, 32px);
-  height: var(--aimd-size-control-icon-panel-nav, 32px);
+  width: var(--aimd-size-control-icon-panel-nav);
+  height: var(--aimd-size-control-icon-panel-nav);
   color: var(--aimd-text-secondary);
 }
 .aimd-chatgpt-directory-step-controls__button:hover:not(:disabled),
@@ -471,8 +473,8 @@ export class ChatGPTDirectoryRail {
 }
 .aimd-chatgpt-directory-step-controls__icon,
 .aimd-chatgpt-directory-step-controls__icon svg {
-  width: var(--aimd-size-control-glyph-panel, 16px);
-  height: var(--aimd-size-control-glyph-panel, 16px);
+  width: var(--aimd-size-control-glyph-panel);
+  height: var(--aimd-size-control-glyph-panel);
 }
 @media (prefers-reduced-motion: reduce) {
   .aimd-chatgpt-directory-step-controls__button {

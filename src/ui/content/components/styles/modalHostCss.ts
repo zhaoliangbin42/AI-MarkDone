@@ -28,9 +28,14 @@ ${getInputFieldCss()}
   --_modal-accent: var(--aimd-interactive-primary);
   --_modal-accent-soft: color-mix(in srgb, var(--aimd-interactive-primary) 12%, transparent);
   --_modal-accent-border: color-mix(in srgb, var(--aimd-interactive-primary) 24%, var(--aimd-border-default));
-  width: min(520px, calc(100% - 40px));
-  max-width: min(520px, calc(100% - 40px));
-  max-height: min(680px, calc(100% - 40px));
+  --_modal-width: min(520px, calc(100% - var(--aimd-space-5) * 2));
+  --_modal-max-height: min(680px, calc(100% - var(--aimd-space-5) * 2));
+  --_modal-icon-size: var(--aimd-size-control-action-panel);
+  --_modal-content-gap: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
+  --_modal-content-padding: var(--aimd-space-5);
+  width: var(--_modal-width);
+  max-width: var(--_modal-width);
+  max-height: var(--_modal-max-height);
   border-radius: var(--aimd-radius-2xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
@@ -77,14 +82,14 @@ ${getInputFieldCss()}
 
 .mock-modal__title-wrap {
   align-items: center;
-  gap: 12px;
+  gap: var(--aimd-space-3);
   min-width: 0;
 }
 
 .mock-modal__title-copy {
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: var(--aimd-space-1);
   min-width: 0;
 }
 
@@ -96,8 +101,8 @@ ${getInputFieldCss()}
 }
 
 .mock-modal__kind-icon {
-  width: 36px;
-  height: 36px;
+  width: var(--_modal-icon-size);
+  height: var(--_modal-icon-size);
   align-items: center;
   justify-content: center;
   border-radius: var(--aimd-radius-lg);
@@ -154,8 +159,8 @@ ${getInputFieldCss()}
 
 .mock-modal__content {
   display: grid;
-  gap: 14px;
-  padding: 20px;
+  gap: var(--_modal-content-gap);
+  padding: var(--_modal-content-padding);
   overflow: auto;
   min-height: 0;
 }
@@ -170,8 +175,8 @@ ${getInputFieldCss()}
 
 .merge-section {
   display: grid;
-  gap: 14px;
-  padding: 14px;
+  gap: var(--_modal-content-gap);
+  padding: var(--_modal-content-gap);
   border-radius: var(--aimd-radius-2xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 68%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 56%, transparent);
@@ -195,12 +200,12 @@ ${getInputFieldCss()}
 .merge-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--aimd-space-3);
 }
 
 .merge-summary-item {
   min-width: 0;
-  padding: 12px 14px;
+  padding: var(--aimd-space-3) var(--_modal-content-gap);
   border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, transparent);
@@ -225,25 +230,25 @@ ${getInputFieldCss()}
 
 .merge-entry-list {
   display: grid;
-  gap: 10px;
+  gap: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
 }
 
 .merge-entry {
-  padding: 14px 16px;
+  padding: var(--_modal-content-gap) var(--aimd-space-4);
   border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
   display: grid;
-  gap: 8px;
+  gap: var(--aimd-space-2);
 }
 
 .merge-entry__top {
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--aimd-space-3);
 }
 
 .merge-entry-status {
-  padding: 2px 8px;
+  padding: calc(var(--aimd-space-1) / 2) var(--aimd-space-2);
   border-radius: var(--aimd-radius-full);
   font-size: var(--aimd-text-xs);
   line-height: 1.5;
@@ -278,8 +283,8 @@ ${getInputFieldCss()}
 
 .mock-modal__input {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: var(--aimd-size-control-action-panel);
+  padding: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2) var(--aimd-space-3);
   border-radius: var(--aimd-radius-lg);
   border: 1px solid var(--aimd-border-default);
   background: color-mix(in srgb, var(--aimd-bg-primary) 92%, transparent);
@@ -303,7 +308,7 @@ ${getInputFieldCss()}
 
 .mock-modal__button {
   min-height: var(--aimd-size-control-action-panel);
-  padding: 0 16px;
+  padding: 0 var(--aimd-space-4);
   border-radius: var(--aimd-radius-full);
   border: 1px solid var(--aimd-border-default);
   background: var(--aimd-button-secondary-bg);

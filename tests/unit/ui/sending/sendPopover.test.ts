@@ -66,9 +66,9 @@ describe('SendPopover', () => {
         expect(opened?.querySelector('.send-popover__foot .button-row')).toBeTruthy();
         expect(opened?.querySelector('[data-tooltip]')).toBeNull();
         expect(opened?.querySelector('.send-popover__resize-handle')?.getAttribute('title')).toBeNull();
-        expect(styleNode?.textContent).toContain('top: 6px;');
-        expect(styleNode?.textContent).toContain('right: 6px;');
-        expect(styleNode?.textContent).toContain('padding-right: 14px;');
+        expect(styleNode?.textContent).toContain('top: var(--aimd-space-2);');
+        expect(styleNode?.textContent).toContain('right: var(--aimd-space-2);');
+        expect(styleNode?.textContent).toContain('padding-right: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);');
         expect(styleNode?.textContent).toContain('linear-gradient(135deg, transparent 0 40%, currentColor 40% 48%');
         expect(styleNode?.textContent).toContain('.send-popover__resize-handle,');
         expect(styleNode?.textContent).toContain('.send-popover__resize-handle:hover,');

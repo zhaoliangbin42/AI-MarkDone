@@ -4,21 +4,24 @@ export function getSendPopoverCss(): string {
     return `
 ${getInputFieldCss()}
 .send-popover {
+  --_send-popover-arrow-size: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
+  --_send-popover-edge-gap: calc(var(--aimd-space-6) + var(--aimd-space-4) + var(--aimd-space-3));
+  --_send-popover-offset: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
   position: absolute;
   left: 0;
-  bottom: calc(100% + 10px);
-  padding: 14px;
-  border-radius: 20px;
+  bottom: calc(100% + var(--_send-popover-offset));
+  padding: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
+  border-radius: var(--aimd-radius-2xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
   box-shadow: var(--aimd-shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--aimd-space-3);
   min-width: 320px;
   min-height: 220px;
-  max-width: min(680px, calc(100vw - 80px));
-  max-height: min(520px, calc(100vh - 120px));
+  max-width: min(680px, calc(100vw - var(--_send-popover-edge-gap)));
+  max-height: min(520px, calc(100vh - (var(--_send-popover-edge-gap) + var(--aimd-space-6))));
   overflow: hidden;
   z-index: var(--aimd-z-tooltip);
   color: var(--aimd-text-primary);
@@ -27,10 +30,10 @@ ${getInputFieldCss()}
 .send-popover::after {
   content: '';
   position: absolute;
-  left: 18px;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
+  left: calc(var(--aimd-space-4) + var(--aimd-space-1) / 2);
+  bottom: calc(var(--_send-popover-arrow-size) / -2);
+  width: var(--_send-popover-arrow-size);
+  height: var(--_send-popover-arrow-size);
   transform: rotate(45deg);
   background: inherit;
   border-right: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
@@ -59,15 +62,15 @@ ${getInputFieldCss()}
 .send-popover__head-actions {
   gap: var(--aimd-panel-action-gap);
   margin-left: auto;
-  padding-right: 14px;
+  padding-right: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
 }
 
 .send-popover__input {
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 12px 14px;
-  border-radius: 16px;
+  padding: var(--aimd-space-3) calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
+  border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
   color: var(--aimd-text-primary);
@@ -92,7 +95,7 @@ ${getInputFieldCss()}
   justify-content: flex-end;
   align-items: flex-end;
   flex-wrap: wrap;
-  row-gap: 10px;
+  row-gap: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
   column-gap: var(--aimd-space-3);
   margin-top: auto;
 }
@@ -126,7 +129,7 @@ ${getInputFieldCss()}
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--aimd-radius-full);
   border: 1px solid transparent;
   color: var(--aimd-text-secondary);
   background: transparent;
@@ -153,12 +156,12 @@ ${getInputFieldCss()}
 
 .send-popover .studio-btn {
   min-height: var(--aimd-size-control-action-panel);
-  padding: 0 14px;
+  padding: 0 calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border-radius: 999px;
+  gap: var(--aimd-space-2);
+  border-radius: var(--aimd-radius-full);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
   background: var(--aimd-button-secondary-bg);
   color: var(--aimd-button-secondary-text);
@@ -226,8 +229,8 @@ ${getInputFieldCss()}
 .send-popover__resize-handle:focus-visible,
 .send-popover__resize-handle:active {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: var(--aimd-space-2);
+  right: var(--aimd-space-2);
   width: 20px;
   height: 20px;
   padding: 0;
@@ -244,8 +247,8 @@ ${getInputFieldCss()}
 .send-popover__resize-grip {
   position: relative;
   display: block;
-  width: 10px;
-  height: 10px;
+  width: calc(var(--_send-popover-arrow-size) - var(--aimd-space-1));
+  height: calc(var(--_send-popover-arrow-size) - var(--aimd-space-1));
   transform: rotate(-90deg);
   opacity: 0.96;
 }
