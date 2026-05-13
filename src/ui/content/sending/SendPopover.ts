@@ -12,6 +12,7 @@ import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
 import { buildCommentsExport, resolveReaderCommentExportPrompts } from '../../../services/reader/commentExport';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
 import { eventWithinTransientRoot } from '../components/transientUi';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 type State = {
     theme: Theme;
@@ -75,6 +76,10 @@ export class SendPopover {
     setTheme(theme: Theme): void {
         this.state.theme = theme;
         this.applyTheme();
+    }
+
+    setThemeOverrides(_overrides: UserThemeOverrides): void {
+        // Anchored send popovers inherit token variables from the toolbar shadow root.
     }
 
     isOpen(): boolean {

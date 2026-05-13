@@ -2,7 +2,7 @@ import type { Theme } from '../../../../core/types/theme';
 import { PathUtils } from '../../../../core/bookmarks/path';
 import type { ProtocolErrorCode } from '../../../../contracts/protocol';
 import { bookmarksClient } from '../../../../drivers/shared/clients/bookmarksClient';
-import { getTokenCss } from '../../../../style/tokens';
+import { getTokenCss, type UserThemeOverrides } from '../../../../style/tokens';
 import {
     checkIcon,
     chevronDownIcon,
@@ -57,6 +57,7 @@ export class BookmarkSaveDialog {
     private tooltipDelegate: TooltipDelegate | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private theme: Theme = 'light';
+    private themeOverrides: UserThemeOverrides = {};
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
     private folders: FolderLite[] = [];
@@ -126,6 +127,12 @@ export class BookmarkSaveDialog {
     setTheme(theme: Theme): void {
         this.theme = theme;
         this.overlaySession?.setTheme(theme);
+        this.overlaySession?.setSurfaceCss(this.getCss());
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.overlaySession?.setThemeOverrides(this.themeOverrides);
         this.overlaySession?.setSurfaceCss(this.getCss());
     }
 
@@ -205,6 +212,7 @@ export class BookmarkSaveDialog {
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmark-save-dialog-host',
             theme: this.theme,
+            themeOverrides: this.themeOverrides,
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmark-save-dialog-structure',
@@ -657,7 +665,7 @@ export class BookmarkSaveDialog {
     }
 
     private getCss(): string {
-        return `${getTokenCss(this.theme)}\n${getBookmarkSaveDialogCss(this.theme)}`;
+        return `${getTokenCss(this.theme, this.themeOverrides)}\n${getBookmarkSaveDialogCss(this.theme)}`;
     }
 
     private captureRetainedInputFocus(target: HTMLElement | null | undefined): void {

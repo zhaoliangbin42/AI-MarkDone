@@ -1,5 +1,5 @@
 import type { Theme } from '../../core/types/theme';
-import { getTokenCss } from '../../style/tokens';
+import { getTokenCss, type UserThemeOverrides } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 import { TooltipDelegate } from '../../utils/tooltip';
 import { createIcon } from './components/Icon';
@@ -44,6 +44,7 @@ export class MessageToolbar {
     private host: HTMLElement;
     private shadow: ShadowRoot;
     private theme: Theme;
+    private themeOverrides: UserThemeOverrides = {};
     private actions: MessageToolbarAction[];
     private actionButtons = new Map<string, HTMLButtonElement>();
     private pending: boolean = false;
@@ -61,15 +62,16 @@ export class MessageToolbar {
     private tooltipDelegate: TooltipDelegate;
     private activeTaskAbort: AbortController | null = null;
 
-    constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean }) {
+    constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean; themeOverrides?: UserThemeOverrides }) {
         this.theme = theme;
+        this.themeOverrides = opts?.themeOverrides ?? {};
         this.actions = actions;
         this.showStats = opts?.showStats ?? false;
         this.host = document.createElement('div');
         this.host.className = 'aimd-message-toolbar-host';
         this.host.setAttribute('data-aimd-theme', theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
-        ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
+        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-base', cache: 'shared' });
         ensureStyle(this.shadow, TaskProgressPanel.getCss(), { id: 'aimd-task-progress-panel-base', cache: 'shared' });
         this.tooltipDelegate = new TooltipDelegate(this.shadow, { upgradeTitles: false });
@@ -105,11 +107,20 @@ export class MessageToolbar {
     setTheme(theme: Theme): void {
         this.theme = theme;
         this.host.setAttribute('data-aimd-theme', theme);
-        ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-tokens' });
+        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
         this.hoverActionPortal?.setTheme(theme);
         if (this.toolbarFeedbackHost) {
             this.toolbarFeedbackHost.setAttribute('data-aimd-theme', theme);
-            ensureStyle(this.toolbarFeedbackHost.shadowRoot!, getTokenCss(theme), { id: 'aimd-toolbar-feedback-tokens' });
+            ensureStyle(this.toolbarFeedbackHost.shadowRoot!, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-feedback-tokens' });
+        }
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        ensureStyle(this.shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
+        this.hoverActionPortal?.setThemeOverrides(this.themeOverrides);
+        if (this.toolbarFeedbackHost?.shadowRoot) {
+            ensureStyle(this.toolbarFeedbackHost.shadowRoot, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-feedback-tokens' });
         }
     }
 
@@ -431,7 +442,7 @@ export class MessageToolbar {
 
     private getHoverActionPortal(): ToolbarHoverActionPortal {
         if (!this.hoverActionPortal) {
-            this.hoverActionPortal = new ToolbarHoverActionPortal(this.theme);
+            this.hoverActionPortal = new ToolbarHoverActionPortal(this.theme, this.themeOverrides);
         }
         return this.hoverActionPortal;
     }
@@ -547,7 +558,7 @@ export class MessageToolbar {
         host.className = 'aimd-toolbar-tooltip-host';
         host.setAttribute('data-aimd-theme', this.theme);
         const shadow = host.attachShadow({ mode: 'open' });
-        ensureStyle(shadow, getTokenCss(this.theme), { id: 'aimd-toolbar-feedback-tokens' });
+        ensureStyle(shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-feedback-tokens' });
         ensureStyle(shadow, this.getToolbarFeedbackCss(), { id: 'aimd-toolbar-feedback-base', cache: 'shared' });
 
         const feedback = document.createElement('div');

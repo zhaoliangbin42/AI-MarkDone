@@ -31,6 +31,10 @@ export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
 export const MIN_READER_CONTENT_MAX_WIDTH_PX = 480;
 export const MAX_READER_CONTENT_MAX_WIDTH_PX = 1600;
 export const READER_CONTENT_MAX_WIDTH_STEP_PX = 20;
+export const DEFAULT_GLOBAL_FONT_SIZE_PX = 16;
+export const MIN_GLOBAL_FONT_SIZE_PX = 12;
+export const MAX_GLOBAL_FONT_SIZE_PX = 20;
+export const GLOBAL_FONT_SIZE_STEP_PX = 1;
 
 export type AppSettings = {
     version: SettingsVersion;
@@ -55,6 +59,9 @@ export type AppSettings = {
     formula: FormulaSettings;
     export: ExportSettings;
     chatgptDirectory: ChatGPTDirectorySettings;
+    appearance: {
+        fontSizePx: number;
+    };
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
     };
@@ -81,6 +88,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
+    appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
 };
@@ -93,6 +101,7 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         || value === 'formula'
         || value === 'export'
         || value === 'chatgptDirectory'
+        || value === 'appearance'
         || value === 'bookmarks'
         || value === 'language'
     );

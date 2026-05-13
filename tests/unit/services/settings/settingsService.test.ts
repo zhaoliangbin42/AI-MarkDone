@@ -56,6 +56,16 @@ describe('settingsService', () => {
         expect(next.reader.contentMaxWidthPx).toBe(1600);
     });
 
+    it('normalizes global appearance font size settings', () => {
+        const high = planSetCategory(DEFAULT_SETTINGS, 'appearance', { fontSizePx: 99 }).next;
+        const low = planSetCategory(DEFAULT_SETTINGS, 'appearance', { fontSizePx: 4 }).next;
+        const invalid = planSetCategory(DEFAULT_SETTINGS, 'appearance', { fontSizePx: 'bad' }).next;
+
+        expect(high.appearance.fontSizePx).toBe(20);
+        expect(low.appearance.fontSizePx).toBe(12);
+        expect(invalid.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
+    });
+
     it('drops retired ChatGPT-specific settings when normalizing stored settings', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,

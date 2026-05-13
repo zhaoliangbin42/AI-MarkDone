@@ -13,6 +13,7 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-radius-2xl');
         expect(css).toContain('--aimd-radius-full');
         expect(css).toContain('--aimd-text-base');
+        expect(css).toContain('--aimd-ref-type-size-200: 16px;');
         expect(css).toContain('--aimd-text-2xl');
         expect(css).toContain('--aimd-interactive-hover');
         expect(css).toContain('--aimd-space-5');
@@ -94,5 +95,13 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-sys-type-body-medium-size: calc(var(--aimd-ref-type-size-200) * 1.1);');
         expect(css).toContain('--aimd-sys-shape-corner-md: calc(var(--aimd-ref-radius-200) * 1.2);');
         expect(css).toContain('--aimd-user-reader-content-width: 720px;');
+    });
+
+    it('allows global font size overrides across the 12px to 20px user range', () => {
+        const minCss = getTokenCss('light', { baseFontScale: 0.75 });
+        const maxCss = getTokenCss('light', { baseFontScale: 1.25 });
+
+        expect(minCss).toContain('--aimd-sys-type-body-medium-size: calc(var(--aimd-ref-type-size-200) * 0.75);');
+        expect(maxCss).toContain('--aimd-sys-type-body-medium-size: calc(var(--aimd-ref-type-size-200) * 1.25);');
     });
 });

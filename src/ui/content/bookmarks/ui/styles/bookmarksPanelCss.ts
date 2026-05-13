@@ -1223,6 +1223,66 @@ ${getPanelChromeCss()}
   background: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-surface-hover));
 }
 
+.settings-stepper-field {
+  width: 148px;
+  height: 40px;
+  display: grid;
+  grid-template-columns: 40px minmax(48px, 1fr) 40px;
+  align-items: center;
+  justify-self: end;
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 74%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, var(--aimd-bg-primary));
+  box-shadow: var(--_bookmarks-control-inset-shadow);
+  overflow: hidden;
+}
+
+.settings-stepper-button {
+  all: unset;
+  box-sizing: border-box;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-base);
+  font-weight: var(--aimd-font-semibold);
+  cursor: pointer;
+}
+
+.settings-stepper-button + .settings-stepper-value,
+.settings-stepper-value + .settings-stepper-button {
+  border-left: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+}
+
+.settings-stepper-button:hover:not(:disabled),
+.settings-stepper-button:focus-visible {
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-surface-hover));
+}
+
+.settings-stepper-button:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: -2px;
+}
+
+.settings-stepper-button:disabled {
+  cursor: not-allowed;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 62%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 48%, transparent);
+}
+
+.settings-stepper-value {
+  min-width: 0;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+  white-space: nowrap;
+}
+
 .reader-settings-trigger {
   width: var(--aimd-size-control-icon-panel);
   height: var(--aimd-size-control-icon-panel);

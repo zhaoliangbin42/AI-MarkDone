@@ -20,6 +20,9 @@ import { discoverMessageElements } from '../../drivers/content/injection/message
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
+import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
+import { normalizeGlobalFontSizePx } from '../../core/settings/migrations';
+import type { UserThemeOverrides } from '../../style/tokens';
 
 ensurePageTokens();
 
@@ -73,6 +76,7 @@ if (adapter) {
     const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
     let runtimeEnabled = cachedSettings?.platforms?.[platformKey] ?? true;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
+    let currentThemeOverrides: UserThemeOverrides = getThemeOverrides(cachedSettings);
     writeDebugState({
         Content: 'loaded',
         Platform: adapter.getPlatformId(),
@@ -118,6 +122,18 @@ if (adapter) {
         chatGptDirectory.setEnabled(Boolean(next.enabled));
     };
 
+    const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
+        currentThemeOverrides = getThemeOverrides(settings);
+        ensurePageTokens(currentThemeOverrides);
+        mathClick.setThemeOverrides?.(currentThemeOverrides);
+        messageToolbars.setThemeOverrides?.(currentThemeOverrides);
+        readerPanel.setThemeOverrides?.(currentThemeOverrides);
+        sendController.setThemeOverrides?.(currentThemeOverrides);
+        bookmarksController.setThemeOverrides?.(currentThemeOverrides);
+        saveMessagesDialog.setThemeOverrides?.(currentThemeOverrides);
+        chatGptDirectory?.setThemeOverrides?.(currentThemeOverrides);
+    };
+
     const enableRuntime = () => {
         if (runtimeEnabled) return;
         runtimeEnabled = true;
@@ -139,6 +155,7 @@ if (adapter) {
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
+    syncThemeOverrides(cachedSettings);
     if (cachedSettings?.reader) {
         readerPanel.setRenderCodeInReader(Boolean(cachedSettings.reader.renderCodeInReader));
         readerPanel.setContentMaxWidthPx(cachedSettings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
@@ -162,6 +179,7 @@ if (adapter) {
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
+        syncThemeOverrides(snap.settings);
         messageToolbars.setBehaviorFlags({
             showSaveMessages: snap.settings.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior.showWordCount,
@@ -175,6 +193,7 @@ if (adapter) {
         readerPanel.setTheme(theme);
         sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
+        saveMessagesDialog.setTheme(theme);
         chatGptDirectory?.setTheme(theme);
     });
 
@@ -220,4 +239,12 @@ function shouldEnableFormulaInteractions(settings: typeof DEFAULT_SETTINGS.formu
         || settings.assetActions.savePng
         || settings.assetActions.saveSvg
     );
+}
+
+function getThemeOverrides(settings: typeof DEFAULT_SETTINGS | null | undefined): UserThemeOverrides {
+    const fontSizePx = normalizeGlobalFontSizePx(settings?.appearance?.fontSizePx);
+    return {
+        baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
+        readerContentWidthPx: settings?.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
+    };
 }

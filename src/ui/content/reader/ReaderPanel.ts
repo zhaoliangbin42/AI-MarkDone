@@ -37,6 +37,7 @@ import { ensureBackdropElement, ensureStableElementFromHtml } from '../component
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
+import type { UserThemeOverrides } from '../../../style/tokens';
 import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
@@ -120,6 +121,7 @@ export class ReaderPanel {
     private contentRenderToken = 0;
     private statusTimer: number | null = null;
     private renderCodeInReader = true;
+    private themeOverrides: UserThemeOverrides = {};
     private closing = false;
     private motionNeedsOpen = false;
     private onSelectionChange: (() => void) | null = null;
@@ -159,6 +161,12 @@ export class ReaderPanel {
         this.state.theme = theme;
         this.overlaySession?.setTheme(theme);
         this.render();
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.overlaySession?.setThemeOverrides(this.themeOverrides);
+        if (this.state.visible) this.render();
     }
 
     isVisible(): boolean {
@@ -274,6 +282,7 @@ export class ReaderPanel {
         const session = new OverlaySession({
             id: 'aimd-reader-panel-host',
             theme: this.state.theme,
+            themeOverrides: this.themeOverrides,
             surfaceCss: getReaderPanelCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-reader-panel-structure',

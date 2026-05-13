@@ -24,6 +24,7 @@ export type SettingsCategory =
     | 'formula'
     | 'export'
     | 'chatgptDirectory'
+    | 'appearance'
     | 'bookmarks'
     | 'language';
 

@@ -27,7 +27,7 @@ function normalizeHexColor(value: string | undefined): string | null {
 function getUserThemeOverrideCss(overrides: UserThemeOverrides): string {
     const declarations: string[] = [];
     const accentColor = normalizeHexColor(overrides.accentColor);
-    const fontScale = clampNumber(overrides.baseFontScale, 0.9, 1.2);
+    const fontScale = clampNumber(overrides.baseFontScale, 0.75, 1.25);
     const cornerScale = clampNumber(overrides.cornerScale, 0.75, 1.35);
     const readerContentWidthPx = clampNumber(overrides.readerContentWidthPx, 480, 1200);
 

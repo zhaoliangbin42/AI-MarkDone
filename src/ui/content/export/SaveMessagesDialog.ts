@@ -8,7 +8,7 @@ import {
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
-import { getTokenCss } from '../../../style/tokens';
+import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { ExportProgressEvent, TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
@@ -53,6 +53,7 @@ export class SaveMessagesDialog {
     };
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
     private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
+    private themeOverrides: UserThemeOverrides = {};
 
     private state: State = {
         theme: 'light',
@@ -77,6 +78,18 @@ export class SaveMessagesDialog {
     setExportSettings(settings: ExportSettings): void {
         this.resolvedPngWidth = resolvePngExportWidth(settings);
         this.resolvedPngPixelRatio = resolvePngExportPixelRatio(settings);
+    }
+
+    setTheme(theme: Theme): void {
+        this.state.theme = theme;
+        this.overlaySession?.setTheme(theme);
+        this.overlaySession?.setSurfaceCss(this.getCss());
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.overlaySession?.setThemeOverrides(this.themeOverrides);
+        this.overlaySession?.setSurfaceCss(this.getCss());
     }
 
     async open(
@@ -159,6 +172,7 @@ export class SaveMessagesDialog {
         const session = new OverlaySession({
             id: 'aimd-save-messages-dialog-host',
             theme: this.state.theme,
+            themeOverrides: this.themeOverrides,
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-save-messages-dialog-structure',
@@ -401,7 +415,7 @@ export class SaveMessagesDialog {
 
     private getCss(): string {
         return `
-${getTokenCss(this.state.theme)}
+${getTokenCss(this.state.theme, this.themeOverrides)}
 ${getSaveMessagesDialogCss(this.state.theme)}
 `;
     }

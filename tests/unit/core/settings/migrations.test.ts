@@ -31,8 +31,18 @@ describe('settings migrations', () => {
         expect(next.formula.assetActions).toEqual(DEFAULT_SETTINGS.formula.assetActions);
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
+        expect(next.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
         expect(next.bookmarks.sortMode).toBe('alpha-asc');
         expect(next.language).toBe('zh_CN');
+    });
+
+    it('normalizes v3 appearance font size settings', () => {
+        const next = loadAndNormalize({
+            version: 3,
+            appearance: { fontSizePx: 19.7 },
+        } as any);
+
+        expect(next.appearance.fontSizePx).toBe(20);
     });
 
     it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {

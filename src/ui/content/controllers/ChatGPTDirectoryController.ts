@@ -11,6 +11,7 @@ import {
     type ChatGPTRoundPosition,
     type ChatGPTSkeletonAnchor,
 } from '../chatgptDirectory/navigation';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 function isChatGPTConversationPage(url: string): boolean {
     try {
@@ -45,6 +46,7 @@ export class ChatGPTDirectoryController {
     private engine: ChatGPTConversationEngine;
     private rail: ChatGPTDirectoryRail | null = null;
     private theme: Theme = 'light';
+    private themeOverrides: UserThemeOverrides = {};
     private enabled = true;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
@@ -118,6 +120,11 @@ export class ChatGPTDirectoryController {
         this.rail?.setTheme(theme);
     }
 
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.rail?.setThemeOverrides(this.themeOverrides);
+    }
+
     setEnabled(enabled: boolean): void {
         this.enabled = enabled;
         this.rail?.setVisible(enabled);
@@ -150,7 +157,7 @@ export class ChatGPTDirectoryController {
             void this.handleSelect(round);
         }, (delta) => {
             void this.handleStep(delta);
-        });
+        }, this.themeOverrides);
         this.rail.setDisplayMode(this.displayMode);
         this.rail.setPromptLabelMode(this.promptLabelMode);
         document.body.appendChild(this.rail.getElement());

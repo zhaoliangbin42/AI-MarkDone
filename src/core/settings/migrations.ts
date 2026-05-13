@@ -1,6 +1,10 @@
 import {
+    DEFAULT_GLOBAL_FONT_SIZE_PX,
     DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
+    GLOBAL_FONT_SIZE_STEP_PX,
+    MAX_GLOBAL_FONT_SIZE_PX,
     MAX_READER_CONTENT_MAX_WIDTH_PX,
+    MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
     READER_CONTENT_MAX_WIDTH_STEP_PX,
     DEFAULT_SETTINGS,
@@ -75,6 +79,20 @@ export function normalizeReaderContentMaxWidthPx(value: unknown): number {
     return Math.round(clamped / READER_CONTENT_MAX_WIDTH_STEP_PX) * READER_CONTENT_MAX_WIDTH_STEP_PX;
 }
 
+export function normalizeGlobalFontSizePx(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_GLOBAL_FONT_SIZE_PX;
+    const clamped = Math.min(MAX_GLOBAL_FONT_SIZE_PX, Math.max(MIN_GLOBAL_FONT_SIZE_PX, numeric));
+    return Math.round(clamped / GLOBAL_FONT_SIZE_STEP_PX) * GLOBAL_FONT_SIZE_STEP_PX;
+}
+
+export function normalizeAppearanceSettings(value: unknown): AppSettings['appearance'] {
+    const record = isRecord(value) ? value : {};
+    return {
+        fontSizePx: normalizeGlobalFontSizePx((record as any).fontSizePx),
+    };
+}
+
 /**
  * Merge stored settings with defaults (keeps v3 but tolerates missing new fields).
  */
@@ -94,6 +112,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         formula: normalizeFormulaSettings((stored as any).formula, stored.behavior),
         export: normalizeExportSettings((stored as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((stored as any).chatgptDirectory),
+        appearance: normalizeAppearanceSettings((stored as any).appearance),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
             ...stored.bookmarks,
@@ -140,6 +159,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
         formula: normalizeFormulaSettings(undefined, behavior),
         export: normalizeExportSettings(undefined),
         chatgptDirectory: normalizeChatGPTDirectorySettings(undefined),
+        appearance: normalizeAppearanceSettings(undefined),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
         },
@@ -175,6 +195,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         formula: normalizeFormulaSettings((rec as any).formula, behavior),
         export: normalizeExportSettings((rec as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((rec as any).chatgptDirectory),
+        appearance: normalizeAppearanceSettings((rec as any).appearance),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
             ...bookmarks,

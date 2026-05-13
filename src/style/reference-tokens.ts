@@ -51,7 +51,7 @@ export function getReferenceTokenCss(theme: Theme): string {
 
   --aimd-ref-type-size-075: 12px;
   --aimd-ref-type-size-100: 13px;
-  --aimd-ref-type-size-200: 14px;
+  --aimd-ref-type-size-200: 16px;
   --aimd-ref-type-size-300: 16px;
   --aimd-ref-type-line-100: 1.25;
   --aimd-ref-type-line-200: 1.5;

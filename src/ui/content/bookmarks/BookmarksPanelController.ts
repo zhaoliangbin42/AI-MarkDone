@@ -23,6 +23,7 @@ import {
     getSelectedBookmarkItems,
     getSelectedFolderPaths,
 } from './bookmarksPanelControllerSelection';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
 
@@ -62,6 +63,7 @@ export type BookmarksPanelSnapshot = {
 export class BookmarksPanelController {
     private adapter: SiteAdapter;
     private theme: Theme = 'light';
+    private themeOverrides: UserThemeOverrides = {};
 
     private bookmarks: Bookmark[] = [];
     private folders: Folder[] = [];
@@ -102,6 +104,15 @@ export class BookmarksPanelController {
 
     getTheme(): Theme {
         return this.theme;
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.emit();
+    }
+
+    getThemeOverrides(): UserThemeOverrides {
+        return this.themeOverrides;
     }
 
     subscribe(listener: (snapshot: BookmarksPanelSnapshot) => void): () => void {

@@ -193,6 +193,7 @@ export class BookmarksPanel {
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
             theme: this.controller.getTheme(),
+            themeOverrides: this.controller.getThemeOverrides(),
             surfaceCss: getBookmarksPanelCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmarks-panel-structure',
@@ -223,6 +224,8 @@ export class BookmarksPanel {
         });
 
         this.unsubscribeSnapshot = this.controller.subscribe((snapshot) => {
+            this.overlaySession?.setTheme(this.controller.getTheme());
+            this.overlaySession?.setThemeOverrides(this.controller.getThemeOverrides());
             const previousSnapshot = this.snapshot;
             this.snapshot = snapshot;
             if (!this.applySnapshotUpdate(previousSnapshot, snapshot)) {
@@ -376,6 +379,16 @@ export class BookmarksPanel {
                     },
                 };
                 await settingsClientRpc.setCategory('chatgptDirectory', patch);
+            },
+            setAppearanceSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    appearance: {
+                        ...this.uiState.settings.appearance,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('appearance', patch);
             },
             setLanguage: async (value) => {
                 this.uiState.settings = {

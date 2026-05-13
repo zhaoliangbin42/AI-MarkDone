@@ -1,5 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
-import { getTokenCss } from '../../../style/tokens';
+import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import { ensureStyle } from '../../../style/shadow';
 import { createIcon } from './Icon';
 
@@ -39,14 +39,18 @@ export class ToolbarHoverActionPortal {
     private hoverTooltipTimer: number | null = null;
     private hoverTooltipEl: HTMLElement | null = null;
     private positionFrame: number | null = null;
+    private theme: Theme;
+    private themeOverrides: UserThemeOverrides;
 
-    constructor(theme: Theme) {
+    constructor(theme: Theme, themeOverrides: UserThemeOverrides = {}) {
+        this.theme = theme;
+        this.themeOverrides = themeOverrides;
         this.host = document.createElement('div');
         this.host.className = 'aimd-toolbar-hover-action-host';
         this.host.dataset.open = '0';
         this.host.setAttribute('data-aimd-theme', theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
-        ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-hover-action-tokens' });
+        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-hover-action-base', cache: 'shared' });
 
         this.bridge = document.createElement('div');
@@ -70,8 +74,14 @@ export class ToolbarHoverActionPortal {
     }
 
     setTheme(theme: Theme): void {
+        this.theme = theme;
         this.host.setAttribute('data-aimd-theme', theme);
-        ensureStyle(this.shadow, getTokenCss(theme), { id: 'aimd-toolbar-hover-action-tokens' });
+        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        ensureStyle(this.shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
     }
 
     open(params: ToolbarHoverActionPortalParams): void {

@@ -4,11 +4,13 @@ import type { ReaderCommentRecord } from '../../../services/reader/commentSessio
 import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
 import { SendModal } from './SendModal';
 import { SendPopover } from './SendPopover';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 export class SendController {
     private modal: SendModal;
     private popover: SendPopover;
     private theme: Theme = 'light';
+    private themeOverrides: UserThemeOverrides = {};
 
     constructor() {
         this.modal = new SendModal();
@@ -21,12 +23,18 @@ export class SendController {
         this.popover.setTheme(theme);
     }
 
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.modal.setThemeOverrides(this.themeOverrides);
+        this.popover.setThemeOverrides(this.themeOverrides);
+    }
+
     isOpen(): boolean {
         return this.modal.isOpen() || this.popover.isOpen();
     }
 
     open(params: { adapter: SiteAdapter; initialText?: string }): void {
-        this.modal.open({ adapter: params.adapter, theme: this.theme, initialText: params.initialText });
+        this.modal.open({ adapter: params.adapter, theme: this.theme, themeOverrides: this.themeOverrides, initialText: params.initialText });
     }
 
     close(opts?: { syncBack?: boolean }): void {

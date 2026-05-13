@@ -1,5 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
-import { getTokenCss } from '../../../style/tokens';
+import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
 import { chevronDownIcon, chevronUpIcon } from '../../../assets/icons';
@@ -14,9 +14,9 @@ const EXPANDED_LABEL_HEAD_LENGTH = 15;
 const EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH = 30;
 const USER_INTERACTION_IDLE_MS = 800;
 
-function getPreviewTokenCss(): string {
-    const light = getTokenCss('light').replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
-    const dark = getTokenCss('dark').replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="dark"]');
+function getPreviewTokenCss(overrides: UserThemeOverrides = {}): string {
+    const light = getTokenCss('light', overrides).replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
+    const dark = getTokenCss('dark', overrides).replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="dark"]');
     return `${light}\n${dark}`;
 }
 
@@ -50,10 +50,14 @@ export class ChatGPTDirectoryRail {
     private interactionIdleTimer: number | null = null;
     private onSelect: (round: ChatGPTConversationRound) => void;
     private onStep: (delta: -1 | 1) => void;
+    private theme: Theme;
+    private themeOverrides: UserThemeOverrides;
 
-    constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void, onStep: (delta: -1 | 1) => void = () => undefined) {
+    constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void, onStep: (delta: -1 | 1) => void = () => undefined, themeOverrides: UserThemeOverrides = {}) {
         this.onSelect = onSelect;
         this.onStep = onStep;
+        this.theme = theme;
+        this.themeOverrides = themeOverrides;
 
         const existing = document.getElementById(RAIL_ID);
         if (existing instanceof HTMLElement) existing.remove();
@@ -71,7 +75,7 @@ export class ChatGPTDirectoryRail {
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
 
         this.styleEl = document.createElement('style');
-        this.styleEl.textContent = getTokenCss(theme) + this.getCss();
+        this.styleEl.textContent = getTokenCss(theme, this.themeOverrides) + this.getCss();
         this.shadowRoot.appendChild(this.styleEl);
 
         const shell = document.createElement('div');
@@ -151,10 +155,18 @@ export class ChatGPTDirectoryRail {
     }
 
     setTheme(theme: Theme): void {
+        this.theme = theme;
         this.rootEl.setAttribute('data-aimd-theme', theme);
         this.stepControlsEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.setAttribute('data-aimd-theme', theme);
-        this.styleEl.textContent = getTokenCss(theme) + this.getCss();
+        this.styleEl.textContent = getTokenCss(theme, this.themeOverrides) + this.getCss();
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.styleEl.textContent = getTokenCss(this.theme, this.themeOverrides) + this.getCss();
+        this.ensurePreviewStyle();
+        this.ensureStepControlsStyle();
     }
 
     setVisible(visible: boolean): void {
@@ -330,19 +342,23 @@ export class ChatGPTDirectoryRail {
     }
 
     private ensurePreviewStyle(): void {
-        if (document.getElementById(PREVIEW_STYLE_ID)) return;
-        const style = document.createElement('style');
-        style.id = PREVIEW_STYLE_ID;
+        let style = document.getElementById(PREVIEW_STYLE_ID) as HTMLStyleElement | null;
+        if (!style) {
+            style = document.createElement('style');
+            style.id = PREVIEW_STYLE_ID;
+            document.head.appendChild(style);
+        }
         style.textContent = this.getPreviewCss();
-        document.head.appendChild(style);
     }
 
     private ensureStepControlsStyle(): void {
-        if (document.getElementById(STEP_CONTROLS_STYLE_ID)) return;
-        const style = document.createElement('style');
-        style.id = STEP_CONTROLS_STYLE_ID;
+        let style = document.getElementById(STEP_CONTROLS_STYLE_ID) as HTMLStyleElement | null;
+        if (!style) {
+            style = document.createElement('style');
+            style.id = STEP_CONTROLS_STYLE_ID;
+            document.head.appendChild(style);
+        }
         style.textContent = this.getStepControlsCss();
-        document.head.appendChild(style);
     }
 
     private buildPreviewText(round: ChatGPTConversationRound): string {
@@ -375,7 +391,7 @@ export class ChatGPTDirectoryRail {
     }
 
     private getPreviewCss(): string {
-        return `${getPreviewTokenCss()}
+        return `${getPreviewTokenCss(this.themeOverrides)}
 .aimd-chatgpt-directory-preview {
   --_directory-preview-width: 280px;
   --_directory-preview-gap: var(--aimd-space-3);
@@ -435,7 +451,7 @@ export class ChatGPTDirectoryRail {
     }
 
     private getStepControlsCss(): string {
-        return `${getPreviewTokenCss()}
+        return `${getPreviewTokenCss(this.themeOverrides)}
 .aimd-chatgpt-directory-step-controls {
   position: fixed;
   right: var(--aimd-space-4);

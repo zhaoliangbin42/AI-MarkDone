@@ -46,6 +46,7 @@ const baseSettings = {
         mode: 'preview',
         promptLabelMode: 'head',
     },
+    appearance: { fontSizePx: 16 },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
 } as any;
@@ -308,6 +309,35 @@ describe('SettingsTabView', () => {
 
         expect(widthInput.value).toBe('1600');
         expect(onSetReaderSettings).toHaveBeenCalledWith({ contentMaxWidthPx: 1611 });
+    });
+
+    it('renders global font size as a stepper-only advanced appearance setting', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetAppearanceSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({ modal, actions: { setAppearanceSettings: onSetAppearanceSettings } });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        root.querySelector<HTMLButtonElement>('[data-role="settings-advanced-toggle"]')!.click();
+
+        const value = root.querySelector<HTMLElement>('[data-role="settings-global-font-size-value"]')!;
+        const field = value.closest<HTMLElement>('.settings-stepper-field')!;
+        const buttons = Array.from(field.querySelectorAll<HTMLButtonElement>('button'));
+
+        expect(value.textContent).toBe('16px');
+        expect(field.querySelector('input')).toBeNull();
+
+        buttons[1]!.click();
+        expect(value.textContent).toBe('17px');
+        expect(onSetAppearanceSettings).toHaveBeenLastCalledWith({ fontSizePx: 17 });
+
+        buttons[0]!.click();
+        expect(value.textContent).toBe('16px');
+        expect(onSetAppearanceSettings).toHaveBeenLastCalledWith({ fontSizePx: 16 });
     });
 
     it('wires the reader comment prompt position toggle without replacing prompts or template', () => {

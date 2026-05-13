@@ -155,6 +155,7 @@ Rules:
 - Do not scale font size with viewport width.
 - Letter spacing should remain `0` unless a component token explicitly defines otherwise.
 - Long text must wrap or truncate by component contract, not by accidental overflow.
+- User-facing global font size is an appearance setting, not a component prop: `appearance.fontSizePx` is limited to `12px`-`20px`, defaults to `16px`, changes by `1px` stepper controls only, and maps to `UserThemeOverrides.baseFontScale`.
 
 ### 5.1 Current Typography Values
 
@@ -162,7 +163,7 @@ Rules:
 |:--|:--|:--|
 | Small label | `--aimd-ref-type-size-075` | `12px` |
 | Medium label | `--aimd-ref-type-size-100` | `13px` |
-| Body | `--aimd-ref-type-size-200` | `14px` |
+| Body | `--aimd-ref-type-size-200` | `16px` |
 | Title medium | `--aimd-ref-type-size-300` | `16px` |
 | Title large | `--aimd-sys-type-title-large-size` | `18px` |
 | Hero title | `--aimd-sys-type-title-hero-size` | `26px` |
@@ -352,7 +353,7 @@ The supported override shape is `UserThemeOverrides`:
 |:--|:--|:--|
 | `accentColor` | User theme color | Maps to accent, accent hover, accent soft, flash, and focus tokens. |
 | `density` | Compact or comfortable UI density | Maps to shared spacing, control size, and panel header tokens. |
-| `baseFontScale` | UI font scaling | Maps to type-size system tokens. |
+| `baseFontScale` | UI font scaling | Maps `appearance.fontSizePx / 16` to type-size system tokens, clamped to the public `12px`-`20px` setting range. |
 | `cornerScale` | Roundedness strength | Maps to shared radius system tokens. |
 | `readerContentWidthPx` | Reader measure | Emits a clamped custom property for reader surfaces. |
 

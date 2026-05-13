@@ -41,6 +41,7 @@ import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { resolveChatGPTConversationRound } from '../../../drivers/content/chatgpt/chatgptConversationSource';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -87,6 +88,7 @@ export class MessageToolbarOrchestrator {
     private dirtyMessages = new Set<HTMLElement>();
     private needsFullRescan = false;
     private theme: Theme = 'light';
+    private themeOverrides: UserThemeOverrides = {};
     private onMessageInjected: ((messageElement: HTMLElement) => void) | null = null;
     private scanScheduler: ScanScheduler | null = null;
     private routeWatcher: RouteWatcher | null = null;
@@ -482,6 +484,15 @@ export class MessageToolbarOrchestrator {
         bookmarkSaveDialog.setTheme(theme);
     }
 
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        for (const record of this.recordsByMessageKey.values()) {
+            record.toolbar.setThemeOverrides(this.themeOverrides);
+        }
+        this.readerPanel.setThemeOverrides(this.themeOverrides);
+        bookmarkSaveDialog.setThemeOverrides(this.themeOverrides);
+    }
+
     setBehaviorFlags(flags: Partial<{ showSaveMessages: boolean; showWordCount: boolean }>): void {
         this.behavior = { ...this.behavior, ...flags };
     }
@@ -710,7 +721,10 @@ export class MessageToolbarOrchestrator {
     }): ToolbarRecord | null {
         let recordRef: ToolbarRecord | null = null;
         const getToolbar = () => recordRef?.toolbar ?? null;
-        const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(params.message, getToolbar), { showStats: this.behavior.showWordCount });
+        const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(params.message, getToolbar), {
+            showStats: this.behavior.showWordCount,
+            themeOverrides: this.themeOverrides,
+        });
         const host = toolbar.getElement();
         host.setAttribute('data-aimd-role', 'message-toolbar');
         host.setAttribute('data-aimd-message-key', params.messageKey);

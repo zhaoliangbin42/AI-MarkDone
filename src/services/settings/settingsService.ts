@@ -5,6 +5,7 @@ import {
     migrateFromV1,
     migrateFromV2,
     migrateSortMode,
+    normalizeAppearanceSettings,
     normalizeBehaviorSettings,
     normalizeChatGPTDirectorySettings,
     normalizeFormulaSettings,
@@ -113,6 +114,16 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                 ...cur,
                 chatgptDirectory: normalizeChatGPTDirectorySettings({
                     ...cur.chatgptDirectory,
+                    ...(isRecord(value) ? value : {}),
+                }),
+            };
+            return { next };
+        }
+        case 'appearance': {
+            const next: AppSettings = {
+                ...cur,
+                appearance: normalizeAppearanceSettings({
+                    ...cur.appearance,
                     ...(isRecord(value) ? value : {}),
                 }),
             };

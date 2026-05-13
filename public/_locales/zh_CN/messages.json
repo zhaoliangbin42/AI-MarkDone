@@ -339,6 +339,26 @@
         "message": "阅读器正文的最大像素宽度。内容仍会自动收缩以适配面板。",
         "description": "Message for readerContentWidthDesc"
     },
+    "appearanceSettingsLabel": {
+        "message": "外观",
+        "description": "Message for appearanceSettingsLabel"
+    },
+    "globalFontSizeLabel": {
+        "message": "全局字号",
+        "description": "Message for globalFontSizeLabel"
+    },
+    "globalFontSizeDesc": {
+        "message": "将 AI-MarkDone 界面文字调整在 12px 到 20px 之间。",
+        "description": "Message for globalFontSizeDesc"
+    },
+    "decreaseFontSize": {
+        "message": "减小字号",
+        "description": "Message for decreaseFontSize"
+    },
+    "increaseFontSize": {
+        "message": "增大字号",
+        "description": "Message for increaseFontSize"
+    },
     "advancedSettingsLabel": {
         "message": "高级设置",
         "description": "Message for advancedSettingsLabel"

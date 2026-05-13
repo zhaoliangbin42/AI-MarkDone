@@ -1,4 +1,4 @@
-import { getPageTokenCss } from './tokens';
+import { getPageTokenCss, type UserThemeOverrides } from './tokens';
 
 const STYLE_ID = 'aimd-page-token-vars';
 
@@ -9,14 +9,18 @@ const STYLE_ID = 'aimd-page-token-vars';
  * - Some behaviors (e.g. math click highlight / tooltip) touch page DOM directly.
  * - We still want them to use design tokens rather than hard-coded colors/sizes.
  */
-export function ensurePageTokens(): void {
+export function ensurePageTokens(overrides: UserThemeOverrides = {}): void {
     if (typeof document === 'undefined') return;
-    if (document.getElementById(STYLE_ID)) return;
+    const css = getPageTokenCss(overrides);
+    const existing = document.getElementById(STYLE_ID);
+    if (existing instanceof HTMLStyleElement) {
+        existing.textContent = css;
+        return;
+    }
 
     const style = document.createElement('style');
     style.id = STYLE_ID;
-    style.textContent = getPageTokenCss();
+    style.textContent = css;
 
     (document.head || document.documentElement).appendChild(style);
 }
-

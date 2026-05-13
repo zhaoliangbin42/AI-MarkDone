@@ -10,12 +10,14 @@ import { TooltipDelegate } from '../../../utils/tooltip';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { OverlaySession } from '../overlay/OverlaySession';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 export class SendModal {
     private overlaySession: OverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private adapter: SiteAdapter | null = null;
     private theme: Theme = 'light';
+    private themeOverrides: UserThemeOverrides = {};
     private pending: boolean = false;
     private closing = false;
     private motionNeedsOpen = false;
@@ -31,10 +33,17 @@ export class SendModal {
         this.overlaySession?.setSurfaceCss(this.getCss());
     }
 
-    open(params: { adapter: SiteAdapter; theme: Theme; initialText?: string }): void {
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.overlaySession?.setThemeOverrides(this.themeOverrides);
+        this.overlaySession?.setSurfaceCss(this.getCss());
+    }
+
+    open(params: { adapter: SiteAdapter; theme: Theme; themeOverrides?: UserThemeOverrides; initialText?: string }): void {
         this.focusLifecycle.capture();
         this.adapter = params.adapter;
         this.theme = params.theme;
+        this.themeOverrides = params.themeOverrides ?? {};
         this.closing = false;
         this.motionNeedsOpen = true;
         this.mount();
@@ -82,6 +91,7 @@ export class SendModal {
         this.overlaySession = new OverlaySession({
             id: 'aimd-send-modal-host',
             theme: this.theme,
+            themeOverrides: this.themeOverrides,
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-send-modal-structure',

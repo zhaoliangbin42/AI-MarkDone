@@ -339,6 +339,26 @@
         "message": "Maximum Reader body width in pixels. The content still shrinks to fit the panel.",
         "description": "Message for readerContentWidthDesc"
     },
+    "appearanceSettingsLabel": {
+        "message": "Appearance",
+        "description": "Message for appearanceSettingsLabel"
+    },
+    "globalFontSizeLabel": {
+        "message": "Global font size",
+        "description": "Message for globalFontSizeLabel"
+    },
+    "globalFontSizeDesc": {
+        "message": "Adjust AI-MarkDone interface text from 12px to 20px.",
+        "description": "Message for globalFontSizeDesc"
+    },
+    "decreaseFontSize": {
+        "message": "Decrease font size",
+        "description": "Message for decreaseFontSize"
+    },
+    "increaseFontSize": {
+        "message": "Increase font size",
+        "description": "Message for increaseFontSize"
+    },
     "advancedSettingsLabel": {
         "message": "Advanced Settings",
         "description": "Message for advancedSettingsLabel"

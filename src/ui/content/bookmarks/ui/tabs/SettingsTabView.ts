@@ -1,7 +1,11 @@
 import type { AppSettings } from '../../../../../core/settings/types';
 import {
     DEFAULT_SETTINGS,
+    DEFAULT_GLOBAL_FONT_SIZE_PX,
+    GLOBAL_FONT_SIZE_STEP_PX,
+    MAX_GLOBAL_FONT_SIZE_PX,
     MAX_READER_CONTENT_MAX_WIDTH_PX,
+    MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
     READER_CONTENT_MAX_WIDTH_STEP_PX,
 } from '../../../../../core/settings/types';
@@ -47,6 +51,7 @@ export type SettingsTabViewActions = {
     setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<void> | void;
     setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
+    setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
 };
@@ -67,6 +72,14 @@ type NumberFieldRef = {
     root: HTMLElement;
     field: HTMLElement;
     input: HTMLInputElement;
+};
+
+type StepperFieldRef = {
+    root: HTMLElement;
+    field: HTMLElement;
+    decrease: HTMLButtonElement;
+    increase: HTMLButtonElement;
+    value: HTMLElement;
 };
 
 type Refs = {
@@ -93,6 +106,7 @@ type Refs = {
         root: HTMLElement;
         button: HTMLButtonElement;
         body: HTMLElement;
+        fontSize?: StepperFieldRef;
     };
     export: {
         pngWidthPreset: SelectRef;
@@ -405,6 +419,9 @@ export class SettingsTabView {
             formula: this.normalizeFormulaSettings(params.settings.formula),
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
             chatgptDirectory: { ...DEFAULT_SETTINGS.chatgptDirectory, ...params.settings.chatgptDirectory },
+            appearance: {
+                fontSizePx: this.normalizeGlobalFontSize(params.settings.appearance?.fontSizePx ?? DEFAULT_SETTINGS.appearance.fontSizePx),
+            },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
             reader: {
                 renderCodeInReader: Boolean(
@@ -753,6 +770,53 @@ export class SettingsTabView {
         return field;
     }
 
+    private createStepperRow(
+        parent: HTMLElement,
+        labelText: string,
+        desc: string,
+        min: number,
+        max: number,
+        step: number,
+        valueRole: string,
+    ): StepperFieldRef {
+        const item = document.createElement('div');
+        item.className = 'settings-row settings-item';
+        const info = document.createElement('div');
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        const summary = document.createElement('p');
+        summary.textContent = desc;
+        info.append(label, summary);
+
+        const field = document.createElement('div');
+        field.className = 'settings-stepper-field';
+        field.dataset.min = String(min);
+        field.dataset.max = String(max);
+        field.dataset.step = String(step);
+
+        const decrease = document.createElement('button');
+        decrease.type = 'button';
+        decrease.className = 'settings-stepper-button';
+        decrease.textContent = '-';
+        decrease.setAttribute('aria-label', t('decreaseFontSize'));
+
+        const value = document.createElement('span');
+        value.className = 'settings-stepper-value';
+        value.dataset.role = valueRole;
+
+        const increase = document.createElement('button');
+        increase.type = 'button';
+        increase.className = 'settings-stepper-button';
+        increase.textContent = '+';
+        increase.setAttribute('aria-label', t('increaseFontSize'));
+
+        field.append(decrease, value, increase);
+        item.append(info, field);
+        parent.appendChild(item);
+        return { root: item, field, decrease, increase, value };
+    }
+
     private createAdvancedSettingsGroup(): Refs['advanced'] {
         const root = document.createElement('div');
         root.className = 'settings-advanced';
@@ -781,6 +845,26 @@ export class SettingsTabView {
         button.setAttribute('aria-expanded', this.advancedExpanded ? 'true' : 'false');
         body.replaceChildren();
         if (!this.advancedExpanded) return;
+
+        const appearanceSection = document.createElement('div');
+        appearanceSection.className = 'settings-advanced-section';
+        const appearanceTitle = document.createElement('h4');
+        appearanceTitle.className = 'settings-advanced-section__title';
+        appearanceTitle.textContent = t('appearanceSettingsLabel');
+        appearanceSection.appendChild(appearanceTitle);
+        const fontSize = this.createStepperRow(
+            appearanceSection,
+            t('globalFontSizeLabel'),
+            t('globalFontSizeDesc'),
+            MIN_GLOBAL_FONT_SIZE_PX,
+            MAX_GLOBAL_FONT_SIZE_PX,
+            GLOBAL_FONT_SIZE_STEP_PX,
+            'settings-global-font-size-value',
+        );
+        this.refs.advanced.fontSize = fontSize;
+        this.syncFontSizeStepper(fontSize);
+        fontSize.decrease.addEventListener('click', () => this.updateGlobalFontSize(-GLOBAL_FONT_SIZE_STEP_PX));
+        fontSize.increase.addEventListener('click', () => this.updateGlobalFontSize(GLOBAL_FONT_SIZE_STEP_PX));
 
         const readerSection = document.createElement('div');
         readerSection.className = 'settings-advanced-section';
@@ -811,12 +895,39 @@ export class SettingsTabView {
             void this.actions.setReaderSettings?.({ contentMaxWidthPx: raw });
         });
 
-        body.appendChild(readerSection);
+        body.append(appearanceSection, readerSection);
     }
 
     private normalizeReaderContentWidth(value: number): number {
         const clamped = Math.min(MAX_READER_CONTENT_MAX_WIDTH_PX, Math.max(MIN_READER_CONTENT_MAX_WIDTH_PX, value));
         return Math.round(clamped / READER_CONTENT_MAX_WIDTH_STEP_PX) * READER_CONTENT_MAX_WIDTH_STEP_PX;
+    }
+
+    private normalizeGlobalFontSize(value: unknown): number {
+        const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+        if (!Number.isFinite(numeric)) return DEFAULT_GLOBAL_FONT_SIZE_PX;
+        const clamped = Math.min(MAX_GLOBAL_FONT_SIZE_PX, Math.max(MIN_GLOBAL_FONT_SIZE_PX, numeric));
+        return Math.round(clamped / GLOBAL_FONT_SIZE_STEP_PX) * GLOBAL_FONT_SIZE_STEP_PX;
+    }
+
+    private updateGlobalFontSize(delta: number): void {
+        const current = this.normalizeGlobalFontSize(this.settings.appearance?.fontSizePx);
+        const next = this.normalizeGlobalFontSize(current + delta);
+        if (next === current) {
+            this.syncFontSizeStepper(this.refs.advanced.fontSize ?? null);
+            return;
+        }
+        this.settings.appearance = { ...this.settings.appearance, fontSizePx: next };
+        this.syncFontSizeStepper(this.refs.advanced.fontSize ?? null);
+        void this.actions.setAppearanceSettings?.({ fontSizePx: next });
+    }
+
+    private syncFontSizeStepper(ref: StepperFieldRef | null): void {
+        if (!ref) return;
+        const value = this.normalizeGlobalFontSize(this.settings.appearance?.fontSizePx);
+        ref.value.textContent = `${value}px`;
+        ref.decrease.disabled = value <= MIN_GLOBAL_FONT_SIZE_PX;
+        ref.increase.disabled = value >= MAX_GLOBAL_FONT_SIZE_PX;
     }
 
     private createNumberField(min: number, max: number, step: number): NumberFieldRef {

@@ -1,5 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
-import { getTokenCss } from '../../../style/tokens';
+import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import { ModalHost } from '../components/ModalHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
@@ -12,6 +12,7 @@ import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from './Overla
 export type OverlaySessionOptions = {
     id: string;
     theme: Theme;
+    themeOverrides?: UserThemeOverrides;
     surfaceCss: string;
     lockScroll?: boolean;
     surfaceStyleId: string;
@@ -25,15 +26,19 @@ export class OverlaySession {
     readonly handle: OverlaySurfaceHostHandle;
     readonly modalHost: ModalHost;
 
+    private theme: Theme;
+    private themeOverrides: UserThemeOverrides;
     private keyboardHandle: DialogKeyboardScopeHandle | null = null;
     private backdropDismissHandle: TransientOutsideDismissBoundaryHandle | null = null;
     private readonly removeSurfaceBoundary: () => void;
     private readonly removeModalBoundary: () => void;
 
     constructor(options: OverlaySessionOptions) {
+        this.theme = options.theme;
+        this.themeOverrides = options.themeOverrides ?? {};
         this.handle = mountOverlaySurfaceHost({
             id: options.id,
-            themeCss: getTokenCss(options.theme),
+            themeCss: getTokenCss(this.theme, this.themeOverrides),
             surfaceCss: options.surfaceCss,
             overlayCss: options.overlayCss,
             overlayStyleCache: options.overlayStyleCache,
@@ -68,7 +73,13 @@ export class OverlaySession {
     }
 
     setTheme(theme: Theme): void {
-        this.handle.setThemeCss(getTokenCss(theme));
+        this.theme = theme;
+        this.handle.setThemeCss(getTokenCss(this.theme, this.themeOverrides));
+    }
+
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.handle.setThemeCss(getTokenCss(this.theme, this.themeOverrides));
     }
 
     setSurfaceCss(cssText: string): void {

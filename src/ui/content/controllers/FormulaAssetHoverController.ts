@@ -4,6 +4,7 @@ import { showEphemeralTooltip } from '../../../utils/tooltip';
 import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal';
 import { runFormulaAssetAction, type FormulaAssetAction } from '../../../services/math/formulaAssetActions';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
+import type { UserThemeOverrides } from '../../../style/tokens';
 
 export class FormulaAssetHoverController {
     private readonly mathClick: MathClickHandler;
@@ -15,6 +16,7 @@ export class FormulaAssetHoverController {
     private activeContext: MathFormulaHoverContext | null = null;
     private actionPending = false;
     private formulaSettings: FormulaSettings = structuredClone(DEFAULT_FORMULA_SETTINGS);
+    private themeOverrides: UserThemeOverrides = {};
 
     constructor() {
         this.mathClick = new MathClickHandler({
@@ -44,9 +46,14 @@ export class FormulaAssetHoverController {
         if (!this.hasEnabledAssetAction()) this.closeHoverAction();
     }
 
+    setThemeOverrides(overrides: UserThemeOverrides): void {
+        this.themeOverrides = { ...overrides };
+        this.hoverActionPortal?.setThemeOverrides(this.themeOverrides);
+    }
+
     private getHoverActionPortal(): ToolbarHoverActionPortal {
         if (!this.hoverActionPortal) {
-            this.hoverActionPortal = new ToolbarHoverActionPortal(this.readTheme());
+            this.hoverActionPortal = new ToolbarHoverActionPortal(this.readTheme(), this.themeOverrides);
         }
         return this.hoverActionPortal;
     }
