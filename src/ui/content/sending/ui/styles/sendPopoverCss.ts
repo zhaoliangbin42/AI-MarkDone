@@ -144,7 +144,7 @@ ${getInputFieldCss()}
 
 .send-popover .icon-btn:hover {
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 32%, var(--aimd-border-default));
-  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-surface-hover));
   color: var(--aimd-button-icon-text-hover);
 }
 
@@ -176,7 +176,7 @@ ${getInputFieldCss()}
 }
 
 .send-popover .studio-btn:hover {
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
 }
 
 .send-popover .studio-btn:active {
@@ -204,7 +204,7 @@ ${getInputFieldCss()}
 }
 
 .send-popover .studio-btn--ghost:hover {
-  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-surface-hover));
   color: var(--aimd-button-icon-text-hover);
 }
 
@@ -240,7 +240,7 @@ ${getInputFieldCss()}
   box-shadow: none;
   cursor: nesw-resize;
   color: color-mix(in srgb, var(--aimd-text-secondary) 88%, transparent);
-  z-index: 2;
+  z-index: calc(var(--aimd-z-base) + 1);
   transition: none;
 }
 

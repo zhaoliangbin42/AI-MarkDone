@@ -162,7 +162,7 @@ export class SaveMessagesDialog {
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-save-messages-dialog-structure',
-            overlayStyleId: 'aimd-save-messages-dialog-tailwind',
+            overlayStyleId: 'aimd-save-messages-dialog-overlay-extra',
         });
 
         this.overlaySession = session;

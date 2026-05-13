@@ -614,8 +614,8 @@ export class MessageToolbar {
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--aimd-font-family-sans);
-  --aimd-toolbar-hover: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-sys-color-surface-hover));
-  --aimd-toolbar-pressed: color-mix(in srgb, var(--aimd-button-icon-active) 90%, var(--aimd-sys-color-surface-pressed));
+  --aimd-toolbar-hover: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-surface-hover));
+  --aimd-toolbar-pressed: color-mix(in srgb, var(--aimd-button-icon-active) 90%, var(--aimd-surface-pressed));
   --aimd-toolbar-surface: color-mix(in srgb, var(--aimd-bg-surface) 97%, var(--aimd-bg-primary));
   --aimd-toolbar-outline: color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   --aimd-toolbar-menu-surface: color-mix(in srgb, var(--aimd-bg-surface) 99%, var(--aimd-bg-primary));
@@ -775,7 +775,7 @@ export class MessageToolbar {
   background: transparent;
 }
 .menu-item:hover {
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
   border-color: color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
 }
 

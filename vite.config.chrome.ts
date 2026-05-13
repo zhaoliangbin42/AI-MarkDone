@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Vite Config for Chrome Build
@@ -8,7 +7,6 @@ import tailwindcss from '@tailwindcss/vite';
  * Chrome 使用 service-worker.ts 作为 background script
  */
 export default defineConfig({
-    plugins: [tailwindcss()],
     build: {
         modulePreload: {
             polyfill: false  // Service Worker compatibility (keep disabled across targets)

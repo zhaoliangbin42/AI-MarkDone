@@ -8,7 +8,7 @@ describe('mountOverlaySurfaceHost', () => {
             id: 'test-overlay-surface-host',
             themeCss: ':host{color:red;}',
             surfaceCss: '.surface { color: blue; }',
-            overlayCss: '.tw\\:bg-surface { background: var(--aimd-bg-primary); }',
+            overlayCss: '.extra-surface { background: var(--aimd-bg-primary); }',
             lockScroll: true,
         });
 
@@ -18,12 +18,25 @@ describe('mountOverlaySurfaceHost', () => {
         expect(handle.modalRoot.dataset.role).toBe('overlay-modal-root');
         expect(handle.shadow.querySelector('style')?.textContent).toContain('color:red');
         expect(handle.shadow.querySelector('[data-aimd-style-id="aimd-overlay-surface-structure"]')?.textContent).toContain('.surface');
-        expect(handle.shadow.querySelector('[data-aimd-style-id="aimd-overlay-surface-tailwind"]')).toBeTruthy();
+        expect(handle.shadow.querySelector('[data-aimd-style-id="aimd-overlay-surface-extra"]')).toBeTruthy();
 
         handle.setThemeCss(':host{color:green;}');
         expect(handle.shadow.querySelector('style')?.textContent).toContain('color:green');
 
         handle.unmount();
         expect(document.getElementById('test-overlay-surface-host')).toBeFalsy();
+    });
+
+    it('does not inject extra overlay css unless the caller provides it', () => {
+        const handle = mountOverlaySurfaceHost({
+            id: 'test-overlay-surface-host-no-extra',
+            themeCss: ':host{color:red;}',
+            surfaceCss: '.surface { color: blue; }',
+            lockScroll: true,
+        });
+
+        expect(handle.shadow.querySelector('[data-aimd-style-id="aimd-overlay-surface-extra"]')).toBeFalsy();
+
+        handle.unmount();
     });
 });

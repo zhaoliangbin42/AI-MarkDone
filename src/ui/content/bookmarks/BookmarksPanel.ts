@@ -196,7 +196,7 @@ export class BookmarksPanel {
             surfaceCss: getBookmarksPanelCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmarks-panel-structure',
-            overlayStyleId: 'aimd-bookmarks-panel-tailwind',
+            overlayStyleId: 'aimd-bookmarks-panel-overlay-extra',
         });
         this.recreateTabViews();
         this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
@@ -831,8 +831,8 @@ export class BookmarksPanel {
         const colors = [
             'var(--aimd-interactive-primary)',
             'var(--aimd-color-warning)',
-            'color-mix(in srgb, var(--aimd-state-success-border) 72%, #10b981)',
-            'color-mix(in srgb, var(--aimd-text-primary) 24%, white)',
+            'color-mix(in srgb, var(--aimd-state-success-border) 72%, var(--aimd-color-success))',
+            'color-mix(in srgb, var(--aimd-text-primary) 24%, var(--aimd-color-white))',
         ];
 
         for (let index = 0; index < 18; index += 1) {

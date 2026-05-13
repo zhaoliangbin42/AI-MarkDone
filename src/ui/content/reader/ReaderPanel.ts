@@ -277,7 +277,7 @@ export class ReaderPanel {
             surfaceCss: getReaderPanelCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-reader-panel-structure',
-            overlayStyleId: 'aimd-reader-panel-tailwind',
+            overlayStyleId: 'aimd-reader-panel-overlay-extra',
         });
 
         this.overlaySession = session;

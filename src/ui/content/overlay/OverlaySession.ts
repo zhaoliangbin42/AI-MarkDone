@@ -1,5 +1,4 @@
 import type { Theme } from '../../../core/types/theme';
-import overlayCssText from '../../../style/tailwind-overlay.css?inline';
 import { getTokenCss } from '../../../style/tokens';
 import { ModalHost } from '../components/ModalHost';
 import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
@@ -36,7 +35,7 @@ export class OverlaySession {
             id: options.id,
             themeCss: getTokenCss(options.theme),
             surfaceCss: options.surfaceCss,
-            overlayCss: options.overlayCss ?? overlayCssText,
+            overlayCss: options.overlayCss,
             overlayStyleCache: options.overlayStyleCache,
             zIndex: options.zIndex,
             lockScroll: options.lockScroll ?? true,

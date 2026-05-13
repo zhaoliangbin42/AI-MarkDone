@@ -15,6 +15,14 @@ const uiFiles = [
     'src/ui/content/chatgptDirectory/ChatGPTDirectoryRail.ts',
 ];
 
+const shippedStyleFiles = [
+    ...uiFiles,
+    'src/popup/popup.html',
+    'src/ui/content/overlay/OverlaySession.ts',
+    'src/ui/content/overlay/OverlaySurfaceHost.ts',
+    'src/ui/content/overlay/mock/OverlayThemeProbe.ts',
+];
+
 const sansFiles = [
     'src/ui/content/MessageToolbar.ts',
     'src/ui/content/reader/readerPanelTemplate.ts',
@@ -31,6 +39,9 @@ const monoWhitelist = [
 ];
 
 describe('UI style governance', () => {
+    const externalUtilityFrameworkPattern = new RegExp('tail' + 'wind', 'i');
+    const prefixedUtilityClassPattern = new RegExp('\\b' + 't' + 'w:');
+
     it('does not use explicit sans-serif stacks in rewritten UI components', () => {
         for (const file of uiFiles) {
             const source = fs.readFileSync(path.join(repoRoot, file), 'utf8');
@@ -86,5 +97,29 @@ describe('UI style governance', () => {
         expect(source).not.toContain('--aimd-tb-');
         expect(source).toContain('--aimd-toolbar-surface');
         expect(source).toContain('--aimd-toolbar-menu-surface');
+    });
+
+    it('does not use external utility framework classes or imports in shipped UI styling', () => {
+        for (const file of shippedStyleFiles) {
+            const source = fs.readFileSync(path.join(repoRoot, file), 'utf8');
+            expect(source).not.toMatch(prefixedUtilityClassPattern);
+            expect(source).not.toMatch(externalUtilityFrameworkPattern);
+            expect(source).not.toMatch(new RegExp('@tail' + 'wind', 'i'));
+        }
+    });
+
+    it('does not let components consume reference or system tokens directly', () => {
+        for (const file of shippedStyleFiles) {
+            const source = fs.readFileSync(path.join(repoRoot, file), 'utf8');
+            expect(source).not.toMatch(/var\(--aimd-ref-/);
+            expect(source).not.toMatch(/var\(--aimd-sys-/);
+        }
+    });
+
+    it('keeps the unsupported popup on public tokens instead of a copied reference token table', () => {
+        const source = fs.readFileSync(path.join(repoRoot, 'src/popup/popup.html'), 'utf8');
+        expect(source).toContain('--aimd-bg-primary');
+        expect(source).not.toContain('--aimd-ref-');
+        expect(source).not.toContain('--aimd-sys-');
     });
 });

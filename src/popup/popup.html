@@ -6,74 +6,38 @@
     <title>AI-MarkDone</title>
     <style>
       :root {
-        --aimd-ref-color-neutral-0: #ffffff;
-        --aimd-ref-color-neutral-50: #f6f7f9;
-        --aimd-ref-color-neutral-500: #6b7280;
-        --aimd-ref-color-neutral-700: #374151;
-        --aimd-ref-color-neutral-900: #111827;
-        --aimd-ref-color-neutral-alpha-06: rgba(0, 0, 0, 0.06);
-        --aimd-ref-color-neutral-alpha-08: rgba(0, 0, 0, 0.08);
-        --aimd-ref-color-neutral-alpha-12: rgba(0, 0, 0, 0.12);
-        --aimd-ref-color-neutral-alpha-16: rgba(0, 0, 0, 0.16);
-        --aimd-ref-color-brand-600: #2563eb;
-        --aimd-ref-color-brand-700: #1d4ed8;
-        --aimd-ref-color-brand-alpha-12: rgba(37, 99, 235, 0.12);
-        --aimd-ref-color-brand-alpha-28: rgba(37, 99, 235, 0.28);
-        --aimd-ref-color-neutral-white: #ffffff;
-        --aimd-ref-shadow-300: 0 10px 24px rgba(0, 0, 0, 0.18);
-        --aimd-ref-shadow-500: 0 18px 50px rgba(0, 0, 0, 0.25);
-        --aimd-ref-type-size-075: 12px;
-        --aimd-ref-type-size-100: 13px;
-        --aimd-ref-type-size-200: 14px;
-        --aimd-ref-type-size-300: 16px;
-        --aimd-ref-type-weight-500: 500;
-        --aimd-ref-type-weight-600: 600;
-        --aimd-ref-radius-200: 8px;
-        --aimd-ref-radius-300: 12px;
-        --aimd-ref-radius-400: 16px;
-        --aimd-ref-radius-full: 999px;
-        --aimd-ref-space-100: 4px;
-        --aimd-ref-space-200: 8px;
-        --aimd-ref-space-300: 12px;
-        --aimd-ref-space-400: 16px;
-        --aimd-ref-size-300: 30px;
-        --aimd-ref-size-400: 40px;
-        --aimd-ref-size-440: 44px;
-        --aimd-ref-motion-duration-fast: 150ms;
-        --aimd-ref-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
-
-        --aimd-bg-primary: var(--aimd-ref-color-neutral-50);
-        --aimd-bg-surface: var(--aimd-ref-color-neutral-0);
+        --aimd-bg-primary: #f6f7f9;
+        --aimd-bg-surface: #ffffff;
         --aimd-bg-secondary: color-mix(in srgb, var(--aimd-bg-primary) 82%, var(--aimd-bg-surface));
-        --aimd-text-primary: var(--aimd-ref-color-neutral-900);
-        --aimd-text-secondary: var(--aimd-ref-color-neutral-700);
-        --aimd-border-default: var(--aimd-ref-color-neutral-alpha-12);
-        --aimd-border-strong: var(--aimd-ref-color-neutral-alpha-16);
-        --aimd-interactive-primary: var(--aimd-ref-color-brand-600);
-        --aimd-interactive-primary-hover: var(--aimd-ref-color-brand-700);
-        --aimd-interactive-selected: var(--aimd-ref-color-brand-alpha-12);
-        --aimd-text-on-primary: var(--aimd-ref-color-neutral-white);
-        --aimd-shadow-lg: var(--aimd-ref-shadow-300);
-        --aimd-radius-lg: var(--aimd-ref-radius-200);
-        --aimd-radius-xl: var(--aimd-ref-radius-300);
-        --aimd-radius-2xl: var(--aimd-ref-radius-400);
-        --aimd-radius-full: var(--aimd-ref-radius-full);
-        --aimd-space-1: var(--aimd-ref-space-100);
-        --aimd-space-2: var(--aimd-ref-space-200);
-        --aimd-space-3: var(--aimd-ref-space-300);
-        --aimd-space-4: var(--aimd-ref-space-400);
+        --aimd-text-primary: #111827;
+        --aimd-text-secondary: #374151;
+        --aimd-border-default: rgba(0, 0, 0, 0.12);
+        --aimd-border-strong: rgba(0, 0, 0, 0.16);
+        --aimd-interactive-primary: #2563eb;
+        --aimd-interactive-primary-hover: #1d4ed8;
+        --aimd-interactive-selected: rgba(37, 99, 235, 0.12);
+        --aimd-shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.18);
+        --aimd-radius-lg: 8px;
+        --aimd-radius-xl: 12px;
+        --aimd-radius-2xl: 16px;
+        --aimd-radius-full: 999px;
+        --aimd-space-1: 4px;
+        --aimd-space-2: 8px;
+        --aimd-space-3: 12px;
+        --aimd-space-4: 16px;
         --aimd-space-5: calc(var(--aimd-space-4) + var(--aimd-space-1));
         --aimd-space-6: calc(var(--aimd-space-4) + var(--aimd-space-2));
-        --aimd-size-logo: var(--aimd-ref-size-400);
-        --aimd-size-action-row: var(--aimd-ref-size-440);
-        --aimd-text-xs: var(--aimd-ref-type-size-075);
-        --aimd-text-sm: var(--aimd-ref-type-size-100);
-        --aimd-text-base: var(--aimd-ref-type-size-200);
-        --aimd-text-lg: var(--aimd-ref-type-size-300);
-        --aimd-font-medium: var(--aimd-ref-type-weight-500);
-        --aimd-font-semibold: var(--aimd-ref-type-weight-600);
-        --aimd-duration-fast: var(--aimd-ref-motion-duration-fast);
-        --aimd-ease-in-out: var(--aimd-ref-motion-easing-standard);
+        --aimd-size-logo: 40px;
+        --aimd-size-action-row: 44px;
+        --aimd-text-xs: 12px;
+        --aimd-text-sm: 13px;
+        --aimd-text-base: 14px;
+        --aimd-text-lg: 16px;
+        --aimd-font-family-sans: ui-sans-serif, -apple-system, "system-ui", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, "sans-serif", "Segoe UI Emoji", "Segoe UI Symbol";
+        --aimd-font-medium: 500;
+        --aimd-font-semibold: 600;
+        --aimd-duration-fast: 150ms;
+        --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       * {
@@ -88,7 +52,7 @@
           radial-gradient(circle at top right, var(--aimd-interactive-selected), transparent 38%),
           var(--aimd-bg-primary);
         color: var(--aimd-text-primary);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+        font-family: var(--aimd-font-family-sans);
       }
 
       body {

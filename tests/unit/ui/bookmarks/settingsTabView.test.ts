@@ -342,9 +342,9 @@ describe('SettingsTabView', () => {
         const css = getBookmarksPanelCss();
 
         expect(css).toContain('.card-title {');
-        expect(css).toContain('font-size: var(--_bookmarks-section-title-size);');
+        expect(css).toContain('font-size: var(--aimd-text-base);');
         expect(css).toContain('.settings-label strong {');
-        expect(css).toContain('font-size: var(--_bookmarks-item-title-size);');
+        expect(css).toContain('font-size: var(--aimd-text-sm);');
         expect(css).toContain('.settings-select-trigger {');
         expect(css).toContain('font-size: var(--aimd-text-sm);');
         expect(css).toContain('.settings-label p,');

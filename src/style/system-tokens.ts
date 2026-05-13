@@ -1,6 +1,75 @@
 import type { Theme } from '../core/types/theme';
 
-export function getSystemTokenCss(theme: Theme): string {
+export type UserThemeOverrides = {
+    accentColor?: string;
+    density?: 'compact' | 'comfortable';
+    readerContentWidthPx?: number;
+    baseFontScale?: number;
+    cornerScale?: number;
+};
+
+function clampNumber(value: number | undefined, min: number, max: number): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    return Math.min(max, Math.max(min, value));
+}
+
+function normalizeHexColor(value: string | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed;
+    if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+        const [, r, g, b] = trimmed;
+        return `#${r}${r}${g}${g}${b}${b}`;
+    }
+    return null;
+}
+
+function getUserThemeOverrideCss(overrides: UserThemeOverrides): string {
+    const declarations: string[] = [];
+    const accentColor = normalizeHexColor(overrides.accentColor);
+    const fontScale = clampNumber(overrides.baseFontScale, 0.9, 1.2);
+    const cornerScale = clampNumber(overrides.cornerScale, 0.75, 1.35);
+    const readerContentWidthPx = clampNumber(overrides.readerContentWidthPx, 480, 1200);
+
+    if (accentColor) {
+        declarations.push(`  --aimd-sys-color-accent: ${accentColor};`);
+        declarations.push(`  --aimd-sys-color-accent-hover: color-mix(in srgb, ${accentColor} 82%, var(--aimd-sys-color-text-primary));`);
+        declarations.push(`  --aimd-sys-color-accent-soft: color-mix(in srgb, ${accentColor} 14%, transparent);`);
+        declarations.push(`  --aimd-sys-color-accent-flash: color-mix(in srgb, ${accentColor} 30%, transparent);`);
+        declarations.push(`  --aimd-sys-color-focus-ring: color-mix(in srgb, ${accentColor} 35%, transparent);`);
+    }
+
+    if (overrides.density === 'compact') {
+        declarations.push('  --aimd-sys-space-panel-header-padding-block: var(--aimd-ref-space-200);');
+        declarations.push('  --aimd-sys-space-panel-header-padding-inline: var(--aimd-ref-space-300);');
+        declarations.push('  --aimd-sys-space-panel-footer-padding-inline: var(--aimd-ref-space-300);');
+        declarations.push('  --aimd-sys-size-control-action-panel: var(--aimd-ref-size-320);');
+        declarations.push('  --aimd-sys-size-panel-header-height: var(--aimd-ref-size-640);');
+    }
+
+    if (fontScale) {
+        declarations.push(`  --aimd-sys-type-label-small-size: calc(var(--aimd-ref-type-size-075) * ${fontScale});`);
+        declarations.push(`  --aimd-sys-type-label-medium-size: calc(var(--aimd-ref-type-size-100) * ${fontScale});`);
+        declarations.push(`  --aimd-sys-type-body-medium-size: calc(var(--aimd-ref-type-size-200) * ${fontScale});`);
+        declarations.push(`  --aimd-sys-type-title-medium-size: calc(var(--aimd-ref-type-size-300) * ${fontScale});`);
+    }
+
+    if (cornerScale) {
+        declarations.push(`  --aimd-sys-shape-corner-sm: calc(var(--aimd-ref-radius-150) * ${cornerScale});`);
+        declarations.push(`  --aimd-sys-shape-corner-md: calc(var(--aimd-ref-radius-200) * ${cornerScale});`);
+        declarations.push(`  --aimd-sys-shape-corner-lg: calc(var(--aimd-ref-radius-300) * ${cornerScale});`);
+        declarations.push(`  --aimd-sys-shape-corner-xl: calc(14px * ${cornerScale});`);
+        declarations.push(`  --aimd-sys-shape-corner-2xl: calc(18px * ${cornerScale});`);
+    }
+
+    if (readerContentWidthPx) {
+        declarations.push(`  --aimd-user-reader-content-width: ${Math.round(readerContentWidthPx)}px;`);
+    }
+
+    return declarations.length ? `${declarations.join('\n')}\n` : '';
+}
+
+export function getSystemTokenCss(theme: Theme, overrides: UserThemeOverrides = {}): string {
     const isDark = theme === 'dark';
 
     return `
@@ -11,16 +80,16 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-color-surface-frosted: color-mix(in srgb, var(--aimd-sys-color-surface) ${isDark ? '34%' : '82%'}, transparent);
   --aimd-sys-color-surface-quiet: var(--aimd-ref-color-neutral-alpha-06);
   --aimd-sys-color-surface-hover: ${isDark ? 'var(--aimd-ref-color-neutral-alpha-16)' : 'var(--aimd-ref-color-neutral-alpha-12)'};
-  --aimd-sys-color-surface-pressed: ${isDark ? 'rgba(255,255,255,0.22)' : 'var(--aimd-ref-color-neutral-alpha-18)'};
+  --aimd-sys-color-surface-pressed: ${isDark ? 'var(--aimd-ref-color-neutral-alpha-22)' : 'var(--aimd-ref-color-neutral-alpha-18)'};
   --aimd-sys-color-text-primary: var(--aimd-ref-color-neutral-900);
   --aimd-sys-color-text-secondary: var(--aimd-ref-color-neutral-700);
   --aimd-sys-color-text-secondary-muted: ${isDark ? 'color-mix(in srgb, var(--aimd-ref-color-neutral-700) 74%, transparent)' : 'var(--aimd-ref-color-neutral-500)'};
   --aimd-sys-color-border-default: ${isDark ? 'var(--aimd-ref-color-neutral-alpha-16)' : 'var(--aimd-ref-color-neutral-alpha-12)'};
   --aimd-sys-color-border-subtle: ${isDark ? 'var(--aimd-ref-color-neutral-alpha-12)' : 'var(--aimd-ref-color-neutral-alpha-08)'};
-  --aimd-sys-color-border-strong: ${isDark ? 'rgba(255,255,255,0.22)' : 'var(--aimd-ref-color-neutral-alpha-16)'};
+  --aimd-sys-color-border-strong: ${isDark ? 'var(--aimd-ref-color-neutral-alpha-22)' : 'var(--aimd-ref-color-neutral-alpha-16)'};
   --aimd-sys-color-outline-soft: color-mix(in srgb, var(--aimd-sys-color-text-primary) ${isDark ? '22%' : '14%'}, transparent);
   --aimd-sys-color-interactive-hover-layer: ${isDark ? 'var(--aimd-ref-color-white-alpha-16)' : 'var(--aimd-ref-color-black-alpha-06)'};
-  --aimd-sys-color-interactive-pressed-layer: ${isDark ? 'rgba(255,255,255,0.22)' : 'var(--aimd-ref-color-black-alpha-10)'};
+  --aimd-sys-color-interactive-pressed-layer: ${isDark ? 'var(--aimd-ref-color-neutral-alpha-22)' : 'var(--aimd-ref-color-black-alpha-10)'};
   --aimd-sys-color-accent: var(--aimd-ref-color-brand-600);
   --aimd-sys-color-accent-hover: var(--aimd-ref-color-brand-700);
   --aimd-sys-color-on-accent: var(--aimd-ref-color-neutral-white);
@@ -31,25 +100,26 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-color-state-success-border: var(--aimd-ref-color-green-alpha-35);
   --aimd-sys-color-state-error-border: var(--aimd-ref-color-red-alpha-35);
   --aimd-sys-color-overlay: var(--aimd-ref-color-black-alpha-35);
-  --aimd-sys-color-overlay-heavy: ${isDark ? 'rgba(0,0,0,0.60)' : 'rgba(148, 163, 184, 0.34)'};
-  --aimd-sys-color-warning: ${isDark ? '#fbbf24' : '#f59e0b'};
-  --aimd-sys-color-warning-text: ${isDark ? '#fbbf24' : '#b45309'};
-  --aimd-sys-color-danger: #ef4444;
+  --aimd-sys-color-overlay-heavy: var(--aimd-ref-color-overlay-heavy);
+  --aimd-sys-color-warning: var(--aimd-ref-color-warning);
+  --aimd-sys-color-warning-text: var(--aimd-ref-color-warning-text);
+  --aimd-sys-color-danger: var(--aimd-ref-color-danger);
+  --aimd-sys-color-success: var(--aimd-ref-color-success);
   --aimd-sys-color-link: var(--aimd-sys-color-accent);
   --aimd-sys-color-link-hover: var(--aimd-sys-color-accent-hover);
-  --aimd-sys-color-scrollbar-thumb: ${isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.16)'};
-  --aimd-sys-color-scrollbar-thumb-hover: ${isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.24)'};
-  --aimd-sys-color-gmail-hover: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(148,163,184,0.12)'};
-  --aimd-sys-color-gmail-pressed: ${isDark ? 'rgba(255,255,255,0.14)' : 'rgba(59,130,246,0.16)'};
-  --aimd-sys-color-gmail-selected: ${isDark ? 'rgba(138,180,248,0.22)' : 'rgba(219,234,254,0.96)'};
-  --aimd-sys-color-gmail-selected-text: ${isDark ? '#8ab4f8' : '#2563eb'};
+  --aimd-sys-color-scrollbar-thumb: ${isDark ? 'var(--aimd-ref-color-white-alpha-18)' : 'var(--aimd-ref-color-black-alpha-16)'};
+  --aimd-sys-color-scrollbar-thumb-hover: ${isDark ? 'var(--aimd-ref-color-white-alpha-28)' : 'var(--aimd-ref-color-black-alpha-24)'};
+  --aimd-sys-color-list-hover: ${isDark ? 'var(--aimd-ref-color-white-alpha-10)' : 'color-mix(in srgb, var(--aimd-ref-color-neutral-500) 18%, transparent)'};
+  --aimd-sys-color-list-pressed: ${isDark ? 'var(--aimd-ref-color-white-alpha-16)' : 'var(--aimd-ref-color-brand-alpha-12)'};
+  --aimd-sys-color-list-selected: var(--aimd-ref-color-brand-selected);
+  --aimd-sys-color-list-selected-text: var(--aimd-ref-color-brand-selected-text);
 
-  --aimd-sys-shadow-xs: ${isDark ? '0 1px 2px rgba(0,0,0,0.55)' : '0 1px 2px rgba(0,0,0,0.12)'};
-  --aimd-sys-shadow-sm: ${isDark ? '0 6px 16px rgba(0,0,0,0.52)' : '0 4px 12px rgba(0,0,0,0.12)'};
-  --aimd-sys-shadow-md: ${isDark ? '0 10px 24px rgba(0,0,0,0.56)' : '0 8px 20px rgba(0,0,0,0.14)'};
-  --aimd-sys-shadow-lg: ${isDark ? '0 14px 34px rgba(0,0,0,0.68)' : '0 22px 56px rgba(148,163,184,0.24)'};
-  --aimd-sys-shadow-xl: ${isDark ? '0 18px 60px rgba(0,0,0,0.66)' : '0 28px 80px rgba(148,163,184,0.28)'};
-  --aimd-sys-shadow-focus: ${isDark ? '0 0 0 2px rgba(26,115,232,0.38)' : '0 0 0 2px rgba(59,130,246,0.20)'};
+  --aimd-sys-shadow-xs: var(--aimd-ref-shadow-xs);
+  --aimd-sys-shadow-sm: var(--aimd-ref-shadow-sm);
+  --aimd-sys-shadow-md: var(--aimd-ref-shadow-md);
+  --aimd-sys-shadow-lg: var(--aimd-ref-shadow-lg);
+  --aimd-sys-shadow-xl: var(--aimd-ref-shadow-xl);
+  --aimd-sys-shadow-focus: var(--aimd-ref-shadow-focus);
   --aimd-sys-shadow-panel: var(--aimd-ref-shadow-500);
   --aimd-sys-shadow-floating: var(--aimd-ref-shadow-300);
   --aimd-sys-shadow-popover: var(--aimd-ref-shadow-500);
@@ -134,10 +204,13 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-sys-z-panel: var(--aimd-ref-z-panel);
   --aimd-sys-z-tooltip: var(--aimd-ref-z-tooltip);
 
+${getUserThemeOverrideCss(overrides)}
   --aimd-bg-primary: var(--aimd-sys-color-surface);
   --aimd-bg-secondary: var(--aimd-sys-color-surface-subtle);
   --aimd-bg-tertiary: color-mix(in srgb, var(--aimd-bg-secondary) 82%, var(--aimd-bg-primary));
   --aimd-bg-surface: var(--aimd-sys-color-surface-elevated);
+  --aimd-surface-hover: var(--aimd-sys-color-surface-hover);
+  --aimd-surface-pressed: var(--aimd-sys-color-surface-pressed);
   --aimd-color-white: var(--aimd-ref-color-neutral-white);
   --aimd-text-primary: var(--aimd-sys-color-text-primary);
   --aimd-text-secondary: var(--aimd-sys-color-text-secondary);
@@ -240,10 +313,10 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-z-base: var(--aimd-sys-z-base);
   --aimd-z-panel: var(--aimd-sys-z-panel);
   --aimd-z-tooltip: var(--aimd-sys-z-tooltip);
-  --aimd-gmail-hover: var(--aimd-sys-color-gmail-hover);
-  --aimd-gmail-pressed: var(--aimd-sys-color-gmail-pressed);
-  --aimd-gmail-selected: var(--aimd-sys-color-gmail-selected);
-  --aimd-gmail-selected-text: var(--aimd-sys-color-gmail-selected-text);
+  --aimd-list-hover: var(--aimd-sys-color-list-hover);
+  --aimd-list-pressed: var(--aimd-sys-color-list-pressed);
+  --aimd-list-selected: var(--aimd-sys-color-list-selected);
+  --aimd-list-selected-text: var(--aimd-sys-color-list-selected-text);
   --aimd-text-warning: var(--aimd-sys-color-warning-text);
   --aimd-text-link: var(--aimd-sys-color-link);
   --aimd-text-link-hover: var(--aimd-sys-color-link-hover);
@@ -258,6 +331,7 @@ export function getSystemTokenCss(theme: Theme): string {
   --aimd-feedback-danger-bg: color-mix(in srgb, var(--aimd-sys-color-danger) 14%, transparent);
   --aimd-color-warning: var(--aimd-sys-color-warning);
   --aimd-color-danger: var(--aimd-sys-color-danger);
+  --aimd-color-success: var(--aimd-sys-color-success);
   --aimd-button-icon-bg: transparent;
   --aimd-button-icon-text: var(--aimd-text-secondary);
   --aimd-button-icon-hover: var(--aimd-interactive-hover);

@@ -85,7 +85,7 @@ export class SendModal {
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-send-modal-structure',
-            overlayStyleId: 'aimd-send-modal-tailwind',
+            overlayStyleId: 'aimd-send-modal-overlay-extra',
         });
 
         const backdrop = document.createElement('div');
@@ -266,11 +266,11 @@ ${getModalMotionCss()}
   cursor: pointer;
 }
 .icon:hover {
-  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 90%, var(--aimd-surface-hover));
   color: var(--aimd-button-icon-text-hover);
 }
 .icon:active {
-  background: color-mix(in srgb, var(--aimd-button-icon-active) 90%, var(--aimd-sys-color-surface-pressed));
+  background: color-mix(in srgb, var(--aimd-button-icon-active) 90%, var(--aimd-surface-pressed));
   color: var(--aimd-button-icon-text-hover);
 }
 .icon:focus-visible {
@@ -322,7 +322,7 @@ ${getModalMotionCss()}
   cursor: pointer;
 }
 .btn:hover {
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
 }
 .btn:active {
   background: color-mix(in srgb, var(--aimd-button-secondary-hover) 78%, var(--aimd-button-icon-active));

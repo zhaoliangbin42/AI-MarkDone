@@ -9,8 +9,7 @@ This rule set covers shipped extension UI, not host-page styling.
 - Keep selector scope inside the owned UI surface.
 - Do not use `!important` outside print-specific rules.
 - Treat host-platform theme detection as a driver concern, not a component concern.
-- Tailwind is allowed only for overlay-style singleton UI surfaces; do not use it in toolbar, inline message UI, or other high-frequency injected surfaces.
-- If Tailwind is used, it must be semantic-alias-only, prefixed with `tw`, and shipped without Preflight.
+- Do not introduce external style frameworks for shipped UI. AI-MarkDone uses custom CSS plus `--aimd-*` tokens.
 
 ## Practical Checks
 
@@ -18,7 +17,7 @@ This rule set covers shipped extension UI, not host-page styling.
 - Prefer shared style entrypoints such as `src/style/tokens.ts` and `src/style/pageTokens.ts`.
 - Reuse existing UI style patterns before inventing new component-scoped token layers.
 - For clipping, overflow, crowding, and layering bugs, fix the layout contract first: containment, shrink behavior, overflow ownership, stacking context, and intrinsic sizing. Add new tokens only when the value represents a reusable design decision, not a local compensation.
-- Tailwind aliases must map back to `--aimd-*`; do not let Tailwind theme values become a second token source.
+- External utility classes, prefixed utility aliases, and generated framework themes must not become a second token source.
 - New UI modules must pass the mock-first browser visual workflow in `mocks/components/<module>/index.html` before merging into `src/ui/**`.
 
 ## References

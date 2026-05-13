@@ -119,7 +119,7 @@ Manual regression is required when:
 - preparing a release
 - adding or expanding platform support
 - changing UI injection, toolbar behavior, reader behavior, bookmarks flows, or browser compatibility boundaries
-- changing style-system rules, Tailwind alias boundaries, or overlay/toolbar UI architecture
+- changing style-system rules, external style-library boundaries, or overlay/toolbar UI architecture
 
 Use:
 

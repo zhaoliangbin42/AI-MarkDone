@@ -25,6 +25,7 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-size-control-glyph-panel');
         expect(css).toContain('--aimd-size-control-action-panel');
         expect(css).toContain('--aimd-color-white');
+        expect(css).toContain('--aimd-color-success');
         expect(css).toContain('--aimd-sys-size-control-icon-toolbar: var(--aimd-ref-size-300);');
         expect(css).toContain('--aimd-panel-header-height');
         expect(css).toContain('--aimd-panel-header-height-compact');
@@ -69,11 +70,29 @@ describe('tokens', () => {
 
         expect(css).toContain('--aimd-sys-color-surface-frosted: color-mix(in srgb, var(--aimd-sys-color-surface) 34%, transparent);');
         expect(css).toContain('--aimd-sys-color-surface-hover: var(--aimd-ref-color-neutral-alpha-16);');
-        expect(css).toContain('--aimd-sys-color-surface-pressed: rgba(255,255,255,0.22);');
+        expect(css).toContain('--aimd-sys-color-surface-pressed: var(--aimd-ref-color-neutral-alpha-22);');
         expect(css).toContain('--aimd-sys-color-border-default: var(--aimd-ref-color-neutral-alpha-16);');
-        expect(css).toContain('--aimd-sys-color-border-strong: rgba(255,255,255,0.22);');
+        expect(css).toContain('--aimd-sys-color-border-strong: var(--aimd-ref-color-neutral-alpha-22);');
         expect(css).toContain('--aimd-sys-color-interactive-hover-layer: var(--aimd-ref-color-white-alpha-16);');
-        expect(css).toContain('--aimd-sys-color-interactive-pressed-layer: rgba(255,255,255,0.22);');
-        expect(css).toContain('--aimd-sys-shadow-lg: 0 14px 34px rgba(0,0,0,0.68);');
+        expect(css).toContain('--aimd-sys-color-interactive-pressed-layer: var(--aimd-ref-color-neutral-alpha-22);');
+        expect(css).toContain('--aimd-sys-shadow-lg: var(--aimd-ref-shadow-lg);');
+        expect(css).not.toContain('--aimd-sys-color-gmail');
+        expect(css).not.toContain('--aimd-gmail');
+    });
+
+    it('maps user theme overrides only through generated tokens', () => {
+        const css = getTokenCss('light', {
+            accentColor: '#0a7',
+            density: 'compact',
+            baseFontScale: 1.1,
+            cornerScale: 1.2,
+            readerContentWidthPx: 720,
+        });
+
+        expect(css).toContain('--aimd-sys-color-accent: #00aa77;');
+        expect(css).toContain('--aimd-sys-size-control-action-panel: var(--aimd-ref-size-320);');
+        expect(css).toContain('--aimd-sys-type-body-medium-size: calc(var(--aimd-ref-type-size-200) * 1.1);');
+        expect(css).toContain('--aimd-sys-shape-corner-md: calc(var(--aimd-ref-radius-200) * 1.2);');
+        expect(css).toContain('--aimd-user-reader-content-width: 720px;');
     });
 });

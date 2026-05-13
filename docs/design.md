@@ -2,7 +2,7 @@
 
 This document is the single source of truth for AI-MarkDone product UI design, style-system rules, and visual governance. It replaces the previous split style and token references.
 
-Runtime token values still live in source files such as `src/style/reference-tokens.ts`, `src/style/system-tokens.ts`, `src/style/tokens.ts`, and Tailwind alias configuration. This document defines what those values mean, how they may be used, and how future UI work should be judged.
+Runtime token values live in `src/style/reference-tokens.ts`, `src/style/system-tokens.ts`, and `src/style/tokens.ts`. This document defines what those values mean, how they may be used, and how future UI work should be judged.
 
 ## 1. Product Feel
 
@@ -50,16 +50,16 @@ The product should avoid decorative weight. It should make long-form reading and
 
 ## 3. Surface Map
 
-| Surface | Role | Density | Styling Owner | Tailwind | Required Checks |
-|:--|:--|:--|:--|:--|:--|
-| Reader panel | Long-form reading, prompt/source rendering, export entry points | Comfortable reading density | Reader surface profile + shared chrome primitives | Allowed only through approved overlay path if already wired | Markdown hierarchy, source blocks, prompt wrapping, scroll, panel width |
-| Bookmarks panel | Saved items, folders, metadata, actions | Operational density | Bookmarks surface profile + shared rows/buttons | Allowed only through approved overlay path if already wired | Empty state, long titles, folder actions, selection, list virtualization risk |
-| Settings panel | Product configuration and advanced preferences | Form density | Shared form primitives | Allowed only through approved overlay path if already wired | Label/help alignment, defaults, disabled states, validation copy |
-| Message toolbar | High-frequency inline actions in ChatGPT conversation flow | Compact | Toolbar component tokens and native CSS modules | No Tailwind | Hydration, re-scan, icon alignment, hit target, host-page interference |
-| ChatGPT directory | Conversation navigation and step controls | Compact navigation density | Directory surface profile | No Tailwind unless explicitly documented at overlay boundary | Current step, disabled navigation, long labels, host mutations |
-| Modal/dialog | Focused decision or blocking action | Compact, centered | Shared dialog primitive | Allowed only if the dialog is inside the approved overlay singleton | Focus trap, escape, inert/backdrop behavior, z-index, reduced motion |
-| Popover/hover portal | Contextual actions or previews | Compact | Shared popover primitive or documented local boundary | Prefer no Tailwind unless anchored to overlay singleton | Anchor position, viewport collision, hover delay, dismissal |
-| Save messages dialog | Selection and confirmation flow | Task density | Dialog primitive + save-flow body | Allowed only through dialog boundary | Multi-select state, error state, keyboard flow, restore scroll |
+| Surface | Role | Density | Styling Owner | Required Checks |
+|:--|:--|:--|:--|:--|
+| Reader panel | Long-form reading, prompt/source rendering, export entry points | Comfortable reading density | Reader surface profile + shared chrome primitives | Markdown hierarchy, source blocks, prompt wrapping, scroll, panel width |
+| Bookmarks panel | Saved items, folders, metadata, actions | Operational density | Bookmarks surface profile + shared rows/buttons | Empty state, long titles, folder actions, selection, list virtualization risk |
+| Settings panel | Product configuration and advanced preferences | Form density | Shared form primitives | Label/help alignment, defaults, disabled states, validation copy |
+| Message toolbar | High-frequency inline actions in ChatGPT conversation flow | Compact | Toolbar component tokens and native CSS modules | Hydration, re-scan, icon alignment, hit target, host-page interference |
+| ChatGPT directory | Conversation navigation and step controls | Compact navigation density | Directory surface profile | Current step, disabled navigation, long labels, host mutations |
+| Modal/dialog | Focused decision or blocking action | Compact, centered | Shared dialog primitive | Focus trap, escape, inert/backdrop behavior, z-index, reduced motion |
+| Popover/hover portal | Contextual actions or previews | Compact | Shared popover primitive or documented local boundary | Anchor position, viewport collision, hover delay, dismissal |
+| Save messages dialog | Selection and confirmation flow | Task density | Dialog primitive + save-flow body | Multi-select state, error state, keyboard flow, restore scroll |
 
 ## 4. Color Tokens
 
@@ -133,16 +133,7 @@ Overlay and shadow color values:
 | Floating shadow | `--aimd-ref-shadow-300` | `0 10px 24px rgba(0,0,0,0.18)` | `0 10px 24px rgba(0,0,0,0.45)` |
 | Panel shadow | `--aimd-ref-shadow-500` | `0 18px 50px rgba(0,0,0,0.25)` | `0 18px 50px rgba(0,0,0,0.55)` |
 
-Legacy cleanup palette:
-
-| Intent | Token | Light | Dark | Direction |
-|:--|:--|:--|:--|:--|
-| Gmail hover | `--aimd-sys-color-gmail-hover` | `rgba(148,163,184,0.12)` | `rgba(255,255,255,0.08)` | Replace with semantic hover/component token. |
-| Gmail pressed | `--aimd-sys-color-gmail-pressed` | `rgba(59,130,246,0.16)` | `rgba(255,255,255,0.14)` | Replace with semantic pressed/component token. |
-| Gmail selected | `--aimd-sys-color-gmail-selected` | `rgba(219,234,254,0.96)` | `rgba(138,180,248,0.22)` | Replace with selected surface token. |
-| Gmail selected text | `--aimd-sys-color-gmail-selected-text` | `#2563eb` | `#8ab4f8` | Replace with selected text/accent token. |
-
-The target palette should keep the core neutral, brand, warning, danger, success/error border, focus, and overlay values. Platform-scoped color tokens are transitional and should not be expanded.
+The target palette keeps the core neutral, brand, warning, danger, success/error border, focus, list-selection, and overlay values. Platform-scoped color tokens are not part of the active system.
 
 ## 5. Typography Tokens
 
@@ -308,7 +299,7 @@ Motion:
 
 - Toolbar styling is governed by `--aimd-toolbar-*` component tokens.
 - Toolbar modules should stay light because they hydrate inside host conversation UI.
-- Avoid Tailwind in toolbar code paths.
+- Avoid external style frameworks in toolbar code paths.
 
 ### 7.8 Overlay, Dialog, Popover
 
@@ -340,18 +331,32 @@ Required tests for style-injection changes:
 - theme token propagation
 - host page CSS collision check when practical
 
-## 9. Tailwind V4 Alias Contract
+## 9. Pure CSS Contract
 
-Tailwind may be used only where it is already part of the approved overlay path or where an explicit design-system migration adds it with tests.
+AI-MarkDone shipped UI uses custom CSS plus `--aimd-*` tokens. External style frameworks, generated utility themes, and framework-prefixed utility classes are not part of the active runtime styling system.
 
 Rules:
 
-- Tailwind must not ship Preflight into host pages.
-- Tailwind utilities must be prefixed when required by the local build contract.
-- Tailwind theme aliases must map to `--aimd-*` tokens, not raw values.
-- Components may not use Tailwind classes to bypass token rules.
-- High-frequency inline surfaces such as the message toolbar should use small native CSS modules and component tokens.
-- Any Tailwind boundary must document its injection owner, ShadowRoot behavior, and fallback path.
+- Component CSS must be authored as owned, scoped CSS.
+- Framework utility classes must not appear in `src/ui/**` or `src/popup/**`.
+- Overlay, dialog, popover, toolbar, and inline host-page surfaces all receive the same token CSS through the shared injection path.
+- Any future external style-library proposal must first update this document and add governance tests proving that it cannot become a second token source.
+
+### 9.1 User Theme Override Contract
+
+Future user customization enters only through token generation, not through component-specific settings parsing.
+
+The supported override shape is `UserThemeOverrides`:
+
+| Field | Purpose | Mapping |
+|:--|:--|:--|
+| `accentColor` | User theme color | Maps to accent, accent hover, accent soft, flash, and focus tokens. |
+| `density` | Compact or comfortable UI density | Maps to shared spacing, control size, and panel header tokens. |
+| `baseFontScale` | UI font scaling | Maps to type-size system tokens. |
+| `cornerScale` | Roundedness strength | Maps to shared radius system tokens. |
+| `readerContentWidthPx` | Reader measure | Emits a clamped custom property for reader surfaces. |
+
+Components may consume only the resulting public `--aimd-*` tokens or their local private geometry variables.
 
 ## 10. CSS Variables Contract
 
@@ -395,7 +400,7 @@ Do not:
 - Use `!important` outside explicit print-only rules.
 - Add global page CSS for extension UI without a documented adapter reason.
 - Add decorative color families or gradients without product need.
-- Use Tailwind in toolbar or inline host-page paths by default.
+- Use external style frameworks or utility classes in shipped UI paths by default.
 - Keep old style references after moving a contract into this document.
 
 ## 12. Migration Rules
@@ -417,11 +422,9 @@ The current runtime is stable, but the next implementation phases should use thi
 
 | Area | Current Signal | Migration Direction |
 |:--|:--|:--|
-| `src/style/system-tokens.ts` | Some system tokens still contain raw state colors, raw rgba shadows, and platform-scoped Gmail tokens. | Keep raw values in reference tokens where possible, collapse platform-scoped tokens into semantic system/component tokens, and keep state colors minimal. |
-| `src/ui/content/chatgptDirectory/ChatGPTDirectoryRail.ts` | Several `var(--aimd-*, fallback)` declarations still contain raw color/shadow fallback values. | Prefer guaranteed token injection; if fallbacks remain necessary, route them through component tokens instead of raw literals. |
-| `src/ui/content/MessageToolbar.ts` | A small number of `!important` declarations are used for host/actionbar visibility and reduced motion. | Preserve behavior first, then replace each exception with a stronger owned-state selector or documented print/reduced-motion exception. |
-| `src/ui/content/bookmarks/*` | Bookmarks has known literal z-index and component-level styling density from previous remediation planning. | Continue the existing remediation plan, but judge new tokens against this document before adding them. |
-| Static visual coverage | Mock-first workflow exists as a rule, but the consolidated design-system showcase still needs to be built. | Add a local design-system mock page that displays tokens, panels, toolbar, bookmarks rows, reader content, forms, dialogs, and popovers before broad runtime restyling. |
+| `src/popup/popup.html` | The unsupported-page popup is a static extension document and cannot rely on Shadow DOM runtime injection. | Keep a minimal public-token fallback subset only; do not copy reference/system token tables. |
+| `src/ui/content/bookmarks/*` | Bookmarks has the highest style density and the largest private-variable set. | Private variables may remain only for local geometry; reusable visual meaning belongs in shared tokens or primitives. |
+| Static visual coverage | Mock-first workflow exists and should stay aligned with real tokens/components. | Keep design-system and page-system mocks current whenever shared tokens or primitives change. |
 
 These notes are not permission to destabilize working UI. They define the order of future cleanup once the document system is settled.
 

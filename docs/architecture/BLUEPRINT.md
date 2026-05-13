@@ -217,15 +217,15 @@ Surface profile / motion ownership 规则补充：
 工程落地要求：
 
 - 组件样式必须使用 `--aimd-*` token
-- `--aimd-*` 是唯一 canonical design token source；Tailwind 只能通过语义 alias 消费这些 token
-- Tailwind 只允许用于 overlay-style singleton UI；toolbar 与高频注入 UI 保持轻量实现，不引入 Tailwind
+- `--aimd-*` 是唯一 canonical design token source；外部样式框架不得成为第二套样式真源
+- Overlay、toolbar 与高频注入 UI 均使用自定义 CSS + token，保持轻量实现
 - overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
 - 同一个 named surface 一旦拥有 2 个以上入口，baseline chrome 必须稳定；入口不得直接传 low-level layout/chrome flags，差异必须由 surface 自己声明 named profiles
 - shared overlay / modal motion 必须由正式 shared contract 持有；不得由 caller 自己注入 enter/exit chrome 或在单个 surface 私下复制一套近似动画
 - 一旦 overlay / transient dismiss contract 出现第二个明确消费者，就必须提升到共享 `components/*` 或 `overlay/*`；只有带明显业务假设的 primitive 才允许继续保持 family-scoped
 - `OverlaySession` 只约束 overlay surfaces；anchored popover 可以保留 local interaction boundary，但必须在 `CURRENT_STATE.md` 中明确标记为 intentional local，而不是共享 contract 缺口
 - toolbar component token 必须统一使用 `--aimd-toolbar-*`，禁止继续出现 `--aimd-tb-*` 这类未显式标明组件域的局部伪系统 token
-- 若使用 Tailwind，必须使用 `tw` 前缀并禁用 Preflight，避免其成为第二套样式真源
+- 若未来重新评估外部样式库，必须先更新 `docs/design.md` 并通过治理测试证明其不会成为第二套样式真源
 - 页面内 UI 必须使用 Shadow DOM（或等效隔离容器）避免样式冲突
 - 主题同步必须通过稳定机制（如 `data-aimd-theme`）驱动 token 切换
 - 禁止把站点特化主题探测逻辑扩散到 UI：通过 driver 提供 ThemeDetector 或通过 ports 注入

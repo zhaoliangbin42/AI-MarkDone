@@ -58,7 +58,7 @@ export function mountOverlaySurfaceHost(opts: OverlaySurfaceHostOptions): Overla
 
     if (opts.overlayCss) {
         ensureStyle(handle.shadow, opts.overlayCss, {
-            id: opts.overlayStyleId ?? 'aimd-overlay-surface-tailwind',
+            id: opts.overlayStyleId ?? 'aimd-overlay-surface-extra',
             cache: opts.overlayStyleCache,
         });
     }

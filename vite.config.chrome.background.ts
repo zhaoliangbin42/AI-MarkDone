@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Vite Config for Chrome Background Build
@@ -9,7 +8,6 @@ import tailwindcss from '@tailwindcss/vite';
  * so the final `background.js` contains no top-level `import` statements.
  */
 export default defineConfig({
-    plugins: [tailwindcss()],
     build: {
         modulePreload: {
             polyfill: false

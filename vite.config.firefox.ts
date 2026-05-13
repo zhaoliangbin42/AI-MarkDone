@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Vite Config for Firefox Build
@@ -9,7 +8,6 @@ import tailwindcss from '@tailwindcss/vite';
  * 只编译 content script
  */
 export default defineConfig({
-    plugins: [tailwindcss()],
     build: {
         modulePreload: {
             polyfill: false

@@ -208,7 +208,7 @@ export class BookmarkSaveDialog {
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmark-save-dialog-structure',
-            overlayStyleId: 'aimd-bookmark-save-dialog-tailwind',
+            overlayStyleId: 'aimd-bookmark-save-dialog-overlay-extra',
         });
         this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
         this.unsubscribeLocale = subscribeLocaleChange(() => {

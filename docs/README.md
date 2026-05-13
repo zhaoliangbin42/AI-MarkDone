@@ -45,12 +45,11 @@ These are transition-execution documents, not long-lived architecture authority:
 ### Decisions
 
 - `docs/adr/README.md`
-- `docs/adr/ADR-0005-tailwind-alias-overlay-boundary.md`
 
 ### Style
 
 - `docs/design.md`
-  - single authority for product feel, UI tokens, component rules, Tailwind boundaries, Shadow DOM style injection, and design-system migration
+  - single authority for product feel, UI tokens, component rules, Shadow DOM style injection, and design-system migration
 
 ### Testing
 
@@ -70,7 +69,7 @@ These are transition-execution documents, not long-lived architecture authority:
 - Move repeated behavioral guidance into `.codex/rules/*` or `.codex/guides/*`, not into `docs/`.
 - Remove or archive stale documents once their content has been absorbed into a current authoritative file.
 - Do not add references to non-existent documents.
-- Treat `docs/design.md` + active ADRs as the authority for UI style direction.
+- Treat `docs/design.md` as the authority for UI style direction.
 
 ## Suggested Reading Order
 
@@ -98,4 +97,3 @@ These are transition-execution documents, not long-lived architecture authority:
   - `docs/testing/E2E_REGRESSION_GUIDE.md`
 - Style-system and UI workflow changes
   - `docs/design.md`
-  - `docs/adr/ADR-0005-tailwind-alias-overlay-boundary.md`

@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Vite Config for Firefox Background Build
@@ -9,7 +8,6 @@ import tailwindcss from '@tailwindcss/vite';
  * but we build a single-entry bundle to avoid top-level `import` in output.
  */
 export default defineConfig({
-    plugins: [tailwindcss()],
     build: {
         modulePreload: {
             polyfill: false

@@ -526,7 +526,7 @@ ${getMarkdownThemeCss('.reader-markdown')}
 }
 
 .reader-dot:hover {
-  background: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-icon-hover) 88%, var(--aimd-surface-hover));
 }
 
 .reader-dot:active {

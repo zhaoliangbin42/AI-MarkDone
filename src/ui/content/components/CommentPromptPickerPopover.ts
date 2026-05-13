@@ -98,7 +98,7 @@ function getCss(): string {
 
 .comment-prompt-picker__item:hover {
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 32%, var(--aimd-border-default));
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-sys-color-surface-hover));
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
 }
 
 .comment-prompt-picker__item-title {
