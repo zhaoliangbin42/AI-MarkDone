@@ -35,6 +35,14 @@ export const DEFAULT_GLOBAL_FONT_SIZE_PX = 16;
 export const MIN_GLOBAL_FONT_SIZE_PX = 12;
 export const MAX_GLOBAL_FONT_SIZE_PX = 20;
 export const GLOBAL_FONT_SIZE_STEP_PX = 1;
+export const THEME_ACCENT_SWATCHES = [
+    { value: '#2563eb', labelKey: 'themeAccentDefaultBlue' },
+    { value: '#059669', labelKey: 'themeAccentEmerald' },
+    { value: '#7c3aed', labelKey: 'themeAccentViolet' },
+    { value: '#e11d48', labelKey: 'themeAccentRose' },
+    { value: '#d97706', labelKey: 'themeAccentAmber' },
+] as const;
+export type ThemeAccentColor = typeof THEME_ACCENT_SWATCHES[number]['value'];
 
 export type AppSettings = {
     version: SettingsVersion;
@@ -61,6 +69,7 @@ export type AppSettings = {
     chatgptDirectory: ChatGPTDirectorySettings;
     appearance: {
         fontSizePx: number;
+        accentColor: ThemeAccentColor | null;
     };
     bookmarks: {
         sortMode: 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
@@ -88,7 +97,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
-    appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX },
+    appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
 };

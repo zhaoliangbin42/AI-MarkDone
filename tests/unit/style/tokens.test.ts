@@ -97,6 +97,16 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-user-reader-content-width: 720px;');
     });
 
+    it('maps accent overrides across primary, info, focus, and selected theme tokens', () => {
+        const css = getTokenCss('light', { accentColor: '#059669' });
+
+        expect(css).toContain('--aimd-sys-color-accent: #059669;');
+        expect(css).toContain('--aimd-sys-color-state-info-border: color-mix(in srgb, #059669 35%, transparent);');
+        expect(css).toContain('--aimd-sys-color-list-selected: color-mix(in srgb, #059669 14%, transparent);');
+        expect(css).toContain('--aimd-sys-color-list-selected-text: #059669;');
+        expect(css).toContain('--aimd-focus-ring: var(--aimd-sys-color-focus-ring);');
+    });
+
     it('allows global font size overrides across the 12px to 20px user range', () => {
         const minCss = getTokenCss('light', { baseFontScale: 0.75 });
         const maxCss = getTokenCss('light', { baseFontScale: 1.25 });

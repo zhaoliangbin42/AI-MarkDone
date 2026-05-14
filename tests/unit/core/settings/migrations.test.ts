@@ -45,6 +45,20 @@ describe('settings migrations', () => {
         expect(next.appearance.fontSizePx).toBe(20);
     });
 
+    it('normalizes v3 appearance accent color settings', () => {
+        const accepted = loadAndNormalize({
+            version: 3,
+            appearance: { accentColor: '#7c3aed' },
+        } as any);
+        const rejected = loadAndNormalize({
+            version: 3,
+            appearance: { accentColor: '#123456' },
+        } as any);
+
+        expect(accepted.appearance.accentColor).toBe('#7c3aed');
+        expect(rejected.appearance.accentColor).toBeNull();
+    });
+
     it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {
         const next = loadAndNormalize({
             version: 3,

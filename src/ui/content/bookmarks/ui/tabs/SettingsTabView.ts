@@ -8,7 +8,10 @@ import {
     MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
     READER_CONTENT_MAX_WIDTH_STEP_PX,
+    THEME_ACCENT_SWATCHES,
+    type ThemeAccentColor,
 } from '../../../../../core/settings/types';
+import { normalizeThemeAccentColor } from '../../../../../core/settings/migrations';
 import {
     MAX_PNG_EXPORT_PIXEL_RATIO,
     MAX_PNG_EXPORT_WIDTH,
@@ -421,6 +424,7 @@ export class SettingsTabView {
             chatgptDirectory: { ...DEFAULT_SETTINGS.chatgptDirectory, ...params.settings.chatgptDirectory },
             appearance: {
                 fontSizePx: this.normalizeGlobalFontSize(params.settings.appearance?.fontSizePx ?? DEFAULT_SETTINGS.appearance.fontSizePx),
+                accentColor: this.normalizeAccentColor(params.settings.appearance?.accentColor),
             },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
             reader: {
@@ -866,6 +870,12 @@ export class SettingsTabView {
         fontSize.decrease.addEventListener('click', () => this.updateGlobalFontSize(-GLOBAL_FONT_SIZE_STEP_PX));
         fontSize.increase.addEventListener('click', () => this.updateGlobalFontSize(GLOBAL_FONT_SIZE_STEP_PX));
 
+        this.createAccentColorRow(
+            appearanceSection,
+            t('themeAccentColorLabel'),
+            t('themeAccentColorDesc'),
+        );
+
         const readerSection = document.createElement('div');
         readerSection.className = 'settings-advanced-section';
         const title = document.createElement('h4');
@@ -896,6 +906,7 @@ export class SettingsTabView {
         });
 
         body.append(appearanceSection, readerSection);
+        this.syncAccentColorSwatches();
     }
 
     private normalizeReaderContentWidth(value: number): number {
@@ -910,6 +921,10 @@ export class SettingsTabView {
         return Math.round(clamped / GLOBAL_FONT_SIZE_STEP_PX) * GLOBAL_FONT_SIZE_STEP_PX;
     }
 
+    private normalizeAccentColor(value: unknown): ThemeAccentColor | null {
+        return normalizeThemeAccentColor(value);
+    }
+
     private updateGlobalFontSize(delta: number): void {
         const current = this.normalizeGlobalFontSize(this.settings.appearance?.fontSizePx);
         const next = this.normalizeGlobalFontSize(current + delta);
@@ -922,12 +937,73 @@ export class SettingsTabView {
         void this.actions.setAppearanceSettings?.({ fontSizePx: next });
     }
 
+    private updateAccentColor(color: ThemeAccentColor): void {
+        const next = color === DEFAULT_SETTINGS.appearance.accentColor || color === THEME_ACCENT_SWATCHES[0].value
+            ? null
+            : color;
+        const current = this.normalizeAccentColor(this.settings.appearance?.accentColor);
+        if (next === current) {
+            this.syncAccentColorSwatches();
+            return;
+        }
+        this.settings.appearance = { ...this.settings.appearance, accentColor: next };
+        this.syncAccentColorSwatches();
+        void this.actions.setAppearanceSettings?.({ accentColor: next });
+    }
+
     private syncFontSizeStepper(ref: StepperFieldRef | null): void {
         if (!ref) return;
         const value = this.normalizeGlobalFontSize(this.settings.appearance?.fontSizePx);
         ref.value.textContent = `${value}px`;
         ref.decrease.disabled = value <= MIN_GLOBAL_FONT_SIZE_PX;
         ref.increase.disabled = value >= MAX_GLOBAL_FONT_SIZE_PX;
+    }
+
+    private createAccentColorRow(parent: HTMLElement, labelText: string, desc: string): void {
+        const item = document.createElement('div');
+        item.className = 'settings-row settings-item settings-color-row';
+        const info = document.createElement('div');
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        const summary = document.createElement('p');
+        summary.textContent = desc;
+        info.append(label, summary);
+
+        const field = document.createElement('div');
+        field.className = 'settings-color-swatches';
+        field.setAttribute('role', 'radiogroup');
+        field.setAttribute('aria-label', labelText);
+
+        for (const swatch of THEME_ACCENT_SWATCHES) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'settings-color-swatch';
+            button.dataset.role = 'settings-accent-color-swatch';
+            button.dataset.color = swatch.value;
+            button.setAttribute('role', 'radio');
+            button.setAttribute('aria-label', t(swatch.labelKey));
+            button.style.setProperty('--_settings-accent-color', swatch.value);
+
+            const preview = document.createElement('span');
+            preview.className = 'settings-color-swatch__preview';
+            preview.setAttribute('aria-hidden', 'true');
+            button.appendChild(preview);
+            button.addEventListener('click', () => this.updateAccentColor(swatch.value));
+            field.appendChild(button);
+        }
+
+        item.append(info, field);
+        parent.appendChild(item);
+    }
+
+    private syncAccentColorSwatches(): void {
+        const selected = this.normalizeAccentColor(this.settings.appearance?.accentColor) ?? THEME_ACCENT_SWATCHES[0].value;
+        this.refs.advanced.body.querySelectorAll<HTMLButtonElement>('[data-role="settings-accent-color-swatch"]').forEach((button) => {
+            const isSelected = button.dataset.color === selected;
+            button.dataset.selected = isSelected ? '1' : '0';
+            button.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        });
     }
 
     private createNumberField(min: number, max: number, step: number): NumberFieldRef {

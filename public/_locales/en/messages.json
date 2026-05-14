@@ -359,6 +359,34 @@
         "message": "Increase font size",
         "description": "Message for increaseFontSize"
     },
+    "themeAccentColorLabel": {
+        "message": "Theme color",
+        "description": "Message for themeAccentColorLabel"
+    },
+    "themeAccentColorDesc": {
+        "message": "Choose the accent color used by primary actions, links, focus rings, and selected states.",
+        "description": "Message for themeAccentColorDesc"
+    },
+    "themeAccentDefaultBlue": {
+        "message": "Default blue",
+        "description": "Message for themeAccentDefaultBlue"
+    },
+    "themeAccentEmerald": {
+        "message": "Emerald",
+        "description": "Message for themeAccentEmerald"
+    },
+    "themeAccentViolet": {
+        "message": "Violet",
+        "description": "Message for themeAccentViolet"
+    },
+    "themeAccentRose": {
+        "message": "Rose",
+        "description": "Message for themeAccentRose"
+    },
+    "themeAccentAmber": {
+        "message": "Amber",
+        "description": "Message for themeAccentAmber"
+    },
     "advancedSettingsLabel": {
         "message": "Advanced Settings",
         "description": "Message for advancedSettingsLabel"

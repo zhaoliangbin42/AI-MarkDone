@@ -17,4 +17,15 @@ describe('fallback popup UI', () => {
         expect(html).toContain('class="popup-footer"');
         expect(html).toContain('--aimd-');
     });
+
+    it('keeps popup theme color fallback constrained to approved swatches', () => {
+        const html = readPopupHtml();
+
+        expect(html).toContain('const approvedAccentColors = new Set');
+        expect(html).toContain("'#2563eb'");
+        expect(html).toContain("'#059669'");
+        expect(html).toContain("'#7c3aed'");
+        expect(html).toContain("'#e11d48'");
+        expect(html).toContain("'#d97706'");
+    });
 });

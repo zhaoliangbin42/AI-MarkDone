@@ -15,13 +15,14 @@ const themeManagerCtor = vi.fn(function () {
 const readerPanelCtor = vi.fn(function () {
     return {
         setTheme: vi.fn(),
+        setThemeOverrides: vi.fn(),
         setRenderCodeInReader: vi.fn(),
         setContentMaxWidthPx: vi.fn(),
         setCommentExportSettings: vi.fn(),
     };
 });
 const sendControllerCtor = vi.fn(function () {
-    return { setTheme: vi.fn() };
+    return { setTheme: vi.fn(), setThemeOverrides: vi.fn() };
 });
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
@@ -45,6 +46,7 @@ const bookmarksControllerCtor = vi.fn(function () {
         refreshAll: bookmarksControllerRefreshAll,
         refreshPositionsForUrl: bookmarksControllerRefreshPositions,
         setTheme: bookmarksControllerSetTheme,
+        setThemeOverrides: vi.fn(),
     };
 });
 const bookmarksToggle = vi.fn(async () => {});
@@ -61,6 +63,7 @@ const messageToolbarCtor = vi.fn(function () {
     return {
         init: messageToolbarsInit,
         setTheme: messageToolbarsSetTheme,
+        setThemeOverrides: vi.fn(),
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
         setExportSettings: messageToolbarsSetExportSettings,
         dispose: messageToolbarsDispose,
@@ -84,6 +87,7 @@ const directoryCtor = vi.fn(function () {
         setDisplayMode: directorySetDisplayMode,
         setPromptLabelMode: directorySetPromptLabelMode,
         setTheme: directorySetTheme,
+        setThemeOverrides: vi.fn(),
         dispose: directoryDispose,
     };
 });
@@ -220,6 +224,49 @@ describe('content runtime entry', () => {
         expect(engineCtor).not.toHaveBeenCalled();
         expect(directoryCtor).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeUndefined();
+    });
+
+    it('maps cached appearance accent color into runtime theme overrides', async () => {
+        adapterPlatformId = 'gemini';
+        settingsGetCached.mockReturnValue({
+            language: 'auto',
+            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            behavior: {
+                showSaveMessages: true,
+                showWordCount: true,
+                enableClickToCopy: true,
+                saveContextOnly: false,
+                _contextOnlyConfirmed: true,
+            },
+            formula: {
+                clickCopyMarkdown: true,
+                assetActions: { copyPng: true, copySvg: true, savePng: true, saveSvg: true },
+            },
+            reader: {
+                renderCodeInReader: true,
+                contentMaxWidthPx: 1000,
+                commentExport: {
+                    prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+                    template: [],
+                    promptPosition: 'top',
+                },
+            },
+            export: { pngWidthPreset: 'desktop', pngCustomWidth: 920, pngPixelRatio: 1 },
+            chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
+            appearance: { fontSizePx: 18, accentColor: '#7c3aed' },
+            bookmarks: { sortMode: 'alpha-asc' },
+        });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(ensurePageTokens).toHaveBeenLastCalledWith(expect.objectContaining({
+            accentColor: '#7c3aed',
+            baseFontScale: 18 / 16,
+        }));
+        expect(messageToolbarCtor.mock.results[0]?.value.setThemeOverrides).toHaveBeenCalledWith(expect.objectContaining({
+            accentColor: '#7c3aed',
+        }));
     });
 
     it('creates ChatGPT-only conversation engine and directory controller', async () => {

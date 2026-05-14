@@ -66,6 +66,18 @@ describe('settingsService', () => {
         expect(invalid.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
     });
 
+    it('normalizes appearance accent color to approved theme swatches', () => {
+        const emerald = planSetCategory(DEFAULT_SETTINGS, 'appearance', { accentColor: '#059669' }).next;
+        const shorthand = planSetCategory(DEFAULT_SETTINGS, 'appearance', { accentColor: '#0a7' }).next;
+        const invalid = planSetCategory(DEFAULT_SETTINGS, 'appearance', { accentColor: '#123456' }).next;
+        const reset = planSetCategory(emerald, 'appearance', { accentColor: null }).next;
+
+        expect(emerald.appearance.accentColor).toBe('#059669');
+        expect(shorthand.appearance.accentColor).toBeNull();
+        expect(invalid.appearance.accentColor).toBeNull();
+        expect(reset.appearance.accentColor).toBeNull();
+    });
+
     it('drops retired ChatGPT-specific settings when normalizing stored settings', () => {
         const next = loadAndNormalize({
             ...DEFAULT_SETTINGS,

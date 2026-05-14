@@ -83,6 +83,7 @@ Rules:
 - State colors must not become decorative accents.
 - Do not introduce page-specific or host-specific color tokens.
 - Do not use `--aimd-ref-*` tokens directly in component CSS.
+- User-facing theme color is a constrained appearance setting: `appearance.accentColor` can only be selected from the approved swatch list, and `null` means the default brand blue.
 
 ### 4.1 Current Color Values
 
@@ -100,6 +101,16 @@ Core palette:
 | White / on-accent | `--aimd-ref-color-neutral-white` | `#ffffff` | `#ffffff` |
 | Brand accent | `--aimd-ref-color-brand-600` | `#2563eb` | `#2563eb` |
 | Brand hover | `--aimd-ref-color-brand-700` | `#1d4ed8` | `#1d4ed8` |
+
+Approved user theme swatches:
+
+| Swatch | Stored value | Rule |
+|:--|:--|:--|
+| Default blue | `null` / `#2563eb` preview | Product default; reset state stores `null`. |
+| Emerald | `#059669` | Optional user accent. |
+| Violet | `#7c3aed` | Optional user accent. |
+| Rose | `#e11d48` | Optional user accent. |
+| Amber | `#d97706` | Optional user accent. |
 
 Alpha and interaction palette:
 
@@ -156,6 +167,7 @@ Rules:
 - Letter spacing should remain `0` unless a component token explicitly defines otherwise.
 - Long text must wrap or truncate by component contract, not by accidental overflow.
 - User-facing global font size is an appearance setting, not a component prop: `appearance.fontSizePx` is limited to `12px`-`20px`, defaults to `16px`, changes by `1px` stepper controls only, and maps to `UserThemeOverrides.baseFontScale`.
+- User-facing theme color is also an appearance setting: `appearance.accentColor` is selected through visual swatches only, never typed text, and maps to `UserThemeOverrides.accentColor`.
 
 ### 5.1 Current Typography Values
 
@@ -351,7 +363,7 @@ The supported override shape is `UserThemeOverrides`:
 
 | Field | Purpose | Mapping |
 |:--|:--|:--|
-| `accentColor` | User theme color | Maps to accent, accent hover, accent soft, flash, and focus tokens. |
+| `accentColor` | User theme color | Maps to accent, accent hover, accent soft, flash, focus, info border, and selected-state tokens. |
 | `density` | Compact or comfortable UI density | Maps to shared spacing, control size, and panel header tokens. |
 | `baseFontScale` | UI font scaling | Maps `appearance.fontSizePx / 16` to type-size system tokens, clamped to the public `12px`-`20px` setting range. |
 | `cornerScale` | Roundedness strength | Maps to shared radius system tokens. |

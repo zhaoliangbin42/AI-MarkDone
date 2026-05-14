@@ -46,7 +46,7 @@ const baseSettings = {
         mode: 'preview',
         promptLabelMode: 'head',
     },
-    appearance: { fontSizePx: 16 },
+    appearance: { fontSizePx: 16, accentColor: null },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
 } as any;
@@ -338,6 +338,31 @@ describe('SettingsTabView', () => {
         buttons[0]!.click();
         expect(value.textContent).toBe('16px');
         expect(onSetAppearanceSettings).toHaveBeenLastCalledWith({ fontSizePx: 16 });
+    });
+
+    it('renders accent color as preview swatches and persists the selected swatch', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetAppearanceSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({ modal, actions: { setAppearanceSettings: onSetAppearanceSettings } });
+        view.setState({
+            settings: { ...structuredClone(baseSettings), appearance: { fontSizePx: 16, accentColor: '#059669' } },
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        root.querySelector<HTMLButtonElement>('[data-role="settings-advanced-toggle"]')!.click();
+
+        const swatches = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-role="settings-accent-color-swatch"]'));
+        expect(swatches.length).toBeGreaterThan(3);
+        expect(swatches.some((button) => button.querySelector('.settings-color-swatch__preview'))).toBe(true);
+        expect(swatches.find((button) => button.dataset.color === '#059669')?.dataset.selected).toBe('1');
+        expect(root.querySelector('[data-role="settings-accent-color-input"]')).toBeNull();
+
+        swatches.find((button) => button.dataset.color === '#7c3aed')!.click();
+
+        expect(onSetAppearanceSettings).toHaveBeenLastCalledWith({ accentColor: '#7c3aed' });
+        expect(swatches.find((button) => button.dataset.color === '#7c3aed')?.dataset.selected).toBe('1');
     });
 
     it('wires the reader comment prompt position toggle without replacing prompts or template', () => {

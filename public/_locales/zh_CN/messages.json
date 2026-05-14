@@ -359,6 +359,34 @@
         "message": "增大字号",
         "description": "Message for increaseFontSize"
     },
+    "themeAccentColorLabel": {
+        "message": "主题色",
+        "description": "Message for themeAccentColorLabel"
+    },
+    "themeAccentColorDesc": {
+        "message": "选择主按钮、链接、焦点环和选中状态使用的强调色。",
+        "description": "Message for themeAccentColorDesc"
+    },
+    "themeAccentDefaultBlue": {
+        "message": "默认蓝",
+        "description": "Message for themeAccentDefaultBlue"
+    },
+    "themeAccentEmerald": {
+        "message": "翡翠绿",
+        "description": "Message for themeAccentEmerald"
+    },
+    "themeAccentViolet": {
+        "message": "紫罗兰",
+        "description": "Message for themeAccentViolet"
+    },
+    "themeAccentRose": {
+        "message": "玫瑰红",
+        "description": "Message for themeAccentRose"
+    },
+    "themeAccentAmber": {
+        "message": "琥珀色",
+        "description": "Message for themeAccentAmber"
+    },
     "advancedSettingsLabel": {
         "message": "高级设置",
         "description": "Message for advancedSettingsLabel"

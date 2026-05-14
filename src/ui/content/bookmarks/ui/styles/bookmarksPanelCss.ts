@@ -1283,6 +1283,63 @@ ${getPanelChromeCss()}
   white-space: nowrap;
 }
 
+.settings-color-row {
+  align-items: center;
+}
+
+.settings-color-swatches {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--aimd-space-2);
+  flex-wrap: nowrap;
+}
+
+.settings-color-swatch {
+  all: unset;
+  box-sizing: border-box;
+  width: var(--aimd-size-control-icon-panel);
+  height: var(--aimd-size-control-icon-panel);
+  min-width: var(--aimd-size-control-icon-panel);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--aimd-radius-full);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 76%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 92%, var(--aimd-bg-primary));
+  cursor: pointer;
+  box-shadow: var(--_bookmarks-control-inset-shadow);
+}
+
+.settings-color-swatch:hover,
+.settings-color-swatch:focus-visible {
+  border-color: color-mix(in srgb, var(--_settings-accent-color) 54%, var(--aimd-border-strong));
+  background: color-mix(in srgb, var(--_settings-accent-color) 8%, var(--aimd-bg-surface));
+}
+
+.settings-color-swatch:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-color-swatch[data-selected="1"] {
+  border-color: color-mix(in srgb, var(--_settings-accent-color) 72%, var(--aimd-border-strong));
+  background: color-mix(in srgb, var(--_settings-accent-color) 12%, var(--aimd-bg-surface));
+  box-shadow:
+    var(--_bookmarks-control-inset-shadow),
+    0 0 0 3px color-mix(in srgb, var(--_settings-accent-color) 16%, transparent);
+}
+
+.settings-color-swatch__preview {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--aimd-radius-full);
+  background: var(--_settings-accent-color);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--aimd-color-white) 54%, transparent),
+    0 1px 2px color-mix(in srgb, var(--aimd-text-primary) 18%, transparent);
+}
+
 .reader-settings-trigger {
   width: var(--aimd-size-control-icon-panel);
   height: var(--aimd-size-control-icon-panel);

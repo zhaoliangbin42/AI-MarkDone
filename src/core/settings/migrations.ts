@@ -7,8 +7,10 @@ import {
     MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
     READER_CONTENT_MAX_WIDTH_STEP_PX,
+    THEME_ACCENT_SWATCHES,
     DEFAULT_SETTINGS,
     type AppSettings,
+    type ThemeAccentColor,
 } from './types';
 import { normalizeExportSettings } from './export';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from './formula';
@@ -86,10 +88,18 @@ export function normalizeGlobalFontSizePx(value: unknown): number {
     return Math.round(clamped / GLOBAL_FONT_SIZE_STEP_PX) * GLOBAL_FONT_SIZE_STEP_PX;
 }
 
+export function normalizeThemeAccentColor(value: unknown): ThemeAccentColor | null {
+    if (typeof value !== 'string') return null;
+    const normalized = value.trim().toLowerCase();
+    const match = THEME_ACCENT_SWATCHES.find((swatch) => swatch.value === normalized);
+    return match?.value ?? null;
+}
+
 export function normalizeAppearanceSettings(value: unknown): AppSettings['appearance'] {
     const record = isRecord(value) ? value : {};
     return {
         fontSizePx: normalizeGlobalFontSizePx((record as any).fontSizePx),
+        accentColor: normalizeThemeAccentColor((record as any).accentColor),
     };
 }
 

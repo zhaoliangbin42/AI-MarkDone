@@ -37,6 +37,9 @@ function getUserThemeOverrideCss(overrides: UserThemeOverrides): string {
         declarations.push(`  --aimd-sys-color-accent-soft: color-mix(in srgb, ${accentColor} 14%, transparent);`);
         declarations.push(`  --aimd-sys-color-accent-flash: color-mix(in srgb, ${accentColor} 30%, transparent);`);
         declarations.push(`  --aimd-sys-color-focus-ring: color-mix(in srgb, ${accentColor} 35%, transparent);`);
+        declarations.push(`  --aimd-sys-color-state-info-border: color-mix(in srgb, ${accentColor} 35%, transparent);`);
+        declarations.push(`  --aimd-sys-color-list-selected: color-mix(in srgb, ${accentColor} 14%, transparent);`);
+        declarations.push(`  --aimd-sys-color-list-selected-text: ${accentColor};`);
     }
 
     if (overrides.density === 'compact') {

@@ -21,7 +21,7 @@ import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPT
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
-import { normalizeGlobalFontSizePx } from '../../core/settings/migrations';
+import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
 
 ensurePageTokens();
@@ -243,7 +243,9 @@ function shouldEnableFormulaInteractions(settings: typeof DEFAULT_SETTINGS.formu
 
 function getThemeOverrides(settings: typeof DEFAULT_SETTINGS | null | undefined): UserThemeOverrides {
     const fontSizePx = normalizeGlobalFontSizePx(settings?.appearance?.fontSizePx);
+    const accentColor = normalizeThemeAccentColor(settings?.appearance?.accentColor);
     return {
+        ...(accentColor ? { accentColor } : {}),
         baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
         readerContentWidthPx: settings?.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
     };
