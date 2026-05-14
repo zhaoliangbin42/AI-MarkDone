@@ -33,6 +33,7 @@ The product should avoid decorative weight. It should make long-form reading and
 ### 2.4 Minimal Palette
 
 - The system uses one brand accent, one neutral scale, and a small set of semantic state colors.
+- A multi-color treatment is only allowed when it represents a specific product state. The current approved exception is the ChatGPT directory bookmark marker, exposed through `--aimd-bookmark-marker-gradient` / `--aimd-bookmark-marker-glow`.
 - New accent families require a product reason and design review.
 - Avoid multi-accent decoration, one-off gradients, and page-themed palettes.
 
@@ -73,6 +74,7 @@ The color system should be small enough to remember and broad enough to cover al
 | Border | Subtle, default, strong | Borders express structure. Do not use color accents as borders unless the component is selected or in an error state. |
 | Accent | Brand accent, hover, pressed, soft, on-accent | Use for primary actions, active navigation, focus highlights, and selected states. |
 | State | Success, warning, danger, info if needed | State colors must map to user feedback or destructive/exceptional actions. |
+| Bookmark marker | Rainbow saved-state marker | Only for compact ChatGPT directory markers that need to distinguish saved messages from active/hover states. Do not reuse as decoration. |
 | Focus | Focus ring and focus shadow | Focus indicators must remain visible in light and dark themes. |
 | Overlay | Scrim/backdrop and portal shadows | Must remain readable over third-party pages. |
 

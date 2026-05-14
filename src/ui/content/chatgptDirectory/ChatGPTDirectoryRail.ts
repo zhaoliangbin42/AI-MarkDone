@@ -41,6 +41,7 @@ export class ChatGPTDirectoryRail {
     private nextButton: HTMLButtonElement;
     private previewEl: HTMLDivElement;
     private rounds: ChatGPTConversationRound[] = [];
+    private bookmarkedPositions = new Set<number>();
     private activePosition = 0;
     private hoverPosition: number | null = null;
     private displayMode: ChatGPTDirectoryMode = 'preview';
@@ -200,6 +201,15 @@ export class ChatGPTDirectoryRail {
         this.render();
     }
 
+    setBookmarkedPositions(positions: Iterable<number>): void {
+        this.bookmarkedPositions = new Set(
+            Array.from(positions)
+                .map((position) => Number(position))
+                .filter((position) => Number.isInteger(position) && position > 0),
+        );
+        this.renderBookmarkedState();
+    }
+
     setActivePosition(position: number, options?: { follow?: boolean }): void {
         this.activePosition = position;
         this.renderActiveState();
@@ -238,6 +248,7 @@ export class ChatGPTDirectoryRail {
             button.className = 'rail__item';
             button.dataset.position = String(round.position);
             button.dataset.active = round.position === this.activePosition ? '1' : '0';
+            button.dataset.bookmarked = this.bookmarkedPositions.has(round.position) ? '1' : '0';
             button.setAttribute('aria-label', `#${round.position} ${round.userPrompt}`);
             button.addEventListener('click', () => this.onSelect(round));
             const index = document.createElement('span');
@@ -251,7 +262,14 @@ export class ChatGPTDirectoryRail {
         }
 
         this.renderHoverState();
+        this.renderBookmarkedState();
         this.renderPreview();
+    }
+
+    private renderBookmarkedState(): void {
+        for (const item of Array.from(this.listEl.querySelectorAll<HTMLElement>('.rail__item'))) {
+            item.dataset.bookmarked = this.bookmarkedPositions.has(Number(item.dataset.position)) ? '1' : '0';
+        }
     }
 
     private renderActiveState(): void {
@@ -613,11 +631,19 @@ export class ChatGPTDirectoryRail {
   transform: scaleX(0.56);
   background: var(--aimd-interactive-primary);
 }
+.rail__item[data-bookmarked="1"]::before {
+  background: var(--aimd-bookmark-marker-gradient);
+  box-shadow: 0 0 0 2px var(--aimd-bookmark-marker-glow);
+}
 .rail__item[data-proximity="0"]::before {
   transform: scaleX(1);
   height: 4px;
   background: var(--aimd-interactive-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+}
+.rail__item[data-bookmarked="1"][data-proximity="0"]::before {
+  background: var(--aimd-bookmark-marker-gradient);
+  box-shadow: 0 0 0 3px var(--aimd-bookmark-marker-glow);
 }
 .rail__item[data-proximity="1"]::before {
   transform: scaleX(0.83);
@@ -650,6 +676,12 @@ export class ChatGPTDirectoryRail {
   transform: scaleX(1);
   height: 4px;
   background: var(--aimd-interactive-primary);
+}
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-bookmarked="1"]::before,
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-bookmarked="1"][data-active="1"]::before,
+.rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-bookmarked="1"][data-hovered="1"]::before {
+  background: var(--aimd-bookmark-marker-gradient);
+  box-shadow: 0 0 0 2px var(--aimd-bookmark-marker-glow);
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__label {
   grid-column: 2;
@@ -696,6 +728,10 @@ export class ChatGPTDirectoryRail {
   }
   .rail__item[data-active="1"]::before,
   .rail__item[data-proximity="0"]::before {
+    background: var(--aimd-interactive-primary);
+  }
+  .rail__item[data-bookmarked="1"]::before,
+  .rail__item[data-bookmarked="1"][data-proximity="0"]::before {
     background: var(--aimd-interactive-primary);
   }
 }

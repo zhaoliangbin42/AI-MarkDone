@@ -116,6 +116,8 @@ export function getSystemTokenCss(theme: Theme, overrides: UserThemeOverrides = 
   --aimd-sys-color-list-pressed: ${isDark ? 'var(--aimd-ref-color-white-alpha-16)' : 'var(--aimd-ref-color-brand-alpha-12)'};
   --aimd-sys-color-list-selected: var(--aimd-ref-color-brand-selected);
   --aimd-sys-color-list-selected-text: var(--aimd-ref-color-brand-selected-text);
+  --aimd-sys-color-bookmark-marker-gradient: linear-gradient(90deg, var(--aimd-ref-color-bookmark-rainbow-rose) 0%, var(--aimd-ref-color-bookmark-rainbow-amber) 22%, var(--aimd-ref-color-bookmark-rainbow-emerald) 48%, var(--aimd-ref-color-bookmark-rainbow-sky) 72%, var(--aimd-ref-color-bookmark-rainbow-violet) 100%);
+  --aimd-sys-color-bookmark-marker-glow: ${isDark ? 'color-mix(in srgb, var(--aimd-ref-color-bookmark-rainbow-sky) 34%, transparent)' : 'color-mix(in srgb, var(--aimd-ref-color-bookmark-rainbow-violet) 22%, transparent)'};
 
   --aimd-sys-shadow-xs: var(--aimd-ref-shadow-xs);
   --aimd-sys-shadow-sm: var(--aimd-ref-shadow-sm);
@@ -320,6 +322,8 @@ ${getUserThemeOverrideCss(overrides)}
   --aimd-list-pressed: var(--aimd-sys-color-list-pressed);
   --aimd-list-selected: var(--aimd-sys-color-list-selected);
   --aimd-list-selected-text: var(--aimd-sys-color-list-selected-text);
+  --aimd-bookmark-marker-gradient: var(--aimd-sys-color-bookmark-marker-gradient);
+  --aimd-bookmark-marker-glow: var(--aimd-sys-color-bookmark-marker-glow);
   --aimd-text-warning: var(--aimd-sys-color-warning-text);
   --aimd-text-link: var(--aimd-sys-color-link);
   --aimd-text-link-hover: var(--aimd-sys-color-link-hover);

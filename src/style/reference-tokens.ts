@@ -32,6 +32,11 @@ export function getReferenceTokenCss(theme: Theme): string {
   --aimd-ref-color-brand-alpha-35: rgba(37,99,235,0.35);
   --aimd-ref-color-brand-selected: ${isDark ? 'rgba(138,180,248,0.22)' : 'rgba(219,234,254,0.96)'};
   --aimd-ref-color-brand-selected-text: ${isDark ? '#8ab4f8' : '#2563eb'};
+  --aimd-ref-color-bookmark-rainbow-rose: #f43f5e;
+  --aimd-ref-color-bookmark-rainbow-amber: #f59e0b;
+  --aimd-ref-color-bookmark-rainbow-emerald: #10b981;
+  --aimd-ref-color-bookmark-rainbow-sky: #0ea5e9;
+  --aimd-ref-color-bookmark-rainbow-violet: #8b5cf6;
   --aimd-ref-color-green-alpha-35: rgba(16,185,129,0.35);
   --aimd-ref-color-red-alpha-35: rgba(239,68,68,0.35);
   --aimd-ref-color-black-alpha-35: ${isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)'};

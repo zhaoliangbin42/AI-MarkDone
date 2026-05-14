@@ -27,6 +27,8 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-size-control-action-panel');
         expect(css).toContain('--aimd-color-white');
         expect(css).toContain('--aimd-color-success');
+        expect(css).toContain('--aimd-bookmark-marker-gradient');
+        expect(css).toContain('--aimd-bookmark-marker-glow');
         expect(css).toContain('--aimd-sys-size-control-icon-toolbar: var(--aimd-ref-size-300);');
         expect(css).toContain('--aimd-panel-header-height');
         expect(css).toContain('--aimd-panel-header-height-compact');

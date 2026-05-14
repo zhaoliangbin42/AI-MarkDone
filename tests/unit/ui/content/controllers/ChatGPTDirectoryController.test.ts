@@ -220,6 +220,27 @@ describe('ChatGPTDirectoryController', () => {
         expect(items[1]?.dataset.position).toBe('2');
     });
 
+    it('marks bookmarked rounds in the directory rail from the shared bookmarks controller state', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => buildSnapshot()), subscribe: vi.fn(() => () => undefined) } as any;
+        const bookmarksController = {
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            isPositionBookmarked: vi.fn((_url: string, position: number) => position === 2),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine, bookmarksController);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        await vi.waitFor(() => {
+            const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+            const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+            expect(bookmarksController.refreshPositionsForUrl).toHaveBeenCalledWith(expect.stringContaining('/c/69e8d157-5fec-839c-9124-2179ba8b7d7c'));
+            expect(items.map((item) => item.dataset.bookmarked)).toEqual(['0', '1']);
+        });
+    });
+
     it('uses DOM-discovered prompts instead of low-quality snapshot Message labels', () => {
         document.body.innerHTML = `
           <div data-turn-id-container id="user-1"><section data-turn="user">真实用户问题一</section></div>
@@ -328,6 +349,35 @@ describe('ChatGPTDirectoryController', () => {
 
         expect(list?.dataset.hasHover).toBe('0');
         expect(items.every((item) => item.dataset.proximity === undefined)).toBe(true);
+    });
+
+    it('uses the tokenized rainbow bookmark marker style for saved directory items', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        rail.setRounds(buildSnapshot().rounds);
+        rail.setBookmarkedPositions(new Set([2]));
+
+        const items = Array.from(rail.getElement().shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        const style = rail.getElement().shadowRoot?.querySelector('style')?.textContent ?? '';
+
+        expect(items.map((item) => item.dataset.bookmarked)).toEqual(['0', '1']);
+        expect(style).toContain('var(--aimd-bookmark-marker-gradient)');
+        expect(style).toContain('var(--aimd-bookmark-marker-glow)');
+
+        rail.dispose();
+    });
+
+    it('keeps bookmarked directory markers at the normal collapsed length when not hovered or active', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        rail.setRounds(buildSnapshot().rounds);
+        rail.setBookmarkedPositions(new Set([2]));
+
+        const style = rail.getElement().shadowRoot?.querySelector('style')?.textContent ?? '';
+        const bookmarkedRule = style.match(/\.rail__item\[data-bookmarked="1"\]::before\s*\{[^}]+\}/)?.[0] ?? '';
+
+        expect(bookmarkedRule).toContain('background: var(--aimd-bookmark-marker-gradient)');
+        expect(bookmarkedRule).not.toContain('transform:');
+
+        rail.dispose();
     });
 
     it('renders the directory preview as a body-level portal on hover', () => {

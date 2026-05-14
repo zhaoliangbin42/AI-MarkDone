@@ -13,6 +13,12 @@ import {
 } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
 
+type DirectoryBookmarksState = {
+    refreshPositionsForUrl?: (url: string) => Promise<void>;
+    isPositionBookmarked?: (url: string, position: number) => boolean;
+    subscribe?: (listener: () => void) => () => void;
+};
+
 function isChatGPTConversationPage(url: string): boolean {
     try {
         const parsed = new URL(url);
@@ -41,9 +47,20 @@ function isLowQualityPrompt(prompt: string | null | undefined): boolean {
     return !normalized || /^Message\s+\d+$/i.test(normalized);
 }
 
+function getDirectoryBookmarkUrl(): string {
+    try {
+        const parsed = new URL(window.location.href);
+        parsed.hash = '';
+        return `${parsed.origin}${parsed.pathname}${parsed.search}`;
+    } catch {
+        return window.location.href.split('#')[0] || window.location.href;
+    }
+}
+
 export class ChatGPTDirectoryController {
     private adapter: SiteAdapter;
     private engine: ChatGPTConversationEngine;
+    private bookmarksState: DirectoryBookmarksState | null;
     private rail: ChatGPTDirectoryRail | null = null;
     private theme: Theme = 'light';
     private themeOverrides: UserThemeOverrides = {};
@@ -61,12 +78,14 @@ export class ChatGPTDirectoryController {
     private snapshotRetryTimer: number | null = null;
     private snapshotRetryCount = 0;
     private unsubscribeEngine: (() => void) | null = null;
+    private unsubscribeBookmarks: (() => void) | null = null;
     private initialized = false;
     private globalScrollFallbacksBound = false;
 
-    constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine) {
+    constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine, bookmarksState: DirectoryBookmarksState | null = null) {
         this.adapter = adapter;
         this.engine = engine;
+        this.bookmarksState = bookmarksState;
     }
 
     init(theme: Theme): void {
@@ -89,6 +108,9 @@ export class ChatGPTDirectoryController {
             if (snapshot) this.snapshotRetryCount = 0;
             this.render();
         });
+        this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
+            this.render();
+        }) ?? null;
         void this.refresh();
     }
 
@@ -105,6 +127,8 @@ export class ChatGPTDirectoryController {
         this.routeWatcher = null;
         this.unsubscribeEngine?.();
         this.unsubscribeEngine = null;
+        this.unsubscribeBookmarks?.();
+        this.unsubscribeBookmarks = null;
         this.mutationObserver?.disconnect();
         this.mutationObserver = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
@@ -176,7 +200,13 @@ export class ChatGPTDirectoryController {
         this.ensureRail();
         this.rail?.setVisible(true);
         this.rebindObservers();
-        this.snapshot = await this.engine.getSnapshot();
+        this.render();
+        const bookmarkUrl = getDirectoryBookmarkUrl();
+        const [snapshot] = await Promise.all([
+            this.engine.getSnapshot(),
+            this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined) ?? Promise.resolve(),
+        ]);
+        this.snapshot = snapshot;
         this.render();
         if (!this.snapshot) this.scheduleSnapshotRetry();
         writeDebugState({
@@ -192,8 +222,21 @@ export class ChatGPTDirectoryController {
         this.refreshRoundPositions();
         const rounds = this.buildDirectoryRounds();
         this.rail.setRounds(rounds);
+        this.syncBookmarkedPositions(rounds);
         this.updateActivePosition();
         this.syncStepControls();
+    }
+
+    private syncBookmarkedPositions(rounds: ChatGPTConversationRound[]): void {
+        if (!this.rail || !this.bookmarksState?.isPositionBookmarked) {
+            this.rail?.setBookmarkedPositions([]);
+            return;
+        }
+        const url = getDirectoryBookmarkUrl();
+        const positions = rounds
+            .filter((round) => this.bookmarksState!.isPositionBookmarked!(url, round.position))
+            .map((round) => round.position);
+        this.rail.setBookmarkedPositions(positions);
     }
 
     private scheduleSnapshotRetry(): void {

@@ -52,7 +52,7 @@ if (adapter) {
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
-        ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine)
+        ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
