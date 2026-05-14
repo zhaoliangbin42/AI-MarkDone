@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added theme color swatches in Advanced Settings, with live token-based refresh for primary actions, links, focus rings, selected states, and the unsupported-page popup.
 
 ### Fixed
+- Reader: Refreshes the latest ChatGPT Reader page from the live conversation snapshot when opened or revisited, while keeping earlier Reader pages frozen for stable reading.
 - Reader: Preserved rendered formulas inside HTML table cells when converting page content back to Markdown, so Reader can render those table formulas with KaTeX instead of flattening them to visible text.
 
 ## [4.4.0] - 2026-05-12

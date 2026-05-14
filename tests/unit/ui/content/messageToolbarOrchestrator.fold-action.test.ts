@@ -144,9 +144,32 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         `;
 
         const adapter = new ChatGPTAdapter();
-        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+        } as any;
         const chatGptConversationEngine = {
             getSnapshot: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                buildFingerprint: 'build-1',
+                capturedAt: Date.now(),
+                source: 'runtime-bridge',
+                rounds: [
+                    {
+                        id: 'round-1',
+                        position: 1,
+                        userPrompt: 'Hello from user',
+                        assistantContent: 'Formula: \\(x = y + z\\)',
+                        preview: 'Hello from user',
+                        messageId: 'a1',
+                        userMessageId: 'u1',
+                        assistantMessageId: 'a1',
+                    },
+                ],
+            })),
+            forceRefreshCurrentConversation: vi.fn(async () => ({
                 conversationId: 'conv-1',
                 buildFingerprint: 'build-1',
                 capturedAt: Date.now(),
@@ -174,11 +197,11 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await readerAction.onClick();
 
         expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
         expect(readerPanel.show).toHaveBeenCalledWith(
             [
                 expect.objectContaining({
                     userPrompt: 'Hello from user',
-                    content: 'Formula: $x = y + z$',
                     meta: expect.objectContaining({
                         platformId: 'chatgpt',
                         messageId: 'a1',
@@ -190,6 +213,153 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
+        await expect(shownItems[0].content()).resolves.toBe('Formula: $x = y + z$');
+    });
+
+    it('refreshes only the ChatGPT Reader tail item content when it is resolved again', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Question 2</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="payload-a2">
+                <div class="markdown prose">Visible answer</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const firstSnapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Frozen answer 1',
+                    preview: 'Question 1',
+                    messageId: 'payload-a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'payload-a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: 'Tail before',
+                    preview: 'Question 2',
+                    messageId: 'payload-a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'payload-a2',
+                },
+            ],
+        };
+        const refreshedSnapshot = {
+            ...firstSnapshot,
+            capturedAt: Date.now() + 1,
+            rounds: [
+                firstSnapshot.rounds[0],
+                {
+                    ...firstSnapshot.rounds[1],
+                    assistantContent: 'Tail after with \\(x+y\\)',
+                },
+            ],
+        };
+        const adapter = new ChatGPTAdapter();
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => firstSnapshot),
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(firstSnapshot)
+                .mockResolvedValueOnce(refreshedSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+
+        expect(typeof shownItems[0]?.content).toBe('string');
+        expect(typeof shownItems[1]?.content).toBe('function');
+        await expect(shownItems[1].content()).resolves.toBe('Tail after with $x+y$');
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(2);
+    });
+
+    it('falls back to the original ChatGPT Reader tail content when live refresh misses', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Question 1</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="payload-a1">
+                <div class="markdown prose">Visible answer</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Original tail',
+                    preview: 'Question 1',
+                    messageId: 'payload-a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'payload-a1',
+                },
+            ],
+        };
+        const adapter = new ChatGPTAdapter();
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => snapshot),
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(snapshot)
+                .mockResolvedValueOnce(null),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+
+        await expect(shownItems[0].content()).resolves.toBe('Original tail');
     });
 
     it('opens ChatGPT Reader at the matching snapshot round from the shared Reader source', async () => {

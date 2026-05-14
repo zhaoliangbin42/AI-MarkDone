@@ -27,7 +27,7 @@ import type { RenderProgressEvent } from '../../../drivers/content/export/render
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
 import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
-import { resolveContent } from '../../../services/reader/types';
+import { resolveContent, type ReaderItem } from '../../../services/reader/types';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
@@ -39,7 +39,8 @@ import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
-import { resolveChatGPTConversationRound } from '../../../drivers/content/chatgpt/chatgptConversationSource';
+import { buildChatGPTConversationTurns, resolveChatGPTConversationRound } from '../../../drivers/content/chatgpt/chatgptConversationSource';
+import type { ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
 
@@ -285,6 +286,53 @@ export class MessageToolbarOrchestrator {
                 bookmarked: position > 0 ? this.bookmarksController.isPositionBookmarked(url, position) : false,
             };
         }
+    }
+
+    private resolveChatGptReaderItemIndex(snapshot: ChatGPTConversationSnapshot, item: ReaderItem): number {
+        const position = Number(item.meta?.position ?? 0);
+        if (Number.isInteger(position) && position > 0) {
+            const byPosition = snapshot.rounds.findIndex((round) => round.position === position);
+            if (byPosition >= 0) return byPosition;
+        }
+
+        const messageId = typeof item.meta?.messageId === 'string' && item.meta.messageId.trim()
+            ? item.meta.messageId.trim()
+            : null;
+        if (messageId) {
+            const byMessageId = snapshot.rounds.findIndex((round) => (
+                round.messageId === messageId
+                || round.assistantMessageId === messageId
+                || round.userMessageId === messageId
+                || round.id === messageId
+            ));
+            if (byMessageId >= 0) return byMessageId;
+        }
+
+        return Math.max(0, snapshot.rounds.length - 1);
+    }
+
+    private attachChatGptLiveTailReaderItem(items: ReaderItem[]): void {
+        if (this.adapter.getPlatformId() !== 'chatgpt') return;
+        if (!this.chatGptConversationEngine) return;
+        const tail = items[items.length - 1];
+        if (!tail) return;
+
+        const fallbackContent = tail.content;
+        tail.content = async () => {
+            const fallback = async () => resolveContent(fallbackContent);
+            try {
+                if (typeof this.chatGptConversationEngine?.forceRefreshCurrentConversation !== 'function') {
+                    return await fallback();
+                }
+                const snapshot = await this.chatGptConversationEngine.forceRefreshCurrentConversation();
+                if (!snapshot?.rounds?.length) return await fallback();
+                const index = this.resolveChatGptReaderItemIndex(snapshot, tail);
+                const refreshed = buildChatGPTConversationTurns(snapshot)[index]?.assistant;
+                return refreshed ?? await fallback();
+            } catch {
+                return await fallback();
+            }
+        };
     }
 
     private getReaderActions(_messageElement: HTMLElement): ReaderPanelAction[] {
@@ -661,12 +709,19 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
+                if (
+                    this.adapter.getPlatformId() === 'chatgpt'
+                    && typeof this.chatGptConversationEngine?.forceRefreshCurrentConversation === 'function'
+                ) {
+                    await this.chatGptConversationEngine.forceRefreshCurrentConversation().catch(() => null);
+                }
                 const itemsResult = await collectReaderContent(this.adapter, messageElement, {
                     chatGptConversationEngine: this.chatGptConversationEngine,
                     pageUrl: this.getBookmarkPageUrl(),
                 });
                 const { items, startIndex } = itemsResult;
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
+                this.attachChatGptLiveTailReaderItem(items);
                 await this.readerPanel.show(items, startIndex, this.theme, {
                     profile: 'conversation-reader',
                     actions: this.getReaderActions(messageElement) as any,
