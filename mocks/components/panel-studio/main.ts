@@ -1,8 +1,10 @@
 import { ensureStyle } from '../../../src/style/shadow';
 import { getTokenCss } from '../../../src/style/tokens';
-import overlayCssText from '../../../src/style/tailwind-overlay.css?inline';
-import { renderMarkdownToSanitizedHtml } from '../../../src/services/renderer/renderMarkdown';
+import { renderMarkdownForReader, type ReaderOutlineItem } from '../../../src/services/renderer/renderMarkdown';
+import { annotateRenderedAtomicUnits } from '../../../src/services/reader/atomicSelection';
 import { getMarkdownThemeCss } from '../../../src/ui/content/components/markdownTheme';
+import { decorateReaderCodeBlocksHtml } from '../../../src/ui/content/reader/readerCodeBlockEnhancer';
+import { getReaderPanelCss } from '../../../src/ui/content/reader/readerPanelTemplate';
 import readerAssistantMarkdownTemplate from './fixtures/reader-assistant.md?raw';
 import katexCssUrl from 'katex/dist/katex.min.css?url';
 import {
@@ -423,8 +425,36 @@ function getReaderAssistantMarkdown(bookmark: BookmarkItem): string {
         .replaceAll('{{SUMMARY}}', bookmark.content);
 }
 
-function getReaderRenderedHtml(bookmark: BookmarkItem): string {
-    return renderMarkdownToSanitizedHtml(getReaderAssistantMarkdown(bookmark));
+function renderReaderFixture(bookmark: BookmarkItem): { html: string; outlineItems: ReaderOutlineItem[] } {
+    const rendered = renderMarkdownForReader(getReaderAssistantMarkdown(bookmark));
+    const container = document.createElement('div');
+    container.innerHTML = decorateReaderCodeBlocksHtml(rendered.html, {
+        copyLabel: 'Copy code',
+    });
+    annotateRenderedAtomicUnits(container, rendered.atomicUnits);
+    return {
+        html: container.innerHTML,
+        outlineItems: rendered.outlineItems,
+    };
+}
+
+function getReaderOutlineHtml(outlineItems: ReaderOutlineItem[]): string {
+    if (outlineItems.length < 2) return '';
+    return `
+      <nav class="reader-outline-rail" aria-label="Markdown outline">
+        <div class="reader-outline-rail__list">
+          ${outlineItems.map((item) => {
+              const level = Math.max(1, Math.min(6, Math.round(item.level)));
+              return `
+                <button class="reader-outline-rail__item" type="button" data-action="reader-outline-jump" data-outline-id="${escapeHtml(item.id)}" data-level="${level}" data-active="${item.id === outlineItems[0]?.id ? '1' : '0'}" aria-label="Go to heading ${escapeHtml(item.text)}" title="${escapeHtml(item.text)}">
+                  <span class="reader-outline-rail__index" aria-hidden="true">H${level}</span>
+                  <span class="reader-outline-rail__label">${escapeHtml(item.text)}</span>
+                </button>
+              `;
+          }).join('')}
+        </div>
+      </nav>
+    `;
 }
 
 function escapeHtml(text: string): string {
@@ -1407,7 +1437,7 @@ function getReaderPanelHtml(): string {
     const dots = items.map((_, index) => `
       <button class="reader-dot ${index === appState.readerIndex ? 'reader-dot--active' : ''}" data-action="reader-jump" data-index="${index}" aria-label="Go to page ${index + 1}"></button>
     `).join('');
-    const readerHtml = getReaderRenderedHtml(item);
+    const renderedReader = renderReaderFixture(item);
 
     return `
       <div class="panel-stage__overlay">
@@ -1425,19 +1455,22 @@ function getReaderPanelHtml(): string {
               <button class="icon-btn" data-action="close-panel" aria-label="Close panel">${icon(sharedXIcon)}</button>
             </div>
           </div>
-          <div class="reader-body">
-            <article class="reader-content">
-              <div class="reader-thread">
-                <section class="reader-message reader-message--user">
-                  <div class="reader-message__label">User message</div>
-                  <div class="reader-message__body reader-message__body--prompt">${escapeHtml(item.userPrompt)}</div>
-                </section>
-                <section class="reader-message reader-message--assistant">
-                  <div class="reader-message__label">AI response</div>
-                  <div class="reader-markdown">${readerHtml}</div>
-                </section>
-              </div>
-            </article>
+          <div class="reader-body-wrap" data-has-outline="${renderedReader.outlineItems.length >= 2 ? '1' : '0'}">
+            <div class="reader-body">
+              <article class="reader-content">
+                <div class="reader-thread">
+                  <section class="reader-message reader-message--user">
+                    <div class="reader-message__label">User message</div>
+                    <div class="reader-message__body reader-message__body--prompt">${escapeHtml(item.userPrompt)}</div>
+                  </section>
+                  <section class="reader-message reader-message--assistant">
+                    <div class="reader-message__label">AI response</div>
+                    <div class="reader-markdown markdown-body">${renderedReader.html}</div>
+                  </section>
+                </div>
+              </article>
+            </div>
+            ${getReaderOutlineHtml(renderedReader.outlineItems)}
           </div>
           <div class="reader-footer">
             <div class="reader-footer__left">
@@ -4072,7 +4105,7 @@ function createPanelStudio(root: HTMLElement): void {
         const preservedSettingsScrollTop = shadow.querySelector<HTMLElement>('.settings-panel')?.scrollTop ?? 0;
         ensureStyle(shadow, getTokenCss(appState.theme), { id: 'aimd-panel-studio-tokens' });
         ensureShadowStylesheetLink(shadow, katexCssUrl, 'aimd-panel-studio-katex');
-        ensureStyle(shadow, overlayCssText, { id: 'aimd-panel-studio-tailwind', cache: 'shared' });
+        ensureStyle(shadow, getReaderPanelCss(), { id: 'aimd-panel-studio-reader', cache: 'shared' });
         ensureStyle(shadow, getStudioCss(), { id: 'aimd-panel-studio-base', cache: 'shared' });
         mount.innerHTML = getStudioHtml();
         shadow.querySelectorAll<HTMLInputElement>('input.tree-check[data-indeterminate="1"]').forEach((input) => {
@@ -4408,6 +4441,24 @@ function createPanelStudio(root: HTMLElement): void {
             appState.readerIndex = Number(actionEl.dataset.index || 0);
             appState.readerStatus = '';
             render();
+            return;
+        }
+
+        if (action === 'reader-outline-jump') {
+            const body = shadow.querySelector<HTMLElement>('.reader-body');
+            const outlineId = actionEl.dataset.outlineId ?? '';
+            const target = outlineId
+                ? shadow.querySelector<HTMLElement>(`.reader-markdown [data-aimd-unit-id="${outlineId}"]`)
+                : null;
+            if (body && target) {
+                body.scrollTo({
+                    top: Math.max(0, body.scrollTop + target.getBoundingClientRect().top - body.getBoundingClientRect().top - 16),
+                    behavior: 'smooth',
+                });
+                shadow.querySelectorAll<HTMLElement>('.reader-outline-rail__item').forEach((item) => {
+                    item.dataset.active = item.dataset.outlineId === outlineId ? '1' : '0';
+                });
+            }
             return;
         }
 

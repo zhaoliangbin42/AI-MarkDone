@@ -16,6 +16,22 @@ This reader preview renders a real markdown document inside the mock so layout, 
 - [x] Keep code blocks highlighted
 - [x] Cap the readable width so long answers remain comfortable
 
+## Outline stress sample with a deliberately long heading that should truncate inside the hover-expanded rail without changing the reader body
+
+This section keeps the mock useful for checking long outline labels, compact rail behavior, and expanded rail scrolling.
+
+### Nested heading for outline indentation
+
+The rail should communicate heading depth through spacing and marker weight while leaving the reading surface unchanged.
+
+#### Repeated setup
+
+Duplicate heading text should still map to a unique Reader heading unit.
+
+#### Repeated setup
+
+This duplicate is intentional so visual checks can confirm the outline remains stable.
+
 ### Comparison
 
 | Surface | Why it matters | Constraint |

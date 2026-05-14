@@ -155,6 +155,14 @@
         "message": "AI-Markdone Reader",
         "description": "Message for readerTitle"
     },
+    "readerOutlineLabel": {
+        "message": "Markdown outline",
+        "description": "Accessible label for the Reader markdown heading outline"
+    },
+    "readerOutlineGoToHeading": {
+        "message": "Go to heading $1",
+        "description": "Accessible label for jumping to a Reader markdown heading"
+    },
     "toggleFullscreen": {
         "message": "Toggle fullscreen",
         "description": "Message for toggleFullscreen"

@@ -189,6 +189,50 @@ describe('ReaderPanel (MVP)', () => {
         expect(markdownRoot.querySelector('hr')).toBeTruthy();
     });
 
+    it('shows a heading outline rail that jumps within the current reader page', async () => {
+        const { writeText } = setClipboardMock();
+        const scrollTo = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+            value: scrollTo,
+            configurable: true,
+        });
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [
+                {
+                    id: 'a',
+                    userPrompt: 'Q1',
+                    content: '# Overview\n\nIntro\n\n## Details\n\nMore detail',
+                },
+                {
+                    id: 'b',
+                    userPrompt: 'Q2',
+                    content: '# Other\n\n## Tail',
+                },
+            ],
+            0,
+            'light'
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const outlineItems = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-outline-rail__item'));
+
+        expect(outlineItems).toHaveLength(2);
+        outlineItems[1]?.click();
+        await Promise.resolve();
+
+        expect(scrollTo).toHaveBeenCalled();
+        expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('1/2');
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy"]')?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(writeText).toHaveBeenCalledWith('# Overview\n\nIntro\n\n## Details\n\nMore detail');
+
+        panel.hide();
+    });
+
     it('keeps the code copy button right-aligned even when a code block has no language label', async () => {
         const panel = new ReaderPanel();
 

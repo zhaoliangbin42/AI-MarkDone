@@ -276,4 +276,139 @@ describe('ReaderPanel navigation', () => {
             panel.hide();
         }
     });
+
+    it('renders a heading outline rail for markdown pages with multiple headings', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show(
+                [{
+                    id: 'a',
+                    userPrompt: 'Q1',
+                    content: ['# Overview', '', '## Details', '', '### Next steps'].join('\n'),
+                }],
+                0,
+                'light'
+            );
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const rail = shadow.querySelector<HTMLElement>('.reader-outline-rail');
+            const buttons = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-outline-rail__item'));
+
+            expect(rail).toBeTruthy();
+            expect(rail?.getAttribute('aria-label')).toBeTruthy();
+            expect(buttons.map((button) => button.querySelector('.reader-outline-rail__index')?.textContent)).toEqual(['H1', 'H2', 'H3']);
+            expect(buttons.map((button) => button.querySelector('.reader-outline-rail__label')?.textContent)).toEqual(['Overview', 'Details', 'Next steps']);
+            expect(buttons.map((button) => button.dataset.level)).toEqual(['1', '2', '3']);
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('does not render the heading outline rail for pages without at least two headings', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: '# Only heading\n\nBody' }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            expect(shadow.querySelector('.reader-outline-rail')).toBeNull();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('jumps to a heading outline target without changing the current reader page', async () => {
+        const scrollTo = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+            value: scrollTo,
+            configurable: true,
+        });
+
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show(
+                [
+                    { id: 'a', userPrompt: 'Q1', content: '# First\n\n## Second\n\nBody' },
+                    { id: 'b', userPrompt: 'Q2', content: '# Other\n\n## Tail' },
+                ],
+                0,
+                'light'
+            );
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const buttons = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-outline-rail__item'));
+            buttons[1]?.click();
+            await Promise.resolve();
+
+            expect(scrollTo).toHaveBeenCalled();
+            expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('1/2');
+            expect(buttons[1]?.dataset.active).toBe('1');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('refreshes the heading outline when changing reader pages', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show(
+                [
+                    { id: 'a', userPrompt: 'Q1', content: '# First\n\n## Second' },
+                    { id: 'b', userPrompt: 'Q2', content: '# Later\n\n## Appendix' },
+                ],
+                0,
+                'light'
+            );
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            expect(Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-outline-rail__item')).map((button) => button.querySelector('.reader-outline-rail__label')?.textContent)).toEqual(['First', 'Second']);
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-next"]')?.click();
+            await Promise.resolve();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            expect(Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-outline-rail__item')).map((button) => button.querySelector('.reader-outline-rail__label')?.textContent)).toEqual(['Later', 'Appendix']);
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('updates the active heading outline item from reader body scrolling', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: '# First\n\n## Second\n\n### Third' }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const body = shadow.querySelector<HTMLElement>('.reader-body')!;
+            const headings = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-markdown h1, .reader-markdown h2, .reader-markdown h3'));
+            Object.defineProperty(body, 'getBoundingClientRect', {
+                value: () => ({ top: 0, bottom: 500, left: 0, right: 500, width: 500, height: 500, x: 0, y: 0, toJSON: () => ({}) }),
+                configurable: true,
+            });
+            headings.forEach((heading, index) => {
+                Object.defineProperty(heading, 'getBoundingClientRect', {
+                    value: () => ({ top: index === 1 ? 12 : index * 200, bottom: 40, left: 0, right: 300, width: 300, height: 40, x: 0, y: 0, toJSON: () => ({}) }),
+                    configurable: true,
+                });
+            });
+
+            body.dispatchEvent(new Event('scroll'));
+            await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+
+            const buttons = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-outline-rail__item'));
+            expect(buttons[1]?.dataset.active).toBe('1');
+        } finally {
+            panel.hide();
+        }
+    });
 });

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added a global interface font size control in Advanced Settings, limited to 12px–20px with stepper buttons and live token-based refresh across extension surfaces.
 - Settings: Added theme color swatches in Advanced Settings, with live token-based refresh for primary actions, links, focus rings, selected states, and the unsupported-page popup.
 - ChatGPT Directory: Added a tokenized rainbow marker for bookmarked messages in the right-side conversation directory.
+- Reader: Added a hover-expandable heading outline for Markdown responses so readers can jump within the current Reader page.
 
 ### Fixed
 - Reader: Refreshes the latest ChatGPT Reader page from the live conversation snapshot when opened or revisited, while keeping earlier Reader pages frozen for stable reading.

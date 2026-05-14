@@ -288,4 +288,31 @@ describe('ReaderPanel presentation', () => {
         expect(source).toContain('.reader-comment-anchor {');
         expect(source).toContain('position: absolute;');
     });
+
+    it('keeps the reader outline rail scoped, token-driven, and responsive', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
+        const outlineStart = source.indexOf('.reader-outline-rail {');
+        const outlineEnd = source.indexOf('@supports not', outlineStart);
+        const outlineCss = source.slice(outlineStart, outlineEnd);
+
+        expect(outlineCss).toContain('.reader-outline-rail {');
+        expect(outlineCss).toContain('.reader-outline-rail:hover,');
+        expect(outlineCss).toContain('.reader-outline-rail:focus-within');
+        expect(outlineCss).toContain('.reader-outline-rail__item:focus-visible');
+        expect(outlineCss).toContain('align-items: stretch;');
+        expect(outlineCss).toContain('justify-content: flex-start;');
+        expect(outlineCss).toContain('grid-template-columns: 2.75em minmax(0, 1fr);');
+        expect(outlineCss).toContain('grid-auto-flow: column;');
+        expect(outlineCss).toContain('grid-row: 1;');
+        expect(outlineCss).toContain('white-space: nowrap;');
+        expect(outlineCss).toContain('text-overflow: ellipsis;');
+        expect(outlineCss).toContain('--_reader-outline-indent: 0px;');
+        expect(outlineCss).toContain('padding-left: var(--_reader-outline-indent);');
+        expect(outlineCss).toContain('@media (max-width: 900px)');
+        expect(outlineCss).toContain('@media (prefers-reduced-motion: reduce)');
+        expect(outlineCss).toContain('var(--aimd-');
+        expect(outlineCss).not.toContain('!important');
+        expect(outlineCss).not.toContain('#2563eb');
+        expect(source).toContain('.panel-window--reader {');
+    });
 });

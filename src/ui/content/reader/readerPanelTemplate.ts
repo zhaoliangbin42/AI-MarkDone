@@ -11,6 +11,7 @@ import { getPanelChromeCss } from '../components/styles/panelChromeCss';
 import { getMarkdownThemeCss } from '../components/markdownTheme';
 import type { ReaderItem } from '../../../services/reader/types';
 import type { ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
+import type { ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
 
 type ReaderTemplateState = {
     items: ReaderItem[];
@@ -18,6 +19,8 @@ type ReaderTemplateState = {
     fullscreen: boolean;
     contentMaxWidthPx: number;
     renderedHtml: string;
+    outlineItems: ReaderOutlineItem[];
+    activeOutlineId: string;
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     showCopy: boolean;
@@ -47,6 +50,35 @@ function renderUserPromptMarkup(display: ReaderUserPromptDisplay): string {
         <div class="reader-message__ellipsis-line" data-role="user-prompt-ellipsis">...</div>
         <div class="reader-message__prompt-segment" data-role="user-prompt-segment">${escapeHtml(display.tail)}</div>
       </div>
+    `;
+}
+
+function renderOutlineMarkup(params: {
+    outlineItems: ReaderOutlineItem[];
+    activeOutlineId: string;
+    getLabel: (key: string, fallback: string, substitutions?: string | string[]) => string;
+}): string {
+    const { outlineItems, activeOutlineId, getLabel } = params;
+    if (outlineItems.length < 2) return '';
+
+    const label = getLabel('readerOutlineLabel', 'Markdown outline');
+    const items = outlineItems.map((item) => {
+        const level = Math.max(1, Math.min(6, Math.round(item.level)));
+        const itemLabel = getLabel('readerOutlineGoToHeading', `Go to heading ${item.text}`, item.text);
+        return `
+          <button class="reader-outline-rail__item" type="button" data-action="reader-outline-jump" data-outline-id="${escapeHtml(item.id)}" data-level="${level}" data-active="${item.id === activeOutlineId ? '1' : '0'}" aria-label="${escapeHtml(itemLabel)}" title="${escapeHtml(item.text)}">
+            <span class="reader-outline-rail__index" aria-hidden="true">H${level}</span>
+            <span class="reader-outline-rail__label">${escapeHtml(item.text)}</span>
+          </button>
+        `;
+    }).join('');
+
+    return `
+      <nav class="reader-outline-rail" aria-label="${escapeHtml(label)}">
+        <div class="reader-outline-rail__list">
+          ${items}
+        </div>
+      </nav>
     `;
 }
 
@@ -84,22 +116,29 @@ export function getReaderPanelHtml(params: {
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="reader-body">
-    <article class="reader-content" style="--_reader-content-max-width: ${Math.max(1, Math.round(state.contentMaxWidthPx))}px;">
-      <div class="reader-thread">
-        <section class="reader-message reader-message--user">
-          <div class="reader-message__label">User message</div>
-          <div class="reader-message__body reader-message__body--prompt">${renderUserPromptMarkup(state.userPromptDisplay)}</div>
-        </section>
-        <section class="reader-message reader-message--assistant">
-          <div class="reader-message__label">AI response</div>
-          <div class="reader-markdown-shell" data-role="reader-markdown-shell">
-            <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
-            <div class="reader-comment-overlay" data-role="comment-overlay"></div>
-          </div>
-        </section>
-      </div>
-    </article>
+  <div class="reader-body-wrap" data-has-outline="${state.outlineItems.length >= 2 ? '1' : '0'}">
+    <div class="reader-body">
+      <article class="reader-content" style="--_reader-content-max-width: ${Math.max(1, Math.round(state.contentMaxWidthPx))}px;">
+        <div class="reader-thread">
+          <section class="reader-message reader-message--user">
+            <div class="reader-message__label">User message</div>
+            <div class="reader-message__body reader-message__body--prompt">${renderUserPromptMarkup(state.userPromptDisplay)}</div>
+          </section>
+          <section class="reader-message reader-message--assistant">
+            <div class="reader-message__label">AI response</div>
+            <div class="reader-markdown-shell" data-role="reader-markdown-shell">
+              <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
+              <div class="reader-comment-overlay" data-role="comment-overlay"></div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </div>
+    ${renderOutlineMarkup({
+        outlineItems: state.outlineItems,
+        activeOutlineId: state.activeOutlineId,
+        getLabel,
+    })}
   </div>
   <div class="panel-footer reader-footer">
     <div class="reader-footer__left">
@@ -204,10 +243,22 @@ ${getPanelChromeCss()}
   font-weight: var(--aimd-font-semibold);
 }
 
+.reader-body-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .reader-body {
   flex: 1;
+  min-width: 0;
   overflow: auto;
   padding: calc(var(--aimd-space-6) + var(--aimd-space-1) / 2) calc(var(--aimd-space-6) + var(--aimd-space-1)) var(--aimd-space-5);
+}
+
+.reader-body-wrap[data-has-outline="1"] .reader-body {
+  padding-right: calc(var(--aimd-space-6) + var(--aimd-size-control-icon-panel) + var(--aimd-space-4));
 }
 
 .reader-content {
@@ -577,6 +628,190 @@ ${getMarkdownThemeCss('.reader-markdown')}
   transform: rotate(180deg);
 }
 
+.reader-outline-rail {
+  position: absolute;
+  top: var(--aimd-space-5);
+  right: var(--aimd-space-3);
+  bottom: var(--aimd-space-5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: calc(var(--aimd-space-4) + var(--aimd-space-6));
+  max-width: calc(100% - var(--aimd-space-6));
+  pointer-events: auto;
+  transition: width var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-outline-rail:hover,
+.reader-outline-rail:focus-within {
+  width: min(28em, calc(100% - var(--aimd-space-6)));
+}
+
+.reader-outline-rail__list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  height: max-content;
+  max-height: 100%;
+  overflow: hidden auto;
+  padding: var(--aimd-space-1) 0;
+  border: 1px solid transparent;
+  border-radius: var(--aimd-radius-lg);
+  scrollbar-gutter: stable;
+  transition:
+    padding var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-outline-rail:hover .reader-outline-rail__list,
+.reader-outline-rail:focus-within .reader-outline-rail__list {
+  padding: var(--aimd-space-2);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 94%, transparent);
+  border-color: color-mix(in srgb, var(--aimd-border-subtle) 72%, transparent);
+  box-shadow: var(--aimd-shadow-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.reader-outline-rail__item {
+  --_reader-outline-indent: 0px;
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  justify-items: end;
+  grid-auto-flow: column;
+  gap: var(--aimd-space-2);
+  width: 100%;
+  min-height: var(--aimd-space-5);
+  padding: var(--aimd-space-1) 0;
+  border-radius: var(--aimd-radius-md);
+  color: var(--aimd-text-secondary);
+  transition:
+    padding var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    color var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-outline-rail__item::after {
+  content: "";
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  display: block;
+  width: var(--aimd-space-5);
+  height: 2px;
+  border-radius: var(--aimd-radius-full);
+  background: color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  transform: scaleX(0.7);
+  transform-origin: right center;
+  transition:
+    transform var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    height var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    background var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-outline-rail__index,
+.reader-outline-rail__label {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--aimd-text-sm);
+  line-height: 1.25;
+  grid-row: 1;
+  transition:
+    max-width var(--aimd-duration-fast) var(--aimd-ease-in-out),
+    opacity var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-outline-rail__index {
+  grid-column: 1;
+  display: block;
+  color: var(--aimd-text-tertiary);
+  font-weight: var(--aimd-font-medium);
+  letter-spacing: 0;
+}
+
+.reader-outline-rail__label {
+  grid-column: 2;
+  display: block;
+  color: inherit;
+}
+
+.reader-outline-rail:hover .reader-outline-rail__item,
+.reader-outline-rail:focus-within .reader-outline-rail__item {
+  grid-template-columns: 2.75em minmax(0, 1fr);
+  justify-items: start;
+  min-height: var(--aimd-size-control-compact);
+  padding: var(--aimd-space-1) var(--aimd-space-2);
+  padding-left: var(--_reader-outline-indent);
+}
+
+.reader-outline-rail:hover .reader-outline-rail__item::after,
+.reader-outline-rail:focus-within .reader-outline-rail__item::after {
+  display: none;
+}
+
+.reader-outline-rail:hover .reader-outline-rail__index,
+.reader-outline-rail:hover .reader-outline-rail__label,
+.reader-outline-rail:focus-within .reader-outline-rail__index,
+.reader-outline-rail:focus-within .reader-outline-rail__label {
+  max-width: 22em;
+  opacity: 1;
+}
+
+.reader-outline-rail__item[data-level="2"] {
+  --_reader-outline-indent: var(--aimd-space-4);
+}
+
+.reader-outline-rail__item[data-level="3"] {
+  --_reader-outline-indent: var(--aimd-space-6);
+}
+
+.reader-outline-rail__item[data-level="4"],
+.reader-outline-rail__item[data-level="5"],
+.reader-outline-rail__item[data-level="6"] {
+  --_reader-outline-indent: calc(var(--aimd-space-6) + var(--aimd-space-3));
+}
+
+.reader-outline-rail__item[data-active="1"] {
+  color: var(--aimd-interactive-primary);
+}
+
+.reader-outline-rail__item[data-active="1"]::after {
+  transform: scaleX(1);
+  background: var(--aimd-interactive-primary);
+}
+
+.reader-outline-rail__item:hover,
+.reader-outline-rail__item:focus-visible {
+  background: var(--aimd-interactive-selected);
+  color: var(--aimd-text-primary);
+}
+
+.reader-outline-rail__item:hover::after,
+.reader-outline-rail__item:focus-visible::after {
+  transform: scaleX(1);
+  background: var(--aimd-interactive-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+}
+
+.reader-outline-rail__item:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: 2px;
+}
+
 @media (max-width: 900px) {
   .panel-window {
     width: min(var(--aimd-panel-max-width), calc(100vw - var(--aimd-space-4)));
@@ -597,6 +832,43 @@ ${getMarkdownThemeCss('.reader-markdown')}
 
   .reader-footer {
     gap: var(--aimd-panel-action-gap);
+  }
+
+  .reader-outline-rail {
+    display: none;
+  }
+
+  .reader-body-wrap[data-has-outline="1"] .reader-body {
+    padding-right: calc(var(--aimd-space-4) + var(--aimd-space-1) / 2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-outline-rail,
+  .reader-outline-rail__list,
+  .reader-outline-rail__item,
+  .reader-outline-rail__item::after,
+  .reader-outline-rail__index,
+  .reader-outline-rail__label {
+    transition: none;
+  }
+}
+
+@supports not (background: color-mix(in srgb, white 10%, transparent)) {
+  .reader-outline-rail:hover .reader-outline-rail__list,
+  .reader-outline-rail:focus-within .reader-outline-rail__list {
+    background: var(--aimd-bg-primary);
+    border-color: var(--aimd-border-subtle);
+  }
+
+  .reader-outline-rail__item::after {
+    background: var(--aimd-border-default);
+  }
+
+  .reader-outline-rail__item[data-active="1"]::after,
+  .reader-outline-rail__item:hover::after,
+  .reader-outline-rail__item:focus-visible::after {
+    background: var(--aimd-interactive-primary);
   }
 }
 `;

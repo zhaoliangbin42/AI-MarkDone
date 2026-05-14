@@ -37,10 +37,19 @@ export type ReaderAtomicUnit = {
     source: string;
 };
 
+export type ReaderOutlineItem = {
+    id: string;
+    level: number;
+    text: string;
+    start: number;
+    end: number;
+};
+
 export type ReaderRenderedMarkdown = {
     html: string;
     markdownSource: string;
     atomicUnits: ReaderAtomicUnit[];
+    outlineItems: ReaderOutlineItem[];
 };
 
 type HastNode = {
@@ -52,6 +61,9 @@ type HastNode = {
 
 type MdastNode = {
     type?: string;
+    value?: string;
+    alt?: string;
+    depth?: number;
     position?: {
         start?: { offset?: number };
         end?: { offset?: number };
@@ -191,9 +203,21 @@ export function renderMarkdownToSanitizedHtml(markdown: string, options?: Markdo
     return String(getProcessor(options).processSync(markdown || ''));
 }
 
-function collectReaderAtomicUnits(markdown: string): ReaderAtomicUnit[] {
+function collectMdastText(node: MdastNode): string {
+    if (typeof node.value === 'string') return node.value;
+    if (typeof node.alt === 'string') return node.alt;
+    if (!node.children?.length) return '';
+    return node.children.map((child) => collectMdastText(child)).join('');
+}
+
+function normalizeOutlineText(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+}
+
+function collectReaderStructure(markdown: string): { atomicUnits: ReaderAtomicUnit[]; outlineItems: ReaderOutlineItem[] } {
     const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown || '') as MdastNode;
-    const units: ReaderAtomicUnit[] = [];
+    const atomicUnits: ReaderAtomicUnit[] = [];
+    const outlineItems: ReaderOutlineItem[] = [];
 
     visitMdast(tree, (node) => {
         const start = node.position?.start?.offset;
@@ -242,24 +266,42 @@ function collectReaderAtomicUnits(markdown: string): ReaderAtomicUnit[] {
         }
 
         if (!kind) return;
-        units.push({
-            id: `aimd-reader-unit-${units.length + 1}`,
+        const unit: ReaderAtomicUnit = {
+            id: `aimd-reader-unit-${atomicUnits.length + 1}`,
             kind,
             mode,
             start,
             end,
             source: markdown.slice(start, end),
-        });
+        };
+        atomicUnits.push(unit);
+
+        if (kind === 'heading') {
+            const text = normalizeOutlineText(collectMdastText(node));
+            if (!text) return;
+            const level = typeof node.depth === 'number'
+                ? Math.max(1, Math.min(6, Math.round(node.depth)))
+                : 1;
+            outlineItems.push({
+                id: unit.id,
+                level,
+                text,
+                start,
+                end,
+            });
+        }
     });
 
-    return units;
+    return { atomicUnits, outlineItems };
 }
 
 export function renderMarkdownForReader(markdown: string, options?: MarkdownRenderOptions): ReaderRenderedMarkdown {
     const markdownSource = markdown || '';
+    const structure = collectReaderStructure(markdownSource);
     return {
         html: renderMarkdownToSanitizedHtml(markdownSource, options),
         markdownSource,
-        atomicUnits: collectReaderAtomicUnits(markdownSource),
+        atomicUnits: structure.atomicUnits,
+        outlineItems: structure.outlineItems,
     };
 }

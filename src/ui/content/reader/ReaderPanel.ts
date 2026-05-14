@@ -5,7 +5,7 @@ import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { AppSettings } from '../../../core/settings/types';
-import { renderMarkdownForReader, type ReaderAtomicUnit } from '../../../services/renderer/renderMarkdown';
+import { renderMarkdownForReader, type ReaderAtomicUnit, type ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
 import {
     annotateRenderedAtomicUnits,
     applyRenderedAtomicSelection,
@@ -84,6 +84,8 @@ type ReaderPanelState = {
     renderedHtml: string;
     renderedMarkdownSource: string;
     renderedAtomicUnits: ReaderAtomicUnit[];
+    outlineItems: ReaderOutlineItem[];
+    activeOutlineId: string;
     selectedAtomicUnitIds: string[];
     selectionSourceText: string;
     selectionExport: string;
@@ -127,6 +129,9 @@ export class ReaderPanel {
     private onSelectionChange: (() => void) | null = null;
     private onPointerUp: (() => void) | null = null;
     private onShadowCopy: EventListener | null = null;
+    private readerBodyEl: HTMLElement | null = null;
+    private onReaderBodyScroll: (() => void) | null = null;
+    private outlineScrollFrame: number | null = null;
     private renderedAtomicElements: SelectedAtomicUnit[] = [];
     private commentSelectionSnapshot: ReaderCommentSelectionSnapshot | null = null;
     private activeCommentId: string | null = null;
@@ -141,6 +146,8 @@ export class ReaderPanel {
         renderedHtml: '',
         renderedMarkdownSource: '',
         renderedAtomicUnits: [],
+        outlineItems: [],
+        activeOutlineId: '',
         selectedAtomicUnitIds: [],
         selectionSourceText: '',
         selectionExport: '',
@@ -221,6 +228,8 @@ export class ReaderPanel {
         this.state.renderedHtml = '';
         this.state.renderedMarkdownSource = '';
         this.state.renderedAtomicUnits = [];
+        this.state.outlineItems = [];
+        this.state.activeOutlineId = '';
         this.state.selectedAtomicUnitIds = [];
         this.state.selectionSourceText = '';
         this.state.selectionExport = '';
@@ -337,6 +346,7 @@ export class ReaderPanel {
         this.onSelectionChange = null;
         this.onPointerUp = null;
         this.onShadowCopy = null;
+        this.clearReaderBodyScrollListener();
         this.renderedAtomicElements = [];
         this.commentSelectionSnapshot = null;
         this.activeCommentId = null;
@@ -384,6 +394,11 @@ export class ReaderPanel {
                 if (Number.isFinite(index) && index >= 0) this.jumpTo(index);
                 return;
             }
+            case 'reader-outline-jump': {
+                const outlineId = actionEl.dataset.outlineId ?? '';
+                if (outlineId) this.jumpToOutline(outlineId);
+                return;
+            }
             case 'reader-copy':
                 await this.copyCurrent();
                 return;
@@ -409,6 +424,8 @@ export class ReaderPanel {
         if (next < 0 || next >= this.state.items.length) return;
         this.state.index = next;
         this.state.renderedHtml = '';
+        this.state.outlineItems = [];
+        this.state.activeOutlineId = '';
         this.render(false);
         await this.renderCurrentContent();
     }
@@ -425,6 +442,8 @@ export class ReaderPanel {
             this.state.renderedHtml = '';
             this.state.renderedMarkdownSource = '';
             this.state.renderedAtomicUnits = [];
+            this.state.outlineItems = [];
+            this.state.activeOutlineId = '';
             this.state.selectedAtomicUnitIds = [];
             this.state.selectionSourceText = '';
             this.state.selectionExport = '';
@@ -444,6 +463,8 @@ export class ReaderPanel {
         });
         this.state.renderedMarkdownSource = rendered.markdownSource;
         this.state.renderedAtomicUnits = rendered.atomicUnits;
+        this.state.outlineItems = rendered.outlineItems;
+        this.state.activeOutlineId = rendered.outlineItems[0]?.id ?? '';
         this.state.renderedHtml = decorateReaderCodeBlocksHtml(rendered.html, {
             copyLabel: this.getLabel('btnCopyText', 'Copy code'),
         });
@@ -453,6 +474,7 @@ export class ReaderPanel {
 
         const body = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
         if (body) body.scrollTop = 0;
+        this.syncOutlineActiveState();
     }
 
     private async copyCurrent(): Promise<void> {
@@ -535,6 +557,8 @@ export class ReaderPanel {
                 fullscreen: this.state.fullscreen,
                 contentMaxWidthPx: this.state.contentMaxWidthPx,
                 renderedHtml: this.state.renderedHtml,
+                outlineItems: this.state.outlineItems,
+                activeOutlineId: this.state.activeOutlineId,
                 userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,
                 showCopy: this.state.options.showCopy,
@@ -569,11 +593,13 @@ export class ReaderPanel {
         this.renderDots();
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
         this.syncAtomicMarkup();
+        this.syncOutlineActiveState();
         this.applyAtomicSelectionState();
         this.syncCommentUi();
         this.syncCommentControls();
 
         const nextBody = panel.querySelector<HTMLElement>('.reader-body');
+        this.syncReaderBodyScrollListener(nextBody);
         if (nextBody && preserveScrollTop) {
             nextBody.scrollTop = scrollTop;
         }
@@ -777,6 +803,99 @@ export class ReaderPanel {
 
     private getMarkdownRoot(): HTMLElement | null {
         return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-markdown') ?? null;
+    }
+
+    private getReaderBody(): HTMLElement | null {
+        return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body') ?? null;
+    }
+
+    private syncReaderBodyScrollListener(nextBody: HTMLElement | null): void {
+        if (this.readerBodyEl === nextBody) return;
+        this.clearReaderBodyScrollListener();
+        if (!nextBody) return;
+
+        this.readerBodyEl = nextBody;
+        this.onReaderBodyScroll = () => this.scheduleOutlineActiveSync();
+        nextBody.addEventListener('scroll', this.onReaderBodyScroll, { passive: true });
+    }
+
+    private clearReaderBodyScrollListener(): void {
+        if (this.readerBodyEl && this.onReaderBodyScroll) {
+            this.readerBodyEl.removeEventListener('scroll', this.onReaderBodyScroll);
+        }
+        this.readerBodyEl = null;
+        this.onReaderBodyScroll = null;
+        if (this.outlineScrollFrame !== null) {
+            window.cancelAnimationFrame(this.outlineScrollFrame);
+            this.outlineScrollFrame = null;
+        }
+    }
+
+    private scheduleOutlineActiveSync(): void {
+        if (this.outlineScrollFrame !== null) return;
+        this.outlineScrollFrame = window.requestAnimationFrame(() => {
+            this.outlineScrollFrame = null;
+            this.syncActiveOutlineFromScroll();
+        });
+    }
+
+    private jumpToOutline(outlineId: string): void {
+        const body = this.getReaderBody();
+        const markdownRoot = this.getMarkdownRoot();
+        if (!body || !markdownRoot) return;
+
+        const target = markdownRoot.querySelector<HTMLElement>(`[data-aimd-unit-id="${outlineId}"]`);
+        if (!target) return;
+
+        const bodyRect = body.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const top = Math.max(0, body.scrollTop + targetRect.top - bodyRect.top - this.getTokenSize('--aimd-space-4', 16));
+        this.setActiveOutlineId(outlineId);
+        if (typeof body.scrollTo === 'function') {
+            body.scrollTo({ top, behavior: 'smooth' });
+            return;
+        }
+        body.scrollTop = top;
+    }
+
+    private syncActiveOutlineFromScroll(): void {
+        if (this.state.outlineItems.length < 2) return;
+        const body = this.getReaderBody();
+        const markdownRoot = this.getMarkdownRoot();
+        if (!body || !markdownRoot) return;
+
+        const bodyTop = body.getBoundingClientRect().top;
+        const threshold = bodyTop + this.getTokenSize('--aimd-space-6', 24);
+        let activeId = this.state.outlineItems[0]?.id ?? '';
+
+        for (const item of this.state.outlineItems) {
+            const heading = markdownRoot.querySelector<HTMLElement>(`[data-aimd-unit-id="${item.id}"]`);
+            if (!heading) continue;
+            if (heading.getBoundingClientRect().top <= threshold) {
+                activeId = item.id;
+                continue;
+            }
+            break;
+        }
+
+        this.setActiveOutlineId(activeId);
+    }
+
+    private setActiveOutlineId(outlineId: string): void {
+        if (this.state.activeOutlineId === outlineId) {
+            this.syncOutlineActiveState();
+            return;
+        }
+        this.state.activeOutlineId = outlineId;
+        this.syncOutlineActiveState();
+    }
+
+    private syncOutlineActiveState(): void {
+        const root = this.overlaySession?.surfaceRoot;
+        if (!root) return;
+        root.querySelectorAll<HTMLElement>('.reader-outline-rail__item').forEach((item) => {
+            item.dataset.active = item.dataset.outlineId === this.state.activeOutlineId ? '1' : '0';
+        });
     }
 
     private getCommentOverlay(): HTMLElement | null {

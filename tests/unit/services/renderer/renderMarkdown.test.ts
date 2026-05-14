@@ -153,4 +153,55 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(rendered.atomicUnits[0]?.source).toBe('## Heading');
         expect(rendered.atomicUnits.some((unit) => unit.kind === 'list-item' && unit.source.includes('Nested item'))).toBe(true);
     });
+
+    it('produces heading outline metadata from the same structural heading units', () => {
+        const rendered = renderMarkdownForReader(
+            [
+                '# Main **Title**',
+                '',
+                '## Setup [`config`](https://example.com)',
+                '',
+                '### Setup',
+                '',
+                '###### Deep `code` title',
+                '',
+                '#',
+            ].join('\n')
+        );
+
+        const headingUnits = rendered.atomicUnits.filter((unit) => unit.kind === 'heading');
+
+        expect(rendered.outlineItems).toEqual([
+            {
+                id: headingUnits[0]?.id,
+                level: 1,
+                text: 'Main Title',
+                start: headingUnits[0]?.start,
+                end: headingUnits[0]?.end,
+            },
+            {
+                id: headingUnits[1]?.id,
+                level: 2,
+                text: 'Setup config',
+                start: headingUnits[1]?.start,
+                end: headingUnits[1]?.end,
+            },
+            {
+                id: headingUnits[2]?.id,
+                level: 3,
+                text: 'Setup',
+                start: headingUnits[2]?.start,
+                end: headingUnits[2]?.end,
+            },
+            {
+                id: headingUnits[3]?.id,
+                level: 6,
+                text: 'Deep code title',
+                start: headingUnits[3]?.start,
+                end: headingUnits[3]?.end,
+            },
+        ]);
+        expect(new Set(rendered.outlineItems.map((item) => item.id)).size).toBe(rendered.outlineItems.length);
+        expect(headingUnits).toHaveLength(5);
+    });
 });
