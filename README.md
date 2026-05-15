@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.0-10A37F" alt="Version 4.4.0">
+    <img src="https://img.shields.io/badge/Version-4.4.1-10A37F" alt="Version 4.4.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -199,9 +199,11 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.4.0
-- Improved PNG export performance for formula-heavy and complex messages, with visible progress and cancellation. Thanks to GitHub user @LTong-g.
-- Fixed ChatGPT content discovery so Reader and export can recover full conversations again after recent page changes. Thanks to Xiaohongshu users @Jim and @全是恶意.
+### 4.4.1
+- Added font size and theme color controls under Settings -> Advanced Settings, with live updates across extension surfaces.
+- Added an internal Reader heading outline for long Markdown responses, and refreshed the latest Reader page from the live ChatGPT snapshot when revisited. Thanks to Xiaohongshu users @Hiahiaaa and @小红薯67542EF1.
+- 导航栏中，对已经加入书签的消息，会有不同的颜色以作区分，方便快速定位书签消息。
+- Streamlined the style system so the extension feels more visually consistent.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

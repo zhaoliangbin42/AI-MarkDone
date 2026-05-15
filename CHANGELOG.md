@@ -6,12 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [4.4.1] - 2026-05-15
 ### Added
 - Settings: Added a global interface font size control in Advanced Settings, limited to 12px–20px with stepper buttons and live token-based refresh across extension surfaces.
 - Settings: Added theme color swatches in Advanced Settings, with live token-based refresh for primary actions, links, focus rings, selected states, and the unsupported-page popup.
 - Settings: Added a Reader toggle to hide the right-side heading outline while keeping Markdown rendering unchanged.
 - ChatGPT Directory: Added a tokenized rainbow marker for bookmarked messages in the right-side conversation directory.
-- Reader: Added a hover-expandable heading outline for Markdown responses so readers can jump within the current Reader page.
+- 导航栏中，对已经加入书签的消息，会有不同的颜色以作区分，方便快速定位书签消息。
+- Reader: Added an internal heading outline for long Markdown responses so readers can jump within the current Reader page more easily. Thanks to Xiaohongshu users @Hiahiaaa and @小红薯67542EF1.
+
+### Changed
+- UI: Streamlined the style system so extension surfaces share a more consistent visual language and tokenized customization path.
 
 ### Fixed
 - Reader: Refreshes the latest ChatGPT Reader page from the live conversation snapshot when opened or revisited, while keeping earlier Reader pages frozen for stable reading.

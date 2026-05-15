@@ -406,7 +406,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.0',
+                pendingVersion: '4.4.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.3.1',
@@ -459,15 +459,15 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.4.0");
-        expect(modal?.textContent).toContain('2026-05-12');
-        expect(modal?.textContent).toContain('Export as PNG');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.4.1");
+        expect(modal?.textContent).toContain('2026-05-15');
+        expect(modal?.textContent).toContain('personalization');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.0');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.1');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -475,7 +475,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.0',
+                pendingVersion: '4.4.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.3.1',
@@ -532,7 +532,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.0');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.1');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });

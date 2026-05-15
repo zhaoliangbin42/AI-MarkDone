@@ -3,6 +3,7 @@ import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
 import { browser } from '../../../drivers/shared/browser';
+import type { UserThemeOverrides } from '../../../style/tokens';
 import {
     bookmarkIcon,
     coffeeIcon,
@@ -169,6 +170,11 @@ export class BookmarksPanel {
         return this.overlaySession?.modalHost ?? null;
     }
 
+    private resolveThemeOverrides(): UserThemeOverrides {
+        const getThemeOverrides = this.controller.getThemeOverrides;
+        return typeof getThemeOverrides === 'function' ? getThemeOverrides.call(this.controller) : {};
+    }
+
     isVisible(): boolean {
         return this.visible;
     }
@@ -193,7 +199,7 @@ export class BookmarksPanel {
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
             theme: this.controller.getTheme(),
-            themeOverrides: this.controller.getThemeOverrides(),
+            themeOverrides: this.resolveThemeOverrides(),
             surfaceCss: getBookmarksPanelCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmarks-panel-structure',
@@ -225,7 +231,7 @@ export class BookmarksPanel {
 
         this.unsubscribeSnapshot = this.controller.subscribe((snapshot) => {
             this.overlaySession?.setTheme(this.controller.getTheme());
-            this.overlaySession?.setThemeOverrides(this.controller.getThemeOverrides());
+            this.overlaySession?.setThemeOverrides(this.resolveThemeOverrides());
             const previousSnapshot = this.snapshot;
             this.snapshot = snapshot;
             if (!this.applySnapshotUpdate(previousSnapshot, snapshot)) {

@@ -1,5 +1,23 @@
 # Changelog
 
+# 4.4.1
+2026-05-15
+
+This release focuses on personalization, a cleaner style system, and smoother long-message reading in ChatGPT.
+
+## Added
+- Added a global interface font size control in Settings -> Advanced Settings. It stays within 12px-20px, uses stepper buttons instead of free text input, and refreshes extension surfaces live.
+- Added theme color swatches in Settings -> Advanced Settings, so the extension can share one accent color across primary actions, links, focus rings, selected states, and the unsupported-page popup.
+- Added an internal Reader heading outline for long Markdown responses, making it easier to jump within a single long message. Thanks to Xiaohongshu users @Hiahiaaa and @小红薯67542EF1.
+- Added a Reader setting to hide the internal heading outline when you prefer a cleaner reading surface.
+- 导航栏中，对已经加入书签的消息，会有不同的颜色以作区分，方便快速定位书签消息。
+
+## Changed
+- Streamlined the style system so Reader, settings, bookmarks, toolbar, dialogs, and popovers follow a more unified token-based visual language.
+
+## Fixed
+- The latest ChatGPT Reader page now refreshes from the live conversation snapshot when opened or revisited. You can switch away from the final Reader page and come back to keep up with an actively generating response without closing Reader.
+
 # 4.4.0
 2026-05-12
 

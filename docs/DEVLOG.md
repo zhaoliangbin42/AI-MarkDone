@@ -4,6 +4,15 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-15 — v4.4.1 release copy preparation
+
+- Bumped package, lockfile, and source manifest versions to `4.4.1`.
+- Updated release-facing changelog copy, README latest notes, release notes, and in-panel English/Chinese changelog entries for the user-approved v4.4.1 bullets.
+- Kept Mermaid out of the release scope; Reader diagram fences remain normal code blocks per the current SSOT.
+- Verification:
+  - Release-copy parser/governance/i18n test subset (pass; 28 tests)
+  - `npm run release:verify` (pass; smoke 19 tests, acceptance 72 tests, Chrome/Firefox/Safari WebExtension builds + entry verification)
+
 ## 2026-05-05 — v4.3.0 release preparation
 
 - Bumped package and generated manifest versions to `4.3.0`.

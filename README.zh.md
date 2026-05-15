@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.0-10A37F" alt="Version 4.4.0">
+    <img src="https://img.shields.io/badge/Version-4.4.1-10A37F" alt="Version 4.4.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -198,9 +198,11 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.4.0
-- 提升导出 PNG 的性能，并添加进度条和取消能力，缓解复杂消息导出时的等待焦虑（感谢 GitHub 用户 @LTong-g 贡献代码）。
-- 更新 ChatGPT 内容发现链路，修复阅读器和导出功能只能识别最近几条消息的问题（感谢小红书用户 @Jim 和 @全是恶意）。
+### 4.4.1
+- 在“设置 -> 高级设置”中新增字体大小和主题色调节，修改后会实时应用到插件界面。
+- 新增阅读器内部导航栏，长消息内部跳转更轻松；阅读器最后一条消息在切换回来时也会跟随正在输出的内容刷新（感谢小红书用户 @Hiahiaaa 和 @小红薯67542EF1）。
+- 导航栏中，对已经加入书签的消息，会有不同的颜色以作区分，方便快速定位书签消息。
+- 大幅精简样式系统，让整体视觉效果更统一。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)
