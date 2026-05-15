@@ -309,6 +309,7 @@ Motion:
 - Reader content must preserve raw user/model text semantics.
 - Display formatting may live in display-only helpers but must not mutate stored data.
 - Markdown, code, quote, and source blocks use reader content tokens rather than ad hoc styles.
+- Diagram fences such as Mermaid remain source code blocks. The design system does not define a diagram renderer, fullscreen diagram viewer, or diagram-specific hover chrome.
 
 ### 7.7 Toolbar
 

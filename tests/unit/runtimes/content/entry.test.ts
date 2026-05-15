@@ -17,6 +17,7 @@ const readerPanelCtor = vi.fn(function () {
         setTheme: vi.fn(),
         setThemeOverrides: vi.fn(),
         setRenderCodeInReader: vi.fn(),
+        setShowOutlineInReader: vi.fn(),
         setContentMaxWidthPx: vi.fn(),
         setCommentExportSettings: vi.fn(),
     };

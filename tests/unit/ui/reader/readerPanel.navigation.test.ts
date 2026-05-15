@@ -321,6 +321,24 @@ describe('ReaderPanel navigation', () => {
         }
     });
 
+    it('can hide the heading outline rail through reader settings without changing markdown rendering', async () => {
+        const panel = new ReaderPanel();
+        panel.setShowOutlineInReader(false);
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: '# First\n\n## Second\n\nBody' }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            expect(shadow.querySelector('.reader-outline-rail')).toBeNull();
+            expect(shadow.querySelector('.reader-markdown h1')?.textContent).toBe('First');
+            expect(shadow.querySelector('.reader-body-wrap')?.getAttribute('data-has-outline')).toBe('0');
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('jumps to a heading outline target without changing the current reader page', async () => {
         const scrollTo = vi.fn();
         Object.defineProperty(HTMLElement.prototype, 'scrollTo', {

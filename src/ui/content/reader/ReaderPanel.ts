@@ -86,6 +86,7 @@ type ReaderPanelState = {
     renderedAtomicUnits: ReaderAtomicUnit[];
     outlineItems: ReaderOutlineItem[];
     activeOutlineId: string;
+    showOutlineInReader: boolean;
     selectedAtomicUnitIds: string[];
     selectionSourceText: string;
     selectionExport: string;
@@ -148,6 +149,7 @@ export class ReaderPanel {
         renderedAtomicUnits: [],
         outlineItems: [],
         activeOutlineId: '',
+        showOutlineInReader: true,
         selectedAtomicUnitIds: [],
         selectionSourceText: '',
         selectionExport: '',
@@ -204,6 +206,13 @@ export class ReaderPanel {
         const next = Number.isFinite(widthPx) ? Math.max(1, Math.round(widthPx)) : 1000;
         if (this.state.contentMaxWidthPx === next) return;
         this.state.contentMaxWidthPx = next;
+        if (this.state.visible) this.render();
+    }
+
+    setShowOutlineInReader(enabled: boolean): void {
+        const next = Boolean(enabled);
+        if (this.state.showOutlineInReader === next) return;
+        this.state.showOutlineInReader = next;
         if (this.state.visible) this.render();
     }
 
@@ -559,6 +568,7 @@ export class ReaderPanel {
                 renderedHtml: this.state.renderedHtml,
                 outlineItems: this.state.outlineItems,
                 activeOutlineId: this.state.activeOutlineId,
+                showOutlineRail: this.state.showOutlineInReader,
                 userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,
                 showCopy: this.state.options.showCopy,

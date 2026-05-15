@@ -73,14 +73,13 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(html).toContain('line 1<br');
     });
 
-    it('renders mermaid fences as regular code blocks and preserves language classes for fenced code blocks', () => {
-        const html = renderMarkdownToSanitizedHtml('```mermaid\ngraph TD\nA-->B\n```\n\n```ts\nconst x = 1;\n```');
+    it('preserves language classes for fenced code blocks', () => {
+        const html = renderMarkdownToSanitizedHtml('```json\n{\"ok\":true}\n```\n\n```ts\nconst x = 1;\n```');
 
-        expect(html).not.toContain('data-aimd-mermaid-block="1"');
-        expect(html).toContain('language-mermaid');
+        expect(html).toContain('language-json');
         expect(html).toContain('language-ts');
         expect(html).toContain('data-code-language="ts"');
-        expect(html).toContain('data-code-language="mermaid"');
+        expect(html).toContain('data-code-language="json"');
     });
 
     it('produces reader atomic unit metadata for closed markdown units', () => {

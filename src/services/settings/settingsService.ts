@@ -72,6 +72,11 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         ?? cur.reader.renderCodeInReader
                         ?? DEFAULT_SETTINGS.reader.renderCodeInReader
                     ),
+                    showOutlineInReader: Boolean(
+                        patch.showOutlineInReader
+                        ?? cur.reader.showOutlineInReader
+                        ?? DEFAULT_SETTINGS.reader.showOutlineInReader
+                    ),
                     contentMaxWidthPx: normalizeReaderContentMaxWidthPx(
                         patch.contentMaxWidthPx
                         ?? cur.reader.contentMaxWidthPx

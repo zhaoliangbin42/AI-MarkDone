@@ -116,6 +116,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
+            showOutlineInReader: Boolean((stored.reader as any)?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((stored.reader as any)?.contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
@@ -163,6 +164,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
         reader: {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
+            showOutlineInReader: Boolean((behavior as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((behavior as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
@@ -199,6 +201,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         behavior: normalizeBehaviorSettings(behavior),
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
+            showOutlineInReader: Boolean((reader as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((reader as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,

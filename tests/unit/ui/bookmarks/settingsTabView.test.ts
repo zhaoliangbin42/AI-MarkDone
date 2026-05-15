@@ -393,6 +393,28 @@ describe('SettingsTabView', () => {
         });
     });
 
+    it('wires the Reader outline visibility toggle to reader settings', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetReaderSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-reader-show-outline"]')!;
+
+        expect(toggle).toBeTruthy();
+        expect(toggle.checked).toBe(true);
+
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetReaderSettings).toHaveBeenCalledWith({ showOutlineInReader: false });
+    });
+
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {
         const css = getBookmarksPanelCss();
 

@@ -52,8 +52,22 @@ describe('settingsService', () => {
         }).next;
 
         expect(next.reader.renderCodeInReader).toBe(DEFAULT_SETTINGS.reader.renderCodeInReader);
+        expect(next.reader.showOutlineInReader).toBe(DEFAULT_SETTINGS.reader.showOutlineInReader);
         expect(next.reader.commentExport).toEqual(DEFAULT_SETTINGS.reader.commentExport);
         expect(next.reader.contentMaxWidthPx).toBe(1600);
+    });
+
+    it('normalizes reader outline visibility settings', () => {
+        const off = planSetCategory(DEFAULT_SETTINGS, 'reader', { showOutlineInReader: false }).next;
+        const inherited = planSetCategory(off, 'reader', { contentMaxWidthPx: 980 }).next;
+        const restored = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            reader: { renderCodeInReader: false },
+        } as any);
+
+        expect(off.reader.showOutlineInReader).toBe(false);
+        expect(inherited.reader.showOutlineInReader).toBe(false);
+        expect(restored.reader.showOutlineInReader).toBe(true);
     });
 
     it('normalizes global appearance font size settings', () => {

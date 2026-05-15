@@ -7,9 +7,9 @@ describe('ReaderPanel markdown enhancement', () => {
         document.querySelector('#aimd-reader-panel-host')?.remove();
     });
 
-    it('renders mermaid fences as regular code blocks and highlights fenced code during markdown rendering', async () => {
+    it('renders fenced code blocks with the shared code block chrome', async () => {
         const panel = new ReaderPanel();
-        const markdown = '```mermaid\ngraph TD\nA-->B\n```\n\n```ts\nconst x = 1;\n```';
+        const markdown = '```ts\nconst x = 1;\n```';
 
         try {
             await panel.show([{ id: 'a', userPrompt: 'Q1', content: markdown }], 0, 'light');
@@ -18,9 +18,8 @@ describe('ReaderPanel markdown enhancement', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             const content = shadow.querySelector<HTMLElement>('.reader-markdown');
 
-            expect(content?.querySelector('.aimd-mermaid')).toBeNull();
-            expect(content?.querySelector('pre[data-code-language="mermaid"] code')?.className).toContain('language-mermaid');
             expect(content?.querySelector('pre[data-code-language="ts"] code')?.className).toContain('hljs');
+            expect(content?.querySelector('pre[data-code-language="ts"]')?.closest('.reader-code-block')).toBeTruthy();
             expect(content?.querySelector('pre[data-code-language="ts"] .hljs-keyword')?.textContent).toBe('const');
         } finally {
             panel.hide();

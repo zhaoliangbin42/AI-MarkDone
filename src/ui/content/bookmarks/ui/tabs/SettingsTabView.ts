@@ -99,6 +99,7 @@ type Refs = {
     };
     reader: {
         renderCodeInReader: HTMLInputElement;
+        showOutlineInReader: HTMLInputElement;
         promptPositionBottom: HTMLInputElement;
         promptsButton: HTMLButtonElement;
         promptsSummary: HTMLElement;
@@ -186,6 +187,7 @@ export class SettingsTabView {
 
         const readerGroup = this.createGroup(Icons.bookOpen, t('readerSettingsLabel'));
         const renderCodeInReader = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
+        const showOutlineInReader = this.createToggle(readerGroup.body, t('readerOutlineToggleLabel'), t('readerOutlineToggleDesc'));
         const promptPositionBottom = this.createToggle(
             readerGroup.body,
             t('readerCommentPromptPositionBottomLabel'),
@@ -325,6 +327,7 @@ export class SettingsTabView {
             },
             reader: {
                 renderCodeInReader: renderCodeInReader.input,
+                showOutlineInReader: showOutlineInReader.input,
                 promptPositionBottom: promptPositionBottom.input,
                 promptsButton: promptsRow.button,
                 promptsSummary: promptsRow.summary,
@@ -356,6 +359,7 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
         this.refs.reader.renderCodeInReader.dataset.role = 'settings-render-code-reader';
+        this.refs.reader.showOutlineInReader.dataset.role = 'settings-reader-show-outline';
         this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-prompt-position-bottom';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
         this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
@@ -431,6 +435,9 @@ export class SettingsTabView {
                 renderCodeInReader: Boolean(
                     params.settings.reader?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader,
                 ),
+                showOutlineInReader: Boolean(
+                    params.settings.reader?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader,
+                ),
                 contentMaxWidthPx: params.settings.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
                 commentExport: normalizeReaderCommentExportSettings(params.settings.reader?.commentExport),
             },
@@ -503,6 +510,11 @@ export class SettingsTabView {
             const next = this.refs.reader.renderCodeInReader.checked;
             this.settings.reader.renderCodeInReader = next;
             void this.actions.setReaderSettings?.({ renderCodeInReader: next });
+        });
+        this.refs.reader.showOutlineInReader.addEventListener('change', () => {
+            const next = this.refs.reader.showOutlineInReader.checked;
+            this.settings.reader.showOutlineInReader = next;
+            void this.actions.setReaderSettings?.({ showOutlineInReader: next });
         });
         this.refs.reader.promptPositionBottom.addEventListener('change', () => {
             const next = this.getReaderCommentExport();
@@ -585,6 +597,7 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
         this.refs.reader.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
+        this.refs.reader.showOutlineInReader.checked = Boolean(s.reader.showOutlineInReader);
         this.refs.reader.promptPositionBottom.checked = commentExport.promptPosition === 'bottom';
         this.refs.reader.promptsSummary.textContent = this.formatPromptSummary(commentExport);
         this.refs.reader.templateSummary.textContent = this.formatTemplateSummary(commentExport.template);
@@ -607,6 +620,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
         this.syncToggle(this.refs.reader.renderCodeInReader);
+        this.syncToggle(this.refs.reader.showOutlineInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
         this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);

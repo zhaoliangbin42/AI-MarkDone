@@ -1243,6 +1243,14 @@
         "message": "Display syntax-highlighted code in Reader Mode",
         "description": "Message for renderCodeBlocksDesc"
     },
+    "readerOutlineToggleLabel": {
+        "message": "Reader > Show Heading Outline",
+        "description": "Message for readerOutlineToggleLabel"
+    },
+    "readerOutlineToggleDesc": {
+        "message": "Show the right-side heading outline when the current Reader page has multiple Markdown headings.",
+        "description": "Message for readerOutlineToggleDesc"
+    },
     "supportDevDesc": {
         "message": "AI-MarkDone is open source. Star us on GitHub.",
         "description": "Message for supportDevDesc"

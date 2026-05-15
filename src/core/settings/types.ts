@@ -61,6 +61,7 @@ export type AppSettings = {
     };
     reader: {
         renderCodeInReader: boolean;
+        showOutlineInReader: boolean;
         contentMaxWidthPx: number;
         commentExport: ReaderCommentExportSettings;
     };
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     reader: {
         renderCodeInReader: true,
+        showOutlineInReader: true,
         contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         commentExport: createDefaultReaderCommentExportSettings(),
     },

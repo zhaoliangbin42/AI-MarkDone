@@ -21,6 +21,7 @@ type ReaderTemplateState = {
     renderedHtml: string;
     outlineItems: ReaderOutlineItem[];
     activeOutlineId: string;
+    showOutlineRail: boolean;
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     showCopy: boolean;
@@ -89,6 +90,7 @@ export function getReaderPanelHtml(params: {
 }): string {
     const { state, canOpenConversation, getLabel } = params;
     const total = state.items.length;
+    const hasOutline = state.showOutlineRail && state.outlineItems.length >= 2;
     const title = getLabel('btnReader', 'Reader panel');
     const openConversationLabel = getLabel('openConversationLabel', 'Open conversation');
     const copyLabel = getLabel('btnCopyText', 'Copy markdown');
@@ -116,7 +118,7 @@ export function getReaderPanelHtml(params: {
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="reader-body-wrap" data-has-outline="${state.outlineItems.length >= 2 ? '1' : '0'}">
+  <div class="reader-body-wrap" data-has-outline="${hasOutline ? '1' : '0'}">
     <div class="reader-body">
       <article class="reader-content" style="--_reader-content-max-width: ${Math.max(1, Math.round(state.contentMaxWidthPx))}px;">
         <div class="reader-thread">
@@ -134,11 +136,11 @@ export function getReaderPanelHtml(params: {
         </div>
       </article>
     </div>
-    ${renderOutlineMarkup({
+    ${hasOutline ? renderOutlineMarkup({
         outlineItems: state.outlineItems,
         activeOutlineId: state.activeOutlineId,
         getLabel,
-    })}
+    }) : ''}
   </div>
   <div class="panel-footer reader-footer">
     <div class="reader-footer__left">

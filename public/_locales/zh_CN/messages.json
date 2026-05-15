@@ -1243,6 +1243,14 @@
         "message": "在阅读器模式下显示代码块，否则显示占位符。",
         "description": "Message for renderCodeBlocksDesc"
     },
+    "readerOutlineToggleLabel": {
+        "message": "阅读器 > 显示标题大纲",
+        "description": "Message for readerOutlineToggleLabel"
+    },
+    "readerOutlineToggleDesc": {
+        "message": "当当前阅读器页面包含多个 Markdown 标题时，在右侧显示标题导航大纲。",
+        "description": "Message for readerOutlineToggleDesc"
+    },
     "supportDevDesc": {
         "message": "AI-MarkDone 是开源项目。在 GitHub 点个星星支持下。",
         "description": "Message for supportDevDesc"

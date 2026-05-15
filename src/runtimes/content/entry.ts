@@ -158,6 +158,7 @@ if (adapter) {
     syncThemeOverrides(cachedSettings);
     if (cachedSettings?.reader) {
         readerPanel.setRenderCodeInReader(Boolean(cachedSettings.reader.renderCodeInReader));
+        readerPanel.setShowOutlineInReader(Boolean(cachedSettings.reader.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader));
         readerPanel.setContentMaxWidthPx(cachedSettings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
         readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
     }
@@ -175,6 +176,7 @@ if (adapter) {
         else disableRuntime();
         syncFormulaSettings(snap.settings.formula);
         readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
+        readerPanel.setShowOutlineInReader(Boolean(snap.settings.reader.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader));
         readerPanel.setContentMaxWidthPx(snap.settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
         readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
