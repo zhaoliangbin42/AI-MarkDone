@@ -14,9 +14,9 @@ const EXPANDED_LABEL_HEAD_LENGTH = 15;
 const EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH = 30;
 const USER_INTERACTION_IDLE_MS = 800;
 
-function getPreviewTokenCss(overrides: UserThemeOverrides = {}): string {
-    const light = getTokenCss('light', overrides).replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
-    const dark = getTokenCss('dark', overrides).replace(/:host/g, '.aimd-chatgpt-directory-preview[data-aimd-theme="dark"]');
+function getPortalTokenCss(selector: string, overrides: UserThemeOverrides = {}): string {
+    const light = getTokenCss('light', overrides).replace(/:host/g, `${selector}[data-aimd-theme="light"]`);
+    const dark = getTokenCss('dark', overrides).replace(/:host/g, `${selector}[data-aimd-theme="dark"]`);
     return `${light}\n${dark}`;
 }
 
@@ -409,7 +409,7 @@ export class ChatGPTDirectoryRail {
     }
 
     private getPreviewCss(): string {
-        return `${getPreviewTokenCss(this.themeOverrides)}
+        return `${getPortalTokenCss('.aimd-chatgpt-directory-preview', this.themeOverrides)}
 .aimd-chatgpt-directory-preview {
   --_directory-preview-width: 280px;
   --_directory-preview-gap: var(--aimd-space-3);
@@ -469,7 +469,7 @@ export class ChatGPTDirectoryRail {
     }
 
     private getStepControlsCss(): string {
-        return `${getPreviewTokenCss(this.themeOverrides)}
+        return `${getPortalTokenCss('.aimd-chatgpt-directory-step-controls', this.themeOverrides)}
 .aimd-chatgpt-directory-step-controls {
   position: fixed;
   right: var(--aimd-space-4);

@@ -493,6 +493,19 @@ describe('ChatGPTDirectoryController', () => {
         expect(style?.textContent).toContain('background: var(--aimd-bg-surface');
     });
 
+    it('ships an independent token scope for the body-level step controls', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        const style = document.getElementById('aimd-chatgpt-directory-step-controls-style');
+        const css = style?.textContent ?? '';
+
+        expect(css).toContain('.aimd-chatgpt-directory-step-controls[data-aimd-theme="light"]');
+        expect(css).toContain('.aimd-chatgpt-directory-step-controls[data-aimd-theme="dark"]');
+        expect(css).toContain('width: var(--aimd-size-control-icon-panel-nav);');
+        expect(css).toContain('bottom: var(--aimd-space-6);');
+
+        rail.dispose();
+    });
+
     it('keeps the rail visible on ChatGPT SPA routes when conversation skeletons are already present', async () => {
         window.history.replaceState({}, '', '/');
         const adapter = new ChatGPTTestAdapter();
