@@ -8,3 +8,8 @@ export type FormulaSvgAsset = {
     svg: string;
 };
 
+export type FormulaMathmlAsset = {
+    source: string;
+    displayMode: boolean;
+    mathml: string;
+};

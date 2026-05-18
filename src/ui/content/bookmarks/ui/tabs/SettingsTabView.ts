@@ -1086,6 +1086,7 @@ export class SettingsTabView {
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
                 copySvg: Boolean(assetActions.copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
+                copyMathml: Boolean(assetActions.copyMathml ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyMathml),
                 savePng: Boolean(assetActions.savePng ?? DEFAULT_FORMULA_SETTINGS.assetActions.savePng),
                 saveSvg: Boolean(assetActions.saveSvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.saveSvg),
             },
@@ -1121,9 +1122,9 @@ export class SettingsTabView {
 
     private formatFormulaAssetActionsSummary(settings: FormulaSettings): string {
         const actions = settings.assetActions;
-        const count = [actions.copyPng, actions.copySvg, actions.savePng, actions.saveSvg].filter(Boolean).length;
+        const count = [actions.copyPng, actions.copySvg, actions.copyMathml, actions.savePng, actions.saveSvg].filter(Boolean).length;
         if (count === 0) return t('formulaAssetActionsSummaryNone');
-        if (count === 4) return t('formulaAssetActionsSummaryAll');
+        if (count === 5) return t('formulaAssetActionsSummaryAll');
         return t('formulaAssetActionsSummaryCount', [String(count)]);
     }
 
@@ -1257,6 +1258,7 @@ export class SettingsTabView {
                 close: t('btnClose'),
                 copyPng: t('formulaCopyAsPng'),
                 copySvg: t('formulaCopyAsSvg'),
+                copyMathml: t('formulaCopyAsMathml'),
                 savePng: t('formulaSaveAsPng'),
                 saveSvg: t('formulaSaveAsSvg'),
             },

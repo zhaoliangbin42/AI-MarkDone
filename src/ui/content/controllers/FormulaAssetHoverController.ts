@@ -138,7 +138,7 @@ export class FormulaAssetHoverController {
 
     private hasEnabledAssetAction(): boolean {
         const actions = this.formulaSettings.assetActions;
-        return actions.copyPng || actions.copySvg || actions.savePng || actions.saveSvg;
+        return actions.copyPng || actions.copySvg || actions.copyMathml || actions.savePng || actions.saveSvg;
     }
 
     private createHoverActions(context: MathFormulaHoverContext): Array<{ id: string; label: string; onClick: () => void }> {
@@ -156,6 +156,13 @@ export class FormulaAssetHoverController {
                 id: 'copy_formula_svg',
                 label: getI18nLabel('formulaCopyAsSvg', 'Copy as SVG'),
                 onClick: () => void this.handleFormulaAssetAction(context, 'copy_svg'),
+            });
+        }
+        if (enabled.copyMathml) {
+            actions.push({
+                id: 'copy_formula_mathml',
+                label: getI18nLabel('formulaCopyAsMathml', 'Copy as MathML'),
+                onClick: () => void this.handleFormulaAssetAction(context, 'copy_mathml'),
             });
         }
         if (enabled.savePng) {

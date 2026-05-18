@@ -1,6 +1,7 @@
 export type FormulaAssetActionSettings = {
     copyPng: boolean;
     copySvg: boolean;
+    copyMathml: boolean;
     savePng: boolean;
     saveSvg: boolean;
 };
@@ -15,8 +16,8 @@ export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
     assetActions: {
         copyPng: true,
         copySvg: true,
+        copyMathml: true,
         savePng: true,
         saveSvg: true,
     },
 };
-

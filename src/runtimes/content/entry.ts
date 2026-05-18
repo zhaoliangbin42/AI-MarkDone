@@ -238,6 +238,7 @@ function shouldEnableFormulaInteractions(settings: typeof DEFAULT_SETTINGS.formu
         settings.clickCopyMarkdown
         || settings.assetActions.copyPng
         || settings.assetActions.copySvg
+        || settings.assetActions.copyMathml
         || settings.assetActions.savePng
         || settings.assetActions.saveSvg
     );

@@ -214,6 +214,7 @@ describe('SettingsTabView', () => {
         expect(toggles.map((input) => input.dataset.role)).toEqual([
             'settings-formula-asset-action-copy-png',
             'settings-formula-asset-action-copy-svg',
+            'settings-formula-asset-action-copy-mathml',
             'settings-formula-asset-action-save-png',
             'settings-formula-asset-action-save-svg',
         ]);
@@ -224,6 +225,7 @@ describe('SettingsTabView', () => {
             assetActions: {
                 copyPng: false,
                 copySvg: true,
+                copyMathml: true,
                 savePng: true,
                 saveSvg: true,
             },

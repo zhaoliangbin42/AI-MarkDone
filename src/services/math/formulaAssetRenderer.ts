@@ -1,4 +1,4 @@
-import type { FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
+import type { FormulaMathmlAsset, FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
 import {
     FORMULA_RENDERER_REQUEST_TYPE,
     FORMULA_RENDERER_RESPONSE_TYPE,
@@ -7,7 +7,7 @@ import {
 } from '../../core/math/formulaRendererProtocol';
 import { browser } from '../../drivers/shared/browser';
 
-export type { FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
+export type { FormulaMathmlAsset, FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
 
 export const DEFAULT_FORMULA_FONT_SIZE_PX = 36;
 const DEFAULT_RENDER_TIMEOUT_MS = 8000;
@@ -26,17 +26,26 @@ type FormulaRendererTransportRequest = {
     displayMode: boolean;
     fontSizePx: number;
     timeoutMs: number;
+    format: 'svg' | 'mathml';
 };
 
-type FormulaRendererTransport = (request: FormulaRendererTransportRequest) => Promise<FormulaSvgAsset>;
+type FormulaSvgRendererTransport = (request: FormulaRendererTransportRequest) => Promise<FormulaSvgAsset>;
+type FormulaMathmlRendererTransport = (request: FormulaRendererTransportRequest) => Promise<FormulaMathmlAsset>;
 
 const cache = new Map<string, FormulaSvgAsset>();
 const inFlight = new Map<string, Promise<FormulaSvgAsset>>();
-let testTransport: FormulaRendererTransport | null = null;
+const mathmlCache = new Map<string, FormulaMathmlAsset>();
+const mathmlInFlight = new Map<string, Promise<FormulaMathmlAsset>>();
+let testTransport: FormulaSvgRendererTransport | null = null;
+let testMathmlTransport: FormulaMathmlRendererTransport | null = null;
 let iframeTransport: IframeFormulaRendererTransport | null = null;
 
-function cacheKey(request: Omit<FormulaRendererTransportRequest, 'timeoutMs'>): string {
-    return JSON.stringify([request.source, request.displayMode, request.fontSizePx]);
+function cacheKey(request: Omit<FormulaRendererTransportRequest, 'timeoutMs' | 'format'>): string {
+    return JSON.stringify(['svg', request.source, request.displayMode, request.fontSizePx]);
+}
+
+function mathmlCacheKey(request: Pick<FormulaRendererTransportRequest, 'source' | 'displayMode'>): string {
+    return JSON.stringify(['mathml', request.source, request.displayMode]);
 }
 
 function writeCache(key: string, asset: FormulaSvgAsset): void {
@@ -46,6 +55,16 @@ function writeCache(key: string, asset: FormulaSvgAsset): void {
         const firstKey = cache.keys().next().value;
         if (!firstKey) break;
         cache.delete(firstKey);
+    }
+}
+
+function writeMathmlCache(key: string, asset: FormulaMathmlAsset): void {
+    if (mathmlCache.has(key)) mathmlCache.delete(key);
+    mathmlCache.set(key, asset);
+    while (mathmlCache.size > MAX_CACHE_ENTRIES) {
+        const firstKey = mathmlCache.keys().next().value;
+        if (!firstKey) break;
+        mathmlCache.delete(firstKey);
     }
 }
 
@@ -65,10 +84,19 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     });
 }
 
-function getFormulaRendererTransport(): FormulaRendererTransport {
-    if (testTransport) return testTransport;
+function getIframeFormulaRendererTransport(): IframeFormulaRendererTransport {
     iframeTransport ??= new IframeFormulaRendererTransport();
-    return (request) => iframeTransport!.render(request);
+    return iframeTransport;
+}
+
+function getFormulaRendererTransport(): FormulaSvgRendererTransport {
+    if (testTransport) return testTransport;
+    return (request) => getIframeFormulaRendererTransport().renderSvg(request);
+}
+
+function getFormulaMathmlRendererTransport(): FormulaMathmlRendererTransport {
+    if (testMathmlTransport) return testMathmlTransport;
+    return (request) => getIframeFormulaRendererTransport().renderMathml(request);
 }
 
 export async function renderFormulaSvgAsset(options: FormulaRenderOptions): Promise<FormulaSvgAsset> {
@@ -93,7 +121,7 @@ export async function renderFormulaSvgAsset(options: FormulaRenderOptions): Prom
     if (existing) return existing;
 
     const transport = getFormulaRendererTransport();
-    const pending = withTimeout(transport({ ...request, timeoutMs }), timeoutMs)
+    const pending = withTimeout(transport({ ...request, timeoutMs, format: 'svg' }), timeoutMs)
         .then((asset) => {
             writeCache(key, asset);
             return asset;
@@ -105,17 +133,60 @@ export async function renderFormulaSvgAsset(options: FormulaRenderOptions): Prom
     return pending;
 }
 
+export async function renderFormulaMathmlAsset(options: Omit<FormulaRenderOptions, 'fontSizePx'>): Promise<FormulaMathmlAsset> {
+    const source = options.source.trim();
+    if (!source) throw new Error('Formula source is empty.');
+    const timeoutMs = Number.isFinite(options.timeoutMs) && (options.timeoutMs ?? 0) > 0
+        ? Math.round(options.timeoutMs!)
+        : DEFAULT_RENDER_TIMEOUT_MS;
+    const request = {
+        source,
+        displayMode: options.displayMode,
+    };
+    const key = mathmlCacheKey(request);
+    const cached = mathmlCache.get(key);
+    if (cached) return cached;
+
+    const existing = mathmlInFlight.get(key);
+    if (existing) return existing;
+
+    const transport = getFormulaMathmlRendererTransport();
+    const pending = withTimeout(transport({
+        ...request,
+        fontSizePx: DEFAULT_FORMULA_FONT_SIZE_PX,
+        timeoutMs,
+        format: 'mathml',
+    }), timeoutMs)
+        .then((asset) => {
+            writeMathmlCache(key, asset);
+            return asset;
+        })
+        .finally(() => {
+            mathmlInFlight.delete(key);
+        });
+    mathmlInFlight.set(key, pending);
+    return pending;
+}
+
 class IframeFormulaRendererTransport {
     private iframe: HTMLIFrameElement | null = null;
     private iframeReady: Promise<HTMLIFrameElement> | null = null;
     private readonly pending = new Map<string, {
-        resolve: (asset: FormulaSvgAsset) => void;
+        resolve: (asset: FormulaSvgAsset | FormulaMathmlAsset) => void;
         reject: (error: Error) => void;
         timer: number;
     }>();
     private nextId = 0;
 
-    render(request: FormulaRendererTransportRequest): Promise<FormulaSvgAsset> {
+    renderSvg(request: FormulaRendererTransportRequest): Promise<FormulaSvgAsset> {
+        return this.render(request, 'svg') as Promise<FormulaSvgAsset>;
+    }
+
+    renderMathml(request: FormulaRendererTransportRequest): Promise<FormulaMathmlAsset> {
+        return this.render(request, 'mathml') as Promise<FormulaMathmlAsset>;
+    }
+
+    private render(request: FormulaRendererTransportRequest, format: 'svg' | 'mathml'): Promise<FormulaSvgAsset | FormulaMathmlAsset> {
         const id = `formula-${Date.now()}-${++this.nextId}`;
         const message: FormulaRendererRequest = {
             type: FORMULA_RENDERER_REQUEST_TYPE,
@@ -123,6 +194,7 @@ class IframeFormulaRendererTransport {
             source: request.source,
             displayMode: request.displayMode,
             fontSizePx: request.fontSizePx,
+            format,
         };
         return new Promise((resolve, reject) => {
             const timer = window.setTimeout(() => {
@@ -194,13 +266,20 @@ class IframeFormulaRendererTransport {
     };
 }
 
-export function __setFormulaRendererTransportForTests(transport: FormulaRendererTransport): void {
+export function __setFormulaRendererTransportForTests(transport: FormulaSvgRendererTransport): void {
     testTransport = transport;
+}
+
+export function __setFormulaMathmlRendererTransportForTests(transport: FormulaMathmlRendererTransport): void {
+    testMathmlTransport = transport;
 }
 
 export function __resetFormulaAssetRendererForTests(): void {
     testTransport = null;
+    testMathmlTransport = null;
     iframeTransport = null;
     cache.clear();
     inFlight.clear();
+    mathmlCache.clear();
+    mathmlInFlight.clear();
 }

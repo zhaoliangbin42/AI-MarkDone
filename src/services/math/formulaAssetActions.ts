@@ -1,10 +1,11 @@
 import { copyImageBlobToClipboard } from '../../drivers/content/clipboard/copyImageToClipboard';
+import { copyMathmlToClipboard } from '../../drivers/content/clipboard/copyMathmlToClipboard';
 import { copySvgBlobToClipboard } from '../../drivers/content/clipboard/copySvgToClipboard';
 import { downloadBlob } from '../../drivers/content/export/downloadBlob';
 import { rasterizeFormulaSvgToPngBlob } from '../../drivers/content/export/renderFormulaPng';
-import { DEFAULT_FORMULA_FONT_SIZE_PX, renderFormulaSvgAsset } from './formulaAssetRenderer';
+import { DEFAULT_FORMULA_FONT_SIZE_PX, renderFormulaMathmlAsset, renderFormulaSvgAsset } from './formulaAssetRenderer';
 
-export type FormulaAssetAction = 'copy_png' | 'copy_svg' | 'save_png' | 'save_svg';
+export type FormulaAssetAction = 'copy_png' | 'copy_svg' | 'copy_mathml' | 'save_png' | 'save_svg';
 
 export type FormulaAssetActionResult =
     | { ok: true; status: 'copied' | 'saved' }
@@ -34,6 +35,16 @@ export async function runFormulaAssetAction(options: RunFormulaAssetActionOption
     if (!source) return { ok: false, code: 'EMPTY_SOURCE', message: 'Formula source is empty.' };
 
     try {
+        if (options.action === 'copy_mathml') {
+            const asset = await renderFormulaMathmlAsset({
+                source,
+                displayMode: options.displayMode,
+            });
+            const result = await copyMathmlToClipboard(asset.mathml);
+            if (result.ok) return { ok: true, status: 'copied' };
+            return clipboardError('CLIPBOARD_WRITE_FAILED', result.errorMessage || 'MathML clipboard copy failed.');
+        }
+
         const asset = await renderFormulaSvgAsset({
             source,
             displayMode: options.displayMode,

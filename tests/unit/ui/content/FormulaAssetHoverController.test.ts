@@ -35,6 +35,7 @@ describe('FormulaAssetHoverController', () => {
         expect(buttons.map((button) => button.textContent)).toEqual([
             'Copy as PNG',
             'Copy as SVG',
+            'Copy as MathML',
             'Save as PNG',
             'Save as SVG',
         ]);
@@ -106,6 +107,7 @@ describe('FormulaAssetHoverController', () => {
             assetActions: {
                 copyPng: false,
                 copySvg: true,
+                copyMathml: false,
                 savePng: false,
                 saveSvg: true,
             },
@@ -146,6 +148,7 @@ describe('FormulaAssetHoverController', () => {
             assetActions: {
                 copyPng: false,
                 copySvg: false,
+                copyMathml: false,
                 savePng: false,
                 saveSvg: false,
             },

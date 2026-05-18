@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Formula hover actions can now copy a single formula as MathML, using the existing LaTeX extraction path and MathJax renderer for Office-friendly equation paste workflows.
 
 ## [4.4.1] - 2026-05-15
 ### Added

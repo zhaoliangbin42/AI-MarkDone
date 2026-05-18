@@ -39,6 +39,10 @@
         "message": "Copy as SVG",
         "description": "Message for formulaCopyAsSvg"
     },
+    "formulaCopyAsMathml": {
+        "message": "Copy as MathML",
+        "description": "Message for formulaCopyAsMathml"
+    },
     "formulaSaveAsPng": {
         "message": "Save as PNG",
         "description": "Message for formulaSaveAsPng"
@@ -1212,7 +1216,7 @@
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {
-        "message": "Formula image actions",
+        "message": "Formula actions",
         "description": "Message for formulaAssetActionsPopupTitle"
     },
     "formulaAssetActionsSummaryAll": {
@@ -1220,7 +1224,7 @@
         "description": "Message for formulaAssetActionsSummaryAll"
     },
     "formulaAssetActionsSummaryNone": {
-        "message": "No image actions enabled",
+        "message": "No formula actions enabled",
         "description": "Message for formulaAssetActionsSummaryNone"
     },
     "formulaAssetActionsSummaryCount": {

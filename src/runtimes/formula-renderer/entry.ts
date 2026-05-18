@@ -3,11 +3,13 @@ import { browserAdaptor } from '@mathjax/src/js/adaptors/browserAdaptor.js';
 import { RegisterHTMLHandler } from '@mathjax/src/js/handlers/html.js';
 import { TeX } from '@mathjax/src/js/input/tex.js';
 import { SVG } from '@mathjax/src/js/output/svg.js';
+import { STATE } from '@mathjax/src/js/core/MathItem.js';
+import { SerializedMmlVisitor } from '@mathjax/src/js/core/MmlTree/SerializedMmlVisitor.js';
 import { MathJaxNewcmFont } from '@mathjax/mathjax-newcm-font/js/svg.js';
 import '@mathjax/src/js/input/tex/ams/AmsConfiguration.js';
 import '@mathjax/src/js/input/tex/newcommand/NewcommandConfiguration.js';
 import '@mathjax/src/js/input/tex/noundefined/NoUndefinedConfiguration.js';
-import type { FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
+import type { FormulaMathmlAsset, FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
 import {
     FORMULA_RENDERER_REQUEST_TYPE,
     FORMULA_RENDERER_RESPONSE_TYPE,
@@ -16,7 +18,7 @@ import {
 } from '../../core/math/formulaRendererProtocol';
 
 type MathDocumentLike = {
-    convert: (source: string, options: { display?: boolean }) => Element;
+    convert: (source: string, options: { display?: boolean; end?: number }) => Element | unknown;
 };
 
 const adaptor = browserAdaptor();
@@ -35,6 +37,7 @@ const html = mathjax.document('', {
     InputJax: tex,
     OutputJax: svg,
 }) as unknown as MathDocumentLike;
+const mathmlVisitor = new SerializedMmlVisitor();
 
 function createMeasurementRoot(fontSizePx: number): HTMLElement {
     const root = document.createElement('div');
@@ -85,7 +88,7 @@ function renderFormulaSvgAsset(request: FormulaRendererRequest): FormulaSvgAsset
     const fontSizePx = Number.isFinite(request.fontSizePx) && request.fontSizePx > 0
         ? Math.round(request.fontSizePx)
         : 36;
-    const rendered = html.convert(source, { display: request.displayMode });
+    const rendered = html.convert(source, { display: request.displayMode }) as Node;
     const root = createMeasurementRoot(fontSizePx);
     try {
         root.appendChild(rendered);
@@ -109,6 +112,22 @@ function renderFormulaSvgAsset(request: FormulaRendererRequest): FormulaSvgAsset
     }
 }
 
+function ensureMathmlNamespace(mathml: string): string {
+    return mathml.replace(/^<math\b(?![^>]*\sxmlns=)/, '<math xmlns="http://www.w3.org/1998/Math/MathML"');
+}
+
+function renderFormulaMathmlAsset(request: FormulaRendererRequest): FormulaMathmlAsset {
+    const source = request.source.trim();
+    if (!source) throw new Error('Formula source is empty.');
+    const root = html.convert(source, { display: request.displayMode, end: STATE.COMPILED });
+    const mathml = ensureMathmlNamespace(mathmlVisitor.visitTree(root as any).trim());
+    return {
+        source,
+        displayMode: request.displayMode,
+        mathml,
+    };
+}
+
 window.addEventListener('message', (event: MessageEvent) => {
     const request = event.data as Partial<FormulaRendererRequest>;
     if (request?.type !== FORMULA_RENDERER_REQUEST_TYPE || typeof request.id !== 'string') return;
@@ -119,7 +138,9 @@ window.addEventListener('message', (event: MessageEvent) => {
             type: FORMULA_RENDERER_RESPONSE_TYPE,
             id: request.id,
             ok: true,
-            asset: renderFormulaSvgAsset(request as FormulaRendererRequest),
+            asset: request.format === 'mathml'
+                ? renderFormulaMathmlAsset(request as FormulaRendererRequest)
+                : renderFormulaSvgAsset(request as FormulaRendererRequest),
         };
     } catch (error: any) {
         response = {

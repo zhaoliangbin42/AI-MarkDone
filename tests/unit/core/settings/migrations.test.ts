@@ -118,12 +118,12 @@ describe('settings migrations', () => {
             behavior: { enableClickToCopy: true },
             formula: {
                 clickCopyMarkdown: false,
-                assetActions: { copyPng: false, copySvg: true, savePng: false, saveSvg: true, extra: true },
+                assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true, extra: true },
             },
         } as any);
         expect(explicit.formula).toEqual({
             clickCopyMarkdown: false,
-            assetActions: { copyPng: false, copySvg: true, savePng: false, saveSvg: true },
+            assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
 
         const legacy = loadAndNormalize({

@@ -39,6 +39,10 @@
         "message": "复制为SVG",
         "description": "Message for formulaCopyAsSvg"
     },
+    "formulaCopyAsMathml": {
+        "message": "复制为MathML",
+        "description": "Message for formulaCopyAsMathml"
+    },
     "formulaSaveAsPng": {
         "message": "保存为PNG",
         "description": "Message for formulaSaveAsPng"
@@ -1212,7 +1216,7 @@
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {
-        "message": "公式图片动作",
+        "message": "公式动作",
         "description": "Message for formulaAssetActionsPopupTitle"
     },
     "formulaAssetActionsSummaryAll": {
@@ -1220,7 +1224,7 @@
         "description": "Message for formulaAssetActionsSummaryAll"
     },
     "formulaAssetActionsSummaryNone": {
-        "message": "未启用图片动作",
+        "message": "未启用公式动作",
         "description": "Message for formulaAssetActionsSummaryNone"
     },
     "formulaAssetActionsSummaryCount": {

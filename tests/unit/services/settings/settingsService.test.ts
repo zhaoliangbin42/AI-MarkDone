@@ -232,6 +232,7 @@ describe('settingsService', () => {
             assetActions: {
                 copyPng: false,
                 copySvg: true,
+                copyMathml: false,
                 savePng: false,
                 saveSvg: true,
                 retiredAction: true,
@@ -243,6 +244,7 @@ describe('settingsService', () => {
             assetActions: {
                 copyPng: false,
                 copySvg: true,
+                copyMathml: false,
                 savePng: false,
                 saveSvg: true,
             },

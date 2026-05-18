@@ -43,6 +43,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
+            copyMathml: Boolean((assetActions as any).copyMathml ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyMathml),
             savePng: Boolean((assetActions as any).savePng ?? DEFAULT_FORMULA_SETTINGS.assetActions.savePng),
             saveSvg: Boolean((assetActions as any).saveSvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.saveSvg),
         },

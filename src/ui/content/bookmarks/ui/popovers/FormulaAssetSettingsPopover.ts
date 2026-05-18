@@ -11,6 +11,7 @@ type OpenParams = {
         close: string;
         copyPng: string;
         copySvg: string;
+        copyMathml: string;
         savePng: string;
         saveSvg: string;
     };
@@ -58,6 +59,7 @@ export class FormulaAssetSettingsPopover {
         const rows = [
             ['copyPng', params.labels.copyPng, 'settings-formula-asset-action-copy-png'],
             ['copySvg', params.labels.copySvg, 'settings-formula-asset-action-copy-svg'],
+            ['copyMathml', params.labels.copyMathml, 'settings-formula-asset-action-copy-mathml'],
             ['savePng', params.labels.savePng, 'settings-formula-asset-action-save-png'],
             ['saveSvg', params.labels.saveSvg, 'settings-formula-asset-action-save-svg'],
         ] as const;
@@ -113,4 +115,3 @@ export class FormulaAssetSettingsPopover {
         window.addEventListener('keydown', this.onWindowKeyDown, { capture: true });
     }
 }
-
