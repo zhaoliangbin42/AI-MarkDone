@@ -96,9 +96,10 @@ describe('MathClickHandler', () => {
         expect(target.style.backgroundColor).toBe('rgba(37, 99, 235, 0.24)');
 
         expect(writeText).toHaveBeenCalledWith('x_1 + y');
-        const tooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip[data-variant="ephemeral"]');
-        expect(tooltip).toBeTruthy();
-        expect(tooltip?.textContent).toContain('Copied');
+        const toast = document.body.querySelector<HTMLElement>('.aimd-toast');
+        expect(toast).toBeTruthy();
+        expect(toast?.textContent).toContain('Copied');
+        expect(document.body.querySelector('.aimd-tooltip[data-variant="ephemeral"]')).toBeNull();
         handler.disable();
         container.remove();
         document.documentElement.style.removeProperty('--aimd-interactive-highlight');

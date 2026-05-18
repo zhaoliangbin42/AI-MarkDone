@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MessageToolbar } from '@/ui/content/MessageToolbar';
 
 describe('MessageToolbar tooltip integration', () => {
-    it('renders toolbar-local hover feedback instead of delegated or native title tooltips', () => {
+    it('renders delegated tooltip feedback instead of toolbar-local feedback hosts or native title tooltips', () => {
         vi.useFakeTimers();
         const toolbar = new MessageToolbar('light', [
             {
@@ -20,22 +20,20 @@ describe('MessageToolbar tooltip integration', () => {
         const button = shadow.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]');
         expect(button).toBeTruthy();
         expect(button?.getAttribute('title')).toBeNull();
-        expect(button?.dataset.tooltip).toBeUndefined();
+        expect(button?.dataset.tooltip).toBe('Copy markdown');
 
-        button?.dispatchEvent(new Event('mouseenter', { bubbles: true }));
-        vi.advanceTimersByTime(99);
-        expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
+        button?.dispatchEvent(new Event('pointerover', { bubbles: true, composed: true }));
+        vi.advanceTimersByTime(149);
+        expect(document.querySelector('.aimd-tooltip')).toBeNull();
 
         vi.advanceTimersByTime(1);
-        const feedbackHost = document.querySelector<HTMLElement>('.aimd-toolbar-tooltip-host');
-        const feedback = feedbackHost?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-tooltip"]');
-        expect(feedback?.textContent).toBe('Copy markdown');
-        expect(feedback?.dataset.placement).toBe('top');
-        expect(document.querySelector('.aimd-tooltip')).toBeNull();
-        expect(button?.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
-
-        button?.dispatchEvent(new Event('mouseleave', { bubbles: true }));
+        const tooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip');
+        expect(tooltip?.textContent).toBe('Copy markdown');
         expect(document.querySelector('.aimd-toolbar-tooltip-host')).toBeNull();
+        expect(shadow.querySelector('.aimd-tooltip')).toBeNull();
+
+        button?.dispatchEvent(new Event('pointerout', { bubbles: true, composed: true }));
+        expect(document.querySelector('.aimd-tooltip')).toBeNull();
 
         toolbar.getElement().remove();
         vi.useRealTimers();

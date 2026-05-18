@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
     FORMULA_RENDERER_REQUEST_TYPE,
     FORMULA_RENDERER_RESPONSE_TYPE,
@@ -73,16 +73,23 @@ describe('formula renderer entry', () => {
     it.each([
         [String.raw`W_N^k = e^{-j\frac{2\pi}{N}k}`, ['data-c="3D"', 'data-c="1D452"']],
         ['a+b=c+d', ['data-c="3D"', 'data-c="1D450"', 'data-c="1D451"']],
+        [String.raw`\mathbb{R}^{m\times n}\rightarrow \sum_{i=1}^n x_i`, ['data-c="2211"']],
     ])('keeps inline formula %s in a single complete SVG asset', async (source, expectedGlyphs) => {
-        const response = await renderFormula(source, false);
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        try {
+            const response = await renderFormula(source, false);
 
-        expect(response.ok).toBe(true);
-        if (!response.ok) throw new Error(response.message);
-        expect(response.asset.svg.match(/<svg\b/g)).toHaveLength(1);
-        for (const glyph of expectedGlyphs) {
-            expect(response.asset.svg).toContain(glyph);
+            expect(response.ok).toBe(true);
+            if (!response.ok) throw new Error(response.message);
+            expect(response.asset.svg.match(/<svg\b/g)).toHaveLength(1);
+            for (const glyph of expectedGlyphs) {
+                expect(response.asset.svg).toContain(glyph);
+            }
+            expect(response.asset.svg).not.toContain('mjx-break');
+            expect(warnSpy).not.toHaveBeenCalled();
+        } finally {
+            warnSpy.mockRestore();
         }
-        expect(response.asset.svg).not.toContain('mjx-break');
     });
 
     it('can return Presentation MathML from the same TeX input', async () => {

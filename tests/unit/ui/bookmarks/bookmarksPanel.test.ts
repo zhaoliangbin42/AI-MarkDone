@@ -859,7 +859,8 @@ describe('BookmarksPanel', () => {
         await Promise.resolve();
         await flushAnimationFrame();
 
-        expect(shadow.querySelector('.aimd-tooltip__body')?.textContent).toBe('Export all bookmarks');
+        expect(document.body.querySelector('.aimd-tooltip__body')?.textContent).toBe('Export all bookmarks');
+        expect(shadow.querySelector('.aimd-tooltip__body')).toBeNull();
 
         panel.hide();
     });

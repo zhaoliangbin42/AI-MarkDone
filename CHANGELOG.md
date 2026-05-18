@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - Formula hover actions can now copy a single formula as MathML, using the existing LaTeX extraction path and MathJax renderer for Office-friendly equation paste workflows.
+- UI feedback now uses a shared tokenized tooltip and top-center toast layer for clearer hover labels and short operation results.
 
 ## [4.4.1] - 2026-05-15
 ### Added

@@ -4,6 +4,18 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-19 — Feedback layer and formula renderer recovery
+
+- Unified hover labels around the shared tooltip primitive and routed short operation results through a top-center toast layer.
+- Kept tooltip and toast colors tied to the active theme token chain through `--aimd-tooltip-*` and `--aimd-toast-*`.
+- Recovered formula SVG/PNG/MathML rendering for MathJax inputs that need the NewCM double-struck data, while keeping MathJax out of `content.js` and avoiding runtime dynamic font loading from the host page.
+- Verification:
+  - `npm run test -- tests/unit/runtimes/formula-renderer/entry.test.ts tests/unit/services/math/formulaAssetActions.test.ts tests/unit/services/math/formulaAssetRenderer.test.ts tests/unit/drivers/math-click.test.ts` (pass; 16 tests)
+  - `npm run test -- tests/unit/ui/infra/tooltipDelegate.test.ts tests/unit/ui/infra/toast.test.ts tests/unit/ui/content/messageToolbar.tooltip.test.ts tests/unit/ui/components/ToolbarHoverActionPortal.test.ts tests/unit/ui/content/MessageToolbar.test.ts tests/unit/ui/bookmarks/bookmarksPanel.test.ts tests/integration/reader/reader-panel.test.ts` (pass; 78 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+  - `rg "MathJax|@mathjax|MathJaxNewcmFont" dist-chrome/content.js dist-firefox/content.js` (no matches)
+
 ## 2026-05-15 — v4.4.1 release copy preparation
 
 - Bumped package, lockfile, and source manifest versions to `4.4.1`.
