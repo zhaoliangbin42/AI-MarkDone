@@ -4,6 +4,15 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-19 — ChatGPT open Reader tail page sync
+
+- Let an already-open ChatGPT Reader append newly generated conversation pages when the official page adds a new round after sending from inside Reader.
+- Kept the source boundary narrow: DOM round refs only mark new round positions as Reader tail pending, while appended Reader pages still come from a refreshed `ChatGPTConversationEngine` snapshot after the matching assistant content is non-empty.
+- Verification:
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts tests/unit/ui/content/messageToolbarOrchestrator.scheduler.test.ts tests/unit/ui/content/messageToolbarOrchestrator.official-anchor.test.ts tests/unit/ui/reader/readerPanel.navigation.test.ts` (pass; 39 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-05-19 — Feedback layer and formula renderer recovery
 
 - Unified hover labels around the shared tooltip primitive and routed short operation results through a top-center toast layer.

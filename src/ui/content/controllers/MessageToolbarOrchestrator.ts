@@ -43,6 +43,7 @@ import { buildChatGPTConversationTurns, resolveChatGPTConversationRound } from '
 import type { ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
+import { buildChatGPTReaderItems } from '../../../services/reader/chatgptReaderItems';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -82,6 +83,13 @@ type ToolbarBookmarkTarget = {
     userPrompt: string;
 };
 
+type ReaderTailSyncState = {
+    conversationUrl: string;
+    knownPositions: Set<number>;
+    pendingPositions: Set<number>;
+    refreshing: Promise<void> | null;
+};
+
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
@@ -108,6 +116,7 @@ export class MessageToolbarOrchestrator {
     private messageSegmentIndexByElement = new WeakMap<HTMLElement, number>();
     private turnRefs: ConversationTurnRef[] = [];
     private turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+    private readerTailSyncState: ReaderTailSyncState | null = null;
 
     private rebuildTurnIndex(): void {
         try {
@@ -1124,15 +1133,19 @@ export class MessageToolbarOrchestrator {
     }
 
     private async syncReaderTailPages(): Promise<void> {
-        if (this.adapter.getPlatformId() === 'chatgpt') return;
         if (typeof this.readerPanel.isShowingConversationReader !== 'function') return;
         if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
         if (typeof this.readerPanel.appendItem !== 'function') return;
         if (!this.readerPanel.isShowingConversationReader()) return;
         const currentItems = this.readerPanel.getItemsSnapshot();
         const turns = collectConversationTurnRefs(this.adapter);
-        if (turns.length <= currentItems.length) return;
 
+        if (this.adapter.getPlatformId() === 'chatgpt') {
+            await this.syncChatGptReaderTailPages(currentItems, turns);
+            return;
+        }
+
+        if (turns.length <= currentItems.length) return;
         const pageUrl = stripReaderUrl(window.location.href);
         for (let index = currentItems.length; index < turns.length; index += 1) {
             const turn = turns[index];
@@ -1142,6 +1155,88 @@ export class MessageToolbarOrchestrator {
             const item = buildReaderItemFromTurn(this.adapter, turn, index, pageUrl);
             this.decorateReaderItems([item as unknown as { meta?: Record<string, unknown> }]);
             await this.readerPanel.appendItem(item);
+        }
+    }
+
+    private getReaderTailPosition(item: ReaderItem): number | null {
+        const position = Number(item.meta?.position ?? 0);
+        return Number.isInteger(position) && position > 0 ? position : null;
+    }
+
+    private getTurnTailPosition(turn: ConversationTurnRef): number | null {
+        const position = turn.index + 1;
+        return Number.isInteger(position) && position > 0 ? position : null;
+    }
+
+    private syncReaderTailKnownPositions(state: ReaderTailSyncState, currentItems: ReaderItem[]): void {
+        state.knownPositions.clear();
+        for (const item of currentItems) {
+            const position = this.getReaderTailPosition(item);
+            if (!position) continue;
+            state.knownPositions.add(position);
+            state.pendingPositions.delete(position);
+        }
+    }
+
+    private getReaderTailSyncState(currentItems: ReaderItem[]): ReaderTailSyncState {
+        const conversationUrl = this.getBookmarkPageUrl();
+        if (!this.readerTailSyncState || this.readerTailSyncState.conversationUrl !== conversationUrl) {
+            this.readerTailSyncState = {
+                conversationUrl,
+                knownPositions: new Set<number>(),
+                pendingPositions: new Set<number>(),
+                refreshing: null,
+            };
+        }
+        this.syncReaderTailKnownPositions(this.readerTailSyncState, currentItems);
+        return this.readerTailSyncState;
+    }
+
+    private async syncChatGptReaderTailPages(currentItems: ReaderItem[], turns: ConversationTurnRef[]): Promise<void> {
+        if (!this.chatGptConversationEngine) return;
+        const state = this.getReaderTailSyncState(currentItems);
+        const maxKnownPosition = Math.max(0, ...state.knownPositions);
+        for (const turn of turns) {
+            const position = this.getTurnTailPosition(turn);
+            if (!position || position <= maxKnownPosition || state.knownPositions.has(position)) continue;
+            state.pendingPositions.add(position);
+        }
+        if (state.pendingPositions.size === 0) return;
+        if (state.refreshing) return state.refreshing;
+
+        state.refreshing = this.flushChatGptReaderTailPages(state);
+        try {
+            await state.refreshing;
+        } finally {
+            if (this.readerTailSyncState === state) state.refreshing = null;
+        }
+    }
+
+    private async flushChatGptReaderTailPages(state: ReaderTailSyncState): Promise<void> {
+        if (!this.chatGptConversationEngine) return;
+        const snapshot = await this.chatGptConversationEngine.forceRefreshCurrentConversation().catch(() => null);
+        if (!snapshot?.rounds?.length) return;
+
+        const result = buildChatGPTReaderItems(snapshot, null, this.getBookmarkPageUrl());
+        const latestItems = this.readerPanel.getItemsSnapshot();
+        this.syncReaderTailKnownPositions(state, latestItems);
+        const renderablePositions = new Set(snapshot.rounds
+            .filter((round) => typeof round.assistantContent === 'string' && round.assistantContent.trim().length > 0)
+            .map((round) => round.position));
+        const newItems = result.items.filter((item) => {
+            const position = this.getReaderTailPosition(item);
+            return Boolean(position && state.pendingPositions.has(position) && !state.knownPositions.has(position) && renderablePositions.has(position));
+        });
+        if (newItems.length === 0) return;
+
+        this.decorateReaderItems(newItems as Array<{ meta?: Record<string, unknown> }>);
+        this.attachChatGptLiveTailReaderItem([...latestItems, ...newItems]);
+        for (const item of newItems) {
+            await this.readerPanel.appendItem(item);
+            const position = this.getReaderTailPosition(item);
+            if (!position) continue;
+            state.knownPositions.add(position);
+            state.pendingPositions.delete(position);
         }
     }
 
