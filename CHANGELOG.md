@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formula hover actions can now copy a single formula as MathML, using the existing LaTeX extraction path and MathJax renderer for Office-friendly equation paste workflows.
 - UI feedback now uses a shared tokenized tooltip and top-center toast layer for clearer hover labels and short operation results.
 
+### Fixed
+- ChatGPT: Improved bottom toolbar stability when the official action row hydrates after the assistant message, avoiding routine full-page rescans for that case.
+
 ## [4.4.1] - 2026-05-15
 ### Added
 - Settings: Added a global interface font size control in Advanced Settings, limited to 12px–20px with stepper buttons and live token-based refresh across extension surfaces.

@@ -4,6 +4,17 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-20 — ChatGPT toolbar lifecycle reconcile
+
+- Changed ChatGPT official action-row hydration from a routine full-rescan trigger into a local message lifecycle reconcile.
+- Kept the existing MutationObserver and ScanScheduler; no polling, no new observer, no adapter contract change, and no content fallback injection.
+- Verification:
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.official-anchor.test.ts` (pass; 9 tests)
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.scheduler.test.ts` (pass; 2 tests)
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts tests/unit/ui/content/messageToolbarOrchestrator.copy-png.test.ts` (pass; 19 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-05-19 — Reader pager compact window
 
 - Limited Reader footer pagination to at most 10 page dots for long conversations.
