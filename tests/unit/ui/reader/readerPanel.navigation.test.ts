@@ -243,6 +243,80 @@ describe('ReaderPanel navigation', () => {
         }
     });
 
+    it('limits middle reader pagination to first three, middle four, and last three page dots', async () => {
+        const panel = new ReaderPanel();
+        const items = Array.from({ length: 80 }, (_, index) => ({
+            id: `item-${index}`,
+            userPrompt: `Q${index + 1}`,
+            content: `md${index + 1}`,
+        }));
+
+        try {
+            await panel.show(items, 40, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+            const titles = dots.map((dot) => dot.dataset.tooltipTitle);
+            const ellipses = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-dots .reader-ellipsis'));
+
+            expect(dots).toHaveLength(10);
+            expect(titles).toEqual(['1', '2', '3', '40', '41', '42', '43', '78', '79', '80']);
+            expect(ellipses).toHaveLength(2);
+            expect(dots.find((dot) => dot.classList.contains('reader-dot--active'))?.dataset.tooltipTitle).toBe('41');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('keeps a compact current-page window near the start instead of expanding to seven leading page dots', async () => {
+        const panel = new ReaderPanel();
+        const items = Array.from({ length: 80 }, (_, index) => ({
+            id: `item-${index}`,
+            userPrompt: `Q${index + 1}`,
+            content: `md${index + 1}`,
+        }));
+
+        try {
+            await panel.show(items, 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+            const titles = dots.map((dot) => dot.dataset.tooltipTitle);
+
+            expect(titles).toEqual(['1', '2', '3', '4', '78', '79', '80']);
+            expect(titles).not.toContain('7');
+            expect(dots.find((dot) => dot.classList.contains('reader-dot--active'))?.dataset.tooltipTitle).toBe('1');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('keeps a compact current-page window near the end instead of expanding to seven trailing page dots', async () => {
+        const panel = new ReaderPanel();
+        const items = Array.from({ length: 80 }, (_, index) => ({
+            id: `item-${index}`,
+            userPrompt: `Q${index + 1}`,
+            content: `md${index + 1}`,
+        }));
+
+        try {
+            await panel.show(items, 79, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const dots = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot'));
+            const titles = dots.map((dot) => dot.dataset.tooltipTitle);
+
+            expect(titles).toEqual(['1', '2', '3', '77', '78', '79', '80']);
+            expect(titles).not.toContain('74');
+            expect(dots.find((dot) => dot.classList.contains('reader-dot--active'))?.dataset.tooltipTitle).toBe('80');
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('appends a new tail page without changing the current page selection', async () => {
         const { writeText } = setClipboardMock();
         const panel = new ReaderPanel();

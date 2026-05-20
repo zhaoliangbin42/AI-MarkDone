@@ -4,6 +4,16 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-19 — Reader pager compact window
+
+- Limited Reader footer pagination to at most 10 page dots for long conversations.
+- Middle pages now render as `3 + ellipsis + 4 + ellipsis + 3`; start/end ranges merge overlapping windows instead of expanding to seven leading or trailing dots, keeping adjacent page access near the active page.
+- Verification:
+  - `npm run test -- tests/unit/ui/reader/readerPanel.navigation.test.ts` (pass; 18 tests)
+  - `npm run test -- tests/unit/ui/reader/readerPanel.navigation.test.ts tests/unit/ui/reader/readerPanel.footerActions.test.ts tests/unit/ui/reader/readerPanel.presentation.test.ts` (pass; 40 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
 ## 2026-05-19 — ChatGPT open Reader tail page sync
 
 - Let an already-open ChatGPT Reader append newly generated conversation pages when the official page adds a new round after sending from inside Reader.

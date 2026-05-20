@@ -684,8 +684,8 @@ export class ReaderPanel {
         dots.style.setProperty('--aimd-dot-size', '10px');
         dots.style.setProperty('--aimd-dot-gap', '10px');
 
-        const renderAllThreshold = 60;
-        if (total <= renderAllThreshold) {
+        const maxPageDots = 10;
+        if (total <= maxPageDots) {
             for (let index = 0; index < total; index += 1) {
                 dots.appendChild(this.createDot(index, index === activeIndex));
             }
@@ -693,29 +693,38 @@ export class ReaderPanel {
             return;
         }
 
-        const maxDots = 11;
-        const windowSize = Math.min(maxDots, total);
-        const half = Math.floor(windowSize / 2);
-        let start = Math.max(0, activeIndex - half);
-        let end = Math.min(total - 1, start + windowSize - 1);
-        start = Math.max(0, end - windowSize + 1);
+        const edgeDots = 3;
+        const middleDots = 4;
+        const appendDotRange = (start: number, end: number) => {
+            for (let index = start; index <= end; index += 1) {
+                dots.appendChild(this.createDot(index, index === activeIndex));
+            }
+        };
+        const appendGap = (leftEnd: number, rightStart: number) => {
+            if (leftEnd + 1 < rightStart) dots.appendChild(this.createEllipsis());
+        };
+        const middleStart = Math.max(0, Math.min(activeIndex - 1, total - middleDots));
+        const ranges = [
+            [0, edgeDots - 1],
+            [middleStart, middleStart + middleDots - 1],
+            [total - edgeDots, total - 1],
+        ]
+            .map(([start, end]) => [Math.max(0, start), Math.min(total - 1, end)] as [number, number])
+            .sort(([a], [b]) => a - b)
+            .reduce<Array<[number, number]>>((merged, range) => {
+                const previous = merged[merged.length - 1];
+                if (previous && range[0] <= previous[1] + 1) {
+                    previous[1] = Math.max(previous[1], range[1]);
+                } else {
+                    merged.push([...range]);
+                }
+                return merged;
+            }, []);
 
-        if (start > 0) {
-            dots.appendChild(this.createDot(0, activeIndex === 0));
-            if (start > 1) dots.appendChild(this.createEllipsis());
-        }
-
-        const loopStart = start > 0 ? start : 0;
-        const loopEnd = end < total - 1 ? end : total - 1;
-
-        for (let index = loopStart; index <= loopEnd; index += 1) {
-            dots.appendChild(this.createDot(index, index === activeIndex));
-        }
-
-        if (end < total - 1) {
-            if (end < total - 2) dots.appendChild(this.createEllipsis());
-            dots.appendChild(this.createDot(total - 1, activeIndex === total - 1));
-        }
+        ranges.forEach(([start, end], index) => {
+            if (index > 0) appendGap(ranges[index - 1][1], start);
+            appendDotRange(start, end);
+        });
 
         this.scrollActiveDotIntoView();
     }
