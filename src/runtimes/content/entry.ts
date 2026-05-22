@@ -23,8 +23,11 @@ import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirector
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
+import { getPerfFlags, installLongTaskProbe, installPerfProbeGlobal } from '../../core/perf/perfProbe';
 
 ensurePageTokens();
+installPerfProbeGlobal();
+installLongTaskProbe();
 
 const isDebugEnabled = () => {
     try {
@@ -104,6 +107,11 @@ if (adapter) {
 
     const initChatGptIfNeeded = () => {
         if (!chatGptConversationEngine || !chatGptDirectory) return;
+        if (getPerfFlags().disableDirectory) {
+            writeDebugState({ ChatGptInit: 'directory-disabled' });
+            chatGptConversationEngine.init();
+            return;
+        }
         writeDebugState({ ChatGptInit: 'start' });
         chatGptConversationEngine.init();
         chatGptDirectory.init(currentTheme);
@@ -139,7 +147,7 @@ if (adapter) {
         runtimeEnabled = true;
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         initChatGptIfNeeded();
-        messageToolbars.init();
+        if (!getPerfFlags().disableToolbar) messageToolbars.init();
         headerIcon.init();
     };
 
@@ -207,7 +215,7 @@ if (adapter) {
     });
 
     if (runtimeEnabled) {
-        messageToolbars.init();
+        if (!getPerfFlags().disableToolbar) messageToolbars.init();
         headerIcon.init();
         initChatGptIfNeeded();
     }

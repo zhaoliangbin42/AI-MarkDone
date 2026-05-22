@@ -12,6 +12,7 @@ import {
     type ChatGPTSkeletonAnchor,
 } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
+import { getPerfFlags, perfCount, perfMeasure, perfSpanAsync } from '../../../core/perf/perfProbe';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
@@ -90,6 +91,10 @@ export class ChatGPTDirectoryController {
 
     init(theme: Theme): void {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
+        if (getPerfFlags().disableDirectory) {
+            perfCount('directory.init.skipped', 1, { reason: 'disableDirectory' });
+            return;
+        }
         this.theme = theme;
         this.ensureRail();
         if (this.initialized) {
@@ -190,6 +195,12 @@ export class ChatGPTDirectoryController {
     }
 
     private async refresh(): Promise<void> {
+        if (getPerfFlags().disableDirectory) {
+            this.rail?.setVisible(false);
+            perfCount('directory.refresh.skipped', 1, { reason: 'disableDirectory' });
+            return;
+        }
+        const startedAt = performance.now();
         if (!this.enabled || (!isChatGPTConversationPage(window.location.href) && !hasChatGPTConversationDom())) {
             this.snapshot = null;
             this.rail?.setRounds([]);
@@ -202,10 +213,10 @@ export class ChatGPTDirectoryController {
         this.rebindObservers();
         this.render();
         const bookmarkUrl = getDirectoryBookmarkUrl();
-        const [snapshot] = await Promise.all([
+        const [snapshot] = await perfSpanAsync('directory.refresh.snapshotAndBookmarks', undefined, () => Promise.all([
             this.engine.getSnapshot(),
             this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined) ?? Promise.resolve(),
-        ]);
+        ]));
         this.snapshot = snapshot;
         this.render();
         if (!this.snapshot) this.scheduleSnapshotRetry();
@@ -215,16 +226,26 @@ export class ChatGPTDirectoryController {
             DirectoryRounds: this.roundPositions.length,
             DirectoryAnchors: this.skeletonAnchors.length,
         });
+        perfMeasure('directory.refresh', performance.now() - startedAt, {
+            hasSnapshot: Boolean(this.snapshot),
+            rounds: this.roundPositions.length,
+            anchors: this.skeletonAnchors.length,
+        });
     }
 
     private render(): void {
         if (!this.rail) return;
+        const startedAt = performance.now();
         this.refreshRoundPositions();
         const rounds = this.buildDirectoryRounds();
         this.rail.setRounds(rounds);
         this.syncBookmarkedPositions(rounds);
         this.updateActivePosition();
         this.syncStepControls();
+        perfMeasure('directory.render', performance.now() - startedAt, {
+            rounds: rounds.length,
+            anchors: this.skeletonAnchors.length,
+        });
     }
 
     private syncBookmarkedPositions(rounds: ChatGPTConversationRound[]): void {
@@ -274,6 +295,11 @@ export class ChatGPTDirectoryController {
         if (observerContainer) {
             this.mutationObserver = new MutationObserver(() => {
                 if (typeof document === 'undefined') return;
+                if (getPerfFlags().disableMutationObserver) {
+                    perfCount('directory.mutation.skipped', 1, { reason: 'disableMutationObserver' });
+                    return;
+                }
+                perfCount('directory.mutation.render', 1);
                 this.render();
             });
             this.mutationObserver.observe(observerContainer, { childList: true, subtree: true });

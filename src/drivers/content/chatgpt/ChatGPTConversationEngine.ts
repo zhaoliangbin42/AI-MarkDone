@@ -2,6 +2,7 @@ import type { SiteAdapter } from '../adapters/base';
 import { browser } from '../../shared/browser';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from './types';
 import { RouteWatcher } from '../injection/routeWatcher';
+import { getPerfFlags, perfCount, perfMeasure, perfSpanAsync } from '../../../core/perf/perfProbe';
 
 const BRIDGE_SCRIPT_ID = 'aimd-chatgpt-conversation-bridge-script';
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
@@ -457,10 +458,12 @@ export class ChatGPTConversationEngine {
     }
 
     async getSnapshot(): Promise<ChatGPTConversationSnapshot | null> {
+        perfCount('chatgpt.snapshot.get', 1);
         return this.refreshCurrentConversation({ force: false });
     }
 
     forceRefreshCurrentConversation(): Promise<ChatGPTConversationSnapshot | null> {
+        perfCount('chatgpt.snapshot.force', 1);
         this.markCurrentConversationStale();
         return this.rebuildCurrentConversation();
     }
@@ -478,12 +481,18 @@ export class ChatGPTConversationEngine {
     ): Promise<ChatGPTConversationSnapshot | null> {
         const force = options?.force === true || this.staleConversationIds.has(conversationId);
         const cached = this.snapshotByConversation.get(conversationId);
-        if (cached && !force && !this.staleConversationIds.has(conversationId)) return cached;
+        if (cached && !force && !this.staleConversationIds.has(conversationId)) {
+            perfCount('chatgpt.snapshot.cacheHit', 1, { conversationId });
+            return cached;
+        }
 
         const inFlight = this.inFlightByConversation.get(conversationId);
-        if (inFlight) return inFlight;
+        if (inFlight) {
+            perfCount('chatgpt.snapshot.inFlightReuse', 1, { conversationId });
+            return inFlight;
+        }
 
-        const promise = this.loadSnapshot(conversationId, { force }).finally(() => {
+        const promise = perfSpanAsync('chatgpt.snapshot.refresh', { force, conversationId }, () => this.loadSnapshot(conversationId, { force })).finally(() => {
             this.inFlightByConversation.delete(conversationId);
         });
         this.inFlightByConversation.set(conversationId, promise);
@@ -495,14 +504,32 @@ export class ChatGPTConversationEngine {
         options?: { force?: boolean }
     ): Promise<ChatGPTConversationSnapshot | null> {
         let snapshot: ChatGPTConversationSnapshot | null = null;
+        const startedAt = performance.now();
         try {
             await this.ensureBridgeReady();
             snapshot = await this.requestBridgeSnapshot(conversationId, options?.force === true);
+            perfMeasure('chatgpt.snapshot.bridge', performance.now() - startedAt, {
+                ok: Boolean(snapshot),
+                force: options?.force === true,
+                rounds: snapshot?.rounds?.length ?? 0,
+            });
         } catch {
+            perfMeasure('chatgpt.snapshot.bridge', performance.now() - startedAt, {
+                ok: false,
+                force: options?.force === true,
+                error: true,
+            });
             snapshot = null;
         }
 
-        if (!snapshot) snapshot = buildBestFallback(this.adapter, conversationId);
+        if (!snapshot) {
+            const fallbackStartedAt = performance.now();
+            snapshot = buildBestFallback(this.adapter, conversationId);
+            perfMeasure('chatgpt.snapshot.fallback', performance.now() - fallbackStartedAt, {
+                ok: Boolean(snapshot),
+                rounds: snapshot?.rounds?.length ?? 0,
+            });
+        }
 
         if (snapshot) {
             const previous = this.snapshotByConversation.get(conversationId) ?? null;
@@ -591,6 +618,10 @@ export class ChatGPTConversationEngine {
     }
 
     private startLiveRefresh(): void {
+        if (getPerfFlags().disableSnapshotLiveRefresh) {
+            perfCount('chatgpt.liveRefresh.skipped', 1, { reason: 'disableSnapshotLiveRefresh' });
+            return;
+        }
         if (this.subscribers.size === 0) return;
         if (this.liveRefreshTimer !== null) return;
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
