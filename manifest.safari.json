@@ -46,7 +46,13 @@
         "128": "icons/icon128.png"
     },
     "web_accessible_resources": [
-        "icons/*.png",
+        "icons/icon16.png",
+        "icons/icon48.png",
+        "icons/icon128.png",
+        "icons/icon16_gray.png",
+        "icons/icon48_gray.png",
+        "icons/icon128_gray.png",
+        "icons/about_avatar.png",
         "_locales/*/messages.json",
         "vendor/katex/*.css",
         "vendor/katex/fonts/*",

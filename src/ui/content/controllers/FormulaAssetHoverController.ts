@@ -5,6 +5,7 @@ import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal
 import { runFormulaAssetAction, type FormulaAssetAction } from '../../../services/math/formulaAssetActions';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
 import type { UserThemeOverrides } from '../../../style/tokens';
+import { targetSurfacePolicy } from '../../../config/targetSurface';
 
 export class FormulaAssetHoverController {
     private readonly mathClick: MathClickHandler;
@@ -138,20 +139,21 @@ export class FormulaAssetHoverController {
 
     private hasEnabledAssetAction(): boolean {
         const actions = this.formulaSettings.assetActions;
-        return actions.copyPng || actions.copySvg || actions.copyMathml || actions.savePng || actions.saveSvg;
+        const hasBinaryCopyAction = targetSurfacePolicy.binaryClipboardCopyActions && (actions.copyPng || actions.copySvg);
+        return hasBinaryCopyAction || actions.copyMathml || actions.savePng || actions.saveSvg;
     }
 
     private createHoverActions(context: MathFormulaHoverContext): Array<{ id: string; label: string; onClick: () => void }> {
         const enabled = this.formulaSettings.assetActions;
         const actions: Array<{ id: string; label: string; onClick: () => void }> = [];
-        if (enabled.copyPng) {
+        if (enabled.copyPng && targetSurfacePolicy.binaryClipboardCopyActions) {
             actions.push({
                 id: 'copy_formula_png',
                 label: getI18nLabel('formulaCopyAsPng', 'Copy as PNG'),
                 onClick: () => void this.handleFormulaAssetAction(context, 'copy_png'),
             });
         }
-        if (enabled.copySvg) {
+        if (enabled.copySvg && targetSurfacePolicy.binaryClipboardCopyActions) {
             actions.push({
                 id: 'copy_formula_svg',
                 label: getI18nLabel('formulaCopyAsSvg', 'Copy as SVG'),

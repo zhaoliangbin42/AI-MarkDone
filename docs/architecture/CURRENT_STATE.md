@@ -81,7 +81,7 @@
   - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 通过 `readerContentSource` 共享正文供给：ChatGPT 上优先消费 `ChatGPTConversationEngine` 的完整 snapshot（payload first，随后结构化 turn 数据），避免被当前 DOM hydration/virtualization 范围截断；snapshot 不可用时才 fallback 到 adapter-owned DOM Reader collection，导出层不再自行 force refresh 或选择另一条正文来源
   - ChatGPT Reader 的 `jump to message`、右侧目录条、书签面板的同页/跨页定位入口都复用同一条 directory navigation helper；非 ChatGPT 平台仍保持原有 bookmark/conversation navigation 路径
   - ChatGPT 工具栏书签保存与高亮会先通过 skeleton/container 轮次映射到 payload 的绝对 `position`，再复用现有 `url + position` 书签身份，不改变底层存储 schema
-  - 消息工具栏只注入到 adapter 返回的官方 action row；ChatGPT 上若 assistant message 先出现而官方 action row 后 hydrate，`MessageToolbarOrchestrator` 会把可归属的 action-row mutation 映射回对应消息，并通过本地 lifecycle reconcile 从 `anchor_pending` 推进到 `injected`，不使用长期轮询、正文 fallback 或整页补扫作为常规路径
+  - 消息工具栏只注入到 adapter 返回的官方 action row；ChatGPT 上若 assistant message 先出现而官方 action row 后 hydrate，`MessageToolbarOrchestrator` 会把可归属的 action-row mutation 映射回对应消息，并通过本地 lifecycle reconcile 从 `anchor_pending` 推进到 `injected`。如果 action row 已出现但首次 `injectToolbar` 在官网 hydration / network jitter 窗口失败，状态会进入 `stale` 并由 bounded targeted recovery 把该消息重新放回 incremental reconcile；该恢复只针对未注入成功的消息，不使用长期整页轮询、正文 fallback 或整页补扫作为常规路径
   - `drivers/content/virtualization/*` 与相关设计文档目前只保留为历史实验资产，不构成现行 shipping path
 
 ChatGPT 内容发现链路必须保持一条共享 family、两个投影：
@@ -131,8 +131,8 @@ flowchart TD
 - background 负责写入和恢复
 - content UI 负责意图触发与界面交互
 - `BookmarksPanel` 现在主要承担 shell / overlay lifecycle / tab orchestration
-- `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相
-- bookmarks 信息页职责已经拆开：`AboutTabView` 只持有个人介绍/项目背景/小红书入口，`SponsorTabView` 作为最后一个 `请我喝咖啡` tab 持有付款二维码、GitHub 支持入口与感谢赞助名单
+- `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相；`SponsorTabView` 只进入 Chrome/Firefox target surface
+- bookmarks 信息页职责已经拆开：`AboutTabView` 持有个人介绍、项目背景和 support contact card，三端都保留反馈邮箱入口；Chrome/Firefox 额外保留 About 小红书入口，`SponsorTabView` 作为最后一个 `请我喝咖啡` tab 持有付款二维码、GitHub 支持入口与感谢赞助名单；Safari App Store target 通过 build-time surface policy 移除 sponsor tab、赞助/社交文案资源、付款二维码资源与 About 小红书关注卡
 - 书签树渲染与 virtualization 已收口到 `BookmarksTreeViewport`
 - `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot
 - `BookmarksPanel`、`BookmarkSaveDialog` 与 `SaveMessagesDialog` 已直接复用通用 `OverlaySession`；Bookmarks family 不再保留独立 overlay wrapper
@@ -177,8 +177,9 @@ flowchart TD
 - Reader 当前已经拥有两条稳定的“只在 Reader 内部生效”的扩展链路：
   - atomic closed-unit source selection：普通文本保留原生选区，closed unit 按整单元高亮与源码复制
   - inline comments：comment session、highlight overlay 与右侧 gutter anchor 仍局限在 Reader overlay 内，不依赖 background/storage；但 comment export 的 prompt/template/prompt-position 配置已提升到 settings 域持久化，Reader export popover 只负责预览与复制最终结果
+- Reader conversation profile 还拥有一条临时 Sticky 摘录链路：选区浮层的 `Stick` action 只消费现有 atomic selection Markdown export，将内容在当前页面生命周期内渲染为 sanitized Markdown block；Sticky block 保存在 `ReaderPanel` 实例内存状态中，翻页和关闭/重开 Reader 时保持不变，只有页面刷新或 content runtime 重新初始化才允许丢失。block 自身不限高且不使用卡片外框，左侧只保留拖拽与删除两枚纵向操作按钮。该链路不进入 bookmark-preview profile，不写入 background/storage，也不改变 Reader 内容采集、导出、书签、发送或评论合同。宽屏时 Sticky 是左侧 rail，宽度可拖拽且最大 clamp 到 Reader body 宽度的 2/3；窄屏时只允许作为 Reader 内部 drawer 覆盖，不形成三栏布局；展开入口位于 Reader footer 左侧 action cluster 前。
 - Reader 不再新增专用图表渲染扩展链路；需要展示图表时保持 fenced code 源码，避免把重型渲染库重新带入 content runtime 或额外 overlay 生命周期
-- 公式点击复制与单公式 PNG/SVG hover 动作由 `FormulaAssetHoverController` 统一承载，运行时只消费 `formula` settings 做 gating；LaTeX source 提取、MathJax iframe renderer、PNG rasterize、clipboard/download services 仍保持独立，不感知 Settings UI
+- 公式点击复制与单公式 PNG/SVG hover 动作由 `FormulaAssetHoverController` 统一承载，运行时消费 `formula` settings 与 build-time target surface policy 做 gating；Safari App Store target 隐藏二进制 PNG/SVG clipboard copy 动作，但保留 MathML copy 与 PNG/SVG save 下载动作。LaTeX source 提取、MathJax iframe renderer、PNG rasterize、clipboard/download services 仍保持独立，不感知 Settings UI
 - Reader shell chrome 与正文排版都继续由 tokenized panel/template contract 持有，不再额外接入开源 Markdown 主题 preset
 - fullscreen Reader 切换仍属于 surface state change，不复用 centered panel 的 open/close transform；fullscreen Reader 只保留更轻的 fade-style motion
 

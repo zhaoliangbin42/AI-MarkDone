@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 
@@ -10,6 +10,7 @@ const detector: ThemeDetector = {
 
 class FakeOfficialToolbarAdapter extends SiteAdapter {
     private streaming = false;
+    private injectFailuresRemaining = 0;
 
     matches(): boolean {
         return true;
@@ -45,6 +46,10 @@ class FakeOfficialToolbarAdapter extends SiteAdapter {
     }
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
+        if (this.injectFailuresRemaining > 0) {
+            this.injectFailuresRemaining -= 1;
+            return false;
+        }
         const anchor = this.getToolbarAnchorElement(messageElement);
         if (!anchor) return false;
         toolbarHost.dataset.aimdPlacement = 'actionbar';
@@ -68,6 +73,10 @@ class FakeOfficialToolbarAdapter extends SiteAdapter {
     setStreaming(streaming: boolean): void {
         this.streaming = streaming;
     }
+
+    failNextInjections(count: number): void {
+        this.injectFailuresRemaining = count;
+    }
 }
 
 function getToolbarCount(root: ParentNode = document): number {
@@ -77,6 +86,10 @@ function getToolbarCount(root: ParentNode = document): number {
 describe('MessageToolbarOrchestrator official-anchor sync', () => {
     beforeEach(() => {
         document.body.innerHTML = '';
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('does not inject for messages whose official toolbar is absent', () => {
@@ -210,6 +223,63 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         expect(nextHost).toBeTruthy();
         expect(nextHost).not.toBe(firstHost);
         expect(getToolbarCount()).toBe(1);
+    });
+
+    it('recovers a ChatGPT toolbar when the first anchor injection fails without waiting for page refresh', () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const adapter = new FakeOfficialToolbarAdapter();
+        adapter.failNextInjections(1);
+        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+
+        (orchestrator as any).scanAndInject(new Set(['init']));
+        expect(getToolbarCount()).toBe(0);
+
+        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+        vi.advanceTimersByTime(450);
+
+        expect(fullScanSpy).not.toHaveBeenCalled();
+        expect(getToolbarCount()).toBe(1);
+        orchestrator.dispose();
+    });
+
+    it('recovers a ChatGPT toolbar when an anchor appears after an anchor-pending scan without a captured mutation', () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+          </div>
+        `;
+
+        const adapter = new FakeOfficialToolbarAdapter();
+        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+
+        (orchestrator as any).scanAndInject(new Set(['init']));
+        expect(getToolbarCount()).toBe(0);
+
+        const message = document.querySelector('[data-message-id="m1"]') as HTMLElement;
+        const actionBar = document.createElement('div');
+        actionBar.className = 'official-toolbar';
+        actionBar.appendChild(document.createElement('button'));
+        message.appendChild(actionBar);
+
+        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+        vi.advanceTimersByTime(450);
+
+        expect(fullScanSpy).not.toHaveBeenCalled();
+        expect(getToolbarCount()).toBe(1);
+        expect(actionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
+        orchestrator.dispose();
     });
 
     it('immediately removes only the affected message toolbar when its official toolbar disappears', () => {

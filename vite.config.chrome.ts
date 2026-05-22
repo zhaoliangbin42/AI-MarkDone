@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { extensionSurfacePolicies } from './config/extension/surface';
 
 /**
  * Vite Config for Chrome Build
@@ -7,6 +8,11 @@ import { resolve } from 'path';
  * Chrome 使用 service-worker.ts 作为 background script
  */
 export default defineConfig({
+    define: {
+        __AIMD_ENABLE_SPONSOR_TAB__: JSON.stringify(extensionSurfacePolicies.chrome.sponsorTab),
+        __AIMD_ENABLE_SOCIAL_FOLLOW_CARD__: JSON.stringify(extensionSurfacePolicies.chrome.socialFollowCard),
+        __AIMD_ENABLE_BINARY_CLIPBOARD_COPY_ACTIONS__: JSON.stringify(extensionSurfacePolicies.chrome.binaryClipboardCopyActions),
+    },
     build: {
         modulePreload: {
             polyfill: false  // Service Worker compatibility (keep disabled across targets)

@@ -55,6 +55,16 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Pin icon
+     * Usage: Pin/stick temporary excerpts
+     * Source: Lucide Icons (ISC License)
+     */
+    pin: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 17v5"/>
+    <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>
+  </svg>`,
+
+    /**
      * Book marked icon
      * Usage: Bookmarked/saved book content
      */
@@ -145,6 +155,16 @@ export const Icons = {
     <line x1="12" x2="12" y1="19" y2="22"/>
     <circle cx="12" cy="12" r="7"/>
     <circle cx="12" cy="12" r="3"/>
+  </svg>`,
+
+    /**
+     * Panel left icon
+     * Usage: Toggle a left sidebar/drawer
+     * Source: Lucide Icons (ISC License)
+     */
+    panelLeft: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="18" height="18" x="3" y="3" rx="2"/>
+    <path d="M9 3v18"/>
   </svg>`,
 
     /**
@@ -805,6 +825,7 @@ export function getIconWithColor(
 // -------------------------------------------------------------------------------------
 
 export const bookmarkIcon = Icons.bookmark;
+export const pinIcon = Icons.pin;
 export const settingsIcon = Icons.settings;
 export const coffeeIcon = Icons.coffee;
 export const xIcon = Icons.x;
@@ -844,6 +865,7 @@ export const infoIcon = Icons.info;
 export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
 export const locateIcon = Icons.locate;
+export const panelLeftIcon = Icons.panelLeft;
 export const messageSquareTextIcon = Icons.messageSquareText;
 export const messageSquarePlusIcon = Icons.messageSquarePlus;
 export const messageSquareShareIcon = Icons.messageSquareShare;

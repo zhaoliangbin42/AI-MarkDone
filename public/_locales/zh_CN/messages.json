@@ -167,6 +167,30 @@
         "message": "跳转到标题 $1",
         "description": "Accessible label for jumping to a Reader markdown heading"
     },
+    "readerStickyTitle": {
+        "message": "Sticky",
+        "description": "Title for the Reader temporary sticky excerpt workspace"
+    },
+    "readerStickyExpand": {
+        "message": "展开 Sticky 工作区",
+        "description": "Accessible label for expanding the Reader sticky workspace"
+    },
+    "readerStickyCollapse": {
+        "message": "收起 Sticky 工作区",
+        "description": "Accessible label for collapsing the Reader sticky workspace"
+    },
+    "readerStickyEmpty": {
+        "message": "选中重要内容后点击 Stick。",
+        "description": "Empty state for the Reader sticky workspace"
+    },
+    "readerStickyDelete": {
+        "message": "删除 Sticky 块",
+        "description": "Accessible label for deleting a Reader sticky block"
+    },
+    "readerStickyDrag": {
+        "message": "拖动排序",
+        "description": "Accessible label for dragging a Reader sticky block"
+    },
     "toggleFullscreen": {
         "message": "切换全屏",
         "description": "Message for toggleFullscreen"
@@ -270,6 +294,10 @@
     "readerCommentAction": {
         "message": "注释",
         "description": "Message for readerCommentAction"
+    },
+    "readerStickyAction": {
+        "message": "Stick",
+        "description": "Message for adding the current Reader selection to the sticky workspace"
     },
     "readerCommentAddTitle": {
         "message": "添加注释",
@@ -1290,6 +1318,26 @@
     "aboutProfileBio": {
         "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。",
         "description": "Message for aboutProfileBio"
+    },
+    "supportContactEyebrow": {
+        "message": "支持联系",
+        "description": "Message for supportContactEyebrow"
+    },
+    "supportContactTitle": {
+        "message": "遇到问题，或者想反馈想法？",
+        "description": "Message for supportContactTitle"
+    },
+    "supportContactDesc": {
+        "message": "欢迎通过邮件发送问题、使用场景和功能建议。除非排查问题确实需要，请尽量不要发送私人对话内容。",
+        "description": "Message for supportContactDesc"
+    },
+    "supportContactEmail": {
+        "message": "发送反馈邮件",
+        "description": "Message for supportContactEmail"
+    },
+    "supportContactCopyEmail": {
+        "message": "复制邮箱",
+        "description": "Message for supportContactCopyEmail"
     },
     "selectFolderLabel": {
         "message": "选择文件夹",

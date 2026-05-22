@@ -2,9 +2,12 @@ import {
     chevronRightIcon,
     copyIcon,
     externalLinkIcon,
+    gripHorizontalIcon,
     maximizeIcon,
     messageSquareShareIcon,
     minimizeIcon,
+    panelLeftIcon,
+    trashIcon,
     xIcon,
 } from '../../../assets/icons';
 import { getPanelChromeCss } from '../components/styles/panelChromeCss';
@@ -18,6 +21,10 @@ type ReaderTemplateState = {
     index: number;
     fullscreen: boolean;
     contentMaxWidthPx: number;
+    stickyEnabled: boolean;
+    stickyOpen: boolean;
+    stickyWidthPx: number;
+    stickyBlocks: ReaderStickyBlockTemplate[];
     renderedHtml: string;
     outlineItems: ReaderOutlineItem[];
     activeOutlineId: string;
@@ -26,6 +33,11 @@ type ReaderTemplateState = {
     statusText: string;
     showCopy: boolean;
     showOpenConversation: boolean;
+};
+
+type ReaderStickyBlockTemplate = {
+    id: string;
+    renderedHtml: string;
 };
 
 function iconMarkup(svg: string): string {
@@ -83,6 +95,49 @@ function renderOutlineMarkup(params: {
     `;
 }
 
+function renderStickyMarkup(params: {
+    enabled: boolean;
+    open: boolean;
+    widthPx: number;
+    blocks: ReaderStickyBlockTemplate[];
+    getLabel: (key: string, fallback: string, substitutions?: string | string[]) => string;
+}): string {
+    const { enabled, open, widthPx, blocks, getLabel } = params;
+    if (!enabled) return '';
+
+    const title = getLabel('readerStickyTitle', 'Sticky');
+    const empty = getLabel('readerStickyEmpty', 'Select important content and click Stick.');
+    const deleteLabel = getLabel('readerStickyDelete', 'Delete sticky block');
+    const dragLabel = getLabel('readerStickyDrag', 'Drag to reorder');
+
+    const body = blocks.length > 0
+        ? blocks.map((block) => `
+          <article class="reader-sticky-block" data-role="reader-sticky-block" data-sticky-id="${escapeHtml(block.id)}">
+            <div class="reader-sticky-block__toolbar">
+              <button class="icon-btn reader-sticky-block__drag" type="button" draggable="true" data-action="reader-sticky-drag" data-sticky-id="${escapeHtml(block.id)}" aria-label="${escapeHtml(dragLabel)}" title="${escapeHtml(dragLabel)}">${iconMarkup(gripHorizontalIcon)}</button>
+              <button class="icon-btn icon-btn--danger reader-sticky-block__tool" type="button" data-action="reader-sticky-delete" data-sticky-id="${escapeHtml(block.id)}" aria-label="${escapeHtml(deleteLabel)}" title="${escapeHtml(deleteLabel)}">${iconMarkup(trashIcon)}</button>
+            </div>
+            <div class="reader-sticky-block__content markdown-body">${block.renderedHtml}</div>
+          </article>
+        `).join('')
+        : `<div class="reader-sticky-empty">${escapeHtml(empty)}</div>`;
+
+    return `
+      <aside class="reader-sticky-panel" data-open="${open ? '1' : '0'}" style="--_reader-sticky-width: ${Math.max(1, Math.round(widthPx))}px;">
+        <div class="reader-sticky-shell" aria-hidden="${open ? 'false' : 'true'}">
+          <div class="reader-sticky-header">
+            <div class="reader-sticky-title">${escapeHtml(title)}</div>
+            <div class="reader-sticky-count">${blocks.length}</div>
+          </div>
+          <div class="reader-sticky-list">
+            ${body}
+          </div>
+          <div class="reader-sticky-resize" data-action="reader-sticky-resize" aria-hidden="true"></div>
+        </div>
+      </aside>
+    `;
+}
+
 export function getReaderPanelHtml(params: {
     state: ReaderTemplateState;
     canOpenConversation: boolean;
@@ -118,7 +173,14 @@ export function getReaderPanelHtml(params: {
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="reader-body-wrap" data-has-outline="${hasOutline ? '1' : '0'}">
+  <div class="reader-body-wrap" data-has-outline="${hasOutline ? '1' : '0'}" data-has-sticky="${state.stickyEnabled ? '1' : '0'}" data-sticky-open="${state.stickyOpen ? '1' : '0'}">
+    ${renderStickyMarkup({
+        enabled: state.stickyEnabled,
+        open: state.stickyOpen,
+        widthPx: state.stickyWidthPx,
+        blocks: state.stickyBlocks,
+        getLabel,
+    })}
     <div class="reader-body">
       <article class="reader-content" style="--_reader-content-max-width: ${Math.max(1, Math.round(state.contentMaxWidthPx))}px;">
         <div class="reader-thread">
@@ -144,6 +206,7 @@ export function getReaderPanelHtml(params: {
   </div>
   <div class="panel-footer reader-footer">
     <div class="reader-footer__left">
+      ${state.stickyEnabled ? `<button class="icon-btn reader-sticky-footer-toggle" type="button" data-action="reader-sticky-toggle" data-active="${state.stickyOpen ? '1' : '0'}" aria-label="${escapeHtml(state.stickyOpen ? getLabel('readerStickyCollapse', 'Hide sticky workspace') : getLabel('readerStickyExpand', 'Show sticky workspace'))}" title="${escapeHtml(state.stickyOpen ? getLabel('readerStickyCollapse', 'Hide sticky workspace') : getLabel('readerStickyExpand', 'Show sticky workspace'))}">${iconMarkup(panelLeftIcon)}</button>` : ''}
       <div class="reader-footer__actions" data-role="footer-left-actions"></div>
     </div>
     <div class="reader-footer__center">
@@ -250,6 +313,163 @@ ${getPanelChromeCss()}
   flex: 1;
   min-height: 0;
   display: flex;
+  --_reader-sticky-width: 320px;
+}
+
+.reader-sticky-panel {
+  position: relative;
+  flex: 0 0 var(--_reader-sticky-width);
+  width: var(--_reader-sticky-width);
+  max-width: 66.6667%;
+  min-width: 0;
+  border-right: 1px solid var(--aimd-border-subtle);
+  background: color-mix(in srgb, var(--aimd-bg-secondary) 72%, var(--aimd-bg-primary));
+  display: flex;
+  transition: flex-basis var(--aimd-motion-duration-fast) var(--aimd-motion-ease-standard), width var(--aimd-motion-duration-fast) var(--aimd-motion-ease-standard);
+}
+
+.reader-sticky-panel[data-open="0"] {
+  flex-basis: 0;
+  width: 0;
+  border-right: 0;
+  overflow: hidden;
+}
+
+.reader-sticky-shell {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  opacity: 1;
+  transition: opacity var(--aimd-motion-duration-fast) var(--aimd-motion-ease-standard);
+}
+
+.reader-sticky-panel[data-open="0"] .reader-sticky-shell {
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.reader-sticky-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aimd-space-3);
+  min-width: 0;
+  padding: var(--aimd-space-4) var(--aimd-space-4) var(--aimd-space-3);
+}
+
+.reader-sticky-title {
+  min-width: 0;
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-semibold);
+  color: var(--aimd-text-primary);
+}
+
+.reader-sticky-count {
+  min-width: var(--aimd-size-control-compact);
+  height: var(--aimd-size-control-compact);
+  border-radius: var(--aimd-radius-full);
+  display: inline-grid;
+  place-items: center;
+  padding: 0 var(--aimd-space-2);
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-interactive-selected);
+  font-size: var(--aimd-text-xs);
+  font-weight: var(--aimd-font-semibold);
+}
+
+.reader-sticky-list {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--aimd-space-4) var(--aimd-space-4);
+  display: grid;
+  align-content: start;
+  gap: var(--aimd-space-3);
+}
+
+.reader-sticky-empty {
+  padding: var(--aimd-space-4);
+  border: 1px dashed var(--aimd-border-subtle);
+  border-radius: var(--aimd-radius-lg);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-sm);
+  line-height: var(--aimd-leading-normal);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 76%, transparent);
+}
+
+.reader-sticky-block {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: var(--aimd-size-control-icon-panel) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--aimd-space-2);
+  overflow: visible;
+}
+
+.reader-sticky-block__toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-self: center;
+  width: var(--aimd-size-control-icon-panel);
+  gap: var(--aimd-space-2);
+  min-width: 0;
+  padding-top: var(--aimd-space-1);
+}
+
+.reader-sticky-block__drag,
+.reader-sticky-block__tool {
+  width: var(--aimd-size-control-compact);
+  height: var(--aimd-size-control-compact);
+}
+
+.reader-sticky-block__drag {
+  cursor: grab;
+}
+
+.reader-sticky-block__drag:active {
+  cursor: grabbing;
+}
+
+.reader-sticky-block[data-dragging="1"] {
+  opacity: 0.72;
+}
+
+.reader-sticky-block[data-dragging="1"] .reader-sticky-block__drag {
+  cursor: grabbing;
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-interactive-selected);
+}
+
+.reader-sticky-block__content {
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+  padding: 0 0 var(--aimd-space-2);
+  font-size: var(--aimd-text-sm);
+  line-height: var(--aimd-leading-reading);
+}
+
+.reader-sticky-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.reader-sticky-resize:hover {
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 18%, transparent);
+}
+
+.reader-sticky-footer-toggle[data-active="1"] {
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-interactive-selected);
 }
 
 .reader-body {
@@ -396,6 +616,7 @@ ${getPanelChromeCss()}
 }
 
 ${getMarkdownThemeCss('.reader-markdown')}
+${getMarkdownThemeCss('.reader-sticky-block__content')}
 
 .reader-markdown :where([data-aimd-unit-state="selected"]) {
   border-radius: var(--aimd-radius-sm);
@@ -824,6 +1045,26 @@ ${getMarkdownThemeCss('.reader-markdown')}
     padding: var(--aimd-space-5) calc(var(--aimd-space-4) + var(--aimd-space-1) / 2) var(--aimd-space-4);
   }
 
+  .reader-sticky-panel {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: min(var(--_reader-sticky-width), calc(100vw - var(--aimd-space-8)));
+    max-width: calc(100vw - var(--aimd-space-8));
+    z-index: var(--aimd-z-panel);
+    transform: translateX(0);
+    box-shadow: var(--aimd-shadow-panel);
+  }
+
+  .reader-sticky-panel[data-open="0"] {
+    width: 0;
+    max-width: 0;
+    box-shadow: none;
+  }
+
+  .reader-sticky-panel[data-open="0"] .reader-sticky-resize {
+    display: none;
+  }
+
   .reader-message {
     padding: var(--aimd-space-5);
   }
@@ -846,6 +1087,8 @@ ${getMarkdownThemeCss('.reader-markdown')}
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .reader-sticky-panel,
+  .reader-sticky-shell,
   .reader-outline-rail,
   .reader-outline-rail__list,
   .reader-outline-rail__item,

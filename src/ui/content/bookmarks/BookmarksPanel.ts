@@ -23,7 +23,7 @@ import { AboutTabView } from './ui/tabs/AboutTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
 import { loadLatestChangelogEntry } from './content/changelog';
-import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
+import { createBookmarksPanelShell, type BookmarksPanelTabSpec } from './ui/BookmarksPanelShell';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { ReaderPanel } from '../reader/ReaderPanel';
 import { TooltipDelegate } from '../../../utils/tooltip';
@@ -34,6 +34,10 @@ import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { renderInfoBlocks } from './ui/tabs/renderInfoBlocks';
 import { renderChangelogSections } from './ui/tabs/renderChangelogSections';
+import {
+    TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED,
+    TARGET_SURFACE_SPONSOR_TAB_ENABLED,
+} from '../../../config/targetSurface';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor';
 
@@ -50,6 +54,23 @@ type BookmarksPanelTabView = {
     consumeEscape?(): boolean;
     destroy?(): void;
 };
+
+function isPanelTabId(value: string): value is PanelTabId {
+    return value === 'bookmarks'
+        || value === 'settings'
+        || value === 'changelog'
+        || value === 'about'
+        || value === 'faq'
+        || value === 'sponsor';
+}
+
+function isEnabledPanelTab(tab: PanelTabId): boolean {
+    return tab !== 'sponsor' || TARGET_SURFACE_SPONSOR_TAB_ENABLED;
+}
+
+function normalizePanelTab(tab: PanelTabId): PanelTabId {
+    return isEnabledPanelTab(tab) ? tab : 'bookmarks';
+}
 
 function shouldLogBookmarksPerf(): boolean {
     try {
@@ -414,6 +435,7 @@ export class BookmarksPanel {
         const startedAt = performance.now();
         this.captureScrollTops();
         this.recreateTabViews();
+        this.uiState.bookmarksTab = normalizePanelTab(this.uiState.bookmarksTab);
 
         const bookmarksPanel = this.bookmarksView?.getElement() ?? document.createElement('section');
         bookmarksPanel.classList.add('tab-panel--bookmarks');
@@ -425,8 +447,6 @@ export class BookmarksPanel {
         aboutPanel.classList.add('about-panel');
         const faqPanel = this.faqView?.getElement() ?? document.createElement('section');
         faqPanel.classList.add('faq-panel');
-        const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
-        sponsorPanel.classList.add('sponsor-panel');
 
         const titleText = this.uiState.bookmarksTab === 'bookmarks'
             ? tr('tabBookmarks', 'Bookmarks')
@@ -438,21 +458,28 @@ export class BookmarksPanel {
                         ? tr('tabFaq', 'FAQ')
                         : this.uiState.bookmarksTab === 'about'
                             ? tr('tabAbout', 'About')
-                            : tr('tabSponsor', 'Buy Me Coffee');
+                            : TARGET_SURFACE_SPONSOR_TAB_ENABLED
+                                ? tr('tabSponsor', 'Buy Me Coffee')
+                                : tr('tabBookmarks', 'Bookmarks');
+        const tabs: BookmarksPanelTabSpec[] = [
+            { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
+            { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
+            { id: 'changelog', label: tr('tabChangelog', 'Changelog'), icon: fileTextIcon, content: changelogPanel, panelClassName: 'changelog-panel' },
+            { id: 'faq', label: tr('tabFaq', 'FAQ'), icon: messageSquareTextIcon, content: faqPanel, panelClassName: 'faq-panel' },
+            { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
+        ];
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED) {
+            const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
+            sponsorPanel.classList.add('sponsor-panel');
+            tabs.push({ id: 'sponsor', label: tr('tabSponsor', 'Buy Me Coffee'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' });
+        }
 
         const shell = createBookmarksPanelShell({
             titleText,
             closeIcon: xIcon,
             closeLabel: tr('btnClose', 'Close panel'),
             defaultTabId: this.uiState.bookmarksTab,
-            tabs: [
-                { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
-                { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
-                { id: 'changelog', label: tr('tabChangelog', 'Changelog'), icon: fileTextIcon, content: changelogPanel, panelClassName: 'changelog-panel' },
-                { id: 'faq', label: tr('tabFaq', 'FAQ'), icon: messageSquareTextIcon, content: faqPanel, panelClassName: 'faq-panel' },
-                { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
-                { id: 'sponsor', label: tr('tabSponsor', 'Buy Me Coffee'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' },
-            ],
+            tabs,
         });
         const panel = shell.panel;
 
@@ -469,7 +496,7 @@ export class BookmarksPanel {
         shell.closeBtn.addEventListener('click', () => this.hide());
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
             const nextTab = (event as CustomEvent<{ id: string }>).detail.id;
-            if (nextTab === 'bookmarks' || nextTab === 'settings' || nextTab === 'changelog' || nextTab === 'about' || nextTab === 'faq' || nextTab === 'sponsor') {
+            if (isPanelTabId(nextTab) && isEnabledPanelTab(nextTab)) {
                 this.switchToTab(nextTab);
             }
         });
@@ -529,7 +556,14 @@ export class BookmarksPanel {
 
     private recreateTabViews(): void {
         if (!this.modalHost) return;
-        if (this.bookmarksView && this.settingsView && this.changelogView && this.aboutView && this.faqView && this.sponsorView) return;
+        if (
+            this.bookmarksView
+            && this.settingsView
+            && this.changelogView
+            && this.aboutView
+            && this.faqView
+            && (!TARGET_SURFACE_SPONSOR_TAB_ENABLED || this.sponsorView)
+        ) return;
 
         if (!this.bookmarksView) {
             try {
@@ -582,6 +616,7 @@ export class BookmarksPanel {
                 this.aboutView = new AboutTabView({
                     actions: {
                         getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                        showSocialFollowCard: TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED,
                     },
                 });
             } catch (error) {
@@ -605,7 +640,7 @@ export class BookmarksPanel {
             }
         }
 
-        if (!this.sponsorView) {
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED && !this.sponsorView) {
             try {
                 this.sponsorView = new SponsorTabView({
                     actions: {
@@ -633,6 +668,7 @@ export class BookmarksPanel {
     }
 
     private switchToTab(nextTab: PanelTabId): void {
+        if (!isEnabledPanelTab(nextTab)) return;
         if (this.uiState.bookmarksTab === nextTab) return;
         this.bookmarksView?.dismissTransientUi?.();
         this.settingsView?.dismissTransientUi?.();
@@ -749,7 +785,7 @@ export class BookmarksPanel {
         const target = event.target as HTMLElement | null;
         if (target?.closest('.aimd-settings')) return;
         if (target?.closest('.bookmarks-tab-content')) return;
-        if (this.uiState.bookmarksTab === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED && this.uiState.bookmarksTab === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
             this.emitSponsorBurst(event as MouseEvent);
             return;
         }

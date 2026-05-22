@@ -43,6 +43,7 @@ import { buildChatGPTConversationTurns, resolveChatGPTConversationRound } from '
 import type { ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
+import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { buildChatGPTReaderItems } from '../../../services/reader/chatgptReaderItems';
 
 type ToolbarRecord = {
@@ -101,6 +102,9 @@ type ChatGptToolbarState = {
     phase: ChatGptToolbarPhase;
 };
 
+const CHATGPT_TOOLBAR_RECOVERY_BASE_MS = 400;
+const CHATGPT_TOOLBAR_RECOVERY_MAX_MS = 4000;
+
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
@@ -129,6 +133,8 @@ export class MessageToolbarOrchestrator {
     private turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
     private readerTailSyncState: ReaderTailSyncState | null = null;
     private chatGptToolbarStatesByMessageKey = new Map<string, ChatGptToolbarState>();
+    private chatGptToolbarRecoveryAttemptsByMessageKey = new Map<string, number>();
+    private chatGptToolbarRecoveryTimer: number | null = null;
 
     private rebuildTurnIndex(): void {
         try {
@@ -542,6 +548,11 @@ export class MessageToolbarOrchestrator {
         this.observedContainer = null;
         this.dirtyMessages.clear();
         this.needsFullRescan = false;
+        if (this.chatGptToolbarRecoveryTimer !== null) {
+            window.clearTimeout(this.chatGptToolbarRecoveryTimer);
+            this.chatGptToolbarRecoveryTimer = null;
+        }
+        this.chatGptToolbarRecoveryAttemptsByMessageKey.clear();
         this.clearAllToolbars();
     }
 
@@ -563,10 +574,58 @@ export class MessageToolbarOrchestrator {
             pending: item.pending,
             phase,
         });
+        if (phase === 'injected') {
+            this.chatGptToolbarRecoveryAttemptsByMessageKey.delete(item.messageKey);
+            return;
+        }
+        this.scheduleChatGptToolbarRecovery();
     }
 
     private clearChatGptToolbarState(messageKey: string): void {
         this.chatGptToolbarStatesByMessageKey.delete(messageKey);
+        this.chatGptToolbarRecoveryAttemptsByMessageKey.delete(messageKey);
+    }
+
+    private scheduleChatGptToolbarRecovery(): void {
+        if (!this.usesChatGptToolbarLifecycle()) return;
+        if (this.chatGptToolbarRecoveryTimer !== null) return;
+
+        const recoverable = Array.from(this.chatGptToolbarStatesByMessageKey.values())
+            .filter((state) => state.phase !== 'injected' && document.contains(state.message));
+        if (recoverable.length === 0) return;
+
+        const minAttempts = Math.min(...recoverable.map((state) => this.chatGptToolbarRecoveryAttemptsByMessageKey.get(state.messageKey) ?? 0));
+        const delayMs = Math.min(
+            CHATGPT_TOOLBAR_RECOVERY_MAX_MS,
+            CHATGPT_TOOLBAR_RECOVERY_BASE_MS * (2 ** Math.max(0, minAttempts)),
+        );
+
+        this.chatGptToolbarRecoveryTimer = window.setTimeout(() => {
+            this.chatGptToolbarRecoveryTimer = null;
+            this.recoverChatGptToolbarStates();
+        }, delayMs);
+    }
+
+    private recoverChatGptToolbarStates(): void {
+        if (!this.usesChatGptToolbarLifecycle()) return;
+
+        let hasRecoverable = false;
+        for (const [messageKey, state] of Array.from(this.chatGptToolbarStatesByMessageKey.entries())) {
+            if (state.phase === 'injected') continue;
+            if (!document.contains(state.message)) {
+                this.clearChatGptToolbarState(messageKey);
+                continue;
+            }
+
+            hasRecoverable = true;
+            this.dirtyMessages.add(state.message);
+            const attempts = this.chatGptToolbarRecoveryAttemptsByMessageKey.get(messageKey) ?? 0;
+            this.chatGptToolbarRecoveryAttemptsByMessageKey.set(messageKey, attempts + 1);
+        }
+
+        if (!hasRecoverable) return;
+        this.scanAndInject(new Set(['mutation']));
+        this.scheduleChatGptToolbarRecovery();
     }
 
     setTheme(theme: Theme): void {
@@ -652,7 +711,7 @@ export class MessageToolbarOrchestrator {
             });
         }
 
-        actions.push({
+        const copyMarkdownAction: MessageToolbarAction = {
             id: 'copy_markdown',
             label: t('btnCopy'),
             tooltip: t('btnCopy'),
@@ -667,7 +726,9 @@ export class MessageToolbarOrchestrator {
                 const ok = await copyTextToClipboard(turn.assistant);
                 return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
             },
-            hoverAction: {
+        };
+        if (targetSurfacePolicy.binaryClipboardCopyActions) {
+            copyMarkdownAction.hoverAction = {
                 id: 'copy_png',
                 label: t('btnCopyAsPng'),
                 icon: imageIcon,
@@ -742,8 +803,9 @@ export class MessageToolbarOrchestrator {
                     finishDebug('ok');
                     return { ok: true, message: t('btnCopyAsPngCopied') };
                 },
-            },
-        });
+            };
+        }
+        actions.push(copyMarkdownAction);
 
         actions.push({
             id: 'reader',

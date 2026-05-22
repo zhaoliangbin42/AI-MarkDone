@@ -289,6 +289,32 @@ describe('ReaderPanel presentation', () => {
         expect(source).toContain('position: absolute;');
     });
 
+    it('keeps the sticky workspace scoped, token-driven, and drawer-only on narrow screens', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
+        const stickyStart = source.indexOf('.reader-sticky-panel {');
+        const stickyEnd = source.indexOf('.reader-body {', stickyStart);
+        const stickyCss = source.slice(stickyStart, stickyEnd);
+        const narrowStart = source.indexOf('@media (max-width: 900px)');
+        const narrowEnd = source.indexOf('@media (prefers-reduced-motion: reduce)', narrowStart);
+        const narrowCss = source.slice(narrowStart, narrowEnd);
+
+        expect(stickyCss).toContain('.reader-sticky-panel {');
+        expect(stickyCss).toContain('max-width: 66.6667%;');
+        expect(stickyCss).toContain('.reader-sticky-shell {');
+        expect(stickyCss).toContain('.reader-sticky-block {');
+        expect(stickyCss).toContain('grid-template-columns: var(--aimd-size-control-icon-panel) minmax(0, 1fr);');
+        expect(stickyCss).toContain('justify-self: center;');
+        expect(stickyCss).toContain('max-height: none;');
+        expect(stickyCss).toContain('.reader-sticky-resize {');
+        expect(stickyCss).toContain('var(--aimd-');
+        expect(stickyCss).not.toContain('!important');
+        expect(stickyCss).not.toContain('border: 1px solid var(--aimd-border-subtle);');
+        expect(narrowCss).toContain('.reader-sticky-panel {');
+        expect(narrowCss).toContain('position: absolute;');
+        expect(narrowCss).toContain('box-shadow: var(--aimd-shadow-panel);');
+        expect(narrowCss).not.toContain('grid-template-columns');
+    });
+
     it('keeps the reader outline rail scoped, token-driven, and responsive', () => {
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
         const outlineStart = source.indexOf('.reader-outline-rail {');

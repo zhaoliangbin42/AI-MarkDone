@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
+- Reader: Added a temporary Sticky workspace for selected Markdown excerpts, with wider resizable page-lifetime blocks that can be reordered or deleted while paging through long responses or closing and reopening Reader.
 - Formula hover actions can now copy a single formula as MathML, using the existing LaTeX extraction path and MathJax renderer for Office-friendly equation paste workflows.
 - UI feedback now uses a shared tokenized tooltip and top-center toast layer for clearer hover labels and short operation results.
+
+### Changed
+- Safari: App Store builds now omit the sponsor tab, payment QR assets, sponsor copy, social follow card, and binary PNG/SVG clipboard copy actions while Chrome and Firefox keep the existing support surfaces.
+- About: Added a dedicated support contact card with an email feedback link and copy-email action; Safari keeps this support surface while sponsor/social surfaces remain hidden.
 
 ### Fixed
 - ChatGPT: Improved bottom toolbar stability when the official action row hydrates after the assistant message, avoiding routine full-page rescans for that case.
