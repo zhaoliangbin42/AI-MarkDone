@@ -29,6 +29,15 @@ function isChatGPTConversationPage(url: string): boolean {
     }
 }
 
+function getChatGPTConversationId(url: string): string | null {
+    try {
+        const parsed = new URL(url);
+        return parsed.pathname.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
+    } catch {
+        return url.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
+    }
+}
+
 function hasChatGPTConversationDom(): boolean {
     return Boolean(document.querySelector('[data-turn-id-container] [data-turn]'));
 }
@@ -46,6 +55,12 @@ function writeDebugState(patch: Record<string, string | boolean | number | null 
 function isLowQualityPrompt(prompt: string | null | undefined): boolean {
     const normalized = (prompt ?? '').trim();
     return !normalized || /^Message\s+\d+$/i.test(normalized);
+}
+
+function isLowQualityRoundPrompt(prompt: string | null | undefined, quality?: 'real' | 'fallback'): boolean {
+    if (quality === 'real') return false;
+    if (quality === 'fallback') return true;
+    return isLowQualityPrompt(prompt);
 }
 
 function getDirectoryBookmarkUrl(): string {
@@ -72,10 +87,16 @@ export class ChatGPTDirectoryController {
     private routeWatcher: RouteWatcher | null = null;
     private scrollRoot: HTMLElement | null = null;
     private mutationObserver: MutationObserver | null = null;
+    private observedContainer: HTMLElement | null = null;
     private skeletonAnchors: ChatGPTSkeletonAnchor[] = [];
     private roundPositions: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
     private rafId: number | null = null;
+    private rebuildTimer: number | null = null;
+    private pendingRebuildReasons = new Set<string>();
+    private missingPromptHydrationPromise: Promise<void> | null = null;
+    private pendingMissingPromptHydrationSignature: string | null = null;
+    private requestedMissingPromptHydrationSignatures = new Set<string>();
     private snapshotRetryTimer: number | null = null;
     private snapshotRetryCount = 0;
     private unsubscribeEngine: (() => void) | null = null;
@@ -112,7 +133,7 @@ export class ChatGPTDirectoryController {
             this.snapshot = snapshot;
             if (snapshot) this.snapshotRetryCount = 0;
             this.render();
-        });
+        }, { live: false });
         this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
             this.render();
         }) ?? null;
@@ -124,6 +145,14 @@ export class ChatGPTDirectoryController {
             window.cancelAnimationFrame(this.rafId);
             this.rafId = null;
         }
+        if (this.rebuildTimer !== null) {
+            window.clearTimeout(this.rebuildTimer);
+            this.rebuildTimer = null;
+        }
+        this.pendingRebuildReasons.clear();
+        this.pendingMissingPromptHydrationSignature = null;
+        this.requestedMissingPromptHydrationSignatures.clear();
+        this.missingPromptHydrationPromise = null;
         if (this.snapshotRetryTimer !== null) {
             window.clearTimeout(this.snapshotRetryTimer);
             this.snapshotRetryTimer = null;
@@ -136,6 +165,7 @@ export class ChatGPTDirectoryController {
         this.unsubscribeBookmarks = null;
         this.mutationObserver?.disconnect();
         this.mutationObserver = null;
+        this.observedContainer = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
         this.scrollRoot = null;
         this.unbindGlobalScrollFallbacks();
@@ -211,14 +241,21 @@ export class ChatGPTDirectoryController {
         this.ensureRail();
         this.rail?.setVisible(true);
         this.rebindObservers();
+        const conversationId = getChatGPTConversationId(window.location.href);
+        const cachedSnapshot = this.engine.peekCurrentSnapshot?.() ?? null;
+        if (cachedSnapshot) this.snapshot = cachedSnapshot;
+        else if (conversationId && this.snapshot?.conversationId !== conversationId) this.snapshot = null;
         this.render();
+        this.requestMissingPromptHydration('refresh');
         const bookmarkUrl = getDirectoryBookmarkUrl();
         const [snapshot] = await perfSpanAsync('directory.refresh.snapshotAndBookmarks', undefined, () => Promise.all([
-            this.engine.getSnapshot(),
+            Promise.resolve(this.engine.peekCurrentSnapshot?.() ?? this.snapshot),
             this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined) ?? Promise.resolve(),
         ]));
-        this.snapshot = snapshot;
+        if (snapshot) this.snapshot = snapshot;
+        else if (conversationId && this.snapshot?.conversationId !== conversationId) this.snapshot = null;
         this.render();
+        this.requestMissingPromptHydration('refresh');
         if (!this.snapshot) this.scheduleSnapshotRetry();
         writeDebugState({
             DirectoryVisible: true,
@@ -290,19 +327,77 @@ export class ChatGPTDirectoryController {
         }
         this.bindGlobalScrollFallbacks();
 
-        this.mutationObserver?.disconnect();
         const observerContainer = this.adapter.getObserverContainer();
+        if (this.mutationObserver && this.observedContainer === observerContainer) return;
+        this.mutationObserver?.disconnect();
+        this.mutationObserver = null;
+        this.observedContainer = observerContainer ?? null;
         if (observerContainer) {
-            this.mutationObserver = new MutationObserver(() => {
+            this.mutationObserver = new MutationObserver((mutations) => {
                 if (typeof document === 'undefined') return;
                 if (getPerfFlags().disableMutationObserver) {
                     perfCount('directory.mutation.skipped', 1, { reason: 'disableMutationObserver' });
                     return;
                 }
-                perfCount('directory.mutation.render', 1);
-                this.render();
+                if (!this.shouldRebuildForMutations(mutations)) {
+                    perfCount('directory.mutation.ignored', 1);
+                    return;
+                }
+                perfCount('directory.mutation.rebuild', 1);
+                this.scheduleIndexRebuild('mutation');
             });
             this.mutationObserver.observe(observerContainer, { childList: true, subtree: true });
+        }
+    }
+
+    private scheduleIndexRebuild(reason: string): void {
+        this.pendingRebuildReasons.add(reason);
+        if (this.rebuildTimer !== null) return;
+        const run = () => {
+            this.rebuildTimer = null;
+            const reasons = Array.from(this.pendingRebuildReasons).join(',');
+            this.pendingRebuildReasons.clear();
+            const startedAt = performance.now();
+            this.render();
+            this.requestMissingPromptHydration('mutation');
+            perfMeasure('directory.rebuild.flush', performance.now() - startedAt, { reasons });
+        };
+        const ric = window.requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+        if (typeof ric === 'function') {
+            this.rebuildTimer = ric(run, { timeout: 500 });
+        } else {
+            this.rebuildTimer = window.setTimeout(run, 120);
+        }
+    }
+
+    private shouldRebuildForMutations(mutations: MutationRecord[]): boolean {
+        for (const mutation of mutations) {
+            if (this.isExtensionOwnedNode(mutation.target)) continue;
+            const added = Array.from(mutation.addedNodes || []);
+            const removed = Array.from(mutation.removedNodes || []);
+            for (const node of [...added, ...removed]) {
+                if (this.isExtensionOwnedNode(node)) continue;
+                if (this.nodeMayContainConversationTurn(node)) return true;
+            }
+        }
+        return false;
+    }
+
+    private isExtensionOwnedNode(node: Node | null | undefined): boolean {
+        if (!(node instanceof Element)) return false;
+        return Boolean(node.closest(
+            '[data-aimd-role], .aimd-message-toolbar-host, #aimd-chatgpt-directory-rail, #aimd-chatgpt-directory-preview, #aimd-chatgpt-directory-step-controls'
+        ));
+    }
+
+    private nodeMayContainConversationTurn(node: Node): boolean {
+        if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return false;
+        const selector = '[data-turn-id-container], [data-turn="user"], [data-turn="assistant"], [data-message-author-role="user"], [data-message-author-role="assistant"], [data-testid^="conversation-turn-"]';
+        try {
+            if (node instanceof Element && node.matches(selector)) return true;
+            return node.querySelector(selector) instanceof HTMLElement;
+        } catch {
+            return false;
         }
     }
 
@@ -328,6 +423,76 @@ export class ChatGPTDirectoryController {
         }));
     }
 
+    private requestMissingPromptHydration(reason: string): void {
+        const signature = this.buildMissingPromptHydrationSignature();
+        if (!signature) return;
+        if (this.requestedMissingPromptHydrationSignatures.has(signature)) return;
+
+        this.pendingMissingPromptHydrationSignature = signature;
+        if (this.missingPromptHydrationPromise) return;
+
+        this.missingPromptHydrationPromise = this.flushMissingPromptHydration(reason).finally(() => {
+            this.missingPromptHydrationPromise = null;
+        });
+    }
+
+    private async flushMissingPromptHydration(reason: string): Promise<void> {
+        while (this.pendingMissingPromptHydrationSignature) {
+            const signature = this.pendingMissingPromptHydrationSignature;
+            this.pendingMissingPromptHydrationSignature = null;
+            if (this.requestedMissingPromptHydrationSignatures.has(signature)) continue;
+            this.requestedMissingPromptHydrationSignatures.add(signature);
+            await this.hydrateMissingPromptLabels(reason);
+        }
+    }
+
+    private buildMissingPromptHydrationSignature(): string | null {
+        if (!this.enabled || this.roundPositions.length === 0) return null;
+        const missingPositions = this.getMissingPromptPositions();
+        if (missingPositions.length === 0) return null;
+        const conversationId = getChatGPTConversationId(window.location.href) ?? getDirectoryBookmarkUrl();
+        return `${conversationId}|${this.roundPositions.length}|${missingPositions.join(',')}`;
+    }
+
+    private getMissingPromptPositions(): number[] {
+        const snapshotsByPosition = new Map<number, ChatGPTConversationRound>();
+        for (const round of this.snapshot?.rounds ?? []) {
+            snapshotsByPosition.set(round.position, round);
+        }
+
+        return this.roundPositions
+            .filter((position) => {
+                const snapshot = snapshotsByPosition.get(position.position);
+                const domPrompt = position.userPromptText?.trim() ?? '';
+                const snapshotPrompt = snapshot?.userPrompt?.trim() ?? '';
+                return isLowQualityRoundPrompt(domPrompt, position.userPromptQuality)
+                    && isLowQualityPrompt(snapshotPrompt);
+            })
+            .map((position) => position.position);
+    }
+
+    private async hydrateMissingPromptLabels(reason: string): Promise<void> {
+        const startedAt = performance.now();
+        try {
+            const forceRefresh = (this.engine as {
+                forceRefreshCurrentConversation?: () => Promise<ChatGPTConversationSnapshot | null>;
+            }).forceRefreshCurrentConversation;
+            const snapshot = await perfSpanAsync('directory.promptHydration.snapshot', { reason }, () => (
+                typeof forceRefresh === 'function'
+                    ? forceRefresh.call(this.engine)
+                    : this.engine.getSnapshot()
+            ));
+            if (!snapshot) return;
+            this.snapshot = snapshot;
+            this.snapshotRetryCount = 0;
+            this.render();
+        } catch {
+            // Missing prompt hydration is an enhancement; DOM-discovered navigation remains usable.
+        } finally {
+            perfMeasure('directory.promptHydration', performance.now() - startedAt, { reason });
+        }
+    }
+
     private buildDirectoryRounds(): ChatGPTConversationRound[] {
         const snapshotsByPosition = new Map<number, ChatGPTConversationRound>();
         for (const round of this.snapshot?.rounds ?? []) {
@@ -340,7 +505,7 @@ export class ChatGPTDirectoryController {
             const snapshot = snapshotsByPosition.get(position.position);
             const domPrompt = position.userPromptText?.trim() ?? '';
             const snapshotPrompt = snapshot?.userPrompt?.trim() ?? '';
-            const userPrompt = !isLowQualityPrompt(domPrompt)
+            const userPrompt = !isLowQualityRoundPrompt(domPrompt, position.userPromptQuality)
                 ? domPrompt
                 : (!isLowQualityPrompt(snapshotPrompt) ? snapshotPrompt : (domPrompt || snapshotPrompt || `Message ${position.position}`));
 

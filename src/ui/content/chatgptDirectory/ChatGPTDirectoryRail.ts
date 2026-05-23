@@ -41,6 +41,7 @@ export class ChatGPTDirectoryRail {
     private nextButton: HTMLButtonElement;
     private previewEl: HTMLDivElement;
     private rounds: ChatGPTConversationRound[] = [];
+    private roundsSignature = '';
     private bookmarkedPositions = new Set<number>();
     private activePosition = 0;
     private hoverPosition: number | null = null;
@@ -197,23 +198,51 @@ export class ChatGPTDirectoryRail {
     }
 
     setRounds(rounds: ChatGPTConversationRound[]): void {
+        const signature = this.buildRoundsSignature(rounds);
+        if (signature === this.roundsSignature) return;
+        this.roundsSignature = signature;
         this.rounds = rounds.slice();
         this.render();
     }
 
     setBookmarkedPositions(positions: Iterable<number>): void {
-        this.bookmarkedPositions = new Set(
+        const next = new Set(
             Array.from(positions)
                 .map((position) => Number(position))
                 .filter((position) => Number.isInteger(position) && position > 0),
         );
+        if (this.arePositionSetsEqual(this.bookmarkedPositions, next)) return;
+        this.bookmarkedPositions = next;
         this.renderBookmarkedState();
     }
 
     setActivePosition(position: number, options?: { follow?: boolean }): void {
+        if (this.activePosition === position) {
+            if (options?.follow !== false) this.followActiveItem();
+            return;
+        }
         this.activePosition = position;
         this.renderActiveState();
         if (options?.follow !== false) this.followActiveItem();
+    }
+
+    private buildRoundsSignature(rounds: ChatGPTConversationRound[]): string {
+        return rounds
+            .map((round) => [
+                round.position,
+                round.id ?? '',
+                round.messageId ?? '',
+                round.userPrompt ?? '',
+            ].join(':'))
+            .join('|');
+    }
+
+    private arePositionSetsEqual(left: Set<number>, right: Set<number>): boolean {
+        if (left.size !== right.size) return false;
+        for (const value of left) {
+            if (!right.has(value)) return false;
+        }
+        return true;
     }
 
     setStepAvailability(params: { canGoPrevious: boolean; canGoNext: boolean }): void {

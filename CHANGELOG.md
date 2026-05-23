@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - About: Added a dedicated support contact card with an email feedback link and copy-email action; Safari keeps this support surface while sponsor/social surfaces remain hidden.
 
 ### Fixed
+- ChatGPT Directory: Reduced startup and hydration-time page stalls by making the directory use passive snapshot updates, filtered DOM mutation rebuilds, and no-op rail rendering when the conversation index has not changed.
+- ChatGPT Directory: Restored complete prompt labels for virtualized middle rounds by running a bounded on-demand snapshot refresh only when DOM-discovered directory items still show fallback `Message N` labels.
 - ChatGPT: Improved bottom toolbar stability when the official action row hydrates after the assistant message, avoiding routine full-page rescans for that case.
 
 ## [4.4.1] - 2026-05-15

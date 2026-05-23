@@ -27,6 +27,10 @@ type BridgeResponse = {
     error?: { code?: string; message?: string };
 };
 
+type SnapshotSubscriptionOptions = {
+    live?: boolean;
+};
+
 type ReactTurnLike = {
     id?: string | null;
     role?: string | null;
@@ -443,18 +447,23 @@ export class ChatGPTConversationEngine {
         this.initialized = false;
     }
 
-    subscribe(listener: (snapshot: ChatGPTConversationSnapshot | null) => void): () => void {
+    subscribe(listener: (snapshot: ChatGPTConversationSnapshot | null) => void, options?: SnapshotSubscriptionOptions): () => void {
         this.subscribers.add(listener);
         const conversationId = getConversationIdFromUrl(window.location.href);
         if (conversationId) {
             const cached = this.snapshotByConversation.get(conversationId) ?? null;
             if (cached) listener(cached);
         }
-        this.startLiveRefresh();
+        if (options?.live !== false) this.startLiveRefresh();
         return () => {
             this.subscribers.delete(listener);
             if (this.subscribers.size === 0) this.stopLiveRefresh();
         };
+    }
+
+    peekCurrentSnapshot(): ChatGPTConversationSnapshot | null {
+        const conversationId = getConversationIdFromUrl(window.location.href);
+        return conversationId ? this.snapshotByConversation.get(conversationId) ?? null : null;
     }
 
     async getSnapshot(): Promise<ChatGPTConversationSnapshot | null> {
