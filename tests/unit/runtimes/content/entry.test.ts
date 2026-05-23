@@ -92,6 +92,14 @@ const directoryCtor = vi.fn(function () {
         dispose: directoryDispose,
     };
 });
+const viewportResizeSuspendInit = vi.fn();
+const viewportResizeSuspendDispose = vi.fn();
+const viewportResizeSuspendCtor = vi.fn(function () {
+    return {
+        init: viewportResizeSuspendInit,
+        dispose: viewportResizeSuspendDispose,
+    };
+});
 const engineInit = vi.fn();
 const engineSubscribe = vi.fn();
 const engineGetSnapshot = vi.fn(async () => null);
@@ -183,6 +191,10 @@ vi.mock('@/ui/content/components/i18n', () => ({
 
 vi.mock('@/ui/content/controllers/ChatGPTDirectoryController', () => ({
     ChatGPTDirectoryController: directoryCtor,
+}));
+
+vi.mock('@/ui/content/controllers/ViewportResizeSuspendController', () => ({
+    ViewportResizeSuspendController: viewportResizeSuspendCtor,
 }));
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
@@ -304,6 +316,8 @@ describe('content runtime entry', () => {
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(engineInit).toHaveBeenCalledTimes(1);
         expect(directoryInit).toHaveBeenCalledTimes(1);
+        expect(viewportResizeSuspendCtor).toHaveBeenCalledTimes(1);
+        expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(1);
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
@@ -367,6 +381,7 @@ describe('content runtime entry', () => {
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
+        expect(viewportResizeSuspendDispose).toHaveBeenCalledTimes(1);
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
@@ -407,6 +422,7 @@ describe('content runtime entry', () => {
 
         expect(headerIconInit).toHaveBeenCalledTimes(2);
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
+        expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('preview');
         expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('head');

@@ -76,6 +76,7 @@
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
   - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main` 内的结构化 turn scope（旧 `[data-turn-id-container]` 或语义 `[data-turn="user"|"assistant"]` wrapper）读取 React turn 数据，并允许在该 turn scope 内查找承载 `turn/currentTurn/prevTurn` props 的 React carrier，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
   - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 负责把完整历史呈现为页面右侧目录条；官方线程继续作为正文显示层；目录条由独立的 `chatgptDirectory` 设置控制，可关闭或在 compact preview / expanded list 两种显示模式之间切换，并可在 expanded list 中选择只显示 Prompt 开头或同时显示开头与结尾，不复用 `platforms.chatgpt` 平台总开关。目录的轮次数量与跳转 anchor 以 adapter-owned DOM turn refs 为准，snapshot 只做 label/messageId 增强；目录订阅 snapshot 时不启动 5 秒 live refresh，但当 DOM 与缓存 snapshot 都只能提供 `Message N` 这类低质量标题时，会对同一 conversation/round/fallback 签名做一次有界 on-demand snapshot 补齐；DOM observer 只对真实 ChatGPT turn 结构变化做批处理重建，插件自身 DOM 或 toolbar 注入不得触发目录全量重建。
+  - `ViewportResizeSuspendController` 是 ChatGPT content runtime 的轻量 viewport 宽度拖拽保护层：它只消费浏览器 `window.resize` 信号和宽度变化阈值，不依赖 ChatGPT DOM/mutation；持续 resize 时通过页面级 `data-aimd-viewport-resizing` 标记让 AI-MarkDone directory、preview、step controls 与 ChatGPT action-row toolbar chrome 暂时隐藏并暂停子树渲染，idle 后派发一次恢复事件。该链路只影响插件 chrome 的临时可见性，不卸载 DOM、不重建 toolbar record、不折叠 action-row toolbar 布局、不改变目录 round refs、snapshot、Reader、Save Messages 或书签语义。
   - `ChatGPTDirectoryRail` 的滚动与展开样式归组件 Shadow DOM 持有；长目录出现垂直滚动条时，expanded 条目必须用明确的 grid 列分配编号、可收缩文案和右侧短线，并保持滚动槽稳定，避免 hover/active 条目被 scrollbar 挤压或裁切。expanded label 的可见宽度应优先由 CSS intrinsic sizing 与字符宽度预算表达，而不是固定像素宽度、一次性宽度 token 或 JS 测量补偿。
   - `src/ui/content/chatgptDirectory/navigation.ts` 现在是 ChatGPT 目录条同页跳转的稳定入口：优先消费 adapter/content-discovery 产出的用户轮次位置模型，点击使用该轮次的 `jumpAnchor`，滚动高亮使用该轮次的可见 user/assistant DOM 范围；命中 anchor 后会用短生命周期的位置校准抵消官方 hydration/layout shift，但不会抢占焦点，且用户主动滚动、触摸、指针或键盘导航会中止后续校准
   - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 通过 `readerContentSource` 共享正文供给：ChatGPT 上优先消费 `ChatGPTConversationEngine` 的完整 snapshot（payload first，随后结构化 turn 数据），避免被当前 DOM hydration/virtualization 范围截断；snapshot 不可用时才 fallback 到 adapter-owned DOM Reader collection，导出层不再自行 force refresh 或选择另一条正文来源
@@ -187,6 +188,7 @@ flowchart TD
 
 - ChatGPT right-side directory rail 与右下角上一条/下一条 step controls 由同一个 `ChatGPTDirectoryController` 管理，二者共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`。
 - Step controls 是 body-level fixed surface，视觉上不属于 rail footer；隐藏/显示、主题切换和 dispose 生命周期仍由 `ChatGPTDirectoryRail` 统一持有，避免出现独立导航状态或 DOM 残留。
+- 浏览器 viewport 宽度持续变化时，ChatGPT directory chrome 与 action-row message toolbar chrome 允许通过页面级 resize suspend 标记短暂隐藏并暂停子树渲染；目录 active 扫描在 suspend 期间让位于宿主布局，resize idle 后只补算一次。
 
 ### Style system
 

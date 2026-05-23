@@ -13,6 +13,7 @@ import {
 } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { getPerfFlags, perfCount, perfMeasure, perfSpanAsync } from '../../../core/perf/perfProbe';
+import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
@@ -103,6 +104,7 @@ export class ChatGPTDirectoryController {
     private unsubscribeBookmarks: (() => void) | null = null;
     private initialized = false;
     private globalScrollFallbacksBound = false;
+    private viewportResizeSuspendBound = false;
 
     constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine, bookmarksState: DirectoryBookmarksState | null = null) {
         this.adapter = adapter;
@@ -118,6 +120,7 @@ export class ChatGPTDirectoryController {
         }
         this.theme = theme;
         this.ensureRail();
+        this.bindViewportResizeSuspend();
         if (this.initialized) {
             this.rail?.setTheme(theme);
             void this.refresh();
@@ -169,6 +172,7 @@ export class ChatGPTDirectoryController {
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
         this.scrollRoot = null;
         this.unbindGlobalScrollFallbacks();
+        this.unbindViewportResizeSuspend();
         this.rail?.dispose();
         this.rail = null;
         this.initialized = false;
@@ -311,11 +315,21 @@ export class ChatGPTDirectoryController {
     }
 
     private handleScroll = () => {
+        if (this.isViewportResizeSuspended()) return;
         if (this.rafId !== null) return;
         this.rafId = window.requestAnimationFrame(() => {
             this.rafId = null;
             this.updateActivePosition();
         });
+    };
+
+    private handleViewportResizeIdle = () => {
+        if (this.isViewportResizeSuspended()) return;
+        if (this.rafId !== null) {
+            window.cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+        }
+        this.updateActivePosition({ followRail: false });
     };
 
     private rebindObservers(): void {
@@ -413,6 +427,22 @@ export class ChatGPTDirectoryController {
         window.removeEventListener('scroll', this.handleScroll, { capture: true });
         document.removeEventListener('scroll', this.handleScroll, { capture: true });
         this.globalScrollFallbacksBound = false;
+    }
+
+    private bindViewportResizeSuspend(): void {
+        if (this.viewportResizeSuspendBound) return;
+        window.addEventListener(AIMD_VIEWPORT_RESIZE_IDLE_EVENT, this.handleViewportResizeIdle);
+        this.viewportResizeSuspendBound = true;
+    }
+
+    private unbindViewportResizeSuspend(): void {
+        if (!this.viewportResizeSuspendBound) return;
+        window.removeEventListener(AIMD_VIEWPORT_RESIZE_IDLE_EVENT, this.handleViewportResizeIdle);
+        this.viewportResizeSuspendBound = false;
+    }
+
+    private isViewportResizeSuspended(): boolean {
+        return document.documentElement.dataset.aimdViewportResizing === '1';
     }
 
     private refreshRoundPositions(): void {
@@ -522,10 +552,11 @@ export class ChatGPTDirectoryController {
         });
     }
 
-    private updateActivePosition(): void {
+    private updateActivePosition(options?: { followRail?: boolean }): void {
         if (!this.rail) return;
+        if (this.isViewportResizeSuspended()) return;
         if (this.roundPositions.length === 0) {
-            this.rail.setActivePosition(0);
+            this.rail.setActivePosition(0, { follow: options?.followRail });
             this.syncStepControls();
             return;
         }
@@ -555,7 +586,7 @@ export class ChatGPTDirectoryController {
 
         if (!active) active = this.activePosition || this.roundPositions[0]?.position || 0;
         this.activePosition = active;
-        this.rail.setActivePosition(active);
+        this.rail.setActivePosition(active, { follow: options?.followRail });
         this.syncStepControls();
     }
 

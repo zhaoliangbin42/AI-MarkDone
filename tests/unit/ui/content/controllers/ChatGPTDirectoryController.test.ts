@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
+import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -901,6 +902,50 @@ describe('ChatGPTDirectoryController', () => {
         window.dispatchEvent(new Event('scroll'));
         await vi.advanceTimersByTimeAsync(20);
 
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+        controller.dispose();
+    });
+
+    it('skips active-position layout reads during viewport resize suspend and refreshes once on idle', async () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 900],
+            'user-2': [950, 990],
+            'assistant-2': [990, 1300],
+        });
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = buildSnapshot();
+        (controller as any).render();
+        (controller as any).bindGlobalScrollFallbacks();
+        (controller as any).bindViewportResizeSuspend();
+
+        setRoundRects({
+            'user-1': [-1000, -960],
+            'assistant-1': [-950, 120],
+            'user-2': [260, 300],
+            'assistant-2': [300, 900],
+        });
+        const rectMocks = ['user-1', 'assistant-1', 'user-2', 'assistant-2']
+            .map((id) => vi.mocked((document.getElementById(id) as HTMLElement).getBoundingClientRect));
+        rectMocks.forEach((mock) => mock.mockClear());
+
+        document.documentElement.dataset.aimdViewportResizing = '1';
+        window.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(rectMocks.reduce((sum, mock) => sum + mock.mock.calls.length, 0)).toBe(0);
+
+        delete document.documentElement.dataset.aimdViewportResizing;
+        window.dispatchEvent(new CustomEvent(AIMD_VIEWPORT_RESIZE_IDLE_EVENT));
+
+        expect(rectMocks.reduce((sum, mock) => sum + mock.mock.calls.length, 0)).toBeGreaterThan(0);
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
         const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
         expect(active?.dataset.position).toBe('2');
