@@ -159,6 +159,39 @@ describe('ReaderPanel navigation', () => {
         }
     });
 
+    it('supports ArrowUp and ArrowDown to scroll the current reader body', async () => {
+        setClipboardMock();
+
+        const panel = new ReaderPanel();
+        try {
+            await panel.show(
+                [{ id: 'a', userPrompt: 'Q1', content: Array.from({ length: 40 }, (_, index) => `Line ${index + 1}`).join('\n\n') }],
+                0,
+                'light'
+            );
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const body = shadow.querySelector<HTMLElement>('.reader-body');
+            expect(body).toBeTruthy();
+            if (!body) return;
+
+            const scrollBy = vi.fn();
+            Object.defineProperty(body, 'clientHeight', { value: 1000, configurable: true });
+            Object.defineProperty(body, 'scrollHeight', { value: 2400, configurable: true });
+            Object.defineProperty(body, 'scrollBy', { value: scrollBy, configurable: true });
+
+            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+            expect(scrollBy).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
+            expect(scrollBy.mock.calls[0]?.[0]?.top).toBeGreaterThan(0);
+
+            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+            expect(scrollBy.mock.calls[1]?.[0]?.top).toBeLessThan(0);
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('shows the current page in the footer and scrolls the active pager dot into view for long conversations', async () => {
         setClipboardMock();
         const scrollIntoView = vi.fn();

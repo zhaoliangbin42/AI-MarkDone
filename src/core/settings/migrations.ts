@@ -104,6 +104,18 @@ export function normalizeAppearanceSettings(value: unknown): AppSettings['appear
     };
 }
 
+export function loadAndNormalize(stored: unknown): AppSettings {
+    if (!stored) return { ...DEFAULT_SETTINGS };
+    if (!isRecord(stored)) return { ...DEFAULT_SETTINGS };
+
+    const version = (stored as any).version;
+    if (version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
+    if (version === 2) return migrateFromV2(stored);
+    if (version === 1) return migrateFromV1(stored);
+
+    return { ...DEFAULT_SETTINGS };
+}
+
 /**
  * Merge stored settings with defaults (keeps v4 but tolerates missing new fields).
  */

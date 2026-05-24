@@ -369,6 +369,10 @@ export class ReaderPanel {
             if (event.key === 'ArrowRight') {
                 event.preventDefault();
                 void this.go(1);
+                return;
+            }
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                this.scrollReaderBodyByKeyboard(event);
             }
         };
         session.host.addEventListener('keydown', this.onKeyDown);
@@ -701,6 +705,29 @@ export class ReaderPanel {
         } finally {
             button.disabled = false;
         }
+    }
+
+    private scrollReaderBodyByKeyboard(event: KeyboardEvent): void {
+        if (this.isEditableKeyboardTarget(event)) return;
+        const body = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        if (!body || body.scrollHeight <= body.clientHeight) return;
+
+        const direction = event.key === 'ArrowUp' ? -1 : 1;
+        const distance = Math.max(48, Math.round(body.clientHeight * 0.12));
+        event.preventDefault();
+        if (typeof body.scrollBy === 'function') {
+            body.scrollBy({ top: direction * distance, behavior: 'auto' });
+            return;
+        }
+        body.scrollTop += direction * distance;
+    }
+
+    private isEditableKeyboardTarget(event: KeyboardEvent): boolean {
+        const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+        const target = (path.find((node) => node instanceof HTMLElement) ?? event.target) as HTMLElement | null;
+        if (!(target instanceof HTMLElement)) return false;
+        if (target.isContentEditable) return true;
+        return !!target.closest('input, textarea, select, [contenteditable="true"]');
     }
 
     private async copyCodeBlock(button: HTMLElement): Promise<void> {

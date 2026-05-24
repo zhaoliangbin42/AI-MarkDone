@@ -1,10 +1,8 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
 import { normalizeExportSettings } from '../../core/settings/export';
 import {
-    mergeWithDefaults,
-    migrateFromV1,
-    migrateFromV2,
     migrateSortMode,
+    loadAndNormalize,
     normalizeAppearanceSettings,
     normalizeBehaviorSettings,
     normalizeChatGPTDirectorySettings,
@@ -13,20 +11,10 @@ import {
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
+export { loadAndNormalize } from '../../core/settings/migrations';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
-}
-
-export function loadAndNormalize(stored: unknown): AppSettings {
-    if (!stored) return { ...DEFAULT_SETTINGS };
-    if (!isRecord(stored)) return { ...DEFAULT_SETTINGS };
-
-    const version = (stored as any).version;
-    if (version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
-    if (version === 2) return migrateFromV2(stored);
-    if (version === 1) return migrateFromV1(stored);
-
-    return { ...DEFAULT_SETTINGS };
 }
 
 type PlanResult = { next: AppSettings };

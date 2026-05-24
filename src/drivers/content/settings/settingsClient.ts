@@ -4,7 +4,7 @@ import { browser } from '../../shared/browser';
 import { sendExtRequest } from '../../shared/rpc';
 import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS } from '../../../contracts/storage';
-import { loadAndNormalize } from '../../../services/settings/settingsService';
+import { loadAndNormalize } from '../../../core/settings/migrations';
 
 export type SettingsSnapshot = {
     settings: AppSettings;

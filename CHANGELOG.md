@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [4.4.5] - 2026-05-24
 ### Added
 - Reader: Added a temporary Sticky workspace for selected Markdown excerpts, with wider resizable page-lifetime blocks that can be reordered or deleted while paging through long responses or closing and reopening Reader.
+- Reader: Added Up and Down arrow key scrolling inside Reader messages. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
 - Formula hover actions can now copy a single formula as MathML, using the existing LaTeX extraction path and MathJax renderer for Office-friendly equation paste workflows.
 - UI feedback now uses a shared tokenized tooltip and top-center toast layer for clearer hover labels and short operation results.
 
@@ -22,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT Directory: Restored complete prompt labels for virtualized middle rounds by running a bounded on-demand snapshot refresh only when DOM-discovered directory items still show fallback `Message N` labels.
 - ChatGPT: Reduced resize jank by temporarily suspending AI-MarkDone directory and action-row toolbar chrome while the browser viewport width is being dragged, then restoring state after resize settles without rebuilding or collapsing toolbar layout.
 - ChatGPT: Improved bottom toolbar stability when the official action row hydrates after the assistant message, avoiding routine full-page rescans for that case.
+- Copy Markdown: Fixed an issue where links inside code blocks could be treated as citation noise and removed. Thanks to Email user @童硕.
 
 ## [4.4.1] - 2026-05-15
 ### Added
