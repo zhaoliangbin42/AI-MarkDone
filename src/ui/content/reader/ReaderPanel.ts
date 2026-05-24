@@ -47,6 +47,7 @@ import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
 import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
+import { showChangelogNoticeIfNeeded } from '../changelog/ChangelogNoticePresenter';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -292,6 +293,12 @@ export class ReaderPanel {
         });
 
         await this.renderCurrentContent();
+        if (this.state.options.profile === 'conversation-reader' && this.overlaySession) {
+            void showChangelogNoticeIfNeeded({
+                modalHost: this.overlaySession.modalHost,
+                loggerScope: 'ReaderPanel',
+            });
+        }
     }
 
     async appendItem(item: ReaderItem): Promise<void> {

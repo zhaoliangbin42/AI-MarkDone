@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UI feedback now uses a shared tokenized tooltip and top-center toast layer for clearer hover labels and short operation results.
 
 ### Changed
+- Reader: The one-time update changelog notice now also appears when opening Reader, sharing the same acknowledgement state as the bookmarks panel so users only see it once per version.
+- Formula: Formula image hover actions now default to off and can be enabled from Settings. Existing stored formula action choices are preserved during migration.
 - Safari: App Store builds now omit the sponsor tab, payment QR assets, sponsor copy, social follow card, and binary PNG/SVG clipboard copy actions while Chrome and Firefox keep the existing support surfaces.
 - About: Added a dedicated support contact card with an email feedback link and copy-email action; Safari keeps this support surface while sponsor/social surfaces remain hidden.
 

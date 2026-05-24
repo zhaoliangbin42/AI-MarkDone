@@ -388,7 +388,7 @@ describe('content runtime entry', () => {
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,
-            assetActions: { copyPng: false, copySvg: true, copyMathml: true, savePng: false, saveSvg: true },
+            assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
         expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
 
@@ -508,7 +508,7 @@ describe('content runtime entry', () => {
         expect(reader?.setCommentExportSettings).toHaveBeenCalledWith(cachedCommentExport);
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
             clickCopyMarkdown: false,
-            assetActions: { copyPng: true, copySvg: false, copyMathml: true, savePng: true, saveSvg: false },
+            assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
         });
     });
 });

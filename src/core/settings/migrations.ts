@@ -105,7 +105,7 @@ export function normalizeAppearanceSettings(value: unknown): AppSettings['appear
 }
 
 /**
- * Merge stored settings with defaults (keeps v3 but tolerates missing new fields).
+ * Merge stored settings with defaults (keeps v4 but tolerates missing new fields).
  */
 export function mergeWithDefaults(stored: AppSettings): AppSettings {
     return {
@@ -135,7 +135,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
 }
 
 /**
- * Migrate v1 -> v3
+ * Migrate v1 -> v4
  *
  * Legacy v1 layout:
  * - behavior.enableClickToCopy
@@ -149,7 +149,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
     const storage = isRecord((rec as any).storage) ? (rec as any).storage : {};
 
     return {
-        version: 3,
+        version: DEFAULT_SETTINGS.version,
         platforms: {
             ...DEFAULT_SETTINGS.platforms,
             chatgpt: Boolean((platforms as any).chatgpt ?? true),
@@ -181,7 +181,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 }
 
 /**
- * Migrate v2 -> v3
+ * Migrate v2 -> v4
  *
  * Legacy v2 layout:
  * - chatgpt folding settings under performance.chatgptFoldingMode / chatgptDefaultExpandedCount
@@ -194,7 +194,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
     const bookmarks = isRecord(rec.bookmarks) ? rec.bookmarks : {};
 
     return {
-        version: 3,
+        version: DEFAULT_SETTINGS.version,
         platforms: {
             ...DEFAULT_SETTINGS.platforms,
             ...platforms,

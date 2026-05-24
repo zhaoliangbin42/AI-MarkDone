@@ -8,10 +8,23 @@ import {
     resolvePngExportWidth,
 } from '@/core/settings/export';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
-import { loadAndNormalize, planGetCategory, planSetCategory } from '@/services/settings/settingsService';
+import { loadAndNormalize, planGetCategory, planReset, planSetCategory } from '@/services/settings/settingsService';
 import type { CommentTemplateSegment } from '@/services/reader/commentExport';
 
 describe('settingsService', () => {
+    it('uses v4 defaults with formula asset hover actions disabled', () => {
+        const next = loadAndNormalize(null);
+
+        expect(next.version).toBe(4);
+        expect(next.formula.assetActions).toEqual({
+            copyPng: false,
+            copySvg: false,
+            copyMathml: false,
+            savePng: false,
+            saveSvg: false,
+        });
+    });
+
     it('rejects legacy performance category writes', () => {
         expect(() => planSetCategory(DEFAULT_SETTINGS, 'performance' as any, { chatgptFoldingMode: 'all' })).toThrow(
             'Invalid category: performance',
@@ -250,5 +263,46 @@ describe('settingsService', () => {
             },
         });
         expect(next.behavior).toEqual(DEFAULT_SETTINGS.behavior);
+    });
+
+    it('preserves stored formula asset actions when writing unrelated settings', () => {
+        const current = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            version: 4,
+            formula: {
+                clickCopyMarkdown: true,
+                assetActions: {
+                    copyPng: true,
+                    copySvg: false,
+                    copyMathml: true,
+                    savePng: false,
+                    saveSvg: false,
+                },
+            },
+        } as any);
+
+        const next = planSetCategory(current, 'appearance', { fontSizePx: 18 }).next;
+
+        expect(next.appearance.fontSizePx).toBe(18);
+        expect(next.formula.assetActions).toEqual({
+            copyPng: true,
+            copySvg: false,
+            copyMathml: true,
+            savePng: false,
+            saveSvg: false,
+        });
+    });
+
+    it('resets to v4 defaults with formula asset hover actions disabled', () => {
+        const next = planReset().next;
+
+        expect(next.version).toBe(4);
+        expect(next.formula.assetActions).toEqual({
+            copyPng: false,
+            copySvg: false,
+            copyMathml: false,
+            savePng: false,
+            saveSvg: false,
+        });
     });
 });

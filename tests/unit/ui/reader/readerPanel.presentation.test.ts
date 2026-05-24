@@ -1,7 +1,32 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
+    bookmarksClient: {
+        getChangelogNotice: vi.fn(async () => ({
+            ok: true,
+            data: {
+                pendingVersion: null,
+                lastShownVersion: null,
+                reason: null,
+                previousVersion: null,
+            },
+        })),
+        ackChangelogNotice: vi.fn(async () => ({
+            ok: true,
+            data: {
+                pendingVersion: null,
+                lastShownVersion: '4.4.1',
+                reason: null,
+                previousVersion: '4.3.1',
+            },
+        })),
+    },
+}));
+
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 
 async function flushMotionFrames(): Promise<void> {
     await new Promise<void>((resolve) => {
@@ -10,9 +35,87 @@ async function flushMotionFrames(): Promise<void> {
 }
 
 describe('ReaderPanel presentation', () => {
+    beforeEach(() => {
+        vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValue({
+            ok: true,
+            data: {
+                pendingVersion: null,
+                lastShownVersion: null,
+                reason: null,
+                previousVersion: null,
+            },
+        } as any);
+        vi.mocked(bookmarksClient.ackChangelogNotice).mockResolvedValue({
+            ok: true,
+            data: {
+                pendingVersion: null,
+                lastShownVersion: '4.4.1',
+                reason: null,
+                previousVersion: '4.3.1',
+            },
+        } as any);
+    });
+
     afterEach(() => {
+        vi.clearAllMocks();
         vi.useRealTimers();
         document.querySelector('#aimd-reader-panel-host')?.remove();
+    });
+
+    it('shows and acknowledges the shared changelog notice when opening reader with a pending version', async () => {
+        vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
+            ok: true,
+            data: {
+                pendingVersion: '4.4.1',
+                lastShownVersion: null,
+                reason: 'update',
+                previousVersion: '4.3.1',
+            },
+        } as any);
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light', {
+                profile: 'conversation-reader',
+            });
+            await Promise.resolve();
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const modal = shadow.querySelector<HTMLElement>('.mock-modal');
+
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.4.1");
+            expect(modal?.textContent).toContain('2026-05-15');
+            expect(modal?.textContent).toContain('personalization');
+            expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
+
+            const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
+            okButton?.click();
+            await Promise.resolve();
+
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.1');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('does not show the shared changelog notice in reader when no pending version exists', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light', {
+                profile: 'conversation-reader',
+            });
+            await Promise.resolve();
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            expect(shadow.querySelector('.mock-modal')).toBeNull();
+            expect(bookmarksClient.ackChangelogNotice).not.toHaveBeenCalled();
+        } finally {
+            panel.hide();
+        }
     });
 
     it('renders the mock-based reader shell with static header meta and conversation sections', async () => {

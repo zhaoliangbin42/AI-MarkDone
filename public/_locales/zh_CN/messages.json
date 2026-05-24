@@ -1236,11 +1236,11 @@
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
     "formulaAssetActionsLabel": {
-        "message": "公式点击复制为图片",
+        "message": "公式悬浮动作",
         "description": "Message for formulaAssetActionsLabel"
     },
     "formulaAssetActionsDesc": {
-        "message": "配置公式悬浮菜单中显示哪些 PNG / SVG 复制和保存动作。",
+        "message": "公式悬浮动作默认关闭，可按需启用 PNG / SVG / MathML 复制和保存动作。",
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {

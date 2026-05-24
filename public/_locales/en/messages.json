@@ -1240,7 +1240,7 @@
         "description": "Message for formulaAssetActionsLabel"
     },
     "formulaAssetActionsDesc": {
-        "message": "Configure which PNG / SVG copy and save actions appear on formula hover.",
+        "message": "Formula hover actions are off by default. Enable the PNG / SVG / MathML copy and save actions you want to show.",
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {

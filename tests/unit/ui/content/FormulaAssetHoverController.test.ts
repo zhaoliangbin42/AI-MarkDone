@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 let actionResolver: ((value: any) => void) | null = null;
 vi.mock('@/services/math/formulaAssetActions', () => ({
@@ -11,7 +11,13 @@ import { FormulaAssetHoverController } from '@/ui/content/controllers/FormulaAss
 import { runFormulaAssetAction } from '@/services/math/formulaAssetActions';
 
 describe('FormulaAssetHoverController', () => {
-    it('shows four text formula asset actions on formula hover and reuses the click source context', async () => {
+    afterEach(() => {
+        document.querySelector('.aimd-toolbar-hover-action-host')?.remove();
+        document.body.innerHTML = '';
+        vi.useRealTimers();
+    });
+
+    it('does not open formula asset actions by default', async () => {
         vi.useFakeTimers();
         const container = document.createElement('div');
         container.innerHTML = `
@@ -30,15 +36,67 @@ describe('FormulaAssetHoverController', () => {
         target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
         await vi.advanceTimersByTimeAsync(100);
 
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+
+        controller.disable();
+        container.remove();
+        vi.useRealTimers();
+    });
+
+    it('shows icon and compact format labels on formula hover and reuses the click source context', async () => {
+        vi.useFakeTimers();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="math-inline">
+            <span class="katex">
+              <annotation encoding="application/x-tex">x_1 + y</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const controller = new FormulaAssetHoverController();
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            assetActions: {
+                copyPng: true,
+                copySvg: true,
+                copyMathml: true,
+                savePng: true,
+                saveSvg: true,
+            },
+        });
+        controller.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+
         const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host');
         const buttons = Array.from(portalHost?.shadowRoot?.querySelectorAll<HTMLButtonElement>('[data-role="toolbar-hover-action"]') ?? []);
-        expect(buttons.map((button) => button.textContent)).toEqual([
+        expect(buttons.map((button) => button.querySelector('.toolbar-hover-action__label')?.textContent)).toEqual([
+            'PNG',
+            'SVG',
+            'MathML',
+            'PNG',
+            'SVG',
+        ]);
+        expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
             'Copy as PNG',
             'Copy as SVG',
             'Copy as MathML',
             'Save as PNG',
             'Save as SVG',
         ]);
+        expect(buttons.map((button) => button.dataset.tooltip)).toEqual([
+            'Copy as PNG',
+            'Copy as SVG',
+            'Copy as MathML',
+            'Save as PNG',
+            'Save as SVG',
+        ]);
+        expect(buttons.every((button) => button.querySelector('.aimd-icon'))).toBe(true);
+        expect(buttons[0]?.classList.contains('toolbar-hover-action--icon-text')).toBe(true);
 
         buttons[1]?.click();
         await Promise.resolve();
@@ -52,7 +110,6 @@ describe('FormulaAssetHoverController', () => {
 
         controller.disable();
         container.remove();
-        vi.useRealTimers();
     });
 
     it('guards formula asset actions while a render request is already pending', async () => {
@@ -68,6 +125,16 @@ describe('FormulaAssetHoverController', () => {
         document.body.appendChild(container);
 
         const controller = new FormulaAssetHoverController();
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            assetActions: {
+                copyPng: true,
+                copySvg: true,
+                copyMathml: true,
+                savePng: true,
+                saveSvg: true,
+            },
+        });
         controller.enable(container);
 
         const target = container.querySelector('.katex') as HTMLElement;
@@ -86,7 +153,6 @@ describe('FormulaAssetHoverController', () => {
         await Promise.resolve();
         controller.disable();
         container.remove();
-        vi.useRealTimers();
     });
 
     it('filters hover actions through formula asset settings', async () => {
@@ -120,14 +186,13 @@ describe('FormulaAssetHoverController', () => {
 
         const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host');
         const buttons = Array.from(portalHost?.shadowRoot?.querySelectorAll<HTMLButtonElement>('[data-role="toolbar-hover-action"]') ?? []);
-        expect(buttons.map((button) => button.textContent)).toEqual([
-            'Copy as SVG',
-            'Save as SVG',
+        expect(buttons.map((button) => button.querySelector('.toolbar-hover-action__label')?.textContent)).toEqual([
+            'SVG',
+            'SVG',
         ]);
 
         controller.disable();
         container.remove();
-        vi.useRealTimers();
     });
 
     it('does not open the hover portal when all formula asset actions are disabled', async () => {
@@ -163,6 +228,5 @@ describe('FormulaAssetHoverController', () => {
 
         controller.disable();
         container.remove();
-        vi.useRealTimers();
     });
 });

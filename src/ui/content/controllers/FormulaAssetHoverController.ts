@@ -6,6 +6,7 @@ import { runFormulaAssetAction, type FormulaAssetAction } from '../../../service
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
+import { copyIcon, downloadIcon } from '../../../assets/icons';
 
 export class FormulaAssetHoverController {
     private readonly mathClick: MathClickHandler;
@@ -143,13 +144,16 @@ export class FormulaAssetHoverController {
         return hasBinaryCopyAction || actions.copyMathml || actions.savePng || actions.saveSvg;
     }
 
-    private createHoverActions(context: MathFormulaHoverContext): Array<{ id: string; label: string; onClick: () => void }> {
+    private createHoverActions(context: MathFormulaHoverContext): Array<{ id: string; label: string; displayLabel: string; icon: string; showLabel: boolean; onClick: () => void }> {
         const enabled = this.formulaSettings.assetActions;
-        const actions: Array<{ id: string; label: string; onClick: () => void }> = [];
+        const actions: Array<{ id: string; label: string; displayLabel: string; icon: string; showLabel: boolean; onClick: () => void }> = [];
         if (enabled.copyPng && targetSurfacePolicy.binaryClipboardCopyActions) {
             actions.push({
                 id: 'copy_formula_png',
                 label: getI18nLabel('formulaCopyAsPng', 'Copy as PNG'),
+                displayLabel: 'PNG',
+                icon: copyIcon,
+                showLabel: true,
                 onClick: () => void this.handleFormulaAssetAction(context, 'copy_png'),
             });
         }
@@ -157,6 +161,9 @@ export class FormulaAssetHoverController {
             actions.push({
                 id: 'copy_formula_svg',
                 label: getI18nLabel('formulaCopyAsSvg', 'Copy as SVG'),
+                displayLabel: 'SVG',
+                icon: copyIcon,
+                showLabel: true,
                 onClick: () => void this.handleFormulaAssetAction(context, 'copy_svg'),
             });
         }
@@ -164,6 +171,9 @@ export class FormulaAssetHoverController {
             actions.push({
                 id: 'copy_formula_mathml',
                 label: getI18nLabel('formulaCopyAsMathml', 'Copy as MathML'),
+                displayLabel: 'MathML',
+                icon: copyIcon,
+                showLabel: true,
                 onClick: () => void this.handleFormulaAssetAction(context, 'copy_mathml'),
             });
         }
@@ -171,6 +181,9 @@ export class FormulaAssetHoverController {
             actions.push({
                 id: 'save_formula_png',
                 label: getI18nLabel('formulaSaveAsPng', 'Save as PNG'),
+                displayLabel: 'PNG',
+                icon: downloadIcon,
+                showLabel: true,
                 onClick: () => void this.handleFormulaAssetAction(context, 'save_png'),
             });
         }
@@ -178,6 +191,9 @@ export class FormulaAssetHoverController {
             actions.push({
                 id: 'save_formula_svg',
                 label: getI18nLabel('formulaSaveAsSvg', 'Save as SVG'),
+                displayLabel: 'SVG',
+                icon: downloadIcon,
+                showLabel: true,
                 onClick: () => void this.handleFormulaAssetAction(context, 'save_svg'),
             });
         }

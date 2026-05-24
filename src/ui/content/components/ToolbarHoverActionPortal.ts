@@ -7,8 +7,10 @@ import { createIcon } from './Icon';
 export type ToolbarHoverPortalAction = {
     id: string;
     label: string;
+    displayLabel?: string;
     tooltip?: string;
     icon?: string;
+    showLabel?: boolean;
     onClick: () => void;
 };
 
@@ -97,6 +99,7 @@ export class ToolbarHoverActionPortal {
                 label: params.label || '',
                 tooltip: params.tooltip,
                 icon: params.icon,
+                showLabel: false,
                 onClick: params.onClick || (() => undefined),
             }];
         this.renderActions(actions);
@@ -172,15 +175,25 @@ export class ToolbarHoverActionPortal {
         for (const action of actions) {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = action.icon ? 'toolbar-hover-action toolbar-hover-action--icon' : 'toolbar-hover-action toolbar-hover-action--text';
+            button.className = action.icon
+                ? action.showLabel
+                    ? 'toolbar-hover-action toolbar-hover-action--icon-text'
+                    : 'toolbar-hover-action toolbar-hover-action--icon'
+                : 'toolbar-hover-action toolbar-hover-action--text';
             button.dataset.role = 'toolbar-hover-action';
             button.dataset.action = action.id;
             button.dataset.tooltip = action.tooltip || action.label;
             button.setAttribute('aria-label', action.label);
-            if (action.icon) {
+            const visibleLabel = action.displayLabel ?? action.label;
+            if (action.icon && action.showLabel) {
+                const label = document.createElement('span');
+                label.className = 'toolbar-hover-action__label';
+                label.textContent = visibleLabel;
+                button.replaceChildren(createIcon(action.icon), label);
+            } else if (action.icon) {
                 button.replaceChildren(createIcon(action.icon));
             } else {
-                button.textContent = action.label;
+                button.textContent = visibleLabel;
             }
             button.addEventListener('click', (event) => {
                 event.preventDefault();
@@ -285,6 +298,16 @@ export class ToolbarHoverActionPortal {
 .toolbar-hover-action--text {
   min-height: var(--aimd-size-control-icon-toolbar);
   padding: 0 var(--aimd-space-3);
+}
+
+.toolbar-hover-action--icon-text {
+  min-height: var(--aimd-size-control-icon-toolbar);
+  gap: var(--aimd-space-2);
+  padding: 0 var(--aimd-space-3);
+}
+
+.toolbar-hover-action__label {
+  display: inline-block;
 }
 
 .toolbar-hover-bridge {
