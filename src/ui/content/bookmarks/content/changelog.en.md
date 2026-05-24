@@ -1,13 +1,5 @@
 # Changelog
 
-# 4.4.6
-2026-05-24
-
-This is a revision release for the Chrome submission package title.
-
-## Changed
-- Updated the extension title to "AI-MarkDone — ChatGPT 导航、阅读与知识整理插件".
-
 # 4.4.5
 2026-05-24
 

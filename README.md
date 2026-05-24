@@ -199,9 +199,6 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.4.6
-- Updated the Chrome submission package title to "AI-MarkDone — ChatGPT 导航、阅读与知识整理插件".
-
 ### 4.4.5
 - Added one-click formula copy as Office-compatible MathML, plus formula rendering inside tables. Thanks to Xiaohongshu user @小红薯67542.
 - Added Reader Sticky mode and Up/Down arrow key scrolling for long-message reading. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
