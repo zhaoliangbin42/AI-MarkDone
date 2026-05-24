@@ -44,7 +44,13 @@ describe('extension manifest generation', () => {
         ]);
         expect(safari.background).toEqual({ scripts: [extensionAssets.backgroundEntry] });
         expect(safari.browser_action?.default_icon).toEqual(extensionAssets.icons);
-        expect(safari.web_accessible_resources).toEqual(extensionAssets.webAccessibleResources);
+        expect(safari.web_accessible_resources).toContain('icons/icon128.png');
+        expect(safari.web_accessible_resources).toContain('icons/icon128_gray.png');
+        expect(safari.web_accessible_resources).toContain('icons/about_avatar.png');
+        expect(safari.web_accessible_resources).not.toContain('icons/*.png');
+        expect(safari.web_accessible_resources).not.toContain('icons/bmc_qr.png');
+        expect(safari.web_accessible_resources).not.toContain('icons/wechat_qr.png');
+        expect(safari.web_accessible_resources).not.toContain('icons/xiaohongshu_card.png');
     });
 
     it('lets AMO assign the Firefox MV2 add-on id while keeping required Gecko metadata', () => {

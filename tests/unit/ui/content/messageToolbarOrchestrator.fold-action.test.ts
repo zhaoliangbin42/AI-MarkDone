@@ -440,6 +440,545 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         expect(readerPanel.appendItem).not.toHaveBeenCalled();
     });
 
+    it('appends new ChatGPT Reader tail pages from a refreshed snapshot without changing the current page', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a2">
+                <div class="markdown prose">Answer 2 streaming</div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const currentItems: any[] = [
+            {
+                id: 'chatgpt-a1',
+                userPrompt: 'Question 1',
+                content: 'Snapshot answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'a1' },
+            },
+        ];
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Snapshot answer 1',
+                    preview: 'Question 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: 'Snapshot answer 2 updated',
+                    preview: 'Question 2',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+        const refreshedSnapshot = {
+            ...snapshot,
+            capturedAt: Date.now() + 1,
+            rounds: [
+                snapshot.rounds[0],
+                {
+                    ...snapshot.rounds[1],
+                    assistantContent: 'Snapshot answer 2 refreshed with \\(x+y\\)',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => currentItems),
+            appendItem: vi.fn(async (item: any) => {
+                currentItems.push(item);
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(snapshot)
+                .mockResolvedValueOnce(refreshedSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(readerPanel.appendItem).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'chatgpt-a2',
+            userPrompt: 'Question 2',
+            meta: expect.objectContaining({
+                platformId: 'chatgpt',
+                position: 2,
+                messageId: 'a2',
+            }),
+        }));
+        expect(currentItems).toHaveLength(2);
+        expect(typeof currentItems[1].content).toBe('function');
+        await expect(currentItems[1].content()).resolves.toBe('Snapshot answer 2 refreshed with $x+y$');
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not duplicate ChatGPT Reader tail pages when sync is triggered concurrently', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a2">
+                <div class="markdown prose">Answer 2</div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const readerState: any[] = [
+            {
+                id: 'chatgpt-a1',
+                userPrompt: 'Question 1',
+                content: 'Snapshot answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'a1' },
+            },
+        ];
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Snapshot answer 1',
+                    preview: 'Question 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: 'Snapshot answer 2',
+                    preview: 'Question 2',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => {
+                readerState.push(item);
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await Promise.all([
+            orchestrator.syncReaderTailPages(),
+            orchestrator.syncReaderTailPages(),
+        ]);
+
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2']);
+    });
+
+    it('only appends ChatGPT Reader tail pages whose identities are observed in the DOM', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a2">
+                <div class="markdown prose">Answer 2</div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const readerState: any[] = [
+            {
+                id: 'chatgpt-a1',
+                userPrompt: 'Question 1',
+                content: 'Snapshot answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'a1' },
+            },
+        ];
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Snapshot answer 1',
+                    preview: 'Question 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: 'Snapshot answer 2',
+                    preview: 'Question 2',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+                {
+                    id: 'round-3',
+                    position: 3,
+                    userPrompt: 'Question 3 from fuller snapshot',
+                    assistantContent: 'Snapshot answer 3',
+                    preview: 'Question 3',
+                    messageId: 'a3',
+                    userMessageId: 'u3',
+                    assistantMessageId: 'a3',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => {
+                readerState.push(item);
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2']);
+    });
+
+    it('waits for a later sync when a new ChatGPT DOM turn is not present in the refreshed snapshot yet', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a2">
+                <div class="markdown prose">Answer 2 visible before payload refresh</div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const readerState: any[] = [
+            {
+                id: 'chatgpt-a1',
+                userPrompt: 'Question 1',
+                content: 'Snapshot answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'a1' },
+            },
+        ];
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Snapshot answer 1',
+                    preview: 'Question 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => {
+                readerState.push(item);
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(readerPanel.appendItem).not.toHaveBeenCalled();
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1']);
+    });
+
+    it('keeps a new ChatGPT Reader tail position pending until the snapshot has assistant content', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a2">
+                <div class="markdown prose"></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const readerState: any[] = [
+            {
+                id: 'chatgpt-a1',
+                userPrompt: 'Question 1',
+                content: 'Snapshot answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'a1' },
+            },
+        ];
+        const pendingSnapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Snapshot answer 1',
+                    preview: 'Question 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: '',
+                    preview: 'Question 2',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+        const readySnapshot = {
+            ...pendingSnapshot,
+            capturedAt: Date.now() + 1,
+            rounds: [
+                pendingSnapshot.rounds[0],
+                {
+                    ...pendingSnapshot.rounds[1],
+                    assistantContent: 'Snapshot answer 2 now ready',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => {
+                readerState.push(item);
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(pendingSnapshot)
+                .mockResolvedValueOnce(readySnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).not.toHaveBeenCalled();
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1']);
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2']);
+    });
+
+    it('does not append a second ChatGPT Reader page when the same tail position receives a stable assistant message id', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 1</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer 1</div>
+              </div>
+            </article>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Question 2</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="temp-a2">
+                <div class="markdown prose">Answer 2 starting</div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const readerState: any[] = [
+            {
+                id: 'chatgpt-a1',
+                userPrompt: 'Question 1',
+                content: 'Snapshot answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'a1' },
+            },
+        ];
+        const initialSnapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Question 1',
+                    assistantContent: 'Snapshot answer 1',
+                    preview: 'Question 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Question 2',
+                    assistantContent: 'Snapshot answer 2 starting',
+                    preview: 'Question 2',
+                    messageId: 'temp-a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'temp-a2',
+                },
+            ],
+        };
+        const stableSnapshot = {
+            ...initialSnapshot,
+            capturedAt: Date.now() + 1,
+            rounds: [
+                initialSnapshot.rounds[0],
+                {
+                    ...initialSnapshot.rounds[1],
+                    assistantContent: 'Snapshot answer 2 continuing',
+                    messageId: 'real-a2',
+                    assistantMessageId: 'real-a2',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => {
+                readerState.push(item);
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(initialSnapshot)
+                .mockResolvedValueOnce(stableSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-temp-a2']);
+
+        document.querySelector('[data-message-id="temp-a2"]')?.setAttribute('data-message-id', 'real-a2');
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-temp-a2']);
+    });
+
     it('saves ChatGPT bookmarks with payload positions instead of DOM-local positions', async () => {
         renderVirtualizedChatGptBookmarkDom();
 

@@ -43,6 +43,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
+            copyMathml: Boolean((assetActions as any).copyMathml ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyMathml),
             savePng: Boolean((assetActions as any).savePng ?? DEFAULT_FORMULA_SETTINGS.assetActions.savePng),
             saveSvg: Boolean((assetActions as any).saveSvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.saveSvg),
         },
@@ -103,8 +104,20 @@ export function normalizeAppearanceSettings(value: unknown): AppSettings['appear
     };
 }
 
+export function loadAndNormalize(stored: unknown): AppSettings {
+    if (!stored) return { ...DEFAULT_SETTINGS };
+    if (!isRecord(stored)) return { ...DEFAULT_SETTINGS };
+
+    const version = (stored as any).version;
+    if (version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
+    if (version === 2) return migrateFromV2(stored);
+    if (version === 1) return migrateFromV1(stored);
+
+    return { ...DEFAULT_SETTINGS };
+}
+
 /**
- * Merge stored settings with defaults (keeps v3 but tolerates missing new fields).
+ * Merge stored settings with defaults (keeps v4 but tolerates missing new fields).
  */
 export function mergeWithDefaults(stored: AppSettings): AppSettings {
     return {
@@ -134,7 +147,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
 }
 
 /**
- * Migrate v1 -> v3
+ * Migrate v1 -> v4
  *
  * Legacy v1 layout:
  * - behavior.enableClickToCopy
@@ -148,7 +161,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
     const storage = isRecord((rec as any).storage) ? (rec as any).storage : {};
 
     return {
-        version: 3,
+        version: DEFAULT_SETTINGS.version,
         platforms: {
             ...DEFAULT_SETTINGS.platforms,
             chatgpt: Boolean((platforms as any).chatgpt ?? true),
@@ -180,7 +193,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 }
 
 /**
- * Migrate v2 -> v3
+ * Migrate v2 -> v4
  *
  * Legacy v2 layout:
  * - chatgpt folding settings under performance.chatgptFoldingMode / chatgptDefaultExpandedCount
@@ -193,7 +206,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
     const bookmarks = isRecord(rec.bookmarks) ? rec.bookmarks : {};
 
     return {
-        version: 3,
+        version: DEFAULT_SETTINGS.version,
         platforms: {
             ...DEFAULT_SETTINGS.platforms,
             ...platforms,

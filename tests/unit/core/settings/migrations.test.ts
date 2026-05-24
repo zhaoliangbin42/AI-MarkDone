@@ -9,7 +9,7 @@ describe('settings migrations', () => {
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
     });
 
-    it('merges v3 stored settings with defaults and strips retired ChatGPT fields', () => {
+    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and strips retired ChatGPT fields', () => {
         const stored: any = {
             version: 3,
             platforms: { chatgpt: false },
@@ -21,14 +21,20 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(3);
+        expect(next.version).toBe(4);
         expect(next.platforms.chatgpt).toBe(false);
         expect(next.platforms.gemini).toBe(true);
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.formula.clickCopyMarkdown).toBe(false);
-        expect(next.formula.assetActions).toEqual(DEFAULT_SETTINGS.formula.assetActions);
+        expect(next.formula.assetActions).toEqual({
+            copyPng: false,
+            copySvg: false,
+            copyMathml: false,
+            savePng: false,
+            saveSvg: false,
+        });
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
         expect(next.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
@@ -88,7 +94,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(3);
+        expect(next.version).toBe(4);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.showWordCount).toBe(false);
         expect(next.bookmarks.sortMode).toBe('time-desc');
@@ -104,7 +110,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(3);
+        expect(next.version).toBe(4);
         expect(next.behavior.saveContextOnly).toBe(true);
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.formula.clickCopyMarkdown).toBe(true);
@@ -112,25 +118,53 @@ describe('settings migrations', () => {
         expect(next).not.toHaveProperty('chatgpt');
     });
 
-    it('normalizes v3 formula settings and falls back to legacy click-to-copy when missing', () => {
+    it('normalizes v3 formula settings while preserving any stored formula asset action choices', () => {
         const explicit = loadAndNormalize({
             version: 3,
             behavior: { enableClickToCopy: true },
             formula: {
                 clickCopyMarkdown: false,
-                assetActions: { copyPng: false, copySvg: true, savePng: false, saveSvg: true, extra: true },
+                assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true, extra: true },
             },
         } as any);
         expect(explicit.formula).toEqual({
             clickCopyMarkdown: false,
-            assetActions: { copyPng: false, copySvg: true, savePng: false, saveSvg: true },
+            assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
 
-        const legacy = loadAndNormalize({
+        const allOn = loadAndNormalize({
             version: 3,
-            behavior: { enableClickToCopy: false },
+            formula: {
+                assetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
+            },
         } as any);
-        expect(legacy.formula.clickCopyMarkdown).toBe(false);
-        expect(legacy.formula.assetActions).toEqual(DEFAULT_SETTINGS.formula.assetActions);
+        expect(allOn.formula.assetActions).toEqual({
+            copyPng: true,
+            copySvg: true,
+            copyMathml: true,
+            savePng: true,
+            saveSvg: true,
+        });
+    });
+
+    it('does not re-run the formula asset default-off migration for v4 settings', () => {
+        const next = loadAndNormalize({
+            version: 4,
+            behavior: { enableClickToCopy: false },
+            formula: {
+                clickCopyMarkdown: true,
+                assetActions: { copyPng: true, copySvg: false, copyMathml: true, savePng: false, saveSvg: true },
+            },
+        } as any);
+
+        expect(next.version).toBe(4);
+        expect(next.formula.clickCopyMarkdown).toBe(true);
+        expect(next.formula.assetActions).toEqual({
+            copyPng: true,
+            copySvg: false,
+            copyMathml: true,
+            savePng: false,
+            saveSvg: true,
+        });
     });
 });

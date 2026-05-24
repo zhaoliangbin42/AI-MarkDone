@@ -12,15 +12,24 @@ vi.mock('@/drivers/content/clipboard/copySvgToClipboard', () => ({
     copySvgBlobToClipboard: vi.fn(async () => ({ ok: true })),
 }));
 
+vi.mock('@/drivers/content/clipboard/copyMathmlToClipboard', () => ({
+    copyMathmlToClipboard: vi.fn(async () => ({ ok: true })),
+}));
+
 vi.mock('@/drivers/content/export/downloadBlob', () => ({
     downloadBlob: vi.fn(),
 }));
 
 import { copyImageBlobToClipboard } from '@/drivers/content/clipboard/copyImageToClipboard';
+import { copyMathmlToClipboard } from '@/drivers/content/clipboard/copyMathmlToClipboard';
 import { copySvgBlobToClipboard } from '@/drivers/content/clipboard/copySvgToClipboard';
 import { downloadBlob } from '@/drivers/content/export/downloadBlob';
 import { rasterizeFormulaSvgToPngBlob } from '@/drivers/content/export/renderFormulaPng';
-import { __resetFormulaAssetRendererForTests, __setFormulaRendererTransportForTests } from '@/services/math/formulaAssetRenderer';
+import {
+    __resetFormulaAssetRendererForTests,
+    __setFormulaMathmlRendererTransportForTests,
+    __setFormulaRendererTransportForTests,
+} from '@/services/math/formulaAssetRenderer';
 import { runFormulaAssetAction } from '@/services/math/formulaAssetActions';
 
 describe('formulaAssetActions', () => {
@@ -34,6 +43,11 @@ describe('formulaAssetActions', () => {
             height: 36,
             viewBox: '0 0 72 36',
             svg: `<svg xmlns="http://www.w3.org/2000/svg" data-source="${request.source}" viewBox="0 0 72 36" width="72" height="36"></svg>`,
+        }));
+        __setFormulaMathmlRendererTransportForTests(async (request) => ({
+            source: request.source,
+            displayMode: request.displayMode,
+            mathml: `<math xmlns="http://www.w3.org/1998/Math/MathML" display="${request.displayMode ? 'block' : 'inline'}"><mi>${request.source}</mi></math>`,
         }));
     });
 
@@ -61,5 +75,19 @@ describe('formulaAssetActions', () => {
             filename: 'AI-MarkDone-formula.svg',
             blob: expect.any(Blob),
         });
+    });
+
+    it('copies MathML without rasterizing or changing the LaTeX source', async () => {
+        const source = String.raw`\frac{x_1}{2}`;
+
+        const result = await runFormulaAssetAction({ action: 'copy_mathml', source, displayMode: true });
+
+        expect(result).toEqual({ ok: true, status: 'copied' });
+        expect(copyMathmlToClipboard).toHaveBeenCalledWith(
+            `<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mi>${source}</mi></math>`,
+        );
+        expect(rasterizeFormulaSvgToPngBlob).not.toHaveBeenCalled();
+        expect(copyImageBlobToClipboard).not.toHaveBeenCalled();
+        expect(copySvgBlobToClipboard).not.toHaveBeenCalled();
     });
 });

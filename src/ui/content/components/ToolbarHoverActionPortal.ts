@@ -1,13 +1,16 @@
 import type { Theme } from '../../../core/types/theme';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import { ensureStyle } from '../../../style/shadow';
+import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from './Icon';
 
 export type ToolbarHoverPortalAction = {
     id: string;
     label: string;
+    displayLabel?: string;
     tooltip?: string;
     icon?: string;
+    showLabel?: boolean;
     onClick: () => void;
 };
 
@@ -36,11 +39,10 @@ export class ToolbarHoverActionPortal {
     private onDocPointerDown: ((event: Event) => void) | null = null;
     private onWindowResize: (() => void) | null = null;
     private onWindowScroll: (() => void) | null = null;
-    private hoverTooltipTimer: number | null = null;
-    private hoverTooltipEl: HTMLElement | null = null;
     private positionFrame: number | null = null;
     private theme: Theme;
     private themeOverrides: UserThemeOverrides;
+    private tooltipDelegate: TooltipDelegate;
 
     constructor(theme: Theme, themeOverrides: UserThemeOverrides = {}) {
         this.theme = theme;
@@ -52,6 +54,7 @@ export class ToolbarHoverActionPortal {
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-hover-action-base', cache: 'shared' });
+        this.tooltipDelegate = new TooltipDelegate(this.shadow, { upgradeTitles: false });
 
         this.bridge = document.createElement('div');
         this.bridge.className = 'toolbar-hover-bridge';
@@ -96,6 +99,7 @@ export class ToolbarHoverActionPortal {
                 label: params.label || '',
                 tooltip: params.tooltip,
                 icon: params.icon,
+                showLabel: false,
                 onClick: params.onClick || (() => undefined),
             }];
         this.renderActions(actions);
@@ -112,7 +116,7 @@ export class ToolbarHoverActionPortal {
 
     close(): void {
         this.cancelReposition();
-        this.clearTooltip();
+        this.tooltipDelegate.hide();
         this.host.dataset.open = '0';
         this.currentAnchor = null;
         this.onPointerEnter = null;
@@ -125,30 +129,7 @@ export class ToolbarHoverActionPortal {
 
     dispose(): void {
         this.close();
-    }
-
-    private scheduleTooltip(button: HTMLElement): void {
-        this.clearTooltip();
-        this.hoverTooltipTimer = window.setTimeout(() => {
-            const label = button?.dataset.tooltip || button?.getAttribute('aria-label') || '';
-            if (!label) return;
-            const tooltip = document.createElement('div');
-            tooltip.className = 'toolbar-hover-feedback';
-            tooltip.dataset.role = 'toolbar-tooltip';
-            tooltip.dataset.placement = 'top';
-            tooltip.textContent = label;
-            (button || this.actionsRoot).appendChild(tooltip);
-            this.hoverTooltipEl = tooltip;
-        }, 100);
-    }
-
-    private clearTooltip(): void {
-        if (this.hoverTooltipTimer !== null) {
-            window.clearTimeout(this.hoverTooltipTimer);
-            this.hoverTooltipTimer = null;
-        }
-        this.hoverTooltipEl?.remove();
-        this.hoverTooltipEl = null;
+        this.tooltipDelegate.disconnect();
     }
 
     private positionToAnchor(anchorEl: HTMLElement): void {
@@ -187,30 +168,38 @@ export class ToolbarHoverActionPortal {
     }
 
     private renderActions(actions: ToolbarHoverPortalAction[]): void {
-        this.clearTooltip();
+        this.tooltipDelegate.hide();
         this.actionsRoot.replaceChildren();
         this.actionsRoot.dataset.layout = actions.length > 1 ? 'multi' : 'single';
         this.host.dataset.layout = actions.length > 1 ? 'multi' : 'single';
         for (const action of actions) {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = action.icon ? 'toolbar-hover-action toolbar-hover-action--icon' : 'toolbar-hover-action toolbar-hover-action--text';
+            button.className = action.icon
+                ? action.showLabel
+                    ? 'toolbar-hover-action toolbar-hover-action--icon-text'
+                    : 'toolbar-hover-action toolbar-hover-action--icon'
+                : 'toolbar-hover-action toolbar-hover-action--text';
             button.dataset.role = 'toolbar-hover-action';
             button.dataset.action = action.id;
             button.dataset.tooltip = action.tooltip || action.label;
             button.setAttribute('aria-label', action.label);
-            if (action.icon) {
+            const visibleLabel = action.displayLabel ?? action.label;
+            if (action.icon && action.showLabel) {
+                const label = document.createElement('span');
+                label.className = 'toolbar-hover-action__label';
+                label.textContent = visibleLabel;
+                button.replaceChildren(createIcon(action.icon), label);
+            } else if (action.icon) {
                 button.replaceChildren(createIcon(action.icon));
             } else {
-                button.textContent = action.label;
+                button.textContent = visibleLabel;
             }
             button.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 action.onClick();
             });
-            button.addEventListener('mouseenter', () => this.scheduleTooltip(button));
-            button.addEventListener('mouseleave', () => this.clearTooltip());
             this.actionsRoot.appendChild(button);
         }
     }
@@ -311,6 +300,16 @@ export class ToolbarHoverActionPortal {
   padding: 0 var(--aimd-space-3);
 }
 
+.toolbar-hover-action--icon-text {
+  min-height: var(--aimd-size-control-icon-toolbar);
+  gap: var(--aimd-space-2);
+  padding: 0 var(--aimd-space-3);
+}
+
+.toolbar-hover-action__label {
+  display: inline-block;
+}
+
 .toolbar-hover-bridge {
   position: absolute;
   left: var(--aimd-toolbar-hover-anchor-x, 50%);
@@ -329,31 +328,6 @@ export class ToolbarHoverActionPortal {
 :host([data-placement="bottom"]) .toolbar-hover-bridge {
   top: 0;
   transform: translate(-50%, calc(-1 * var(--aimd-space-2)));
-}
-
-.toolbar-hover-feedback {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + var(--aimd-space-3));
-  transform: translateX(-50%);
-  padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  font-size: var(--aimd-font-size-xs);
-  line-height: 1;
-  white-space: nowrap;
-  border-radius: var(--aimd-radius-md);
-  opacity: 0;
-  pointer-events: none;
-  z-index: var(--aimd-z-tooltip);
-  animation: toolbarFeedbackFade 1.5s ease;
-}
-
-@keyframes toolbarFeedbackFade {
-  0% { opacity: 0; transform: translateX(-50%) translateY(0); }
-  20% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
-  80% { opacity: 1; transform: translateX(-50%) translateY(-4px); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
 .toolbar-hover-action:hover {

@@ -1,5 +1,32 @@
 # Release Notes
 
+## v4.4.5 (2026-05-24)
+
+This release focuses on formula copy, long-message reading in Reader, toolbar stability, and ChatGPT page performance.
+
+### Added
+- Added one-click formula copy as Office-compatible MathML.
+- Added support for rendering formulas inside tables. Thanks to Xiaohongshu user @小红薯67542.
+- Added a global status toast for short feedback such as "Copied successfully".
+- Added Sticky mode in Reader for pinning selected passages while reading long answers.
+- Reader now supports Up and Down arrow key scrolling inside messages. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
+
+### Changed
+- Reader can refresh newly added pages more reliably after sending a message from Reader.
+- Improved toolbar insertion stability and reduced unnecessary directory refresh work.
+- Formula hover actions now default to off and can be enabled from Settings, reducing reading obstruction.
+- Reduced toolbar and directory churn while the browser width is changing.
+
+### Fixed
+- Fixed tooltip layering issues around formula copy feedback.
+- Fixed an issue where Copy as Markdown could treat links inside code blocks as noise and remove them. Thanks to Email user @童硕.
+- Improved ChatGPT directory and toolbar stability during hydration, resize, and virtualized middle-round loading.
+
+### How it works
+- The directory now avoids full rebuilds when page mutations do not change the conversation structure.
+- Width changes are allowed to settle before toolbar and directory refreshes resume, reducing repeated layout work.
+- Reader new-page refreshes rely on fresher conversation snapshots so newly sent responses can appear without closing and reopening Reader.
+
 ## v4.4.1 (2026-05-15)
 
 This release focuses on personalization, a cleaner style system, and smoother long-message reading in ChatGPT.

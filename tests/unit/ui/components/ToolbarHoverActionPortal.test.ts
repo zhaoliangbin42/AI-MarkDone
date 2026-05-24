@@ -105,4 +105,37 @@ describe('ToolbarHoverActionPortal', () => {
         expect(host.dataset.placement).toBe('bottom');
         portal.dispose();
     });
+
+    it('uses shared tooltip delegation for hover action labels', () => {
+        vi.useFakeTimers();
+        vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(800);
+        vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(600);
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+            if (this.classList.contains('toolbar-hover-actions')) return rect({ width: 160, height: 40 });
+            return rect({ left: 200, top: 200, width: 40, height: 24 });
+        });
+
+        const anchor = document.createElement('button');
+        document.body.appendChild(anchor);
+        const portal = new ToolbarHoverActionPortal('light');
+        portal.open({
+            anchorEl: anchor,
+            actions: [
+                { id: 'a', label: 'Copy as PNG', onClick: () => undefined },
+            ],
+        });
+
+        const host = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
+        const button = host.shadowRoot!.querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!;
+        expect(button.dataset.tooltip).toBe('Copy as PNG');
+
+        button.dispatchEvent(new Event('pointerover', { bubbles: true, composed: true }));
+        vi.advanceTimersByTime(150);
+
+        expect(document.body.querySelector<HTMLElement>('.aimd-tooltip')?.textContent).toBe('Copy as PNG');
+        expect(host.shadowRoot?.querySelector('.toolbar-hover-feedback')).toBeNull();
+
+        portal.dispose();
+        vi.useRealTimers();
+    });
 });

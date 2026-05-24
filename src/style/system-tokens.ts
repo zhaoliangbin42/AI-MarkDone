@@ -318,6 +318,14 @@ ${getUserThemeOverrideCss(overrides)}
   --aimd-z-base: var(--aimd-sys-z-base);
   --aimd-z-panel: var(--aimd-sys-z-panel);
   --aimd-z-tooltip: var(--aimd-sys-z-tooltip);
+  --aimd-tooltip-bg: var(--aimd-interactive-primary);
+  --aimd-tooltip-text: var(--aimd-text-on-primary);
+  --aimd-tooltip-shadow: var(--aimd-shadow-popover, var(--aimd-shadow-lg));
+  --aimd-tooltip-z: var(--aimd-z-tooltip);
+  --aimd-toast-bg: var(--aimd-interactive-primary);
+  --aimd-toast-text: var(--aimd-text-on-primary);
+  --aimd-toast-shadow: var(--aimd-shadow-popover, var(--aimd-shadow-lg));
+  --aimd-toast-z: var(--aimd-z-tooltip);
   --aimd-list-hover: var(--aimd-sys-color-list-hover);
   --aimd-list-pressed: var(--aimd-sys-color-list-pressed);
   --aimd-list-selected: var(--aimd-sys-color-list-selected);

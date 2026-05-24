@@ -27,6 +27,7 @@ async function waitFor<T>(
 describe('ReaderPanel (MVP)', () => {
     afterEach(() => {
         document.querySelector('#aimd-reader-panel-host')?.remove();
+        document.getElementById('aimd-toast-viewport')?.remove();
     });
 
     it('shows, paginates, and copies current page markdown', async () => {
@@ -53,6 +54,9 @@ describe('ReaderPanel (MVP)', () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(writeText).toHaveBeenCalledWith('md1');
+        const toast = await waitFor(() => document.body.querySelector<HTMLElement>('.aimd-toast'));
+        expect(toast.textContent).toContain('btnCopied');
+        expect(shadow.querySelector('.aimd-tooltip[data-variant="ephemeral"]')).toBeNull();
 
         const nextBtn = shadow.querySelector<HTMLButtonElement>('[data-action="reader-next"]')!;
         nextBtn.click();

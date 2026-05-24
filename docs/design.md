@@ -258,6 +258,7 @@ Core sizes and layers:
 | Base layer | `--aimd-ref-z-base` | `1` |
 | Panel layer | `--aimd-ref-z-panel` | `9000` |
 | Tooltip layer | `--aimd-ref-z-tooltip` | `10000` |
+| Feedback layer | `--aimd-tooltip-z` / `--aimd-toast-z` | `var(--aimd-z-tooltip)` |
 
 Motion:
 
@@ -322,6 +323,14 @@ Motion:
 - Overlay singleton owns global overlay layering, scrim, and dialog surfaces.
 - Anchored popovers may keep a local boundary only when their positioning and dismissal contract is documented.
 - Any overlay-like component must validate focus, escape, outside click, scroll lock, and Shadow DOM style injection.
+
+### 7.9 Tooltip And Toast Feedback
+
+- Tooltip explains controls and compact UI affordances. It must not be used for operation results.
+- Toast reports short, non-blocking operation feedback such as copied, saved, failed, or rendering state.
+- Tooltip and toast styling comes only from feedback tokens: `--aimd-tooltip-*` and `--aimd-toast-*`.
+- Standard label tooltips render at the page feedback layer to avoid being clipped by Shadow DOM hosts or host-page controls; preview tooltips may stay inside their owning ShadowRoot.
+- Toasts render at the top center of the viewport, replace the previous toast, default to 3 seconds, and must not block page interaction.
 
 ## 8. Shadow DOM And Style Injection
 

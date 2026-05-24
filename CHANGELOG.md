@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [4.4.5] - 2026-05-24
+### Added
+- Reader: Added a temporary Sticky workspace for selected Markdown excerpts, with wider resizable page-lifetime blocks that can be reordered or deleted while paging through long responses or closing and reopening Reader.
+- Reader: Added Up and Down arrow key scrolling inside Reader messages. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
+- Formula hover actions can now copy a single formula as MathML, using the existing LaTeX extraction path and MathJax renderer for Office-friendly equation paste workflows.
+- UI feedback now uses a shared tokenized tooltip and top-center toast layer for clearer hover labels and short operation results.
+
+### Changed
+- Reader: The one-time update changelog notice now also appears when opening Reader, sharing the same acknowledgement state as the bookmarks panel so users only see it once per version.
+- Formula: Formula image hover actions now default to off and can be enabled from Settings. Existing stored formula action choices are preserved during migration.
+- Safari: App Store builds now omit the sponsor tab, payment QR assets, sponsor copy, social follow card, and binary PNG/SVG clipboard copy actions while Chrome and Firefox keep the existing support surfaces.
+- About: Added a dedicated support contact card with an email feedback link and copy-email action; Safari keeps this support surface while sponsor/social surfaces remain hidden.
+
+### Fixed
+- ChatGPT Directory: Reduced startup and hydration-time page stalls by making the directory use passive snapshot updates, filtered DOM mutation rebuilds, and no-op rail rendering when the conversation index has not changed.
+- ChatGPT Directory: Restored complete prompt labels for virtualized middle rounds by running a bounded on-demand snapshot refresh only when DOM-discovered directory items still show fallback `Message N` labels.
+- ChatGPT: Reduced resize jank by temporarily suspending AI-MarkDone directory and action-row toolbar chrome while the browser viewport width is being dragged, then restoring state after resize settles without rebuilding or collapsing toolbar layout.
+- ChatGPT: Improved bottom toolbar stability when the official action row hydrates after the assistant message, avoiding routine full-page rescans for that case.
+- Copy Markdown: Fixed an issue where links inside code blocks could be treated as citation noise and removed. Thanks to Email user @童硕.
+
 ## [4.4.1] - 2026-05-15
 ### Added
 - Settings: Added a global interface font size control in Advanced Settings, limited to 12px–20px with stepper buttons and live token-based refresh across extension surfaces.
@@ -20,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UI: Streamlined the style system so extension surfaces share a more consistent visual language and tokenized customization path.
 
 ### Fixed
+- Reader: Limited long-conversation pagination to a compact window with ellipsis gaps, preventing the footer pager from crowding or being clipped.
 - Reader: Refreshes the latest ChatGPT Reader page from the live conversation snapshot when opened or revisited, while keeping earlier Reader pages frozen for stable reading.
 - Reader: Preserved rendered formulas inside HTML table cells when converting page content back to Markdown, so Reader can render those table formulas with KaTeX instead of flattening them to visible text.
 

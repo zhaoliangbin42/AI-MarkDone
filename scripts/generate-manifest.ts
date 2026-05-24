@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extensionAssets } from '../config/extension/assets';
+import { extensionAssets, getWebAccessibleResourcesForTarget } from '../config/extension/assets';
 import { SUPPORTED_HOST_PATTERNS } from '../config/extension/hosts';
 import { extensionMeta } from '../config/extension/meta';
 import { type ExtensionTarget, extensionTargets } from '../config/extension/targets';
@@ -52,14 +52,15 @@ export function buildManifest(target: ExtensionTarget): Manifest {
     };
     manifest.icons = extensionAssets.icons;
 
+    const webAccessibleResources = getWebAccessibleResourcesForTarget(target);
     manifest.web_accessible_resources = targetConfig.webAccessibleResourcesStyle === 'mv3'
         ? [
             {
-                resources: [...extensionAssets.webAccessibleResources],
+                resources: [...webAccessibleResources],
                 matches: [...SUPPORTED_HOST_PATTERNS],
             },
         ]
-        : [...extensionAssets.webAccessibleResources];
+        : [...webAccessibleResources];
 
     if (target === 'firefox') {
         const firefoxConfig = extensionTargets.firefox;

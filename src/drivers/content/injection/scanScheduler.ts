@@ -1,3 +1,5 @@
+import { perfCount, perfMeasure } from '../../../core/perf/perfProbe';
+
 export type ScanReason =
     | 'init'
     | 'mutation'
@@ -44,6 +46,11 @@ export class ScanScheduler {
         const earliestAt = this.lastRunAt + this.options.minIntervalMs;
         const latestAt = this.firstPendingAt + this.options.maxWaitMs;
         const runAt = Math.min(Math.max(desiredAt, earliestAt), latestAt);
+        perfCount('scanScheduler.schedule', 1, {
+            reason,
+            pendingReasons: this.pendingReasons.size,
+            delayMs: Math.max(0, runAt - now),
+        });
 
         if (this.timer !== null) {
             if (runAt === this.scheduledAt) return;
@@ -66,6 +73,7 @@ export class ScanScheduler {
     }
 
     private flush(): void {
+        const flushedAt = Date.now();
         this.timer = null;
         this.scheduledAt = 0;
         this.firstPendingAt = null;
@@ -73,7 +81,14 @@ export class ScanScheduler {
         this.pendingReasons.clear();
         this.lastRunAt = Date.now();
 
-        const run = () => this.scanFn(reasons);
+        const run = () => {
+            const startedAt = Date.now();
+            this.scanFn(reasons);
+            perfMeasure('scanScheduler.flush', Date.now() - startedAt, {
+                reasons: Array.from(reasons).join(','),
+                queuedMs: Math.max(0, startedAt - flushedAt),
+            });
+        };
 
         const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
         const ric = (globalScope as any).requestIdleCallback as

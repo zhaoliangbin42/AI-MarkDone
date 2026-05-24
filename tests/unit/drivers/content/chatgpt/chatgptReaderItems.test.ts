@@ -109,6 +109,43 @@ describe('buildChatGPTReaderItems', () => {
         expect(items[0]?.content).toBe('Answer Huang 2020\n\nFormula: $x = y$');
     });
 
+    it('preserves code block urls while removing citation noise from payload-backed Reader content', () => {
+        const { items } = buildChatGPTReaderItems({
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Prompt 1',
+                    assistantContent: [
+                        'Answer [paper](https://example.com/paper.pdf)',
+                        '',
+                        '```ts',
+                        'const url = "https://example.com/api";',
+                        'const link = "[docs](https://example.com/docs)";',
+                        '```',
+                    ].join('\n'),
+                    preview: 'Prompt 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+            ],
+        }, { messageId: 'a1' });
+
+        expect(items[0]?.content).toBe([
+            'Answer paper',
+            '',
+            '```ts',
+            'const url = "https://example.com/api";',
+            'const link = "[docs](https://example.com/docs)";',
+            '```',
+        ].join('\n'));
+    });
+
     it('does not treat DOM-local positions as payload positions when opening Reader', () => {
         const snapshot = {
             conversationId: 'conv-1',

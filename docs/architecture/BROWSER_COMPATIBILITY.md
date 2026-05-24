@@ -22,7 +22,7 @@
 | Background | `src/runtimes/background/entry.ts`（编译） | 同上（用 MV2 manifest + polyfill 兼容） | 同上（待 Safari 实机验证） | ✅ 100% |
 | Manifest | `manifest.chrome.json` | `manifest.firefox.json` | `manifest.safari.json` | 由 `config/extension/*` + `scripts/generate-manifest.ts` 生成 |
 | Popup | `src/popup/popup.html`（复制） | 同上 | 同上 | ✅ 100% |
-| Icons/locales/KaTeX/page bridges | `public/*`/`vendor/*`（复制） | 同上 | 同上 | ✅ 100% |
+| Icons/locales/KaTeX/page bridges | `public/*`/`vendor/*`（复制） | 同上 | App Store 合规 allowlist（无 sponsor/social 资源） | 共享核心资源；Safari target 有合规裁剪 |
 
 为什么 background 入口保持共享（可审计性优先）：
 
@@ -72,8 +72,11 @@ dist-safari/
 - 支持网站唯一来源：`config/extension/hosts.ts`
 - icons、popup、web accessible resources、entry 文件名唯一来源：`config/extension/assets.ts`
 - target 差异唯一来源：`config/extension/targets.ts`
+- target surface policy 唯一来源：`config/extension/surface.ts`
 - manifest 生成入口：`scripts/generate-manifest.ts`
 - dist 资源准备入口：`scripts/prepare-extension-target.ts`
+
+Safari App Store target 的 surface policy 是合规差异，不是功能 fork：Chrome/Firefox 继续保留 sponsor tab、Buy Me Coffee 二维码、GitHub 支持 CTA、赞助感谢名单、About 小红书关注卡，以及 PNG/SVG 二进制剪贴板 copy 动作；Safari 在 build-time 关闭 sponsor tab、社交关注卡和 binary clipboard copy surfaces，并在 dist 阶段裁剪 `bmc_qr.png`、`wechat_qr.png`、`xiaohongshu_card.png` 以及对应 sponsor/social locale keys。Safari 的 Save/Export PNG/SVG 下载动作继续保留，About 的反馈邮箱与 support contact card 也继续保留。
 
 ---
 

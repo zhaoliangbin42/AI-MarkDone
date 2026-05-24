@@ -14,6 +14,30 @@ describe('cleanChatGPTReferenceNoise', () => {
             .toBe('Read paper and');
     });
 
+    it('preserves markdown links and bare urls inside code spans and fenced code blocks', () => {
+        const markdown = [
+            'Read [paper](https://example.com/paper.pdf) and https://example.com/raw.',
+            '',
+            '`https://example.com/inline`',
+            '',
+            '```ts',
+            'const url = "https://example.com/api";',
+            'const link = "[docs](https://example.com/docs)";',
+            '```',
+        ].join('\n');
+
+        expect(cleanChatGPTReferenceNoise(markdown)).toBe([
+            'Read paper and',
+            '',
+            '`https://example.com/inline`',
+            '',
+            '```ts',
+            'const url = "https://example.com/api";',
+            'const link = "[docs](https://example.com/docs)";',
+            '```',
+        ].join('\n'));
+    });
+
     it('can keep markdown links when configured for a future settings toggle', () => {
         expect(cleanChatGPTReferenceNoise('[paper](https://example.com)', { stripMarkdownLinks: false, stripBareUrls: false }))
             .toBe('[paper](https://example.com)');

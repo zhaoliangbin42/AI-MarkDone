@@ -4,6 +4,7 @@ import { browser } from '../../shared/browser';
 import { sendExtRequest } from '../../shared/rpc';
 import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS } from '../../../contracts/storage';
+import { loadAndNormalize } from '../../../core/settings/migrations';
 
 export type SettingsSnapshot = {
     settings: AppSettings;
@@ -15,10 +16,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
 
-function isAppSettings(value: unknown): value is AppSettings {
-    if (!isRecord(value)) return false;
-    if (value.version !== 3) return false;
-    return typeof (value as any).platforms === 'object' && typeof (value as any).behavior === 'object';
+function normalizeAppSettings(value: unknown): AppSettings | null {
+    if (!isRecord(value)) return null;
+    const version = (value as any).version;
+    if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return null;
+    return loadAndNormalize(value);
 }
 
 export class SettingsClient {
@@ -34,8 +36,9 @@ export class SettingsClient {
             if (areaName !== 'sync') return;
             const change = changes?.[LEGACY_STORAGE_KEYS.appSettingsKey];
             const next = change?.newValue;
-            if (!isAppSettings(next)) return;
-            this.cache = next;
+            const normalized = normalizeAppSettings(next);
+            if (!normalized) return;
+            this.cache = normalized;
             this.emit();
         });
 
@@ -60,10 +63,11 @@ export class SettingsClient {
         } as any);
         if (!res?.ok) return null;
         const settings = (res.data as any)?.settings;
-        if (!isAppSettings(settings)) return null;
-        this.cache = settings;
+        const normalized = normalizeAppSettings(settings);
+        if (!normalized) return null;
+        this.cache = normalized;
         this.emit();
-        return settings;
+        return normalized;
     }
 
     async getCategory(category: SettingsCategory): Promise<unknown | null> {
@@ -107,4 +111,3 @@ export class SettingsClient {
         this.listeners.forEach((l) => l(snap));
     }
 }
-

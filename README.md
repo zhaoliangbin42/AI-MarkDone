@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.1-10A37F" alt="Version 4.4.1">
+    <img src="https://img.shields.io/badge/Version-4.4.5-10A37F" alt="Version 4.4.5">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -87,7 +87,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 ### 📚 Reading Mode (Focus View)
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
 - **Full-thread recovery on ChatGPT**: Reader can discover the whole conversation again under ChatGPT's incremental loading model.
-- **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages.
+- **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages, and `Up` / `Down` to scroll the current Reader message.
 - **Source-aware copy**: Copy formulas, code blocks, tables, images, and other closed Markdown units as source directly inside Reader.
 - **Partial source selection**: Select only the part you need; Reader maps closed units back to their original Markdown boundaries and rebuilds the copied result in selection order.
 - **Dynamic Annotation**: Mark exact passages, leave revision notes, and compile them into structured follow-up input.
@@ -99,7 +99,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **Clean Markdown**: Copy standard Markdown, ready for Obsidian, Typora, or VS Code.
 - **Beautiful PDF**: Export a print-ready PDF when you need something shareable.
 - **Copy as PNG**: Turn the current message into a shareable image directly from the hover toolbar.
-- **Formula assets**: Copy or save a single formula as PNG or SVG from the formula hover actions.
+- **Formula assets**: Copy a single formula as Office-compatible MathML, or copy/save it as PNG or SVG from the formula hover actions.
 - **Batch PNG export**: Export selected messages as one PNG each; multiple messages are packed together as a ZIP.
 - **Image settings**: Configure PNG width and image scale from Settings to fit the target sharing platform.
 - **Deep Research cleanup**: Restore messy Deep Research outputs into readable Markdown.
@@ -199,11 +199,11 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.4.1
-- Added font size and theme color controls under Settings -> Advanced Settings, with live updates across extension surfaces.
-- Added an internal Reader heading outline for long Markdown responses, and refreshed the latest Reader page from the live ChatGPT snapshot when revisited. Thanks to Xiaohongshu users @Hiahiaaa and @小红薯67542EF1.
-- 导航栏中，对已经加入书签的消息，会有不同的颜色以作区分，方便快速定位书签消息。
-- Streamlined the style system so the extension feels more visually consistent.
+### 4.4.5
+- Added one-click formula copy as Office-compatible MathML, plus formula rendering inside tables. Thanks to Xiaohongshu user @小红薯67542.
+- Added Reader Sticky mode and Up/Down arrow key scrolling for long-message reading. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
+- Improved ChatGPT directory, toolbar, Reader new-page refresh, and resize stability for smoother long conversations.
+- Fixed Copy as Markdown so links inside code blocks are no longer removed as citation noise. Thanks to Email user @童硕.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

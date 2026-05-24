@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
+import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -540,6 +541,226 @@ describe('ChatGPTDirectoryController', () => {
         expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
 
+    it('subscribes to snapshots passively so the directory does not start live snapshot refresh by itself', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            getSnapshot: vi.fn(async () => buildSnapshot()),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        expect(engine.subscribe).toHaveBeenCalledWith(expect.any(Function), { live: false });
+        controller.dispose();
+    });
+
+    it('hydrates missing directory labels once when DOM rounds only expose fallback prompts', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        buildSkeletonDomWithCount(3);
+        const hydratedSnapshot = {
+            ...buildSnapshot(),
+            conversationId: '69e8d157-5fec-839c-9124-2179ba8b7d7c',
+            rounds: [
+                {
+                    ...buildSnapshot().rounds[0]!,
+                    userPrompt: 'Hydrated first question',
+                    preview: 'Hydrated first question',
+                },
+                {
+                    ...buildSnapshot().rounds[1]!,
+                    userPrompt: 'Hydrated middle question',
+                    preview: 'Hydrated middle question',
+                },
+                {
+                    id: 'round-3',
+                    position: 3,
+                    userPrompt: 'Hydrated final question',
+                    assistantContent: 'Third answer',
+                    preview: 'Hydrated final question',
+                    messageId: 'a3',
+                    userMessageId: 'u3',
+                    assistantMessageId: 'a3',
+                },
+            ],
+        };
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            peekCurrentSnapshot: vi.fn(() => null),
+            forceRefreshCurrentConversation: vi.fn(async () => hydratedSnapshot),
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        await vi.waitFor(() => {
+            expect(engine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        });
+        await vi.waitFor(() => {
+            const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+            const labels = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? [])
+                .map((item) => item.getAttribute('aria-label') ?? '');
+            expect(labels).toEqual([
+                expect.stringContaining('Hydrated first question'),
+                expect.stringContaining('Hydrated middle question'),
+                expect.stringContaining('Hydrated final question'),
+            ]);
+        });
+        expect(engine.getSnapshot).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
+    it('does not hydrate directory labels when DOM prompts are already real', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        document.body.innerHTML = `
+          <div data-turn-id-container id="user-1"><section data-turn="user">真实问题一</section></div>
+          <div data-turn-id-container id="assistant-1"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a1"></section></div>
+          <div data-turn-id-container id="user-2"><section data-turn="user">真实问题二</section></div>
+          <div data-turn-id-container id="assistant-2"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a2"></section></div>
+        `;
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            peekCurrentSnapshot: vi.fn(() => null),
+            forceRefreshCurrentConversation: vi.fn(async () => buildSnapshot()),
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(engine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
+        expect(engine.getSnapshot).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
+    it('keeps DOM-discovered round count when on-demand hydration returns extra snapshot-only rounds', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        buildSkeletonDomWithCount(2);
+        const snapshotWithExtraRound = {
+            ...buildSnapshot(),
+            conversationId: '69e8d157-5fec-839c-9124-2179ba8b7d7c',
+            rounds: [
+                ...buildSnapshot().rounds,
+                {
+                    id: 'round-3',
+                    position: 3,
+                    userPrompt: 'Snapshot-only third question',
+                    assistantContent: 'Third answer',
+                    preview: 'Snapshot-only third question',
+                    messageId: 'a3',
+                    userMessageId: 'u3',
+                    assistantMessageId: 'a3',
+                },
+            ],
+        };
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            peekCurrentSnapshot: vi.fn(() => null),
+            forceRefreshCurrentConversation: vi.fn(async () => snapshotWithExtraRound),
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await vi.waitFor(() => {
+            expect(engine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        });
+        await vi.waitFor(() => {
+            const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+            const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+            expect(items).toHaveLength(2);
+            expect(items[0]?.getAttribute('aria-label')).toContain('First question');
+            expect(items[1]?.getAttribute('aria-label')).toContain('Second question');
+        });
+        controller.dispose();
+    });
+
+    it('deduplicates on-demand label hydration for the same fallback signature', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        buildSkeletonDomWithCount(2);
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            peekCurrentSnapshot: vi.fn(() => null),
+            forceRefreshCurrentConversation: vi.fn(async () => null),
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await vi.waitFor(() => {
+            expect(engine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        });
+
+        await (controller as any).refresh();
+        await Promise.resolve();
+
+        expect(engine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        controller.dispose();
+    });
+
+    it('does not hydrate directory labels for extension-owned mutations', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        document.body.innerHTML = `
+          <div data-turn-id-container id="user-1"><section data-turn="user">真实问题一</section></div>
+          <div data-turn-id-container id="assistant-1"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a1"></section></div>
+          <div data-turn-id-container id="user-2"><section data-turn="user">真实问题二</section></div>
+          <div data-turn-id-container id="assistant-2"><section data-turn="assistant" data-message-author-role="assistant" data-message-id="a2"></section></div>
+        `;
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            peekCurrentSnapshot: vi.fn(() => null),
+            forceRefreshCurrentConversation: vi.fn(async () => buildSnapshot()),
+            getSnapshot: vi.fn(async () => null),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        const toolbarHost = document.createElement('div');
+        toolbarHost.className = 'aimd-message-toolbar-host';
+        toolbarHost.dataset.aimdRole = 'message-toolbar';
+        document.body.appendChild(toolbarHost);
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(engine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
+    it('ignores extension-owned DOM mutations instead of rebuilding the directory index', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => buildSnapshot()), subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        const renderSpy = vi.spyOn(controller as any, 'render');
+        renderSpy.mockClear();
+
+        const toolbarHost = document.createElement('div');
+        toolbarHost.className = 'aimd-message-toolbar-host';
+        toolbarHost.dataset.aimdRole = 'message-toolbar';
+        document.body.appendChild(toolbarHost);
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(renderSpy).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
     it('keeps DOM-discovered round count when the engine publishes extra snapshot-only rounds', async () => {
         let onSnapshot: ((snapshot: ReturnType<typeof buildSnapshot> | null) => void) | null = null;
         const adapter = new ChatGPTTestAdapter();
@@ -687,6 +908,50 @@ describe('ChatGPTDirectoryController', () => {
         controller.dispose();
     });
 
+    it('skips active-position layout reads during viewport resize suspend and refreshes once on idle', async () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 900],
+            'user-2': [950, 990],
+            'assistant-2': [990, 1300],
+        });
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        (controller as any).snapshot = buildSnapshot();
+        (controller as any).render();
+        (controller as any).bindGlobalScrollFallbacks();
+        (controller as any).bindViewportResizeSuspend();
+
+        setRoundRects({
+            'user-1': [-1000, -960],
+            'assistant-1': [-950, 120],
+            'user-2': [260, 300],
+            'assistant-2': [300, 900],
+        });
+        const rectMocks = ['user-1', 'assistant-1', 'user-2', 'assistant-2']
+            .map((id) => vi.mocked((document.getElementById(id) as HTMLElement).getBoundingClientRect));
+        rectMocks.forEach((mock) => mock.mockClear());
+
+        document.documentElement.dataset.aimdViewportResizing = '1';
+        window.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(rectMocks.reduce((sum, mock) => sum + mock.mock.calls.length, 0)).toBe(0);
+
+        delete document.documentElement.dataset.aimdViewportResizing;
+        window.dispatchEvent(new CustomEvent(AIMD_VIEWPORT_RESIZE_IDLE_EVENT));
+
+        expect(rectMocks.reduce((sum, mock) => sum + mock.mock.calls.length, 0)).toBeGreaterThan(0);
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+        controller.dispose();
+    });
+
     it('falls back to the shared jump path only when a local skeleton anchor is unavailable', async () => {
         navigationMocks.scrollToBookmarkTargetWithRetry.mockResolvedValue({ ok: false });
 
@@ -814,6 +1079,23 @@ describe('ChatGPTDirectoryRail active following', () => {
         rail.setActivePosition(2);
 
         expect(scrollIntoView).not.toHaveBeenCalled();
+        rail.dispose();
+    });
+
+    it('does not rebuild rail items when the round signature is unchanged', () => {
+        const rail = new ChatGPTDirectoryRail('light', vi.fn());
+        document.body.appendChild(rail.getElement());
+        const root = rail.getElement().shadowRoot!;
+        const list = root.querySelector<HTMLElement>('.rail__list')!;
+
+        rail.setRounds(buildSnapshot().rounds);
+        const firstItem = root.querySelector<HTMLElement>('.rail__item[data-position="1"]');
+        const replaceSpy = vi.spyOn(list, 'replaceChildren');
+
+        rail.setRounds(buildSnapshot().rounds.map((round) => ({ ...round })));
+
+        expect(replaceSpy).not.toHaveBeenCalled();
+        expect(root.querySelector<HTMLElement>('.rail__item[data-position="1"]')).toBe(firstItem);
         rail.dispose();
     });
 });
