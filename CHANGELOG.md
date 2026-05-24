@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [4.4.6] - 2026-05-24
+### Changed
+- Store listing: Updated the extension title to "AI-MarkDone — ChatGPT 导航、阅读与知识整理插件" for the Chrome submission package.
+
 ## [4.4.5] - 2026-05-24
 ### Added
 - Reader: Added a temporary Sticky workspace for selected Markdown excerpts, with wider resizable page-lifetime blocks that can be reordered or deleted while paging through long responses or closing and reopening Reader.
