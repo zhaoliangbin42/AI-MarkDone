@@ -16,14 +16,21 @@ function copyPngFiles(sourceDir: string, targetDir: string, allowlist?: readonly
 }
 
 function copyLocales(target: ExtensionTarget, sourceDir: string, targetDir: string): void {
+    const locales = readdirSync(sourceDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
+
     if (target !== 'safari') {
-        cpSync(sourceDir, targetDir, { recursive: true });
+        mkdirSync(targetDir, { recursive: true });
+        for (const locale of locales) {
+            cpSync(join(sourceDir, locale), join(targetDir, locale), { recursive: true });
+        }
         return;
     }
 
     mkdirSync(targetDir, { recursive: true });
     const excludedKeys = new Set(safariExcludedLocaleMessageKeys);
-    for (const locale of readdirSync(sourceDir)) {
+    for (const locale of locales) {
         const sourceFile = join(sourceDir, locale, 'messages.json');
         const localeTargetDir = join(targetDir, locale);
         const targetFile = join(localeTargetDir, 'messages.json');
