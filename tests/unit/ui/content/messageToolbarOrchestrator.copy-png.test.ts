@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/services/copy/copy-turn-png', () => ({
     copyTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
+}));
+
+vi.mock('@/drivers/content/clipboard/clipboard', () => ({
+    copyTextToClipboard: vi.fn(async () => true),
 }));
 
 vi.mock('@/services/reader/readerContentSource', () => ({
@@ -19,6 +23,7 @@ vi.mock('@/services/reader/readerContentSource', () => ({
     }))),
 }));
 
+import { copyTextToClipboard } from '@/drivers/content/clipboard/clipboard';
 import { copyTurnsPng } from '@/services/copy/copy-turn-png';
 import { collectReaderContent } from '@/services/reader/readerContentSource';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
@@ -52,6 +57,69 @@ class TestAdapter extends SiteAdapter {
 }
 
 describe('MessageToolbarOrchestrator Copy PNG', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('copies markdown from an already-open Reader item without collecting Reader content again', async () => {
+        document.body.innerHTML = `
+          <title>Reader Reuse Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">DOM Answer</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const readerPanel = {
+            show: vi.fn(),
+            setTheme: vi.fn(),
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [
+                { id: 'm1', userPrompt: 'Prompt', content: 'Reader cached answer', meta: { position: 7, messageId: 'm1' } },
+            ]),
+        };
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), { readerPanel: readerPanel as any }) as any;
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
+
+        const result = await copyAction.onClick();
+
+        expect(result).toEqual({ ok: true, message: expect.any(String) });
+        expect(collectReaderContent).not.toHaveBeenCalled();
+        expect(copyTextToClipboard).toHaveBeenCalledWith('Reader cached answer');
+    });
+
+    it('shares the prepared Reader item between toolbar Copy and Copy PNG', async () => {
+        document.body.innerHTML = `
+          <title>Shared Reader Item Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">Answer</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
+            readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
+        }) as any;
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
+
+        copyAction.onPrepare();
+        await copyAction.onClick();
+        await copyAction.hoverAction.onClick({ signal: new AbortController().signal, onProgress: vi.fn() });
+
+        expect(collectReaderContent).toHaveBeenCalledTimes(1);
+        expect(copyTextToClipboard).toHaveBeenCalledWith('Answer');
+        expect(copyTurnsPng).toHaveBeenCalledWith(
+            [{ user: 'Prompt', assistant: 'Answer', index: 0 }],
+            [0],
+            expect.any(Object),
+            expect.any(Object),
+        );
+    });
+
     it('uses the same configured PNG export width as the batch export path', async () => {
         document.body.innerHTML = `
           <title>PNG Width Test</title>

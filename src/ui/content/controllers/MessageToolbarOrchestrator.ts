@@ -7,7 +7,6 @@ import {
 } from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { scrollToBookmarkTargetWithRetry } from '../../../drivers/content/bookmarks/navigation';
-import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { getConversationUrl } from '../../../drivers/content/bookmarks/position';
 import { discoverMessageElements } from '../../../drivers/content/injection/messageDiscovery';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
@@ -26,8 +25,9 @@ import {
 import type { RenderProgressEvent } from '../../../drivers/content/export/renderControl';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
-import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
+import { collectReaderContent } from '../../../services/reader/readerContentSource';
 import { resolveContent, type ReaderItem } from '../../../services/reader/types';
+import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '../../../services/reader/readerMarkdownCopy';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
@@ -136,6 +136,7 @@ export class MessageToolbarOrchestrator {
     private chatGptToolbarStatesByMessageKey = new Map<string, ChatGptToolbarState>();
     private chatGptToolbarRecoveryAttemptsByMessageKey = new Map<string, number>();
     private chatGptToolbarRecoveryTimer: number | null = null;
+    private currentReaderItemByMessageKey = new Map<string, Promise<ReaderItem | null>>();
 
     private rebuildTurnIndex(): void {
         try {
@@ -176,15 +177,77 @@ export class MessageToolbarOrchestrator {
         return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
     }
 
-    private async getReaderTurnForElement(messageElement: HTMLElement): Promise<{ user: string; assistant: string; index: number } | null> {
+    private getReaderItemCacheKey(messageElement: HTMLElement): string {
+        const position = this.getPositionForMessage(messageElement);
+        const messageKey = resolveMessageKey(this.adapter, messageElement, position, {
+            segmentIndexByElement: this.messageSegmentIndexByElement,
+        });
+        return `${this.getBookmarkPageUrl()}::${messageKey}`;
+    }
+
+    private clearReaderItemCache(): void {
+        this.currentReaderItemByMessageKey.clear();
+    }
+
+    private getOpenReaderItemForElement(messageElement: HTMLElement): ReaderItem | null {
+        if (typeof this.readerPanel.isShowingConversationReader !== 'function') return null;
+        if (typeof this.readerPanel.getItemsSnapshot !== 'function') return null;
+        if (!this.readerPanel.isShowingConversationReader()) return null;
+
+        const position = this.getPositionForMessage(messageElement);
+        const messageId = this.adapter.getMessageId(messageElement);
+        const pageUrl = this.getBookmarkPageUrl();
+        const items = this.readerPanel.getItemsSnapshot();
+        return items.find((item) => {
+            const meta = item.meta ?? {};
+            if (typeof meta.url === 'string' && meta.url !== pageUrl) return false;
+            if (messageId && meta.messageId === messageId) return true;
+            return position > 0 && meta.position === position;
+        }) ?? null;
+    }
+
+    private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
+        const openReaderItem = this.getOpenReaderItemForElement(messageElement);
+        if (openReaderItem) return openReaderItem;
+
         const result = await collectReaderContent(this.adapter, messageElement, {
             chatGptConversationEngine: this.chatGptConversationEngine,
             pageUrl: this.getBookmarkPageUrl(),
         });
-        const item = result.items[result.startIndex] ?? null;
+        return result.items[result.startIndex] ?? null;
+    }
+
+    private prepareCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
+        if (this.guardMessageReady(messageElement)) {
+            this.currentReaderItemByMessageKey.delete(this.getReaderItemCacheKey(messageElement));
+            return Promise.resolve(null);
+        }
+
+        const key = this.getReaderItemCacheKey(messageElement);
+        let promise = this.currentReaderItemByMessageKey.get(key);
+        if (!promise) {
+            promise = this.resolveCurrentReaderItemForElement(messageElement)
+                .then((item) => {
+                    if (!item) this.currentReaderItemByMessageKey.delete(key);
+                    return item;
+                })
+                .catch(() => {
+                    this.currentReaderItemByMessageKey.delete(key);
+                    return null;
+                });
+            this.currentReaderItemByMessageKey.set(key, promise);
+        }
+        return promise;
+    }
+
+    private async getReaderTurnForElement(messageElement: HTMLElement): Promise<{ user: string; assistant: string; index: number } | null> {
+        const item = await this.prepareCurrentReaderItemForElement(messageElement);
         if (!item) return null;
-        const [turn] = await readerItemsToChatTurns([item]);
-        return turn ?? null;
+        return {
+            user: item.userPrompt,
+            assistant: await resolveReaderItemMarkdown(item),
+            index: 0,
+        };
     }
 
     private async resolveToolbarBookmarkTarget(messageElement: HTMLElement): Promise<ToolbarBookmarkTarget | null> {
@@ -488,6 +551,7 @@ export class MessageToolbarOrchestrator {
         record.toolbar.dispose();
         record.toolbar.getElement().remove();
         this.recordsByMessageKey.delete(messageKey);
+        this.currentReaderItemByMessageKey.delete(`${record.boundAtUrl}::${messageKey}`);
     }
 
     private clearAllToolbars(): void {
@@ -495,6 +559,7 @@ export class MessageToolbarOrchestrator {
             this.removeRecord(messageKey);
         }
         this.chatGptToolbarStatesByMessageKey.clear();
+        this.clearReaderItemCache();
     }
 
     init(): void {
@@ -527,6 +592,7 @@ export class MessageToolbarOrchestrator {
             if (hardChange) {
                 this.disposeObserversOnly();
                 this.clearAllToolbars();
+                this.clearReaderItemCache();
             }
             this.scanScheduler?.schedule('route_change');
             this.rebindObserverIfNeeded(true);
@@ -558,6 +624,7 @@ export class MessageToolbarOrchestrator {
             this.chatGptToolbarRecoveryTimer = null;
         }
         this.chatGptToolbarRecoveryAttemptsByMessageKey.clear();
+        this.clearReaderItemCache();
         this.clearAllToolbars();
     }
 
@@ -723,12 +790,15 @@ export class MessageToolbarOrchestrator {
             icon: copyIcon,
             kind: 'secondary',
             disabledWhenPending: true,
+            onPrepare: () => {
+                void this.prepareCurrentReaderItemForElement(messageElement);
+            },
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                const turn = await this.getReaderTurnForElement(messageElement);
-                if (!turn) return { ok: false, message: t('contentNotFound') };
-                const ok = await copyTextToClipboard(turn.assistant);
+                const item = await this.prepareCurrentReaderItemForElement(messageElement);
+                if (!item) return { ok: false, message: t('contentNotFound') };
+                const ok = await copyReaderItemMarkdownToClipboard(item);
                 return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
             },
         };

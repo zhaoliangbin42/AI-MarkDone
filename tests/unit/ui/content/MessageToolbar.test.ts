@@ -152,6 +152,32 @@ describe('MessageToolbar', () => {
         document.getElementById('aimd-toast-viewport')?.remove();
     });
 
+    it('prepares primary actions on hover, focus, and pointer down before click', () => {
+        const onPrepare = vi.fn();
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                tooltip: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onPrepare,
+                onClick: vi.fn(async () => ({ ok: true as const, message: 'Copied!' })),
+            },
+        ], { showStats: false });
+
+        document.body.appendChild(toolbar.getElement());
+        const button = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+
+        button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        button.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+        button.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+        expect(onPrepare).toHaveBeenCalledTimes(3);
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+    });
+
     it('keeps the PNG hover action open while the pointer crosses the trigger gap', () => {
         vi.useFakeTimers();
         const toolbar = new MessageToolbar('light', [

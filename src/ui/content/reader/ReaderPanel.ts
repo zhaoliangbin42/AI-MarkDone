@@ -7,6 +7,7 @@ import {
 } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
+import { copyReaderItemMarkdownToClipboard } from '../../../services/reader/readerMarkdownCopy';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { AppSettings } from '../../../core/settings/types';
 import { renderMarkdownForReader, type ReaderAtomicUnit, type ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
@@ -695,8 +696,7 @@ export class ReaderPanel {
 
         try {
             button.disabled = true;
-            const markdown = await resolveContent(item.content);
-            const ok = await copyTextToClipboard(markdown);
+            const ok = await copyReaderItemMarkdownToClipboard(item);
             showEphemeralTooltip({
                 root: this.overlaySession?.shadow ?? document,
                 anchor: button,

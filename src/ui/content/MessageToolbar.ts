@@ -30,6 +30,7 @@ export type MessageToolbarAction = {
     tooltip?: string;
     kind?: 'primary' | 'secondary';
     disabledWhenPending?: boolean;
+    onPrepare?: () => void | Promise<void>;
     onClick: () => Promise<void | ToolbarActionResult>;
     menu?: MessageToolbarMenuItem[];
     hoverAction?: {
@@ -191,6 +192,16 @@ export class MessageToolbar {
             }
             btn.setAttribute('aria-label', action.tooltip || action.label);
             btn.appendChild(createIcon(action.icon));
+            const prepare = () => {
+                try {
+                    void action.onPrepare?.();
+                } catch {
+                    // Preparation is opportunistic and must not block the action button.
+                }
+            };
+            btn.addEventListener('pointerdown', prepare);
+            btn.addEventListener('focusin', prepare);
+            btn.addEventListener('mouseenter', prepare);
             if (action.hoverAction) {
                 this.attachHoverAction(action, btn);
             }
