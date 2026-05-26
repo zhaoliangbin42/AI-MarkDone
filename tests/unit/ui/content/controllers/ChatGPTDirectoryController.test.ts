@@ -352,6 +352,52 @@ describe('ChatGPTDirectoryController', () => {
         expect(items.every((item) => item.dataset.proximity === undefined)).toBe(true);
     });
 
+    it('updates hover proximity without full-list selector scans', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        document.body.appendChild(rail.getElement());
+        rail.setRounds([
+            ...buildSnapshot().rounds,
+            {
+                id: 'round-3',
+                position: 3,
+                userPrompt: 'Third question',
+                assistantContent: 'Third answer',
+                preview: 'Third question',
+                messageId: 'a3',
+                userMessageId: 'u3',
+                assistantMessageId: 'a3',
+            },
+            {
+                id: 'round-4',
+                position: 4,
+                userPrompt: 'Fourth question',
+                assistantContent: 'Fourth answer',
+                preview: 'Fourth question',
+                messageId: 'a4',
+                userMessageId: 'u4',
+                assistantMessageId: 'a4',
+            },
+        ]);
+
+        const root = rail.getElement().shadowRoot!;
+        const list = root.querySelector<HTMLElement>('.rail__list')!;
+        const items = Array.from(root.querySelectorAll<HTMLButtonElement>('.rail__item'));
+        const querySelectorAllSpy = vi.spyOn(list, 'querySelectorAll');
+        const querySelectorSpy = vi.spyOn(list, 'querySelector');
+
+        items[0]?.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        expect(items.map((item) => item.dataset.proximity)).toEqual(['0', '1', '2', '3']);
+
+        items[3]?.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        expect(items.map((item) => item.dataset.proximity)).toEqual(['3', '2', '1', '0']);
+
+        items[3]?.dispatchEvent(new Event('pointerover', { bubbles: true }));
+
+        expect(querySelectorAllSpy).not.toHaveBeenCalled();
+        expect(querySelectorSpy).not.toHaveBeenCalled();
+        rail.dispose();
+    });
+
     it('uses the tokenized rainbow bookmark marker style for saved directory items', () => {
         const rail = new ChatGPTDirectoryRail('light', () => undefined);
         rail.setRounds(buildSnapshot().rounds);
@@ -406,6 +452,38 @@ describe('ChatGPTDirectoryController', () => {
         expect(preview?.dataset.open).toBe('0');
     });
 
+    it('does not rewrite body-level preview styles while showing hover previews', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        document.body.appendChild(rail.getElement());
+        rail.setRounds(buildSnapshot().rounds);
+
+        const root = rail.getElement().shadowRoot!;
+        const item = root.querySelector<HTMLButtonElement>('.rail__item')!;
+        const style = document.getElementById('aimd-chatgpt-directory-preview-style') as HTMLStyleElement;
+        const descriptor = Object.getOwnPropertyDescriptor(HTMLStyleElement.prototype, 'textContent')
+            ?? Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+        const textContentSetSpy = vi.fn();
+
+        Object.defineProperty(style, 'textContent', {
+            configurable: true,
+            get() {
+                return descriptor?.get?.call(this) ?? '';
+            },
+            set(value) {
+                textContentSetSpy(value);
+                descriptor?.set?.call(this, value);
+            },
+        });
+
+        item.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        item.dispatchEvent(new Event('pointerover', { bubbles: true }));
+
+        expect(textContentSetSpy).not.toHaveBeenCalled();
+        expect(document.getElementById('aimd-chatgpt-directory-preview')?.dataset.open).toBe('1');
+
+        rail.dispose();
+    });
+
     it('renders an expanded hover directory with truncated user prompts without opening the preview portal', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
@@ -439,12 +517,13 @@ describe('ChatGPTDirectoryController', () => {
         items[1]?.dispatchEvent(new Event('pointerover', { bubbles: true }));
 
         expect(list?.dataset.expanded).toBe('1');
+        expect(list?.dataset.hasHover).toBe('1');
         expect(items[1]?.dataset.hovered).toBe('1');
         expect(document.getElementById('aimd-chatgpt-directory-preview')?.dataset.open).toBe('0');
 
         list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
         expect(list?.dataset.expanded).toBe('0');
-        expect(items.every((item) => item.dataset.hovered === undefined)).toBe(true);
+        expect(list?.dataset.hasHover).toBe('0');
     });
 
     it('renders expanded labels with prompt endings when the head-tail setting is enabled', () => {

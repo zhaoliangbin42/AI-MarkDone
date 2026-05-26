@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Fixed
 - Toolbar Copy now reuses the Reader content source for the current message, improving clipboard reliability and keeping copied Markdown aligned with Reader.
+- ChatGPT Directory hover previews now update without rescanning every rail item, making long-conversation navigation feel more responsive.
 
 ## [4.4.5] - 2026-05-24
 ### Added
