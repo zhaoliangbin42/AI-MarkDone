@@ -124,7 +124,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         `;
     }
 
-    it('uses the shared ChatGPT snapshot Reader source when opening Reader from a visible message', async () => {
+    it('uses the shared fresh ChatGPT Reader source when opening Reader from a visible message', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -196,7 +196,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
         expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
         expect(readerPanel.show).toHaveBeenCalledWith(
             [
@@ -384,7 +384,8 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const chatGptConversationEngine = {
-            getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+            getSnapshot: vi.fn(),
+            forceRefreshCurrentConversation: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
         } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
 
@@ -400,7 +401,8 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
-        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
     });
 
     it('does not append DOM-derived tail pages into a ChatGPT snapshot-backed Reader', async () => {
@@ -999,9 +1001,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         } as any;
         const chatGptConversationEngine = {
             getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+            forceRefreshCurrentConversation: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
         } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController, chatGptConversationEngine }) as any;
-        orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'Visible answer' }));
 
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const toolbar = { setActionActive: vi.fn() };
@@ -1014,7 +1016,10 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             position: 50,
             messageId: 'payload-a50',
             userMessage: 'Question 50',
+            aiResponse: 'Answer 50',
         }));
+        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
         expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
     });
 

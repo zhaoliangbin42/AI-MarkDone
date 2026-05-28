@@ -1,5 +1,12 @@
 # Changelog
 
+# 4.4.6
+2026-05-28
+
+## Fixed
+- Fixed stutter in the ChatGPT navigation rail.
+- Fixed a split between toolbar Copy and Reader Copy. In the previous release, the toolbar copy button could sometimes fail because it did not follow the same content path as Reader. Thanks to Xiaohongshu user @momo.
+
 # 4.4.5
 2026-05-24
 

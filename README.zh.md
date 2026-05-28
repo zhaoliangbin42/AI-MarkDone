@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.5-10A37F" alt="Version 4.4.5">
+    <img src="https://img.shields.io/badge/Version-4.4.6-10A37F" alt="Version 4.4.6">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -198,11 +198,10 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.4.5
-- 新增点击之后将公式复制为 Office 所支持的 MathML 格式，并支持表格内部渲染公式（感谢小红书用户 @小红薯67542）。
-- 在阅读器中增加 Sticky 模式，并支持上下方向键滚动消息（感谢小红书用户 @如果你也对吃感兴趣）。
-- 升级目录条、工具栏、阅读器新页面刷新和页面宽度变更时的渲染逻辑，长对话使用更顺滑。
-- 修复复制为 Markdown 的时候，可能会将代码框中的链接当做噪声清洗掉的问题（感谢 Email @童硕）。
+### 4.4.6
+- 修复导航栏显示卡顿的问题。
+- 修复工具栏中的复制按钮与阅读器中的复制按钮链路分岔的问题。
+- 修复上一个版本中工具栏复制按钮有时候复制会失效的问题（感谢小红书用户 @momo）。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

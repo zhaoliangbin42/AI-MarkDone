@@ -1,5 +1,13 @@
 # Release Notes
 
+## v4.4.6 (2026-05-28)
+
+This patch focuses on the ChatGPT navigation rail and toolbar copy reliability.
+
+### Fixed
+- Fixed stutter in the ChatGPT navigation rail when moving through long conversations.
+- Fixed a split between toolbar Copy and Reader Copy, so toolbar Copy now follows the same content path as Reader. This fixes cases where toolbar Copy could fail in the previous release. Thanks to Xiaohongshu user @momo.
+
 ## v4.4.5 (2026-05-24)
 
 This release focuses on formula copy, long-message reading in Reader, toolbar stability, and ChatGPT page performance.

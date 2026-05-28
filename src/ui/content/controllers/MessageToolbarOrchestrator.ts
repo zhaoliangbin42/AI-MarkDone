@@ -25,7 +25,7 @@ import {
 import type { RenderProgressEvent } from '../../../drivers/content/export/renderControl';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
-import { collectReaderContent } from '../../../services/reader/readerContentSource';
+import { collectFreshCurrentReaderItem, collectFreshReaderContent } from '../../../services/reader/readerContentSource';
 import { resolveContent, type ReaderItem } from '../../../services/reader/types';
 import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '../../../services/reader/readerMarkdownCopy';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
@@ -166,15 +166,15 @@ export class MessageToolbarOrchestrator {
         return null;
     }
 
+    private getUserPromptForElement(messageElement: HTMLElement): string {
+        const turn = this.getTurnRefForElement(messageElement);
+        return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
+    }
+
     private getMergedMarkdownForElement(messageElement: HTMLElement): ReturnType<typeof copyMarkdownFromMessage> {
         const turn = this.getTurnRefForElement(messageElement);
         if (!turn) return copyMarkdownFromMessage(this.adapter, messageElement);
         return copyMarkdownFromTurn(this.adapter, turn.messageEls);
-    }
-
-    private getUserPromptForElement(messageElement: HTMLElement): string {
-        const turn = this.getTurnRefForElement(messageElement);
-        return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
     }
 
     private getReaderItemCacheKey(messageElement: HTMLElement): string {
@@ -189,32 +189,11 @@ export class MessageToolbarOrchestrator {
         this.currentReaderItemByMessageKey.clear();
     }
 
-    private getOpenReaderItemForElement(messageElement: HTMLElement): ReaderItem | null {
-        if (typeof this.readerPanel.isShowingConversationReader !== 'function') return null;
-        if (typeof this.readerPanel.getItemsSnapshot !== 'function') return null;
-        if (!this.readerPanel.isShowingConversationReader()) return null;
-
-        const position = this.getPositionForMessage(messageElement);
-        const messageId = this.adapter.getMessageId(messageElement);
-        const pageUrl = this.getBookmarkPageUrl();
-        const items = this.readerPanel.getItemsSnapshot();
-        return items.find((item) => {
-            const meta = item.meta ?? {};
-            if (typeof meta.url === 'string' && meta.url !== pageUrl) return false;
-            if (messageId && meta.messageId === messageId) return true;
-            return position > 0 && meta.position === position;
-        }) ?? null;
-    }
-
     private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
-        const openReaderItem = this.getOpenReaderItemForElement(messageElement);
-        if (openReaderItem) return openReaderItem;
-
-        const result = await collectReaderContent(this.adapter, messageElement, {
+        return collectFreshCurrentReaderItem(this.adapter, messageElement, {
             chatGptConversationEngine: this.chatGptConversationEngine,
             pageUrl: this.getBookmarkPageUrl(),
         });
-        return result.items[result.startIndex] ?? null;
     }
 
     private prepareCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
@@ -758,14 +737,15 @@ export class MessageToolbarOrchestrator {
                     const url = this.getBookmarkPageUrl();
                     const target = await this.resolveToolbarBookmarkTarget(messageElement);
                     if (!target) return { ok: false, message: t('positionNotAvailable') };
-                    const md = this.getMergedMarkdownForElement(messageElement);
-                    if (!md.ok) return { ok: false, message: md.error.message };
+                    const item = await this.prepareCurrentReaderItemForElement(messageElement);
+                    if (!item) return { ok: false, message: t('contentNotFound') };
+                    const markdown = await resolveReaderItemMarkdown(item);
                     const result = await this.runBookmarkToggle({
                         url,
                         position: target.position,
                         messageId: target.messageId,
                         userPrompt: target.userPrompt,
-                        markdown: md.markdown,
+                        markdown,
                         alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, target.position),
                     });
                     if (!result.ok) {
@@ -790,9 +770,6 @@ export class MessageToolbarOrchestrator {
             icon: copyIcon,
             kind: 'secondary',
             disabledWhenPending: true,
-            onPrepare: () => {
-                void this.prepareCurrentReaderItemForElement(messageElement);
-            },
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
@@ -892,13 +869,7 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                if (
-                    this.adapter.getPlatformId() === 'chatgpt'
-                    && typeof this.chatGptConversationEngine?.forceRefreshCurrentConversation === 'function'
-                ) {
-                    await this.chatGptConversationEngine.forceRefreshCurrentConversation().catch(() => null);
-                }
-                const itemsResult = await collectReaderContent(this.adapter, messageElement, {
+                const itemsResult = await collectFreshReaderContent(this.adapter, messageElement, {
                     chatGptConversationEngine: this.chatGptConversationEngine,
                     pageUrl: this.getBookmarkPageUrl(),
                 });

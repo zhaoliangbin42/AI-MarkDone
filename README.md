@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.5-10A37F" alt="Version 4.4.5">
+    <img src="https://img.shields.io/badge/Version-4.4.6-10A37F" alt="Version 4.4.6">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -199,11 +199,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.4.5
-- Added one-click formula copy as Office-compatible MathML, plus formula rendering inside tables. Thanks to Xiaohongshu user @小红薯67542.
-- Added Reader Sticky mode and Up/Down arrow key scrolling for long-message reading. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
-- Improved ChatGPT directory, toolbar, Reader new-page refresh, and resize stability for smoother long conversations.
-- Fixed Copy as Markdown so links inside code blocks are no longer removed as citation noise. Thanks to Email user @童硕.
+### 4.4.6
+- Fixed stutter in the ChatGPT navigation rail when moving through long conversations.
+- Fixed a split between toolbar Copy and Reader Copy, so toolbar Copy now follows the same content path as Reader.
+- Fixed cases where toolbar Copy could fail in the previous release. Thanks to Xiaohongshu user @momo.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)
