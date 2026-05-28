@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { extensionIconFiles, safariExcludedIconFiles, safariExcludedLocaleMessageKeys } from '../../../config/extension/surface';
 
 type ChromeManifest = {
     host_permissions?: string[];
@@ -29,18 +30,39 @@ function normalized(values: string[] | undefined): string[] {
 }
 
 describe('manifest resource consistency', () => {
-    it('web_accessible_resources should stay aligned across target manifests', () => {
+    it('web_accessible_resources should stay aligned across chrome and firefox target manifests', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
         const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
-        const safari = readJson<Mv2Manifest>('manifest.safari.json');
 
         const chromeResources = normalized(chrome.web_accessible_resources?.[0]?.resources);
         const firefoxResources = normalized(firefox.web_accessible_resources);
-        const safariResources = normalized(safari.web_accessible_resources);
 
         expect(chromeResources.length).toBeGreaterThan(0);
         expect(chromeResources).toEqual(firefoxResources);
-        expect(chromeResources).toEqual(safariResources);
+    });
+
+    it('keeps Safari App Store resources on a strict allowlist without sponsor or social assets', () => {
+        const safari = readJson<Mv2Manifest>('manifest.safari.json');
+        const safariResources = normalized(safari.web_accessible_resources);
+
+        for (const file of extensionIconFiles) {
+            expect(safariResources).toContain(`icons/${file}`);
+        }
+        expect(safariResources).not.toContain('icons/*.png');
+        for (const file of safariExcludedIconFiles) {
+            expect(safariResources).not.toContain(`icons/${file}`);
+        }
+    });
+
+    it('defines Safari locale exclusions for sponsor and social messages', () => {
+        expect(safariExcludedLocaleMessageKeys).toEqual(expect.arrayContaining([
+            'tabSponsor',
+            'supportCoffeeDesc',
+            'buyMeCoffee',
+            'wechatAppreciationCode',
+            'findMeOnXiaohongshu',
+            'sponsorThanksTitle',
+        ]));
     });
 
     it('chrome web_accessible_resources matches should align with host permissions', () => {

@@ -1,6 +1,6 @@
 {
     "extName": {
-        "message": "AI-MarkDone",
+        "message": "AI-MarkDone — ChatGPT Reader & Organizer",
         "description": "Message for extName"
     },
     "extDescription": {
@@ -38,6 +38,10 @@
     "formulaCopyAsSvg": {
         "message": "Copy as SVG",
         "description": "Message for formulaCopyAsSvg"
+    },
+    "formulaCopyAsMathml": {
+        "message": "Copy as MathML",
+        "description": "Message for formulaCopyAsMathml"
     },
     "formulaSaveAsPng": {
         "message": "Save as PNG",
@@ -163,6 +167,30 @@
         "message": "Go to heading $1",
         "description": "Accessible label for jumping to a Reader markdown heading"
     },
+    "readerStickyTitle": {
+        "message": "Sticky",
+        "description": "Title for the Reader temporary sticky excerpt workspace"
+    },
+    "readerStickyExpand": {
+        "message": "Show sticky workspace",
+        "description": "Accessible label for expanding the Reader sticky workspace"
+    },
+    "readerStickyCollapse": {
+        "message": "Hide sticky workspace",
+        "description": "Accessible label for collapsing the Reader sticky workspace"
+    },
+    "readerStickyEmpty": {
+        "message": "Select important content and click Stick.",
+        "description": "Empty state for the Reader sticky workspace"
+    },
+    "readerStickyDelete": {
+        "message": "Delete sticky block",
+        "description": "Accessible label for deleting a Reader sticky block"
+    },
+    "readerStickyDrag": {
+        "message": "Drag to reorder",
+        "description": "Accessible label for dragging a Reader sticky block"
+    },
     "toggleFullscreen": {
         "message": "Toggle fullscreen",
         "description": "Message for toggleFullscreen"
@@ -266,6 +294,10 @@
     "readerCommentAction": {
         "message": "Annotate",
         "description": "Message for readerCommentAction"
+    },
+    "readerStickyAction": {
+        "message": "Stick",
+        "description": "Message for adding the current Reader selection to the sticky workspace"
     },
     "readerCommentAddTitle": {
         "message": "Add annotation",
@@ -1208,11 +1240,11 @@
         "description": "Message for formulaAssetActionsLabel"
     },
     "formulaAssetActionsDesc": {
-        "message": "Configure which PNG / SVG copy and save actions appear on formula hover.",
+        "message": "Formula hover actions are off by default. Enable the PNG / SVG / MathML copy and save actions you want to show.",
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetActionsPopupTitle": {
-        "message": "Formula image actions",
+        "message": "Formula actions",
         "description": "Message for formulaAssetActionsPopupTitle"
     },
     "formulaAssetActionsSummaryAll": {
@@ -1220,7 +1252,7 @@
         "description": "Message for formulaAssetActionsSummaryAll"
     },
     "formulaAssetActionsSummaryNone": {
-        "message": "No image actions enabled",
+        "message": "No formula actions enabled",
         "description": "Message for formulaAssetActionsSummaryNone"
     },
     "formulaAssetActionsSummaryCount": {
@@ -1286,6 +1318,26 @@
     "aboutProfileBio": {
         "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me.",
         "description": "Message for aboutProfileBio"
+    },
+    "supportContactEyebrow": {
+        "message": "Support",
+        "description": "Message for supportContactEyebrow"
+    },
+    "supportContactTitle": {
+        "message": "Need help or want to share feedback?",
+        "description": "Message for supportContactTitle"
+    },
+    "supportContactDesc": {
+        "message": "Send bug reports, workflow notes, and feature ideas by email. Please avoid private conversation content unless it is needed for debugging.",
+        "description": "Message for supportContactDesc"
+    },
+    "supportContactEmail": {
+        "message": "Email Feedback",
+        "description": "Message for supportContactEmail"
+    },
+    "supportContactCopyEmail": {
+        "message": "Copy Email",
+        "description": "Message for supportContactCopyEmail"
     },
     "selectFolderLabel": {
         "message": "Select folder",

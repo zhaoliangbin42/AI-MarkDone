@@ -1,13 +1,17 @@
+import { showToast } from './toast';
+
 const SHADOW_STYLE_MARK = 'data-aimd-tooltip-style';
 const DOC_STYLE_ID = 'aimd-shared-tooltip-style';
 
-type TooltipVariant = 'label' | 'preview' | 'ephemeral';
+type TooltipVariant = 'label' | 'preview';
+type TooltipPlacement = 'auto' | 'top' | 'bottom';
 
 type TooltipTarget = HTMLElement & {
     dataset: DOMStringMap & {
         tooltip?: string;
         tooltipTitle?: string;
         tooltipVariant?: TooltipVariant;
+        tooltipPlacement?: TooltipPlacement;
     };
 };
 
@@ -20,15 +24,15 @@ function getTooltipCss(): string {
   max-width: 260px;
   padding: var(--aimd-space-2) var(--aimd-space-3);
   border-radius: var(--aimd-radius-lg);
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  box-shadow: var(--aimd-shadow-popover, var(--aimd-shadow-lg));
+  background: var(--aimd-tooltip-bg);
+  color: var(--aimd-tooltip-text);
+  box-shadow: var(--aimd-tooltip-shadow);
   font-family: var(--aimd-font-family-sans);
   font-size: var(--aimd-font-size-xs);
   line-height: 1.4;
   letter-spacing: 0;
   pointer-events: none;
-  z-index: var(--aimd-z-tooltip);
+  z-index: var(--aimd-tooltip-z);
   opacity: 0;
   transform: translateX(-50%);
   transition: opacity var(--aimd-duration-fast) var(--aimd-ease-in-out),
@@ -67,18 +71,10 @@ function getTooltipCss(): string {
   font-size: var(--aimd-font-size-sm);
   line-height: 1.4;
 }
-.aimd-tooltip[data-variant="label"] .aimd-tooltip__body,
-.aimd-tooltip[data-variant="ephemeral"] .aimd-tooltip__body {
+.aimd-tooltip[data-variant="label"] .aimd-tooltip__body {
   font-size: var(--aimd-font-size-xs);
   font-weight: var(--aimd-font-semibold);
   white-space: nowrap;
-}
-.aimd-tooltip[data-variant="ephemeral"] {
-  animation: aimdTooltipFadeOut 1.5s forwards;
-}
-@keyframes aimdTooltipFadeOut {
-  0% { opacity: 1; transform: translate(-50%, calc(-100% - var(--aimd-space-2))) translateY(0); }
-  100% { opacity: 0; transform: translate(-50%, calc(-100% - var(--aimd-space-2))) translateY(calc(-1 * var(--aimd-space-2))); }
 }
 `;
 }
@@ -105,8 +101,10 @@ function ensureTooltipStyle(root: ShadowRoot | Document): void {
     getStyleHost(root)?.appendChild(style);
 }
 
-function getTooltipLayer(root: ShadowRoot | Document): ParentNode {
-    return root instanceof ShadowRoot ? root : document.body;
+function getTooltipLayer(root: ShadowRoot | Document, variant: TooltipVariant): ParentNode {
+    if (variant === 'preview' && root instanceof ShadowRoot) return root;
+    ensureTooltipStyle(document);
+    return document.body;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -121,7 +119,11 @@ function getTooltipMetrics(tooltip: HTMLElement): { width: number; height: numbe
     };
 }
 
-function positionTooltipElement(tooltip: HTMLElement, rect: DOMRect): void {
+function resolvePreferredPlacement(value: string | undefined): TooltipPlacement {
+    return value === 'top' || value === 'bottom' ? value : 'auto';
+}
+
+function positionTooltipElement(tooltip: HTMLElement, rect: DOMRect, preferredPlacement: TooltipPlacement = 'auto'): void {
     const gap = 10;
     const viewportPadding = 12;
     const { width, height } = getTooltipMetrics(tooltip);
@@ -131,10 +133,14 @@ function positionTooltipElement(tooltip: HTMLElement, rect: DOMRect): void {
     const preferredTop = rect.top - height - gap;
     const fallbackTop = rect.bottom + gap;
     const maxTop = Math.max(viewportPadding, window.innerHeight - height - viewportPadding);
-    const placement = preferredTop >= viewportPadding ? 'top' : 'bottom';
-    const top = placement === 'top'
-        ? preferredTop
-        : clamp(fallbackTop, viewportPadding, maxTop);
+    const hasRoomAbove = preferredTop >= viewportPadding;
+    const hasRoomBelow = fallbackTop <= maxTop;
+    const placement = preferredPlacement === 'bottom'
+        ? (hasRoomBelow ? 'bottom' : 'top')
+        : preferredPlacement === 'top'
+            ? (hasRoomAbove ? 'top' : 'bottom')
+            : (hasRoomAbove ? 'top' : 'bottom');
+    const top = placement === 'top' ? preferredTop : clamp(fallbackTop, viewportPadding, maxTop);
 
     tooltip.dataset.placement = placement;
     tooltip.style.left = `${clampedLeft}px`;
@@ -150,7 +156,7 @@ function buildTooltipEl(root: ShadowRoot | Document, target: TooltipTarget): HTM
     const bodyText = (target.dataset.tooltip || '').trim();
     if (!bodyText) return null;
 
-    const variant = target.dataset.tooltipVariant || 'label';
+    const variant = target.dataset.tooltipVariant === 'preview' ? 'preview' : 'label';
     const tooltip = document.createElement('div');
     tooltip.className = 'aimd-tooltip';
     tooltip.dataset.open = '0';
@@ -170,7 +176,7 @@ function buildTooltipEl(root: ShadowRoot | Document, target: TooltipTarget): HTM
     body.textContent = variant === 'preview' ? truncatePreview(bodyText) : bodyText;
     tooltip.appendChild(body);
 
-    getTooltipLayer(root).appendChild(tooltip);
+    getTooltipLayer(root, variant).appendChild(tooltip);
     return tooltip;
 }
 
@@ -306,7 +312,7 @@ export class TooltipDelegate {
         this.tooltipEl = tooltip;
 
         const rect = target.getBoundingClientRect();
-        positionTooltipElement(tooltip, rect);
+        positionTooltipElement(tooltip, rect, resolvePreferredPlacement(target.dataset.tooltipPlacement));
 
         window.requestAnimationFrame(() => {
             if (tooltip === this.tooltipEl) tooltip.dataset.open = '1';
@@ -347,21 +353,5 @@ export function showEphemeralTooltip(params: {
     text: string;
     durationMs?: number;
 }): void {
-    const root = params.root ?? document;
-    ensureTooltipStyle(root);
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'aimd-tooltip';
-    tooltip.dataset.variant = 'ephemeral';
-    tooltip.dataset.open = '1';
-    const body = document.createElement('span');
-    body.className = 'aimd-tooltip__body';
-    body.textContent = params.text;
-    tooltip.appendChild(body);
-    getTooltipLayer(root).appendChild(tooltip);
-    positionTooltipElement(tooltip, params.anchor.getBoundingClientRect());
-
-    window.setTimeout(() => {
-        tooltip.remove();
-    }, params.durationMs ?? 1500);
+    showToast({ text: params.text, durationMs: params.durationMs });
 }

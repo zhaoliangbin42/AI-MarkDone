@@ -41,7 +41,7 @@ describe('background settings handler', () => {
         const res = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'req_1', type: 'settings:getAll' } as any);
         expect(res?.response.ok).toBe(true);
         const settings = (res?.response as any).data.settings;
-        expect(settings.version).toBe(3);
+        expect(settings.version).toBe(4);
     });
 
     it('sets and gets a category', async () => {

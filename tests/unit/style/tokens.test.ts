@@ -29,6 +29,14 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-color-success');
         expect(css).toContain('--aimd-bookmark-marker-gradient');
         expect(css).toContain('--aimd-bookmark-marker-glow');
+        expect(css).toContain('--aimd-tooltip-bg');
+        expect(css).toContain('--aimd-tooltip-text');
+        expect(css).toContain('--aimd-tooltip-shadow');
+        expect(css).toContain('--aimd-tooltip-z');
+        expect(css).toContain('--aimd-toast-bg');
+        expect(css).toContain('--aimd-toast-text');
+        expect(css).toContain('--aimd-toast-shadow');
+        expect(css).toContain('--aimd-toast-z');
         expect(css).toContain('--aimd-sys-size-control-icon-toolbar: var(--aimd-ref-size-300);');
         expect(css).toContain('--aimd-panel-header-height');
         expect(css).toContain('--aimd-panel-header-height-compact');
@@ -63,9 +71,23 @@ describe('tokens', () => {
         const { getPageTokenCss } = await import('@/style/tokens');
         const css = getPageTokenCss();
 
+        expect(css).toContain(':root {');
         expect(css).toContain(':root[data-aimd-theme="light"]');
         expect(css).toContain(':root[data-aimd-theme="dark"]');
         expect(css).toContain('--aimd-sys-color-surface');
+        expect(css).toContain('--aimd-tooltip-bg: var(--aimd-interactive-primary);');
+        expect(css).not.toContain(':host');
+    });
+
+    it('keeps page feedback tokens available before the runtime theme attribute is present', async () => {
+        const { getPageTokenCss } = await import('@/style/tokens');
+        const css = getPageTokenCss({ accentColor: '#059669' });
+        const rootScopeCss = css.slice(0, css.indexOf(':root[data-aimd-theme="light"]'));
+
+        expect(rootScopeCss).toContain('--aimd-sys-color-accent: #059669;');
+        expect(rootScopeCss).toContain('--aimd-interactive-primary: var(--aimd-sys-color-accent);');
+        expect(rootScopeCss).toContain('--aimd-tooltip-bg: var(--aimd-interactive-primary);');
+        expect(rootScopeCss).toContain('--aimd-toast-bg: var(--aimd-interactive-primary);');
     });
 
     it('increases dark-mode depth separation for surfaces, borders, and interactive layers', () => {
@@ -107,6 +129,8 @@ describe('tokens', () => {
         expect(css).toContain('--aimd-sys-color-list-selected: color-mix(in srgb, #059669 14%, transparent);');
         expect(css).toContain('--aimd-sys-color-list-selected-text: #059669;');
         expect(css).toContain('--aimd-focus-ring: var(--aimd-sys-color-focus-ring);');
+        expect(css).toContain('--aimd-tooltip-bg: var(--aimd-interactive-primary);');
+        expect(css).toContain('--aimd-toast-bg: var(--aimd-interactive-primary);');
     });
 
     it('allows global font size overrides across the 12px to 20px user range', () => {

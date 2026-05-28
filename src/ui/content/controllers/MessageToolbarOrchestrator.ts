@@ -7,7 +7,6 @@ import {
 } from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { scrollToBookmarkTargetWithRetry } from '../../../drivers/content/bookmarks/navigation';
-import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { getConversationUrl } from '../../../drivers/content/bookmarks/position';
 import { discoverMessageElements } from '../../../drivers/content/injection/messageDiscovery';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
@@ -26,8 +25,9 @@ import {
 import type { RenderProgressEvent } from '../../../drivers/content/export/renderControl';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
-import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
+import { collectFreshCurrentReaderItem, collectFreshReaderContent } from '../../../services/reader/readerContentSource';
 import { resolveContent, type ReaderItem } from '../../../services/reader/types';
+import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '../../../services/reader/readerMarkdownCopy';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
@@ -43,6 +43,9 @@ import { buildChatGPTConversationTurns, resolveChatGPTConversationRound } from '
 import type { ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
+import { targetSurfacePolicy } from '../../../config/targetSurface';
+import { buildChatGPTReaderItems } from '../../../services/reader/chatgptReaderItems';
+import { getPerfFlags, perfCount, perfMeasure, perfSpan } from '../../../core/perf/perfProbe';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -82,6 +85,27 @@ type ToolbarBookmarkTarget = {
     userPrompt: string;
 };
 
+type ReaderTailSyncState = {
+    conversationUrl: string;
+    knownPositions: Set<number>;
+    pendingPositions: Set<number>;
+    refreshing: Promise<void> | null;
+};
+
+type ChatGptToolbarPhase = 'anchor_pending' | 'injected' | 'stale';
+
+type ChatGptToolbarState = {
+    messageKey: string;
+    message: HTMLElement;
+    position: number;
+    anchor: HTMLElement | null;
+    pending: boolean;
+    phase: ChatGptToolbarPhase;
+};
+
+const CHATGPT_TOOLBAR_RECOVERY_BASE_MS = 400;
+const CHATGPT_TOOLBAR_RECOVERY_MAX_MS = 4000;
+
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
     private observer: MutationObserver | null = null;
@@ -108,6 +132,11 @@ export class MessageToolbarOrchestrator {
     private messageSegmentIndexByElement = new WeakMap<HTMLElement, number>();
     private turnRefs: ConversationTurnRef[] = [];
     private turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+    private readerTailSyncState: ReaderTailSyncState | null = null;
+    private chatGptToolbarStatesByMessageKey = new Map<string, ChatGptToolbarState>();
+    private chatGptToolbarRecoveryAttemptsByMessageKey = new Map<string, number>();
+    private chatGptToolbarRecoveryTimer: number | null = null;
+    private currentReaderItemByMessageKey = new Map<string, Promise<ReaderItem | null>>();
 
     private rebuildTurnIndex(): void {
         try {
@@ -137,26 +166,67 @@ export class MessageToolbarOrchestrator {
         return null;
     }
 
+    private getUserPromptForElement(messageElement: HTMLElement): string {
+        const turn = this.getTurnRefForElement(messageElement);
+        return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
+    }
+
     private getMergedMarkdownForElement(messageElement: HTMLElement): ReturnType<typeof copyMarkdownFromMessage> {
         const turn = this.getTurnRefForElement(messageElement);
         if (!turn) return copyMarkdownFromMessage(this.adapter, messageElement);
         return copyMarkdownFromTurn(this.adapter, turn.messageEls);
     }
 
-    private getUserPromptForElement(messageElement: HTMLElement): string {
-        const turn = this.getTurnRefForElement(messageElement);
-        return turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '';
+    private getReaderItemCacheKey(messageElement: HTMLElement): string {
+        const position = this.getPositionForMessage(messageElement);
+        const messageKey = resolveMessageKey(this.adapter, messageElement, position, {
+            segmentIndexByElement: this.messageSegmentIndexByElement,
+        });
+        return `${this.getBookmarkPageUrl()}::${messageKey}`;
     }
 
-    private async getReaderTurnForElement(messageElement: HTMLElement): Promise<{ user: string; assistant: string; index: number } | null> {
-        const result = await collectReaderContent(this.adapter, messageElement, {
+    private clearReaderItemCache(): void {
+        this.currentReaderItemByMessageKey.clear();
+    }
+
+    private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
+        return collectFreshCurrentReaderItem(this.adapter, messageElement, {
             chatGptConversationEngine: this.chatGptConversationEngine,
             pageUrl: this.getBookmarkPageUrl(),
         });
-        const item = result.items[result.startIndex] ?? null;
+    }
+
+    private prepareCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
+        if (this.guardMessageReady(messageElement)) {
+            this.currentReaderItemByMessageKey.delete(this.getReaderItemCacheKey(messageElement));
+            return Promise.resolve(null);
+        }
+
+        const key = this.getReaderItemCacheKey(messageElement);
+        let promise = this.currentReaderItemByMessageKey.get(key);
+        if (!promise) {
+            promise = this.resolveCurrentReaderItemForElement(messageElement)
+                .then((item) => {
+                    if (!item) this.currentReaderItemByMessageKey.delete(key);
+                    return item;
+                })
+                .catch(() => {
+                    this.currentReaderItemByMessageKey.delete(key);
+                    return null;
+                });
+            this.currentReaderItemByMessageKey.set(key, promise);
+        }
+        return promise;
+    }
+
+    private async getReaderTurnForElement(messageElement: HTMLElement): Promise<{ user: string; assistant: string; index: number } | null> {
+        const item = await this.prepareCurrentReaderItemForElement(messageElement);
         if (!item) return null;
-        const [turn] = await readerItemsToChatTurns([item]);
-        return turn ?? null;
+        return {
+            user: item.userPrompt,
+            assistant: await resolveReaderItemMarkdown(item),
+            index: 0,
+        };
     }
 
     private async resolveToolbarBookmarkTarget(messageElement: HTMLElement): Promise<ToolbarBookmarkTarget | null> {
@@ -460,15 +530,22 @@ export class MessageToolbarOrchestrator {
         record.toolbar.dispose();
         record.toolbar.getElement().remove();
         this.recordsByMessageKey.delete(messageKey);
+        this.currentReaderItemByMessageKey.delete(`${record.boundAtUrl}::${messageKey}`);
     }
 
     private clearAllToolbars(): void {
         for (const messageKey of Array.from(this.recordsByMessageKey.keys())) {
             this.removeRecord(messageKey);
         }
+        this.chatGptToolbarStatesByMessageKey.clear();
+        this.clearReaderItemCache();
     }
 
     init(): void {
+        if (getPerfFlags().disableToolbar) {
+            perfCount('toolbar.init.skipped', 1, { reason: 'disableToolbar' });
+            return;
+        }
         this.scanScheduler = new ScanScheduler(
             (reasons) => {
                 this.scanAndInject(reasons);
@@ -494,6 +571,7 @@ export class MessageToolbarOrchestrator {
             if (hardChange) {
                 this.disposeObserversOnly();
                 this.clearAllToolbars();
+                this.clearReaderItemCache();
             }
             this.scanScheduler?.schedule('route_change');
             this.rebindObserverIfNeeded(true);
@@ -520,7 +598,85 @@ export class MessageToolbarOrchestrator {
         this.observedContainer = null;
         this.dirtyMessages.clear();
         this.needsFullRescan = false;
+        if (this.chatGptToolbarRecoveryTimer !== null) {
+            window.clearTimeout(this.chatGptToolbarRecoveryTimer);
+            this.chatGptToolbarRecoveryTimer = null;
+        }
+        this.chatGptToolbarRecoveryAttemptsByMessageKey.clear();
+        this.clearReaderItemCache();
         this.clearAllToolbars();
+    }
+
+    private usesChatGptToolbarLifecycle(): boolean {
+        return this.adapter.getPlatformId() === 'chatgpt';
+    }
+
+    private rememberChatGptToolbarState(
+        item: Pick<ScanSnapshotItem, 'messageKey' | 'message' | 'position' | 'pending'>,
+        phase: ChatGptToolbarPhase,
+        anchor: HTMLElement | null
+    ): void {
+        if (!this.usesChatGptToolbarLifecycle()) return;
+        this.chatGptToolbarStatesByMessageKey.set(item.messageKey, {
+            messageKey: item.messageKey,
+            message: item.message,
+            position: item.position,
+            anchor,
+            pending: item.pending,
+            phase,
+        });
+        if (phase === 'injected') {
+            this.chatGptToolbarRecoveryAttemptsByMessageKey.delete(item.messageKey);
+            return;
+        }
+        this.scheduleChatGptToolbarRecovery();
+    }
+
+    private clearChatGptToolbarState(messageKey: string): void {
+        this.chatGptToolbarStatesByMessageKey.delete(messageKey);
+        this.chatGptToolbarRecoveryAttemptsByMessageKey.delete(messageKey);
+    }
+
+    private scheduleChatGptToolbarRecovery(): void {
+        if (!this.usesChatGptToolbarLifecycle()) return;
+        if (this.chatGptToolbarRecoveryTimer !== null) return;
+
+        const recoverable = Array.from(this.chatGptToolbarStatesByMessageKey.values())
+            .filter((state) => state.phase !== 'injected' && document.contains(state.message));
+        if (recoverable.length === 0) return;
+
+        const minAttempts = Math.min(...recoverable.map((state) => this.chatGptToolbarRecoveryAttemptsByMessageKey.get(state.messageKey) ?? 0));
+        const delayMs = Math.min(
+            CHATGPT_TOOLBAR_RECOVERY_MAX_MS,
+            CHATGPT_TOOLBAR_RECOVERY_BASE_MS * (2 ** Math.max(0, minAttempts)),
+        );
+
+        this.chatGptToolbarRecoveryTimer = window.setTimeout(() => {
+            this.chatGptToolbarRecoveryTimer = null;
+            this.recoverChatGptToolbarStates();
+        }, delayMs);
+    }
+
+    private recoverChatGptToolbarStates(): void {
+        if (!this.usesChatGptToolbarLifecycle()) return;
+
+        let hasRecoverable = false;
+        for (const [messageKey, state] of Array.from(this.chatGptToolbarStatesByMessageKey.entries())) {
+            if (state.phase === 'injected') continue;
+            if (!document.contains(state.message)) {
+                this.clearChatGptToolbarState(messageKey);
+                continue;
+            }
+
+            hasRecoverable = true;
+            this.dirtyMessages.add(state.message);
+            const attempts = this.chatGptToolbarRecoveryAttemptsByMessageKey.get(messageKey) ?? 0;
+            this.chatGptToolbarRecoveryAttemptsByMessageKey.set(messageKey, attempts + 1);
+        }
+
+        if (!hasRecoverable) return;
+        this.scanAndInject(new Set(['mutation']));
+        this.scheduleChatGptToolbarRecovery();
     }
 
     setTheme(theme: Theme): void {
@@ -581,14 +737,15 @@ export class MessageToolbarOrchestrator {
                     const url = this.getBookmarkPageUrl();
                     const target = await this.resolveToolbarBookmarkTarget(messageElement);
                     if (!target) return { ok: false, message: t('positionNotAvailable') };
-                    const md = this.getMergedMarkdownForElement(messageElement);
-                    if (!md.ok) return { ok: false, message: md.error.message };
+                    const item = await this.prepareCurrentReaderItemForElement(messageElement);
+                    if (!item) return { ok: false, message: t('contentNotFound') };
+                    const markdown = await resolveReaderItemMarkdown(item);
                     const result = await this.runBookmarkToggle({
                         url,
                         position: target.position,
                         messageId: target.messageId,
                         userPrompt: target.userPrompt,
-                        markdown: md.markdown,
+                        markdown,
                         alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, target.position),
                     });
                     if (!result.ok) {
@@ -606,7 +763,7 @@ export class MessageToolbarOrchestrator {
             });
         }
 
-        actions.push({
+        const copyMarkdownAction: MessageToolbarAction = {
             id: 'copy_markdown',
             label: t('btnCopy'),
             tooltip: t('btnCopy'),
@@ -616,12 +773,14 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                const turn = await this.getReaderTurnForElement(messageElement);
-                if (!turn) return { ok: false, message: t('contentNotFound') };
-                const ok = await copyTextToClipboard(turn.assistant);
+                const item = await this.prepareCurrentReaderItemForElement(messageElement);
+                if (!item) return { ok: false, message: t('contentNotFound') };
+                const ok = await copyReaderItemMarkdownToClipboard(item);
                 return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
             },
-            hoverAction: {
+        };
+        if (targetSurfacePolicy.binaryClipboardCopyActions) {
+            copyMarkdownAction.hoverAction = {
                 id: 'copy_png',
                 label: t('btnCopyAsPng'),
                 icon: imageIcon,
@@ -696,8 +855,9 @@ export class MessageToolbarOrchestrator {
                     finishDebug('ok');
                     return { ok: true, message: t('btnCopyAsPngCopied') };
                 },
-            },
-        });
+            };
+        }
+        actions.push(copyMarkdownAction);
 
         actions.push({
             id: 'reader',
@@ -709,13 +869,7 @@ export class MessageToolbarOrchestrator {
             onClick: async () => {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
-                if (
-                    this.adapter.getPlatformId() === 'chatgpt'
-                    && typeof this.chatGptConversationEngine?.forceRefreshCurrentConversation === 'function'
-                ) {
-                    await this.chatGptConversationEngine.forceRefreshCurrentConversation().catch(() => null);
-                }
-                const itemsResult = await collectReaderContent(this.adapter, messageElement, {
+                const itemsResult = await collectFreshReaderContent(this.adapter, messageElement, {
                     chatGptConversationEngine: this.chatGptConversationEngine,
                     pageUrl: this.getBookmarkPageUrl(),
                 });
@@ -752,9 +906,20 @@ export class MessageToolbarOrchestrator {
     }
 
     private getAnchorForMessage(messageElement: HTMLElement): HTMLElement | null {
+        const startedAt = performance.now();
         try {
-            return this.adapter.getToolbarAnchorElement(messageElement);
+            const anchor = this.adapter.getToolbarAnchorElement(messageElement);
+            perfMeasure('toolbar.anchor.lookup', performance.now() - startedAt, {
+                platform: this.adapter.getPlatformId(),
+                found: Boolean(anchor),
+            });
+            return anchor;
         } catch {
+            perfMeasure('toolbar.anchor.lookup', performance.now() - startedAt, {
+                platform: this.adapter.getPlatformId(),
+                found: false,
+                error: true,
+            });
             return null;
         }
     }
@@ -785,9 +950,17 @@ export class MessageToolbarOrchestrator {
         host.setAttribute('data-aimd-message-key', params.messageKey);
 
         this.removeExistingToolbarsInAnchor(params.anchor, host);
+        const startedAt = performance.now();
         const injected = this.adapter.injectToolbar(params.message, host);
+        perfMeasure('toolbar.inject', performance.now() - startedAt, {
+            platform: this.adapter.getPlatformId(),
+            injected,
+            messageKey: params.messageKey,
+            position: params.position,
+        });
         if (!injected) {
             logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
+            this.rememberChatGptToolbarState(params, 'stale', params.anchor);
             toolbar.dispose();
             host.remove();
             return null;
@@ -810,6 +983,7 @@ export class MessageToolbarOrchestrator {
         this.refreshBookmarkStateForToolbar(toolbar, params.message, params.position);
         this.refreshWordCountForToolbar(toolbar, params.message, params.pending);
         this.onMessageInjected?.(params.message);
+        this.rememberChatGptToolbarState(params, 'injected', params.anchor);
         return record;
     }
 
@@ -888,12 +1062,15 @@ export class MessageToolbarOrchestrator {
     }
 
     private buildFullScanSnapshot(): Map<string, ScanSnapshotItem> {
-        const selector = this.adapter.getMessageSelector();
-        const container = this.adapter.getObserverContainer() || document.body;
-        const nodes = discoverMessageElements(container, selector);
-        this.rebuildMessageCaches(nodes);
-        this.rebuildTurnIndex();
-        return this.buildSnapshotFromNodes(nodes);
+        return perfSpan('toolbar.snapshot.full', undefined, () => {
+            const selector = this.adapter.getMessageSelector();
+            const container = this.adapter.getObserverContainer() || document.body;
+            const nodes = discoverMessageElements(container, selector);
+            perfCount('toolbar.messages.discovered', nodes.length, { mode: 'full' });
+            this.rebuildMessageCaches(nodes);
+            this.rebuildTurnIndex();
+            return this.buildSnapshotFromNodes(nodes);
+        });
     }
 
     private sortMessagesByDocumentOrder(nodes: HTMLElement[]): HTMLElement[] {
@@ -936,6 +1113,7 @@ export class MessageToolbarOrchestrator {
 
     private buildIncrementalSnapshot(candidates: HTMLElement[]): Map<string, ScanSnapshotItem> | null {
         const sortedCandidates = this.sortMessagesByDocumentOrder(Array.from(new Set(candidates)).filter((node) => node.isConnected));
+        perfCount('toolbar.messages.discovered', sortedCandidates.length, { mode: 'incremental' });
         if (sortedCandidates.length === 0) return new Map<string, ScanSnapshotItem>();
 
         for (const messageElement of sortedCandidates) {
@@ -955,6 +1133,7 @@ export class MessageToolbarOrchestrator {
 
             if (!item.anchor) {
                 if (existing) this.removeRecord(messageKey);
+                this.rememberChatGptToolbarState(item, 'anchor_pending', null);
                 continue;
             }
             const anchor = item.anchor;
@@ -965,6 +1144,7 @@ export class MessageToolbarOrchestrator {
                     anchor,
                 });
                 if (created) this.recordsByMessageKey.set(messageKey, created);
+                else this.rememberChatGptToolbarState(item, 'stale', anchor);
                 continue;
             }
 
@@ -973,6 +1153,7 @@ export class MessageToolbarOrchestrator {
             existing.boundAtUrl = this.getBookmarkPageUrl();
 
             if (existing.anchor !== anchor || !existing.toolbar.getElement().isConnected) {
+                this.rememberChatGptToolbarState(item, 'stale', anchor);
                 existing.anchor = anchor;
                 const refreshed = this.rebuildToolbarRecord({
                     ...existing,
@@ -983,52 +1164,80 @@ export class MessageToolbarOrchestrator {
                     continue;
                 }
                 this.recordsByMessageKey.set(messageKey, refreshed);
+                this.rememberChatGptToolbarState(item, 'injected', anchor);
                 continue;
             }
 
             existing.pending = item.pending;
             this.refreshBookmarkStateForToolbar(existing.toolbar, item.message, item.position);
             this.refreshWordCountForToolbar(existing.toolbar, item.message, item.pending);
+            this.rememberChatGptToolbarState(item, 'injected', anchor);
         }
 
         if (mode === 'full') {
             for (const [messageKey] of Array.from(this.recordsByMessageKey.entries())) {
                 if (!snapshot.has(messageKey)) {
                     this.removeRecord(messageKey);
+                    this.clearChatGptToolbarState(messageKey);
+                }
+            }
+            if (this.usesChatGptToolbarLifecycle()) {
+                for (const messageKey of Array.from(this.chatGptToolbarStatesByMessageKey.keys())) {
+                    if (!snapshot.has(messageKey)) this.clearChatGptToolbarState(messageKey);
                 }
             }
         }
     }
 
     private scanAndInject(reasons: Set<string> = new Set(['manual'])): void {
-        const shouldRunFull =
-            reasons.has('init')
-            || reasons.has('route_change')
-            || reasons.has('manual')
-            || this.needsFullRescan
-            || this.messageOrder.length === 0;
+        const startedAt = performance.now();
+        const reasonList = Array.from(reasons);
+        let mode: 'full' | 'incremental' | 'fallback-full' = 'incremental';
+        let snapshotSize = 0;
+        try {
+            const shouldRunFull =
+                reasons.has('init')
+                || reasons.has('route_change')
+                || reasons.has('manual')
+                || this.needsFullRescan
+                || this.messageOrder.length === 0;
 
-        if (shouldRunFull) {
-            const snapshot = this.buildFullScanSnapshot();
-            this.needsFullRescan = false;
+            if (shouldRunFull) {
+                mode = 'full';
+                const snapshot = this.buildFullScanSnapshot();
+                snapshotSize = snapshot.size;
+                this.needsFullRescan = false;
+                this.dirtyMessages.clear();
+                this.reconcileScanSnapshot(snapshot, 'full');
+                void this.syncReaderTailPages();
+                return;
+            }
+
+            const dirtyCount = this.dirtyMessages.size;
+            const snapshot = this.buildIncrementalSnapshot(Array.from(this.dirtyMessages));
             this.dirtyMessages.clear();
-            this.reconcileScanSnapshot(snapshot, 'full');
-            void this.syncReaderTailPages();
-            return;
-        }
+            if (snapshot === null) {
+                mode = 'fallback-full';
+                const fullSnapshot = this.buildFullScanSnapshot();
+                snapshotSize = fullSnapshot.size;
+                this.needsFullRescan = false;
+                this.reconcileScanSnapshot(fullSnapshot, 'full');
+                void this.syncReaderTailPages();
+                return;
+            }
 
-        const snapshot = this.buildIncrementalSnapshot(Array.from(this.dirtyMessages));
-        this.dirtyMessages.clear();
-        if (snapshot === null) {
-            const fullSnapshot = this.buildFullScanSnapshot();
-            this.needsFullRescan = false;
-            this.reconcileScanSnapshot(fullSnapshot, 'full');
+            snapshotSize = snapshot.size;
+            this.reconcileScanSnapshot(snapshot, 'incremental');
             void this.syncReaderTailPages();
-            return;
+            perfCount('toolbar.scan.dirty', dirtyCount);
+        } finally {
+            perfMeasure('toolbar.scan', performance.now() - startedAt, {
+                mode,
+                reasons: reasonList.join(','),
+                snapshotSize,
+                records: this.recordsByMessageKey.size,
+            });
         }
-
-        this.reconcileScanSnapshot(snapshot, 'incremental');
-        void this.syncReaderTailPages();
     }
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, fallbackPosition: number): void {
@@ -1061,16 +1270,19 @@ export class MessageToolbarOrchestrator {
             const { message, toolbar } = record;
             if (!document.contains(message)) {
                 this.removeRecord(messageKey);
+                this.clearChatGptToolbarState(messageKey);
                 continue;
             }
 
             const nextAnchor = this.getAnchorForMessage(message);
             if (!nextAnchor) {
+                this.rememberChatGptToolbarState(record, 'anchor_pending', null);
                 this.removeRecord(messageKey);
                 continue;
             }
 
             if (nextAnchor !== record.anchor || !toolbar.getElement().isConnected) {
+                this.rememberChatGptToolbarState(record, 'stale', nextAnchor);
                 record.anchor = nextAnchor;
                 const refreshed = this.rebuildToolbarRecord(record);
                 if (!refreshed) {
@@ -1078,6 +1290,7 @@ export class MessageToolbarOrchestrator {
                     continue;
                 }
                 this.recordsByMessageKey.set(messageKey, refreshed);
+                this.rememberChatGptToolbarState(refreshed, 'injected', nextAnchor);
                 continue;
             }
 
@@ -1086,12 +1299,18 @@ export class MessageToolbarOrchestrator {
                 this.refreshWordCountForToolbar(toolbar, message, pending);
             }
             record.pending = pending;
+            this.rememberChatGptToolbarState(record, 'injected', nextAnchor);
         }
         void this.syncReaderTailPages();
     }
 
     private refreshWordCountForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, pending: boolean): void {
         if (!this.behavior.showWordCount) return;
+        if (getPerfFlags().disableWordCount) {
+            toolbar.setStats([]);
+            perfCount('wordCount.skipped', 1, { reason: 'disableWordCount' });
+            return;
+        }
         if (pending) {
             // Avoid duplicating the streaming note ("Streaming…") in both the stats area and the note field.
             // During pending/streaming, keep the stats area quiet and recompute once stable.
@@ -1101,19 +1320,28 @@ export class MessageToolbarOrchestrator {
 
         // Legacy-like: compute when content is stable; if empty, retry a few times.
         const tryCompute = (attempt: number) => {
+            const startedAt = performance.now();
             const md = this.getMergedMarkdownForElement(messageElement);
             if (!md.ok) {
+                perfMeasure('wordCount.compute', performance.now() - startedAt, { ok: false, attempt });
                 toolbar.setStats(['—']);
                 return;
             }
             const text = (md.markdown || '').trim();
             if (text.length === 0) {
+                perfMeasure('wordCount.compute', performance.now() - startedAt, { ok: true, empty: true, attempt });
                 if (attempt < 6) window.setTimeout(() => tryCompute(attempt + 1), 500 * (attempt + 1));
                 else toolbar.setStats(['—']);
                 return;
             }
 
             const res = this.wordCounter.count(text);
+            perfMeasure('wordCount.compute', performance.now() - startedAt, {
+                ok: true,
+                attempt,
+                chars: text.length,
+                words: res.words,
+            });
             const formatted = this.wordCounter.format(res);
             const parts = formatted.split(' / ');
             if (parts.length >= 2) toolbar.setStats([parts[0], parts.slice(1).join(' ')]);
@@ -1124,15 +1352,23 @@ export class MessageToolbarOrchestrator {
     }
 
     private async syncReaderTailPages(): Promise<void> {
-        if (this.adapter.getPlatformId() === 'chatgpt') return;
+        if (getPerfFlags().disableReaderPreload) {
+            perfCount('reader.tailSync.skipped', 1, { reason: 'disableReaderPreload' });
+            return;
+        }
         if (typeof this.readerPanel.isShowingConversationReader !== 'function') return;
         if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
         if (typeof this.readerPanel.appendItem !== 'function') return;
         if (!this.readerPanel.isShowingConversationReader()) return;
         const currentItems = this.readerPanel.getItemsSnapshot();
         const turns = collectConversationTurnRefs(this.adapter);
-        if (turns.length <= currentItems.length) return;
 
+        if (this.adapter.getPlatformId() === 'chatgpt') {
+            await this.syncChatGptReaderTailPages(currentItems, turns);
+            return;
+        }
+
+        if (turns.length <= currentItems.length) return;
         const pageUrl = stripReaderUrl(window.location.href);
         for (let index = currentItems.length; index < turns.length; index += 1) {
             const turn = turns[index];
@@ -1142,6 +1378,88 @@ export class MessageToolbarOrchestrator {
             const item = buildReaderItemFromTurn(this.adapter, turn, index, pageUrl);
             this.decorateReaderItems([item as unknown as { meta?: Record<string, unknown> }]);
             await this.readerPanel.appendItem(item);
+        }
+    }
+
+    private getReaderTailPosition(item: ReaderItem): number | null {
+        const position = Number(item.meta?.position ?? 0);
+        return Number.isInteger(position) && position > 0 ? position : null;
+    }
+
+    private getTurnTailPosition(turn: ConversationTurnRef): number | null {
+        const position = turn.index + 1;
+        return Number.isInteger(position) && position > 0 ? position : null;
+    }
+
+    private syncReaderTailKnownPositions(state: ReaderTailSyncState, currentItems: ReaderItem[]): void {
+        state.knownPositions.clear();
+        for (const item of currentItems) {
+            const position = this.getReaderTailPosition(item);
+            if (!position) continue;
+            state.knownPositions.add(position);
+            state.pendingPositions.delete(position);
+        }
+    }
+
+    private getReaderTailSyncState(currentItems: ReaderItem[]): ReaderTailSyncState {
+        const conversationUrl = this.getBookmarkPageUrl();
+        if (!this.readerTailSyncState || this.readerTailSyncState.conversationUrl !== conversationUrl) {
+            this.readerTailSyncState = {
+                conversationUrl,
+                knownPositions: new Set<number>(),
+                pendingPositions: new Set<number>(),
+                refreshing: null,
+            };
+        }
+        this.syncReaderTailKnownPositions(this.readerTailSyncState, currentItems);
+        return this.readerTailSyncState;
+    }
+
+    private async syncChatGptReaderTailPages(currentItems: ReaderItem[], turns: ConversationTurnRef[]): Promise<void> {
+        if (!this.chatGptConversationEngine) return;
+        const state = this.getReaderTailSyncState(currentItems);
+        const maxKnownPosition = Math.max(0, ...state.knownPositions);
+        for (const turn of turns) {
+            const position = this.getTurnTailPosition(turn);
+            if (!position || position <= maxKnownPosition || state.knownPositions.has(position)) continue;
+            state.pendingPositions.add(position);
+        }
+        if (state.pendingPositions.size === 0) return;
+        if (state.refreshing) return state.refreshing;
+
+        state.refreshing = this.flushChatGptReaderTailPages(state);
+        try {
+            await state.refreshing;
+        } finally {
+            if (this.readerTailSyncState === state) state.refreshing = null;
+        }
+    }
+
+    private async flushChatGptReaderTailPages(state: ReaderTailSyncState): Promise<void> {
+        if (!this.chatGptConversationEngine) return;
+        const snapshot = await this.chatGptConversationEngine.forceRefreshCurrentConversation().catch(() => null);
+        if (!snapshot?.rounds?.length) return;
+
+        const result = buildChatGPTReaderItems(snapshot, null, this.getBookmarkPageUrl());
+        const latestItems = this.readerPanel.getItemsSnapshot();
+        this.syncReaderTailKnownPositions(state, latestItems);
+        const renderablePositions = new Set(snapshot.rounds
+            .filter((round) => typeof round.assistantContent === 'string' && round.assistantContent.trim().length > 0)
+            .map((round) => round.position));
+        const newItems = result.items.filter((item) => {
+            const position = this.getReaderTailPosition(item);
+            return Boolean(position && state.pendingPositions.has(position) && !state.knownPositions.has(position) && renderablePositions.has(position));
+        });
+        if (newItems.length === 0) return;
+
+        this.decorateReaderItems(newItems as Array<{ meta?: Record<string, unknown> }>);
+        this.attachChatGptLiveTailReaderItem([...latestItems, ...newItems]);
+        for (const item of newItems) {
+            await this.readerPanel.appendItem(item);
+            const position = this.getReaderTailPosition(item);
+            if (!position) continue;
+            state.knownPositions.add(position);
+            state.pendingPositions.delete(position);
         }
     }
 
@@ -1177,6 +1495,110 @@ export class MessageToolbarOrchestrator {
         } catch {
             return [];
         }
+    }
+
+    private collectChatGptMessagesFromActionAnchorMutation(node: Node): HTMLElement[] {
+        if (!this.usesChatGptToolbarLifecycle()) return [];
+        if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return [];
+        if (node instanceof Element && this.isToolbarManagedHostNode(node)) return [];
+
+        const messages: HTMLElement[] = [];
+        const messageSelector = this.adapter.getMessageSelector();
+        const actionSelector = this.adapter.getActionBarSelector();
+
+        const addMessage = (candidate: Element | null): void => {
+            if (candidate instanceof HTMLElement) messages.push(candidate);
+        };
+        const addFirstMessageIn = (scope: ParentNode | null): void => {
+            if (!scope) return;
+            try {
+                const message = scope.querySelector(messageSelector);
+                addMessage(message);
+            } catch {
+                // Ignore transient selector failures from host mutations.
+            }
+        };
+
+        const actionNodes: HTMLElement[] = [];
+        try {
+            if (node instanceof HTMLElement && node.matches(actionSelector)) {
+                actionNodes.push(node);
+            }
+            const nested = Array.from(node.querySelectorAll(actionSelector))
+                .filter((el): el is HTMLElement => el instanceof HTMLElement);
+            actionNodes.push(...nested);
+        } catch {
+            return [];
+        }
+
+        for (const actionNode of actionNodes) {
+            try {
+                addMessage(actionNode.closest(messageSelector));
+            } catch {
+                // Ignore and keep walking structural scopes below.
+            }
+
+            addFirstMessageIn(actionNode.closest('[data-testid^="conversation-turn-"]'));
+            addFirstMessageIn(actionNode.closest('article'));
+
+            let scope = actionNode.parentElement;
+            for (let depth = 0; scope && depth < 8; depth += 1, scope = scope.parentElement) {
+                const before = messages.length;
+                addFirstMessageIn(scope);
+                if (messages.length > before) break;
+            }
+        }
+
+        return this.sortMessagesByDocumentOrder(Array.from(new Set(messages)).filter((message) => message.isConnected));
+    }
+
+    private collectChatGptMessagesFromActionAnchorRemoval(node: Node, target?: Node | null): HTMLElement[] {
+        if (!this.usesChatGptToolbarLifecycle()) return [];
+        if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return [];
+        if (node instanceof Element && this.isToolbarManagedHostNode(node)) return [];
+
+        const messages: HTMLElement[] = [];
+        const messageSelector = this.adapter.getMessageSelector();
+        const actionSelector = this.adapter.getActionBarSelector();
+
+        const removedLooksLikeActionSubtree = (() => {
+            try {
+                if (node instanceof Element && node.matches(actionSelector)) return true;
+                return node.querySelector(actionSelector) instanceof HTMLElement;
+            } catch {
+                return false;
+            }
+        })();
+
+        const addMessage = (candidate: Element | null): void => {
+            if (candidate instanceof HTMLElement && candidate.isConnected) messages.push(candidate);
+        };
+
+        if (target instanceof Element) {
+            try {
+                addMessage(target.matches(messageSelector) ? target : target.closest(messageSelector));
+                addMessage(target.querySelector(messageSelector));
+            } catch {
+                // Ignore transient host DOM while ChatGPT is rehydrating action rows.
+            }
+        }
+
+        for (const record of this.recordsByMessageKey.values()) {
+            const anchor = record.anchor;
+            const targetElement = target instanceof Element ? target : null;
+            const removedElement = node instanceof Element ? node : null;
+            if (
+                anchor === node
+                || anchor === target
+                || (removedElement && removedElement.contains(anchor))
+                || (targetElement && (targetElement === record.message || targetElement.contains(anchor) || record.message.contains(targetElement)))
+            ) {
+                messages.push(record.message);
+            }
+        }
+
+        if (!removedLooksLikeActionSubtree && messages.length === 0) return [];
+        return this.sortMessagesByDocumentOrder(Array.from(new Set(messages)).filter((message) => message.isConnected));
     }
 
     private nodeContainsActionBarAnchor(node: Node): boolean {
@@ -1244,21 +1666,48 @@ export class MessageToolbarOrchestrator {
         return translated && translated !== 'copyPngCancelled' ? translated : 'Cancelled';
     }
 
-    private handleObservedMutations(mutations: ArrayLike<MutationRecord | { addedNodes?: ArrayLike<Node>; removedNodes?: ArrayLike<Node> }>): void {
+    private handleObservedMutations(mutations: ArrayLike<MutationRecord | { target?: Node; addedNodes?: ArrayLike<Node>; removedNodes?: ArrayLike<Node> }>): void {
+        if (getPerfFlags().disableMutationObserver) {
+            perfCount('toolbar.mutation.skipped', Array.from(mutations).length, { reason: 'disableMutationObserver' });
+            return;
+        }
+        const startedAt = performance.now();
         let shouldSchedule = false;
+        let addedCount = 0;
+        let removedCount = 0;
+        let candidateCount = 0;
 
         for (const mutation of Array.from(mutations)) {
             const removedNodes = Array.from(mutation.removedNodes || []);
+            removedCount += removedNodes.length;
             for (const node of removedNodes) {
                 if (this.isToolbarManagedHostNode(node)) continue;
+                const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorRemoval(node, mutation.target);
+                if (chatGptActionMessages.length > 0) {
+                    for (const message of chatGptActionMessages) {
+                        this.dirtyMessages.add(message);
+                    }
+                    shouldSchedule = true;
+                    continue;
+                }
                 this.needsFullRescan = true;
                 shouldSchedule = true;
             }
 
             const addedNodes = Array.from(mutation.addedNodes || []);
+            addedCount += addedNodes.length;
             for (const node of addedNodes) {
                 const candidates = this.collectMutationMessageCandidates(node);
+                candidateCount += candidates.length;
                 if (candidates.length === 0) {
+                    const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorMutation(node);
+                    if (chatGptActionMessages.length > 0) {
+                        for (const message of chatGptActionMessages) {
+                            this.dirtyMessages.add(message);
+                        }
+                        shouldSchedule = true;
+                        continue;
+                    }
                     if (!this.nodeContainsActionBarAnchor(node)) continue;
                     this.needsFullRescan = true;
                     shouldSchedule = true;
@@ -1274,9 +1723,21 @@ export class MessageToolbarOrchestrator {
         if (shouldSchedule) {
             this.scanScheduler?.schedule('mutation');
         }
+        perfMeasure('toolbar.mutation.handle', performance.now() - startedAt, {
+            mutations: Array.from(mutations).length,
+            addedCount,
+            removedCount,
+            candidateCount,
+            scheduled: shouldSchedule,
+        });
     }
 
     private rebindObserverIfNeeded(force: boolean = false): void {
+        if (getPerfFlags().disableMutationObserver) {
+            this.disposeObserversOnly();
+            perfCount('toolbar.observer.skipped', 1, { reason: 'disableMutationObserver' });
+            return;
+        }
         const nextContainer = this.adapter.getObserverContainer() || document.body;
         if (!force && this.observedContainer === nextContainer && this.observer) return;
 

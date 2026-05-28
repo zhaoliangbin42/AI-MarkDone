@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
-import { locateIcon, sendIcon } from '@/assets/icons';
+import { locateIcon, panelLeftIcon, sendIcon } from '@/assets/icons';
 import { SendPopover } from '@/ui/content/sending/SendPopover';
 
 describe('ReaderPanel actions placement', () => {
@@ -67,9 +67,9 @@ describe('ReaderPanel actions placement', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             expect(shadow).toBeTruthy();
 
-            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left');
-            expect(footerLeft).toBeTruthy();
-            const btn = footerLeft!.querySelector('button') as HTMLButtonElement;
+            const footerActions = shadow.querySelector<HTMLElement>('[data-role="footer-left-actions"]');
+            expect(footerActions).toBeTruthy();
+            const btn = footerActions!.querySelector('button') as HTMLButtonElement;
             expect(btn).toBeTruthy();
 
             btn.click();
@@ -94,10 +94,33 @@ describe('ReaderPanel actions placement', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left');
-            const buttons = Array.from(footerLeft?.querySelectorAll('button') ?? []);
+            const footerActions = shadow.querySelector<HTMLElement>('[data-role="footer-left-actions"]');
+            const buttons = Array.from(footerActions?.querySelectorAll('button') ?? []);
 
             expect(buttons).toHaveLength(2);
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('renders the sticky toggle before footer_left actions in conversation reader', async () => {
+        const panel = new ReaderPanel();
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'md1' }], 0, 'light', {
+                actions: [
+                    { id: 'send', label: 'Send', icon: sendIcon, placement: 'footer_left', onClick: vi.fn() },
+                ],
+            });
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = (host as any).shadowRoot as ShadowRoot;
+            const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left')!;
+            const directChildren = Array.from(footerLeft.children);
+
+            expect(directChildren[0]?.getAttribute('data-action')).toBe('reader-sticky-toggle');
+            expect(directChildren[0]?.innerHTML).toContain('M9 3v18');
+            expect(panelLeftIcon).toContain('M9 3v18');
+            expect(directChildren[1]?.getAttribute('data-role')).toBe('footer-left-actions');
         } finally {
             panel.hide();
         }
@@ -127,7 +150,7 @@ describe('ReaderPanel actions placement', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
             const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left')!;
-            const btn = footerLeft.querySelector('button') as HTMLButtonElement;
+            const btn = footerLeft.querySelector('[data-role="footer-left-actions"] button') as HTMLButtonElement;
 
             btn.click();
 
@@ -165,7 +188,7 @@ describe('ReaderPanel actions placement', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
             const footerLeft = shadow.querySelector<HTMLElement>('.reader-footer__left')!;
-            const btn = footerLeft.querySelector('button') as HTMLButtonElement;
+            const btn = footerLeft.querySelector('[data-role="footer-left-actions"] button') as HTMLButtonElement;
 
             btn.click();
 

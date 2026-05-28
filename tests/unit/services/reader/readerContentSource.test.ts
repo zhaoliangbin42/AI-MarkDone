@@ -1,20 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { collectReaderContent, readerItemsToChatTurns } from '@/services/reader/readerContentSource';
+import {
+    collectFreshCurrentReaderItem,
+    collectFreshReaderContent,
+    collectReaderContent,
+    readerItemsToChatTurns,
+} from '@/services/reader/readerContentSource';
 import type { ReaderItem } from '@/services/reader/types';
 import { buildPdfPrintPlan } from '@/services/export/saveMessagesPdf';
 import { buildPngExportPlans } from '@/services/export/saveMessagesPng';
 
 vi.mock('@/services/reader/chatgptReaderItems', () => ({
-    buildChatGPTReaderItems: vi.fn(() => ({
-        items: [
-            {
-                id: 'chatgpt-a1',
-                userPrompt: 'Payload prompt',
-                content: '- payload bullet',
-                meta: { platformId: 'chatgpt', messageId: 'a1', position: 1 },
-            },
-        ],
-        startIndex: 0,
+    buildChatGPTReaderItems: vi.fn((snapshot: any, startTarget: any) => ({
+        items: snapshot.rounds.map((round: any) => ({
+            id: `chatgpt-${round.messageId}`,
+            userPrompt: round.userPrompt,
+            content: round.assistantContent,
+            meta: { platformId: 'chatgpt', messageId: round.messageId, position: round.position },
+        })),
+        startIndex: startTarget?.messageId
+            ? Math.max(0, snapshot.rounds.findIndex((round: any) => round.messageId === startTarget.messageId))
+            : 0,
     })),
 }));
 
@@ -39,6 +44,99 @@ import { collectReaderItems } from '@/services/reader/collectReaderItems';
 describe('readerContentSource', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    it('collects fresh ChatGPT Reader items from the forced snapshot', async () => {
+        const adapter: any = {
+            getPlatformId: () => 'chatgpt',
+            getLastMessageElement: () => null,
+            getMessageId: () => null,
+            extractUserPrompt: () => null,
+        };
+        const chatGptConversationEngine: any = {
+            getSnapshot: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                rounds: [
+                    { id: 'old-1', position: 1, userPrompt: 'Old prompt', assistantContent: 'Old answer', messageId: 'old-a1' },
+                ],
+            })),
+            forceRefreshCurrentConversation: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                rounds: [
+                    { id: 'fresh-1', position: 1, userPrompt: 'Fresh prompt 1', assistantContent: 'Fresh answer 1', messageId: 'fresh-a1' },
+                    { id: 'fresh-2', position: 2, userPrompt: 'Fresh prompt 2', assistantContent: 'Fresh answer 2', messageId: 'fresh-a2' },
+                ],
+            })),
+        };
+
+        const result = await collectFreshReaderContent(adapter, null, {
+            chatGptConversationEngine,
+            pageUrl: 'https://chatgpt.com/c/1',
+        });
+
+        expect(result.metadataSource).toBe('chatgpt-snapshot');
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(result.items).toHaveLength(2);
+        expect(result.items[1]?.content).toBe('Fresh answer 2');
+        expect(collectReaderItems).not.toHaveBeenCalled();
+    });
+
+    it('collects the current fresh ChatGPT Reader item from the same ReaderItem snapshot', async () => {
+        const messageElement = document.createElement('article');
+        const adapter: any = {
+            getPlatformId: () => 'chatgpt',
+            getMessageId: () => 'fresh-a2',
+            extractUserPrompt: () => 'Fresh prompt 2',
+        };
+        const chatGptConversationEngine: any = {
+            getSnapshot: vi.fn(),
+            forceRefreshCurrentConversation: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                rounds: [
+                    { id: 'fresh-1', position: 1, userPrompt: 'Fresh prompt 1', assistantContent: 'Fresh answer 1', messageId: 'fresh-a1' },
+                    { id: 'fresh-2', position: 2, userPrompt: 'Fresh prompt 2', assistantContent: 'Fresh answer 2', messageId: 'fresh-a2' },
+                ],
+            })),
+        };
+
+        const item = await collectFreshCurrentReaderItem(adapter, messageElement, {
+            chatGptConversationEngine,
+            pageUrl: 'https://chatgpt.com/c/1',
+        });
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
+            expect.objectContaining({ conversationId: 'conv-1' }),
+            { messageId: 'fresh-a2', userPrompt: 'Fresh prompt 2' },
+            'https://chatgpt.com/c/1',
+        );
+        expect(item?.content).toBe('Fresh answer 2');
+    });
+
+    it('does not fall back to DOM Reader collection for the fresh ChatGPT body source', async () => {
+        const messageElement = document.createElement('article');
+        const adapter: any = {
+            getPlatformId: () => 'chatgpt',
+            getMessageId: () => 'dom-a1',
+            extractUserPrompt: () => 'DOM prompt',
+        };
+        const chatGptConversationEngine: any = {
+            getSnapshot: vi.fn(async () => ({
+                conversationId: 'conv-1',
+                rounds: [
+                    { id: 'old-1', position: 1, userPrompt: 'Old prompt', assistantContent: 'Old answer', messageId: 'old-a1' },
+                ],
+            })),
+            forceRefreshCurrentConversation: vi.fn(async () => null),
+        };
+
+        const result = await collectFreshReaderContent(adapter, messageElement, { chatGptConversationEngine });
+
+        expect(result).toEqual({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(collectReaderItems).not.toHaveBeenCalled();
     });
 
     it('prefers ChatGPT structured snapshot content even when a message element is available', async () => {

@@ -20,6 +20,13 @@
    - `vendor/katex/`
    - `src/popup/popup.html`
 
+3. 确认 Safari App Store 合规裁剪生效：
+   - `dist-safari/icons/` 不包含 `bmc_qr.png`、`wechat_qr.png`、`xiaohongshu_card.png`
+   - `dist-safari/manifest.json` 不使用 `icons/*.png`，只声明 Safari allowlist 图标资源
+   - `dist-safari/_locales/*/messages.json` 不包含 sponsor/donate/coffee/xiaohongshu 相关 message keys
+   - Safari content build 隐藏消息 `Copy as PNG`、公式 `Copy as PNG` 和公式 `Copy as SVG` 这类二进制 clipboard copy surface；Save/Export 下载路径继续保留
+   - About 页继续保留 support contact card、`mailto:zhaoliangbin42@gmail.com` 反馈入口和复制邮箱按钮；该入口不得混入赞助、打赏或社交引流内容
+
 ## Xcode / Local Packaging Path
 
 每次明确执行 Release 流程时，都要使用 Apple 的 Safari Web Extension converter 生成本地 Xcode 包装工程：

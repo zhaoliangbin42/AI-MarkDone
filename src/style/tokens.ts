@@ -13,7 +13,8 @@ export function getTokenCss(theme: Theme, overrides: UserThemeOverrides = {}): s
 }
 
 export function getPageTokenCss(overrides: UserThemeOverrides = {}): string {
+    const base = swapScope(getTokenCss('light', overrides), ':root');
     const light = swapScope(getTokenCss('light', overrides), ':root[data-aimd-theme="light"]');
     const dark = swapScope(getTokenCss('dark', overrides), ':root[data-aimd-theme="dark"]');
-    return `${light}\n${dark}`;
+    return `${base}\n${light}\n${dark}`;
 }

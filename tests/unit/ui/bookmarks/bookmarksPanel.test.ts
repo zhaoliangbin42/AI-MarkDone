@@ -49,6 +49,7 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
 }));
 
 import { BookmarksPanel } from '@/ui/content/bookmarks/BookmarksPanel';
+import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
 import { setLocale } from '@/ui/content/components/i18n';
@@ -537,6 +538,92 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
 
+    it('does not show the bookmarks changelog modal after reader acknowledges the same pending notice', async () => {
+        await setLocale('en');
+        vi.mocked(bookmarksClient.getChangelogNotice)
+            .mockResolvedValueOnce({
+                ok: true,
+                data: {
+                    pendingVersion: '4.4.1',
+                    lastShownVersion: null,
+                    reason: 'update',
+                    previousVersion: '4.3.1',
+                },
+            } as any)
+            .mockResolvedValueOnce({
+                ok: true,
+                data: {
+                    pendingVersion: null,
+                    lastShownVersion: '4.4.1',
+                    reason: null,
+                    previousVersion: '4.3.1',
+                },
+            } as any);
+
+        const readerPanel = new ReaderPanel();
+        try {
+            await readerPanel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light', {
+                profile: 'conversation-reader',
+            });
+            await flushUi();
+
+            const readerHost = document.getElementById('aimd-reader-panel-host')!;
+            const readerModal = readerHost.shadowRoot!.querySelector<HTMLElement>('.mock-modal')!;
+            readerModal.querySelector<HTMLButtonElement>('.mock-modal__button')?.click();
+            await flushUi();
+        } finally {
+            readerPanel.hide();
+        }
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn({
+                    vm: {
+                        query: '',
+                        platform: 'All',
+                        bookmarks: [],
+                        folderTree: [],
+                        selectedFolderPath: null,
+                        sortMode: 'time-desc',
+                    },
+                    folders: [],
+                    folderPaths: [],
+                    selectedKeys: new Set(),
+                    previewId: null,
+                    status: 'Ready',
+                    storageUsage: { usedBytes: 512, quotaBytes: 1024, usedPercentage: 50, warningLevel: 'none' },
+                });
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+        await flushUi();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host')!;
+        expect(host.shadowRoot!.querySelector('.mock-modal')).toBeNull();
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledTimes(1);
+
+        panel.hide();
+    });
+
     it('still renders the bookmarks shell when initial async refresh work fails', async () => {
         await setLocale('en');
         const controller = {
@@ -859,7 +946,8 @@ describe('BookmarksPanel', () => {
         await Promise.resolve();
         await flushAnimationFrame();
 
-        expect(shadow.querySelector('.aimd-tooltip__body')?.textContent).toBe('Export all bookmarks');
+        expect(document.body.querySelector('.aimd-tooltip__body')?.textContent).toBe('Export all bookmarks');
+        expect(shadow.querySelector('.aimd-tooltip__body')).toBeNull();
 
         panel.hide();
     });

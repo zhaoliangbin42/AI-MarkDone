@@ -96,7 +96,7 @@ describe('ReaderPanel comments', () => {
         await Promise.resolve();
 
         const commentActions = shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button');
-        expect(commentActions).toHaveLength(2);
+        expect(commentActions).toHaveLength(3);
         commentActions[1]!.click();
         await Promise.resolve();
 
@@ -449,7 +449,7 @@ describe('ReaderPanel comments', () => {
             document.dispatchEvent(new Event('selectionchange'));
             await Promise.resolve();
             const actionButtons = shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button');
-            expect(actionButtons).toHaveLength(2);
+            expect(actionButtons).toHaveLength(3);
             actionButtons[1]!.click();
             await Promise.resolve();
             const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;

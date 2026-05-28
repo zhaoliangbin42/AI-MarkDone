@@ -230,6 +230,17 @@ describe('ChatGPTConversationEngine', () => {
         expect((engine as any).liveRefreshTimer).toBeNull();
     });
 
+    it('allows passive subscribers to observe cached snapshots without starting live refresh', async () => {
+        const setIntervalSpy = vi.spyOn(window, 'setInterval');
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const unsubscribe = (engine as any).subscribe(vi.fn(), { live: false });
+
+        expect((engine as any).liveRefreshTimer).toBeNull();
+        expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 5000);
+
+        unsubscribe();
+    });
+
     it('does not synthesize a markdown snapshot from DOM text when the bridge script fails to load', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;

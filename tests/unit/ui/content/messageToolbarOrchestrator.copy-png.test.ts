@@ -1,11 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/services/copy/copy-turn-png', () => ({
     copyTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
+vi.mock('@/drivers/content/clipboard/clipboard', () => ({
+    copyTextToClipboard: vi.fn(async () => true),
+}));
+
 vi.mock('@/services/reader/readerContentSource', () => ({
-    collectReaderContent: vi.fn(async () => ({
+    collectFreshCurrentReaderItem: vi.fn(async () => (
+        { id: 'm1', userPrompt: 'Prompt', content: 'Fresh answer', meta: { position: 7 } }
+    )),
+    collectFreshReaderContent: vi.fn(async () => ({
         items: [
             { id: 'm1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 7 } },
         ],
@@ -19,8 +26,9 @@ vi.mock('@/services/reader/readerContentSource', () => ({
     }))),
 }));
 
+import { copyTextToClipboard } from '@/drivers/content/clipboard/clipboard';
 import { copyTurnsPng } from '@/services/copy/copy-turn-png';
-import { collectReaderContent } from '@/services/reader/readerContentSource';
+import { collectFreshCurrentReaderItem } from '@/services/reader/readerContentSource';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 
@@ -52,6 +60,72 @@ class TestAdapter extends SiteAdapter {
 }
 
 describe('MessageToolbarOrchestrator Copy PNG', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('copies markdown from the fresh current Reader item even when Reader is already open', async () => {
+        document.body.innerHTML = `
+          <title>Reader Reuse Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">DOM Answer</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const readerPanel = {
+            show: vi.fn(),
+            setTheme: vi.fn(),
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [
+                { id: 'm1', userPrompt: 'Prompt', content: 'Reader cached answer', meta: { position: 7, messageId: 'm1' } },
+            ]),
+        };
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), { readerPanel: readerPanel as any }) as any;
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
+
+        const result = await copyAction.onClick();
+
+        expect(result).toEqual({ ok: true, message: expect.any(String) });
+        expect(collectFreshCurrentReaderItem).toHaveBeenCalledWith(expect.any(TestAdapter), assistant, expect.objectContaining({
+            pageUrl: window.location.href,
+        }));
+        expect(copyTextToClipboard).toHaveBeenCalledWith('Fresh answer');
+    });
+
+    it('collects only on user action and shares the Reader item between toolbar Copy and Copy PNG', async () => {
+        document.body.innerHTML = `
+          <title>Shared Reader Item Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">Answer</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
+            readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
+        }) as any;
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => null);
+        const copyAction = actions.find((action: any) => action.id === 'copy_markdown');
+
+        copyAction.onPrepare?.();
+        expect(collectFreshCurrentReaderItem).not.toHaveBeenCalled();
+        await copyAction.onClick();
+        await copyAction.hoverAction.onClick({ signal: new AbortController().signal, onProgress: vi.fn() });
+
+        expect(collectFreshCurrentReaderItem).toHaveBeenCalledTimes(1);
+        expect(copyTextToClipboard).toHaveBeenCalledWith('Fresh answer');
+        expect(copyTurnsPng).toHaveBeenCalledWith(
+            [{ user: 'Prompt', assistant: 'Fresh answer', index: 0 }],
+            [0],
+            expect.any(Object),
+            expect.any(Object),
+        );
+    });
+
     it('uses the same configured PNG export width as the batch export path', async () => {
         document.body.innerHTML = `
           <title>PNG Width Test</title>
@@ -76,7 +150,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         await copyAction.hoverAction.onClick({ signal: abort.signal, onProgress });
 
         expect(copyTurnsPng).toHaveBeenCalledWith(
-            [{ user: 'Prompt', assistant: 'Answer', index: 0 }],
+            [{ user: 'Prompt', assistant: 'Fresh answer', index: 0 }],
             [0],
             expect.objectContaining({ title: 'PNG Width Test', count: 1 }),
             expect.objectContaining({
@@ -85,7 +159,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
                 onProgress: expect.any(Function),
             }),
         );
-        expect(collectReaderContent).toHaveBeenCalledWith(expect.any(TestAdapter), assistant, expect.objectContaining({
+        expect(collectFreshCurrentReaderItem).toHaveBeenCalledWith(expect.any(TestAdapter), assistant, expect.objectContaining({
             pageUrl: window.location.href,
         }));
     });

@@ -1,5 +1,45 @@
 # Changelog
 
+# 4.4.6
+2026-05-28
+
+## Fixed
+- Fixed stutter in the ChatGPT navigation rail.
+- Fixed a split between toolbar Copy and Reader Copy. In the previous release, the toolbar copy button could sometimes fail because it did not follow the same content path as Reader. Thanks to Xiaohongshu user @momo.
+
+# 4.4.5
+2026-05-24
+
+This release focuses on formula copy, long-message reading in Reader, toolbar stability, and ChatGPT page performance.
+
+## Added
+- Added one-click formula copy as Office-compatible MathML.
+- Added support for rendering formulas inside tables. Thanks to Xiaohongshu user @小红薯67542.
+- Added a global status toast for short feedback such as "Copied successfully".
+- Added Sticky mode in Reader. Select text in the main content and pin it on the left side, so long articles no longer require scrolling back and forth to find the same passage.
+- Reader now supports Up and Down arrow key scrolling inside messages. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
+
+## Changed
+- Upgraded Reader's new-page refresh logic. When you send a message from Reader, newly added pages can finally appear in Reader.
+- Upgraded toolbar insertion logic, so toolbar injection should be more stable now (a little mysterious, but useful).
+- Upgraded the directory refresh logic and significantly improved performance.
+- Upgraded toolbar and directory rendering behavior when the current page width changes.
+- Because some users reported that formula hover buttons could cover the text they were reading, this release turns those hover buttons off by default and simplifies their shape. If you need them, you can turn them on from Settings. Thanks to Xiaohongshu user @如果你也对吃感兴趣.
+
+## Fixed
+- Fixed tooltip display issues, such as formula copy feedback being covered.
+- Fixed an issue where Copy as Markdown could treat links inside code blocks as noise and remove them. Thanks to Email user @童硕.
+
+## How it works
+
+The main performance improvement in this release is not about refreshing the page faster. It is about refreshing less often when nothing meaningful has changed. ChatGPT continuously loads, replaces, hydrates, and relayouts parts of the page. If the extension treats every DOM change as a reason to analyze the whole conversation again, long conversations can become unnecessarily expensive.
+
+The directory now judges more carefully whether a page change really affects the conversation structure. If only local buttons, toolbar nodes, or unrelated elements change, it avoids a full rebuild. That means when you open a long conversation, wait for a message to continue generating, or let ChatGPT hydrate its own controls, the directory does not keep repeating the same work.
+
+Toolbar and page-width handling follow the same idea. While you drag the browser width, the page can emit many layout updates in a row, and those updates used to compete with toolbar and directory rendering. The new flow waits for width changes to settle before resuming related UI refreshes, which reduces jitter and repeated calculation while resizing.
+
+Reader's new-page refresh path was also upgraded. When you continue sending messages from Reader, new content can enter the Reader pages more reliably without closing and reopening Reader. The overall goal is to behave more calmly on ChatGPT's dynamic page: interrupt less, wait a bit more, and update only when the update is actually useful.
+
 # 4.4.1
 2026-05-15
 

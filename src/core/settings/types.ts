@@ -5,7 +5,7 @@
  * - `browser.storage.sync` key: `app_settings` (legacy)
  *
  * Principles:
- * - Backward compatible migrations (v1/v2 -> v3)
+ * - Backward compatible migrations (v1/v2/v3 -> v4)
  * - Merge with defaults to allow adding new fields safely
  */
 
@@ -16,7 +16,7 @@ import { createDefaultReaderCommentExportSettings } from './readerCommentExport'
 import type { FormulaSettings } from './formula';
 import { DEFAULT_FORMULA_SETTINGS } from './formula';
 
-export type SettingsVersion = 3;
+export type SettingsVersion = 4;
 
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
@@ -81,7 +81,7 @@ export type AppSettings = {
 export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
 
 export const DEFAULT_SETTINGS: AppSettings = {
-    version: 3,
+    version: 4,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
         showSaveMessages: true,

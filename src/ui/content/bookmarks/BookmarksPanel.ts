@@ -1,7 +1,6 @@
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types';
 import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
-import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
 import { browser } from '../../../drivers/shared/browser';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import {
@@ -22,8 +21,7 @@ import { ChangelogTabView } from './ui/tabs/ChangelogTabView';
 import { AboutTabView } from './ui/tabs/AboutTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
-import { loadLatestChangelogEntry } from './content/changelog';
-import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
+import { createBookmarksPanelShell, type BookmarksPanelTabSpec } from './ui/BookmarksPanelShell';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { ReaderPanel } from '../reader/ReaderPanel';
 import { TooltipDelegate } from '../../../utils/tooltip';
@@ -32,8 +30,11 @@ import { logger } from '../../../core/logger';
 import { eventWithinTransientRoot } from '../components/transientUi';
 import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
-import { renderInfoBlocks } from './ui/tabs/renderInfoBlocks';
-import { renderChangelogSections } from './ui/tabs/renderChangelogSections';
+import { showChangelogNoticeIfNeeded } from '../changelog/ChangelogNoticePresenter';
+import {
+    TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED,
+    TARGET_SURFACE_SPONSOR_TAB_ENABLED,
+} from '../../../config/targetSurface';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor';
 
@@ -50,6 +51,23 @@ type BookmarksPanelTabView = {
     consumeEscape?(): boolean;
     destroy?(): void;
 };
+
+function isPanelTabId(value: string): value is PanelTabId {
+    return value === 'bookmarks'
+        || value === 'settings'
+        || value === 'changelog'
+        || value === 'about'
+        || value === 'faq'
+        || value === 'sponsor';
+}
+
+function isEnabledPanelTab(tab: PanelTabId): boolean {
+    return tab !== 'sponsor' || TARGET_SURFACE_SPONSOR_TAB_ENABLED;
+}
+
+function normalizePanelTab(tab: PanelTabId): PanelTabId {
+    return isEnabledPanelTab(tab) ? tab : 'bookmarks';
+}
 
 function shouldLogBookmarksPerf(): boolean {
     try {
@@ -131,7 +149,6 @@ export class BookmarksPanel {
     private closing = false;
     private motionNeedsOpen = false;
     private changelogNoticeCheckedForSession = false;
-    private pendingChangelogModalVersion: string | null = null;
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private readonly onShadowPointerDown = (event: Event) => {
         if (!this.hostHandle) return;
@@ -195,7 +212,6 @@ export class BookmarksPanel {
         this.closing = false;
         this.motionNeedsOpen = true;
         this.changelogNoticeCheckedForSession = false;
-        this.pendingChangelogModalVersion = null;
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
             theme: this.controller.getTheme(),
@@ -307,7 +323,6 @@ export class BookmarksPanel {
         this.closing = false;
         this.motionNeedsOpen = false;
         this.changelogNoticeCheckedForSession = false;
-        this.pendingChangelogModalVersion = null;
     }
 
     private async loadSettings(): Promise<void> {
@@ -414,6 +429,7 @@ export class BookmarksPanel {
         const startedAt = performance.now();
         this.captureScrollTops();
         this.recreateTabViews();
+        this.uiState.bookmarksTab = normalizePanelTab(this.uiState.bookmarksTab);
 
         const bookmarksPanel = this.bookmarksView?.getElement() ?? document.createElement('section');
         bookmarksPanel.classList.add('tab-panel--bookmarks');
@@ -425,8 +441,6 @@ export class BookmarksPanel {
         aboutPanel.classList.add('about-panel');
         const faqPanel = this.faqView?.getElement() ?? document.createElement('section');
         faqPanel.classList.add('faq-panel');
-        const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
-        sponsorPanel.classList.add('sponsor-panel');
 
         const titleText = this.uiState.bookmarksTab === 'bookmarks'
             ? tr('tabBookmarks', 'Bookmarks')
@@ -438,21 +452,28 @@ export class BookmarksPanel {
                         ? tr('tabFaq', 'FAQ')
                         : this.uiState.bookmarksTab === 'about'
                             ? tr('tabAbout', 'About')
-                            : tr('tabSponsor', 'Buy Me Coffee');
+                            : TARGET_SURFACE_SPONSOR_TAB_ENABLED
+                                ? tr('tabSponsor', 'Buy Me Coffee')
+                                : tr('tabBookmarks', 'Bookmarks');
+        const tabs: BookmarksPanelTabSpec[] = [
+            { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
+            { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
+            { id: 'changelog', label: tr('tabChangelog', 'Changelog'), icon: fileTextIcon, content: changelogPanel, panelClassName: 'changelog-panel' },
+            { id: 'faq', label: tr('tabFaq', 'FAQ'), icon: messageSquareTextIcon, content: faqPanel, panelClassName: 'faq-panel' },
+            { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
+        ];
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED) {
+            const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
+            sponsorPanel.classList.add('sponsor-panel');
+            tabs.push({ id: 'sponsor', label: tr('tabSponsor', 'Buy Me Coffee'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' });
+        }
 
         const shell = createBookmarksPanelShell({
             titleText,
             closeIcon: xIcon,
             closeLabel: tr('btnClose', 'Close panel'),
             defaultTabId: this.uiState.bookmarksTab,
-            tabs: [
-                { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
-                { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
-                { id: 'changelog', label: tr('tabChangelog', 'Changelog'), icon: fileTextIcon, content: changelogPanel, panelClassName: 'changelog-panel' },
-                { id: 'faq', label: tr('tabFaq', 'FAQ'), icon: messageSquareTextIcon, content: faqPanel, panelClassName: 'faq-panel' },
-                { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
-                { id: 'sponsor', label: tr('tabSponsor', 'Buy Me Coffee'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' },
-            ],
+            tabs,
         });
         const panel = shell.panel;
 
@@ -469,7 +490,7 @@ export class BookmarksPanel {
         shell.closeBtn.addEventListener('click', () => this.hide());
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
             const nextTab = (event as CustomEvent<{ id: string }>).detail.id;
-            if (nextTab === 'bookmarks' || nextTab === 'settings' || nextTab === 'changelog' || nextTab === 'about' || nextTab === 'faq' || nextTab === 'sponsor') {
+            if (isPanelTabId(nextTab) && isEnabledPanelTab(nextTab)) {
                 this.switchToTab(nextTab);
             }
         });
@@ -529,7 +550,14 @@ export class BookmarksPanel {
 
     private recreateTabViews(): void {
         if (!this.modalHost) return;
-        if (this.bookmarksView && this.settingsView && this.changelogView && this.aboutView && this.faqView && this.sponsorView) return;
+        if (
+            this.bookmarksView
+            && this.settingsView
+            && this.changelogView
+            && this.aboutView
+            && this.faqView
+            && (!TARGET_SURFACE_SPONSOR_TAB_ENABLED || this.sponsorView)
+        ) return;
 
         if (!this.bookmarksView) {
             try {
@@ -582,6 +610,7 @@ export class BookmarksPanel {
                 this.aboutView = new AboutTabView({
                     actions: {
                         getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                        showSocialFollowCard: TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED,
                     },
                 });
             } catch (error) {
@@ -605,7 +634,7 @@ export class BookmarksPanel {
             }
         }
 
-        if (!this.sponsorView) {
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED && !this.sponsorView) {
             try {
                 this.sponsorView = new SponsorTabView({
                     actions: {
@@ -633,6 +662,7 @@ export class BookmarksPanel {
     }
 
     private switchToTab(nextTab: PanelTabId): void {
+        if (!isEnabledPanelTab(nextTab)) return;
         if (this.uiState.bookmarksTab === nextTab) return;
         this.bookmarksView?.dismissTransientUi?.();
         this.settingsView?.dismissTransientUi?.();
@@ -648,99 +678,13 @@ export class BookmarksPanel {
         if (this.changelogNoticeCheckedForSession || !this.visible || this.closing || !this.modalHost) return;
         this.changelogNoticeCheckedForSession = true;
 
-        const noticeResult = await bookmarksClient.getChangelogNotice();
-        if (!noticeResult.ok || !this.visible || this.closing || !this.modalHost) return;
-
-        const notice = noticeResult.data;
-        if (!notice.pendingVersion || notice.pendingVersion === notice.lastShownVersion) return;
-        if (this.pendingChangelogModalVersion === notice.pendingVersion) return;
-
-        const latestEntry = loadLatestChangelogEntry();
-        if (!latestEntry) return;
-        if (latestEntry.version !== notice.pendingVersion) {
-            logger.warn('[AI-MarkDone][BookmarksPanel] Pending changelog notice version does not match latest changelog entry.', {
-                pendingVersion: notice.pendingVersion,
-                latestVersion: latestEntry.version,
-            });
-            return;
-        }
-
-        this.pendingChangelogModalVersion = latestEntry.version;
-
-        const body = document.createElement('div');
-        body.className = 'changelog-notice-modal';
-
-        if (latestEntry.date) {
-            const date = document.createElement('p');
-            date.className = 'changelog-notice-modal__date';
-            date.textContent = latestEntry.date;
-            body.appendChild(date);
-        }
-
-        const content = document.createElement('div');
-        content.className = 'changelog-notice-modal__content';
-        content.appendChild(renderInfoBlocks(latestEntry.leadBlocks));
-        body.appendChild(content);
-
-        if (latestEntry.sections.length > 0) {
-            const sections = document.createElement('div');
-            sections.className = 'changelog-notice-modal__sections';
-            sections.appendChild(renderChangelogSections(latestEntry.sections));
-            body.appendChild(sections);
-        }
-
-        let ackStarted = false;
-        const acknowledge = async () => {
-            if (ackStarted) return true;
-            ackStarted = true;
-            const result = await bookmarksClient.ackChangelogNotice(latestEntry.version);
-            if (!result.ok) {
-                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to acknowledge changelog notice.', {
-                    version: latestEntry.version,
-                    error: result.message,
-                });
-                ackStarted = false;
-                return false;
-            }
-            this.pendingChangelogModalVersion = null;
-            return true;
-        };
-
-        await this.modalHost.showCustom({
-            kind: 'info',
-            title: tr('changelogNoticeTitle', `What's new in AI-MarkDone ${latestEntry.version}`, [latestEntry.version]),
-            body,
-            footer: (footer, close) => {
-                const viewAll = document.createElement('button');
-                viewAll.type = 'button';
-                viewAll.className = 'mock-modal__button mock-modal__button--secondary';
-                viewAll.textContent = tr('changelogNoticeViewAll', 'View full changelog');
-                viewAll.addEventListener('click', () => {
-                    void (async () => {
-                        const acked = await acknowledge();
-                        if (!acked) return;
-                        close();
-                        this.switchToTab('changelog');
-                    })();
-                });
-
-                const ok = document.createElement('button');
-                ok.type = 'button';
-                ok.className = 'mock-modal__button mock-modal__button--primary';
-                ok.textContent = tr('btnOk', 'OK');
-                ok.addEventListener('click', () => {
-                    void (async () => {
-                        const acked = await acknowledge();
-                        if (!acked) return;
-                        close();
-                    })();
-                });
-
-                footer.append(viewAll, ok);
-                window.setTimeout(() => ok.focus(), 0);
-            },
-            onDismiss: () => {
-                void acknowledge();
+        const modalHost = this.modalHost;
+        await showChangelogNoticeIfNeeded({
+            modalHost,
+            loggerScope: 'BookmarksPanel',
+            onViewAll: () => {
+                if (!this.visible || this.closing) return;
+                this.switchToTab('changelog');
             },
         });
     }
@@ -749,7 +693,7 @@ export class BookmarksPanel {
         const target = event.target as HTMLElement | null;
         if (target?.closest('.aimd-settings')) return;
         if (target?.closest('.bookmarks-tab-content')) return;
-        if (this.uiState.bookmarksTab === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED && this.uiState.bookmarksTab === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
             this.emitSponsorBurst(event as MouseEvent);
             return;
         }

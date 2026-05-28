@@ -9,7 +9,7 @@ vi.mock('../../../../src/services/export/saveMessagesFacade', () => ({
 }));
 
 vi.mock('../../../../src/services/reader/readerContentSource', () => ({
-    collectReaderContent: vi.fn(async () => ({
+    collectFreshReaderContent: vi.fn(async () => ({
         items: [
             { id: 'r1', userPrompt: 'u1', content: 'a1', meta: { position: 1 } },
             { id: 'r2', userPrompt: 'u2', content: async () => 'a2', meta: { position: 2 } },
@@ -27,7 +27,7 @@ vi.mock('../../../../src/services/reader/readerContentSource', () => ({
 }));
 
 import { exportTurnsMarkdown, exportTurnsPdf, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
-import { collectReaderContent, readerItemsToChatTurns } from '../../../../src/services/reader/readerContentSource';
+import { collectFreshReaderContent, readerItemsToChatTurns } from '../../../../src/services/reader/readerContentSource';
 import { SaveMessagesDialog } from '../../../../src/ui/content/export/SaveMessagesDialog';
 import { setLocale } from '../../../../src/ui/content/components/i18n';
 
@@ -75,7 +75,7 @@ describe('SaveMessagesDialog', () => {
 
         const host = document.getElementById('aimd-save-messages-dialog-host');
         expect(host).toBeTruthy();
-        expect(collectReaderContent).toHaveBeenCalledTimes(1);
+        expect(collectFreshReaderContent).toHaveBeenCalledTimes(1);
         expect(readerItemsToChatTurns).toHaveBeenCalledTimes(1);
 
         const shadow = host!.shadowRoot!;
@@ -126,7 +126,7 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsPng).toHaveBeenCalledTimes(1);
     });
 
-    it('opens from the Reader content source without forcing a ChatGPT snapshot refresh', async () => {
+    it('opens from the fresh ReaderItem source for ChatGPT exports', async () => {
         await setLocale('en');
         const adapter = {
             getPlatformId: () => 'chatgpt',
@@ -141,10 +141,9 @@ describe('SaveMessagesDialog', () => {
         const dlg = new SaveMessagesDialog();
         await dlg.open(adapter, 'light', { chatGptConversationEngine });
 
-        expect(collectReaderContent).toHaveBeenCalledWith(adapter, null, {
+        expect(collectFreshReaderContent).toHaveBeenCalledWith(adapter, null, {
             chatGptConversationEngine,
         });
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
     });
 
     it('uses an image icon for PNG and shows progress while PNG export is running', async () => {

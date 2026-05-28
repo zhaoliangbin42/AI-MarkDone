@@ -19,12 +19,16 @@ import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
+import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
+import { getPerfFlags, installLongTaskProbe, installPerfProbeGlobal } from '../../core/perf/perfProbe';
 
 ensurePageTokens();
+installPerfProbeGlobal();
+installLongTaskProbe();
 
 const isDebugEnabled = () => {
     try {
@@ -53,6 +57,9 @@ if (adapter) {
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
         ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
+        : null;
+    const viewportResizeSuspend = adapter.getPlatformId() === 'chatgpt'
+        ? new ViewportResizeSuspendController()
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
@@ -104,6 +111,12 @@ if (adapter) {
 
     const initChatGptIfNeeded = () => {
         if (!chatGptConversationEngine || !chatGptDirectory) return;
+        viewportResizeSuspend?.init();
+        if (getPerfFlags().disableDirectory) {
+            writeDebugState({ ChatGptInit: 'directory-disabled' });
+            chatGptConversationEngine.init();
+            return;
+        }
         writeDebugState({ ChatGptInit: 'start' });
         chatGptConversationEngine.init();
         chatGptDirectory.init(currentTheme);
@@ -139,7 +152,7 @@ if (adapter) {
         runtimeEnabled = true;
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         initChatGptIfNeeded();
-        messageToolbars.init();
+        if (!getPerfFlags().disableToolbar) messageToolbars.init();
         headerIcon.init();
     };
 
@@ -151,6 +164,7 @@ if (adapter) {
         headerIcon.dispose();
         chatGptDirectory?.dispose();
         chatGptConversationEngine?.dispose?.();
+        viewportResizeSuspend?.dispose();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
@@ -207,7 +221,7 @@ if (adapter) {
     });
 
     if (runtimeEnabled) {
-        messageToolbars.init();
+        if (!getPerfFlags().disableToolbar) messageToolbars.init();
         headerIcon.init();
         initChatGptIfNeeded();
     }
@@ -238,6 +252,7 @@ function shouldEnableFormulaInteractions(settings: typeof DEFAULT_SETTINGS.formu
         settings.clickCopyMarkdown
         || settings.assetActions.copyPng
         || settings.assetActions.copySvg
+        || settings.assetActions.copyMathml
         || settings.assetActions.savePng
         || settings.assetActions.saveSvg
     );

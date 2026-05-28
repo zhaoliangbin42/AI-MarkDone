@@ -4,6 +4,63 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-05-20 — Reader Sticky temporary excerpts
+
+- Added a Reader-local Sticky workspace for temporary Markdown excerpts in the `conversation-reader` profile.
+- Kept the implementation inside `ReaderPanel` and `readerPanelTemplate`: selection actions now offer `Stick`, blocks reuse the sanitized Reader Markdown renderer, the footer owns the left-panel toggle, and the workspace is in-memory only.
+- Switched Sticky block reordering from button-hosted native drag/drop to pointer-driven dragging, so holding the drag icon gives stable reorder behavior inside the Reader Shadow DOM.
+- Expanded Sticky width resizing so the rail can grow up to 2/3 of the Reader body width while retaining the existing minimum usable width and narrow-screen drawer behavior.
+- Preserved the current Reader data contracts: Sticky excerpts do not enter storage, bookmarks, export, sending, comments, or `bookmark-preview`; closing and reopening Reader keeps excerpts for the current page lifecycle, while page refresh/content runtime reinitialization clears them; narrow screens use a drawer instead of a three-column layout.
+- Verification:
+  - `npm run test -- tests/integration/reader/reader-panel.test.ts tests/integration/reader/reader-panel.comment.test.ts tests/integration/reader/reader-panel.sticky.test.ts tests/unit/ui/reader/readerPanel.navigation.test.ts tests/unit/ui/reader/readerPanel.presentation.test.ts tests/unit/ui/reader/readerPanel.footerActions.test.ts tests/unit/services/reader/atomicSelection.test.ts tests/unit/services/reader/atomicExport.test.ts tests/unit/services/renderer/renderMarkdown.test.ts tests/unit/governance/i18n-keys.test.ts` (pass; 88 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+  - `npm run build:chrome` (pass; Chrome MV3 + entry verification)
+  - `release/AI-MarkDone-v4.4.1-chrome.zip` regenerated from `dist-chrome/`; SHA-256 `24b6524eceab82388af465f38957879d72a156b991bc743cf4992113f8a1d245`
+
+## 2026-05-20 — ChatGPT toolbar lifecycle reconcile
+
+- Changed ChatGPT official action-row hydration from a routine full-rescan trigger into a local message lifecycle reconcile.
+- Added targeted stale-state recovery for ChatGPT toolbar messages that reach `anchor_pending` or `stale`, so a transient `injectToolbar` failure or missed action-row hydration signal can recover without refreshing the page.
+- Kept the existing MutationObserver and ScanScheduler; no full-page polling, no new observer, no adapter contract change, and no content fallback injection.
+- Verification:
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.official-anchor.test.ts` (pass; 11 tests)
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.scheduler.test.ts` (pass; 2 tests)
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts tests/unit/ui/content/messageToolbarOrchestrator.copy-png.test.ts` (pass; 19 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
+## 2026-05-19 — Reader pager compact window
+
+- Limited Reader footer pagination to at most 10 page dots for long conversations.
+- Middle pages now render as `3 + ellipsis + 4 + ellipsis + 3`; start/end ranges merge overlapping windows instead of expanding to seven leading or trailing dots, keeping adjacent page access near the active page.
+- Verification:
+  - `npm run test -- tests/unit/ui/reader/readerPanel.navigation.test.ts` (pass; 18 tests)
+  - `npm run test -- tests/unit/ui/reader/readerPanel.navigation.test.ts tests/unit/ui/reader/readerPanel.footerActions.test.ts tests/unit/ui/reader/readerPanel.presentation.test.ts` (pass; 40 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
+## 2026-05-19 — ChatGPT open Reader tail page sync
+
+- Let an already-open ChatGPT Reader append newly generated conversation pages when the official page adds a new round after sending from inside Reader.
+- Kept the source boundary narrow: DOM round refs only mark new round positions as Reader tail pending, while appended Reader pages still come from a refreshed `ChatGPTConversationEngine` snapshot after the matching assistant content is non-empty.
+- Verification:
+  - `npm run test -- tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts tests/unit/ui/content/messageToolbarOrchestrator.scheduler.test.ts tests/unit/ui/content/messageToolbarOrchestrator.official-anchor.test.ts tests/unit/ui/reader/readerPanel.navigation.test.ts` (pass; 39 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+
+## 2026-05-19 — Feedback layer and formula renderer recovery
+
+- Unified hover labels around the shared tooltip primitive and routed short operation results through a top-center toast layer.
+- Kept tooltip and toast colors tied to the active theme token chain through `--aimd-tooltip-*` and `--aimd-toast-*`.
+- Recovered formula SVG/PNG/MathML rendering for MathJax inputs that need the NewCM double-struck data, while keeping MathJax out of `content.js` and avoiding runtime dynamic font loading from the host page.
+- Verification:
+  - `npm run test -- tests/unit/runtimes/formula-renderer/entry.test.ts tests/unit/services/math/formulaAssetActions.test.ts tests/unit/services/math/formulaAssetRenderer.test.ts tests/unit/drivers/math-click.test.ts` (pass; 16 tests)
+  - `npm run test -- tests/unit/ui/infra/tooltipDelegate.test.ts tests/unit/ui/infra/toast.test.ts tests/unit/ui/content/messageToolbar.tooltip.test.ts tests/unit/ui/components/ToolbarHoverActionPortal.test.ts tests/unit/ui/content/MessageToolbar.test.ts tests/unit/ui/bookmarks/bookmarksPanel.test.ts tests/integration/reader/reader-panel.test.ts` (pass; 78 tests)
+  - `npm run test:smoke` (pass; 20 tests)
+  - `npm run build` (pass; Chrome MV3 + Firefox MV2 + entry verification)
+  - `rg "MathJax|@mathjax|MathJaxNewcmFont" dist-chrome/content.js dist-firefox/content.js` (no matches)
+
 ## 2026-05-15 — v4.4.1 release copy preparation
 
 - Bumped package, lockfile, and source manifest versions to `4.4.1`.

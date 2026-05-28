@@ -2,6 +2,7 @@ import type { Theme } from '../../core/types/theme';
 import { getTokenCss, type UserThemeOverrides } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 import { TooltipDelegate } from '../../utils/tooltip';
+import { showToast } from '../../utils/toast';
 import { createIcon } from './components/Icon';
 import { TaskProgressPanel, type TaskProgressUpdate } from './components/TaskProgressPanel';
 import { t } from './components/i18n';
@@ -29,6 +30,7 @@ export type MessageToolbarAction = {
     tooltip?: string;
     kind?: 'primary' | 'secondary';
     disabledWhenPending?: boolean;
+    onPrepare?: () => void | Promise<void>;
     onClick: () => Promise<void | ToolbarActionResult>;
     menu?: MessageToolbarMenuItem[];
     hoverAction?: {
@@ -56,8 +58,6 @@ export class MessageToolbar {
     private hoverActionCloseTimer: number | null = null;
     private hoverActionTriggerInside = false;
     private hoverActionPortalInside = false;
-    private toolbarFeedbackTimer: number | null = null;
-    private toolbarFeedbackHost: HTMLElement | null = null;
     private taskProgressPanel: TaskProgressPanel;
     private tooltipDelegate: TooltipDelegate;
     private activeTaskAbort: AbortController | null = null;
@@ -90,7 +90,6 @@ export class MessageToolbar {
     }
 
     dispose(): void {
-        this.clearToolbarFeedback();
         this.taskProgressPanel.dispose();
         this.tooltipDelegate.disconnect();
         this.closeMenu();
@@ -109,19 +108,12 @@ export class MessageToolbar {
         this.host.setAttribute('data-aimd-theme', theme);
         ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
         this.hoverActionPortal?.setTheme(theme);
-        if (this.toolbarFeedbackHost) {
-            this.toolbarFeedbackHost.setAttribute('data-aimd-theme', theme);
-            ensureStyle(this.toolbarFeedbackHost.shadowRoot!, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-feedback-tokens' });
-        }
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
         this.themeOverrides = { ...overrides };
         ensureStyle(this.shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
         this.hoverActionPortal?.setThemeOverrides(this.themeOverrides);
-        if (this.toolbarFeedbackHost?.shadowRoot) {
-            ensureStyle(this.toolbarFeedbackHost.shadowRoot, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-feedback-tokens' });
-        }
     }
 
     setPending(pending: boolean): void {
@@ -194,13 +186,24 @@ export class MessageToolbar {
             btn.className = `icon-btn ${action.kind === 'primary' ? 'primary' : ''}`.trim();
             btn.type = 'button';
             btn.dataset.action = action.id;
+            btn.dataset.tooltip = action.tooltip || action.label;
+            if (action.hoverAction) {
+                btn.dataset.tooltipPlacement = 'bottom';
+            }
             btn.setAttribute('aria-label', action.tooltip || action.label);
             btn.appendChild(createIcon(action.icon));
+            const prepare = () => {
+                try {
+                    void action.onPrepare?.();
+                } catch {
+                    // Preparation is opportunistic and must not block the action button.
+                }
+            };
+            btn.addEventListener('pointerdown', prepare);
+            btn.addEventListener('focusin', prepare);
+            btn.addEventListener('mouseenter', prepare);
             if (action.hoverAction) {
                 this.attachHoverAction(action, btn);
-                this.attachHoverFeedback(btn, action.tooltip || action.label, 'bottom');
-            } else {
-                this.attachHoverFeedback(btn, action.tooltip || action.label, 'top');
             }
             btn.addEventListener('click', (e) => void this.handleActionClick(action, e));
             group.appendChild(btn);
@@ -297,9 +300,11 @@ export class MessageToolbar {
                     if (!res) {
                         this.setStatus('idle', '');
                     } else if (res.ok) {
-                        this.setStatus('success', res.message || 'Done');
+                        this.setStatus('idle', '');
+                        showToast({ text: res.message || 'Done', tone: 'success' });
                     } else {
-                        this.setStatus('error', res.message || 'Failed');
+                        this.setStatus('idle', '');
+                        showToast({ text: res.message || 'Failed', tone: 'error' });
                     }
                 } finally {
                     window.setTimeout(() => this.setStatus('idle', ''), 1200);
@@ -356,15 +361,21 @@ export class MessageToolbar {
                 this.setStatus('idle', '');
                 return;
             }
-            if (res.ok) this.setStatus('success', res.message || 'Done');
-            else this.setStatus('error', res.message || 'Failed');
+            if (res.ok) {
+                this.setStatus('idle', '');
+                showToast({ text: res.message || 'Done', tone: 'success' });
+            } else {
+                this.setStatus('idle', '');
+                showToast({ text: res.message || 'Failed', tone: 'error' });
+            }
             // Momentary highlight on successful actions (legacy-like feedback without changing toggle semantics).
             if (res.ok) {
                 btn.setAttribute('data-flash', '1');
                 window.setTimeout(() => btn.removeAttribute('data-flash'), 650);
             }
         } catch {
-            this.setStatus('error', 'Failed');
+            this.setStatus('idle', '');
+            showToast({ text: 'Failed', tone: 'error' });
         } finally {
             window.setTimeout(() => this.setStatus('idle', ''), 1200);
             if (this.pending && action.disabledWhenPending) {
@@ -507,7 +518,6 @@ export class MessageToolbar {
 
     private openTaskProgress(anchor: HTMLElement, initial: ToolbarTaskProgressEvent): void {
         void anchor;
-        this.clearToolbarFeedback();
         this.closeHoverAction();
         this.taskProgressPanel.open(initial);
     }
@@ -527,96 +537,6 @@ export class MessageToolbar {
     private getTaskCancelledLabel(): string {
         const translated = t('copyPngCancelled');
         return translated && translated !== 'copyPngCancelled' ? translated : 'Cancelled';
-    }
-
-    private attachHoverFeedback(button: HTMLButtonElement, label: string, placement: 'top' | 'bottom'): void {
-        button.addEventListener('mouseenter', () => {
-            this.scheduleToolbarFeedback(button, button.getAttribute('aria-label') || label, placement);
-        });
-
-        button.addEventListener('mouseleave', () => this.clearToolbarFeedback());
-    }
-
-    private scheduleToolbarFeedback(anchor: HTMLElement, label: string, placement: 'top' | 'bottom'): void {
-        this.clearToolbarFeedback();
-        this.toolbarFeedbackTimer = window.setTimeout(() => {
-            this.showToolbarFeedback(anchor, label, placement);
-        }, 100);
-    }
-
-    private clearToolbarFeedback(): void {
-        if (this.toolbarFeedbackTimer !== null) {
-            window.clearTimeout(this.toolbarFeedbackTimer);
-            this.toolbarFeedbackTimer = null;
-        }
-        this.toolbarFeedbackHost?.remove();
-        this.toolbarFeedbackHost = null;
-    }
-
-    private showToolbarFeedback(anchor: HTMLElement, label: string, placement: 'top' | 'bottom'): void {
-        const host = document.createElement('div');
-        host.className = 'aimd-toolbar-tooltip-host';
-        host.setAttribute('data-aimd-theme', this.theme);
-        const shadow = host.attachShadow({ mode: 'open' });
-        ensureStyle(shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-feedback-tokens' });
-        ensureStyle(shadow, this.getToolbarFeedbackCss(), { id: 'aimd-toolbar-feedback-base', cache: 'shared' });
-
-        const feedback = document.createElement('div');
-        feedback.className = 'toolbar-hover-feedback';
-        feedback.dataset.role = 'toolbar-tooltip';
-        feedback.dataset.placement = placement;
-        feedback.textContent = label;
-        shadow.appendChild(feedback);
-
-        document.body.appendChild(host);
-        const rect = anchor.getBoundingClientRect();
-        host.style.left = `${rect.left + rect.width / 2}px`;
-        host.style.top = `${placement === 'top' ? rect.top : rect.bottom}px`;
-        this.toolbarFeedbackHost = host;
-    }
-
-    private getToolbarFeedbackCss(): string {
-        return `
-:host {
-  position: fixed;
-  left: 0;
-  top: 0;
-  pointer-events: none;
-  z-index: var(--aimd-z-tooltip);
-}
-
-.toolbar-hover-feedback {
-  position: absolute;
-  left: 0;
-  top: 0;
-  transform: translateX(-50%);
-  padding: calc(var(--aimd-space-1) + 1px) var(--aimd-space-3);
-  background: var(--aimd-interactive-primary);
-  color: var(--aimd-text-on-primary);
-  font-size: var(--aimd-font-size-xs);
-  line-height: 1;
-  white-space: nowrap;
-  border-radius: var(--aimd-radius-md);
-  opacity: 0;
-  pointer-events: none;
-  animation: toolbarFeedbackFade 1.5s ease;
-}
-
-.toolbar-hover-feedback[data-placement="top"] {
-  transform: translate(-50%, calc(-100% - var(--aimd-space-3)));
-}
-
-.toolbar-hover-feedback[data-placement="bottom"] {
-  transform: translate(-50%, var(--aimd-space-3));
-}
-
-@keyframes toolbarFeedbackFade {
-  0% { opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; }
-}
-`;
     }
 
     private getCss(): string {

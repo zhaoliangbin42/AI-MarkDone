@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extName__",
-    "version": "4.4.1",
+    "version": "4.4.6",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
     "permissions": [
@@ -46,7 +46,13 @@
         "128": "icons/icon128.png"
     },
     "web_accessible_resources": [
-        "icons/*.png",
+        "icons/icon16.png",
+        "icons/icon48.png",
+        "icons/icon128.png",
+        "icons/icon16_gray.png",
+        "icons/icon48_gray.png",
+        "icons/icon128_gray.png",
+        "icons/about_avatar.png",
         "_locales/*/messages.json",
         "vendor/katex/*.css",
         "vendor/katex/fonts/*",

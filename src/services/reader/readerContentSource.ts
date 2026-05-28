@@ -49,6 +49,27 @@ async function collectChatGPTSnapshotReaderContent(
     }
 }
 
+async function collectFreshChatGPTSnapshotReaderContent(
+    adapter: SiteAdapter,
+    startMessageElement: HTMLElement | null,
+    options: ReaderContentSourceOptions,
+): Promise<ReaderContentSourceResult | null> {
+    if (adapter.getPlatformId?.() !== 'chatgpt' || !options.chatGptConversationEngine) return null;
+
+    try {
+        const snapshot = await options.chatGptConversationEngine.forceRefreshCurrentConversation();
+        if (!snapshot?.rounds?.length) return null;
+        const result = buildChatGPTReaderItems(
+            snapshot,
+            getStartTarget(adapter, startMessageElement),
+            options.pageUrl ?? window.location.href,
+        );
+        return { ...result, metadataSource: 'chatgpt-snapshot' };
+    } catch {
+        return null;
+    }
+}
+
 function collectDomFallbackReaderContent(
     adapter: SiteAdapter,
     startMessageElement: HTMLElement | null,
@@ -71,6 +92,31 @@ export async function collectReaderContent(
         ? await collectChatGPTSnapshotReaderContent(adapter, startMessageElement, options)
         : null;
     return chatGptSnapshotContent ?? collectDomFallbackReaderContent(adapter, startMessageElement);
+}
+
+export async function collectFreshReaderContent(
+    adapter: SiteAdapter,
+    startMessageElement: HTMLElement | null,
+    options: ReaderContentSourceOptions,
+): Promise<ReaderContentSourceResult> {
+    const chatGptSnapshotContent = await collectFreshChatGPTSnapshotReaderContent(
+        adapter,
+        startMessageElement,
+        options,
+    );
+    if (adapter.getPlatformId?.() === 'chatgpt') {
+        return chatGptSnapshotContent ?? { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
+    }
+    return chatGptSnapshotContent ?? collectDomFallbackReaderContent(adapter, startMessageElement);
+}
+
+export async function collectFreshCurrentReaderItem(
+    adapter: SiteAdapter,
+    messageElement: HTMLElement,
+    options: ReaderContentSourceOptions,
+): Promise<ReaderItem | null> {
+    const result = await collectFreshReaderContent(adapter, messageElement, options);
+    return result.items[result.startIndex] ?? null;
 }
 
 export async function readerItemsToChatTurns(items: ReaderItem[]): Promise<ChatTurn[]> {

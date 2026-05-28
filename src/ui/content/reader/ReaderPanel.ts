@@ -1,8 +1,13 @@
 import type { Theme } from '../../../core/types/theme';
 import { browser } from '../../../drivers/shared/browser';
-import { copyIcon, messageSquareTextIcon } from '../../../assets/icons';
+import {
+    copyIcon,
+    messageSquareTextIcon,
+    pinIcon,
+} from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
+import { copyReaderItemMarkdownToClipboard } from '../../../services/reader/readerMarkdownCopy';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { AppSettings } from '../../../core/settings/types';
 import { renderMarkdownForReader, type ReaderAtomicUnit, type ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
@@ -43,6 +48,7 @@ import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
 import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
+import { showChangelogNoticeIfNeeded } from '../changelog/ChangelogNoticePresenter';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -93,6 +99,9 @@ type ReaderPanelState = {
     userPromptDisplay: ReaderUserPromptDisplay;
     statusText: string;
     contentMaxWidthPx: number;
+    stickyOpen: boolean;
+    stickyWidthPx: number;
+    stickyBlocks: ReaderStickyBlock[];
     options: {
         profile: ReaderPanelProfile;
         showNav: boolean;
@@ -104,6 +113,13 @@ type ReaderPanelState = {
     };
 };
 
+type ReaderStickyBlock = {
+    id: string;
+    sourceMarkdown: string;
+    renderedHtml: string;
+    createdAt: number;
+};
+
 type ReaderCommentSelectionSnapshot = {
     range: Range;
     selectedUnits: SelectedAtomicUnit[];
@@ -112,6 +128,10 @@ type ReaderCommentSelectionSnapshot = {
 };
 
 const READER_COMMENT_SCOPE_ID = 'reader-panel-comments-v1';
+const STICKY_WIDTH_DEFAULT_PX = 320;
+const STICKY_WIDTH_MIN_PX = 240;
+const STICKY_WIDTH_FALLBACK_MAX_PX = 460;
+const STICKY_WIDTH_MAX_RATIO = 2 / 3;
 
 export class ReaderPanel {
     private overlaySession: OverlaySession | null = null;
@@ -129,6 +149,11 @@ export class ReaderPanel {
     private motionNeedsOpen = false;
     private onSelectionChange: (() => void) | null = null;
     private onPointerUp: (() => void) | null = null;
+    private onSurfacePointerDown: ((event: PointerEvent) => void) | null = null;
+    private onSurfaceDragStart: ((event: DragEvent) => void) | null = null;
+    private onSurfaceDragOver: ((event: DragEvent) => void) | null = null;
+    private onSurfaceDrop: ((event: DragEvent) => void) | null = null;
+    private onSurfaceDragEnd: ((event: DragEvent) => void) | null = null;
     private onShadowCopy: EventListener | null = null;
     private readerBodyEl: HTMLElement | null = null;
     private onReaderBodyScroll: (() => void) | null = null;
@@ -136,6 +161,9 @@ export class ReaderPanel {
     private renderedAtomicElements: SelectedAtomicUnit[] = [];
     private commentSelectionSnapshot: ReaderCommentSelectionSnapshot | null = null;
     private activeCommentId: string | null = null;
+    private stickyDragBlockId: string | null = null;
+    private stickyResizeCleanup: (() => void) | null = null;
+    private stickyDragCleanup: (() => void) | null = null;
     private commentExportSettings: ReaderCommentExportSettings = createDefaultReaderCommentExportSettings();
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
     private state: ReaderPanelState = {
@@ -156,6 +184,9 @@ export class ReaderPanel {
         userPromptDisplay: formatReaderUserPromptDisplay(''),
         statusText: '',
         contentMaxWidthPx: 1000,
+        stickyOpen: false,
+        stickyWidthPx: STICKY_WIDTH_DEFAULT_PX,
+        stickyBlocks: [],
         options: {
             profile: 'conversation-reader',
             showNav: true,
@@ -263,6 +294,12 @@ export class ReaderPanel {
         });
 
         await this.renderCurrentContent();
+        if (this.state.options.profile === 'conversation-reader' && this.overlaySession) {
+            void showChangelogNoticeIfNeeded({
+                modalHost: this.overlaySession.modalHost,
+                loggerScope: 'ReaderPanel',
+            });
+        }
     }
 
     async appendItem(item: ReaderItem): Promise<void> {
@@ -312,6 +349,16 @@ export class ReaderPanel {
 
         session.syncBackdropDismiss(() => this.hide());
         session.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
+        this.onSurfacePointerDown = (event: PointerEvent) => this.handleSurfacePointerDown(event);
+        this.onSurfaceDragStart = (event: DragEvent) => this.handleSurfaceDragStart(event);
+        this.onSurfaceDragOver = (event: DragEvent) => this.handleSurfaceDragOver(event);
+        this.onSurfaceDrop = (event: DragEvent) => this.handleSurfaceDrop(event);
+        this.onSurfaceDragEnd = () => { this.stickyDragBlockId = null; };
+        session.surfaceRoot.addEventListener('pointerdown', this.onSurfacePointerDown);
+        session.surfaceRoot.addEventListener('dragstart', this.onSurfaceDragStart);
+        session.surfaceRoot.addEventListener('dragover', this.onSurfaceDragOver);
+        session.surfaceRoot.addEventListener('drop', this.onSurfaceDrop);
+        session.surfaceRoot.addEventListener('dragend', this.onSurfaceDragEnd);
 
         this.onKeyDown = (event: KeyboardEvent) => {
             if (event.defaultPrevented) return;
@@ -323,6 +370,10 @@ export class ReaderPanel {
             if (event.key === 'ArrowRight') {
                 event.preventDefault();
                 void this.go(1);
+                return;
+            }
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                this.scrollReaderBodyByKeyboard(event);
             }
         };
         session.host.addEventListener('keydown', this.onKeyDown);
@@ -347,6 +398,31 @@ export class ReaderPanel {
             this.overlaySession.host.removeEventListener('keydown', this.onKeyDown);
         }
         this.onKeyDown = null;
+        if (this.overlaySession?.surfaceRoot && this.onSurfacePointerDown) {
+            this.overlaySession.surfaceRoot.removeEventListener('pointerdown', this.onSurfacePointerDown);
+        }
+        if (this.overlaySession?.surfaceRoot && this.onSurfaceDragStart) {
+            this.overlaySession.surfaceRoot.removeEventListener('dragstart', this.onSurfaceDragStart);
+        }
+        if (this.overlaySession?.surfaceRoot && this.onSurfaceDragOver) {
+            this.overlaySession.surfaceRoot.removeEventListener('dragover', this.onSurfaceDragOver);
+        }
+        if (this.overlaySession?.surfaceRoot && this.onSurfaceDrop) {
+            this.overlaySession.surfaceRoot.removeEventListener('drop', this.onSurfaceDrop);
+        }
+        if (this.overlaySession?.surfaceRoot && this.onSurfaceDragEnd) {
+            this.overlaySession.surfaceRoot.removeEventListener('dragend', this.onSurfaceDragEnd);
+        }
+        this.onSurfacePointerDown = null;
+        this.onSurfaceDragStart = null;
+        this.onSurfaceDragOver = null;
+        this.onSurfaceDrop = null;
+        this.onSurfaceDragEnd = null;
+        this.stickyResizeCleanup?.();
+        this.stickyResizeCleanup = null;
+        this.stickyDragCleanup?.();
+        this.stickyDragCleanup = null;
+        this.stickyDragBlockId = null;
         if (this.onSelectionChange) document.removeEventListener('selectionchange', this.onSelectionChange);
         if (this.onPointerUp) document.removeEventListener('pointerup', this.onPointerUp);
         if (this.overlaySession?.shadow && this.onShadowCopy) {
@@ -423,9 +499,134 @@ export class ReaderPanel {
             case 'reader-open-conversation':
                 this.openConversation();
                 return;
+            case 'reader-sticky-toggle':
+                this.toggleStickyWorkspace();
+                return;
+            case 'reader-sticky-delete':
+                this.deleteStickyBlock(actionEl.dataset.stickyId ?? '');
+                return;
             default:
                 return;
         }
+    }
+
+    private handleSurfacePointerDown(event: PointerEvent): void {
+        const target = event.target as HTMLElement | null;
+        const dragHandle = target?.closest<HTMLElement>('[data-action="reader-sticky-drag"]');
+        if (dragHandle) {
+            this.startStickyPointerDrag(event, dragHandle.dataset.stickyId ?? '');
+            return;
+        }
+
+        const handle = target?.closest<HTMLElement>('[data-action="reader-sticky-resize"]');
+        if (!handle || !this.overlaySession) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const startX = event.clientX;
+        const startWidth = this.state.stickyWidthPx;
+        const panel = handle.closest<HTMLElement>('.reader-sticky-panel');
+
+        const onMove = (moveEvent: PointerEvent) => {
+            const nextWidth = this.clampStickyWidth(startWidth + moveEvent.clientX - startX);
+            this.state.stickyWidthPx = nextWidth;
+            panel?.style.setProperty('--_reader-sticky-width', `${nextWidth}px`);
+        };
+        const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            this.stickyResizeCleanup = null;
+            this.render();
+        };
+
+        this.stickyResizeCleanup?.();
+        this.stickyResizeCleanup = onUp;
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp, { once: true });
+    }
+
+    private startStickyPointerDrag(event: PointerEvent, sourceId: string): void {
+        if (!sourceId || !this.overlaySession) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.stickyDragCleanup?.();
+        this.stickyDragBlockId = sourceId;
+        this.setStickyDragState(sourceId, true);
+
+        const onMove = (moveEvent: PointerEvent) => {
+            if (!this.stickyDragBlockId) return;
+            moveEvent.preventDefault();
+            const target = this.findStickyBlockAtPointer(moveEvent.clientY);
+            const targetId = target?.dataset.stickyId ?? '';
+            if (!targetId || targetId === this.stickyDragBlockId) return;
+            this.reorderStickyBlock(this.stickyDragBlockId, targetId);
+            this.setStickyDragState(this.stickyDragBlockId, true);
+        };
+        const onEnd = () => {
+            const draggedId = this.stickyDragBlockId;
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onEnd);
+            document.removeEventListener('pointercancel', onEnd);
+            this.stickyDragCleanup = null;
+            this.stickyDragBlockId = null;
+            if (draggedId) this.setStickyDragState(draggedId, false);
+        };
+
+        this.stickyDragCleanup = onEnd;
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onEnd, { once: true });
+        document.addEventListener('pointercancel', onEnd, { once: true });
+    }
+
+    private findStickyBlockAtPointer(clientY: number): HTMLElement | null {
+        const blocks = Array.from(this.overlaySession?.surfaceRoot.querySelectorAll<HTMLElement>('[data-role="reader-sticky-block"]') ?? []);
+        return blocks.find((block) => {
+            const rect = block.getBoundingClientRect();
+            return clientY >= rect.top && clientY <= rect.bottom;
+        }) ?? null;
+    }
+
+    private setStickyDragState(id: string, dragging: boolean): void {
+        const block = Array.from(this.overlaySession?.surfaceRoot.querySelectorAll<HTMLElement>('[data-role="reader-sticky-block"]') ?? [])
+            .find((candidate) => candidate.dataset.stickyId === id);
+        if (!block) return;
+        if (dragging) {
+            block.dataset.dragging = '1';
+            return;
+        }
+        delete block.dataset.dragging;
+    }
+
+    private handleSurfaceDragStart(event: DragEvent): void {
+        const target = event.target as HTMLElement | null;
+        const handle = target?.closest<HTMLElement>('[data-action="reader-sticky-drag"]');
+        if (!handle) return;
+        const id = handle.dataset.stickyId ?? '';
+        if (!id) return;
+        this.stickyDragBlockId = id;
+        event.dataTransfer?.setData('text/plain', id);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    }
+
+    private handleSurfaceDragOver(event: DragEvent): void {
+        if (!this.stickyDragBlockId) return;
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest('[data-role="reader-sticky-block"]')) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+
+    private handleSurfaceDrop(event: DragEvent): void {
+        if (!this.stickyDragBlockId) return;
+        const target = event.target as HTMLElement | null;
+        const block = target?.closest<HTMLElement>('[data-role="reader-sticky-block"]');
+        const targetId = block?.dataset.stickyId ?? '';
+        const sourceId = event.dataTransfer?.getData('text/plain') || this.stickyDragBlockId;
+        this.stickyDragBlockId = null;
+        if (!sourceId || !targetId || sourceId === targetId) return;
+        event.preventDefault();
+        this.reorderStickyBlock(sourceId, targetId);
     }
 
     private async go(delta: number): Promise<void> {
@@ -495,8 +696,7 @@ export class ReaderPanel {
 
         try {
             button.disabled = true;
-            const markdown = await resolveContent(item.content);
-            const ok = await copyTextToClipboard(markdown);
+            const ok = await copyReaderItemMarkdownToClipboard(item);
             showEphemeralTooltip({
                 root: this.overlaySession?.shadow ?? document,
                 anchor: button,
@@ -505,6 +705,29 @@ export class ReaderPanel {
         } finally {
             button.disabled = false;
         }
+    }
+
+    private scrollReaderBodyByKeyboard(event: KeyboardEvent): void {
+        if (this.isEditableKeyboardTarget(event)) return;
+        const body = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        if (!body || body.scrollHeight <= body.clientHeight) return;
+
+        const direction = event.key === 'ArrowUp' ? -1 : 1;
+        const distance = Math.max(48, Math.round(body.clientHeight * 0.12));
+        event.preventDefault();
+        if (typeof body.scrollBy === 'function') {
+            body.scrollBy({ top: direction * distance, behavior: 'auto' });
+            return;
+        }
+        body.scrollTop += direction * distance;
+    }
+
+    private isEditableKeyboardTarget(event: KeyboardEvent): boolean {
+        const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+        const target = (path.find((node) => node instanceof HTMLElement) ?? event.target) as HTMLElement | null;
+        if (!(target instanceof HTMLElement)) return false;
+        if (target.isContentEditable) return true;
+        return !!target.closest('input, textarea, select, [contenteditable="true"]');
     }
 
     private async copyCodeBlock(button: HTMLElement): Promise<void> {
@@ -553,6 +776,7 @@ export class ReaderPanel {
 
         const currentBody = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-body');
         const scrollTop = preserveScrollTop ? currentBody?.scrollTop ?? 0 : 0;
+        this.state.stickyWidthPx = this.clampStickyWidth(this.state.stickyWidthPx);
 
         this.overlaySession.setSurfaceCss(getReaderPanelCss());
         const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
@@ -565,6 +789,10 @@ export class ReaderPanel {
                 index: this.state.index,
                 fullscreen: this.state.fullscreen,
                 contentMaxWidthPx: this.state.contentMaxWidthPx,
+                stickyEnabled: this.isStickyAvailable(),
+                stickyOpen: this.state.stickyOpen,
+                stickyWidthPx: this.state.stickyWidthPx,
+                stickyBlocks: this.state.stickyBlocks,
                 renderedHtml: this.state.renderedHtml,
                 outlineItems: this.state.outlineItems,
                 activeOutlineId: this.state.activeOutlineId,
@@ -684,8 +912,8 @@ export class ReaderPanel {
         dots.style.setProperty('--aimd-dot-size', '10px');
         dots.style.setProperty('--aimd-dot-gap', '10px');
 
-        const renderAllThreshold = 60;
-        if (total <= renderAllThreshold) {
+        const maxPageDots = 10;
+        if (total <= maxPageDots) {
             for (let index = 0; index < total; index += 1) {
                 dots.appendChild(this.createDot(index, index === activeIndex));
             }
@@ -693,29 +921,38 @@ export class ReaderPanel {
             return;
         }
 
-        const maxDots = 11;
-        const windowSize = Math.min(maxDots, total);
-        const half = Math.floor(windowSize / 2);
-        let start = Math.max(0, activeIndex - half);
-        let end = Math.min(total - 1, start + windowSize - 1);
-        start = Math.max(0, end - windowSize + 1);
+        const edgeDots = 3;
+        const middleDots = 4;
+        const appendDotRange = (start: number, end: number) => {
+            for (let index = start; index <= end; index += 1) {
+                dots.appendChild(this.createDot(index, index === activeIndex));
+            }
+        };
+        const appendGap = (leftEnd: number, rightStart: number) => {
+            if (leftEnd + 1 < rightStart) dots.appendChild(this.createEllipsis());
+        };
+        const middleStart = Math.max(0, Math.min(activeIndex - 1, total - middleDots));
+        const ranges = [
+            [0, edgeDots - 1],
+            [middleStart, middleStart + middleDots - 1],
+            [total - edgeDots, total - 1],
+        ]
+            .map(([start, end]) => [Math.max(0, start), Math.min(total - 1, end)] as [number, number])
+            .sort(([a], [b]) => a - b)
+            .reduce<Array<[number, number]>>((merged, range) => {
+                const previous = merged[merged.length - 1];
+                if (previous && range[0] <= previous[1] + 1) {
+                    previous[1] = Math.max(previous[1], range[1]);
+                } else {
+                    merged.push([...range]);
+                }
+                return merged;
+            }, []);
 
-        if (start > 0) {
-            dots.appendChild(this.createDot(0, activeIndex === 0));
-            if (start > 1) dots.appendChild(this.createEllipsis());
-        }
-
-        const loopStart = start > 0 ? start : 0;
-        const loopEnd = end < total - 1 ? end : total - 1;
-
-        for (let index = loopStart; index <= loopEnd; index += 1) {
-            dots.appendChild(this.createDot(index, index === activeIndex));
-        }
-
-        if (end < total - 1) {
-            if (end < total - 2) dots.appendChild(this.createEllipsis());
-            dots.appendChild(this.createDot(total - 1, activeIndex === total - 1));
-        }
+        ranges.forEach(([start, end], index) => {
+            if (index > 0) appendGap(ranges[index - 1][1], start);
+            appendDotRange(start, end);
+        });
 
         this.scrollActiveDotIntoView();
     }
@@ -795,6 +1032,83 @@ export class ReaderPanel {
         if (this.state.options.onOpenConversation) return true;
         const item = this.state.items[this.state.index];
         return Boolean(item?.meta?.url?.trim());
+    }
+
+    private isStickyAvailable(): boolean {
+        return this.state.options.profile === 'conversation-reader';
+    }
+
+    private clampStickyWidth(value: number): number {
+        return Math.max(STICKY_WIDTH_MIN_PX, Math.min(this.getStickyWidthMaxPx(), Math.round(value)));
+    }
+
+    private getStickyWidthMaxPx(): number {
+        const root = this.overlaySession?.surfaceRoot;
+        const bodyWrap = root?.querySelector<HTMLElement>('.reader-body-wrap');
+        const panel = root?.querySelector<HTMLElement>('.panel-window--reader');
+        const layoutWidth = bodyWrap?.getBoundingClientRect().width || panel?.getBoundingClientRect().width || 0;
+        if (layoutWidth > 0) {
+            return Math.max(STICKY_WIDTH_MIN_PX, Math.floor(layoutWidth * STICKY_WIDTH_MAX_RATIO));
+        }
+        return STICKY_WIDTH_FALLBACK_MAX_PX;
+    }
+
+    private toggleStickyWorkspace(): void {
+        if (!this.isStickyAvailable()) return;
+        this.state.stickyOpen = !this.state.stickyOpen;
+        this.render();
+    }
+
+    private addStickyBlock(sourceMarkdown: string): void {
+        const trimmed = sourceMarkdown.trim();
+        if (!this.isStickyAvailable() || !trimmed) return;
+        const rendered = renderMarkdownForReader(trimmed, {
+            softBreaks: true,
+            highlightCode: this.renderCodeInReader,
+        });
+        this.state.stickyBlocks = [
+            ...this.state.stickyBlocks,
+            {
+                id: `sticky-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                sourceMarkdown: trimmed,
+                renderedHtml: rendered.html,
+                createdAt: Date.now(),
+            },
+        ];
+        this.state.stickyOpen = true;
+        this.clearSelectionSnapshot();
+        this.render();
+    }
+
+    private deleteStickyBlock(id: string): void {
+        if (!id) return;
+        this.state.stickyBlocks = this.state.stickyBlocks.filter((block) => block.id !== id);
+        this.render();
+    }
+
+    private reorderStickyBlock(sourceId: string, targetId: string): void {
+        const sourceIndex = this.state.stickyBlocks.findIndex((block) => block.id === sourceId);
+        const targetIndex = this.state.stickyBlocks.findIndex((block) => block.id === targetId);
+        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+        const next = [...this.state.stickyBlocks];
+        const [block] = next.splice(sourceIndex, 1);
+        next.splice(targetIndex, 0, block!);
+        this.state.stickyBlocks = next;
+        this.render();
+    }
+
+    private clearSelectionSnapshot(): void {
+        this.state.selectionSourceText = '';
+        this.state.selectionExport = '';
+        this.state.selectedAtomicUnitIds = [];
+        this.commentSelectionSnapshot = null;
+        const markdownRoot = this.getMarkdownRoot();
+        if (markdownRoot) clearRenderedAtomicSelection(markdownRoot);
+        try {
+            window.getSelection()?.removeAllRanges();
+        } catch {
+            // ignore host selection cleanup failures
+        }
     }
 
     private getLabel(key: string, fallback: string, substitutions?: string | string[]): string {
@@ -988,7 +1302,9 @@ export class ReaderPanel {
         const overlay = this.getCommentOverlay();
         const buttonSize = this.getTokenSize('--aimd-size-control-icon-panel', 32);
         const gap = this.getTokenSize('--aimd-space-2', 8);
-        const actionWidth = (buttonSize * 2) + gap;
+        const showStickyAction = this.isStickyAvailable();
+        const actionCount = showStickyAction ? 3 : 2;
+        const actionWidth = (buttonSize * actionCount) + (gap * (actionCount - 1));
         const clampPadding = this.getTokenSize('--aimd-space-3', 12);
         const verticalGap = this.getTokenSize('--aimd-space-2', 8);
         const left = Math.max(0, Math.min(
@@ -1064,6 +1380,21 @@ export class ReaderPanel {
                 },
             });
         });
+        if (showStickyAction) {
+            const stickButton = document.createElement('button');
+            stickButton.className = 'icon-btn reader-comment-action__button';
+            stickButton.type = 'button';
+            stickButton.dataset.action = 'reader-selection-stick';
+            stickButton.setAttribute('aria-label', this.getLabel('readerStickyAction', 'Stick'));
+            stickButton.setAttribute('title', this.getLabel('readerStickyAction', 'Stick'));
+            stickButton.innerHTML = createIcon(pinIcon).outerHTML;
+            stickButton.addEventListener('click', () => {
+                this.addStickyBlock(selection.sourceMarkdown);
+            });
+            group.append(copyButton, commentButton, stickButton);
+            return group;
+        }
+
         group.append(copyButton, commentButton);
         return group;
     }

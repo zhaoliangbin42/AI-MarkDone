@@ -16,7 +16,7 @@ import {
     exportTurnsPdf,
     exportTurnsPng,
 } from '../../../services/export/saveMessagesFacade';
-import { collectReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
+import { collectFreshReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/icons';
 import { OverlaySession } from '../overlay/OverlaySession';
@@ -104,7 +104,7 @@ export class SaveMessagesDialog {
         this.adapter = adapter;
         this.state.theme = theme;
 
-        const { items } = await collectReaderContent(adapter, options?.startMessageElement ?? null, {
+        const { items } = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
             chatGptConversationEngine: options?.chatGptConversationEngine ?? null,
         });
         const turns = await readerItemsToChatTurns(items);

@@ -3,7 +3,7 @@ import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarks
 import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView';
 
 const baseSettings = {
-    version: 3,
+    version: 4,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
         showSaveMessages: true,
@@ -17,6 +17,7 @@ const baseSettings = {
         assetActions: {
             copyPng: true,
             copySvg: true,
+            copyMathml: true,
             savePng: true,
             saveSvg: true,
         },
@@ -214,6 +215,7 @@ describe('SettingsTabView', () => {
         expect(toggles.map((input) => input.dataset.role)).toEqual([
             'settings-formula-asset-action-copy-png',
             'settings-formula-asset-action-copy-svg',
+            'settings-formula-asset-action-copy-mathml',
             'settings-formula-asset-action-save-png',
             'settings-formula-asset-action-save-svg',
         ]);
@@ -224,6 +226,7 @@ describe('SettingsTabView', () => {
             assetActions: {
                 copyPng: false,
                 copySvg: true,
+                copyMathml: true,
                 savePng: true,
                 saveSvg: true,
             },
