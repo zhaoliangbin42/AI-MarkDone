@@ -104,7 +104,7 @@ export class SaveMessagesDialog {
         this.adapter = adapter;
         this.state.theme = theme;
 
-        const { items } = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
+        const { items, startIndex } = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
             chatGptConversationEngine: options?.chatGptConversationEngine ?? null,
         });
         const turns = await readerItemsToChatTurns(items);
@@ -112,7 +112,7 @@ export class SaveMessagesDialog {
         this.turns = turns;
         this.metadata = metadata;
         this.state.turnsCount = turns.length;
-        this.state.selected = new Set(turns.map((_, i) => i));
+        this.state.selected = this.getInitialSelectedTurns(turns.length, startIndex);
         this.state.format = 'markdown';
         this.state.saving = false;
         this.state.progressText = '';
@@ -278,6 +278,14 @@ export class SaveMessagesDialog {
     private selectAll(): void {
         this.state.selected = new Set(this.turns.map((_, i) => i));
         this.render();
+    }
+
+    private getInitialSelectedTurns(turnsCount: number, startIndex: number): Set<number> {
+        if (turnsCount <= 0) return new Set();
+        if (Number.isInteger(startIndex) && startIndex >= 0 && startIndex < turnsCount) {
+            return new Set([startIndex]);
+        }
+        return new Set([0]);
     }
 
     private deselectAll(): void {
