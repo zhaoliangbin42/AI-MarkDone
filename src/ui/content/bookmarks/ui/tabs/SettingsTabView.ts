@@ -11,7 +11,7 @@ import {
     THEME_ACCENT_SWATCHES,
     type ThemeAccentColor,
 } from '../../../../../core/settings/types';
-import { normalizeThemeAccentColor } from '../../../../../core/settings/migrations';
+import { normalizeChatGPTDirectorySettings, normalizeThemeAccentColor } from '../../../../../core/settings/migrations';
 import {
     MAX_PNG_EXPORT_PIXEL_RATIO,
     MAX_PNG_EXPORT_WIDTH,
@@ -54,6 +54,7 @@ export type SettingsTabViewActions = {
     setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<void> | void;
     setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
+    setChatGptBehaviorSettings?: (patch: Partial<AppSettings['chatgptBehavior']>) => Promise<void> | void;
     setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
@@ -118,6 +119,7 @@ type Refs = {
         pngPixelRatio: NumberFieldRef;
     };
     chatgptDirectory: {
+        restorePositionAfterSend: HTMLInputElement;
         enabled: HTMLInputElement;
         mode: SelectRef;
         promptLabelMode: HTMLInputElement;
@@ -231,7 +233,16 @@ export class SettingsTabView {
             'settings-export-pixel-ratio-value',
         );
 
-        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptDirectorySettingsLabel'));
+        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptSettingsLabel'));
+        const chatGptRestorePositionAfterSend = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptRestorePositionAfterSendLabel'),
+            t('chatgptRestorePositionAfterSendDesc'),
+        );
+        const chatGptDirectoryRetiredNotice = this.createNotice(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryRetiredNotice'),
+        );
         const chatGptDirectoryEnabled = this.createToggle(
             chatGptDirectoryGroup.body,
             t('chatgptDirectoryEnabledLabel'),
@@ -252,6 +263,10 @@ export class SettingsTabView {
             t('chatgptDirectoryPromptLabelModeLabel'),
             t('chatgptDirectoryPromptLabelModeDesc'),
         );
+        chatGptDirectoryRetiredNotice.dataset.role = 'settings-chatgpt-directory-retired-notice';
+        chatGptDirectoryEnabled.root.hidden = true;
+        chatGptDirectoryMode.root.hidden = true;
+        chatGptDirectoryPromptLabelMode.root.hidden = true;
 
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -341,6 +356,7 @@ export class SettingsTabView {
                 pngPixelRatio,
             },
             chatgptDirectory: {
+                restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
                 enabled: chatGptDirectoryEnabled.input,
                 mode: chatGptDirectoryMode,
                 promptLabelMode: chatGptDirectoryPromptLabelMode.input,
@@ -366,6 +382,7 @@ export class SettingsTabView {
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
+        this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
         this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
@@ -425,7 +442,8 @@ export class SettingsTabView {
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
             formula: this.normalizeFormulaSettings(params.settings.formula),
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
-            chatgptDirectory: { ...DEFAULT_SETTINGS.chatgptDirectory, ...params.settings.chatgptDirectory },
+            chatgptDirectory: normalizeChatGPTDirectorySettings(params.settings.chatgptDirectory),
+            chatgptBehavior: { ...DEFAULT_SETTINGS.chatgptBehavior, ...params.settings.chatgptBehavior },
             appearance: {
                 fontSizePx: this.normalizeGlobalFontSize(params.settings.appearance?.fontSizePx ?? DEFAULT_SETTINGS.appearance.fontSizePx),
                 accentColor: this.normalizeAccentColor(params.settings.appearance?.accentColor),
@@ -559,6 +577,11 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setExportSettings?.({ pngPixelRatio: raw });
         });
+        this.refs.chatgptDirectory.restorePositionAfterSend.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.restorePositionAfterSend.checked;
+            this.settings.chatgptBehavior.restorePositionAfterSend = next;
+            void this.actions.setChatGptBehaviorSettings?.({ restorePositionAfterSend: next });
+        });
         this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.enabled.checked;
             this.settings.chatgptDirectory.enabled = next;
@@ -606,6 +629,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
+        this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
         this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
@@ -622,6 +646,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.reader.renderCodeInReader);
         this.syncToggle(this.refs.reader.showOutlineInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
+        this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
         this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
 

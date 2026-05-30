@@ -126,9 +126,9 @@ describe('settingsService', () => {
         );
     });
 
-    it('writes scoped ChatGPT directory settings without restoring retired ChatGPT category', () => {
+    it('keeps the scoped ChatGPT directory retired even when stored settings request it', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptDirectory', {
-            enabled: false,
+            enabled: true,
             mode: 'expanded',
             promptLabelMode: 'headTail',
             showFoldDock: true,
@@ -139,6 +139,22 @@ describe('settingsService', () => {
 
         const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense', promptLabelMode: 'tail' }).next;
         expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
+    });
+
+    it('writes scoped ChatGPT restore-position behavior settings without restoring retired ChatGPT category', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
+            restorePositionAfterSend: true,
+            unrelated: true,
+        }).next;
+
+        expect(next.chatgptBehavior).toEqual({ restorePositionAfterSend: true });
+        expect(next).not.toHaveProperty('chatgpt');
+
+        const normalized = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            chatgptBehavior: undefined,
+        } as any);
+        expect(normalized.chatgptBehavior).toEqual({ restorePositionAfterSend: false });
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

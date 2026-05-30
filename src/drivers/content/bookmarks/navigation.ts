@@ -5,6 +5,7 @@ import {
     scrollToConversationTargetWithRetry,
     type ConversationLocator,
 } from '../conversation/navigation';
+import { releaseChatGPTSendPositionRestore } from '../chatgpt/sendPositionRestoreEvents';
 
 const NAV_KEY = 'aimd:bookmarkNavigate:v1';
 
@@ -113,6 +114,7 @@ function buildBookmarkTargetLocators(target: BookmarkNavigationTarget): Array<{ 
 
 function scrollElementIntoView(targetEl: HTMLElement, options?: { behavior?: ScrollBehavior; block?: ScrollLogicalPosition }): ScrollResult {
     if (typeof targetEl.scrollIntoView !== 'function') return { ok: false, message: 'Scroll target unavailable' };
+    releaseChatGPTSendPositionRestore();
     targetEl.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
     window.setTimeout(() => highlightElement(targetEl), 100);
     return { ok: true };

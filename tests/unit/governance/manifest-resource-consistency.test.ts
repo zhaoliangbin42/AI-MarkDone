@@ -8,7 +8,7 @@ type ChromeManifest = {
     icons?: Record<string, string>;
     action?: { default_icon?: Record<string, string> };
     background?: { service_worker?: string };
-    content_scripts?: Array<{ js?: string[]; run_at?: string }>;
+    content_scripts?: Array<{ js?: string[]; matches?: string[]; run_at?: string }>;
     web_accessible_resources?: Array<{ resources?: string[]; matches?: string[] }>;
 };
 
@@ -17,7 +17,7 @@ type Mv2Manifest = {
     icons?: Record<string, string>;
     browser_action?: { default_icon?: Record<string, string> };
     background?: { scripts?: string[] };
-    content_scripts?: Array<{ js?: string[]; run_at?: string }>;
+    content_scripts?: Array<{ js?: string[]; matches?: string[]; run_at?: string }>;
     web_accessible_resources?: string[];
 };
 
@@ -118,4 +118,5 @@ describe('manifest resource consistency', () => {
         expect(firefoxResources).not.toContain('content-early-main.js');
         expect(safariResources).not.toContain('content-early-main.js');
     });
+
 });

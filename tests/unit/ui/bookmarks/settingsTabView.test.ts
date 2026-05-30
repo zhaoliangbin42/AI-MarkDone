@@ -47,13 +47,16 @@ const baseSettings = {
         mode: 'preview',
         promptLabelMode: 'head',
     },
+    chatgptBehavior: {
+        restorePositionAfterSend: false,
+    },
     appearance: { fontSizePx: 16, accentColor: null },
     bookmarks: { sortMode: 'time-desc' },
     language: 'auto',
 } as any;
 
 describe('SettingsTabView', () => {
-    it('groups toolbar, formula, and export settings under page actions while keeping Reader and Directory separate', () => {
+    it('groups toolbar, formula, and export settings under page actions while keeping Reader and ChatGPT settings separate', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const view = new SettingsTabView({ modal });
         view.setState({
@@ -68,7 +71,7 @@ describe('SettingsTabView', () => {
             'platforms',
             'toolbarPageActionsSettingsLabel',
             'readerSettingsLabel',
-            'chatgptDirectorySettingsLabel',
+            'chatgptSettingsLabel',
             'settingsLanguageLabel',
             'dataAndStorage',
         ]);
@@ -84,9 +87,11 @@ describe('SettingsTabView', () => {
         expect(readerGroup.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeNull();
 
-        const directoryGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
-            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptDirectorySettingsLabel'))!;
-        expect(directoryGroup.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeTruthy();
+        const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptSettingsLabel'))!;
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-enabled"]')?.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
     });
 
     it('shows a platform retirement notice for non-ChatGPT adapters', () => {
@@ -123,7 +128,7 @@ describe('SettingsTabView', () => {
         expect(root.querySelector('[data-role="settings-folding-count"]')).toBeNull();
     });
 
-    it('wires ChatGPT directory settings to the scoped settings category', () => {
+    it('marks ChatGPT directory settings as retired without exposing active controls', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptDirectorySettings = vi.fn(async () => undefined);
 
@@ -137,29 +142,42 @@ describe('SettingsTabView', () => {
         });
 
         const root = view.getElement();
+        const notice = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-retired-notice"]')!;
         const enabled = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
         const mode = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-mode"]')!;
         const promptLabelMode = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-prompt-label-mode"]')!;
 
-        expect(enabled.checked).toBe(true);
-        expect(mode.textContent?.trim()).toBeTruthy();
+        expect(notice.textContent).toBe('chatgptDirectoryRetiredNotice');
+        expect(enabled.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
+        expect(mode.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
+        expect(promptLabelMode.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
+        expect(enabled.checked).toBe(false);
         expect(promptLabelMode.checked).toBe(false);
+        expect(onSetChatGptDirectorySettings).not.toHaveBeenCalled();
+    });
 
-        enabled.checked = false;
-        enabled.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(onSetChatGptDirectorySettings).toHaveBeenCalledWith({ enabled: false });
+    it('wires ChatGPT restore-position behavior to the scoped behavior category', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
 
-        mode.click();
-        root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="expanded"]')!.click();
-        expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ mode: 'expanded' });
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
 
-        promptLabelMode.checked = true;
-        promptLabelMode.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ promptLabelMode: 'headTail' });
+        const root = view.getElement();
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-restore-position-after-send"]')!;
 
-        promptLabelMode.checked = false;
-        promptLabelMode.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(onSetChatGptDirectorySettings).toHaveBeenLastCalledWith({ promptLabelMode: 'head' });
+        expect(toggle.checked).toBe(false);
+
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: true });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {

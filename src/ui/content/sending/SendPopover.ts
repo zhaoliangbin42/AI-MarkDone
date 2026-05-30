@@ -3,6 +3,7 @@ import type { ReaderCommentRecord } from '../../../services/reader/commentSessio
 import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { readComposer, writeComposer } from '../../../drivers/content/sending/composerPort';
+import { armChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
 import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { messageSquarePlusIcon, sendIcon, xIcon } from '../../../assets/icons';
@@ -453,6 +454,7 @@ export class SendPopover {
         this.setPending(true);
         this.setStatus(t('sendingStatus'));
         try {
+            armChatGPTSendPositionRestore();
             const res = await sendText(adapter, text, { focusComposer: true, timeoutMs: 3000 });
             if (!res.ok) {
                 this.setStatus(res.message || t('sendFailed'));

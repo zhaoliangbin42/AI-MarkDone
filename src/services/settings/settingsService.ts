@@ -5,6 +5,7 @@ import {
     loadAndNormalize,
     normalizeAppearanceSettings,
     normalizeBehaviorSettings,
+    normalizeChatGPTBehaviorSettings,
     normalizeChatGPTDirectorySettings,
     normalizeFormulaSettings,
     normalizeReaderContentMaxWidthPx,
@@ -107,6 +108,16 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                 ...cur,
                 chatgptDirectory: normalizeChatGPTDirectorySettings({
                     ...cur.chatgptDirectory,
+                    ...(isRecord(value) ? value : {}),
+                }),
+            };
+            return { next };
+        }
+        case 'chatgptBehavior': {
+            const next: AppSettings = {
+                ...cur,
+                chatgptBehavior: normalizeChatGPTBehaviorSettings({
+                    ...cur.chatgptBehavior,
                     ...(isRecord(value) ? value : {}),
                 }),
             };

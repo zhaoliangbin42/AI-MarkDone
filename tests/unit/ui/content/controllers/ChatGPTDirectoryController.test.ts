@@ -894,6 +894,34 @@ describe('ChatGPTDirectoryController', () => {
         expect(items).toHaveLength(2);
     });
 
+    it('does not reattach a stale rail when another controller already owns the connected rail', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const staleController = new ChatGPTDirectoryController(adapter, engine);
+        const currentController = new ChatGPTDirectoryController(adapter, engine);
+
+        try {
+            staleController.init('light');
+            await Promise.resolve();
+            const staleHost = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement;
+
+            currentController.init('light');
+            await Promise.resolve();
+            const currentHost = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement;
+
+            expect(currentHost).not.toBe(staleHost);
+            expect(staleHost.isConnected).toBe(false);
+
+            await (staleController as any).refresh();
+
+            expect(document.querySelectorAll('#aimd-chatgpt-directory-rail')).toHaveLength(1);
+            expect(document.getElementById('aimd-chatgpt-directory-rail')).toBe(currentHost);
+        } finally {
+            staleController.dispose();
+            currentController.dispose();
+        }
+    });
+
     it('does not synthesize user-round placeholders from assistant-only messages', () => {
         document.body.innerHTML = `
           <main>

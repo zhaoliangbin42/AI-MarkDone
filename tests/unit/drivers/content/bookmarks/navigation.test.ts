@@ -101,6 +101,8 @@ describe('bookmark navigation', () => {
         const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
         const message = document.createElement('div');
         const scrollIntoView = vi.fn();
+        const releaseListener = vi.fn();
+        window.addEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
         message.scrollIntoView = scrollIntoView;
         resolveConversationTarget.mockReturnValue({ ok: true, targetEl: message, turnIndex: 0 });
 
@@ -117,7 +119,9 @@ describe('bookmark navigation', () => {
             { getPlatformId: expect.any(Function) },
             { kind: 'messageId', messageId: 'msg-4' }
         );
+        expect(releaseListener).toHaveBeenCalledTimes(1);
         expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+        window.removeEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
     });
 
 });

@@ -919,9 +919,25 @@
         "message": "ChatGPT Directory",
         "description": "Message for chatgptDirectorySettingsLabel"
     },
+    "chatgptSettingsLabel": {
+        "message": "ChatGPT Settings",
+        "description": "Message for chatgptSettingsLabel"
+    },
+    "chatgptRestorePositionAfterSendLabel": {
+        "message": "Restore position after sending",
+        "description": "Message for chatgptRestorePositionAfterSendLabel"
+    },
+    "chatgptRestorePositionAfterSendDesc": {
+        "message": "When reading older messages, jump back to your reading position after ChatGPT moves to the bottom. This restores position quickly, but it is not a direct scroll block.",
+        "description": "Message for chatgptRestorePositionAfterSendDesc"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "Show ChatGPT directory",
         "description": "Message for chatgptDirectoryEnabledLabel"
+    },
+    "chatgptDirectoryRetiredNotice": {
+        "message": "The AI-MarkDone ChatGPT directory is temporarily unavailable because ChatGPT now provides a native conversation navigation surface.",
+        "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
         "message": "Show the right-side conversation directory on ChatGPT pages.",

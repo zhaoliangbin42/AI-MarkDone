@@ -1,6 +1,7 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { highlightElement, scrollToBookmarkTargetWithRetry, type ScrollResult } from '../../../drivers/content/bookmarks/navigation';
 import { collectConversationTurnRefs } from '../../../drivers/content/conversation/collectConversationTurnRefs';
+import { releaseChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
 
 export type ChatGPTSkeletonAnchor = {
     position: number;
@@ -77,6 +78,7 @@ function getAnchorTop(anchor: HTMLElement): number {
 }
 
 function scrollAnchor(anchor: HTMLElement): void {
+    releaseChatGPTSendPositionRestore();
     anchor.scrollIntoView({ behavior: 'auto', block: 'start' });
 }
 
@@ -156,6 +158,7 @@ export async function navigateChatGPTDirectoryTarget(
         return { ok: true };
     }
 
+    releaseChatGPTSendPositionRestore();
     return scrollToBookmarkTargetWithRetry(
         adapter,
         { position: target.position, messageId: target.messageId },

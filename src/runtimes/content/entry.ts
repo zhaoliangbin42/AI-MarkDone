@@ -19,6 +19,7 @@ import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
+import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
@@ -29,6 +30,8 @@ import { getPerfFlags, installLongTaskProbe, installPerfProbeGlobal } from '../.
 ensurePageTokens();
 installPerfProbeGlobal();
 installLongTaskProbe();
+
+const CHATGPT_DIRECTORY_SURFACE_ENABLED: boolean = false;
 
 const isDebugEnabled = () => {
     try {
@@ -55,11 +58,14 @@ if (adapter) {
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
-    const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
+    const chatGptDirectory = CHATGPT_DIRECTORY_SURFACE_ENABLED && adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
         ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
         : null;
     const viewportResizeSuspend = adapter.getPlatformId() === 'chatgpt'
         ? new ViewportResizeSuspendController()
+        : null;
+    const chatGptSendPositionRestore = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTSendPositionRestoreController(adapter)
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
@@ -110,9 +116,11 @@ if (adapter) {
     };
 
     const initChatGptIfNeeded = () => {
-        if (!chatGptConversationEngine || !chatGptDirectory) return;
+        if (!chatGptConversationEngine) return;
         viewportResizeSuspend?.init();
-        if (getPerfFlags().disableDirectory) {
+        chatGptSendPositionRestore?.init();
+        syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
+        if (!chatGptDirectory || getPerfFlags().disableDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
             chatGptConversationEngine.init();
             return;
@@ -133,6 +141,15 @@ if (adapter) {
         chatGptDirectory.setDisplayMode(next.mode === 'expanded' ? 'expanded' : 'preview');
         chatGptDirectory.setPromptLabelMode(next.promptLabelMode === 'headTail' ? 'headTail' : 'head');
         chatGptDirectory.setEnabled(Boolean(next.enabled));
+    };
+
+    const syncChatGptBehaviorSettings = (settings: typeof DEFAULT_SETTINGS.chatgptBehavior | undefined) => {
+        if (!chatGptSendPositionRestore) return;
+        const next = {
+            ...DEFAULT_SETTINGS.chatgptBehavior,
+            ...settings,
+        };
+        chatGptSendPositionRestore.setEnabled(Boolean(next.restorePositionAfterSend));
     };
 
     const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
@@ -165,6 +182,7 @@ if (adapter) {
         chatGptDirectory?.dispose();
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
+        chatGptSendPositionRestore?.dispose();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
@@ -186,6 +204,7 @@ if (adapter) {
         }
         const nextRuntimeEnabled = snap.settings.platforms?.[platformKey] ?? true;
         syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
+        syncChatGptBehaviorSettings(snap.settings.chatgptBehavior);
         if (nextRuntimeEnabled) enableRuntime();
         else disableRuntime();
         syncFormulaSettings(snap.settings.formula);

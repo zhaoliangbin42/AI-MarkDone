@@ -919,9 +919,25 @@
         "message": "ChatGPT 目录条",
         "description": "Message for chatgptDirectorySettingsLabel"
     },
+    "chatgptSettingsLabel": {
+        "message": "ChatGPT 设置",
+        "description": "Message for chatgptSettingsLabel"
+    },
+    "chatgptRestorePositionAfterSendLabel": {
+        "message": "发送后恢复阅读位置",
+        "description": "Message for chatgptRestorePositionAfterSendLabel"
+    },
+    "chatgptRestorePositionAfterSendDesc": {
+        "message": "阅读历史消息时，如果 ChatGPT 发送后跳到底部，会尽快跳回原来的阅读位置。这个功能是快速恢复位置，不是直接拦截滚动。",
+        "description": "Message for chatgptRestorePositionAfterSendDesc"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "显示 ChatGPT 目录条",
         "description": "Message for chatgptDirectoryEnabledLabel"
+    },
+    "chatgptDirectoryRetiredNotice": {
+        "message": "由于 ChatGPT 已经提供官方对话导航，AI-MarkDone 的 ChatGPT 目录条暂时下架。",
+        "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
         "message": "在 ChatGPT 对话页面显示右侧对话目录条。",

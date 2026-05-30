@@ -210,6 +210,13 @@ export class ChatGPTDirectoryController {
         if (this.rail) {
             const element = this.rail.getElement();
             if (!element.isConnected) {
+                const connectedRail = document.getElementById('aimd-chatgpt-directory-rail');
+                if (connectedRail && connectedRail !== element) {
+                    this.rail.dispose();
+                    this.rail = null;
+                    writeDebugState({ DirectoryHost: 'stale-disconnected' });
+                    return;
+                }
                 document.body.appendChild(element);
                 this.rail.setVisible(this.enabled);
                 writeDebugState({ DirectoryHost: 'reattached' });

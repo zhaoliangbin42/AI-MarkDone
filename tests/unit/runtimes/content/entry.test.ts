@@ -100,6 +100,16 @@ const viewportResizeSuspendCtor = vi.fn(function () {
         dispose: viewportResizeSuspendDispose,
     };
 });
+const sendPositionRestoreInit = vi.fn();
+const sendPositionRestoreDispose = vi.fn();
+const sendPositionRestoreSetEnabled = vi.fn();
+const sendPositionRestoreCtor = vi.fn(function () {
+    return {
+        init: sendPositionRestoreInit,
+        dispose: sendPositionRestoreDispose,
+        setEnabled: sendPositionRestoreSetEnabled,
+    };
+});
 const engineInit = vi.fn();
 const engineSubscribe = vi.fn();
 const engineGetSnapshot = vi.fn(async () => null);
@@ -197,6 +207,10 @@ vi.mock('@/ui/content/controllers/ViewportResizeSuspendController', () => ({
     ViewportResizeSuspendController: viewportResizeSuspendCtor,
 }));
 
+vi.mock('@/ui/content/controllers/ChatGPTSendPositionRestoreController', () => ({
+    ChatGPTSendPositionRestoreController: sendPositionRestoreCtor,
+}));
+
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
     ChatGPTConversationEngine: engineCtor,
 }));
@@ -282,7 +296,7 @@ describe('content runtime entry', () => {
         }));
     });
 
-    it('creates ChatGPT-only conversation engine and directory controller', async () => {
+    it('creates ChatGPT-only conversation engine without mounting the retired directory controller', async () => {
         adapterPlatformId = 'chatgpt';
         settingsGetCached.mockReturnValue({
             language: 'auto',
@@ -307,20 +321,24 @@ describe('content runtime entry', () => {
             },
             export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
             chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
+            chatgptBehavior: { restorePositionAfterSend: true },
             bookmarks: { sortMode: 'alpha-asc' },
         });
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
         expect(engineCtor).toHaveBeenCalledTimes(1);
-        expect(directoryCtor).toHaveBeenCalledTimes(1);
+        expect(directoryCtor).not.toHaveBeenCalled();
         expect(engineInit).toHaveBeenCalledTimes(1);
-        expect(directoryInit).toHaveBeenCalledTimes(1);
+        expect(directoryInit).not.toHaveBeenCalled();
         expect(viewportResizeSuspendCtor).toHaveBeenCalledTimes(1);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(1);
-        expect(directorySetEnabled).toHaveBeenCalledWith(false);
-        expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
-        expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
+        expect(sendPositionRestoreCtor).toHaveBeenCalledTimes(1);
+        expect(sendPositionRestoreInit).toHaveBeenCalledTimes(1);
+        expect(sendPositionRestoreSetEnabled).toHaveBeenCalledWith(true);
+        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directorySetDisplayMode).not.toHaveBeenCalled();
+        expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
     });
 
@@ -342,7 +360,7 @@ describe('content runtime entry', () => {
         expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
-    it('keeps the ChatGPT directory tied to scoped directory settings and platform runtime state', async () => {
+    it('keeps retired ChatGPT directory settings from mounting a directory surface', async () => {
         adapterPlatformId = 'chatgpt';
         document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
         vi.resetModules();
@@ -374,6 +392,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
+                chatgptBehavior: { restorePositionAfterSend: true },
                 bookmarks: { sortMode: 'alpha-asc' },
             },
         });
@@ -382,9 +401,11 @@ describe('content runtime entry', () => {
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
         expect(viewportResizeSuspendDispose).toHaveBeenCalledTimes(1);
-        expect(directorySetEnabled).toHaveBeenCalledWith(false);
-        expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
-        expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
+        expect(sendPositionRestoreDispose).toHaveBeenCalledTimes(1);
+        expect(directoryCtor).not.toHaveBeenCalled();
+        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directorySetDisplayMode).not.toHaveBeenCalled();
+        expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,
@@ -416,6 +437,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
+                chatgptBehavior: { restorePositionAfterSend: false },
                 bookmarks: { sortMode: 'alpha-asc' },
             },
         });
@@ -423,9 +445,12 @@ describe('content runtime entry', () => {
         expect(headerIconInit).toHaveBeenCalledTimes(2);
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
-        expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
-        expect(directorySetDisplayMode).toHaveBeenLastCalledWith('preview');
-        expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('head');
+        expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
+        expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
+        expect(directoryCtor).not.toHaveBeenCalled();
+        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directorySetDisplayMode).not.toHaveBeenCalled();
+        expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
         expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({

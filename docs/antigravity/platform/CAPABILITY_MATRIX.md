@@ -10,7 +10,7 @@
 
 | Platform | Status | Host patterns | Notable deltas |
 |:---|:---:|:---|:---|
-| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader 与右侧 conversation directory rail；保留 classic host 链接与权限一致性门禁。 |
+| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader；可选发送后恢复阅读位置；AI-MarkDone 右侧 conversation directory rail 暂时下架；保留 classic host 链接与权限一致性门禁。 |
 | Gemini | ⚠️ Retires in v4.5.0 | `gemini.google.com` | v4.3.0 仍构建校验；支持 Gemini-specific DOM 结构与 thought/noise 过滤。 |
 | Claude | ⚠️ Retires in v4.5.0 | `claude.ai` | v4.3.0 仍构建校验；支持 Claude action-row 缺席时的稳定注入与发送桥接。 |
 | DeepSeek | ⚠️ Retires in v4.5.0 | `chat.deepseek.com` | v4.3.0 仍构建校验；支持 DeepSeek DOM 结构、噪音过滤与消息入口。 |
@@ -28,8 +28,9 @@
   - Message toolbar / Reader / Markdown copy / Word count
   - Bookmarks panel / Settings tab / Sponsor tab
   - Send modal / Reader send / Export actions
-- 当前唯一明确的**平台专属**能力是：
-  - ChatGPT Conversation Directory / Payload Engine（仅 ChatGPT hosts）
+- 当前唯一明确的**平台专属**运行能力是：
+  - ChatGPT Payload Engine（仅 ChatGPT hosts）
+  - ChatGPT send position restore（仅 ChatGPT hosts，默认关闭）
 - 当前明确**不继续推进**的平台方向：
   - Gemini Deep Research（不纳入产品支持范围）
 
@@ -44,8 +45,8 @@
 | URL 匹配 | `chatgpt.com`, `chat.openai.com` |
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
-| 特殊处理 | payload/store-first Reader；右侧 conversation directory rail |
-| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；使用独立 `chatgptDirectory` 控制右侧目录条开关与 compact preview / expanded list 显示模式 |
+| 特殊处理 | payload/store-first Reader；可选发送后恢复阅读位置；右侧 conversation directory rail 暂时下架 |
+| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptDirectory` 仅保留兼容字段且 `enabled=false` |
 
 ### Gemini
 

@@ -76,13 +76,13 @@ describe('settings migrations', () => {
         expect(next).not.toHaveProperty('chatgpt');
     });
 
-    it('preserves the ChatGPT directory prompt label mode when normalizing stored settings', () => {
+    it('retains ChatGPT directory preferences but keeps the retired rail disabled', () => {
         const next = loadAndNormalize({
             version: 3,
             chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail' },
         } as any);
 
-        expect(next.chatgptDirectory).toEqual({ enabled: true, mode: 'expanded', promptLabelMode: 'headTail' });
+        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded', promptLabelMode: 'headTail' });
     });
 
     it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {

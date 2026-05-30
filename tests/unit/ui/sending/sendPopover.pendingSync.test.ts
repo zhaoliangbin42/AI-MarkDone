@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     sendText: vi.fn(),
+    armRestore: vi.fn(),
 }));
 
 vi.mock('../../../../src/services/sending/sendService', () => ({
     sendText: mocks.sendText,
+}));
+
+vi.mock('../../../../src/drivers/content/chatgpt/sendPositionRestoreEvents', () => ({
+    armChatGPTSendPositionRestore: mocks.armRestore,
 }));
 
 vi.mock('../../../../src/drivers/content/sending/composerPort', () => ({
@@ -50,6 +55,9 @@ describe('SendPopover send completion', () => {
         sendButton.click();
         await Promise.resolve();
         await Promise.resolve();
+
+        expect(mocks.sendText).toHaveBeenCalledWith(adapter, 'hello', { focusComposer: true, timeoutMs: 3000 });
+        expect(mocks.armRestore).toHaveBeenCalledBefore(mocks.sendText as any);
 
         vi.advanceTimersByTime(130);
         await Promise.resolve();

@@ -8,6 +8,10 @@ vi.mock('../../../../src/services/sending/sendService', () => {
     };
 });
 
+vi.mock('../../../../src/drivers/content/chatgpt/sendPositionRestoreEvents', () => ({
+    armChatGPTSendPositionRestore: vi.fn(),
+}));
+
 vi.mock('../../../../src/drivers/content/sending/composerPort', () => {
     return {
         readComposer: vi.fn(() => ({ ok: true, kind: 'textarea', text: 'from-composer' })),
@@ -102,5 +106,23 @@ describe('SendModal', () => {
 
         dialog.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.querySelector('.aimd-send-modal-host')).toBeNull();
+    });
+
+    it('arms ChatGPT position restore before sending to the native composer', async () => {
+        const { sendText } = await import('../../../../src/services/sending/sendService');
+        const { armChatGPTSendPositionRestore } = await import('../../../../src/drivers/content/chatgpt/sendPositionRestoreEvents');
+        const adapter = {
+            getComposerInputElement: () => document.createElement('textarea'),
+        } as any as SiteAdapter;
+        const modal = new SendModal();
+        modal.open({ adapter, theme: 'light', initialText: 'hello' });
+
+        const host = document.querySelector('.aimd-send-modal-host') as HTMLElement;
+        const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLButtonElement>('[data-action="send"]')!.click();
+        await Promise.resolve();
+
+        expect(armChatGPTSendPositionRestore).toHaveBeenCalledBefore(sendText as any);
+        expect(sendText).toHaveBeenCalledWith(adapter, 'hello', { focusComposer: true, timeoutMs: 3000 });
     });
 });

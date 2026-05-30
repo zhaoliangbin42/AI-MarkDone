@@ -69,9 +69,16 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         : DEFAULT_SETTINGS.chatgptDirectory.promptLabelMode;
 
     return {
-        enabled: Boolean((record as any).enabled ?? DEFAULT_SETTINGS.chatgptDirectory.enabled),
+        enabled: false,
         mode,
         promptLabelMode,
+    };
+}
+
+export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['chatgptBehavior'] {
+    const record = isRecord(value) ? value : {};
+    return {
+        restorePositionAfterSend: Boolean((record as any).restorePositionAfterSend ?? DEFAULT_SETTINGS.chatgptBehavior.restorePositionAfterSend),
     };
 }
 
@@ -136,6 +143,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         formula: normalizeFormulaSettings((stored as any).formula, stored.behavior),
         export: normalizeExportSettings((stored as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((stored as any).chatgptDirectory),
+        chatgptBehavior: normalizeChatGPTBehaviorSettings((stored as any).chatgptBehavior),
         appearance: normalizeAppearanceSettings((stored as any).appearance),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -184,6 +192,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
         formula: normalizeFormulaSettings(undefined, behavior),
         export: normalizeExportSettings(undefined),
         chatgptDirectory: normalizeChatGPTDirectorySettings(undefined),
+        chatgptBehavior: normalizeChatGPTBehaviorSettings(undefined),
         appearance: normalizeAppearanceSettings(undefined),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -221,6 +230,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         formula: normalizeFormulaSettings((rec as any).formula, behavior),
         export: normalizeExportSettings((rec as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((rec as any).chatgptDirectory),
+        chatgptBehavior: normalizeChatGPTBehaviorSettings((rec as any).chatgptBehavior),
         appearance: normalizeAppearanceSettings((rec as any).appearance),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,

@@ -401,6 +401,16 @@ export class BookmarksPanel {
                 };
                 await settingsClientRpc.setCategory('chatgptDirectory', patch);
             },
+            setChatGptBehaviorSettings: async (patch) => {
+                this.uiState.settings = {
+                    ...this.uiState.settings,
+                    chatgptBehavior: {
+                        ...this.uiState.settings.chatgptBehavior,
+                        ...patch,
+                    },
+                };
+                await settingsClientRpc.setCategory('chatgptBehavior', patch);
+            },
             setAppearanceSettings: async (patch) => {
                 this.uiState.settings = {
                     ...this.uiState.settings,

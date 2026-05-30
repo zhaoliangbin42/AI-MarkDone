@@ -6,8 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- ChatGPT: Added an optional Settings toggle to restore your reading position after sending a message from older conversation history. The restore guard only runs after an intentional send and stops on manual scrolling or explicit navigation.
+
 ### Changed
 - Save Messages now opens with only the current message selected by default instead of selecting every message in the conversation.
+- ChatGPT: Temporarily retired the AI-MarkDone right-side directory rail because ChatGPT now provides native conversation navigation; Reader locate and bookmark navigation still use the shared positioning helper.
 
 ## [4.4.6] - 2026-05-28
 ### Fixed
