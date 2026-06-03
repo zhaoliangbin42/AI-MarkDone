@@ -37,6 +37,7 @@
   - 初始化 theme、math click、reader、send controller
   - 初始化 bookmarks panel 与 message toolbar orchestrator
   - 监听 background 发来的 `ui:toggle_toolbar`
+  - 启动后向 background 发送一次 `content:ready`，让长时间休眠/恢复后的 service worker 能重新识别当前 ChatGPT tab
   - 处理 best-effort 的书签跳转恢复
 
 ### Background runtime
@@ -45,7 +46,7 @@
 - 当前职责：
   - 响应 content 发起的 protocol request
   - 路由到 bookmarks handler / settings handler
-  - 处理 action icon 状态
+  - 处理 action icon 状态，并对已关闭、discard/freeze 恢复中、content script 暂不可达的 tab 做 best-effort 静默降级
   - 在启动时执行 best-effort journal recovery
 
 ---
@@ -63,6 +64,7 @@
 - request id `id`
 - type-based request/response
 - 统一错误码
+- ChatGPT content runtime 通过 `content:ready` 进行轻量恢复握手；extension action click 使用 `ping -> ui:toggle_toolbar`，不保活 MV3 service worker，也不新增动态注入权限
 
 当前协议语义说明已经以 `docs/architecture/RUNTIME_PROTOCOL.md` 为权威；阅读时应以它和 `src/contracts/protocol.ts` 共同作为当前真相。
 

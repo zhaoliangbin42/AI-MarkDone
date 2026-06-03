@@ -1,8 +1,9 @@
-import { PROTOCOL_VERSION, isExtRequest, type ExtResponse } from '../../contracts/protocol';
+import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtResponse, type ExtRequest } from '../../contracts/protocol';
 import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNotice } from './handlers/bookmarks';
 import { handleCloudBackupRequest } from './handlers/cloudBackup';
 import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
+import { logger } from '../../core/logger';
 
 function extractSupportedHostPatterns(): string[] {
     const runtime = browserCompat.runtime;
@@ -34,22 +35,62 @@ function isSupportedUrl(url?: string): boolean {
     }
 }
 
+function isBenignTabLifecycleError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return [
+        'No tab with id',
+        'Receiving end does not exist',
+        'Could not establish connection',
+        'The tab was closed',
+        'Extension context invalidated',
+    ].some((pattern) => message.includes(pattern));
+}
+
+async function safeTabOperation(label: string, operation: () => unknown): Promise<boolean> {
+    try {
+        await Promise.resolve(operation());
+        return true;
+    } catch (error) {
+        if (!isBenignTabLifecycleError(error)) {
+            logger.debug(`[AI-MarkDone][Background] ${label} failed`, error);
+        }
+        return false;
+    }
+}
+
+async function safeGetTab(tabId: number): Promise<{ id?: number; url?: string } | null> {
+    try {
+        return await Promise.resolve(browserCompat.tabs?.get?.(tabId)) as { id?: number; url?: string } | null;
+    } catch (error) {
+        if (!isBenignTabLifecycleError(error)) {
+            logger.debug('[AI-MarkDone][Background] tabs.get failed', error);
+        }
+        return null;
+    }
+}
+
+async function safeSendTabMessage(tabId: number, request: ExtRequest): Promise<boolean> {
+    return safeTabOperation(`tabs.sendMessage:${request.type}`, () => browserCompat.tabs?.sendMessage?.(tabId, request));
+}
+
 async function updateActionState(tabId: number, url?: string) {
     const action = browserCompat.action;
     if (!action) return;
 
     if (isSupportedUrl(url)) {
-        await action.setIcon?.({
+        const iconUpdated = await safeTabOperation('action.setIcon:supported', () => action.setIcon?.({
             tabId,
             path: { '16': 'icons/icon16.png', '48': 'icons/icon48.png', '128': 'icons/icon128.png' }
-        } as any);
-        await action.setPopup?.({ tabId, popup: '' } as any);
+        } as any));
+        if (!iconUpdated) return;
+        await safeTabOperation('action.setPopup:supported', () => action.setPopup?.({ tabId, popup: '' } as any));
     } else {
-        await action.setIcon?.({
+        const iconUpdated = await safeTabOperation('action.setIcon:unsupported', () => action.setIcon?.({
             tabId,
             path: { '16': 'icons/icon16_gray.png', '48': 'icons/icon48_gray.png', '128': 'icons/icon128_gray.png' }
-        } as any);
-        await action.setPopup?.({ tabId, popup: 'src/popup/popup.html' } as any);
+        } as any));
+        if (!iconUpdated) return;
+        await safeTabOperation('action.setPopup:unsupported', () => action.setPopup?.({ tabId, popup: 'src/popup/popup.html' } as any));
     }
 }
 
@@ -79,23 +120,39 @@ recoverJournalIfAny(Date.now()).catch(() => {
 
 if (tabs?.onUpdated?.addListener) {
     tabs.onUpdated.addListener((tabId: number, changeInfo: { status?: string; url?: string }, tab: { url?: string }) => {
-        if (changeInfo.status === 'complete' || changeInfo.url) updateActionState(tabId, tab.url);
+        if (changeInfo.status === 'complete' || changeInfo.url) void updateActionState(tabId, tab.url);
     });
     tabs.onActivated?.addListener?.(async (activeInfo: { tabId: number }) => {
-        const tab = await tabs.get(activeInfo.tabId);
-        updateActionState(activeInfo.tabId, tab.url);
+        const tab = await safeGetTab(activeInfo.tabId);
+        if (tab) void updateActionState(activeInfo.tabId, tab.url);
     });
-    action?.onClicked?.addListener?.((tab: { id?: number }) => {
+    action?.onClicked?.addListener?.(async (tab: { id?: number; url?: string }) => {
         if (!tab.id) return;
-        tabs.sendMessage(tab.id, { v: PROTOCOL_VERSION, id: `click_${Date.now()}`, type: 'ui:toggle_toolbar' });
+        if (!isSupportedUrl(tab.url)) {
+            void updateActionState(tab.id, tab.url);
+            return;
+        }
+        const pingOk = await safeSendTabMessage(tab.id, { v: PROTOCOL_VERSION, id: createRequestId(), type: 'ping' });
+        if (!pingOk) return;
+        await safeSendTabMessage(tab.id, { v: PROTOCOL_VERSION, id: createRequestId(), type: 'ui:toggle_toolbar' });
     });
 }
 
-runtime?.onMessage?.addListener?.((msg: unknown, _sender: any, sendResponse: (r: ExtResponse) => void) => {
+runtime?.onMessage?.addListener?.((msg: unknown, sender: any, sendResponse: (r: ExtResponse) => void) => {
     if (!isExtRequest(msg)) return;
     if (msg.v !== PROTOCOL_VERSION) return;
     if (msg.type === 'ping') {
         sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { pong: true } });
+        return true;
+    }
+    if (msg.type === 'content:ready') {
+        const tabId = typeof sender?.tab?.id === 'number' ? sender.tab.id : null;
+        if (tabId === null) {
+            sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { ready: false } });
+            return true;
+        }
+        void updateActionState(tabId, sender?.tab?.url ?? msg.payload.url);
+        sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { ready: true } });
         return true;
     }
 

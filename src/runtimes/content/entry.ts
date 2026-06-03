@@ -4,7 +4,7 @@ import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
-import { isExtRequest } from '../../contracts/protocol';
+import { PROTOCOL_VERSION, createRequestId, isExtRequest } from '../../contracts/protocol';
 import { ensurePageTokens } from '../../style/pageTokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
@@ -236,8 +236,12 @@ if (adapter) {
         chatGptDirectory?.setTheme(theme);
     });
 
-    browser.runtime.onMessage.addListener((msg: unknown) => {
+    browser.runtime.onMessage.addListener((msg: unknown, _sender: unknown, sendResponse?: (response: unknown) => void) => {
         if (!isExtRequest(msg)) return;
+        if (msg.type === 'ping') {
+            sendResponse?.({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { pong: true } });
+            return true;
+        }
         if (msg.type === 'ui:toggle_toolbar') {
             void bookmarksPanel.toggle();
         }
@@ -256,6 +260,17 @@ if (adapter) {
             ? navigateChatGPTDirectoryTarget(adapter, pending, { timeoutMs: 8000, intervalMs: 200 })
             : scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
         void pendingNavigation;
+    }
+
+    if (adapter.getPlatformId() === 'chatgpt') {
+        void browser.runtime.sendMessage({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'content:ready',
+            payload: { platform: 'chatgpt', url: window.location.href },
+        }).catch(() => {
+            // Background may be unavailable during extension reload or tab teardown; the next page lifecycle will retry.
+        });
     }
 }
 

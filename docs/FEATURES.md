@@ -20,7 +20,7 @@
 |---|---|---|
 | Platform support policy | Capability behavior is defined here, support level lives in `CAPABILITY_MATRIX.md` | 把“产品能力”与“平台支持状态”分开治理，减少文档职责混叠。 |
 | UI entrypoints | **No global toolbar** (remove `RewriteToolbar`) | 减少注入点与 UI 干扰；聚焦“每条消息工具栏 + ReaderPanel”。 |
-| Action icon click | Background sends `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 先用扩展图标作为稳定入口（无需额外注入点）；后续再评估页面内入口模块化实现。 |
+| Action icon click | Background sends `ping` → `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 扩展图标作为稳定入口；点击前先轻量确认当前 ChatGPT tab 的 content script 可达，失效 tab 静默降级，页面恢复后通过 `content:ready` 重新接回。 |
 | Per-message toolbar placement | Official action bar row only; no content fallback | 避免把官方工具栏挤到下方；官方 action row 缺失时不注入，等待后续 DOM 信号重扫。 |
 | Injection algorithm | MO as signal + debounced scan + ChatGPT message lifecycle reconcile + targeted stale recovery + route rebind | SPA/React 更稳定；message 可先出现、官方 action bar 后补出现，ChatGPT 可归属的 action-row hydration 只推进对应消息状态；若某条消息在官网 hydration / network jitter 窗口进入 `anchor_pending` 或 `stale`，只对该消息做递增退避的 incremental reconcile，避免失败一次后必须刷新网页；整页重扫仅保留给 init、route change、observer rebind 或无法归属的异常结构。 |
 | LaTeX click-to-copy | Enabled by default; configurable from Settings `Formula` | 功能性优先，同时允许用户按公式工作流关闭 Markdown 点击复制；公式 PNG/SVG/MathML 悬浮动作默认关闭，可在 Settings 中按需启用。 |
@@ -124,7 +124,7 @@
 
 | Capability | Entry / API | Key files | Tests | Acceptance |
 |---|---|---|---|---|
-| Toggle panel via extension icon | Background action click → `ui:toggle_toolbar` → Content toggles panel | `src/runtimes/background/entry.ts`, `src/runtimes/content/entry.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | manual | 在支持书签面板的平台页面点击扩展图标可打开/关闭面板。 |
+| Toggle panel via extension icon | Background action click → `ping` → `ui:toggle_toolbar`; content startup → `content:ready` | `src/runtimes/background/entry.ts`, `src/runtimes/content/entry.ts`, `src/ui/content/bookmarks/BookmarksPanel.ts` | `tests/unit/runtimes/background/entry.changelogNotice.test.ts`, `tests/unit/runtimes/content/entry.test.ts` | 在支持书签面板的平台页面点击扩展图标可打开/关闭面板；长时间休眠或 tab 恢复后的失效消息不产生 unchecked runtime error。 |
 | List/search/sort/filter bookmarks | Panel controls → view model | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts`, `src/services/bookmarks/panelModel.ts` | `tests/unit/services/bookmarks/panelModel.test.ts` | 面板内可搜索、排序，列表可读且不污染宿主样式。 |
 | Folder tree + CRUD | Panel buttons → `bookmarks:folders:*` | `src/ui/content/bookmarks/BookmarksPanel.ts`, `src/ui/content/bookmarks/BookmarksPanelController.ts` | manual | 文件夹可创建/重命名/移动/删除（删除需要空文件夹约束）。 |
 | Preview (reuse ReaderPanel) | Click bookmark row → `ReaderPanel.show(items, startIndex, theme, { profile: 'bookmark-preview' })` | `src/ui/content/bookmarks/ui/tabs/BookmarksTabView.ts`, `src/ui/content/reader/ReaderPanel.ts` | manual | 分页范围沿用 legacy：有搜索词→按树顺序翻“全部可见书签”；无搜索词→仅在该 folder 内翻页。 |

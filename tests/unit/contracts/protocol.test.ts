@@ -27,4 +27,27 @@ describe('protocol', () => {
             payload: { provider: 'googleDrive' },
         })).toBe(true);
     });
+
+    it('accepts a valid content ready handshake and rejects malformed payloads', () => {
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'content:ready',
+            payload: { platform: 'chatgpt', url: 'https://chatgpt.com/c/mock' },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'content:ready',
+            payload: { platform: 'gemini', url: 'https://gemini.google.com/app' },
+        })).toBe(false);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'content:ready',
+            payload: { platform: 'chatgpt' },
+        })).toBe(false);
+    });
 });

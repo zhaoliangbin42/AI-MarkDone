@@ -130,9 +130,11 @@ export type CloudBackupDeleteSnapshotPayload = { provider: CloudBackupProviderId
 
 export type SettingsGetCategoryPayload = { category: SettingsCategory };
 export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
+export type ContentReadyPayload = { platform: 'chatgpt'; url: string };
 
 export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'ping' }
+    | { v: ProtocolVersion; id: RequestId; type: 'content:ready'; payload: ContentReadyPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'ui:toggle_toolbar' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getAll' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
@@ -187,6 +189,7 @@ export function isExtRequest(value: unknown): value is ExtRequest {
 
     const allowedTypes = new Set<string>([
         'ping',
+        'content:ready',
         'ui:toggle_toolbar',
         'settings:getAll',
         'settings:getCategory',
@@ -223,5 +226,15 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'cloudBackup:deleteSnapshot',
     ]);
 
-    return allowedTypes.has(type);
+    if (!allowedTypes.has(type)) return false;
+    if (type === 'content:ready') {
+        const payload = rec.payload;
+        if (typeof payload !== 'object' || payload === null) return false;
+        const readyPayload = payload as Record<string, unknown>;
+        return readyPayload.platform === 'chatgpt'
+            && typeof readyPayload.url === 'string'
+            && readyPayload.url.trim().length > 0;
+    }
+
+    return true;
 }

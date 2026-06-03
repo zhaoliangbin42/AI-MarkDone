@@ -125,6 +125,7 @@ const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
 const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
 const addListener = vi.fn();
+const runtimeSendMessage = vi.fn(async () => ({ ok: true }));
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
 
 let adapterPlatformId = 'chatgpt';
@@ -163,6 +164,7 @@ vi.mock('@/drivers/shared/browser', () => ({
                     addListener(listener);
                 },
             },
+            sendMessage: runtimeSendMessage,
         },
     },
 }));
@@ -251,6 +253,25 @@ describe('content runtime entry', () => {
         expect(engineCtor).not.toHaveBeenCalled();
         expect(directoryCtor).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeUndefined();
+        expect(runtimeSendMessage).not.toHaveBeenCalled();
+    });
+
+    it('announces a ChatGPT content ready handshake once after runtime setup', async () => {
+        adapterPlatformId = 'chatgpt';
+        Object.defineProperty(window, 'location', {
+            value: new URL('https://chatgpt.com/c/mock'),
+            configurable: true,
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+
+        expect(runtimeSendMessage).toHaveBeenCalledTimes(1);
+        expect(runtimeSendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            v: 1,
+            type: 'content:ready',
+            payload: { platform: 'chatgpt', url: 'https://chatgpt.com/c/mock' },
+        }));
     });
 
     it('maps cached appearance accent color into runtime theme overrides', async () => {
