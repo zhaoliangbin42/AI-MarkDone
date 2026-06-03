@@ -18,5 +18,13 @@ describe('protocol', () => {
         const badType = { v: PROTOCOL_VERSION, id: createRequestId(), type: 'nope' };
         expect(isExtRequest(badType)).toBe(false);
     });
-});
 
+    it('accepts the Google Drive backup diagnostics request', () => {
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'cloudBackup:diagnostics',
+            payload: { provider: 'googleDrive' },
+        })).toBe(true);
+    });
+});

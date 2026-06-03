@@ -45,6 +45,7 @@ import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from 
 import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 import { FormulaAssetSettingsPopover } from '../popovers/FormulaAssetSettingsPopover';
+import { CloudBackupSettingsPanel, type CloudBackupSettingsPanelActions } from '../cloudBackup/CloudBackupSettingsPanel';
 
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
@@ -58,6 +59,7 @@ export type SettingsTabViewActions = {
     setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
+    cloudBackup?: CloudBackupSettingsPanelActions;
 };
 
 type SelectRef = {
@@ -276,8 +278,32 @@ export class SettingsTabView {
             { value: 'zh_CN', label: t('languageZhCN') },
         ], 'language');
 
-        // Data & storage group (legacy shows storage usage + export)
-        const storageGroup = this.createGroup(Icons.database, t('dataAndStorage'));
+        // Data management group (Google Drive backup + local backup/export)
+        const storageGroup = this.createSection(Icons.database, t('dataManagement'));
+        const googleDriveBackupCard = document.createElement('section');
+        googleDriveBackupCard.className = 'settings-data-card';
+        googleDriveBackupCard.dataset.role = 'settings-google-drive-backup-card';
+        const googleDriveBackupTitle = document.createElement('h4');
+        googleDriveBackupTitle.className = 'settings-data-card__title';
+        googleDriveBackupTitle.textContent = `${t('googleDriveBackupCardTitle')} (${t('cloudBackupExperimentalLabel')})`;
+        googleDriveBackupCard.appendChild(googleDriveBackupTitle);
+        if (this.actions.cloudBackup) {
+            const cloudBackup = new CloudBackupSettingsPanel({
+                modal: this.modal,
+                actions: this.actions.cloudBackup,
+            });
+            googleDriveBackupCard.appendChild(cloudBackup.getElement());
+        }
+        storageGroup.body.appendChild(googleDriveBackupCard);
+
+        const backupCard = document.createElement('section');
+        backupCard.className = 'settings-data-card';
+        backupCard.dataset.role = 'settings-data-backup-card';
+        const backupTitle = document.createElement('h4');
+        backupTitle.className = 'settings-data-card__title';
+        backupTitle.textContent = t('localBackupCardTitle');
+        backupCard.appendChild(backupTitle);
+
         const storageInfo = document.createElement('div');
         storageInfo.className = 'settings-storage-info';
         storageInfo.innerHTML = `
@@ -289,23 +315,27 @@ export class SettingsTabView {
               <div class="storage-fill storage-progress-bar" data-field="storage_bar" style="width: 0%"></div>
             </div>
         `;
-        storageGroup.body.appendChild(storageInfo);
+        backupCard.appendChild(storageInfo);
 
         const backup = document.createElement('div');
-        backup.className = 'settings-backup-warning';
-        backup.innerHTML = `
-          <div class="settings-item-info">
-            <span class="settings-item-label">${t('backupTitle')}</span>
-            <span class="settings-item-warning-text">${t('backupWarning')}</span>
-          </div>
-        `;
+        backup.className = 'settings-row settings-item settings-backup-warning';
+        backup.dataset.role = 'settings-local-backup-row';
+        const backupInfo = document.createElement('div');
+        backupInfo.className = 'settings-label settings-item-info';
+        const backupLabel = document.createElement('strong');
+        backupLabel.textContent = t('localBackupTitle');
+        const backupDesc = document.createElement('p');
+        backupDesc.textContent = t('backupWarning');
+        backupInfo.append(backupLabel, backupDesc);
         const exportBtn = document.createElement('button');
         exportBtn.type = 'button';
-        exportBtn.className = 'export-backup-btn';
+        exportBtn.className = 'secondary-btn';
+        exportBtn.dataset.role = 'settings-export-all-bookmarks';
         exportBtn.innerHTML = `${Icons.download} ${t('exportAllBtn')}`;
         exportBtn.addEventListener('click', () => void this.actions.exportAllBookmarks?.());
-        backup.appendChild(exportBtn);
-        storageGroup.body.appendChild(backup);
+        backup.append(backupInfo, exportBtn);
+        backupCard.appendChild(backup);
+        storageGroup.body.appendChild(backupCard);
 
         const advancedGroup = this.createAdvancedSettingsGroup();
 
@@ -672,6 +702,18 @@ export class SettingsTabView {
         h.className = 'card-title settings-group-title';
         h.innerHTML = `${icon}<span>${title}</span>`;
         const body = document.createElement('div');
+        root.append(h, body);
+        return { root, body };
+    }
+
+    private createSection(icon: string, title: string): { root: HTMLElement; body: HTMLElement } {
+        const root = document.createElement('section');
+        root.className = 'settings-section settings-group';
+        const h = document.createElement('h3');
+        h.className = 'card-title settings-group-title';
+        h.innerHTML = `${icon}<span>${title}</span>`;
+        const body = document.createElement('div');
+        body.className = 'settings-section-body';
         root.append(h, body);
         return { root, body };
     }

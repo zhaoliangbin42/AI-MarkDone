@@ -5,13 +5,41 @@ import { extensionMeta } from '../../../config/extension/meta';
 import { extensionAssets } from '../../../config/extension/assets';
 import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 import { extensionTargets } from '../../../config/extension/targets';
-import { buildManifest } from '../../../scripts/generate-manifest';
+import { GOOGLE_DRIVE_FILE_SCOPE, cloudBackupTargets } from '../../../config/extension/cloudBackup';
+import { CHROME_WEB_STORE_EXTENSION_ID, CHROME_WEB_STORE_PUBLIC_KEY } from '../../../config/extension/chromeWebStore';
+import { buildManifest, deriveChromeExtensionIdFromManifestKey } from '../../../scripts/generate-manifest';
 
 function readJson<T>(file: string): T {
     return JSON.parse(readFileSync(resolve(process.cwd(), file), 'utf-8')) as T;
 }
 
 describe('extension manifest generation', () => {
+    const originalGoogleClientId = process.env.AIMD_GOOGLE_CLIENT_ID;
+    const originalChromeExtensionKey = process.env.AIMD_CHROME_EXTENSION_KEY;
+    const mismatchChromeExtensionKey = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAj/u/XDdjlDyw7gHEtaaasZ9GdG8WOKAyJzXd8HFrDtz2Jcuy7er7MtWvHgNDA0bwpznbI5YdZeV4UfCEsA4SrA5b3MnWTHwA1bgbiDM+L9rrqvcadcKuOlTeN48Q0ijmhHlNFbTzvT9W0zw/GKv8LgXAHggxtmHQ/Z9PP2QNF5O8rUHHSL4AJ6hNcEKSBVSmbbjeVm4gSXDuED5r0nwxvRtupDxGYp8IZpP5KlExqNu1nbkPc+igCTIB6XsqijagzxewUHCdovmkb2JNtskx/PMIEv+TvWIx2BzqGp71gSh/dV7SJ3rClvWd2xj8dtxG8FfAWDTIIi0qZXWn2QhizQIDAQAB';
+
+    function withGoogleClientId<T>(value: string | undefined, fn: () => T): T {
+        if (value === undefined) delete process.env.AIMD_GOOGLE_CLIENT_ID;
+        else process.env.AIMD_GOOGLE_CLIENT_ID = value;
+        try {
+            return fn();
+        } finally {
+            if (originalGoogleClientId === undefined) delete process.env.AIMD_GOOGLE_CLIENT_ID;
+            else process.env.AIMD_GOOGLE_CLIENT_ID = originalGoogleClientId;
+        }
+    }
+
+    function withChromeExtensionKey<T>(value: string | undefined, fn: () => T): T {
+        if (value === undefined) delete process.env.AIMD_CHROME_EXTENSION_KEY;
+        else process.env.AIMD_CHROME_EXTENSION_KEY = value;
+        try {
+            return fn();
+        } finally {
+            if (originalChromeExtensionKey === undefined) delete process.env.AIMD_CHROME_EXTENSION_KEY;
+            else process.env.AIMD_CHROME_EXTENSION_KEY = originalChromeExtensionKey;
+        }
+    }
+
     it('keeps package metadata and generated target manifests aligned', () => {
         const pkg = readJson<{ version: string }>('package.json');
 
@@ -28,9 +56,92 @@ describe('extension manifest generation', () => {
     });
 
     it('preserves current chrome and firefox manifest semantics', () => {
-        expect(buildManifest('chrome')).toEqual(readJson('manifest.chrome.json'));
-        expect(buildManifest('firefox')).toEqual(readJson('manifest.firefox.json'));
-        expect(buildManifest('safari')).toEqual(readJson('manifest.safari.json'));
+        withGoogleClientId(undefined, () => {
+            expect(buildManifest('chrome')).toEqual(readJson('manifest.chrome.json'));
+            expect(buildManifest('firefox')).toEqual(readJson('manifest.firefox.json'));
+            expect(buildManifest('safari')).toEqual(readJson('manifest.safari.json'));
+        });
+    });
+
+    it('injects the configured Google Drive OAuth manifest only into Chrome', () => {
+        withGoogleClientId(undefined, () => {
+            const chrome = buildManifest('chrome') as any;
+            const firefox = buildManifest('firefox') as any;
+            const safari = buildManifest('safari') as any;
+
+            expect(chrome.key).toBe(CHROME_WEB_STORE_PUBLIC_KEY);
+            expect(deriveChromeExtensionIdFromManifestKey(chrome.key)).toBe(CHROME_WEB_STORE_EXTENSION_ID);
+            expect(chrome.oauth2).toEqual({
+                client_id: cloudBackupTargets.chrome.googleDrive.clientId,
+                scopes: [GOOGLE_DRIVE_FILE_SCOPE],
+            });
+            expect(chrome.permissions).toContain('identity');
+            expect(chrome.permissions).not.toContain('identity.email');
+            expect(chrome.host_permissions).toContain('https://www.googleapis.com/*');
+            expect(chrome.host_permissions).toContain('https://oauth2.googleapis.com/*');
+            expect(firefox.oauth2).toBeUndefined();
+            expect(firefox.permissions).not.toContain('identity');
+            expect(firefox.permissions).not.toContain('https://www.googleapis.com/*');
+            expect(firefox.permissions).not.toContain('https://oauth2.googleapis.com/*');
+            expect(safari.oauth2).toBeUndefined();
+            expect(safari.permissions).not.toContain('identity');
+            expect(safari.permissions).not.toContain('https://www.googleapis.com/*');
+            expect(safari.permissions).not.toContain('https://oauth2.googleapis.com/*');
+        });
+    });
+
+    it('tracks the public Chrome Web Store item id used by the Google OAuth client binding', () => {
+        expect(CHROME_WEB_STORE_EXTENSION_ID).toBe('bmdhdihdbhjbkfaaainidcjbgidkbeoh');
+    });
+
+    it('derives a Chrome extension id from a manifest key before enabling stable local OAuth builds', () => {
+        expect(deriveChromeExtensionIdFromManifestKey(CHROME_WEB_STORE_PUBLIC_KEY)).toBe(CHROME_WEB_STORE_EXTENSION_ID);
+    });
+
+    it('uses the public Chrome Web Store manifest key by default for local OAuth builds', () => {
+        withChromeExtensionKey(undefined, () => {
+            const chrome = buildManifest('chrome') as any;
+
+            expect(chrome.key).toBe(CHROME_WEB_STORE_PUBLIC_KEY);
+            expect(deriveChromeExtensionIdFromManifestKey(chrome.key)).toBe(CHROME_WEB_STORE_EXTENSION_ID);
+        });
+    });
+
+    it('accepts an explicit local development manifest key only when it resolves to the expected extension id', () => {
+        withChromeExtensionKey(CHROME_WEB_STORE_PUBLIC_KEY, () => {
+            const chrome = buildManifest('chrome') as any;
+
+            expect(chrome.key).toBe(CHROME_WEB_STORE_PUBLIC_KEY);
+        });
+    });
+
+    it('rejects a local development manifest key that does not match the public Chrome Web Store item id', () => {
+        withChromeExtensionKey(mismatchChromeExtensionKey, () => {
+            expect(() => buildManifest('chrome')).toThrow(CHROME_WEB_STORE_EXTENSION_ID);
+        });
+    });
+
+    it('ignores Google OAuth client id environment overrides so manifest oauth2 stays repo-owned', () => {
+        withGoogleClientId('1234567890-example.apps.googleusercontent.com', () => {
+            const chrome = buildManifest('chrome') as any;
+
+            expect(chrome.oauth2).toEqual({
+                client_id: cloudBackupTargets.chrome.googleDrive.clientId,
+                scopes: [GOOGLE_DRIVE_FILE_SCOPE],
+            });
+        });
+    });
+
+    it('fails Chrome manifest generation when the repo Google Drive OAuth client id is invalid', () => {
+        withGoogleClientId('not-a-google-oauth-client-id', () => {
+            const original = cloudBackupTargets.chrome.googleDrive.clientId;
+            (cloudBackupTargets.chrome.googleDrive as any).clientId = 'not-a-google-oauth-client-id';
+            try {
+                expect(() => buildManifest('chrome')).toThrow(/Google Drive OAuth client id/i);
+            } finally {
+                (cloudBackupTargets.chrome.googleDrive as any).clientId = original;
+            }
+        });
     });
 
     it('defines safari as a generated MV2 WebExtension target', () => {

@@ -1579,6 +1579,262 @@
         "message": "导出全部",
         "description": "Message for exportAllBtn"
     },
+    "dataManagement": {
+        "message": "数据管理",
+        "description": "Settings group label for Google Drive backup and local data backup"
+    },
+    "googleDriveBackupCardTitle": {
+        "message": "Google Drive 备份",
+        "description": "Settings data management card title for Google Drive backup"
+    },
+    "cloudBackupExperimentalLabel": {
+        "message": "实验性功能",
+        "description": "Short label marking Google Drive backup as experimental"
+    },
+    "localBackupCardTitle": {
+        "message": "本地备份",
+        "description": "Settings data management card title for local backup"
+    },
+    "localBackupTitle": {
+        "message": "本地数据",
+        "description": "Settings data backup card label for local export"
+    },
+    "cloudBackupGoogleDriveDesc": {
+        "message": "将经过校验的书签快照保存到你自己的 Google Drive。",
+        "description": "Google Drive cloud backup row description"
+    },
+    "cloudBackupDisconnected": {
+        "message": "未连接",
+        "description": "Cloud backup disconnected status"
+    },
+    "cloudBackupConnectedStatus": {
+        "message": "已连接",
+        "description": "Cloud backup connected status"
+    },
+    "cloudBackupConfigMissingStatus": {
+        "message": "Google Drive 构建配置缺失",
+        "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
+    },
+    "cloudBackupSettings": {
+        "message": "Google Drive 备份设置",
+        "description": "Cloud backup settings button label"
+    },
+    "cloudBackupConnect": {
+        "message": "连接",
+        "description": "Connect cloud backup provider"
+    },
+    "cloudBackupLoginGoogleDrive": {
+        "message": "登录 Google Drive",
+        "description": "Primary action for connecting Google Drive cloud backup"
+    },
+    "cloudBackupDisconnect": {
+        "message": "断开连接",
+        "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupLogoutGoogleDrive": {
+        "message": "退出登录",
+        "description": "Action for disconnecting Google Drive cloud backup"
+    },
+    "cloudBackupBackupNow": {
+        "message": "立即备份",
+        "description": "Run a cloud backup now"
+    },
+    "cloudBackupRestore": {
+        "message": "预览恢复",
+        "description": "Preview restoring from cloud backup"
+    },
+    "cloudBackupApplyRestore": {
+        "message": "应用安全合并",
+        "description": "Confirm applying a safe-merge restore from Google Drive backup"
+    },
+    "cloudBackupCompleteTitle": {
+        "message": "备份完成",
+        "description": "Cloud backup completion title"
+    },
+    "cloudBackupCompleteDesc": {
+        "message": "已将经过校验的书签快照保存到你的 Google Drive。",
+        "description": "Cloud backup completion message"
+    },
+    "cloudBackupErrorTitle": {
+        "message": "Google Drive 备份失败",
+        "description": "Cloud backup error title"
+    },
+    "cloudBackupNoSnapshotsTitle": {
+        "message": "没有找到 Google Drive 备份",
+        "description": "No cloud backups found title"
+    },
+    "cloudBackupNoSnapshotsDesc": {
+        "message": "Google Drive 中还没有 AI-MarkDone 书签备份。",
+        "description": "No cloud backups found message"
+    },
+    "cloudBackupRestorePreviewTitle": {
+        "message": "恢复预览",
+        "description": "Cloud restore preview title"
+    },
+    "cloudBackupRestorePreviewDesc": {
+        "message": "安全合并将新增 $1 个书签，保留 $2 个仅本地书签，跳过 $3 个重复项，并保持 $4 个冲突项不变。",
+        "description": "Cloud restore preview summary"
+    },
+    "cloudBackupRestoreCompleteTitle": {
+        "message": "恢复完成",
+        "description": "Cloud restore completion title"
+    },
+    "cloudBackupRestoreCompleteDesc": {
+        "message": "已新增 $1 个书签，保留 $2 个仅本地项目，跳过 $3 个重复项，并保持 $4 个冲突项不变。",
+        "description": "Cloud restore completion summary"
+    },
+    "cloudBackupStatusChecking": {
+        "message": "正在检查 Google Drive 状态...",
+        "description": "Cloud backup status check message"
+    },
+    "cloudBackupPrivacyNote": {
+        "message": "你的备份只会写进你自己的 Google Drive。我们不保存你的 Google 账号，不保存 OAuth token，也不会把书签发到 AI-MarkDone 的服务器。你随时可以退出登录，或把这些备份移到 Google Drive 回收站。",
+        "description": "Cloud backup privacy note"
+    },
+    "cloudBackupStatusLabel": {
+        "message": "状态",
+        "description": "Google Drive cloud backup status label"
+    },
+    "cloudBackupTestListSnapshots": {
+        "message": "测试备份列表",
+        "description": "Test listing cloud backups"
+    },
+    "cloudBackupTestConnection": {
+        "message": "测试连接",
+        "description": "Test Google Drive cloud backup connection"
+    },
+    "cloudBackupSnapshotCount": {
+        "message": "找到 $1 个 Google Drive 备份。",
+        "description": "Cloud backup snapshot count"
+    },
+    "cloudBackupGoogleDriveSettingsTitle": {
+        "message": "Google Drive 备份设置",
+        "description": "Google Drive cloud backup settings title"
+    },
+    "cloudBackupChooseSnapshotTitle": {
+        "message": "选择 Google Drive 备份",
+        "description": "Title for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupChooseSnapshotDesc": {
+        "message": "选择要检查的 Google Drive 备份。此步骤只预览安全合并，不会修改本地书签。",
+        "description": "Description for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupDiagnosticsLabel": {
+        "message": "构建检查",
+        "description": "Google Drive backup Chrome build diagnostics label"
+    },
+    "cloudBackupDiagnosticsChecking": {
+        "message": "正在检查 Chrome 构建...",
+        "description": "Google Drive backup build diagnostics loading text"
+    },
+    "cloudBackupDiagnosticsReady": {
+        "message": "当前 Chrome 构建可以使用 Google Drive 备份。",
+        "description": "Google Drive backup build diagnostics ready text"
+    },
+    "cloudBackupDiagnosticsReloadDistChrome": {
+        "message": "Chrome 仍在加载缺少完整 Google Drive OAuth 的构建。请移除旧的未打包 AI-MarkDone，并重新加载 dist-chrome。",
+        "description": "Google Drive backup build diagnostics reload instruction"
+    },
+    "cloudBackupDiagnosticsYes": {
+        "message": "是",
+        "description": "Google Drive backup diagnostics yes value"
+    },
+    "cloudBackupDiagnosticsNo": {
+        "message": "否",
+        "description": "Google Drive backup diagnostics no value"
+    },
+    "cloudBackupConnectionChecking": {
+        "message": "正在检查 Google Drive 连接...",
+        "description": "Short loading text while testing the Google Drive backup connection"
+    },
+    "cloudBackupProgressPreparingBookmarks": {
+        "message": "正在准备本地书签...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressCreatingSnapshot": {
+        "message": "正在创建校验快照...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressUploadingDrive": {
+        "message": "正在上传到 Google Drive...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressVerifyingUpload": {
+        "message": "正在回读文件并校验...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressComplete": {
+        "message": "正在完成...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressReadingList": {
+        "message": "正在读取 Google Drive 备份列表...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressDownloadingSnapshot": {
+        "message": "正在下载所选备份...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressBuildingPreview": {
+        "message": "正在生成安全合并预览...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressWaitingConfirmation": {
+        "message": "等待确认...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressApplyingMerge": {
+        "message": "正在应用安全合并...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressWorking": {
+        "message": "处理中...",
+        "description": "Disabled modal footer label while Google Drive backup work is running"
+    },
+    "cloudBackupProgressTimeBudget": {
+        "message": "超时预算：剩余 $1",
+        "description": "Countdown label showing the remaining Google Drive backup operation timeout budget"
+    },
+    "cloudBackupSnapshotSizeUnknown": {
+        "message": "未知大小",
+        "description": "Fallback file size label for Google Drive backup snapshots"
+    },
+    "cloudBackupRestorePreviewKind": {
+        "message": "安全合并预览",
+        "description": "Title for the Google Drive restore safe-merge preview"
+    },
+    "cloudBackupRestoreLocalOnlyWarning": {
+        "message": "$1 个仅本地书签会保持不变。",
+        "description": "Google Drive restore preview local-only note"
+    },
+    "cloudBackupRestoreConflictWarning": {
+        "message": "$1 个冲突项会保留本地版本。",
+        "description": "Google Drive restore preview conflict note"
+    },
+    "cloudBackupManageBackups": {
+        "message": "管理云端备份",
+        "description": "Button and title for managing Google Drive backup files"
+    },
+    "cloudBackupManageBackupsDesc": {
+        "message": "这里列出的是 AI-MarkDone 在你的 Google Drive 中创建的备份文件。把某个备份移到回收站，不会修改本地书签。",
+        "description": "Description for the Google Drive backup manager"
+    },
+    "cloudBackupManageEmpty": {
+        "message": "还没有 Google Drive 备份。",
+        "description": "Empty state for the Google Drive backup manager"
+    },
+    "cloudBackupMoveToTrash": {
+        "message": "移到回收站",
+        "description": "Action for moving a Google Drive backup file to trash"
+    },
+    "cloudBackupMoveToTrashConfirmTitle": {
+        "message": "要把这个备份移到回收站吗？",
+        "description": "Confirmation title for moving a Google Drive backup file to trash"
+    },
+    "cloudBackupMoveToTrashConfirmDesc": {
+        "message": "这会把“$1”移到 Google Drive 回收站。本地书签不会被修改。",
+        "description": "Confirmation message for moving a Google Drive backup file to trash"
+    },
     "selectMessagesLabel": {
         "message": "选择要保存的消息：",
         "description": "Message for selectMessagesLabel"

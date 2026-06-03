@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { extensionIconFiles, safariExcludedIconFiles, safariExcludedLocaleMessageKeys } from '../../../config/extension/surface';
+import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
 type ChromeManifest = {
     host_permissions?: string[];
@@ -65,13 +66,14 @@ describe('manifest resource consistency', () => {
         ]));
     });
 
-    it('chrome web_accessible_resources matches should align with host permissions', () => {
+    it('chrome web_accessible_resources matches should stay limited to supported content hosts', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
         const resourceMatches = normalized(chrome.web_accessible_resources?.[0]?.matches);
-        const hostPermissions = normalized(chrome.host_permissions);
 
         expect(resourceMatches.length).toBeGreaterThan(0);
-        expect(resourceMatches).toEqual(hostPermissions);
+        expect(resourceMatches).toEqual(normalized(SUPPORTED_HOST_PATTERNS));
+        expect(chrome.host_permissions).toContain('https://www.googleapis.com/*');
+        expect(chrome.host_permissions).toContain('https://oauth2.googleapis.com/*');
     });
 
     it('toolbar/action icon paths should stay aligned across manifests', () => {

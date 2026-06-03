@@ -120,14 +120,36 @@
 - `bookmarks:uiState:set`
 - `bookmarks:changelogNotice:get`
 - `bookmarks:changelogNotice:ack`
+- `cloudBackup:status`
+- `cloudBackup:diagnostics`
+- `cloudBackup:connect`
+- `cloudBackup:disconnect`
+- `cloudBackup:backupNow`
+- `cloudBackup:listSnapshots`
+- `cloudBackup:previewRestore`
+- `cloudBackup:applyRestore`
+- `cloudBackup:deleteSnapshot`
 
 用途：
 
 - 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
 - changelog install/update notice 的本地读取与确认
+- Chrome v1 Google Drive 书签备份/恢复；Settings/UI 只能发送协议请求，不能直接调用 Google Drive provider 或 Chrome identity
+- Google Drive Backup UI 使用 operation-specific RPC timeout：`status`/`diagnostics` 8s，`connect` 300s，`disconnect` 60s，`backupNow` 180s，`listSnapshots`/`deleteSnapshot` 60s，`previewRestore` 120s，`applyRestore` 180s。`connect` 必须覆盖用户完成 Google OAuth 测试/授权页的交互时间，不能复用通用 8s timeout。
+- Google Drive OAuth 的账号隔离边界：manifest `oauth2.client_id` 是 AI-MarkDone Chrome Extension 的公开应用标识，不是开发者账号凭据；runtime 不请求 `identity.email`，不返回 Google 邮箱/账号 ID，不把 OAuth token 写入协议响应、storage 或 snapshot。用户安装后通过 Chrome identity 授权的是当前浏览器 profile 中自己的 Google 账号。
 
 关键语义：
 
+- `cloudBackup:status`
+  - 返回本地保存的连接/最近备份状态，并附带 provider 的只读配置诊断
+  - Chrome Google Drive provider 会在不触发登录的前提下检查当前加载的 manifest 是否具备 `identity` permission、`oauth2.client_id`、`drive.file` scope 与 Google API host permission
+  - 缺少当前 manifest OAuth 配置、Client ID 格式明显错误、或 Chrome identity 不可用时，UI 应显示配置错误，不应直接触发 Google 授权
+- `cloudBackup:diagnostics`
+  - 返回 extension ID、manifest OAuth/permission/scope/host 检查结果、Chrome identity API 可用性与当前 manifest OAuth client ID
+  - 不返回 OAuth token、Google 账号、cookie、Drive 文件内容或浏览器 profile 数据
+  - UI 用它区分“代码/构建缺失”和“Chrome 仍加载旧 manifest，需要移除旧 unpacked 实例并重新加载 `dist-chrome`”
+- `cloudBackup:disconnect`
+  - 必须清除 background 保存的连接状态，并先用当前 cached token 调用 Google OAuth revoke endpoint 取消服务器侧授权，再调用 `chrome.identity.clearAllCachedAuthTokens()` 清理 Chrome identity 缓存；老 Chrome 环境才退回单 token `removeCachedAuthToken`
 - `bookmarks:bulkRemove`
   - payload 现在支持：
     - `items`
@@ -140,6 +162,23 @@
     - 递归删除命中的 folder 与其后代
     - 删除这些 folder 下的书签
     - 修正相关 folder index 与 bookmarks UI state
+
+- `cloudBackup:backupNow`
+  - 在 `backgroundStorageQueue` 中捕获一致的本地书签集合
+  - 复用现有 `exportBookmarks(..., preserveStructure: true)` 生成 v2.0 export payload
+  - 包装为 `CloudBackupSnapshotV1`，上传到 Google Drive 可见文件夹 `AI-MarkDone/Backups/bookmarks`
+  - 使用 Drive resumable upload，上传成功后回读并校验 `snapshotId` 与 `payloadHash`
+- `cloudBackup:previewRestore`
+  - 下载并校验 snapshot
+  - 复用 `parseImportData` 解析书签 payload
+  - 生成可驱动共享导入合并详情页的安全合并预览；不写本地 storage，不传播删除
+- `cloudBackup:applyRestore`
+  - 仅支持 v1 `safeMerge`
+  - 必须由 UI 在 `previewRestore` 后经用户明确确认触发
+  - 写入前先创建本地 emergency export snapshot，并写入 extension local storage
+  - 通过 `backgroundStorageQueue` 写入 bookmarks storage/index；只新增云端独有书签，跳过重复项，本地独有项保留，冲突项保持本地版本不变，不传播删除
+- `cloudBackup:deleteSnapshot`
+  - 将用户选中的云端 snapshot 移到 Google Drive 回收站，返回 `{ trashed: true }`；不会永久删除 Drive 文件夹，也不会修改本地书签
 
 ---
 

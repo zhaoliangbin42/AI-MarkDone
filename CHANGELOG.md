@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - ChatGPT: Added an optional Settings toggle to restore your reading position after sending a message from older conversation history. The restore guard only runs after an intentional send and stops on manual scrolling or explicit navigation.
+- Chrome: Added an optional Google Drive bookmark backup entry under Settings → Data Management, with manifest-based OAuth configuration, Chrome build diagnostics, resumable verified snapshot upload, and safe-merge restore.
 
 ### Changed
 - Save Messages now opens with only the current message selected by default instead of selecting every message in the conversation.
 - ChatGPT: Temporarily retired the AI-MarkDone right-side directory rail because ChatGPT now provides native conversation navigation; Reader locate and bookmark navigation still use the shared positioning helper.
+- Chrome: Google Drive backup now gives OAuth sign-in and Drive backup/restore requests longer RPC timeouts so the UI does not report a timeout while the Google authorization flow is still in progress.
+- Chrome: Google Drive backup now shows immediate staged progress with a timeout-budget countdown, uses a custom long-name-safe restore picker, and attempts to delete a just-created Drive file when upload verification fails.
+- Chrome: Google Drive backup is now labeled experimental, keeps the gear menu focused on status, test connection, privacy, and cloud backup management, reuses the local import merge review for Drive restore preview, and moves user-managed Drive backup files to trash instead of permanently deleting them.
 
 ## [4.4.6] - 2026-05-28
 ### Fixed

@@ -144,6 +144,24 @@ Click the extension icon to open the bookmarks panel, then go to Settings. From 
 
 I do not like tools that dump every feature on every user, so this part is meant to stay flexible.
 
+## Where does Google Drive backup save my bookmarks?
+
+Open the bookmarks panel, go to Settings, then Data Management. The Google Drive Backup (Experimental) card can connect your Google Drive account and save a verified bookmark snapshot.
+
+Backups are saved in your own Google Drive under `AI-MarkDone/Backups/bookmarks`. AI-MarkDone does not run a backup server, and the snapshot does not include OAuth tokens, passwords, or extension settings.
+
+The OAuth client ID in the extension identifies AI-MarkDone as an app. It does not sign anyone into the developer's Google account. Each person authorizes the Google account already available in their own Chrome profile, or signs in with their own account during the Google consent flow.
+
+The current version is a bookmark backup flow, not real-time two-way updating. Restoring from Drive first shows a safe merge preview: new Drive-only bookmarks can be added, local-only bookmarks are kept, duplicates are skipped, and conflicts keep the local copy by default.
+
+During backup, AI-MarkDone shows stage progress and a countdown for the operation timeout budget instead of byte-level upload speed. The Drive upload uses a resumable upload session, but this v1 flow sends the snapshot in one PUT request; it is not full chunked resume yet. If the browser closes or the extension unloads mid-upload, Google Drive may keep the backup folders or a JSON file that did not report success. After a completed upload, AI-MarkDone downloads the file back and verifies the snapshot id and payload hash; if that verification fails, it tries to delete the just-created Drive file and tells you if manual cleanup is needed.
+
+Clicking “Sign out” first asks Google to revoke AI-MarkDone’s current Drive OAuth grant, then clears the authorization state cached by Chrome identity for AI-MarkDone. The next “Sign in to Google Drive” action will ask Chrome to start Google sign-in or consent again as needed; if you are still signed into the same Google account in Chrome, the account selection step may be shorter, but AI-MarkDone will not reuse the old signed-out token.
+
+If backup fails because the loaded build is missing Chrome OAuth pieces, AI-MarkDone shows the relevant build diagnosis in the error message without starting sign-in. Remove old unpacked AI-MarkDone entries and reload `dist-chrome` if Chrome is still loading an incomplete build. If you see `Invalid OAuth2 Client ID`, the Google Cloud Chrome Extension OAuth client is likely not bound to the current extension ID.
+
+You can manage backup JSON files from the Google Drive backup settings panel. Moving a backup to Drive trash does not touch local bookmarks, and you can still clean up files directly in Google Drive if you prefer.
+
 ## How do I use the ChatGPT conversation directory?
 
 Open a ChatGPT conversation. The directory appears on the right side of the page.

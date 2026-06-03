@@ -55,6 +55,7 @@
 - runtime 协议：`src/contracts/protocol.ts`
 - 平台契约：`src/contracts/platform.ts`
 - 存储契约：`src/contracts/storage.ts`
+- Chrome Google Drive 书签备份位于 Settings → Data Management → Google Drive Backup。本地导出位于 Settings → Data Management → Local Backup。Google Drive Backup v1 不会实时双向更新，而是用户主动触发的不可变 bookmark snapshot 备份/安全合并恢复：本地读取与恢复写入仍通过 bookmarks storage/index 与 background storage queue，Drive 副作用经 `cloudBackup:*` runtime protocol 和 background provider 执行。Chrome OAuth 配置由 `config/extension/cloudBackup.ts` 生成到 manifest `oauth2`，Chrome manifest 默认带 Chrome Web Store public key 以固定本地/线上 extension ID；manifest OAuth client ID 只标识 AI-MarkDone 这个 Chrome Extension 应用，不携带开发者 Google 账号登录态，用户安装后只能通过 Chrome identity 授权当前浏览器 profile 中自己的 Google 账号。Firefox/Safari v1 不暴露 Google Drive 入口。
 
 当前 content ↔ background 协议已经具备：
 

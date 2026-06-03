@@ -1579,6 +1579,262 @@
         "message": "Export All",
         "description": "Message for exportAllBtn"
     },
+    "dataManagement": {
+        "message": "Data Management",
+        "description": "Settings group label for Google Drive backup and local data backup"
+    },
+    "googleDriveBackupCardTitle": {
+        "message": "Google Drive Backup",
+        "description": "Settings data management card title for Google Drive backup"
+    },
+    "cloudBackupExperimentalLabel": {
+        "message": "Experimental",
+        "description": "Short label marking Google Drive backup as experimental"
+    },
+    "localBackupCardTitle": {
+        "message": "Local Backup",
+        "description": "Settings data management card title for local backup"
+    },
+    "localBackupTitle": {
+        "message": "Local backup",
+        "description": "Settings data backup card label for local export"
+    },
+    "cloudBackupGoogleDriveDesc": {
+        "message": "Save verified bookmark snapshots to your own Google Drive.",
+        "description": "Google Drive cloud backup row description"
+    },
+    "cloudBackupDisconnected": {
+        "message": "Not connected",
+        "description": "Cloud backup disconnected status"
+    },
+    "cloudBackupConnectedStatus": {
+        "message": "Connected",
+        "description": "Cloud backup connected status"
+    },
+    "cloudBackupConfigMissingStatus": {
+        "message": "Google Drive setup is missing",
+        "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
+    },
+    "cloudBackupSettings": {
+        "message": "Google Drive backup settings",
+        "description": "Cloud backup settings button label"
+    },
+    "cloudBackupConnect": {
+        "message": "Connect",
+        "description": "Connect cloud backup provider"
+    },
+    "cloudBackupLoginGoogleDrive": {
+        "message": "Sign in to Google Drive",
+        "description": "Primary action for connecting Google Drive cloud backup"
+    },
+    "cloudBackupDisconnect": {
+        "message": "Disconnect",
+        "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupLogoutGoogleDrive": {
+        "message": "Sign out",
+        "description": "Action for disconnecting Google Drive cloud backup"
+    },
+    "cloudBackupBackupNow": {
+        "message": "Back up now",
+        "description": "Run a cloud backup now"
+    },
+    "cloudBackupRestore": {
+        "message": "Preview restore",
+        "description": "Preview restoring from cloud backup"
+    },
+    "cloudBackupApplyRestore": {
+        "message": "Apply safe merge",
+        "description": "Confirm applying a safe-merge restore from Google Drive backup"
+    },
+    "cloudBackupCompleteTitle": {
+        "message": "Backup complete",
+        "description": "Cloud backup completion title"
+    },
+    "cloudBackupCompleteDesc": {
+        "message": "A verified bookmark snapshot was saved to your Google Drive.",
+        "description": "Cloud backup completion message"
+    },
+    "cloudBackupErrorTitle": {
+        "message": "Google Drive backup failed",
+        "description": "Cloud backup error title"
+    },
+    "cloudBackupNoSnapshotsTitle": {
+        "message": "No Google Drive backups found",
+        "description": "No cloud backups found title"
+    },
+    "cloudBackupNoSnapshotsDesc": {
+        "message": "Google Drive does not have any AI-MarkDone bookmark backups yet.",
+        "description": "No cloud backups found message"
+    },
+    "cloudBackupRestorePreviewTitle": {
+        "message": "Restore preview",
+        "description": "Cloud restore preview title"
+    },
+    "cloudBackupRestorePreviewDesc": {
+        "message": "Safe merge would add $1 bookmark(s), keep $2 local-only bookmark(s), skip $3 duplicate(s), and leave $4 conflict(s) unchanged.",
+        "description": "Cloud restore preview summary"
+    },
+    "cloudBackupRestoreCompleteTitle": {
+        "message": "Restore complete",
+        "description": "Cloud restore completion title"
+    },
+    "cloudBackupRestoreCompleteDesc": {
+        "message": "Added $1 bookmark(s). Kept $2 local-only item(s), skipped $3 duplicate(s), and left $4 conflict(s) unchanged.",
+        "description": "Cloud restore completion summary"
+    },
+    "cloudBackupStatusChecking": {
+        "message": "Checking Google Drive status...",
+        "description": "Cloud backup status check message"
+    },
+    "cloudBackupPrivacyNote": {
+        "message": "Your backups go straight into your own Google Drive. We do not keep your Google account, store OAuth tokens, or send your bookmarks to an AI-MarkDone server. You can sign out or move these backups to Drive trash whenever you want.",
+        "description": "Cloud backup privacy note"
+    },
+    "cloudBackupStatusLabel": {
+        "message": "Status",
+        "description": "Google Drive cloud backup status label"
+    },
+    "cloudBackupTestListSnapshots": {
+        "message": "Test backup list",
+        "description": "Test listing cloud backups"
+    },
+    "cloudBackupTestConnection": {
+        "message": "Test connection",
+        "description": "Test Google Drive cloud backup connection"
+    },
+    "cloudBackupSnapshotCount": {
+        "message": "$1 Google Drive backup(s) found.",
+        "description": "Cloud backup snapshot count"
+    },
+    "cloudBackupGoogleDriveSettingsTitle": {
+        "message": "Google Drive backup settings",
+        "description": "Google Drive cloud backup settings title"
+    },
+    "cloudBackupChooseSnapshotTitle": {
+        "message": "Choose Google Drive backup",
+        "description": "Title for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupChooseSnapshotDesc": {
+        "message": "Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.",
+        "description": "Description for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupDiagnosticsLabel": {
+        "message": "Build check",
+        "description": "Google Drive backup Chrome build diagnostics label"
+    },
+    "cloudBackupDiagnosticsChecking": {
+        "message": "Checking Chrome build...",
+        "description": "Google Drive backup build diagnostics loading text"
+    },
+    "cloudBackupDiagnosticsReady": {
+        "message": "Chrome build is ready for Google Drive backup.",
+        "description": "Google Drive backup build diagnostics ready text"
+    },
+    "cloudBackupDiagnosticsReloadDistChrome": {
+        "message": "Chrome is still loading a build without complete Google Drive OAuth. Remove old unpacked AI-MarkDone entries and reload dist-chrome.",
+        "description": "Google Drive backup build diagnostics reload instruction"
+    },
+    "cloudBackupDiagnosticsYes": {
+        "message": "yes",
+        "description": "Google Drive backup diagnostics yes value"
+    },
+    "cloudBackupDiagnosticsNo": {
+        "message": "no",
+        "description": "Google Drive backup diagnostics no value"
+    },
+    "cloudBackupConnectionChecking": {
+        "message": "Checking Google Drive connection...",
+        "description": "Short loading text while testing the Google Drive backup connection"
+    },
+    "cloudBackupProgressPreparingBookmarks": {
+        "message": "Preparing local bookmarks...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressCreatingSnapshot": {
+        "message": "Creating a verified snapshot...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressUploadingDrive": {
+        "message": "Uploading to Google Drive...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressVerifyingUpload": {
+        "message": "Reading the file back for verification...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressComplete": {
+        "message": "Finishing up...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressReadingList": {
+        "message": "Reading Google Drive backups...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressDownloadingSnapshot": {
+        "message": "Downloading the selected backup...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressBuildingPreview": {
+        "message": "Generating a safe merge preview...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressWaitingConfirmation": {
+        "message": "Waiting for confirmation...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressApplyingMerge": {
+        "message": "Applying safe merge...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressWorking": {
+        "message": "Working...",
+        "description": "Disabled modal footer label while Google Drive backup work is running"
+    },
+    "cloudBackupProgressTimeBudget": {
+        "message": "Timeout budget: $1 remaining",
+        "description": "Countdown label showing the remaining Google Drive backup operation timeout budget"
+    },
+    "cloudBackupSnapshotSizeUnknown": {
+        "message": "Unknown size",
+        "description": "Fallback file size label for Google Drive backup snapshots"
+    },
+    "cloudBackupRestorePreviewKind": {
+        "message": "Safe merge preview",
+        "description": "Title for the Google Drive restore safe-merge preview"
+    },
+    "cloudBackupRestoreLocalOnlyWarning": {
+        "message": "$1 local-only bookmark(s) will stay untouched.",
+        "description": "Google Drive restore preview local-only note"
+    },
+    "cloudBackupRestoreConflictWarning": {
+        "message": "$1 conflict(s) will keep the local copy.",
+        "description": "Google Drive restore preview conflict note"
+    },
+    "cloudBackupManageBackups": {
+        "message": "Manage cloud backups",
+        "description": "Button and title for managing Google Drive backup files"
+    },
+    "cloudBackupManageBackupsDesc": {
+        "message": "These are backup files AI-MarkDone created in your Google Drive. Moving one to trash never changes local bookmarks.",
+        "description": "Description for the Google Drive backup manager"
+    },
+    "cloudBackupManageEmpty": {
+        "message": "No Google Drive backups yet.",
+        "description": "Empty state for the Google Drive backup manager"
+    },
+    "cloudBackupMoveToTrash": {
+        "message": "Move to trash",
+        "description": "Action for moving a Google Drive backup file to trash"
+    },
+    "cloudBackupMoveToTrashConfirmTitle": {
+        "message": "Move backup to trash?",
+        "description": "Confirmation title for moving a Google Drive backup file to trash"
+    },
+    "cloudBackupMoveToTrashConfirmDesc": {
+        "message": "This moves \"$1\" to Google Drive trash. Local bookmarks will not be changed.",
+        "description": "Confirmation message for moving a Google Drive backup file to trash"
+    },
     "selectMessagesLabel": {
         "message": "Select messages to save:",
         "description": "Message for selectMessagesLabel"

@@ -3,6 +3,8 @@
 # 4.4.6
 2026-05-28
 
+This update continues the Google Drive Backup rollout and makes the backup lifecycle easier to understand: the feature is marked experimental, restore preview uses the same detailed merge review as local import, and Drive backup files can be moved to trash from the settings panel.
+
 ## Fixed
 - Fixed stutter in the ChatGPT navigation rail.
 - Fixed a split between toolbar Copy and Reader Copy. In the previous release, the toolbar copy button could sometimes fail because it did not follow the same content path as Reader. Thanks to Xiaohongshu user @momo.

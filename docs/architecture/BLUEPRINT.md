@@ -85,6 +85,16 @@
 3. Driver 执行写入与监听（优先 Background 作为 write authority）
 4. UI 仅消费“状态快照/事件”刷新（避免 UI 直写 storage）
 
+### 2.3.4 Google Drive Backup 闭环（Chrome v1）
+
+1. UI 只呈现 Settings → Data Management → Google Drive Backup，并通过 `cloudBackup:*` runtime protocol 提交连接、备份、列表、恢复预览、安全合并恢复等用户意图
+2. Service 只编排用例：构建书签 snapshot、校验下载结果、生成恢复计划；不得持有 browser API、OAuth、provider token 或直接读写 extension storage
+3. Background driver/provider 作为云端副作用边界：Chrome identity、Google Drive API、上传后回读校验、provider 错误映射都收敛在 background 侧
+4. 本地书签写入继续复用 bookmarks 的 storage/index 与现有导入导出能力；Google Drive Backup v1 是用户主动触发的不可变 snapshot 备份/恢复，不会实时双向更新
+5. 恢复必须先做安全合并预览；用户确认后才允许进入 background storage queue，并写入 pre-restore emergency snapshot
+6. Build config 由 `config/extension/cloudBackup.ts` 与 `config/extension/chromeWebStore.ts` 驱动：Chrome 生成 manifest `oauth2.client_id` + `drive.file` scope，并默认注入 Chrome Web Store public key 固定 OAuth extension ID；Firefox/Safari v1 保持入口关闭，后续需要单独 auth strategy
+7. OAuth client ID 是公开的应用身份，不是共享 Google 账号。Provider 不请求 `identity.email`，不读取用户邮箱，不保存 access token/refresh token/account id；`chrome.identity.getAuthToken` 的授权主体必须来自当前用户的 Chrome profile，并且只有用户点击连接时才允许 interactive auth。
+
 ---
 
 ## 3. 契约（Contracts）与可审计边界
@@ -177,6 +187,7 @@ Surface profile / motion ownership 规则补充：
 当前主要落点（后续需“搬离 UI/driver 细节”）：
 
 - Bookmarks use cases：`src/services/bookmarks/*`
+- Cloud Backup use cases：`src/services/cloudBackup/*`
 - Copy / Reader / Export / Sending：`src/services/copy/*`, `src/services/reader/*`, `src/services/export/*`, `src/services/sending/*`
 - Markdown parser / renderer：`src/services/markdown-parser/*`, `src/services/renderer/*`
 - Settings use cases：`src/services/settings/*`
@@ -184,6 +195,7 @@ Surface profile / motion ownership 规则补充：
 补充说明：
 
 - `src/services/settings/*`、`src/services/bookmarks/*` 更接近 `pure/domain service`
+- `src/services/cloudBackup/*` 属于 `pure/domain service` 的用例编排层：可复用 core/bookmarks 纯逻辑，但不得依赖 Chrome identity、Google Drive provider、browser storage implementation 或 UI
 - `src/services/copy/*`、`src/services/reader/*`、`src/services/export/*`、`src/services/sending/*` 当前更接近 `content-facing feature service`
 - `saveMessagesPdf.ts` 属于明确允许的导出例外：service 生成最终文档并消费样式 token
 
@@ -194,7 +206,8 @@ Surface profile / motion ownership 规则补充：
 - Site adapters：`src/drivers/content/adapters/*`
 - Injection / conversation / clipboard / theme / sending bridges：`src/drivers/content/*`
 - Browser abstraction：`src/drivers/shared/browser.ts`
-- Background capabilities：`src/drivers/background/storage/*`, `src/runtimes/background/handlers/*`
+- Background capabilities：`src/drivers/background/storage/*`, `src/drivers/background/cloudBackup/*`, `src/runtimes/background/handlers/*`
+- Chrome Google Drive provider 属于 background-only driver；UI/service 只能通过 `src/contracts/protocol.ts` 与 background handler 间接触发
 
 ### Contracts（非“层”，是协作面）
 

@@ -190,6 +190,101 @@ describe('BookmarksPanel', () => {
         expect(source).not.toContain("target.closest('.settings-select-shell')");
     });
 
+    it('routes Google Drive restore through preview, explicit confirmation, and safe-merge apply', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('cloudBackupClient.previewRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
+        expect(source).toContain('buildImportMergeReviewModalBody');
+        expect(source).toContain('cloudBackupRestorePreviewKind');
+        expect(source).toContain('cloudBackupApplyRestore');
+        expect(source).toContain('cloudBackupClient.applyRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
+        expect(source).not.toContain('cloudBackupRestorePreviewDesc');
+    });
+
+    it('keeps Google Drive settings on runtime status without exposing raw identity errors', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain("cloudBackupClient.status('googleDrive')");
+        expect(source).not.toContain('cloudBackupDiagnosticsButton');
+        expect(source).not.toContain('AIMD_GOOGLE_CLIENT_ID');
+    });
+
+    it('uses a custom Google Drive restore chooser so long backup names do not force horizontal scrolling', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const css = getBookmarksPanelCss();
+
+        expect(source).not.toContain("document.createElement('select')");
+        expect(source).not.toContain('cloud-backup-snapshot-select');
+        expect(source).toContain('cloud-backup-snapshot-list');
+        expect(source).toContain('cloud-backup-snapshot-option');
+        expect(source).toContain('cloud-backup-snapshot-name');
+        expect(source).toContain('name.title = snapshot.name');
+        expect(css).toContain('.cloud-backup-snapshot-name');
+        expect(css).toContain('text-overflow: ellipsis;');
+        expect(css).toContain('overflow: hidden;');
+    });
+
+    it('shows immediate Google Drive operation feedback instead of waiting silently for network work', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('showCloudBackupProgress');
+        expect(source).toContain('cloudBackupProgressPreparingBookmarks');
+        expect(source).toContain('cloudBackupProgressUploadingDrive');
+        expect(source).toContain('cloudBackupProgressReadingList');
+        expect(source).toContain('cloudBackupProgressApplyingMerge');
+        expect(source).toContain('cloudBackupConnectionChecking');
+    });
+
+    it('shows the same timeout budget countdown that the Google Drive RPC layer enforces', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('CLOUD_BACKUP_RPC_TIMEOUT_MS');
+        expect(source).toContain('formatCloudBackupProgressRemaining');
+        expect(source).toContain('cloudBackupProgressTimeBudget');
+        expect(source).toContain('window.setInterval');
+        expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.backupNow');
+        expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.previewRestore');
+        expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.applyRestore');
+    });
+
+    it('keeps the Google Drive gear modal focused on connection, privacy, and backup management', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const method = source.slice(source.indexOf('private async showGoogleDriveBackupSettings'), source.indexOf('\n    }\n}', source.indexOf('private async showGoogleDriveBackupSettings')));
+
+        expect(method).toContain('cloudBackupTestConnection');
+        expect(method).toContain('cloudBackupManageBackups');
+        expect(method).toContain('cloudBackupPrivacyNote');
+        expect(method).toContain("privacy.className = 'cloud-backup-settings-modal__privacy'");
+        expect(method).toContain('showCloudBackupManager');
+        expect(method).not.toContain('cloudBackupDiagnosticsButton');
+        expect(method).not.toContain('refreshDiagnostics');
+        expect(method).not.toContain('cloudBackupLoginGoogleDrive');
+        expect(method).not.toContain('cloudBackupLogoutGoogleDrive');
+        expect(method).not.toContain('cloudBackupClient.connect');
+        expect(method).not.toContain('cloudBackupClient.disconnect');
+    });
+
+    it('manages Google Drive backups through a trash-first remote list', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const css = getBookmarksPanelCss();
+
+        expect(source).toContain('showCloudBackupManager');
+        expect(source).toContain("cloudBackupClient.listSnapshots('googleDrive')");
+        expect(source).toContain("cloudBackupClient.deleteSnapshot({ provider: 'googleDrive'");
+        expect(source).toContain('cloudBackupMoveToTrash');
+        expect(source).toContain('cloudBackupMoveToTrashConfirmTitle');
+        expect(source).toContain('cloud-backup-manager-list');
+        expect(source).toContain("listRoot.dataset.state = 'loading'");
+        expect(source).toContain("listRoot.dataset.state = 'empty'");
+        expect(source).toContain("trash.className = 'secondary-btn secondary-btn--danger cloud-backup-manager-trash'");
+        expect(source).toContain('fileName.title = snapshot.name');
+        expect(css).toContain('.cloud-backup-settings-modal__privacy');
+        expect(css).toContain('.cloud-backup-manager-name');
+        expect(css).toContain('.cloud-backup-manager-list[data-state="empty"]');
+        expect(css).toContain('.cloud-backup-manager-trash');
+        expect(css).toContain('text-overflow: ellipsis;');
+    });
+
     it('activates the new changelog, about, and faq panels inside the formal bookmarks panel shell', async () => {
         await setLocale('en');
         const snapshot = {

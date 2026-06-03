@@ -205,7 +205,7 @@ function normalizeStoredBookmark(key: string, raw: unknown, now: number): Bookma
     };
 }
 
-async function loadAllBookmarks(now: number): Promise<Bookmark[]> {
+export async function loadAllBookmarksForBackground(now: number): Promise<Bookmark[]> {
     const index = await bookmarksIndexStore.buildIndexIfMissing(now);
     if (index.length === 0) return [];
 
@@ -223,7 +223,7 @@ async function loadAllBookmarks(now: number): Promise<Bookmark[]> {
     return bookmarks;
 }
 
-async function loadAllFolders(): Promise<{ folderPaths: string[]; folders: Folder[] }> {
+export async function loadAllFoldersForBackground(): Promise<{ folderPaths: string[]; folders: Folder[] }> {
     const folderPaths = await folderIndexStore.buildFolderPathsIfMissing();
     if (folderPaths.length === 0) return { folderPaths: [], folders: [] };
 
@@ -264,7 +264,7 @@ function collectRequiredFolderPaths(bookmarks: Bookmark[]): string[] {
     return Array.from(set).sort((a, b) => PathUtils.getDepth(a) - PathUtils.getDepth(b));
 }
 
-async function ensureFolderRecordsExist(params: {
+export async function ensureFolderRecordsExistForBackground(params: {
     requiredPaths: string[];
     folderPaths: string[];
     folders: Folder[];
@@ -334,8 +334,8 @@ async function applyFolderRelocateWithJournal(params: {
 }): Promise<void> {
     await backgroundStorageQueue.enqueue(async () => {
         const lastSelected = await readLastSelectedFolderPath();
-        const { folderPaths, folders } = await loadAllFolders();
-        const bookmarks = await loadAllBookmarks(params.now);
+        const { folderPaths, folders } = await loadAllFoldersForBackground();
+        const bookmarks = await loadAllBookmarksForBackground(params.now);
 
         const relocatePlan = planFolderRelocate({
             oldPath: params.oldPath,
@@ -399,7 +399,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
 
     switch (request.type) {
         case 'bookmarks:list': {
-            const bookmarks = await loadAllBookmarks(now);
+            const bookmarks = await loadAllBookmarksForBackground(now);
             const payload = request.payload ?? {};
             const result = listBookmarks({
                 bookmarks,
@@ -423,7 +423,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
             return { response: ok(request.id, request.type, { positions }) };
         }
         case 'bookmarks:export': {
-            const bookmarks = await loadAllBookmarks(now);
+            const bookmarks = await loadAllBookmarksForBackground(now);
             const preserve = request.payload?.preserveStructure !== false;
             const result = exportBookmarks({ bookmarks, preserveStructure: preserve });
             return { response: ok(request.id, request.type, result) };
@@ -520,8 +520,8 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
 
                 if (requestedFolderPaths.length > 0) {
                     const [{ folderPaths }, bookmarks, lastSelected] = await Promise.all([
-                        loadAllFolders(),
-                        loadAllBookmarks(now),
+                        loadAllFoldersForBackground(),
+                        loadAllBookmarksForBackground(now),
                         readLastSelectedFolderPath(),
                     ]);
 
@@ -591,8 +591,8 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                     : DEFAULT_FOLDER_PATH;
                 if (normalizedTarget !== DEFAULT_FOLDER_PATH) PathUtils.validatePath(normalizedTarget);
 
-                const { folderPaths, folders } = await loadAllFolders();
-                const ensure = await ensureFolderRecordsExist({
+                const { folderPaths, folders } = await loadAllFoldersForBackground();
+                const ensure = await ensureFolderRecordsExistForBackground({
                     requiredPaths: [normalizedTarget],
                     folderPaths,
                     folders,
@@ -654,7 +654,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
         case 'bookmarks:import': {
             return backgroundStorageQueue.enqueue(async () => {
                 const existingIndex = await bookmarksIndexStore.buildIndexIfMissing(now);
-                const existing = await loadAllBookmarks(now);
+                const existing = await loadAllBookmarksForBackground(now);
                 const usedBytes = await localStoragePort.getBytesInUse(null);
                 const saveContextOnly = Boolean(request.payload.options?.saveContextOnly);
 
@@ -671,8 +671,8 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                     return { response: err(request.id, request.type, 'QUOTA_EXCEEDED', plan.quota.message || 'Not enough storage space') };
                 }
 
-                const { folderPaths, folders } = await loadAllFolders();
-                const ensure = await ensureFolderRecordsExist({
+                const { folderPaths, folders } = await loadAllFoldersForBackground();
+                const ensure = await ensureFolderRecordsExistForBackground({
                     requiredPaths: plan.foldersToEnsure,
                     folderPaths,
                     folders,
@@ -717,8 +717,8 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
         }
         case 'bookmarks:folders:list': {
             const [{ folderPaths, folders }, bookmarks] = await Promise.all([
-                loadAllFolders(),
-                loadAllBookmarks(now),
+                loadAllFoldersForBackground(),
+                loadAllBookmarksForBackground(now),
             ]);
 
             const requiredPaths = Array.from(new Set([
@@ -730,7 +730,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 return { response: ok(request.id, request.type, { folderPaths, folders }) };
             }
 
-            const ensure = await ensureFolderRecordsExist({
+            const ensure = await ensureFolderRecordsExistForBackground({
                 requiredPaths,
                 folderPaths,
                 folders,
@@ -758,7 +758,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
         case 'bookmarks:folders:create': {
             return backgroundStorageQueue.enqueue(async () => {
                 try {
-                    const { folderPaths, folders } = await loadAllFolders();
+                    const { folderPaths, folders } = await loadAllFoldersForBackground();
                     const plan = planCreateFolder({ path: request.payload.path, existingFolders: folders, folderPaths, now });
                     await localStoragePort.set({
                         ...plan.setPatch,
@@ -775,8 +775,8 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
             return backgroundStorageQueue.enqueue(async () => {
                 try {
                     const lastSelected = await readLastSelectedFolderPath();
-                    const { folderPaths } = await loadAllFolders();
-                    const bookmarks = await loadAllBookmarks(now);
+                    const { folderPaths } = await loadAllFoldersForBackground();
+                    const bookmarks = await loadAllBookmarksForBackground(now);
                     const plan = planDeleteFolder({ path: request.payload.path, folderPaths, bookmarks });
                     const removeKeys = [...plan.removeKeys];
 
