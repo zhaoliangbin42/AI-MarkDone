@@ -24,7 +24,7 @@ describe('background entry changelog notice wiring', () => {
         vi.resetModules();
         vi.clearAllMocks();
         installedListener = null;
-        (globalThis as any).chrome = {
+        const runtimeApi = {
             runtime: {
                 getManifest: () => ({ manifest_version: 3, version: '4.1.2' }),
                 onInstalled: {
@@ -46,7 +46,8 @@ describe('background entry changelog notice wiring', () => {
                 setPopup: vi.fn(async () => undefined),
             },
         };
-        delete (globalThis as any).browser;
+        (globalThis as any).chrome = runtimeApi;
+        (globalThis as any).browser = runtimeApi;
     });
 
     it('records a pending notice on extension update', async () => {

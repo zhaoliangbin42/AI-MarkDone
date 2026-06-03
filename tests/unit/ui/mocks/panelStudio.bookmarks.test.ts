@@ -303,7 +303,7 @@ describe('panel studio bookmarks mock', () => {
         expect(styleText).toContain('margin: 1em 0;');
         expect(styleText).toContain('padding: 0;');
         expect(studioSource).toContain("import { getMarkdownThemeCss } from '../../../src/ui/content/components/markdownTheme';");
-        expect(studioSource).toContain("import { renderMarkdownToSanitizedHtml } from '../../../src/services/renderer/renderMarkdown';");
+        expect(studioSource).toContain("import { renderMarkdownForReader, type ReaderOutlineItem } from '../../../src/services/renderer/renderMarkdown';");
         expect(studioSource).toContain("import katexCssUrl from 'katex/dist/katex.min.css?url';");
         expect(studioSource).toContain('?raw');
         expect(studioSource).toContain('fileCodeIcon as sharedFileCodeIcon');

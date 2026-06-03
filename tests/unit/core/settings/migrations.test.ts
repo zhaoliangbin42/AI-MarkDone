@@ -9,10 +9,10 @@ describe('settings migrations', () => {
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
     });
 
-    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and strips retired ChatGPT fields', () => {
+    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and strips retired ChatGPT and platform fields', () => {
         const stored: any = {
             version: 3,
-            platforms: { chatgpt: false },
+            platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
             chatgpt: { showConversationDirectory: false, foldingMode: 'all', enableVirtualization: false },
             behavior: { enableClickToCopy: false },
             reader: { renderCodeInReader: false, markdownTheme: 'github-light-colorblind' },
@@ -22,8 +22,7 @@ describe('settings migrations', () => {
 
         const next = loadAndNormalize(stored);
         expect(next.version).toBe(4);
-        expect(next.platforms.chatgpt).toBe(false);
-        expect(next.platforms.gemini).toBe(true);
+        expect(next.platforms).toEqual({ chatgpt: false });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.enableClickToCopy).toBe(false);
@@ -40,6 +39,15 @@ describe('settings migrations', () => {
         expect(next.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
         expect(next.bookmarks.sortMode).toBe('alpha-asc');
         expect(next.language).toBe('zh_CN');
+    });
+
+    it('ignores retired platform settings while preserving the ChatGPT runtime toggle', () => {
+        const next = loadAndNormalize({
+            version: 4,
+            platforms: { chatgpt: true, gemini: false, claude: false, deepseek: false },
+        } as any);
+
+        expect(next.platforms).toEqual({ chatgpt: true });
     });
 
     it('normalizes v3 appearance font size settings', () => {

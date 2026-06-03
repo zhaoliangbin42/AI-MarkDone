@@ -1,8 +1,8 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "4.4.6",
-    "description": "All you need for ChatGPT, Gemini, Claude & DeepSeek: reader mode, message folding, bookmarks, LaTeX copy & Markdown export.",
+    "version": "4.5.0",
+    "description": "Focused ChatGPT reader, bookmarks, Google Drive backup, LaTeX copy, Markdown export, PDF export, and PNG sharing.",
     "type": "module",
     "scripts": {
         "dev": "vite",

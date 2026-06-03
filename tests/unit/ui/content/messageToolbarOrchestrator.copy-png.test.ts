@@ -40,7 +40,7 @@ const detector: ThemeDetector = {
 
 class TestAdapter extends SiteAdapter {
     matches(): boolean { return true; }
-    getPlatformId(): string { return 'gemini'; }
+    getPlatformId(): string { return 'unknown'; }
     getThemeDetector(): ThemeDetector { return detector; }
     extractUserPrompt(): string | null { return 'Prompt'; }
     getMessageSelector(): string { return '.assistant-message'; }

@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.6-10A37F" alt="Version 4.4.6">
+    <img src="https://img.shields.io/badge/Version-4.5.0-10A37F" alt="Version 4.5.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -133,12 +133,12 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 | Platform | Status |
 | :--- | :--- |
-| **ChatGPT** | ✅ Only supported platform after v4.5.0 |
-| **Gemini** | ⚠️ Support will be retired starting in v4.5.0 |
-| **Claude** | ⚠️ Support will be retired starting in v4.5.0 |
-| **DeepSeek** | ⚠️ Support will be retired starting in v4.5.0 |
+| **ChatGPT** | ✅ Supported |
+| **Gemini** | Retired in v4.5.0 |
+| **Claude** | Retired in v4.5.0 |
+| **DeepSeek** | Retired in v4.5.0 |
 
-AI-MarkDone is returning to a ChatGPT-only direction. Starting in v4.5.0, Gemini, Claude, and DeepSeek adaptations will be retired, and ChatGPT will be the only supported platform for this extension.
+AI-MarkDone 4.5.0 is ChatGPT-only. Gemini, Claude, and DeepSeek pages are no longer injected by the extension. Existing saved bookmarks and backups from those retired platforms remain visible and exportable in the bookmarks library.
 
 For Gemini, consider [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager). For cross-platform bookmark workflows, [Timeline](https://github.com/houyanchao/Timeline) is also a project I like.
 
@@ -199,10 +199,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.4.6
-- Fixed stutter in the ChatGPT navigation rail when moving through long conversations.
-- Fixed a split between toolbar Copy and Reader Copy, so toolbar Copy now follows the same content path as Reader.
-- Fixed cases where toolbar Copy could fail in the previous release. Thanks to Xiaohongshu user @momo.
+### 4.5.0
+- Retired Gemini, Claude, and DeepSeek runtime support so AI-MarkDone now focuses on ChatGPT.
+- Kept existing saved bookmarks and backups from retired platforms available for viewing, filtering, export, and backup.
+- Kept Chrome, Firefox, and Safari browser builds while narrowing AI platform injection to ChatGPT hosts.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

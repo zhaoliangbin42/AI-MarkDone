@@ -28,4 +28,13 @@ describe('fallback popup UI', () => {
         expect(html).toContain("'#e11d48'");
         expect(html).toContain("'#d97706'");
     });
+
+    it('only links to ChatGPT from the unsupported-site popup', () => {
+        const html = readPopupHtml();
+
+        expect(html).toContain('href="https://chatgpt.com/"');
+        expect(html).not.toContain('gemini.google.com');
+        expect(html).not.toContain('claude.ai');
+        expect(html).not.toContain('chat.deepseek.com');
+    });
 });

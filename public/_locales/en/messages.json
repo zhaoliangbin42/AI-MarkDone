@@ -4,7 +4,7 @@
         "description": "Message for extName"
     },
     "extDescription": {
-        "message": "AI-MarkDone for ChatGPT: reader mode, directory, bookmarks, PNG/PDF export, LaTeX copy, and Markdown copy.",
+        "message": "AI-MarkDone for ChatGPT: reader, bookmarks, Google Drive backup, LaTeX copy, Markdown copy, and PNG/PDF export.",
         "description": "Message for extDescription"
     },
     "btnCopy": {
@@ -911,10 +911,6 @@
         "message": "Toolbar & Page Actions",
         "description": "Message for toolbarPageActionsSettingsLabel"
     },
-    "platformRetirementNotice": {
-        "message": "Starting in v4.5.0, Gemini, Claude, and DeepSeek support will be retired. ChatGPT will be the only supported platform for this extension.",
-        "description": "Message for platformRetirementNotice"
-    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT Directory",
         "description": "Message for chatgptDirectorySettingsLabel"
@@ -1202,18 +1198,6 @@
     "enableOnChatGPT": {
         "message": "Enable extension on ChatGPT",
         "description": "Message for enableOnChatGPT"
-    },
-    "enableOnGemini": {
-        "message": "Enable extension on Gemini",
-        "description": "Message for enableOnGemini"
-    },
-    "enableOnClaude": {
-        "message": "Enable extension on Claude",
-        "description": "Message for enableOnClaude"
-    },
-    "enableOnDeepseek": {
-        "message": "Enable extension on DeepSeek",
-        "description": "Message for enableOnDeepseek"
     },
     "saveMessagesLabel": {
         "message": "Save Messages",
@@ -2098,18 +2082,6 @@
     "settingsPlatformChatgptDesc": {
         "message": "Enable AI-MarkDone on ChatGPT.",
         "description": "Message for settingsPlatformChatgptDesc"
-    },
-    "settingsPlatformGeminiDesc": {
-        "message": "Enable AI-MarkDone on Gemini.",
-        "description": "Message for settingsPlatformGeminiDesc"
-    },
-    "settingsPlatformClaudeDesc": {
-        "message": "Enable AI-MarkDone on Claude.",
-        "description": "Message for settingsPlatformClaudeDesc"
-    },
-    "settingsPlatformDeepseekDesc": {
-        "message": "Enable AI-MarkDone on DeepSeek.",
-        "description": "Message for settingsPlatformDeepseekDesc"
     },
     "settingsShowSaveMessagesLabel": {
         "message": "Show Save Messages",

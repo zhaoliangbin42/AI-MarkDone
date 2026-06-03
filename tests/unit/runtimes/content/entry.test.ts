@@ -127,7 +127,7 @@ const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
 const addListener = vi.fn();
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
 
-let adapterPlatformId = 'gemini';
+let adapterPlatformId = 'chatgpt';
 
 vi.mock('@/drivers/content/adapters/registry', () => ({
     getAdapter: () => ({
@@ -227,7 +227,7 @@ vi.mock('@/contracts/protocol', async () => {
 afterEach(() => {
     vi.clearAllMocks();
     settingsGetCached.mockReturnValue(null);
-    adapterPlatformId = 'gemini';
+    adapterPlatformId = 'chatgpt';
     settingsSubscriber = null;
     runtimeMessageListener = null;
     document.documentElement.removeAttribute('data-aimd-theme');
@@ -235,16 +235,16 @@ afterEach(() => {
 });
 
 describe('content runtime entry', () => {
-    it('initializes generic content UI for non-ChatGPT adapters', async () => {
-        adapterPlatformId = 'gemini';
+    it('keeps runtime surfaces disabled for unsupported adapters', async () => {
+        adapterPlatformId = 'unknown';
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
         expect(ensurePageTokens).toHaveBeenCalled();
         expect(messageToolbarCtor).toHaveBeenCalledTimes(1);
-        expect(messageToolbarsInit).toHaveBeenCalledTimes(1);
+        expect(messageToolbarsInit).not.toHaveBeenCalled();
         expect(headerIconCtor).toHaveBeenCalledTimes(1);
-        expect(headerIconInit).toHaveBeenCalledTimes(1);
+        expect(headerIconInit).not.toHaveBeenCalled();
         expect(bookmarksControllerCtor).toHaveBeenCalledTimes(1);
         expect(bookmarksPanelCtor).toHaveBeenCalledTimes(1);
         expect(addListener).toHaveBeenCalledTimes(1);
@@ -254,10 +254,10 @@ describe('content runtime entry', () => {
     });
 
     it('maps cached appearance accent color into runtime theme overrides', async () => {
-        adapterPlatformId = 'gemini';
+        adapterPlatformId = 'chatgpt';
         settingsGetCached.mockReturnValue({
             language: 'auto',
-            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            platforms: { chatgpt: true },
             behavior: {
                 showSaveMessages: true,
                 showWordCount: true,
@@ -271,6 +271,7 @@ describe('content runtime entry', () => {
             },
             reader: {
                 renderCodeInReader: true,
+                showOutlineInReader: true,
                 contentMaxWidthPx: 1000,
                 commentExport: {
                     prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
@@ -282,6 +283,7 @@ describe('content runtime entry', () => {
             chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
             appearance: { fontSizePx: 18, accentColor: '#7c3aed' },
             bookmarks: { sortMode: 'alpha-asc' },
+            chatgptBehavior: { restorePositionAfterSend: false },
         });
 
         vi.resetModules();
@@ -300,7 +302,7 @@ describe('content runtime entry', () => {
         adapterPlatformId = 'chatgpt';
         settingsGetCached.mockReturnValue({
             language: 'auto',
-            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            platforms: { chatgpt: true },
             behavior: {
                 showSaveMessages: true,
                 showWordCount: true,
@@ -314,6 +316,8 @@ describe('content runtime entry', () => {
             },
             reader: {
                 renderCodeInReader: true,
+                showOutlineInReader: true,
+                contentMaxWidthPx: 1000,
                 commentExport: {
                     prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                     template: [],
@@ -323,6 +327,7 @@ describe('content runtime entry', () => {
             chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
             chatgptBehavior: { restorePositionAfterSend: true },
             bookmarks: { sortMode: 'alpha-asc' },
+            appearance: { fontSizePx: 16, accentColor: null },
         });
         vi.resetModules();
         await import('@/runtimes/content/entry');
@@ -371,7 +376,7 @@ describe('content runtime entry', () => {
         settingsSubscriber!({
             settings: {
                 language: 'en',
-                platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
+                platforms: { chatgpt: false },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: false,
@@ -385,6 +390,8 @@ describe('content runtime entry', () => {
                 },
                 reader: {
                     renderCodeInReader: false,
+                    showOutlineInReader: true,
+                    contentMaxWidthPx: 1000,
                     commentExport: {
                         prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                         template: [],
@@ -394,6 +401,7 @@ describe('content runtime entry', () => {
                 chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
                 chatgptBehavior: { restorePositionAfterSend: true },
                 bookmarks: { sortMode: 'alpha-asc' },
+                appearance: { fontSizePx: 16, accentColor: null },
             },
         });
 
@@ -416,7 +424,7 @@ describe('content runtime entry', () => {
         settingsSubscriber!({
             settings: {
                 language: 'en',
-                platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+                platforms: { chatgpt: true },
                 behavior: {
                     showSaveMessages: true,
                     showWordCount: true,
@@ -430,6 +438,8 @@ describe('content runtime entry', () => {
                 },
                 reader: {
                     renderCodeInReader: true,
+                    showOutlineInReader: true,
+                    contentMaxWidthPx: 1000,
                     commentExport: {
                         prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                         template: [],
@@ -439,6 +449,7 @@ describe('content runtime entry', () => {
                 chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
                 chatgptBehavior: { restorePositionAfterSend: false },
                 bookmarks: { sortMode: 'alpha-asc' },
+                appearance: { fontSizePx: 16, accentColor: null },
             },
         });
 
@@ -460,7 +471,7 @@ describe('content runtime entry', () => {
     });
 
     it('keeps the extension-action bookmark panel entry working even when the current platform runtime is disabled', async () => {
-        adapterPlatformId = 'gemini';
+        adapterPlatformId = 'chatgpt';
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
@@ -470,7 +481,7 @@ describe('content runtime entry', () => {
         settingsSubscriber!({
             settings: {
                 language: 'en',
-                platforms: { chatgpt: true, gemini: false, claude: true, deepseek: true },
+                platforms: { chatgpt: false },
             behavior: {
                 showSaveMessages: true,
                 showWordCount: true,
@@ -484,11 +495,18 @@ describe('content runtime entry', () => {
             },
                 reader: {
                     renderCodeInReader: true,
+                    showOutlineInReader: true,
+                    contentMaxWidthPx: 1000,
                     commentExport: {
                         prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
                         template: [],
                     },
                 },
+                export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+                chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
+                chatgptBehavior: { restorePositionAfterSend: false },
+                bookmarks: { sortMode: 'alpha-asc' },
+                appearance: { fontSizePx: 16, accentColor: null },
             },
         });
 
@@ -507,7 +525,7 @@ describe('content runtime entry', () => {
         };
         settingsGetCached.mockReturnValue({
             language: 'auto',
-            platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+            platforms: { chatgpt: true },
             behavior: {
                 showSaveMessages: true,
                 showWordCount: true,
@@ -521,8 +539,15 @@ describe('content runtime entry', () => {
             },
             reader: {
                 renderCodeInReader: false,
+                showOutlineInReader: true,
+                contentMaxWidthPx: 1000,
                 commentExport: cachedCommentExport,
             },
+            export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+            chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
+            chatgptBehavior: { restorePositionAfterSend: false },
+            bookmarks: { sortMode: 'alpha-asc' },
+            appearance: { fontSizePx: 16, accentColor: null },
         });
 
         vi.resetModules();

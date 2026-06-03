@@ -66,10 +66,10 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.1',
+                pendingVersion: '4.5.0',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.3.1',
+                previousVersion: '4.4.6',
             },
         } as any);
         const panel = new ReaderPanel();
@@ -84,16 +84,16 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.4.1");
-            expect(modal?.textContent).toContain('2026-05-15');
-            expect(modal?.textContent).toContain('personalization');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.0");
+            expect(modal?.textContent).toContain('2026-06-03');
+            expect(modal?.textContent).toContain('ChatGPT as the only active AI page runtime');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.1');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
         } finally {
             panel.hide();
         }

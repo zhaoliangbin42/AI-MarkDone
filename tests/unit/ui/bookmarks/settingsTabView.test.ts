@@ -4,7 +4,7 @@ import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView'
 
 const baseSettings = {
     version: 4,
-    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+    platforms: { chatgpt: true },
     behavior: {
         showSaveMessages: true,
         showWordCount: true,
@@ -94,7 +94,7 @@ describe('SettingsTabView', () => {
         expect(chatGptGroup.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-enabled"]')?.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
     });
 
-    it('shows a platform retirement notice for non-ChatGPT adapters', () => {
+    it('only exposes the ChatGPT platform runtime toggle', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const view = new SettingsTabView({ modal });
         view.setState({
@@ -102,9 +102,13 @@ describe('SettingsTabView', () => {
             storageUsage: null,
         });
 
-        const notice = view.getElement().querySelector<HTMLElement>('[data-role="settings-platform-retirement-notice"]');
+        const root = view.getElement();
 
-        expect(notice?.textContent).toBe('platformRetirementNotice');
+        expect(root.querySelector('[data-role="settings-platform-chatgpt"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-platform-gemini"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-platform-claude"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-platform-deepseek"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-platform-retirement-notice"]')).toBeNull();
     });
 
     it('does not expose retired ChatGPT folding or directory visibility controls', async () => {
@@ -196,7 +200,7 @@ describe('SettingsTabView', () => {
         const exportButton = root.querySelector<HTMLButtonElement>('[data-role="settings-export-all-bookmarks"]');
 
         expect(root.classList.contains('aimd-settings')).toBe(true);
-        expect(platformIcons).toHaveLength(4);
+        expect(platformIcons).toHaveLength(1);
         expect(storageFill?.getAttribute('style')).toContain('50%');
         expect(exportButton).toBeTruthy();
         expect(exportButton?.classList.contains('secondary-btn')).toBe(true);

@@ -8,6 +8,7 @@ import {
     normalizeChatGPTBehaviorSettings,
     normalizeChatGPTDirectorySettings,
     normalizeFormulaSettings,
+    normalizePlatformSettings,
     normalizeReaderContentMaxWidthPx,
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
@@ -40,7 +41,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
         case 'platforms': {
             const next: AppSettings = {
                 ...cur,
-                platforms: mergeObject({ ...DEFAULT_SETTINGS.platforms, ...cur.platforms }, value),
+                platforms: normalizePlatformSettings(mergeObject({ ...cur.platforms }, value)),
             };
             return { next };
         }

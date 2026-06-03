@@ -35,6 +35,17 @@ describe('settingsService', () => {
         expect(() => planGetCategory(DEFAULT_SETTINGS as any, 'performance')).toThrow('Invalid category: performance');
     });
 
+    it('ignores retired platform toggles when writing platform settings', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'platforms', {
+            chatgpt: false,
+            gemini: true,
+            claude: true,
+            deepseek: true,
+        }).next;
+
+        expect(next.platforms).toEqual({ chatgpt: false });
+    });
+
     it('merges reader comment export settings while preserving renderCodeInReader', () => {
         const template: CommentTemplateSegment[] = [
             { type: 'text', value: 'Prefix\n' },

@@ -17,9 +17,6 @@ function normalizeTitle(rawTitle: string): string {
 
 function toPlatformId(adapterPlatformId: string): PlatformId {
     if (adapterPlatformId === 'chatgpt') return 'chatgpt';
-    if (adapterPlatformId === 'gemini') return 'gemini';
-    if (adapterPlatformId === 'claude') return 'claude';
-    if (adapterPlatformId === 'deepseek') return 'deepseek';
     return detectPlatformId(window.location.hostname);
 }
 
@@ -41,4 +38,3 @@ export function buildConversationMetadata(adapter: SiteAdapter, count: number, n
         platform: platformDisplayName(desc.platformId),
     };
 }
-

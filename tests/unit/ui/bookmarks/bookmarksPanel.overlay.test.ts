@@ -6,7 +6,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             ok: true,
             data: {
                 settings: {
-                    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+                    platforms: { chatgpt: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,

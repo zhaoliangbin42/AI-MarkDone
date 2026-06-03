@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { sendText } from '@/services/sending/sendService';
@@ -36,7 +35,12 @@ function withDom(html: string, url: string, fn: () => Promise<void> | void): Pro
 
 describe('ChatGPT send service (mock composer)', () => {
     it('writes text then clicks send after button becomes enabled', async () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-Composer.html', 'utf-8');
+        const html = `
+          <form>
+            <div id="prompt-textarea" class="ProseMirror" contenteditable="true"><p><br></p></div>
+            <button type="submit" data-testid="send-button" disabled aria-disabled="true">Send</button>
+          </form>
+        `;
         await withDom(html, 'https://chatgpt.com/c/mock', async () => {
             const adapter = new ChatGPTAdapter();
             const input = adapter.getComposerInputElement?.();

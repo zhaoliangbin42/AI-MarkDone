@@ -8,7 +8,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             ok: true,
             data: {
                 settings: {
-                    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+                    platforms: { chatgpt: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,
@@ -397,15 +397,12 @@ describe('BookmarksPanel', () => {
         expect(refreshedSettingsPanel?.querySelector('[data-role="settings-folding-count"]')).toBeNull();
         expect(refreshedSettingsPanel?.querySelector('[data-role="settings-chatgpt-conversation-directory"]')).toBeNull();
         const platformLabels = Array.from(refreshedSettingsPanel?.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong') ?? []);
-        const deepseekLabel = platformLabels.find((node) => node.textContent?.includes('Deep'));
-        expect(deepseekLabel?.textContent).toContain('DeepSeek');
-        expect(deepseekLabel?.textContent).not.toContain('Deepseek');
         const platformIconHtml = platformLabels.map((node) => node.innerHTML).join('\n');
         expect(platformIconHtml).toContain('ChatGPT');
-        expect(platformIconHtml).toContain('Gemini');
-        expect(platformIconHtml).toContain('Claude');
-        expect(platformIconHtml).toContain('DeepSeek');
-        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
+        expect(platformIconHtml).not.toContain('Gemini');
+        expect(platformIconHtml).not.toContain('Claude');
+        expect(platformIconHtml).not.toContain('DeepSeek');
+        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(1);
         expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
 
         changelogTabButton!.click();
@@ -502,10 +499,10 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.6',
+                pendingVersion: '4.5.0',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.4.5',
+                previousVersion: '4.4.6',
             },
         } as any);
 
@@ -555,15 +552,15 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.4.6");
-        expect(modal?.textContent).toContain('2026-05-28');
-        expect(modal?.textContent).toContain('toolbar copy button');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.0");
+        expect(modal?.textContent).toContain('2026-06-03');
+        expect(modal?.textContent).toContain('ChatGPT as the only active AI page runtime');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.6');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -571,10 +568,10 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.6',
+                pendingVersion: '4.5.0',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.4.5',
+                previousVersion: '4.4.6',
             },
         } as any);
 
@@ -628,7 +625,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.6');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
@@ -639,19 +636,19 @@ describe('BookmarksPanel', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
-                    pendingVersion: '4.4.6',
+                    pendingVersion: '4.5.0',
                     lastShownVersion: null,
                     reason: 'update',
-                    previousVersion: '4.4.5',
+                    previousVersion: '4.4.6',
                 },
             } as any)
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
                     pendingVersion: null,
-                    lastShownVersion: '4.4.6',
+                    lastShownVersion: '4.5.0',
                     reason: null,
-                    previousVersion: '4.4.5',
+                    previousVersion: '4.4.6',
                 },
             } as any);
 

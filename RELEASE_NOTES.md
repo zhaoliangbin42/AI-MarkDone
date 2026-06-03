@@ -1,5 +1,22 @@
 # Release Notes
 
+## v4.5.0 (2026-06-03)
+
+This release narrows AI-MarkDone to ChatGPT as the only active AI page runtime, while keeping existing user bookmark data intact.
+
+### Added
+- Added optional Google Drive bookmark backup and safe-merge restore for Chrome.
+- Added an optional ChatGPT setting to restore your reading position after sending from older conversation history.
+
+### Changed
+- Retired Gemini, Claude, and DeepSeek page injection, host permissions, adapters, settings toggles, popup links, and copy parity fixtures.
+- Existing saved bookmarks and backups from retired platforms remain available for viewing, filtering, export, local import, and Google Drive backup/restore.
+- Save Messages now opens with only the current message selected by default.
+
+### How it works
+- The browser builds still target Chrome, Firefox, and Safari, but content scripts now run only on ChatGPT hosts.
+- The bookmark schema still keeps platform as a string, so old platform labels remain part of the user's saved data instead of being rewritten or deleted.
+
 ## v4.4.6 (2026-05-28)
 
 This patch focuses on the ChatGPT navigation rail and toolbar copy reliability.

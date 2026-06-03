@@ -278,9 +278,6 @@ export class MessageToolbarOrchestrator {
     private getBookmarkPlatformLabel(): string {
         const platformId = this.adapter.getPlatformId();
         if (platformId === 'chatgpt') return 'ChatGPT';
-        if (platformId === 'claude') return 'Claude';
-        if (platformId === 'gemini') return 'Gemini';
-        if (platformId === 'deepseek') return 'DeepSeek';
         return platformId;
     }
 

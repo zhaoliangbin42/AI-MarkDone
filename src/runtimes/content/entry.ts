@@ -86,8 +86,10 @@ if (adapter) {
     settingsClient.init();
     const cachedSettings = settingsClient.getCached();
     let lastLocale = cachedSettings?.language ?? DEFAULT_SETTINGS.language;
-    const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
-    let runtimeEnabled = cachedSettings?.platforms?.[platformKey] ?? true;
+    const platformKey = 'chatgpt' as const;
+    let runtimeEnabled = adapter.getPlatformId() === 'chatgpt'
+        ? cachedSettings?.platforms?.[platformKey] ?? true
+        : false;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
     let currentThemeOverrides: UserThemeOverrides = getThemeOverrides(cachedSettings);
     writeDebugState({
@@ -202,7 +204,9 @@ if (adapter) {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
         }
-        const nextRuntimeEnabled = snap.settings.platforms?.[platformKey] ?? true;
+        const nextRuntimeEnabled = adapter.getPlatformId() === 'chatgpt'
+            ? snap.settings.platforms?.[platformKey] ?? true
+            : false;
         syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
         syncChatGptBehaviorSettings(snap.settings.chatgptBehavior);
         if (nextRuntimeEnabled) enableRuntime();

@@ -32,6 +32,13 @@ export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behav
     };
 }
 
+export function normalizePlatformSettings(platforms: unknown): AppSettings['platforms'] {
+    const record = isRecord(platforms) ? platforms : {};
+    return {
+        chatgpt: Boolean((record as any).chatgpt ?? DEFAULT_SETTINGS.platforms.chatgpt),
+    };
+}
+
 export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unknown): FormulaSettings {
     const record = isRecord(formula) ? formula : {};
     const legacyRecord = isRecord(legacyBehavior) ? legacyBehavior : {};
@@ -129,10 +136,7 @@ export function loadAndNormalize(stored: unknown): AppSettings {
 export function mergeWithDefaults(stored: AppSettings): AppSettings {
     return {
         version: DEFAULT_SETTINGS.version,
-        platforms: {
-            ...DEFAULT_SETTINGS.platforms,
-            ...stored.platforms,
-        },
+        platforms: normalizePlatformSettings((stored as any).platforms),
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
@@ -170,13 +174,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 
     return {
         version: DEFAULT_SETTINGS.version,
-        platforms: {
-            ...DEFAULT_SETTINGS.platforms,
-            chatgpt: Boolean((platforms as any).chatgpt ?? true),
-            gemini: Boolean((platforms as any).gemini ?? true),
-            claude: Boolean((platforms as any).claude ?? true),
-            deepseek: Boolean((platforms as any).deepseek ?? true),
-        },
+        platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
             saveContextOnly: Boolean((storage as any).saveContextOnly ?? false),
@@ -216,10 +214,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
 
     return {
         version: DEFAULT_SETTINGS.version,
-        platforms: {
-            ...DEFAULT_SETTINGS.platforms,
-            ...platforms,
-        } as any,
+        platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings(behavior),
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),

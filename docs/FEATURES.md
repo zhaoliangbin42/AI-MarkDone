@@ -46,9 +46,9 @@
 
 #### Copy goldens（回归策略）
 
-- Goldens：`tests/fixtures/expected/copy/<platform>/<fixture>.md`
-- Parity tests：从 `mocks/**` 读取 fixture，跑 rewrite pipeline，对比 golden
-- Golden 更新脚本：`scripts/update-copy-goldens.ts`（用于“有意识更新 baseline”，不进入默认 test 流）
+- Goldens：`tests/fixtures/expected/copy/chatgpt/<fixture>.md`
+- Parity tests：从 ChatGPT mocks 读取 fixture，跑 rewrite pipeline，对比 golden
+- Golden 更新脚本：`scripts/update-copy-goldens.ts`（ChatGPT-only，用于“有意识更新 baseline”，不进入默认 test 流）
 
 #### LaTeX click safety guard（必须落实，避免破坏宿主页面）
 
@@ -191,7 +191,7 @@
 
 - 新增 i18n 能力扩展（例如更多 locale 或整站文案重写）
 - 独立 Settings 页面（当前沿用 BookmarksPanel Settings tab 入口）
-- 超出 `CAPABILITY_MATRIX.md` 当前支持范围的平台承诺
+- 超出 `CAPABILITY_MATRIX.md` 当前支持范围的平台承诺；Gemini、Claude、DeepSeek 页面运行时支持已在 v4.5.0 下线
 
 ---
 

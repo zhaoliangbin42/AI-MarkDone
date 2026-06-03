@@ -1,5 +1,19 @@
 # Changelog
 
+# 4.5.0
+2026-06-03
+
+AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, Claude, and DeepSeek page injection has been retired, but existing saved bookmarks and backups from those platforms stay in your library.
+
+## Added
+- Added optional Google Drive bookmark backup and safe-merge restore for Chrome.
+- Added an optional ChatGPT setting to restore your reading position after sending from older conversation history.
+
+## Changed
+- Retired Gemini, Claude, and DeepSeek host permissions, adapters, Settings toggles, popup links, and copy parity fixtures.
+- Kept old Gemini, Claude, and DeepSeek bookmarks visible, filterable, exportable, and backed up as user data.
+- Save Messages now opens with only the current message selected by default.
+
 # 4.4.6
 2026-05-28
 

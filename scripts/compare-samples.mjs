@@ -61,26 +61,14 @@ const run = async () => {
   const chatDoc = parseHTML(`<div id="root">${chatSnippet}</div>`).window.document;
   const chatOutput = toMarkdown(chatDoc.querySelector('#root').innerHTML).trim();
 
-  const geminiHtml = readFileSync(path.join(repoRoot, 'mocks/Gemini-Sample.html'), 'utf8');
-  const gemDoc = parseHTML(geminiHtml).window.document;
-  const gemRoot =
-    gemDoc.querySelector('.model-response-text .markdown') ||
-    gemDoc.querySelector('#extended-response-markdown-content') ||
-    gemDoc.querySelector('.markdown') ||
-    gemDoc.querySelector('message-content') ||
-    gemDoc.body;
-  const gemOutput = toMarkdown(gemRoot.innerHTML).trim();
-
   const expected = readFileSync(path.join(repoRoot, 'mocks/Sample.md'), 'utf8').trim();
 
-  return { chatOutput, gemOutput, expected };
+  return { chatOutput, expected };
 };
 
-run().then(({ chatOutput, gemOutput, expected }) => {
+run().then(({ chatOutput, expected }) => {
   console.log('--- ChatGPT ---');
   console.log(chatOutput);
-  console.log('\n--- Gemini ---');
-  console.log(gemOutput);
   console.log('\n--- Expected ---');
   console.log(expected);
 });

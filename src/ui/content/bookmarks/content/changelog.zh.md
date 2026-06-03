@@ -1,5 +1,19 @@
 # 更新日志
 
+# 4.5.0
+2026-06-03
+
+AI-MarkDone 现在收回到 ChatGPT 这一个 AI 页面运行时。Gemini、Claude 和 DeepSeek 的页面注入已经下架，但你过去保存的这些平台书签和备份仍然会留在书签库里。
+
+## 新增
+- Chrome 版本新增可选的 Google Drive 书签备份和安全合并恢复。
+- ChatGPT 设置中新增发送后恢复阅读位置的可选开关。
+
+## 变更
+- 下架 Gemini、Claude 和 DeepSeek 的 host 权限、页面 adapter、设置开关、popup 入口和 copy parity fixture。
+- 旧的 Gemini、Claude 和 DeepSeek 书签仍作为用户数据保留，可以继续查看、筛选、导出和备份。
+- 消息导出默认只选中当前消息，不再一打开就选中整段对话。
+
 # 4.4.6
 2026-05-28
 

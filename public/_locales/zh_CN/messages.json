@@ -4,7 +4,7 @@
         "description": "Message for extName"
     },
     "extDescription": {
-        "message": "AI 专业提效神器：阅读模式、对话目录、书签管理、LaTeX 公式复制与 Markdown 导出。支持 ChatGPT、Gemini、Claude 和 DeepSeek。",
+        "message": "专注 ChatGPT 的提效插件：阅读模式、书签管理、Google Drive 备份、LaTeX 公式复制与 Markdown 导出。",
         "description": "Message for extDescription"
     },
     "btnCopy": {
@@ -911,10 +911,6 @@
         "message": "工具栏与页面操作",
         "description": "Message for toolbarPageActionsSettingsLabel"
     },
-    "platformRetirementNotice": {
-        "message": "从 v4.5.0 开始，Gemini、Claude 和 DeepSeek 适配将下线。ChatGPT 将作为本插件唯一支持的平台。",
-        "description": "Message for platformRetirementNotice"
-    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT 目录条",
         "description": "Message for chatgptDirectorySettingsLabel"
@@ -1202,18 +1198,6 @@
     "enableOnChatGPT": {
         "message": "在 ChatGPT 上启用扩展",
         "description": "Message for enableOnChatGPT"
-    },
-    "enableOnGemini": {
-        "message": "在 Gemini 上启用扩展",
-        "description": "Message for enableOnGemini"
-    },
-    "enableOnClaude": {
-        "message": "在 Claude 上启用扩展",
-        "description": "Message for enableOnClaude"
-    },
-    "enableOnDeepseek": {
-        "message": "在 DeepSeek 上启用扩展",
-        "description": "Message for enableOnDeepseek"
     },
     "saveMessagesLabel": {
         "message": "工具栏 > 消息导出",
@@ -2098,18 +2082,6 @@
     "settingsPlatformChatgptDesc": {
         "message": "在 ChatGPT 上启用 AI-MarkDone。",
         "description": "Message for settingsPlatformChatgptDesc"
-    },
-    "settingsPlatformGeminiDesc": {
-        "message": "在 Gemini 上启用 AI-MarkDone。",
-        "description": "Message for settingsPlatformGeminiDesc"
-    },
-    "settingsPlatformClaudeDesc": {
-        "message": "在 Claude 上启用 AI-MarkDone。",
-        "description": "Message for settingsPlatformClaudeDesc"
-    },
-    "settingsPlatformDeepseekDesc": {
-        "message": "在 DeepSeek 上启用 AI-MarkDone。",
-        "description": "Message for settingsPlatformDeepseekDesc"
     },
     "settingsShowSaveMessagesLabel": {
         "message": "显示保存消息",
