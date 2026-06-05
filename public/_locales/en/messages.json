@@ -927,6 +927,14 @@
         "message": "When reading older messages, jump back to your reading position after ChatGPT moves to the bottom. This restores position quickly, but it is not a direct scroll block.",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
+    "chatgptArrowKeyMessageNavigationLabel": {
+        "message": "Use arrow keys to move between messages",
+        "description": "Message for chatgptArrowKeyMessageNavigationLabel"
+    },
+    "chatgptArrowKeyMessageNavigationDesc": {
+        "message": "Left and Right move to the previous or next message when you are not typing. Inside the ChatGPT input box, they still move the cursor.",
+        "description": "Message for chatgptArrowKeyMessageNavigationDesc"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "Show ChatGPT directory",
         "description": "Message for chatgptDirectoryEnabledLabel"
@@ -936,7 +944,7 @@
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "Show the right-side conversation directory on ChatGPT pages.",
+        "message": "The right-side directory rail is retired; message navigation now uses the lower-right stepper.",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
@@ -1595,6 +1603,10 @@
         "message": "Connected",
         "description": "Cloud backup connected status"
     },
+    "cloudBackupConnectedAs": {
+        "message": "Connected as $1",
+        "description": "Cloud backup connected account status"
+    },
     "cloudBackupConfigMissingStatus": {
         "message": "Google Drive setup is missing",
         "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
@@ -1610,6 +1622,18 @@
     "cloudBackupLoginGoogleDrive": {
         "message": "Sign in to Google Drive",
         "description": "Primary action for connecting Google Drive cloud backup"
+    },
+    "cloudBackupConnectConfirmTitle": {
+        "message": "Connect Google Drive?",
+        "description": "Confirmation title before starting Google Drive authorization"
+    },
+    "cloudBackupConnectConfirmDesc": {
+        "message": "AI-MarkDone will open Google authorization so you can choose your own Drive. This feature is experimental; before backing up to Google Drive, we recommend exporting a local copy first. AI-MarkDone does not collect your Google account, token, password, or bookmarks.",
+        "description": "Confirmation message before starting Google Drive authorization"
+    },
+    "cloudBackupConnectConfirmAction": {
+        "message": "Continue",
+        "description": "Confirmation action before starting Google Drive authorization"
     },
     "cloudBackupDisconnect": {
         "message": "Disconnect",
@@ -1655,10 +1679,6 @@
         "message": "Restore preview",
         "description": "Cloud restore preview title"
     },
-    "cloudBackupRestorePreviewDesc": {
-        "message": "Safe merge would add $1 bookmark(s), keep $2 local-only bookmark(s), skip $3 duplicate(s), and leave $4 conflict(s) unchanged.",
-        "description": "Cloud restore preview summary"
-    },
     "cloudBackupRestoreCompleteTitle": {
         "message": "Restore complete",
         "description": "Cloud restore completion title"
@@ -1672,16 +1692,12 @@
         "description": "Cloud backup status check message"
     },
     "cloudBackupPrivacyNote": {
-        "message": "Your backups go straight into your own Google Drive. We do not keep your Google account, store OAuth tokens, or send your bookmarks to an AI-MarkDone server. You can sign out or move these backups to Drive trash whenever you want.",
+        "message": "AI-MarkDone does not collect your Google account, token, password, or bookmarks.",
         "description": "Cloud backup privacy note"
     },
     "cloudBackupStatusLabel": {
         "message": "Status",
         "description": "Google Drive cloud backup status label"
-    },
-    "cloudBackupTestListSnapshots": {
-        "message": "Test backup list",
-        "description": "Test listing cloud backups"
     },
     "cloudBackupTestConnection": {
         "message": "Test connection",
@@ -1703,33 +1719,9 @@
         "message": "Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.",
         "description": "Description for the Google Drive restore snapshot picker"
     },
-    "cloudBackupDiagnosticsLabel": {
-        "message": "Build check",
-        "description": "Google Drive backup Chrome build diagnostics label"
-    },
-    "cloudBackupDiagnosticsChecking": {
-        "message": "Checking Chrome build...",
-        "description": "Google Drive backup build diagnostics loading text"
-    },
-    "cloudBackupDiagnosticsReady": {
-        "message": "Chrome build is ready for Google Drive backup.",
-        "description": "Google Drive backup build diagnostics ready text"
-    },
-    "cloudBackupDiagnosticsReloadDistChrome": {
-        "message": "Chrome is still loading a build without complete Google Drive OAuth. Remove old unpacked AI-MarkDone entries and reload dist-chrome.",
-        "description": "Google Drive backup build diagnostics reload instruction"
-    },
-    "cloudBackupDiagnosticsYes": {
-        "message": "yes",
-        "description": "Google Drive backup diagnostics yes value"
-    },
-    "cloudBackupDiagnosticsNo": {
-        "message": "no",
-        "description": "Google Drive backup diagnostics no value"
-    },
-    "cloudBackupConnectionChecking": {
-        "message": "Checking Google Drive connection...",
-        "description": "Short loading text while testing the Google Drive backup connection"
+    "cloudBackupProgressConfirmingAccess": {
+        "message": "Confirming Google Drive access...",
+        "description": "Google Drive backup progress step for confirming short-lived access"
     },
     "cloudBackupProgressPreparingBookmarks": {
         "message": "Preparing local bookmarks...",

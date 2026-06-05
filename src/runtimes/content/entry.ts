@@ -20,6 +20,7 @@ import { discoverMessageElements } from '../../drivers/content/injection/message
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
+import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
@@ -66,6 +67,9 @@ if (adapter) {
         : null;
     const chatGptSendPositionRestore = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTSendPositionRestoreController(adapter)
+        : null;
+    const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTMessageStepperController(adapter)
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
@@ -121,6 +125,7 @@ if (adapter) {
         if (!chatGptConversationEngine) return;
         viewportResizeSuspend?.init();
         chatGptSendPositionRestore?.init();
+        chatGptMessageStepper?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
         if (!chatGptDirectory || getPerfFlags().disableDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
@@ -146,12 +151,12 @@ if (adapter) {
     };
 
     const syncChatGptBehaviorSettings = (settings: typeof DEFAULT_SETTINGS.chatgptBehavior | undefined) => {
-        if (!chatGptSendPositionRestore) return;
         const next = {
             ...DEFAULT_SETTINGS.chatgptBehavior,
             ...settings,
         };
-        chatGptSendPositionRestore.setEnabled(Boolean(next.restorePositionAfterSend));
+        chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
+        chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
     };
 
     const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
@@ -164,6 +169,7 @@ if (adapter) {
         bookmarksController.setThemeOverrides?.(currentThemeOverrides);
         saveMessagesDialog.setThemeOverrides?.(currentThemeOverrides);
         chatGptDirectory?.setThemeOverrides?.(currentThemeOverrides);
+        chatGptMessageStepper?.setThemeOverrides?.(currentThemeOverrides);
     };
 
     const enableRuntime = () => {
@@ -185,6 +191,7 @@ if (adapter) {
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
         chatGptSendPositionRestore?.dispose();
+        chatGptMessageStepper?.dispose();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).

@@ -110,7 +110,7 @@ describe('background entry changelog notice wiring', () => {
         await tabActivatedListener?.({ tabId: 44086653 });
         await Promise.resolve();
 
-        expect(tabs.get).toHaveBeenCalledWith(44086653);
+        expect(tabs.get).toHaveBeenCalledWith(44086653, expect.any(Function));
         expect((globalThis as any).browser.action.setIcon).not.toHaveBeenCalled();
     });
 
@@ -123,8 +123,63 @@ describe('background entry changelog notice wiring', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(action.setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: 44086653 }));
+        expect(action.setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: 44086653 }), expect.any(Function));
         expect(action.setPopup).not.toHaveBeenCalled();
+    });
+
+    it('consumes callback-style Chrome lastError while updating action state', async () => {
+        const runtime = (globalThis as any).chrome.runtime;
+        let lastErrorReadCount = 0;
+        let currentLastError: { message: string } | null = null;
+        Object.defineProperty(runtime, 'lastError', {
+            configurable: true,
+            get: () => {
+                lastErrorReadCount += 1;
+                return currentLastError;
+            },
+        });
+        const action = (globalThis as any).chrome.action;
+        action.setIcon = vi.fn((_details: unknown, callback?: () => void) => {
+            currentLastError = { message: 'No tab with id: 44086838.' };
+            callback?.();
+            currentLastError = null;
+        });
+
+        await import('@/runtimes/background/entry');
+        tabUpdatedListener?.(44086838, { status: 'complete' }, { url: 'https://chatgpt.com/c/mock' });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(action.setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: 44086838 }), expect.any(Function));
+        expect(action.setPopup).not.toHaveBeenCalled();
+        expect(lastErrorReadCount).toBeGreaterThan(0);
+    });
+
+    it('consumes callback-style Chrome lastError when a clicked tab has no content receiver', async () => {
+        const runtime = (globalThis as any).chrome.runtime;
+        let lastErrorReadCount = 0;
+        let currentLastError: { message: string } | null = null;
+        Object.defineProperty(runtime, 'lastError', {
+            configurable: true,
+            get: () => {
+                lastErrorReadCount += 1;
+                return currentLastError;
+            },
+        });
+        const tabs = (globalThis as any).chrome.tabs;
+        tabs.sendMessage = vi.fn((_tabId: number, _request: unknown, callback?: () => void) => {
+            currentLastError = { message: 'Could not establish connection. Receiving end does not exist.' };
+            callback?.();
+            currentLastError = null;
+        });
+
+        await import('@/runtimes/background/entry');
+        await actionClickedListener?.({ id: 42, url: 'https://chatgpt.com/c/mock' });
+        await Promise.resolve();
+
+        expect(tabs.sendMessage).toHaveBeenCalledTimes(1);
+        expect(tabs.sendMessage).toHaveBeenCalledWith(42, expect.objectContaining({ type: 'ping' }), expect.any(Function));
+        expect(lastErrorReadCount).toBeGreaterThan(0);
     });
 
     it('pings the clicked ChatGPT tab before toggling the toolbar', async () => {
@@ -134,8 +189,8 @@ describe('background entry changelog notice wiring', () => {
         await actionClickedListener?.({ id: 42, url: 'https://chatgpt.com/c/mock' });
         await Promise.resolve();
 
-        expect(tabs.sendMessage).toHaveBeenNthCalledWith(1, 42, expect.objectContaining({ type: 'ping' }));
-        expect(tabs.sendMessage).toHaveBeenNthCalledWith(2, 42, expect.objectContaining({ type: 'ui:toggle_toolbar' }));
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(1, 42, expect.objectContaining({ type: 'ping' }), expect.any(Function));
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(2, 42, expect.objectContaining({ type: 'ui:toggle_toolbar' }), expect.any(Function));
     });
 
     it('does not toggle the toolbar when the clicked tab has no content receiver', async () => {
@@ -147,7 +202,7 @@ describe('background entry changelog notice wiring', () => {
         await Promise.resolve();
 
         expect(tabs.sendMessage).toHaveBeenCalledTimes(1);
-        expect(tabs.sendMessage).toHaveBeenCalledWith(42, expect.objectContaining({ type: 'ping' }));
+        expect(tabs.sendMessage).toHaveBeenCalledWith(42, expect.objectContaining({ type: 'ping' }), expect.any(Function));
     });
 
     it('updates action state from content ready when sender tab is available', async () => {
@@ -163,7 +218,7 @@ describe('background entry changelog notice wiring', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect((globalThis as any).browser.action.setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: 42 }));
+        expect((globalThis as any).browser.action.setIcon).toHaveBeenCalledWith(expect.objectContaining({ tabId: 42 }), expect.any(Function));
         expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ ok: true, data: { ready: true } }));
     });
 

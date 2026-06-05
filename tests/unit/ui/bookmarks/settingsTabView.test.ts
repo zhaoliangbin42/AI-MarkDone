@@ -49,6 +49,7 @@ const baseSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: false,
+        enableArrowKeyMessageNavigation: true,
     },
     appearance: { fontSizePx: 16, accentColor: null },
     bookmarks: { sortMode: 'time-desc' },
@@ -90,6 +91,7 @@ describe('SettingsTabView', () => {
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeTruthy();
         expect(chatGptGroup.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-enabled"]')?.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
     });
@@ -184,6 +186,30 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: true });
     });
 
+    it('wires ChatGPT arrow-key message navigation to the scoped behavior category', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-arrow-key-message-navigation"]')!;
+
+        expect(toggle.checked).toBe(true);
+
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ enableArrowKeyMessageNavigation: false });
+    });
+
     it('renders shipped platform icon wrappers and storage/export content', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onExportAllBookmarks = vi.fn(async () => undefined);
@@ -212,7 +238,13 @@ describe('SettingsTabView', () => {
     it('renders Data Management with experimental Google Drive Backup and Local Backup cards without sync wording', async () => {
         const modal = { confirm: vi.fn(async () => true), alert: vi.fn(async () => undefined), showCustom: vi.fn() } as any;
         const cloudBackup = {
-            status: vi.fn(async () => ({ connected: true })),
+            status: vi.fn(async () => ({
+                connected: true,
+                accountEmail: 'zhaoliangbin42@gmail.com',
+                accountDisplayName: 'Liangbin Zhao',
+                accountPhotoUrl: 'https://lh3.googleusercontent.com/avatar',
+                authStrategy: 'webExtensionAccessToken',
+            })),
             openSettings: vi.fn(async () => undefined),
             connect: vi.fn(async () => ({ connected: true })),
             disconnect: vi.fn(async () => ({ connected: false })),
@@ -253,7 +285,10 @@ describe('SettingsTabView', () => {
         expect(googleDriveRow.textContent).toContain('Google Drive');
         expect(googleDriveRow.textContent).toContain('cloudBackupExperimentalLabel');
         expect(cards[1].querySelector('[data-role="settings-local-backup-row"] strong')?.textContent).toBe('localBackupTitle');
-        expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).toBe('cloudBackupConnectedStatus');
+        expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).toContain('Connected as');
+        expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).not.toContain('cloudBackupConnectedAs');
+        expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).toContain('Liangbin Zhao');
+        expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.textContent).toContain('zhaoliangbin42@gmail.com');
         expect(root.querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')?.classList.contains('cloud-backup-row__status--connected')).toBe(true);
         expect(root.querySelector('[data-role="cloud-backup-provider-dropbox"]')).toBeNull();
         expect(root.querySelector('[data-role="cloud-backup-provider-jianguoyun"]')).toBeNull();
@@ -341,7 +376,7 @@ describe('SettingsTabView', () => {
             status: vi.fn(async () => ({
                 configured: false,
                 connected: false,
-                lastError: 'Google Drive backup is missing the Chrome manifest OAuth client ID. Regenerate Chrome from config/extension/cloudBackup.ts with the public Chrome Extension OAuth client ID.',
+                lastError: 'Google Drive backup requires manifest.oauth2 client_id/scopes.',
             })),
         };
 
@@ -358,7 +393,7 @@ describe('SettingsTabView', () => {
 
         const status = view.getElement().querySelector<HTMLElement>('[data-role="cloud-backup-google-drive-status"]')!;
         expect(status.textContent).toBe('cloudBackupConfigMissingStatus');
-        expect(status.title).toContain('Chrome manifest OAuth client ID');
+        expect(status.title).toContain('manifest.oauth2');
         expect(status.classList.contains('cloud-backup-row__status--error')).toBe(true);
     });
 

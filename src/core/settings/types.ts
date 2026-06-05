@@ -29,6 +29,7 @@ export type ChatGPTDirectorySettings = {
 
 export type ChatGPTBehaviorSettings = {
     restorePositionAfterSend: boolean;
+    enableArrowKeyMessageNavigation: boolean;
 };
 
 export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
@@ -101,7 +102,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
-    chatgptBehavior: { restorePositionAfterSend: false },
+    chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: true },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',

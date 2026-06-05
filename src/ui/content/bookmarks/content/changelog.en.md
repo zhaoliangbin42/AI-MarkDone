@@ -6,7 +6,9 @@
 AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, Claude, and DeepSeek page injection has been retired, but existing saved bookmarks and backups from those platforms stay in your library.
 
 ## Added
-- Added optional Google Drive bookmark backup and safe-merge restore for Chrome.
+- Added optional Google Drive bookmark backup and safe-merge restore. Google Chrome uses browser-managed identity; WebAuth-compatible browsers use `launchWebAuthFlow` with the configured Web OAuth client.
+- Added a short Google Drive connect confirmation that reminds users this backup is experimental and recommends exporting a local copy first.
+- Added a lightweight lower-right ChatGPT message stepper with optional Left/Right arrow-key message navigation.
 - Added an optional ChatGPT setting to restore your reading position after sending from older conversation history.
 
 ## Changed
@@ -17,7 +19,7 @@ AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, C
 # 4.4.6
 2026-05-28
 
-This update continues the Google Drive Backup rollout and makes the backup lifecycle easier to understand: the feature is marked experimental, restore preview uses the same detailed merge review as local import, and Drive backup files can be moved to trash from the settings panel.
+This update continues the Google Drive Backup rollout and makes the backup lifecycle easier to understand: the feature is marked experimental, restore preview uses the same detailed merge review as local import, Drive backup files can be moved to trash from the settings panel, and the connected Google Drive account is shown without turning the settings panel into a console.
 
 ## Fixed
 - Fixed stutter in the ChatGPT navigation rail.

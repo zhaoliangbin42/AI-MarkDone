@@ -107,7 +107,8 @@ export class ViewportResizeSuspendController {
         style.textContent = `
 html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-rail,
 html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-preview,
-html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-step-controls {
+html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-step-controls,
+html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-message-stepper {
   visibility: hidden;
   pointer-events: none;
   content-visibility: hidden;

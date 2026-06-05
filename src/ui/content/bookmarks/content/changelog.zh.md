@@ -6,7 +6,9 @@
 AI-MarkDone 现在收回到 ChatGPT 这一个 AI 页面运行时。Gemini、Claude 和 DeepSeek 的页面注入已经下架，但你过去保存的这些平台书签和备份仍然会留在书签库里。
 
 ## 新增
-- Chrome 版本新增可选的 Google Drive 书签备份和安全合并恢复。
+- 新增可选的 Google Drive 书签备份和安全合并恢复。Google Chrome 使用浏览器托管 identity；支持 WebAuth 的浏览器使用配置好的 Web OAuth client 与 `launchWebAuthFlow`。
+- Google Drive 连接前新增简短确认，会提示该功能仍在实验阶段，并建议先导出一份本地副本。
+- 新增右下角 ChatGPT 消息 Stepper，并支持可关闭的左右方向键消息导航。
 - ChatGPT 设置中新增发送后恢复阅读位置的可选开关。
 
 ## 变更
@@ -17,7 +19,7 @@ AI-MarkDone 现在收回到 ChatGPT 这一个 AI 页面运行时。Gemini、Clau
 # 4.4.6
 2026-05-28
 
-这一版继续推进 Google Drive 备份体验：功能会明确标注为实验性，云端恢复预览会使用和本地导入一致的合并详情页，设置面板里也可以把不需要的云端备份移到 Google Drive 回收站。
+这一版继续推进 Google Drive 备份体验：功能会明确标注为实验性，云端恢复预览会使用和本地导入一致的合并详情页，设置面板里可以把不需要的云端备份移到 Google Drive 回收站，也会显示当前连接账号，但不再把设置面板做成复杂控制台。
 
 ## 修复
 - 修复导航栏显示卡顿的问题。

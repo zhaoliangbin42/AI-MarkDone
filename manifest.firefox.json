@@ -7,8 +7,11 @@
     "permissions": [
         "clipboardWrite",
         "storage",
+        "identity",
         "https://chatgpt.com/*",
-        "https://chat.openai.com/*"
+        "https://chat.openai.com/*",
+        "https://www.googleapis.com/*",
+        "https://oauth2.googleapis.com/*"
     ],
     "content_scripts": [
         {
@@ -50,6 +53,7 @@
     ],
     "browser_specific_settings": {
         "gecko": {
+            "id": "ai-markdone@zhaoliangbin.com",
             "strict_min_version": "109.0",
             "data_collection_permissions": {
                 "required": [

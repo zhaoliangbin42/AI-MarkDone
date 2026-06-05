@@ -1913,11 +1913,6 @@ ${getPanelChromeCss()}
   background: color-mix(in srgb, var(--aimd-bg-primary) 72%, var(--aimd-bg-surface));
 }
 
-.cloud-backup-settings-modal__diagnostics {
-  white-space: pre-line;
-  color: var(--aimd-text-secondary);
-}
-
 .cloud-backup-progress {
   display: grid;
   gap: var(--aimd-space-3);

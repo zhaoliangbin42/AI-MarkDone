@@ -46,6 +46,59 @@ function isBenignTabLifecycleError(error: unknown): boolean {
     ].some((pattern) => message.includes(pattern));
 }
 
+function getNativeChromeApi(): any | null {
+    const chromeLike = (globalThis as any).chrome;
+    return chromeLike?.runtime ? chromeLike : null;
+}
+
+function readChromeRuntimeLastError(chromeLike: any): Error | null {
+    const runtimeError = chromeLike?.runtime?.lastError;
+    const message = typeof runtimeError?.message === 'string'
+        ? runtimeError.message
+        : typeof runtimeError === 'string'
+            ? runtimeError
+            : '';
+    return message ? new Error(message) : null;
+}
+
+function callChromeCallbackApi<T>(
+    chromeLike: any,
+    fn: (...args: any[]) => unknown,
+    args: unknown[],
+    mapResult: (...callbackArgs: any[]) => T,
+): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        let settled = false;
+        const settleResolve = (value: T) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        const settleReject = (error: unknown) => {
+            if (settled) return;
+            settled = true;
+            reject(error);
+        };
+        try {
+            const maybePromise = fn(...args, (...callbackArgs: any[]) => {
+                const runtimeError = readChromeRuntimeLastError(chromeLike);
+                if (runtimeError) {
+                    settleReject(runtimeError);
+                    return;
+                }
+                settleResolve(mapResult(...callbackArgs));
+            });
+            if (maybePromise && typeof (maybePromise as Promise<unknown>).then === 'function') {
+                (maybePromise as Promise<unknown>)
+                    .then((value) => settleResolve(mapResult(value)))
+                    .catch(settleReject);
+            }
+        } catch (error) {
+            settleReject(error);
+        }
+    });
+}
+
 async function safeTabOperation(label: string, operation: () => unknown): Promise<boolean> {
     try {
         await Promise.resolve(operation());
@@ -60,6 +113,15 @@ async function safeTabOperation(label: string, operation: () => unknown): Promis
 
 async function safeGetTab(tabId: number): Promise<{ id?: number; url?: string } | null> {
     try {
+        const chromeLike = getNativeChromeApi();
+        if (typeof chromeLike?.tabs?.get === 'function') {
+            return await callChromeCallbackApi(
+                chromeLike,
+                chromeLike.tabs.get.bind(chromeLike.tabs),
+                [tabId],
+                (tab) => tab ?? null,
+            ) as { id?: number; url?: string } | null;
+        }
         return await Promise.resolve(browserCompat.tabs?.get?.(tabId)) as { id?: number; url?: string } | null;
     } catch (error) {
         if (!isBenignTabLifecycleError(error)) {
@@ -70,7 +132,18 @@ async function safeGetTab(tabId: number): Promise<{ id?: number; url?: string } 
 }
 
 async function safeSendTabMessage(tabId: number, request: ExtRequest): Promise<boolean> {
-    return safeTabOperation(`tabs.sendMessage:${request.type}`, () => browserCompat.tabs?.sendMessage?.(tabId, request));
+    return safeTabOperation(`tabs.sendMessage:${request.type}`, () => {
+        const chromeLike = getNativeChromeApi();
+        if (typeof chromeLike?.tabs?.sendMessage === 'function') {
+            return callChromeCallbackApi(
+                chromeLike,
+                chromeLike.tabs.sendMessage.bind(chromeLike.tabs),
+                [tabId, request],
+                () => undefined,
+            );
+        }
+        return browserCompat.tabs?.sendMessage?.(tabId, request);
+    });
 }
 
 async function updateActionState(tabId: number, url?: string) {
@@ -78,20 +151,37 @@ async function updateActionState(tabId: number, url?: string) {
     if (!action) return;
 
     if (isSupportedUrl(url)) {
-        const iconUpdated = await safeTabOperation('action.setIcon:supported', () => action.setIcon?.({
+        const iconUpdated = await safeActionOperation('action.setIcon:supported', 'setIcon', {
             tabId,
             path: { '16': 'icons/icon16.png', '48': 'icons/icon48.png', '128': 'icons/icon128.png' }
-        } as any));
+        });
         if (!iconUpdated) return;
-        await safeTabOperation('action.setPopup:supported', () => action.setPopup?.({ tabId, popup: '' } as any));
+        await safeActionOperation('action.setPopup:supported', 'setPopup', { tabId, popup: '' });
     } else {
-        const iconUpdated = await safeTabOperation('action.setIcon:unsupported', () => action.setIcon?.({
+        const iconUpdated = await safeActionOperation('action.setIcon:unsupported', 'setIcon', {
             tabId,
             path: { '16': 'icons/icon16_gray.png', '48': 'icons/icon48_gray.png', '128': 'icons/icon128_gray.png' }
-        } as any));
+        });
         if (!iconUpdated) return;
-        await safeTabOperation('action.setPopup:unsupported', () => action.setPopup?.({ tabId, popup: 'src/popup/popup.html' } as any));
+        await safeActionOperation('action.setPopup:unsupported', 'setPopup', { tabId, popup: 'src/popup/popup.html' });
     }
+}
+
+async function safeActionOperation(label: string, method: 'setIcon' | 'setPopup', details: Record<string, unknown>): Promise<boolean> {
+    return safeTabOperation(label, () => {
+        const chromeLike = getNativeChromeApi();
+        const nativeAction = chromeLike?.action || chromeLike?.browserAction;
+        const nativeMethod = nativeAction?.[method];
+        if (typeof nativeMethod === 'function') {
+            return callChromeCallbackApi(
+                chromeLike,
+                nativeMethod.bind(nativeAction),
+                [details],
+                () => undefined,
+            );
+        }
+        return browserCompat.action?.[method]?.(details as any);
+    });
 }
 
 // Chrome MV3: prefer chrome.* events (more direct), but browser.* works as well.

@@ -56,7 +56,7 @@
 - runtime 协议：`src/contracts/protocol.ts`
 - 平台契约：`src/contracts/platform.ts`
 - 存储契约：`src/contracts/storage.ts`
-- Chrome Google Drive 书签备份位于 Settings → Data Management → Google Drive Backup。本地导出位于 Settings → Data Management → Local Backup。Google Drive Backup v1 不会实时双向更新，而是用户主动触发的不可变 bookmark snapshot 备份/安全合并恢复：本地读取与恢复写入仍通过 bookmarks storage/index 与 background storage queue，Drive 副作用经 `cloudBackup:*` runtime protocol 和 background provider 执行。Chrome OAuth 配置由 `config/extension/cloudBackup.ts` 生成到 manifest `oauth2`，Chrome manifest 默认带 Chrome Web Store public key 以固定本地/线上 extension ID；manifest OAuth client ID 只标识 AI-MarkDone 这个 Chrome Extension 应用，不携带开发者 Google 账号登录态，用户安装后只能通过 Chrome identity 授权当前浏览器 profile 中自己的 Google 账号。Firefox/Safari v1 不暴露 Google Drive 入口。
+- Google Drive 书签备份位于 Settings → Data Management → Google Drive Backup。本地导出位于 Settings → Data Management → Local Backup。Google Drive Backup v1 不会实时双向更新，而是用户主动触发的不可变 bookmark snapshot 备份/安全合并恢复：本地读取与恢复写入仍通过 bookmarks storage/index 与 background storage queue，Drive 副作用经 `cloudBackup:*` runtime protocol 和 background provider 执行。Chromium build 使用 manifest `oauth2` 作为 `chrome.identity.getAuthToken` 的 Google OAuth SSOT，先按能力调用浏览器托管身份缓存，失败时再用 Web application OAuth client 与 `identity.getRedirectURL()` 走 `identity.launchWebAuthFlow`；Firefox 使用同一 WebAuth fallback，Firefox allizom redirect 会转成 MDN 允许的 loopback redirect。OAuth client ID 只标识 AI-MarkDone 这个公开应用，不携带开发者 Google 账号登录态；用户安装后授权的是当前浏览器/profile 中自己的 Google 账号。连接前 UI 会先显示 AI-MarkDone 的简短确认，用户确认后才启动 Google 授权。连接后本地状态只保存 Drive `about.get` 返回的账号摘要（邮箱、显示名、头像 URL）用于用户确认，不把 refresh token、cookie 或 Google account id 写入 extension storage。浏览器 identity cache 管理长期授权体验；provider 只把短期 access token 缓存在 extension local storage，过期前用于抗 service worker 重启。Safari v1 不暴露 Google Drive 入口。
 
 当前 content ↔ background 协议已经具备：
 
@@ -78,7 +78,8 @@
 - Gemini、Claude、DeepSeek 页面运行时支持已在 v4.5.0 下线；旧书签中的平台字符串仍作为用户历史数据保留
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
   - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main` 内的结构化 turn scope（旧 `[data-turn-id-container]` 或语义 `[data-turn="user"|"assistant"]` wrapper）读取 React turn 数据，并允许在该 turn scope 内查找承载 `turn/currentTurn/prevTurn` props 的 React carrier，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
-  - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 目前作为可恢复的历史 surface 保留，但 ChatGPT 已提供官方对话导航，AI-MarkDone runtime 不再挂载自己的右侧目录条或 step controls。`chatgptDirectory.enabled` 始终归一化为 `false`，Settings 仅显示下架说明；mode/promptLabelMode 作为兼容字段保留但不再作为用户可见 controls。该下架不影响 ChatGPTConversationEngine、Reader、Save Messages、复制、书签存储或定位 helper。
+  - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 目前作为可恢复的历史 surface 保留，但 ChatGPT 已提供官方对话导航，AI-MarkDone runtime 不再挂载自己的右侧目录条。`chatgptDirectory.enabled` 始终归一化为 `false`，Settings 仅显示下架说明；mode/promptLabelMode 作为兼容字段保留但不再作为用户可见 controls。该下架不影响 ChatGPTConversationEngine、Reader、Save Messages、复制、书签存储或定位 helper。
+  - `ChatGPTMessageStepperController` 是独立于旧 directory rail 的轻量 lower-right surface：它只提供上一条/下一条按钮和可关闭的 Left/Right 键消息导航，定位时复用 `src/ui/content/chatgptDirectory/navigation.ts` 的 same-page helper。键盘监听默认开启，但会跳过 input、textarea、contenteditable、role=textbox、组合键、IME composing 与 AI-MarkDone 自有面板/弹窗/输入区。
   - 若未来恢复 `ChatGPTDirectoryRail`，hover accordion 与 compact preview 仍只能属于 rail UI 热路径：已渲染条目和轮次可在组件内缓存，鼠标移动时只允许更新旧/新 hover 邻近范围内的少量视觉状态，并复用已存在的 body-level preview/step-control style；不得在 hover 时全量扫描 `.rail__item`、按轮次线性查找 preview 内容、重写 token style、读取 layout rect 定位 preview，或触发目录发现、snapshot、Reader、toolbar、bookmark、resize suspend 等下层链路。
   - `ViewportResizeSuspendController` 是 ChatGPT content runtime 的轻量 viewport 宽度拖拽保护层：它只消费浏览器 `window.resize` 信号和宽度变化阈值，不依赖 ChatGPT DOM/mutation；持续 resize 时通过页面级 `data-aimd-viewport-resizing` 标记让 ChatGPT action-row toolbar chrome 暂时隐藏并暂停子树渲染，idle 后派发一次恢复事件。该链路只影响插件 chrome 的临时可见性，不卸载 DOM、不重建 toolbar record、不折叠 action-row toolbar 布局、不改变 snapshot、Reader、Save Messages 或书签语义。
   - `ChatGPTDirectoryRail` 的滚动与展开样式归组件 Shadow DOM 持有；长目录出现垂直滚动条时，expanded 条目必须用明确的 grid 列分配编号、可收缩文案和右侧短线，并保持滚动槽稳定，避免 hover/active 条目被 scrollbar 挤压或裁切。expanded label 的可见宽度应优先由 CSS intrinsic sizing 与字符宽度预算表达，而不是固定像素宽度、一次性宽度 token 或 JS 测量补偿。
@@ -126,12 +127,12 @@ flowchart TD
     AdapterGroups --> TurnRefs
     TurnRefs --> Navigation
     TurnRefs -. "retained only if restored" .-> Directory
-    TurnRefs -. "retained only if restored" .-> StepControls
+    TurnRefs -. "lower-right stepper" .-> StepControls
 ```
 
 - Reader、工具栏 Copy/Copy PNG、Save Messages 导出与书签保存正文必须只通过 fresh `readerContentSource` 获取正文，并消费同一份 `ReaderItem[]` 语义。
 - ChatGPT 正文完整性由 `ChatGPTConversationEngine snapshot` 负责；DOM markdown collection 不再作为 ChatGPT 长对话的主内容源。
-- Reader locate、书签 Go 与跨页 pending navigation 共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影；已下架的右侧目录条/step controls 若未来恢复，也必须复用同一投影。它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
+- Reader locate、书签 Go、跨页 pending navigation 与当前 lower-right message stepper 共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影；已下架的右侧目录条若未来恢复，也必须复用同一投影。它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
 - ChatGPT Reader 打开后的内容页集不得通过 DOM 正文补齐；snapshot 是完整页集来源，DOM round refs 只允许把新 round position 标记为 Reader tail pending。Reader 已打开时，pending position 只有在刷新后的 `ChatGPTConversationEngine snapshot` 中存在非空 assistant 内容时才追加为新 `ReaderItem`；追加后 position 进入 known，避免 ChatGPT streaming 期间 assistant `messageId` 从占位变为真实值时重复新增页面。
 - 两个投影允许的差异只在职责上：snapshot 投影回答“每一轮的完整内容是什么”，DOM anchor 投影回答“这一轮在页面哪里、如何跳过去”。不得再引入第三套 ChatGPT 轮次发现入口。
 - ChatGPT send position restore 与上述内容/定位 SSOT 平行：它只消费发送事件与页面滚动位置，不读取正文、不刷新 snapshot、不改变 Reader/Save Messages/Copy/Bookmark 内容语义。
@@ -160,7 +161,7 @@ flowchart TD
 - `ModalHost` 现在和 `panel-window` 家族一样遵守单次 dismiss/close 提交；已进入 `closing` 的 surface 不再重复触发 dismiss 回调或恢复逻辑
 - `ModalHost` 与 `panel-window` 家族现在都使用共享 focus lifecycle：打开前捕获 opener，打开稳定后把焦点移入 surface，关闭后再恢复焦点
 - Settings tab 中的公式配置写入独立 `formula` category；旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT
-- Settings tab 中的 ChatGPT Settings 分组持有 `chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关，并继续展示 ChatGPT 目录条暂时下架说明；`chatgptDirectory` 仍作为兼容 category 存在但 `enabled` 归一化为 `false`，不复用平台总开关或旧 `chatgpt` category
+- Settings tab 中的 ChatGPT Settings 分组持有 `chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关，以及 `chatgptBehavior.enableArrowKeyMessageNavigation` 左右方向键切换消息开关，并继续展示 ChatGPT 目录条暂时下架说明；`chatgptDirectory` 仍作为兼容 category 存在但 `enabled` 归一化为 `false`，不复用平台总开关或旧 `chatgpt` category
 - 更新日志的一次性提示由 background 的 `bookmarks:changelogNotice:get/ack` 状态持有；BookmarksPanel 与 Reader conversation profile 都通过共享 presenter 读取并确认同一条 pending notice，因此同一版本只提示一次，不新增 Reader 私有计数或存储字段
 - `ToolbarHoverActionPortal` 是消息工具栏 hover 次动作与公式 hover 图片动作的共享 anchored portal；它负责 viewport clamp、anchor bridge 定位与顶部空间不足时的下翻，不允许调用方各自实现一次性边界补偿
 
@@ -196,12 +197,13 @@ flowchart TD
 - Reader shell chrome 与正文排版都继续由 tokenized panel/template contract 持有，不再额外接入开源 Markdown 主题 preset
 - fullscreen Reader 切换仍属于 surface state change，不复用 centered panel 的 open/close transform；fullscreen Reader 只保留更轻的 fade-style motion
 
-### ChatGPT Directory
+### ChatGPT Directory And Stepper
 
-- ChatGPT right-side directory rail 与右下角上一条/下一条 step controls 当前暂时下架，content runtime 不再创建 `ChatGPTDirectoryController`。
-- `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 代码作为可恢复 surface 保留；若未来恢复，rail 与 step controls 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
+- ChatGPT right-side directory rail 当前暂时下架，content runtime 不再创建 `ChatGPTDirectoryController`。
+- `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 代码作为可恢复 surface 保留；若未来恢复，rail 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
+- 右下角上一条/下一条入口由独立 `ChatGPTMessageStepperController` 持有，不属于已下架的 directory rail；它复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型，并由 `chatgptBehavior.enableArrowKeyMessageNavigation` 控制左右方向键监听。
 - Rail hover preview 与 accordion 的历史约束保留：只能更新 UI 层缓存和邻近 marker 状态，preview 内容从 rail 内轮次缓存读取，preview 位置保持固定 body-level surface，避免 hover 期间触发 layout measurement 或 portal style 重写。
-- 浏览器 viewport 宽度持续变化时，页面级 resize suspend 仍保护 action-row message toolbar chrome；目录 chrome 不再挂载，因此不参与运行时 resize suspend。
+- 浏览器 viewport 宽度持续变化时，页面级 resize suspend 仍保护 action-row message toolbar chrome，并临时隐藏 lower-right message stepper；目录 rail chrome 不再挂载，因此不参与运行时 resize suspend。
 
 ### ChatGPT Send Position Restore
 

@@ -5,7 +5,9 @@
 This release narrows AI-MarkDone to ChatGPT as the only active AI page runtime, while keeping existing user bookmark data intact.
 
 ### Added
-- Added optional Google Drive bookmark backup and safe-merge restore for Chrome.
+- Added optional Google Drive bookmark backup and safe-merge restore. Google Chrome uses browser-managed identity, while WebAuth-compatible browsers use the WebExtension identity flow where available.
+- Added a connect-before-OAuth confirmation for Google Drive backup, including a reminder to export a local backup first while the feature is experimental.
+- Added a lightweight lower-right ChatGPT message stepper with optional Left/Right arrow-key navigation.
 - Added an optional ChatGPT setting to restore your reading position after sending from older conversation history.
 
 ### Changed
@@ -16,6 +18,7 @@ This release narrows AI-MarkDone to ChatGPT as the only active AI page runtime, 
 ### How it works
 - The browser builds still target Chrome, Firefox, and Safari, but content scripts now run only on ChatGPT hosts.
 - The bookmark schema still keeps platform as a string, so old platform labels remain part of the user's saved data instead of being rewritten or deleted.
+- Google Drive backup stores verified bookmark snapshots in the user's own Drive and does not store refresh tokens, client secrets, passwords, or bookmarks on an AI-MarkDone server.
 
 ## v4.4.6 (2026-05-28)
 

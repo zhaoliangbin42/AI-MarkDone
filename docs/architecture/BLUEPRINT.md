@@ -85,15 +85,15 @@
 3. Driver 执行写入与监听（优先 Background 作为 write authority）
 4. UI 仅消费“状态快照/事件”刷新（避免 UI 直写 storage）
 
-### 2.3.4 Google Drive Backup 闭环（Chrome v1）
+### 2.3.4 Google Drive Backup 闭环（v1）
 
 1. UI 只呈现 Settings → Data Management → Google Drive Backup，并通过 `cloudBackup:*` runtime protocol 提交连接、备份、列表、恢复预览、安全合并恢复等用户意图
 2. Service 只编排用例：构建书签 snapshot、校验下载结果、生成恢复计划；不得持有 browser API、OAuth、provider token 或直接读写 extension storage
-3. Background driver/provider 作为云端副作用边界：Chrome identity、Google Drive API、上传后回读校验、provider 错误映射都收敛在 background 侧
+3. Background driver/provider 作为云端副作用边界：Google Chrome 以 manifest `oauth2` 作为 `chrome.identity.getAuthToken` 的 SSOT；支持 WebAuth 的浏览器环境使用 Web application OAuth client、`identity.getRedirectURL()` 和 `identity.launchWebAuthFlow`；Google Drive API、上传后回读校验、provider 错误映射都收敛在 background 侧
 4. 本地书签写入继续复用 bookmarks 的 storage/index 与现有导入导出能力；Google Drive Backup v1 是用户主动触发的不可变 snapshot 备份/恢复，不会实时双向更新
 5. 恢复必须先做安全合并预览；用户确认后才允许进入 background storage queue，并写入 pre-restore emergency snapshot
-6. Build config 由 `config/extension/cloudBackup.ts` 与 `config/extension/chromeWebStore.ts` 驱动：Chrome 生成 manifest `oauth2.client_id` + `drive.file` scope，并默认注入 Chrome Web Store public key 固定 OAuth extension ID；Firefox/Safari v1 保持入口关闭，后续需要单独 auth strategy
-7. OAuth client ID 是公开的应用身份，不是共享 Google 账号。Provider 不请求 `identity.email`，不读取用户邮箱，不保存 access token/refresh token/account id；`chrome.identity.getAuthToken` 的授权主体必须来自当前用户的 Chrome profile，并且只有用户点击连接时才允许 interactive auth。
+6. Build config 由 `config/extension/cloudBackup.ts` 与 `config/extension/chromeWebStore.ts` 驱动：Chrome/Chromium build 同时包含 Chrome Extension OAuth client ID、manifest `oauth2`、Web OAuth client ID、`identity` 与 Google host permissions；Google Chrome 使用 Chrome Extension client，WebAuth-compatible browser 使用 Web OAuth client；Chrome 默认注入 Chrome Web Store public key 固定 extension ID；Firefox 使用 Web OAuth client ID、`launchWebAuthFlow` 和 `identity.getRedirectURL()` 的实际返回值；Safari v1 保持入口关闭
+7. OAuth client ID 是公开的应用身份，不是共享 Google 账号。Provider 不请求 `identity.email`，不把 refresh token/cookie/account id 写入 extension storage；账号展示只来自 Drive `about.get` 的邮箱、显示名与头像 URL 摘要。浏览器 identity cache 管理长期授权体验；provider 只把短期 access token 缓存在 extension local storage，过期前用于抗 service worker 重启。
 
 ---
 
@@ -207,7 +207,7 @@ Surface profile / motion ownership 规则补充：
 - Injection / conversation / clipboard / theme / sending bridges：`src/drivers/content/*`
 - Browser abstraction：`src/drivers/shared/browser.ts`
 - Background capabilities：`src/drivers/background/storage/*`, `src/drivers/background/cloudBackup/*`, `src/runtimes/background/handlers/*`
-- Chrome Google Drive provider 属于 background-only driver；UI/service 只能通过 `src/contracts/protocol.ts` 与 background handler 间接触发
+- Google Drive provider 属于 background-only driver；UI/service 只能通过 `src/contracts/protocol.ts` 与 background handler 间接触发
 
 ### Contracts（非“层”，是协作面）
 

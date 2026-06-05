@@ -1,6 +1,7 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { highlightElement, scrollToBookmarkTargetWithRetry, type ScrollResult } from '../../../drivers/content/bookmarks/navigation';
+import { scrollToBookmarkTargetWithRetry, type ScrollResult } from '../../../drivers/content/bookmarks/navigation';
 import { collectConversationTurnRefs } from '../../../drivers/content/conversation/collectConversationTurnRefs';
+import { highlightNavigationTarget } from '../../../drivers/content/conversation/highlight';
 import { releaseChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
 
 export type ChatGPTSkeletonAnchor = {
@@ -154,7 +155,7 @@ export async function navigateChatGPTDirectoryTarget(
     const anchor = getAnchorForTarget(adapter, target);
     if (anchor && typeof anchor.scrollIntoView === 'function') {
         const settledAnchor = await scrollChatGPTAnchorWithAlignment(adapter, target, anchor, options);
-        window.setTimeout(() => highlightElement(settledAnchor), 40);
+        window.setTimeout(() => highlightNavigationTarget(settledAnchor), 40);
         return { ok: true };
     }
 

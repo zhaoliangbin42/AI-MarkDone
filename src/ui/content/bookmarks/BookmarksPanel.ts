@@ -39,6 +39,7 @@ import {
     TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED,
     TARGET_SURFACE_SPONSOR_TAB_ENABLED,
 } from '../../../config/targetSurface';
+import { GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID } from '../../../../config/extension/cloudBackup';
 
 type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor';
 
@@ -92,6 +93,10 @@ function shouldLogBookmarksPerf(): boolean {
         // ignore
     }
     return false;
+}
+
+function hasGoogleDriveBackupCapability(): boolean {
+    return browserInfo.isChrome || (browserInfo.isFirefox && Boolean(GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID));
 }
 
 function logBookmarksPerf(stage: string, payload: Record<string, unknown>): void {
@@ -469,13 +474,24 @@ export class BookmarksPanel {
             exportAllBookmarks: async () => {
                 await this.exportAll();
             },
-            cloudBackup: browserInfo.isChrome ? {
+            cloudBackup: hasGoogleDriveBackupCapability() ? {
                 status: async (provider) => {
                     const result = await cloudBackupClient.status(provider);
                     if (!result.ok) return { connected: false, lastError: result.message };
                     return result.data ?? { connected: false };
                 },
                 connect: async (provider) => {
+                    const confirmed = await this.modalHost?.confirm({
+                        kind: 'info',
+                        title: tr('cloudBackupConnectConfirmTitle', 'Connect Google Drive?'),
+                        message: tr(
+                            'cloudBackupConnectConfirmDesc',
+                            'AI-MarkDone will open Google authorization so you can choose your own Drive. This feature is experimental; before backing up to Google Drive, we recommend exporting a local copy first. AI-MarkDone does not collect your Google account, token, password, or bookmarks.',
+                        ),
+                        confirmText: tr('cloudBackupConnectConfirmAction', 'Continue'),
+                        cancelText: tr('btnCancel', 'Cancel'),
+                    });
+                    if (!confirmed) return { connected: false };
                     const result = await cloudBackupClient.connect(provider);
                     if (!result.ok) {
                         await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: result.message, confirmText: tr('btnOk', 'OK') });
@@ -904,8 +920,9 @@ export class BookmarksPanel {
     private async backupToCloud(provider: CloudBackupProviderId): Promise<void> {
         const progress = this.showCloudBackupProgress(
             tr('cloudBackupBackupNow', 'Back up now'),
-            tr('cloudBackupProgressPreparingBookmarks', 'Preparing local bookmarks...'),
+            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
             [
+                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
                 tr('cloudBackupProgressPreparingBookmarks', 'Preparing local bookmarks...'),
                 tr('cloudBackupProgressCreatingSnapshot', 'Creating a verified snapshot...'),
                 tr('cloudBackupProgressUploadingDrive', 'Uploading to Google Drive...'),
@@ -934,8 +951,9 @@ export class BookmarksPanel {
     private async previewCloudRestore(provider: CloudBackupProviderId): Promise<void> {
         const listProgress = this.showCloudBackupProgress(
             tr('cloudBackupRestore', 'Preview restore'),
-            tr('cloudBackupProgressReadingList', 'Reading Google Drive backups...'),
+            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
             [
+                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
                 tr('cloudBackupProgressReadingList', 'Reading Google Drive backups...'),
                 tr('cloudBackupProgressDownloadingSnapshot', 'Downloading the selected backup...'),
                 tr('cloudBackupProgressBuildingPreview', 'Generating a safe merge preview...'),
@@ -968,8 +986,9 @@ export class BookmarksPanel {
         if (!selected) return;
         const previewProgress = this.showCloudBackupProgress(
             tr('cloudBackupRestore', 'Preview restore'),
-            tr('cloudBackupProgressDownloadingSnapshot', 'Downloading the selected backup...'),
+            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
             [
+                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
                 tr('cloudBackupProgressDownloadingSnapshot', 'Downloading the selected backup...'),
                 tr('cloudBackupProgressBuildingPreview', 'Generating a safe merge preview...'),
             ],
@@ -991,8 +1010,11 @@ export class BookmarksPanel {
 
         const applyProgress = this.showCloudBackupProgress(
             tr('cloudBackupApplyRestore', 'Apply safe merge'),
-            tr('cloudBackupProgressApplyingMerge', 'Applying safe merge...'),
-            [tr('cloudBackupProgressApplyingMerge', 'Applying safe merge...')],
+            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
+            [
+                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
+                tr('cloudBackupProgressApplyingMerge', 'Applying safe merge...'),
+            ],
             { timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.applyRestore },
         );
         let applied: Awaited<ReturnType<typeof cloudBackupClient.applyRestore>>;
@@ -1270,7 +1292,7 @@ export class BookmarksPanel {
         title.textContent = 'Google Drive';
         const privacy = document.createElement('p');
         privacy.className = 'cloud-backup-settings-modal__privacy';
-        privacy.textContent = tr('cloudBackupPrivacyNote', 'Backups are written directly to your Google Drive. AI-MarkDone does not run a backup server or include credentials in snapshots.');
+        privacy.textContent = tr('cloudBackupPrivacyNote', 'AI-MarkDone does not collect your Google account, token, password, or bookmarks.');
         summary.append(title, privacy);
         body.appendChild(summary);
 
@@ -1282,7 +1304,11 @@ export class BookmarksPanel {
         statusTitle.textContent = tr('cloudBackupStatusLabel', 'Status');
         const status = document.createElement('p');
         status.textContent = tr('cloudBackupStatusChecking', 'Checking Google Drive status...');
+        const account = document.createElement('p');
+        account.className = 'cloud-backup-settings-modal__account';
+        account.hidden = true;
         statusInfo.append(statusTitle, status);
+        statusInfo.appendChild(account);
         statusRow.appendChild(statusInfo);
         body.appendChild(statusRow);
 
@@ -1290,11 +1316,34 @@ export class BookmarksPanel {
         actions.className = 'cloud-backup-settings-modal__actions';
         body.appendChild(actions);
 
+        const formatAccount = (data: any): string => {
+            const accountData = data?.connectedAccount && typeof data.connectedAccount === 'object' ? data.connectedAccount : data;
+            const displayName = typeof accountData?.accountDisplayName === 'string' ? accountData.accountDisplayName.trim() : '';
+            const email = typeof accountData?.accountEmail === 'string' ? accountData.accountEmail.trim() : '';
+            return displayName && email ? `${displayName} · ${email}` : displayName || email;
+        };
+
         const setStatus = async () => {
             const result = await cloudBackupClient.status('googleDrive');
-            status.textContent = result.ok
-                ? tr(result.data?.connected ? 'cloudBackupConnectedStatus' : 'cloudBackupDisconnected', result.data?.connected ? 'Connected' : 'Not connected')
-                : result.message;
+            if (!result.ok) {
+                status.textContent = result.message;
+                account.hidden = true;
+                return;
+            }
+            const accountText = formatAccount(result.data);
+            if (result.data?.connected) {
+                status.textContent = accountText
+                    ? (() => {
+                        const translated = tr('cloudBackupConnectedAs', 'Connected as $1', [accountText]);
+                        return translated && translated !== 'cloudBackupConnectedAs' ? translated : `Connected as ${accountText}`;
+                    })()
+                    : tr('cloudBackupConnectedStatus', 'Connected');
+            } else {
+                status.textContent = tr('cloudBackupDisconnected', 'Not connected');
+            }
+            account.hidden = !accountText;
+            account.textContent = accountText;
+            account.title = accountText;
         };
 
         const list = document.createElement('button');
@@ -1303,7 +1352,7 @@ export class BookmarksPanel {
         list.textContent = tr('cloudBackupTestConnection', 'Test connection');
         list.addEventListener('click', () => void (async () => {
             list.disabled = true;
-            status.textContent = tr('cloudBackupConnectionChecking', 'Checking Google Drive connection...');
+            status.textContent = tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...');
             try {
                 const result = await cloudBackupClient.listSnapshots('googleDrive');
                 status.textContent = result.ok
@@ -1346,7 +1395,7 @@ export class BookmarksPanel {
 
         const loadSnapshots = async () => {
             listRoot.dataset.state = 'loading';
-            listRoot.textContent = tr('cloudBackupProgressReadingList', 'Reading Google Drive backups...');
+            listRoot.textContent = tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...');
             const result = await cloudBackupClient.listSnapshots('googleDrive');
             if (!result.ok) {
                 listRoot.dataset.state = 'error';
@@ -1394,8 +1443,10 @@ export class BookmarksPanel {
                     });
                     if (!confirmed) return;
                     trash.disabled = true;
+                    trash.textContent = tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...');
                     const deleted = await cloudBackupClient.deleteSnapshot({ provider: 'googleDrive', snapshotId: snapshot.snapshotId });
                     trash.disabled = false;
+                    trash.textContent = tr('cloudBackupMoveToTrash', 'Move to trash');
                     if (!deleted.ok) {
                         await modal.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: deleted.message, confirmText: tr('btnOk', 'OK') });
                         return;

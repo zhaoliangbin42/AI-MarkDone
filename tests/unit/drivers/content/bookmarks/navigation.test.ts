@@ -1,15 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const scrollToConversationTarget = vi.fn();
 const scrollToConversationTargetWithRetry = vi.fn();
 const resolveConversationTarget = vi.fn();
-const highlightElement = vi.fn();
+const highlightNavigationTarget = vi.fn();
 
 vi.mock('@/drivers/content/conversation/navigation', () => ({
-    highlightElement,
     resolveConversationTarget,
     scrollToConversationTarget,
     scrollToConversationTargetWithRetry,
+}));
+
+vi.mock('@/drivers/content/conversation/highlight', () => ({
+    highlightNavigationTarget,
 }));
 
 describe('bookmark navigation', () => {
@@ -17,6 +20,10 @@ describe('bookmark navigation', () => {
         vi.clearAllMocks();
         sessionStorage.clear();
         document.body.innerHTML = '';
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('persists and consumes pending navigation with optional messageId', async () => {
@@ -98,6 +105,7 @@ describe('bookmark navigation', () => {
     });
 
     it('scrolls ChatGPT bookmark targets to the resolved message element', async () => {
+        vi.useFakeTimers();
         const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
         const message = document.createElement('div');
         const scrollIntoView = vi.fn();
@@ -121,6 +129,8 @@ describe('bookmark navigation', () => {
         );
         expect(releaseListener).toHaveBeenCalledTimes(1);
         expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+        await vi.advanceTimersByTimeAsync(100);
+        expect(highlightNavigationTarget).toHaveBeenCalledWith(message);
         window.removeEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
     });
 

@@ -110,6 +110,18 @@ const sendPositionRestoreCtor = vi.fn(function () {
         setEnabled: sendPositionRestoreSetEnabled,
     };
 });
+const messageStepperInit = vi.fn();
+const messageStepperDispose = vi.fn();
+const messageStepperSetKeyboardEnabled = vi.fn();
+const messageStepperSetThemeOverrides = vi.fn();
+const messageStepperCtor = vi.fn(function () {
+    return {
+        init: messageStepperInit,
+        dispose: messageStepperDispose,
+        setKeyboardEnabled: messageStepperSetKeyboardEnabled,
+        setThemeOverrides: messageStepperSetThemeOverrides,
+    };
+});
 const engineInit = vi.fn();
 const engineSubscribe = vi.fn();
 const engineGetSnapshot = vi.fn(async () => null);
@@ -213,6 +225,10 @@ vi.mock('@/ui/content/controllers/ChatGPTSendPositionRestoreController', () => (
     ChatGPTSendPositionRestoreController: sendPositionRestoreCtor,
 }));
 
+vi.mock('@/ui/content/controllers/ChatGPTMessageStepperController', () => ({
+    ChatGPTMessageStepperController: messageStepperCtor,
+}));
+
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
     ChatGPTConversationEngine: engineCtor,
 }));
@@ -304,7 +320,7 @@ describe('content runtime entry', () => {
             chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
             appearance: { fontSizePx: 18, accentColor: '#7c3aed' },
             bookmarks: { sortMode: 'alpha-asc' },
-            chatgptBehavior: { restorePositionAfterSend: false },
+            chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: true },
         });
 
         vi.resetModules();
@@ -346,7 +362,7 @@ describe('content runtime entry', () => {
             },
             export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
             chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
-            chatgptBehavior: { restorePositionAfterSend: true },
+            chatgptBehavior: { restorePositionAfterSend: true, enableArrowKeyMessageNavigation: false },
             bookmarks: { sortMode: 'alpha-asc' },
             appearance: { fontSizePx: 16, accentColor: null },
         });
@@ -362,6 +378,9 @@ describe('content runtime entry', () => {
         expect(sendPositionRestoreCtor).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreSetEnabled).toHaveBeenCalledWith(true);
+        expect(messageStepperCtor).toHaveBeenCalledTimes(1);
+        expect(messageStepperInit).toHaveBeenCalledTimes(1);
+        expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
         expect(directorySetEnabled).not.toHaveBeenCalled();
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
         expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
@@ -420,7 +439,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
-                chatgptBehavior: { restorePositionAfterSend: true },
+                chatgptBehavior: { restorePositionAfterSend: true, enableArrowKeyMessageNavigation: false },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -431,6 +450,7 @@ describe('content runtime entry', () => {
         expect(headerIconDispose).toHaveBeenCalledTimes(1);
         expect(viewportResizeSuspendDispose).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreDispose).toHaveBeenCalledTimes(1);
+        expect(messageStepperDispose).toHaveBeenCalledTimes(1);
         expect(directoryCtor).not.toHaveBeenCalled();
         expect(directorySetEnabled).not.toHaveBeenCalled();
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
@@ -468,7 +488,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
-                chatgptBehavior: { restorePositionAfterSend: false },
+                chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: true },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -479,6 +499,8 @@ describe('content runtime entry', () => {
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
+        expect(messageStepperInit).toHaveBeenCalledTimes(2);
+        expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(true);
         expect(directoryCtor).not.toHaveBeenCalled();
         expect(directorySetEnabled).not.toHaveBeenCalled();
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
@@ -525,7 +547,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
-                chatgptBehavior: { restorePositionAfterSend: false },
+                chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: true },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -566,7 +588,7 @@ describe('content runtime entry', () => {
             },
             export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
             chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
-            chatgptBehavior: { restorePositionAfterSend: false },
+            chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: true },
             bookmarks: { sortMode: 'alpha-asc' },
             appearance: { fontSizePx: 16, accentColor: null },
         });
@@ -581,5 +603,48 @@ describe('content runtime entry', () => {
             clickCopyMarkdown: false,
             assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
         });
+    });
+
+    it('syncs ChatGPT arrow-key message navigation without reviving the retired directory surface', async () => {
+        adapterPlatformId = 'chatgpt';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(messageStepperCtor).toHaveBeenCalledTimes(1);
+        expect(messageStepperInit).toHaveBeenCalledTimes(1);
+        expect(settingsSubscriber).toBeTypeOf('function');
+
+        settingsSubscriber!({
+            settings: {
+                language: 'auto',
+                platforms: { chatgpt: true },
+                behavior: {
+                    showSaveMessages: true,
+                    showWordCount: true,
+                    enableClickToCopy: true,
+                    saveContextOnly: false,
+                    _contextOnlyConfirmed: true,
+                },
+                formula: {
+                    clickCopyMarkdown: true,
+                    assetActions: { copyPng: false, copySvg: false, savePng: false, saveSvg: false },
+                },
+                reader: {
+                    renderCodeInReader: true,
+                    showOutlineInReader: true,
+                    contentMaxWidthPx: 1000,
+                    commentExport: { prompts: [], template: [] },
+                },
+                export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+                chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail' },
+                chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: false },
+                bookmarks: { sortMode: 'alpha-asc' },
+                appearance: { fontSizePx: 16, accentColor: null },
+            },
+        });
+
+        expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(false);
+        expect(directoryCtor).not.toHaveBeenCalled();
+        expect(directorySetEnabled).not.toHaveBeenCalled();
     });
 });

@@ -1,4 +1,4 @@
-import type { ExtRequest, ExtResponse, ProtocolErrorCode } from '../../../contracts/protocol';
+import type { CloudBackupConnectedAccount, CloudBackupSessionState, ExtRequest, ExtResponse, ProtocolErrorCode } from '../../../contracts/protocol';
 import { PROTOCOL_VERSION } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from '../../../contracts/storage';
 import { parseImportData } from '../../../core/bookmarks/importExport';
@@ -62,29 +62,82 @@ async function readStatus(): Promise<Record<string, unknown>> {
     return value && typeof value === 'object' ? value as Record<string, unknown> : {};
 }
 
+function buildConnectedAccount(status: Record<string, unknown>): CloudBackupConnectedAccount | null {
+    const accountEmail = typeof status.accountEmail === 'string' ? status.accountEmail : null;
+    const accountDisplayName = typeof status.accountDisplayName === 'string' ? status.accountDisplayName : null;
+    const accountPhotoUrl = typeof status.accountPhotoUrl === 'string' ? status.accountPhotoUrl : null;
+    if (!accountEmail && !accountDisplayName && !accountPhotoUrl) return null;
+    return {
+        accountEmail,
+        accountDisplayName,
+        accountPhotoUrl,
+        connectedAt: typeof status.connectedAt === 'string' ? status.connectedAt : null,
+    };
+}
+
+function isCloudBackupSessionState(value: unknown): value is CloudBackupSessionState {
+    return value === 'unknown'
+        || value === 'readyInThisSession'
+        || value === 'needsConfirmation'
+        || value === 'error';
+}
+
+function deriveStoredSessionState(status: Record<string, unknown>): CloudBackupSessionState {
+    if (isCloudBackupSessionState(status.sessionState)) return status.sessionState;
+    if (status.lastError) return 'error';
+    if (status.connected) return 'needsConfirmation';
+    return 'unknown';
+}
+
+function getReadOnlySessionState(stored: Record<string, unknown>): CloudBackupSessionState {
+    if (!stored.connected) return 'unknown';
+    const current = providerFactory().getSessionState?.() ?? deriveStoredSessionState(stored);
+    return current === 'unknown' ? 'needsConfirmation' : current;
+}
+
 function isStaleBuildConfigurationError(value: unknown): boolean {
     return typeof value === 'string'
         && (
             value.includes('Google Drive backup is not configured in this build')
             || value.includes('Google Drive backup is only available in a Chrome build with the identity permission')
             || value.includes('Google Drive backup is missing the Chrome manifest OAuth client ID')
+            || value.includes('Google Drive backup requires a configured Google Cloud Web OAuth client ID')
+            || value.includes('Google Drive backup is configured with an invalid OAuth client')
+            || value.includes('Chrome Extension OAuth client')
+            || value.includes('manifest.oauth2 client_id/scopes')
+            || value.includes("Unexpected property: 'state'")
         );
 }
 
 async function readCloudBackupStatus(): Promise<Record<string, unknown>> {
     const stored = await readStatus();
     const configuration = providerFactory().getConfigurationStatus?.();
+    const connectedAccount = buildConnectedAccount(stored);
+    const sessionState = getReadOnlySessionState(stored);
     if (!configuration || configuration.configured) {
+        if (isStaleBuildConfigurationError(stored.lastError)) {
+            const sanitized = { ...stored, lastError: null };
+            await writeStatus(sanitized);
+            return {
+                ...sanitized,
+                connectedAccount,
+                sessionState,
+                configured: true,
+            };
+        }
         return {
             ...stored,
+            connectedAccount,
+            sessionState,
             configured: true,
-            lastError: isStaleBuildConfigurationError(stored.lastError) ? null : stored.lastError,
         };
     }
     return {
         ...stored,
         configured: false,
         connected: false,
+        connectedAccount: null,
+        sessionState: 'error',
         lastError: configuration.message,
     };
 }
@@ -94,9 +147,14 @@ async function backupNow() {
     const payload = exportBookmarks({ bookmarks, preserveStructure: true }).payload;
     const snapshot = await createCloudBackupSnapshot(payload);
     const summary = await providerFactory().uploadSnapshot(snapshot);
+    const currentStatus = await readStatus();
+    const verifiedAt = new Date().toISOString();
     await writeStatus({
+        ...currentStatus,
         connected: true,
-        lastBackupAt: new Date().toISOString(),
+        sessionState: providerFactory().getSessionState?.() ?? 'readyInThisSession',
+        lastBackupAt: verifiedAt,
+        lastVerifiedAt: verifiedAt,
         lastSnapshotId: summary.snapshotId,
         lastError: null,
     });
@@ -221,13 +279,37 @@ export async function handleCloudBackupRequest(request: ExtRequest): Promise<Han
                 return { response: ok(request.id, request.type, diagnostics) };
             }
             case 'cloudBackup:connect': {
+                await writeStatus({ ...(await readStatus()), connected: false, lastError: null });
                 const result = await providerFactory().connect();
-                await writeStatus({ connected: true, lastError: null, ...result });
+                const connectedAt = new Date().toISOString();
+                const connectedAccount: CloudBackupConnectedAccount = {
+                    accountEmail: result.accountEmail ?? null,
+                    accountDisplayName: result.accountDisplayName ?? null,
+                    accountPhotoUrl: result.accountPhotoUrl ?? null,
+                    connectedAt,
+                };
+                await writeStatus({
+                    connected: true,
+                    connectedAt,
+                    connectedAccount,
+                    sessionState: providerFactory().getSessionState?.() ?? 'readyInThisSession',
+                    lastVerifiedAt: connectedAt,
+                    lastError: null,
+                    ...result,
+                });
                 return { response: ok(request.id, request.type, await readStatus()) };
             }
             case 'cloudBackup:disconnect':
                 await providerFactory().disconnect();
-                await writeStatus({ connected: false, lastError: null });
+                await writeStatus({
+                    connected: false,
+                    connectedAccount: null,
+                    sessionState: 'unknown',
+                    lastError: null,
+                    accountEmail: null,
+                    accountDisplayName: null,
+                    accountPhotoUrl: null,
+                });
                 return { response: ok(request.id, request.type, await readStatus()) };
             case 'cloudBackup:backupNow':
                 return { response: ok(request.id, request.type, await cloudBackupQueue.run(backupNow)) };
@@ -245,7 +327,7 @@ export async function handleCloudBackupRequest(request: ExtRequest): Promise<Han
         }
     } catch (error) {
         const mapped = mapError(error);
-        await writeStatus({ ...(await readStatus()), lastError: mapped.message });
+        await writeStatus({ ...(await readStatus()), sessionState: 'error', lastError: mapped.message });
         return { response: err(request.id, request.type, mapped.code, mapped.message) };
     }
 }

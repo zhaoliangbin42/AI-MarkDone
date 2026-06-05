@@ -7,6 +7,7 @@ import {
     GOOGLE_DRIVE_API_HOST_PERMISSION,
     cloudBackupTargets,
     GOOGLE_OAUTH_REVOKE_HOST_PERMISSION,
+    GOOGLE_DRIVE_FILE_SCOPE,
     isValidGoogleOAuthClientId,
 } from '../config/extension/cloudBackup';
 import { CHROME_WEB_STORE_EXTENSION_ID, CHROME_WEB_STORE_PUBLIC_KEY } from '../config/extension/chromeWebStore';
@@ -50,17 +51,17 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
     };
 
     if (target === 'chrome' && googleDriveCloudBackup.enabled) {
+        const chromeExtensionClientId = googleDriveCloudBackup.chromeExtensionClientId?.trim() || '';
+        if (!isValidGoogleOAuthClientId(chromeExtensionClientId)) {
+            throw new Error('Google Drive Chrome Extension OAuth client id is missing or invalid for the Chrome manifest.');
+        }
         manifest.permissions = [
             ...(manifest.permissions as string[]),
             'identity',
         ];
-        const googleClientId = googleDriveCloudBackup.clientId?.trim() || '';
-        if (!isValidGoogleOAuthClientId(googleClientId)) {
-            throw new Error('Google Drive OAuth client id is missing or invalid for the Chrome manifest.');
-        }
         manifest.oauth2 = {
-            client_id: googleClientId,
-            scopes: [...googleDriveCloudBackup.scopes],
+            client_id: chromeExtensionClientId,
+            scopes: [GOOGLE_DRIVE_FILE_SCOPE],
         };
 
         const chromeExtensionKey = process.env.AIMD_CHROME_EXTENSION_KEY?.trim() || CHROME_WEB_STORE_PUBLIC_KEY;
@@ -74,6 +75,17 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         }
     }
 
+    if (target === 'firefox' && googleDriveCloudBackup.enabled) {
+        const webAuthClientId = googleDriveCloudBackup.webAuthClientId?.trim() || '';
+        if (!isValidGoogleOAuthClientId(webAuthClientId)) {
+            throw new Error('Google Drive Web OAuth client id is missing or invalid for the Firefox manifest.');
+        }
+        manifest.permissions = [
+            ...(manifest.permissions as string[]),
+            'identity',
+        ];
+    }
+
     if (targetConfig.hostPermissionPlacement === 'host_permissions') {
         manifest.host_permissions = googleDriveCloudBackup.enabled
             ? [...SUPPORTED_HOST_PATTERNS, GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION]
@@ -82,6 +94,7 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         manifest.permissions = [
             ...(manifest.permissions as string[]),
             ...SUPPORTED_HOST_PATTERNS,
+            ...(googleDriveCloudBackup.enabled ? [GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION] : []),
         ];
     }
 
@@ -116,6 +129,7 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         const firefoxConfig = extensionTargets.firefox;
         manifest.browser_specific_settings = {
             gecko: {
+                id: firefoxConfig.gecko.id,
                 strict_min_version: firefoxConfig.gecko.strictMinVersion,
                 data_collection_permissions: {
                     required: [...firefoxConfig.gecko.dataCollectionPermissions.required],

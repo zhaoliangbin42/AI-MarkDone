@@ -9,13 +9,13 @@
         "storage",
         "identity"
     ],
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAygAJRcTfJvDVU9sKe0FZh2F98+IF2xxDJ08bKBD44xUFn3tXtPqA89EmBkrtp5oeKv94RaKGHHt6rDI8NDZoOqJ5GHfV7TfaKO74zRySSRJ0I39W+NbRGPOphZH1TKkC8hWMsERGUR2ci1UpM+qHwsfXQ0aH7ROHiiYQrL27Vh70/bW2hsY0FHwzEkUrXrOk8ab5O2PVtfMwPFZKFgiarFZgP2x6aIFapjFrihwM0hAaO/3WOhh+QPQAHX0lctryLj1P+AUegp+eB6u5b2NrpLfUbmUHwe4Zo3i2p35WeaKjXwD9GV6lPochEbYnEZHTRncAuYN7t5XyAVNqLKtSTQIDAQAB",
     "oauth2": {
         "client_id": "731206378409-ld78d2iflg719pds940tvptiqecirgop.apps.googleusercontent.com",
         "scopes": [
             "https://www.googleapis.com/auth/drive.file"
         ]
     },
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAygAJRcTfJvDVU9sKe0FZh2F98+IF2xxDJ08bKBD44xUFn3tXtPqA89EmBkrtp5oeKv94RaKGHHt6rDI8NDZoOqJ5GHfV7TfaKO74zRySSRJ0I39W+NbRGPOphZH1TKkC8hWMsERGUR2ci1UpM+qHwsfXQ0aH7ROHiiYQrL27Vh70/bW2hsY0FHwzEkUrXrOk8ab5O2PVtfMwPFZKFgiarFZgP2x6aIFapjFrihwM0hAaO/3WOhh+QPQAHX0lctryLj1P+AUegp+eB6u5b2NrpLfUbmUHwe4Zo3i2p35WeaKjXwD9GV6lPochEbYnEZHTRncAuYN7t5XyAVNqLKtSTQIDAQAB",
     "host_permissions": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",

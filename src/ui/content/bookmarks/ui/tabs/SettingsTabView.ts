@@ -122,6 +122,7 @@ type Refs = {
     };
     chatgptDirectory: {
         restorePositionAfterSend: HTMLInputElement;
+        arrowKeyMessageNavigation: HTMLInputElement;
         enabled: HTMLInputElement;
         mode: SelectRef;
         promptLabelMode: HTMLInputElement;
@@ -236,6 +237,11 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptRestorePositionAfterSendLabel'),
             t('chatgptRestorePositionAfterSendDesc'),
+        );
+        const chatGptArrowKeyMessageNavigation = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptArrowKeyMessageNavigationLabel'),
+            t('chatgptArrowKeyMessageNavigationDesc'),
         );
         const chatGptDirectoryRetiredNotice = this.createNotice(
             chatGptDirectoryGroup.body,
@@ -380,6 +386,7 @@ export class SettingsTabView {
             },
             chatgptDirectory: {
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
+                arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
                 enabled: chatGptDirectoryEnabled.input,
                 mode: chatGptDirectoryMode,
                 promptLabelMode: chatGptDirectoryPromptLabelMode.input,
@@ -402,6 +409,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
+        this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
         this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
@@ -601,6 +609,11 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.restorePositionAfterSend = next;
             void this.actions.setChatGptBehaviorSettings?.({ restorePositionAfterSend: next });
         });
+        this.refs.chatgptDirectory.arrowKeyMessageNavigation.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked;
+            this.settings.chatgptBehavior.enableArrowKeyMessageNavigation = next;
+            void this.actions.setChatGptBehaviorSettings?.({ enableArrowKeyMessageNavigation: next });
+        });
         this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.enabled.checked;
             this.settings.chatgptDirectory.enabled = next;
@@ -646,6 +659,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
+        this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
         this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
@@ -660,6 +674,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.reader.showOutlineInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
+        this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
         this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
 

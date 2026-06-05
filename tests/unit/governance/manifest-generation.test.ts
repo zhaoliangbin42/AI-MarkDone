@@ -5,7 +5,7 @@ import { extensionMeta } from '../../../config/extension/meta';
 import { extensionAssets } from '../../../config/extension/assets';
 import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 import { extensionTargets } from '../../../config/extension/targets';
-import { GOOGLE_DRIVE_FILE_SCOPE, cloudBackupTargets } from '../../../config/extension/cloudBackup';
+import { GOOGLE_DRIVE_CHROME_EXTENSION_CLIENT_ID, GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID, cloudBackupTargets } from '../../../config/extension/cloudBackup';
 import { CHROME_WEB_STORE_EXTENSION_ID, CHROME_WEB_STORE_PUBLIC_KEY } from '../../../config/extension/chromeWebStore';
 import { buildManifest, deriveChromeExtensionIdFromManifestKey } from '../../../scripts/generate-manifest';
 
@@ -63,7 +63,7 @@ describe('extension manifest generation', () => {
         });
     });
 
-    it('injects the configured Google Drive OAuth manifest only into Chrome', () => {
+    it('uses browser-managed Chrome OAuth and WebExtension Firefox OAuth permissions', () => {
         withGoogleClientId(undefined, () => {
             const chrome = buildManifest('chrome') as any;
             const firefox = buildManifest('firefox') as any;
@@ -72,22 +72,43 @@ describe('extension manifest generation', () => {
             expect(chrome.key).toBe(CHROME_WEB_STORE_PUBLIC_KEY);
             expect(deriveChromeExtensionIdFromManifestKey(chrome.key)).toBe(CHROME_WEB_STORE_EXTENSION_ID);
             expect(chrome.oauth2).toEqual({
-                client_id: cloudBackupTargets.chrome.googleDrive.clientId,
-                scopes: [GOOGLE_DRIVE_FILE_SCOPE],
+                client_id: GOOGLE_DRIVE_CHROME_EXTENSION_CLIENT_ID,
+                scopes: ['https://www.googleapis.com/auth/drive.file'],
             });
+            expect(cloudBackupTargets.chrome.googleDrive.chromeExtensionClientId).toBe(GOOGLE_DRIVE_CHROME_EXTENSION_CLIENT_ID);
+            expect(cloudBackupTargets.chrome.googleDrive.webAuthClientId).toBe(GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID);
             expect(chrome.permissions).toContain('identity');
             expect(chrome.permissions).not.toContain('identity.email');
             expect(chrome.host_permissions).toContain('https://www.googleapis.com/*');
             expect(chrome.host_permissions).toContain('https://oauth2.googleapis.com/*');
             expect(firefox.oauth2).toBeUndefined();
-            expect(firefox.permissions).not.toContain('identity');
-            expect(firefox.permissions).not.toContain('https://www.googleapis.com/*');
-            expect(firefox.permissions).not.toContain('https://oauth2.googleapis.com/*');
+            expect(firefox.permissions).toContain('identity');
+            expect(firefox.permissions).toContain('https://www.googleapis.com/*');
+            expect(firefox.permissions).toContain('https://oauth2.googleapis.com/*');
             expect(safari.oauth2).toBeUndefined();
             expect(safari.permissions).not.toContain('identity');
             expect(safari.permissions).not.toContain('https://www.googleapis.com/*');
             expect(safari.permissions).not.toContain('https://oauth2.googleapis.com/*');
         });
+    });
+
+    it('enables Firefox Google Drive support only when a Web OAuth client id is configured', () => {
+        const originalEnabled = cloudBackupTargets.firefox.googleDrive.enabled;
+        const originalWebClientId = cloudBackupTargets.firefox.googleDrive.webAuthClientId;
+        (cloudBackupTargets.firefox.googleDrive as any).enabled = true;
+        (cloudBackupTargets.firefox.googleDrive as any).webAuthClientId = '1234567890-webext.apps.googleusercontent.com';
+        try {
+            const firefox = buildManifest('firefox') as any;
+
+            expect(firefox.oauth2).toBeUndefined();
+            expect(firefox.permissions).toContain('identity');
+            expect(firefox.permissions).toContain('https://www.googleapis.com/*');
+            expect(firefox.permissions).toContain('https://oauth2.googleapis.com/*');
+            expect(firefox.browser_specific_settings?.gecko?.id).toBe('ai-markdone@zhaoliangbin.com');
+        } finally {
+            (cloudBackupTargets.firefox.googleDrive as any).enabled = originalEnabled;
+            (cloudBackupTargets.firefox.googleDrive as any).webAuthClientId = originalWebClientId;
+        }
     });
 
     it('tracks the public Chrome Web Store item id used by the Google OAuth client binding', () => {
@@ -121,25 +142,23 @@ describe('extension manifest generation', () => {
         });
     });
 
-    it('ignores Google OAuth client id environment overrides so manifest oauth2 stays repo-owned', () => {
+    it('ignores Google OAuth client id environment overrides because OAuth client ids are repo-owned', () => {
         withGoogleClientId('1234567890-example.apps.googleusercontent.com', () => {
             const chrome = buildManifest('chrome') as any;
 
-            expect(chrome.oauth2).toEqual({
-                client_id: cloudBackupTargets.chrome.googleDrive.clientId,
-                scopes: [GOOGLE_DRIVE_FILE_SCOPE],
-            });
+            expect(chrome.oauth2?.client_id).toBe(GOOGLE_DRIVE_CHROME_EXTENSION_CLIENT_ID);
+            expect(cloudBackupTargets.chrome.googleDrive.webAuthClientId).toBe(GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID);
         });
     });
 
-    it('fails Chrome manifest generation when the repo Google Drive OAuth client id is invalid', () => {
+    it('fails Chrome manifest generation when the repo Chrome Extension OAuth client id is invalid', () => {
         withGoogleClientId('not-a-google-oauth-client-id', () => {
-            const original = cloudBackupTargets.chrome.googleDrive.clientId;
-            (cloudBackupTargets.chrome.googleDrive as any).clientId = 'not-a-google-oauth-client-id';
+            const original = cloudBackupTargets.chrome.googleDrive.chromeExtensionClientId;
+            (cloudBackupTargets.chrome.googleDrive as any).chromeExtensionClientId = 'not-a-google-oauth-client-id';
             try {
-                expect(() => buildManifest('chrome')).toThrow(/Google Drive OAuth client id/i);
+                expect(() => buildManifest('chrome')).toThrow(/Google Drive Chrome Extension OAuth client id/i);
             } finally {
-                (cloudBackupTargets.chrome.googleDrive as any).clientId = original;
+                (cloudBackupTargets.chrome.googleDrive as any).chromeExtensionClientId = original;
             }
         });
     });
@@ -164,10 +183,10 @@ describe('extension manifest generation', () => {
         expect(safari.web_accessible_resources).not.toContain('icons/xiaohongshu_card.png');
     });
 
-    it('lets AMO assign the Firefox MV2 add-on id while keeping required Gecko metadata', () => {
+    it('keeps a stable Firefox Gecko id for identity redirect URLs', () => {
         const firefox = buildManifest('firefox') as any;
 
-        expect(firefox.browser_specific_settings?.gecko?.id).toBeUndefined();
+        expect(firefox.browser_specific_settings?.gecko?.id).toBe('ai-markdone@zhaoliangbin.com');
         expect(firefox.browser_specific_settings?.gecko?.strict_min_version).toBe('109.0');
         expect(firefox.browser_specific_settings?.gecko?.data_collection_permissions).toEqual({
             required: ['none'],

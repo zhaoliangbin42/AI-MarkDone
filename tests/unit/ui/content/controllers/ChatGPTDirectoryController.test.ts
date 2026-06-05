@@ -6,12 +6,15 @@ import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/Viewpo
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
-    highlightElement: vi.fn(),
+    highlightNavigationTarget: vi.fn(),
 }));
 
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({
     scrollToBookmarkTargetWithRetry: navigationMocks.scrollToBookmarkTargetWithRetry,
-    highlightElement: navigationMocks.highlightElement,
+}));
+
+vi.mock('@/drivers/content/conversation/highlight', () => ({
+    highlightNavigationTarget: navigationMocks.highlightNavigationTarget,
 }));
 
 const detector: ThemeDetector = {
@@ -170,7 +173,7 @@ describe('ChatGPTDirectoryController', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         navigationMocks.scrollToBookmarkTargetWithRetry.mockReset();
-        navigationMocks.highlightElement.mockReset();
+        navigationMocks.highlightNavigationTarget.mockReset();
         buildSkeletonDom();
     });
 
@@ -200,7 +203,7 @@ describe('ChatGPTDirectoryController', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         expect(anchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-        expect(navigationMocks.highlightElement).toHaveBeenCalledWith(anchor);
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(anchor);
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 

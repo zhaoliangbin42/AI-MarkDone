@@ -1,4 +1,4 @@
-import type { CloudBackupDiagnostics, ProtocolErrorCode } from '../../../contracts/protocol';
+import type { CloudBackupAccountSummary, CloudBackupAuthStrategy, CloudBackupDiagnostics, CloudBackupSessionState, ProtocolErrorCode } from '../../../contracts/protocol';
 import type { CloudBackupSnapshotSummary, CloudBackupSnapshotV1 } from '../../../core/cloudBackup/types';
 
 export class CloudBackupProviderError extends Error {
@@ -11,7 +11,8 @@ export class CloudBackupProviderError extends Error {
 export type CloudBackupProvider = {
     getConfigurationStatus?(): { configured: boolean; message?: string };
     getDiagnostics?(): CloudBackupDiagnostics;
-    connect(): Promise<{ account?: string }>;
+    getSessionState?(): CloudBackupSessionState;
+    connect(): Promise<Partial<CloudBackupAccountSummary> & { authStrategy?: CloudBackupAuthStrategy }>;
     disconnect(): Promise<void>;
     uploadSnapshot(snapshot: CloudBackupSnapshotV1): Promise<CloudBackupSnapshotSummary>;
     listSnapshots(): Promise<CloudBackupSnapshotSummary[]>;

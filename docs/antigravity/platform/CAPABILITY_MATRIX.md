@@ -10,7 +10,7 @@
 
 | Platform | Status | Host patterns | Notable deltas |
 |:---|:---:|:---|:---|
-| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader；可选发送后恢复阅读位置；AI-MarkDone 右侧 conversation directory rail 暂时下架；保留 classic host 链接与权限一致性门禁。 |
+| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader；可选发送后恢复阅读位置；AI-MarkDone 右侧 conversation directory rail 暂时下架，右下角 message stepper 保留；保留 classic host 链接与权限一致性门禁。 |
 
 说明：
 
@@ -29,6 +29,7 @@
 - 当前唯一明确的**平台专属**运行能力是：
   - ChatGPT Payload Engine（仅 ChatGPT hosts）
   - ChatGPT send position restore（仅 ChatGPT hosts，默认关闭）
+  - ChatGPT message stepper 与可选左右方向键消息导航（仅 ChatGPT conversation 页面）
 - 当前明确**不继续推进**的平台方向：
   - Gemini、Claude、DeepSeek 页面运行时适配
   - Gemini Deep Research（不纳入产品支持范围）
@@ -44,5 +45,5 @@
 | URL 匹配 | `chatgpt.com`, `chat.openai.com` |
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
-| 特殊处理 | payload/store-first Reader；可选发送后恢复阅读位置；右侧 conversation directory rail 暂时下架 |
-| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptDirectory` 仅保留兼容字段且 `enabled=false` |
+| 特殊处理 | payload/store-first Reader；可选发送后恢复阅读位置；右侧 conversation directory rail 暂时下架；右下角 message stepper 保留 |
+| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptBehavior.enableArrowKeyMessageNavigation` 控制左右方向键消息导航；`chatgptDirectory` 仅保留兼容字段且 `enabled=false` |

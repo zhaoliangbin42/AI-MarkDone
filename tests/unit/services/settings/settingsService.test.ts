@@ -152,20 +152,27 @@ describe('settingsService', () => {
         expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
     });
 
-    it('writes scoped ChatGPT restore-position behavior settings without restoring retired ChatGPT category', () => {
+    it('writes scoped ChatGPT behavior settings without restoring retired ChatGPT category', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
             restorePositionAfterSend: true,
+            enableArrowKeyMessageNavigation: false,
             unrelated: true,
         }).next;
 
-        expect(next.chatgptBehavior).toEqual({ restorePositionAfterSend: true });
+        expect(next.chatgptBehavior).toEqual({
+            restorePositionAfterSend: true,
+            enableArrowKeyMessageNavigation: false,
+        });
         expect(next).not.toHaveProperty('chatgpt');
 
         const normalized = loadAndNormalize({
             ...DEFAULT_SETTINGS,
             chatgptBehavior: undefined,
         } as any);
-        expect(normalized.chatgptBehavior).toEqual({ restorePositionAfterSend: false });
+        expect(normalized.chatgptBehavior).toEqual({
+            restorePositionAfterSend: false,
+            enableArrowKeyMessageNavigation: true,
+        });
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

@@ -927,6 +927,14 @@
         "message": "阅读历史消息时，如果 ChatGPT 发送后跳到底部，会尽快跳回原来的阅读位置。这个功能是快速恢复位置，不是直接拦截滚动。",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
+    "chatgptArrowKeyMessageNavigationLabel": {
+        "message": "使用左右方向键切换消息",
+        "description": "Message for chatgptArrowKeyMessageNavigationLabel"
+    },
+    "chatgptArrowKeyMessageNavigationDesc": {
+        "message": "不在输入时，左/右方向键会跳到上一条或下一条消息；在 ChatGPT 输入框里，它们仍然只移动光标。",
+        "description": "Message for chatgptArrowKeyMessageNavigationDesc"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "显示 ChatGPT 目录条",
         "description": "Message for chatgptDirectoryEnabledLabel"
@@ -936,7 +944,7 @@
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "在 ChatGPT 对话页面显示右侧对话目录条。",
+        "message": "右侧目录条已下架；消息导航现在使用右下角 Stepper。",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
@@ -1595,6 +1603,10 @@
         "message": "已连接",
         "description": "Cloud backup connected status"
     },
+    "cloudBackupConnectedAs": {
+        "message": "已连接：$1",
+        "description": "Cloud backup connected account status"
+    },
     "cloudBackupConfigMissingStatus": {
         "message": "Google Drive 构建配置缺失",
         "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
@@ -1610,6 +1622,18 @@
     "cloudBackupLoginGoogleDrive": {
         "message": "登录 Google Drive",
         "description": "Primary action for connecting Google Drive cloud backup"
+    },
+    "cloudBackupConnectConfirmTitle": {
+        "message": "连接 Google Drive？",
+        "description": "Confirmation title before starting Google Drive authorization"
+    },
+    "cloudBackupConnectConfirmDesc": {
+        "message": "AI-MarkDone 会打开 Google 授权，让你选择自己的 Drive。这个功能仍在实验阶段；备份到 Google Drive 前，建议先导出一份本地副本。AI-MarkDone 不会收集你的 Google 账号、token、密码或书签。",
+        "description": "Confirmation message before starting Google Drive authorization"
+    },
+    "cloudBackupConnectConfirmAction": {
+        "message": "继续",
+        "description": "Confirmation action before starting Google Drive authorization"
     },
     "cloudBackupDisconnect": {
         "message": "断开连接",
@@ -1655,10 +1679,6 @@
         "message": "恢复预览",
         "description": "Cloud restore preview title"
     },
-    "cloudBackupRestorePreviewDesc": {
-        "message": "安全合并将新增 $1 个书签，保留 $2 个仅本地书签，跳过 $3 个重复项，并保持 $4 个冲突项不变。",
-        "description": "Cloud restore preview summary"
-    },
     "cloudBackupRestoreCompleteTitle": {
         "message": "恢复完成",
         "description": "Cloud restore completion title"
@@ -1672,16 +1692,12 @@
         "description": "Cloud backup status check message"
     },
     "cloudBackupPrivacyNote": {
-        "message": "你的备份只会写进你自己的 Google Drive。我们不保存你的 Google 账号，不保存 OAuth token，也不会把书签发到 AI-MarkDone 的服务器。你随时可以退出登录，或把这些备份移到 Google Drive 回收站。",
+        "message": "AI-MarkDone 不会收集你的 Google 账号、token、密码或书签。",
         "description": "Cloud backup privacy note"
     },
     "cloudBackupStatusLabel": {
         "message": "状态",
         "description": "Google Drive cloud backup status label"
-    },
-    "cloudBackupTestListSnapshots": {
-        "message": "测试备份列表",
-        "description": "Test listing cloud backups"
     },
     "cloudBackupTestConnection": {
         "message": "测试连接",
@@ -1703,33 +1719,9 @@
         "message": "选择要检查的 Google Drive 备份。此步骤只预览安全合并，不会修改本地书签。",
         "description": "Description for the Google Drive restore snapshot picker"
     },
-    "cloudBackupDiagnosticsLabel": {
-        "message": "构建检查",
-        "description": "Google Drive backup Chrome build diagnostics label"
-    },
-    "cloudBackupDiagnosticsChecking": {
-        "message": "正在检查 Chrome 构建...",
-        "description": "Google Drive backup build diagnostics loading text"
-    },
-    "cloudBackupDiagnosticsReady": {
-        "message": "当前 Chrome 构建可以使用 Google Drive 备份。",
-        "description": "Google Drive backup build diagnostics ready text"
-    },
-    "cloudBackupDiagnosticsReloadDistChrome": {
-        "message": "Chrome 仍在加载缺少完整 Google Drive OAuth 的构建。请移除旧的未打包 AI-MarkDone，并重新加载 dist-chrome。",
-        "description": "Google Drive backup build diagnostics reload instruction"
-    },
-    "cloudBackupDiagnosticsYes": {
-        "message": "是",
-        "description": "Google Drive backup diagnostics yes value"
-    },
-    "cloudBackupDiagnosticsNo": {
-        "message": "否",
-        "description": "Google Drive backup diagnostics no value"
-    },
-    "cloudBackupConnectionChecking": {
-        "message": "正在检查 Google Drive 连接...",
-        "description": "Short loading text while testing the Google Drive backup connection"
+    "cloudBackupProgressConfirmingAccess": {
+        "message": "正在确认 Google Drive 访问权限...",
+        "description": "Google Drive backup progress step for confirming short-lived access"
     },
     "cloudBackupProgressPreparingBookmarks": {
         "message": "正在准备本地书签...",

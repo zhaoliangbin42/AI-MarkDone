@@ -3,8 +3,24 @@ import type { ModalHost } from '../../../components/ModalHost';
 import { t } from '../../../components/i18n';
 import { Icons } from '../../../../../assets/icons';
 
+type CloudBackupRowStatus = {
+    configured?: boolean;
+    connected?: boolean;
+    sessionState?: string | null;
+    lastBackupAt?: string | null;
+    lastError?: string | null;
+    accountEmail?: string | null;
+    accountDisplayName?: string | null;
+    accountPhotoUrl?: string | null;
+    connectedAccount?: {
+        accountEmail?: string | null;
+        accountDisplayName?: string | null;
+        accountPhotoUrl?: string | null;
+    } | null;
+};
+
 export type CloudBackupSettingsPanelActions = {
-    status?: (provider: CloudBackupProviderId) => Promise<{ configured?: boolean; connected?: boolean; lastBackupAt?: string | null; lastError?: string | null } | null> | { configured?: boolean; connected?: boolean; lastBackupAt?: string | null; lastError?: string | null } | null;
+    status?: (provider: CloudBackupProviderId) => Promise<CloudBackupRowStatus | null> | CloudBackupRowStatus | null;
     connect?: (provider: CloudBackupProviderId) => Promise<void | { connected?: boolean }> | void | { connected?: boolean };
     disconnect?: (provider: CloudBackupProviderId) => Promise<void | { connected?: boolean }> | void | { connected?: boolean };
     openSettings?: () => Promise<void> | void;
@@ -17,7 +33,7 @@ export class CloudBackupSettingsPanel {
     private readonly actions: CloudBackupSettingsPanelActions;
     private statusEl: HTMLElement | null = null;
     private actionsEl: HTMLElement | null = null;
-    private currentStatus: { configured?: boolean; connected?: boolean; lastError?: string | null } | null = null;
+    private currentStatus: CloudBackupRowStatus | null = null;
 
     constructor(_params: { modal: ModalHost; actions?: CloudBackupSettingsPanelActions }) {
         this.actions = _params.actions ?? {};
@@ -78,7 +94,7 @@ export class CloudBackupSettingsPanel {
                 this.renderActions();
                 return;
             }
-            this.statusEl.textContent = t(status?.connected ? 'cloudBackupConnectedStatus' : 'cloudBackupDisconnected');
+            this.statusEl.textContent = status?.connected ? this.formatConnectedStatus(status) : t('cloudBackupDisconnected');
             if (status?.connected) {
                 this.statusEl.classList.add('cloud-backup-row__status--connected');
             }
@@ -119,6 +135,16 @@ export class CloudBackupSettingsPanel {
         }
 
         this.actionsEl.replaceChildren(...controls);
+    }
+
+    private formatConnectedStatus(status: CloudBackupRowStatus): string {
+        const displayName = status.connectedAccount?.accountDisplayName?.trim() || status.accountDisplayName?.trim() || '';
+        const email = status.connectedAccount?.accountEmail?.trim() || status.accountEmail?.trim() || '';
+        const account = displayName && email ? `${displayName} · ${email}` : displayName || email;
+        if (!account) return t('cloudBackupConnectedStatus');
+        const translated = t('cloudBackupConnectedAs', [account]);
+        const prefix = translated && translated !== 'cloudBackupConnectedAs' ? translated : `Connected as ${account}`;
+        return prefix;
     }
 
     private async runAndRefresh(action: () => Promise<void | { connected?: boolean }> | void | { connected?: boolean } | undefined): Promise<void> {

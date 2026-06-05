@@ -86,6 +86,7 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
     const record = isRecord(value) ? value : {};
     return {
         restorePositionAfterSend: Boolean((record as any).restorePositionAfterSend ?? DEFAULT_SETTINGS.chatgptBehavior.restorePositionAfterSend),
+        enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
     };
 }
 

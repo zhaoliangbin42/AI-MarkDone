@@ -46,7 +46,10 @@ describe('supported hosts consistency', () => {
 
         const sourceHosts = normalizeHosts([...SUPPORTED_HOST_PATTERNS]);
         const chromeHosts = normalizeHosts(chrome.host_permissions || []);
-        const firefoxHosts = normalizeHosts((firefox.permissions || []).filter((value) => value.startsWith('http')));
+        const firefoxHttpPermissions = (firefox.permissions || []).filter((value) => value.startsWith('http'));
+        const firefoxHosts = normalizeHosts(
+            firefoxHttpPermissions.filter((value) => value !== GOOGLE_DRIVE_API_HOST_PERMISSION && value !== GOOGLE_OAUTH_REVOKE_HOST_PERMISSION),
+        );
         const safariHosts = normalizeHosts((safari.permissions || []).filter((value) => value.startsWith('http')));
         const chromeContentHosts = normalizeHosts(chrome.content_scripts?.flatMap((entry) => entry.matches || []) || []);
         const firefoxContentHosts = normalizeHosts(firefox.content_scripts?.flatMap((entry) => entry.matches || []) || []);
@@ -59,6 +62,7 @@ describe('supported hosts consistency', () => {
         expect(sourceHosts).toEqual(firefoxContentHosts);
         expect(sourceHosts).toEqual(safariContentHosts);
         expect(chromeHosts).toEqual(normalizeHosts([...SUPPORTED_HOST_PATTERNS, GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION]));
+        expect(normalizeHosts(firefoxHttpPermissions)).toEqual(normalizeHosts([...SUPPORTED_HOST_PATTERNS, GOOGLE_DRIVE_API_HOST_PERMISSION, GOOGLE_OAUTH_REVOKE_HOST_PERMISSION]));
         expect(popupLinkHosts.length).toBeGreaterThan(0);
         expect(popupLinkHosts.every((host) => sourceHosts.includes(host))).toBe(true);
     });

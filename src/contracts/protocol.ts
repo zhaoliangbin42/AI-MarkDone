@@ -100,14 +100,40 @@ export type BookmarksStorageUsageResponse = {
 
 export type CloudBackupProviderId = 'googleDrive';
 export type CloudBackupRestoreStrategy = 'previewOnly' | 'safeMerge' | 'replaceLocal';
+export type CloudBackupAuthStrategy = 'browserManagedGoogleIdentity' | 'webExtensionAccessToken' | 'unsupported';
+export type CloudBackupBrowserFamily = 'googleChrome' | 'webAuthCompatible' | 'firefox' | 'unsupported';
+export type CloudBackupSessionState = 'unknown' | 'readyInThisSession' | 'needsConfirmation' | 'error';
+export type CloudBackupAccountSummary = {
+    accountEmail: string | null;
+    accountDisplayName: string | null;
+    accountPhotoUrl: string | null;
+};
+export type CloudBackupConnectedAccount = CloudBackupAccountSummary & {
+    connectedAt: string | null;
+};
 export type CloudBackupDiagnostics = {
     extensionId: string | null;
-    clientId: string | null;
+    expectedExtensionId: string;
+    extensionIdMatchesExpected: boolean;
+    chromeExtensionClientId: string | null;
+    webAuthClientId: string | null;
+    browserFamily: CloudBackupBrowserFamily;
     hasIdentityPermission: boolean;
-    hasManifestOauth2: boolean;
-    hasDriveFileScope: boolean;
     hasGoogleApiHostPermission: boolean;
-    hasGetAuthToken: boolean;
+    hasManifestOAuthClient: boolean;
+    hasDriveFileScope: boolean;
+    supportsGetAuthToken: boolean;
+    supportsLaunchWebAuthFlow: boolean;
+    redirectUrl: string | null;
+    oauthRequestPreview: {
+        clientId: string | null;
+        redirectUri: string | null;
+        scope: string;
+        responseType: 'token';
+    } | null;
+    authStrategy: CloudBackupAuthStrategy;
+    usesManifestOAuthClient: boolean;
+    usesWebOAuthClient: boolean;
     ready: boolean;
 };
 export type CloudBackupStatusPayload = { provider: CloudBackupProviderId };

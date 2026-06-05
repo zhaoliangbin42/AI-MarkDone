@@ -198,7 +198,6 @@ describe('BookmarksPanel', () => {
         expect(source).toContain('cloudBackupRestorePreviewKind');
         expect(source).toContain('cloudBackupApplyRestore');
         expect(source).toContain('cloudBackupClient.applyRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
-        expect(source).not.toContain('cloudBackupRestorePreviewDesc');
     });
 
     it('keeps Google Drive settings on runtime status without exposing raw identity errors', () => {
@@ -228,11 +227,11 @@ describe('BookmarksPanel', () => {
         const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
 
         expect(source).toContain('showCloudBackupProgress');
+        expect(source).toContain('cloudBackupProgressConfirmingAccess');
         expect(source).toContain('cloudBackupProgressPreparingBookmarks');
         expect(source).toContain('cloudBackupProgressUploadingDrive');
         expect(source).toContain('cloudBackupProgressReadingList');
         expect(source).toContain('cloudBackupProgressApplyingMerge');
-        expect(source).toContain('cloudBackupConnectionChecking');
     });
 
     it('shows the same timeout budget countdown that the Google Drive RPC layer enforces', () => {
@@ -253,15 +252,30 @@ describe('BookmarksPanel', () => {
 
         expect(method).toContain('cloudBackupTestConnection');
         expect(method).toContain('cloudBackupManageBackups');
+        expect(method).toContain('cloudBackupConnectedAs');
         expect(method).toContain('cloudBackupPrivacyNote');
         expect(method).toContain("privacy.className = 'cloud-backup-settings-modal__privacy'");
         expect(method).toContain('showCloudBackupManager');
+        expect(method).toContain('try {');
+        expect(method).toContain('finally {');
         expect(method).not.toContain('cloudBackupDiagnosticsButton');
         expect(method).not.toContain('refreshDiagnostics');
         expect(method).not.toContain('cloudBackupLoginGoogleDrive');
         expect(method).not.toContain('cloudBackupLogoutGoogleDrive');
-        expect(method).not.toContain('cloudBackupClient.connect');
-        expect(method).not.toContain('cloudBackupClient.disconnect');
+        expect(method).not.toContain('cloudBackupOpenGoogleDrive');
+        expect(method).not.toContain('cloudBackupSwitchAccount');
+        expect(method).not.toContain('cloudBackupSilentAuthNote');
+        expect(method).not.toContain('https://drive.google.com/drive/my-drive');
+    });
+
+    it('confirms Google Drive authorization before starting OAuth', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('cloudBackupConnectConfirmTitle');
+        expect(source).toContain('cloudBackupConnectConfirmDesc');
+        expect(source).toContain('cloudBackupConnectConfirmAction');
+        expect(source).toContain('this.modalHost?.confirm');
+        expect(source).toContain('if (!confirmed) return { connected: false };');
     });
 
     it('manages Google Drive backups through a trash-first remote list', () => {
