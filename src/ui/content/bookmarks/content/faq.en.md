@@ -2,9 +2,9 @@
 
 ## Which platforms does this extension support?
 
-ChatGPT is still the main platform I build and test against. That is where AI-MarkDone is the most complete and the most thoroughly tested. The extension also supports Gemini, Claude, and DeepSeek.
+AI-MarkDone 4.5.0 supports ChatGPT as the only active AI page runtime.
 
-That said, those other three are not the platforms I use every day, so the test coverage is not always as deep as it is on ChatGPT. If you run into issues there, feel free to email me at zhaoliangbin42@gmail.com
+Gemini, Claude, and DeepSeek page support has been retired. If you saved bookmarks from those platforms before, they stay in your bookmark library. You can still view, filter, export, and back them up; the extension just no longer injects tools into those sites.
 
 ## What does the extension actually do, and where do I find each feature?
 
@@ -14,7 +14,8 @@ That said, those other three are not the platforms I use every day, so the test 
 - Save bookmark: toolbar -> Bookmark
 - Export messages: toolbar -> Export
 - Word count: toolbar stats area
-- ChatGPT conversation directory: right-side directory rail on ChatGPT pages
+- ChatGPT message navigation: lower-right previous/next controls on ChatGPT conversation pages
+- Google Drive backup: bookmarks panel -> Settings -> Data Management
 - Dynamic Annotation: select content inside Reader -> floating annotation button
 - Copy annotations: Reader top bar -> Copy annotations
 - Insert annotations: above the send box in Reader -> Insert annotations
@@ -144,13 +145,29 @@ Click the extension icon to open the bookmarks panel, then go to Settings. From 
 
 I do not like tools that dump every feature on every user, so this part is meant to stay flexible.
 
-## How do I use the ChatGPT conversation directory?
+## Where does Google Drive backup save my bookmarks?
 
-Open a ChatGPT conversation. The directory appears on the right side of the page.
+Open the bookmarks panel, go to Settings, then Data Management. The Google Drive Backup (Experimental) card can connect your Google Drive account and save a verified bookmark snapshot. Before Google authorization starts, AI-MarkDone shows a short confirmation and recommends exporting a local copy first while this backup feature is experimental. The settings panel shows the connected Google Drive account and lets you test the connection or manage cloud backups.
 
-Each item represents one user round. Hover an item to preview that part of the conversation, then click it to jump back to that position.
+Backups are saved in your own Google Drive under `AI-MarkDone/Backups/bookmarks`. AI-MarkDone does not run a backup server, and the snapshot does not include OAuth tokens, passwords, or extension settings.
 
-The directory is currently available on ChatGPT only.
+The OAuth client ID in the extension identifies AI-MarkDone as an app. It does not sign anyone into the developer's Google account. Each person authorizes the Google account already available in their own browser profile, or signs in with their own account during the Google consent flow.
+
+The current version is a bookmark backup flow, not real-time two-way updating. Restoring from Drive first shows a safe merge preview: new Drive-only bookmarks can be added, local-only bookmarks are kept, duplicates are skipped, and conflicts keep the local copy by default.
+
+During backup, AI-MarkDone shows stage progress and a countdown for the operation timeout budget instead of byte-level upload speed. The Drive upload uses a resumable upload session, but this v1 flow sends the snapshot in one PUT request; it is not full chunked resume yet. If the browser closes or the extension unloads mid-upload, Google Drive may keep the backup folders or a JSON file that did not report success. After a completed upload, AI-MarkDone downloads the file back and verifies the snapshot id and payload hash; if that verification fails, it tries to delete the just-created Drive file and tells you if manual cleanup is needed.
+
+Clicking “Sign out” first asks Google to revoke AI-MarkDone’s current Drive OAuth grant, then clears the authorization state cached by the browser identity API for AI-MarkDone. The next sign-in action asks the browser to start Google sign-in or consent again as needed.
+
+If backup fails because the loaded build is missing OAuth pieces, AI-MarkDone shows the relevant diagnosis in the error message without starting sign-in. Remove old unpacked AI-MarkDone entries and reload the current build if the browser is still loading an incomplete manifest. If Google Chrome reports an invalid browser identity request, verify that the manifest OAuth client is bound to this extension ID. If WebAuth reports `redirect_uri_mismatch`, compare the exact diagnostics redirect URI with the authorized redirect URIs in the Google Cloud Web OAuth client.
+
+You can manage backup JSON files from the Google Drive backup settings panel. Moving a backup to Drive trash does not touch local bookmarks, and you can still clean up files directly in Google Drive if you prefer.
+
+## How do I use ChatGPT message navigation?
+
+Open a ChatGPT conversation. AI-MarkDone keeps a small lower-right message stepper with previous and next controls. You can hide those buttons from ChatGPT Settings. You can also use Left and Right arrow keys to move between messages when you are not typing; keyboard navigation has its own setting.
+
+The stepper and arrow-key navigation are currently available on ChatGPT conversation pages only.
 
 ## How does word count work?
 

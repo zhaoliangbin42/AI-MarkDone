@@ -35,6 +35,17 @@ describe('settingsService', () => {
         expect(() => planGetCategory(DEFAULT_SETTINGS as any, 'performance')).toThrow('Invalid category: performance');
     });
 
+    it('ignores retired platform toggles when writing platform settings', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'platforms', {
+            chatgpt: false,
+            gemini: true,
+            claude: true,
+            deepseek: true,
+        }).next;
+
+        expect(next.platforms).toEqual({ chatgpt: false });
+    });
+
     it('merges reader comment export settings while preserving renderCodeInReader', () => {
         const template: CommentTemplateSegment[] = [
             { type: 'text', value: 'Prefix\n' },
@@ -126,9 +137,9 @@ describe('settingsService', () => {
         );
     });
 
-    it('writes scoped ChatGPT directory settings without restoring retired ChatGPT category', () => {
+    it('keeps the scoped ChatGPT directory retired even when stored settings request it', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptDirectory', {
-            enabled: false,
+            enabled: true,
             mode: 'expanded',
             promptLabelMode: 'headTail',
             showFoldDock: true,
@@ -139,6 +150,32 @@ describe('settingsService', () => {
 
         const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense', promptLabelMode: 'tail' }).next;
         expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
+    });
+
+    it('writes scoped ChatGPT behavior settings without restoring retired ChatGPT category', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
+            restorePositionAfterSend: true,
+            showMessageStepper: false,
+            enableArrowKeyMessageNavigation: false,
+            unrelated: true,
+        }).next;
+
+        expect(next.chatgptBehavior).toEqual({
+            restorePositionAfterSend: true,
+            showMessageStepper: false,
+            enableArrowKeyMessageNavigation: false,
+        });
+        expect(next).not.toHaveProperty('chatgpt');
+
+        const normalized = loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            chatgptBehavior: undefined,
+        } as any);
+        expect(normalized.chatgptBehavior).toEqual({
+            restorePositionAfterSend: true,
+            showMessageStepper: true,
+            enableArrowKeyMessageNavigation: true,
+        });
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

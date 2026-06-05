@@ -2,22 +2,16 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { ChatGPTAdapter } from '../src/drivers/content/adapters/sites/chatgpt';
-import { ClaudeAdapter } from '../src/drivers/content/adapters/sites/claude';
-import { DeepseekAdapter } from '../src/drivers/content/adapters/sites/deepseek';
-import { GeminiAdapter } from '../src/drivers/content/adapters/sites/gemini';
 import { copyMarkdownFromMessage } from '../src/services/copy/copy-markdown';
 
 type GoldenCase = {
-    platform: 'chatgpt' | 'gemini' | 'claude' | 'deepseek';
+    platform: 'chatgpt';
     fixturePath: string;
     url: string;
 };
 
 const cases: GoldenCase[] = [
     { platform: 'chatgpt', fixturePath: 'mocks/ChatGPT/ChatGPT-Code.html', url: 'https://chatgpt.com/c/mock' },
-    { platform: 'gemini', fixturePath: 'mocks/Gemini/Gemini-DeepResearch.html', url: 'https://gemini.google.com/app' },
-    { platform: 'claude', fixturePath: 'mocks/Claude/Claude-Artifact.html', url: 'https://claude.ai/chat/mock' },
-    { platform: 'deepseek', fixturePath: 'mocks/DeepSeek/Deepseek-code.html', url: 'https://chat.deepseek.com/c/mock' },
 ];
 
 function withDom<T>(html: string, url: string, fn: () => T): T {
@@ -55,12 +49,6 @@ function getAdapter(platform: GoldenCase['platform']) {
     switch (platform) {
         case 'chatgpt':
             return new ChatGPTAdapter();
-        case 'gemini':
-            return new GeminiAdapter();
-        case 'claude':
-            return new ClaudeAdapter();
-        case 'deepseek':
-            return new DeepseekAdapter();
     }
 }
 

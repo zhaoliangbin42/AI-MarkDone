@@ -5,8 +5,10 @@ import {
     loadAndNormalize,
     normalizeAppearanceSettings,
     normalizeBehaviorSettings,
+    normalizeChatGPTBehaviorSettings,
     normalizeChatGPTDirectorySettings,
     normalizeFormulaSettings,
+    normalizePlatformSettings,
     normalizeReaderContentMaxWidthPx,
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
@@ -39,7 +41,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
         case 'platforms': {
             const next: AppSettings = {
                 ...cur,
-                platforms: mergeObject({ ...DEFAULT_SETTINGS.platforms, ...cur.platforms }, value),
+                platforms: normalizePlatformSettings(mergeObject({ ...cur.platforms }, value)),
             };
             return { next };
         }
@@ -107,6 +109,16 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                 ...cur,
                 chatgptDirectory: normalizeChatGPTDirectorySettings({
                     ...cur.chatgptDirectory,
+                    ...(isRecord(value) ? value : {}),
+                }),
+            };
+            return { next };
+        }
+        case 'chatgptBehavior': {
+            const next: AppSettings = {
+                ...cur,
+                chatgptBehavior: normalizeChatGPTBehaviorSettings({
+                    ...cur.chatgptBehavior,
                     ...(isRecord(value) ? value : {}),
                 }),
             };

@@ -39,17 +39,12 @@ describe('ViewportResizeSuspendController', () => {
         window.removeEventListener(AIMD_VIEWPORT_RESIZE_IDLE_EVENT, idle);
     });
 
-    it('enters suspend only after a sustained width resize to avoid single-frame flicker', () => {
+    it('enters suspend immediately when the width changes beyond the threshold', () => {
         const controller = new ViewportResizeSuspendController();
         controller.init();
 
         setViewportWidth(1010);
         window.dispatchEvent(new Event('resize'));
-        vi.advanceTimersByTime(79);
-
-        expect(document.documentElement.dataset.aimdViewportResizing).toBeUndefined();
-
-        vi.advanceTimersByTime(1);
 
         expect(document.documentElement.dataset.aimdViewportResizing).toBe('1');
         controller.dispose();
@@ -63,12 +58,11 @@ describe('ViewportResizeSuspendController', () => {
 
         setViewportWidth(1012);
         window.dispatchEvent(new Event('resize'));
-        vi.advanceTimersByTime(80);
         expect(document.documentElement.dataset.aimdViewportResizing).toBe('1');
 
         setViewportWidth(1030);
         window.dispatchEvent(new Event('resize'));
-        vi.advanceTimersByTime(349);
+        vi.advanceTimersByTime(999);
         expect(document.documentElement.dataset.aimdViewportResizing).toBe('1');
         expect(idle).not.toHaveBeenCalled();
 
@@ -88,6 +82,7 @@ describe('ViewportResizeSuspendController', () => {
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-rail');
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-preview');
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-step-controls');
+        expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-message-stepper');
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] .aimd-message-toolbar-host[data-aimd-placement="actionbar"]');
         expect(css).toContain('visibility: hidden;');
         expect(css).toContain('content-visibility: hidden;');
@@ -101,7 +96,6 @@ describe('ViewportResizeSuspendController', () => {
 
         setViewportWidth(1012);
         window.dispatchEvent(new Event('resize'));
-        vi.advanceTimersByTime(80);
         expect(document.documentElement.dataset.aimdViewportResizing).toBe('1');
 
         controller.dispose();

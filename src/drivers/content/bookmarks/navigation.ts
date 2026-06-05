@@ -5,6 +5,8 @@ import {
     scrollToConversationTargetWithRetry,
     type ConversationLocator,
 } from '../conversation/navigation';
+import { highlightNavigationTarget } from '../conversation/highlight';
+import { releaseChatGPTSendPositionRestore } from '../chatgpt/sendPositionRestoreEvents';
 
 const NAV_KEY = 'aimd:bookmarkNavigate:v1';
 
@@ -51,18 +53,6 @@ export function isSamePageUrl(a: string, b: string): boolean {
     return normalizePageUrl(a) === normalizePageUrl(b);
 }
 
-export function highlightElement(element: HTMLElement): void {
-    element.dataset.aimdHighlight = '1';
-    element.style.outline = '2px solid var(--aimd-interactive-primary)';
-    element.style.outlineOffset = '2px';
-    window.setTimeout(() => {
-        if (element.dataset.aimdHighlight !== '1') return;
-        delete element.dataset.aimdHighlight;
-        element.style.outline = '';
-        element.style.outlineOffset = '';
-    }, 3000);
-}
-
 export type ScrollResult = { ok: true } | { ok: false; message: string };
 
 export type BookmarkNavigationTarget = {
@@ -82,7 +72,7 @@ function legacyScrollToAssistantPosition(
     if (index < 0 || index >= messages.length) return { ok: false, message: 'Position out of range' };
     const target = messages[index];
     target.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
-    window.setTimeout(() => highlightElement(target), 100);
+    window.setTimeout(() => highlightNavigationTarget(target), 100);
     return { ok: true };
 }
 
@@ -113,8 +103,9 @@ function buildBookmarkTargetLocators(target: BookmarkNavigationTarget): Array<{ 
 
 function scrollElementIntoView(targetEl: HTMLElement, options?: { behavior?: ScrollBehavior; block?: ScrollLogicalPosition }): ScrollResult {
     if (typeof targetEl.scrollIntoView !== 'function') return { ok: false, message: 'Scroll target unavailable' };
+    releaseChatGPTSendPositionRestore();
     targetEl.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
-    window.setTimeout(() => highlightElement(targetEl), 100);
+    window.setTimeout(() => highlightNavigationTarget(targetEl), 100);
     return { ok: true };
 }
 

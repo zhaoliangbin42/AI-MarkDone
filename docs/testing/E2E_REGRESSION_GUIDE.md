@@ -4,7 +4,7 @@
 This guide is the long-term, repeatable end-to-end (E2E) checklist for each release or major refactor.
 
 ## 2. Scope
-- Platforms: ChatGPT, Gemini, Claude, DeepSeek
+- AI platform: ChatGPT
 - Browsers: Chrome (MV3), Firefox (MV2)
 - Critical domains:
   - bookmarks (import/move/delete/export/storage lifecycle)

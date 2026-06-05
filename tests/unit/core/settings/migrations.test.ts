@@ -9,10 +9,10 @@ describe('settings migrations', () => {
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
     });
 
-    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and strips retired ChatGPT fields', () => {
+    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and strips retired ChatGPT and platform fields', () => {
         const stored: any = {
             version: 3,
-            platforms: { chatgpt: false },
+            platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
             chatgpt: { showConversationDirectory: false, foldingMode: 'all', enableVirtualization: false },
             behavior: { enableClickToCopy: false },
             reader: { renderCodeInReader: false, markdownTheme: 'github-light-colorblind' },
@@ -22,9 +22,10 @@ describe('settings migrations', () => {
 
         const next = loadAndNormalize(stored);
         expect(next.version).toBe(4);
-        expect(next.platforms.chatgpt).toBe(false);
-        expect(next.platforms.gemini).toBe(true);
+        expect(next.platforms).toEqual({ chatgpt: false });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
+        expect(next.chatgptBehavior.showMessageStepper).toBe(true);
+        expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.formula.clickCopyMarkdown).toBe(false);
@@ -40,6 +41,15 @@ describe('settings migrations', () => {
         expect(next.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
         expect(next.bookmarks.sortMode).toBe('alpha-asc');
         expect(next.language).toBe('zh_CN');
+    });
+
+    it('ignores retired platform settings while preserving the ChatGPT runtime toggle', () => {
+        const next = loadAndNormalize({
+            version: 4,
+            platforms: { chatgpt: true, gemini: false, claude: false, deepseek: false },
+        } as any);
+
+        expect(next.platforms).toEqual({ chatgpt: true });
     });
 
     it('normalizes v3 appearance font size settings', () => {
@@ -76,13 +86,39 @@ describe('settings migrations', () => {
         expect(next).not.toHaveProperty('chatgpt');
     });
 
-    it('preserves the ChatGPT directory prompt label mode when normalizing stored settings', () => {
+    it('retains ChatGPT directory preferences but keeps the retired rail disabled', () => {
         const next = loadAndNormalize({
             version: 3,
             chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail' },
         } as any);
 
-        expect(next.chatgptDirectory).toEqual({ enabled: true, mode: 'expanded', promptLabelMode: 'headTail' });
+        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded', promptLabelMode: 'headTail' });
+    });
+
+    it('normalizes ChatGPT message navigation behavior with default-on controls', () => {
+        const defaulted = loadAndNormalize({
+            version: 4,
+            chatgptBehavior: { restorePositionAfterSend: true },
+        } as any);
+        const disabled = loadAndNormalize({
+            version: 4,
+            chatgptBehavior: {
+                restorePositionAfterSend: false,
+                showMessageStepper: false,
+                enableArrowKeyMessageNavigation: false,
+            },
+        } as any);
+
+        expect(defaulted.chatgptBehavior).toEqual({
+            restorePositionAfterSend: true,
+            showMessageStepper: true,
+            enableArrowKeyMessageNavigation: true,
+        });
+        expect(disabled.chatgptBehavior).toEqual({
+            restorePositionAfterSend: false,
+            showMessageStepper: false,
+            enableArrowKeyMessageNavigation: false,
+        });
     });
 
     it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {

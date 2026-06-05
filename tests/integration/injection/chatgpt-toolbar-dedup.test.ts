@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
@@ -40,8 +39,19 @@ function withDom(html: string, url: string, fn: () => void): void {
 
 describe('ChatGPT toolbar injection dedup', () => {
     it('never injects more than one toolbar per official action bar container', () => {
-        // Keep this fixture small: large production dumps can starve other parity tests and trigger time budgets.
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-Code.html', 'utf-8');
+        const html = `
+          <main>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Answer</div>
+              </div>
+              <div class="z-0 flex"><div><button data-testid="copy-turn-action-button">Copy</button></div></div>
+            </article>
+          </main>
+        `;
         withDom(html, 'https://chatgpt.com/c/mock', () => {
             const adapter = new ChatGPTAdapter();
             const readerPanel = new ReaderPanel();

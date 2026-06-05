@@ -1,6 +1,7 @@
 import type { SiteAdapter } from '../adapters/base';
 import { listAssistantSegmentElements } from './assistantSegments';
 import { collectConversationTurnRefs } from './collectConversationTurnRefs';
+import { highlightNavigationTarget } from './highlight';
 
 export type ConversationLocator =
     | { kind: 'turnIndex'; turnIndex: number }
@@ -10,18 +11,6 @@ export type ConversationLocator =
 export type ResolveResult = { ok: true; targetEl: HTMLElement; turnIndex: number } | { ok: false; message: string };
 
 export type ScrollResult = { ok: true } | { ok: false; message: string };
-
-export function highlightElement(element: HTMLElement): void {
-    element.dataset.aimdHighlight = '1';
-    element.style.outline = '2px solid var(--aimd-interactive-primary)';
-    element.style.outlineOffset = '2px';
-    window.setTimeout(() => {
-        if (element.dataset.aimdHighlight !== '1') return;
-        delete element.dataset.aimdHighlight;
-        element.style.outline = '';
-        element.style.outlineOffset = '';
-    }, 3000);
-}
 
 function findTurnIndexForSegment(turns: ReturnType<typeof collectConversationTurnRefs>, segment: HTMLElement): number {
     for (let i = 0; i < turns.length; i += 1) {
@@ -72,7 +61,7 @@ export function scrollToConversationTarget(
     const res = resolveConversationTarget(adapter, locator);
     if (!res.ok) return res;
     res.targetEl.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
-    window.setTimeout(() => highlightElement(res.targetEl), 100);
+    window.setTimeout(() => highlightNavigationTarget(res.targetEl), 100);
     return { ok: true };
 }
 

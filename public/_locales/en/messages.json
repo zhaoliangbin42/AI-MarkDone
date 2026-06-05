@@ -4,7 +4,7 @@
         "description": "Message for extName"
     },
     "extDescription": {
-        "message": "AI-MarkDone for ChatGPT: reader mode, directory, bookmarks, PNG/PDF export, LaTeX copy, and Markdown copy.",
+        "message": "AI-MarkDone for ChatGPT: reader, bookmarks, Google Drive backup, LaTeX copy, Markdown copy, and PNG/PDF export.",
         "description": "Message for extDescription"
     },
     "btnCopy": {
@@ -911,20 +911,48 @@
         "message": "Toolbar & Page Actions",
         "description": "Message for toolbarPageActionsSettingsLabel"
     },
-    "platformRetirementNotice": {
-        "message": "Starting in v4.5.0, Gemini, Claude, and DeepSeek support will be retired. ChatGPT will be the only supported platform for this extension.",
-        "description": "Message for platformRetirementNotice"
-    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT Directory",
         "description": "Message for chatgptDirectorySettingsLabel"
+    },
+    "chatgptSettingsLabel": {
+        "message": "ChatGPT Settings",
+        "description": "Message for chatgptSettingsLabel"
+    },
+    "chatgptRestorePositionAfterSendLabel": {
+        "message": "Restore position after sending",
+        "description": "Message for chatgptRestorePositionAfterSendLabel"
+    },
+    "chatgptRestorePositionAfterSendDesc": {
+        "message": "When reading older messages, sending a new message brings you back to your reading position.",
+        "description": "Message for chatgptRestorePositionAfterSendDesc"
+    },
+    "chatgptShowMessageStepperLabel": {
+        "message": "Show lower-right message buttons",
+        "description": "Message for chatgptShowMessageStepperLabel"
+    },
+    "chatgptShowMessageStepperDesc": {
+        "message": "Show the small Previous and Next message buttons on ChatGPT conversation pages.",
+        "description": "Message for chatgptShowMessageStepperDesc"
+    },
+    "chatgptArrowKeyMessageNavigationLabel": {
+        "message": "Use arrow keys to move between messages",
+        "description": "Message for chatgptArrowKeyMessageNavigationLabel"
+    },
+    "chatgptArrowKeyMessageNavigationDesc": {
+        "message": "Left and Right move to the previous or next message when you are not typing. Inside the ChatGPT input box, they still move the cursor.",
+        "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
     "chatgptDirectoryEnabledLabel": {
         "message": "Show ChatGPT directory",
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
+    "chatgptDirectoryRetiredNotice": {
+        "message": "The AI-MarkDone ChatGPT directory is temporarily unavailable because ChatGPT now provides a native conversation navigation surface.",
+        "description": "Message for chatgptDirectoryRetiredNotice"
+    },
     "chatgptDirectoryEnabledDesc": {
-        "message": "Show the right-side conversation directory on ChatGPT pages.",
+        "message": "The right-side directory rail is retired; message navigation now uses the lower-right stepper.",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
@@ -1187,18 +1215,6 @@
         "message": "Enable extension on ChatGPT",
         "description": "Message for enableOnChatGPT"
     },
-    "enableOnGemini": {
-        "message": "Enable extension on Gemini",
-        "description": "Message for enableOnGemini"
-    },
-    "enableOnClaude": {
-        "message": "Enable extension on Claude",
-        "description": "Message for enableOnClaude"
-    },
-    "enableOnDeepseek": {
-        "message": "Enable extension on DeepSeek",
-        "description": "Message for enableOnDeepseek"
-    },
     "saveMessagesLabel": {
         "message": "Save Messages",
         "description": "Message for saveMessagesLabel"
@@ -1318,6 +1334,18 @@
     "aboutProfileBio": {
         "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me.",
         "description": "Message for aboutProfileBio"
+    },
+    "aboutWebsiteTitle": {
+        "message": "AI-MarkDone website",
+        "description": "Message for aboutWebsiteTitle"
+    },
+    "aboutWebsiteDesc": {
+        "message": "The website is finally online. Feel free to take a look, and I would be grateful if you shared it with someone who might need AI-MarkDone too.",
+        "description": "Message for aboutWebsiteDesc"
+    },
+    "aboutWebsiteButton": {
+        "message": "Visit website",
+        "description": "Message for aboutWebsiteButton"
     },
     "supportContactEyebrow": {
         "message": "Support",
@@ -1562,6 +1590,246 @@
     "exportAllBtn": {
         "message": "Export All",
         "description": "Message for exportAllBtn"
+    },
+    "dataManagement": {
+        "message": "Data Management",
+        "description": "Settings group label for Google Drive backup and local data backup"
+    },
+    "googleDriveBackupCardTitle": {
+        "message": "Google Drive Backup",
+        "description": "Settings data management card title for Google Drive backup"
+    },
+    "cloudBackupExperimentalLabel": {
+        "message": "Experimental",
+        "description": "Short label marking Google Drive backup as experimental"
+    },
+    "localBackupCardTitle": {
+        "message": "Local Backup",
+        "description": "Settings data management card title for local backup"
+    },
+    "localBackupTitle": {
+        "message": "Local backup",
+        "description": "Settings data backup card label for local export"
+    },
+    "cloudBackupGoogleDriveDesc": {
+        "message": "Save verified bookmark snapshots to your own Google Drive.",
+        "description": "Google Drive cloud backup row description"
+    },
+    "cloudBackupDisconnected": {
+        "message": "Not connected",
+        "description": "Cloud backup disconnected status"
+    },
+    "cloudBackupConnectedStatus": {
+        "message": "Connected",
+        "description": "Cloud backup connected status"
+    },
+    "cloudBackupConnectedAs": {
+        "message": "Connected as $1",
+        "description": "Cloud backup connected account status"
+    },
+    "cloudBackupConfigMissingStatus": {
+        "message": "Google Drive setup is missing",
+        "description": "Short cloud backup status when the Chrome build lacks OAuth configuration"
+    },
+    "cloudBackupSettings": {
+        "message": "Google Drive backup settings",
+        "description": "Cloud backup settings button label"
+    },
+    "cloudBackupConnect": {
+        "message": "Connect",
+        "description": "Connect cloud backup provider"
+    },
+    "cloudBackupLoginGoogleDrive": {
+        "message": "Sign in to Google Drive",
+        "description": "Primary action for connecting Google Drive cloud backup"
+    },
+    "cloudBackupConnectConfirmTitle": {
+        "message": "Connect Google Drive?",
+        "description": "Confirmation title before starting Google Drive authorization"
+    },
+    "cloudBackupConnectConfirmDesc": {
+        "message": "AI-MarkDone will open Google authorization so you can choose your own Drive. This feature is experimental; before backing up to Google Drive, we recommend exporting a local copy first. AI-MarkDone does not collect your information.",
+        "description": "Confirmation message before starting Google Drive authorization"
+    },
+    "cloudBackupConnectConfirmAction": {
+        "message": "Continue",
+        "description": "Confirmation action before starting Google Drive authorization"
+    },
+    "cloudBackupDisconnect": {
+        "message": "Disconnect",
+        "description": "Disconnect cloud backup provider"
+    },
+    "cloudBackupLogoutGoogleDrive": {
+        "message": "Sign out",
+        "description": "Action for disconnecting Google Drive cloud backup"
+    },
+    "cloudBackupBackupNow": {
+        "message": "Back up now",
+        "description": "Run a cloud backup now"
+    },
+    "cloudBackupRestore": {
+        "message": "Preview restore",
+        "description": "Preview restoring from cloud backup"
+    },
+    "cloudBackupApplyRestore": {
+        "message": "Apply safe merge",
+        "description": "Confirm applying a safe-merge restore from Google Drive backup"
+    },
+    "cloudBackupCompleteTitle": {
+        "message": "Backup complete",
+        "description": "Cloud backup completion title"
+    },
+    "cloudBackupCompleteDesc": {
+        "message": "A verified bookmark snapshot was saved to your Google Drive.",
+        "description": "Cloud backup completion message"
+    },
+    "cloudBackupErrorTitle": {
+        "message": "Google Drive backup failed",
+        "description": "Cloud backup error title"
+    },
+    "cloudBackupNoSnapshotsTitle": {
+        "message": "No Google Drive backups found",
+        "description": "No cloud backups found title"
+    },
+    "cloudBackupNoSnapshotsDesc": {
+        "message": "Google Drive does not have any AI-MarkDone bookmark backups yet.",
+        "description": "No cloud backups found message"
+    },
+    "cloudBackupRestorePreviewTitle": {
+        "message": "Restore preview",
+        "description": "Cloud restore preview title"
+    },
+    "cloudBackupRestoreCompleteTitle": {
+        "message": "Restore complete",
+        "description": "Cloud restore completion title"
+    },
+    "cloudBackupRestoreCompleteDesc": {
+        "message": "Added $1 bookmark(s). Kept $2 local-only item(s), skipped $3 duplicate(s), and left $4 conflict(s) unchanged.",
+        "description": "Cloud restore completion summary"
+    },
+    "cloudBackupStatusChecking": {
+        "message": "Checking Google Drive status...",
+        "description": "Cloud backup status check message"
+    },
+    "cloudBackupPrivacyNote": {
+        "message": "AI-MarkDone does not collect your information.",
+        "description": "Cloud backup privacy note"
+    },
+    "cloudBackupStatusLabel": {
+        "message": "Status",
+        "description": "Google Drive cloud backup status label"
+    },
+    "cloudBackupTestConnection": {
+        "message": "Test connection",
+        "description": "Test Google Drive cloud backup connection"
+    },
+    "cloudBackupSnapshotCount": {
+        "message": "$1 Google Drive backup(s) found.",
+        "description": "Cloud backup snapshot count"
+    },
+    "cloudBackupGoogleDriveSettingsTitle": {
+        "message": "Google Drive backup settings",
+        "description": "Google Drive cloud backup settings title"
+    },
+    "cloudBackupChooseSnapshotTitle": {
+        "message": "Choose Google Drive backup",
+        "description": "Title for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupChooseSnapshotDesc": {
+        "message": "Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.",
+        "description": "Description for the Google Drive restore snapshot picker"
+    },
+    "cloudBackupProgressConfirmingAccess": {
+        "message": "Confirming Google Drive access...",
+        "description": "Google Drive backup progress step for confirming short-lived access"
+    },
+    "cloudBackupProgressPreparingBookmarks": {
+        "message": "Preparing local bookmarks...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressCreatingSnapshot": {
+        "message": "Creating a verified snapshot...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressUploadingDrive": {
+        "message": "Uploading to Google Drive...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressVerifyingUpload": {
+        "message": "Reading the file back for verification...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressComplete": {
+        "message": "Finishing up...",
+        "description": "Google Drive backup progress step"
+    },
+    "cloudBackupProgressReadingList": {
+        "message": "Reading Google Drive backups...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressDownloadingSnapshot": {
+        "message": "Downloading the selected backup...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressBuildingPreview": {
+        "message": "Generating a safe merge preview...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressWaitingConfirmation": {
+        "message": "Waiting for confirmation...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressApplyingMerge": {
+        "message": "Applying safe merge...",
+        "description": "Google Drive restore progress step"
+    },
+    "cloudBackupProgressWorking": {
+        "message": "Working...",
+        "description": "Disabled modal footer label while Google Drive backup work is running"
+    },
+    "cloudBackupProgressTimeBudget": {
+        "message": "Timeout budget: $1 remaining",
+        "description": "Countdown label showing the remaining Google Drive backup operation timeout budget"
+    },
+    "cloudBackupSnapshotSizeUnknown": {
+        "message": "Unknown size",
+        "description": "Fallback file size label for Google Drive backup snapshots"
+    },
+    "cloudBackupRestorePreviewKind": {
+        "message": "Safe merge preview",
+        "description": "Title for the Google Drive restore safe-merge preview"
+    },
+    "cloudBackupRestoreLocalOnlyWarning": {
+        "message": "$1 local-only bookmark(s) will stay untouched.",
+        "description": "Google Drive restore preview local-only note"
+    },
+    "cloudBackupRestoreConflictWarning": {
+        "message": "$1 conflict(s) will keep the local copy.",
+        "description": "Google Drive restore preview conflict note"
+    },
+    "cloudBackupManageBackups": {
+        "message": "Manage cloud backups",
+        "description": "Button and title for managing Google Drive backup files"
+    },
+    "cloudBackupManageBackupsDesc": {
+        "message": "These are backup files AI-MarkDone created in your Google Drive. Moving one to trash never changes local bookmarks.",
+        "description": "Description for the Google Drive backup manager"
+    },
+    "cloudBackupManageEmpty": {
+        "message": "No Google Drive backups yet.",
+        "description": "Empty state for the Google Drive backup manager"
+    },
+    "cloudBackupMoveToTrash": {
+        "message": "Move to trash",
+        "description": "Action for moving a Google Drive backup file to trash"
+    },
+    "cloudBackupMoveToTrashConfirmTitle": {
+        "message": "Move backup to trash?",
+        "description": "Confirmation title for moving a Google Drive backup file to trash"
+    },
+    "cloudBackupMoveToTrashConfirmDesc": {
+        "message": "This moves \"$1\" to Google Drive trash. Local bookmarks will not be changed.",
+        "description": "Confirmation message for moving a Google Drive backup file to trash"
     },
     "selectMessagesLabel": {
         "message": "Select messages to save:",
@@ -1826,18 +2094,6 @@
     "settingsPlatformChatgptDesc": {
         "message": "Enable AI-MarkDone on ChatGPT.",
         "description": "Message for settingsPlatformChatgptDesc"
-    },
-    "settingsPlatformGeminiDesc": {
-        "message": "Enable AI-MarkDone on Gemini.",
-        "description": "Message for settingsPlatformGeminiDesc"
-    },
-    "settingsPlatformClaudeDesc": {
-        "message": "Enable AI-MarkDone on Claude.",
-        "description": "Message for settingsPlatformClaudeDesc"
-    },
-    "settingsPlatformDeepseekDesc": {
-        "message": "Enable AI-MarkDone on DeepSeek.",
-        "description": "Message for settingsPlatformDeepseekDesc"
     },
     "settingsShowSaveMessagesLabel": {
         "message": "Show Save Messages",

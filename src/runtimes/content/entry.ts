@@ -4,7 +4,7 @@ import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
-import { isExtRequest } from '../../contracts/protocol';
+import { PROTOCOL_VERSION, createRequestId, isExtRequest } from '../../contracts/protocol';
 import { ensurePageTokens } from '../../style/pageTokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
@@ -19,6 +19,8 @@ import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
+import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
+import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
@@ -29,6 +31,8 @@ import { getPerfFlags, installLongTaskProbe, installPerfProbeGlobal } from '../.
 ensurePageTokens();
 installPerfProbeGlobal();
 installLongTaskProbe();
+
+const CHATGPT_DIRECTORY_SURFACE_ENABLED: boolean = false;
 
 const isDebugEnabled = () => {
     try {
@@ -55,11 +59,17 @@ if (adapter) {
     const bookmarksController = new BookmarksPanelController(adapter);
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
-    const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
+    const chatGptDirectory = CHATGPT_DIRECTORY_SURFACE_ENABLED && adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
         ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
         : null;
     const viewportResizeSuspend = adapter.getPlatformId() === 'chatgpt'
         ? new ViewportResizeSuspendController()
+        : null;
+    const chatGptSendPositionRestore = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTSendPositionRestoreController(adapter)
+        : null;
+    const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTMessageStepperController(adapter)
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
@@ -80,8 +90,10 @@ if (adapter) {
     settingsClient.init();
     const cachedSettings = settingsClient.getCached();
     let lastLocale = cachedSettings?.language ?? DEFAULT_SETTINGS.language;
-    const platformKey = adapter.getPlatformId().toLowerCase() as keyof typeof DEFAULT_SETTINGS.platforms;
-    let runtimeEnabled = cachedSettings?.platforms?.[platformKey] ?? true;
+    const platformKey = 'chatgpt' as const;
+    let runtimeEnabled = adapter.getPlatformId() === 'chatgpt'
+        ? cachedSettings?.platforms?.[platformKey] ?? true
+        : false;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
     let currentThemeOverrides: UserThemeOverrides = getThemeOverrides(cachedSettings);
     writeDebugState({
@@ -110,9 +122,12 @@ if (adapter) {
     };
 
     const initChatGptIfNeeded = () => {
-        if (!chatGptConversationEngine || !chatGptDirectory) return;
+        if (!chatGptConversationEngine) return;
         viewportResizeSuspend?.init();
-        if (getPerfFlags().disableDirectory) {
+        chatGptSendPositionRestore?.init();
+        chatGptMessageStepper?.init();
+        syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
+        if (!chatGptDirectory || getPerfFlags().disableDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
             chatGptConversationEngine.init();
             return;
@@ -135,6 +150,16 @@ if (adapter) {
         chatGptDirectory.setEnabled(Boolean(next.enabled));
     };
 
+    const syncChatGptBehaviorSettings = (settings: typeof DEFAULT_SETTINGS.chatgptBehavior | undefined) => {
+        const next = {
+            ...DEFAULT_SETTINGS.chatgptBehavior,
+            ...settings,
+        };
+        chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
+        chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
+        chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
+    };
+
     const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
         currentThemeOverrides = getThemeOverrides(settings);
         ensurePageTokens(currentThemeOverrides);
@@ -145,6 +170,7 @@ if (adapter) {
         bookmarksController.setThemeOverrides?.(currentThemeOverrides);
         saveMessagesDialog.setThemeOverrides?.(currentThemeOverrides);
         chatGptDirectory?.setThemeOverrides?.(currentThemeOverrides);
+        chatGptMessageStepper?.setThemeOverrides?.(currentThemeOverrides);
     };
 
     const enableRuntime = () => {
@@ -165,6 +191,8 @@ if (adapter) {
         chatGptDirectory?.dispose();
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
+        chatGptSendPositionRestore?.dispose();
+        chatGptMessageStepper?.dispose();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
@@ -184,8 +212,11 @@ if (adapter) {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
         }
-        const nextRuntimeEnabled = snap.settings.platforms?.[platformKey] ?? true;
+        const nextRuntimeEnabled = adapter.getPlatformId() === 'chatgpt'
+            ? snap.settings.platforms?.[platformKey] ?? true
+            : false;
         syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
+        syncChatGptBehaviorSettings(snap.settings.chatgptBehavior);
         if (nextRuntimeEnabled) enableRuntime();
         else disableRuntime();
         syncFormulaSettings(snap.settings.formula);
@@ -213,8 +244,12 @@ if (adapter) {
         chatGptDirectory?.setTheme(theme);
     });
 
-    browser.runtime.onMessage.addListener((msg: unknown) => {
+    browser.runtime.onMessage.addListener((msg: unknown, _sender: unknown, sendResponse?: (response: unknown) => void) => {
         if (!isExtRequest(msg)) return;
+        if (msg.type === 'ping') {
+            sendResponse?.({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { pong: true } });
+            return true;
+        }
         if (msg.type === 'ui:toggle_toolbar') {
             void bookmarksPanel.toggle();
         }
@@ -233,6 +268,17 @@ if (adapter) {
             ? navigateChatGPTDirectoryTarget(adapter, pending, { timeoutMs: 8000, intervalMs: 200 })
             : scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
         void pendingNavigation;
+    }
+
+    if (adapter.getPlatformId() === 'chatgpt') {
+        void browser.runtime.sendMessage({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'content:ready',
+            payload: { platform: 'chatgpt', url: window.location.href },
+        }).catch(() => {
+            // Background may be unavailable during extension reload or tab teardown; the next page lifecycle will retry.
+        });
     }
 }
 

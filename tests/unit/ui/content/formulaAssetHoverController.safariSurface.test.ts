@@ -20,6 +20,8 @@ import { FormulaAssetHoverController } from '@/ui/content/controllers/FormulaAss
 describe('FormulaAssetHoverController Safari surface policy', () => {
     it('hides binary PNG and SVG copy actions while keeping MathML copy and save actions', async () => {
         vi.useFakeTimers();
+        const originalMatchMedia = window.matchMedia;
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() } as any);
         const container = document.createElement('div');
         container.innerHTML = `
           <span class="math-inline">
@@ -31,6 +33,16 @@ describe('FormulaAssetHoverController Safari surface policy', () => {
         document.body.appendChild(container);
 
         const controller = new FormulaAssetHoverController();
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            assetActions: {
+                copyPng: true,
+                copySvg: true,
+                copyMathml: true,
+                savePng: true,
+                saveSvg: true,
+            },
+        });
         controller.enable(container);
 
         const target = container.querySelector('.katex') as HTMLElement;
@@ -40,16 +52,22 @@ describe('FormulaAssetHoverController Safari surface policy', () => {
         const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host');
         const buttons = Array.from(portalHost?.shadowRoot?.querySelectorAll<HTMLButtonElement>('[data-role="toolbar-hover-action"]') ?? []);
 
-        expect(buttons.map((button) => button.textContent)).toEqual([
+        expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
             'Copy as MathML',
             'Save as PNG',
             'Save as SVG',
+        ]);
+        expect(buttons.map((button) => button.querySelector('.toolbar-hover-action__label')?.textContent ?? button.textContent?.trim())).toEqual([
+            'MathML',
+            'PNG',
+            'SVG',
         ]);
         expect(portalHost?.shadowRoot?.querySelector('[data-action="copy_formula_png"]')).toBeNull();
         expect(portalHost?.shadowRoot?.querySelector('[data-action="copy_formula_svg"]')).toBeNull();
 
         controller.disable();
         container.remove();
+        window.matchMedia = originalMatchMedia;
         vi.useRealTimers();
     });
 });

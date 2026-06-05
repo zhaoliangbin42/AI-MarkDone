@@ -66,7 +66,7 @@ describe('SaveMessagesDialog', () => {
         vi.unstubAllGlobals();
     });
 
-    it('opens with all messages selected and can export markdown/pdf/png', async () => {
+    it('opens with only the current message selected and can export markdown/pdf/png', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
 
@@ -89,7 +89,7 @@ describe('SaveMessagesDialog', () => {
         expect(shadow.querySelectorAll('.panel-window--save .panel-footer')).toHaveLength(1);
         expect(source).toContain('OverlaySession');
         expect(getGridButtons()).toHaveLength(2);
-        expect(getGridButtons().every((b) => b.dataset.active === '1')).toBe(true);
+        expect(getGridButtons().map((b) => b.dataset.active)).toEqual(['1', '0']);
         expect(shadow.textContent).toContain('PNG');
 
         // Deselect all disables save.
@@ -124,6 +124,38 @@ describe('SaveMessagesDialog', () => {
         shadow3.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
         await Promise.resolve();
         expect(exportTurnsPng).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the Reader source startIndex as the default selected export item', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        vi.mocked(collectFreshReaderContent).mockResolvedValueOnce({
+            items: [
+                { id: 'r1', userPrompt: 'u1', content: 'a1', meta: { position: 1 } },
+                { id: 'r2', userPrompt: 'u2', content: 'a2', meta: { position: 2 } },
+                { id: 'r3', userPrompt: 'u3', content: 'a3', meta: { position: 3 } },
+            ],
+            startIndex: 1,
+            metadataSource: 'chatgpt-snapshot',
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        const chips = Array.from(shadow.querySelectorAll<HTMLButtonElement>('.message-chip'));
+        expect(chips.map((chip) => chip.dataset.active)).toEqual(['0', '1', '0']);
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
+        await Promise.resolve();
+
+        expect(exportTurnsMarkdown).toHaveBeenCalledWith(
+            expect.any(Array),
+            [1],
+            expect.any(Object),
+            expect.any(Object),
+        );
     });
 
     it('opens from the fresh ReaderItem source for ChatGPT exports', async () => {

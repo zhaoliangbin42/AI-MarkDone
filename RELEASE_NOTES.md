@@ -1,5 +1,33 @@
 # Release Notes
 
+## v4.5.0 (2026-06-05)
+
+This release narrows AI-MarkDone to ChatGPT as the only active AI page runtime, adds Google Drive Backup, and smooths the long-conversation reading flow while keeping existing user bookmark data intact.
+
+### Added
+- Added optional Google Drive bookmark backup and safe-merge restore under Settings -> Data Management. The feature is experimental and recommends exporting a local backup before first use.
+- Added a connect-before-OAuth confirmation for Google Drive backup.
+- Added a lightweight lower-right ChatGPT message stepper, with a Settings toggle to hide the buttons.
+- Added optional Left/Right arrow-key message navigation that stays out of text inputs.
+- Added an optional ChatGPT setting to restore your reading position after sending from older conversation history.
+- Added the AI-MarkDone website link to manifests, README files, and the About page.
+
+### Changed
+- Retired Gemini, Claude, and DeepSeek page injection, host permissions, adapters, settings toggles, popup links, and copy parity fixtures.
+- Existing saved bookmarks and backups from retired platforms remain available for viewing, filtering, export, local import, and Google Drive backup/restore.
+- Save Messages now opens with only the current message selected by default.
+- Temporarily retired the AI-MarkDone right-side navigation rail now that ChatGPT provides native conversation navigation.
+- Expanded the sponsor thank-you list and switched it to a two-column layout on wider panels.
+
+### Fixed
+- Improved recovery after Chrome suspends the extension background or restores long-idle ChatGPT tabs.
+
+### How it works
+- The browser builds still target Chrome, Firefox, and Safari, but content scripts now run only on ChatGPT hosts.
+- The bookmark schema still keeps platform as a string, so old platform labels remain part of the user's saved data instead of being rewritten or deleted.
+- Google Drive backup stores verified bookmark snapshots in the user's own Drive and does not store refresh tokens, client secrets, passwords, or bookmarks on an AI-MarkDone server.
+- Google Chrome uses browser-managed identity for Google Drive authorization. WebAuth-compatible browsers use the WebExtension identity flow where available. Safari does not expose Google Drive Backup in this release.
+
 ## v4.4.6 (2026-05-28)
 
 This patch focuses on the ChatGPT navigation rail and toolbar copy reliability.

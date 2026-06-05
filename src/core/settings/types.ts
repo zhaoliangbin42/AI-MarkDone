@@ -27,6 +27,12 @@ export type ChatGPTDirectorySettings = {
     promptLabelMode: ChatGPTDirectoryPromptLabelMode;
 };
 
+export type ChatGPTBehaviorSettings = {
+    restorePositionAfterSend: boolean;
+    showMessageStepper: boolean;
+    enableArrowKeyMessageNavigation: boolean;
+};
+
 export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
 export const MIN_READER_CONTENT_MAX_WIDTH_PX = 480;
 export const MAX_READER_CONTENT_MAX_WIDTH_PX = 1600;
@@ -48,9 +54,6 @@ export type AppSettings = {
     version: SettingsVersion;
     platforms: {
         chatgpt: boolean;
-        gemini: boolean;
-        claude: boolean;
-        deepseek: boolean;
     };
     behavior: {
         showSaveMessages: boolean;
@@ -68,6 +71,7 @@ export type AppSettings = {
     formula: FormulaSettings;
     export: ExportSettings;
     chatgptDirectory: ChatGPTDirectorySettings;
+    chatgptBehavior: ChatGPTBehaviorSettings;
     appearance: {
         fontSizePx: number;
         accentColor: ThemeAccentColor | null;
@@ -82,7 +86,7 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
 
 export const DEFAULT_SETTINGS: AppSettings = {
     version: 4,
-    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+    platforms: { chatgpt: true },
     behavior: {
         showSaveMessages: true,
         showWordCount: true,
@@ -98,7 +102,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
-    chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head' },
+    chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
+    chatgptBehavior: { restorePositionAfterSend: true, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',
@@ -112,6 +117,7 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         || value === 'formula'
         || value === 'export'
         || value === 'chatgptDirectory'
+        || value === 'chatgptBehavior'
         || value === 'appearance'
         || value === 'bookmarks'
         || value === 'language'

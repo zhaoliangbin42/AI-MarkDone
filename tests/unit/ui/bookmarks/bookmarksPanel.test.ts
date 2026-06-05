@@ -8,7 +8,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
             ok: true,
             data: {
                 settings: {
-                    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
+                    platforms: { chatgpt: true },
                     behavior: {
                         showSaveMessages: true,
                         showWordCount: true,
@@ -190,6 +190,115 @@ describe('BookmarksPanel', () => {
         expect(source).not.toContain("target.closest('.settings-select-shell')");
     });
 
+    it('routes Google Drive restore through preview, explicit confirmation, and safe-merge apply', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('cloudBackupClient.previewRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
+        expect(source).toContain('buildImportMergeReviewModalBody');
+        expect(source).toContain('cloudBackupRestorePreviewKind');
+        expect(source).toContain('cloudBackupApplyRestore');
+        expect(source).toContain('cloudBackupClient.applyRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
+    });
+
+    it('keeps Google Drive settings on runtime status without exposing raw identity errors', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain("cloudBackupClient.status('googleDrive')");
+        expect(source).not.toContain('cloudBackupDiagnosticsButton');
+        expect(source).not.toContain('AIMD_GOOGLE_CLIENT_ID');
+    });
+
+    it('uses a custom Google Drive restore chooser so long backup names do not force horizontal scrolling', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const css = getBookmarksPanelCss();
+
+        expect(source).not.toContain("document.createElement('select')");
+        expect(source).not.toContain('cloud-backup-snapshot-select');
+        expect(source).toContain('cloud-backup-snapshot-list');
+        expect(source).toContain('cloud-backup-snapshot-option');
+        expect(source).toContain('cloud-backup-snapshot-name');
+        expect(source).toContain('name.title = snapshot.name');
+        expect(css).toContain('.cloud-backup-snapshot-name');
+        expect(css).toContain('text-overflow: ellipsis;');
+        expect(css).toContain('overflow: hidden;');
+    });
+
+    it('shows immediate Google Drive operation feedback instead of waiting silently for network work', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('showCloudBackupProgress');
+        expect(source).toContain('cloudBackupProgressConfirmingAccess');
+        expect(source).toContain('cloudBackupProgressPreparingBookmarks');
+        expect(source).toContain('cloudBackupProgressUploadingDrive');
+        expect(source).toContain('cloudBackupProgressReadingList');
+        expect(source).toContain('cloudBackupProgressApplyingMerge');
+    });
+
+    it('shows the same timeout budget countdown that the Google Drive RPC layer enforces', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('CLOUD_BACKUP_RPC_TIMEOUT_MS');
+        expect(source).toContain('formatCloudBackupProgressRemaining');
+        expect(source).toContain('cloudBackupProgressTimeBudget');
+        expect(source).toContain('window.setInterval');
+        expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.backupNow');
+        expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.previewRestore');
+        expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.applyRestore');
+    });
+
+    it('keeps the Google Drive gear modal focused on connection, privacy, and backup management', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const method = source.slice(source.indexOf('private async showGoogleDriveBackupSettings'), source.indexOf('\n    }\n}', source.indexOf('private async showGoogleDriveBackupSettings')));
+
+        expect(method).toContain('cloudBackupTestConnection');
+        expect(method).toContain('cloudBackupManageBackups');
+        expect(method).toContain('cloudBackupConnectedAs');
+        expect(method).toContain('cloudBackupPrivacyNote');
+        expect(method).toContain("privacy.className = 'cloud-backup-settings-modal__privacy'");
+        expect(method).toContain('showCloudBackupManager');
+        expect(method).toContain('try {');
+        expect(method).toContain('finally {');
+        expect(method).not.toContain('cloudBackupDiagnosticsButton');
+        expect(method).not.toContain('refreshDiagnostics');
+        expect(method).not.toContain('cloudBackupLoginGoogleDrive');
+        expect(method).not.toContain('cloudBackupLogoutGoogleDrive');
+        expect(method).not.toContain('cloudBackupOpenGoogleDrive');
+        expect(method).not.toContain('cloudBackupSwitchAccount');
+        expect(method).not.toContain('cloudBackupSilentAuthNote');
+        expect(method).not.toContain('https://drive.google.com/drive/my-drive');
+    });
+
+    it('confirms Google Drive authorization before starting OAuth', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+
+        expect(source).toContain('cloudBackupConnectConfirmTitle');
+        expect(source).toContain('cloudBackupConnectConfirmDesc');
+        expect(source).toContain('cloudBackupConnectConfirmAction');
+        expect(source).toContain('this.modalHost?.confirm');
+        expect(source).toContain('if (!confirmed) return { connected: false };');
+    });
+
+    it('manages Google Drive backups through a trash-first remote list', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const css = getBookmarksPanelCss();
+
+        expect(source).toContain('showCloudBackupManager');
+        expect(source).toContain("cloudBackupClient.listSnapshots('googleDrive')");
+        expect(source).toContain("cloudBackupClient.deleteSnapshot({ provider: 'googleDrive'");
+        expect(source).toContain('cloudBackupMoveToTrash');
+        expect(source).toContain('cloudBackupMoveToTrashConfirmTitle');
+        expect(source).toContain('cloud-backup-manager-list');
+        expect(source).toContain("listRoot.dataset.state = 'loading'");
+        expect(source).toContain("listRoot.dataset.state = 'empty'");
+        expect(source).toContain("trash.className = 'secondary-btn secondary-btn--danger cloud-backup-manager-trash'");
+        expect(source).toContain('fileName.title = snapshot.name');
+        expect(css).toContain('.cloud-backup-settings-modal__privacy');
+        expect(css).toContain('.cloud-backup-manager-name');
+        expect(css).toContain('.cloud-backup-manager-list[data-state="empty"]');
+        expect(css).toContain('.cloud-backup-manager-trash');
+        expect(css).toContain('text-overflow: ellipsis;');
+    });
+
     it('activates the new changelog, about, and faq panels inside the formal bookmarks panel shell', async () => {
         await setLocale('en');
         const snapshot = {
@@ -302,15 +411,12 @@ describe('BookmarksPanel', () => {
         expect(refreshedSettingsPanel?.querySelector('[data-role="settings-folding-count"]')).toBeNull();
         expect(refreshedSettingsPanel?.querySelector('[data-role="settings-chatgpt-conversation-directory"]')).toBeNull();
         const platformLabels = Array.from(refreshedSettingsPanel?.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong') ?? []);
-        const deepseekLabel = platformLabels.find((node) => node.textContent?.includes('Deep'));
-        expect(deepseekLabel?.textContent).toContain('DeepSeek');
-        expect(deepseekLabel?.textContent).not.toContain('Deepseek');
         const platformIconHtml = platformLabels.map((node) => node.innerHTML).join('\n');
         expect(platformIconHtml).toContain('ChatGPT');
-        expect(platformIconHtml).toContain('Gemini');
-        expect(platformIconHtml).toContain('Claude');
-        expect(platformIconHtml).toContain('DeepSeek');
-        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
+        expect(platformIconHtml).not.toContain('Gemini');
+        expect(platformIconHtml).not.toContain('Claude');
+        expect(platformIconHtml).not.toContain('DeepSeek');
+        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(1);
         expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
 
         changelogTabButton!.click();
@@ -342,6 +448,10 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About');
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(2);
+        expect(refreshedAboutActiveTab?.querySelector<HTMLAnchorElement>('.about-website-card__button')?.href).toBe(
+            'https://zhaoliangbin42.github.io/ai-markdone/en/',
+        );
+        expect(refreshedAboutActiveTab?.querySelector('.support-contact-card__button--website')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(0);
         expect(refreshedAboutActiveTab?.querySelector('.social-follow-card')).toBeTruthy();
@@ -407,10 +517,10 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.1',
+                pendingVersion: '4.5.0',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.3.1',
+                previousVersion: '4.4.6',
             },
         } as any);
 
@@ -460,15 +570,15 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.4.1");
-        expect(modal?.textContent).toContain('2026-05-15');
-        expect(modal?.textContent).toContain('personalization');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.0");
+        expect(modal?.textContent).toContain('2026-06-05');
+        expect(modal?.textContent).toContain('Thanks for waiting');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.1');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -476,10 +586,10 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.4.1',
+                pendingVersion: '4.5.0',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '4.3.1',
+                previousVersion: '4.4.6',
             },
         } as any);
 
@@ -533,7 +643,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.4.1');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
@@ -544,19 +654,19 @@ describe('BookmarksPanel', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
-                    pendingVersion: '4.4.1',
+                    pendingVersion: '4.5.0',
                     lastShownVersion: null,
                     reason: 'update',
-                    previousVersion: '4.3.1',
+                    previousVersion: '4.4.6',
                 },
             } as any)
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
                     pendingVersion: null,
-                    lastShownVersion: '4.4.1',
+                    lastShownVersion: '4.5.0',
                     reason: null,
-                    previousVersion: '4.3.1',
+                    previousVersion: '4.4.6',
                 },
             } as any);
 
@@ -875,12 +985,13 @@ describe('BookmarksPanel', () => {
             expect(documentChange).not.toHaveBeenCalled();
             expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('platforms', { chatgpt: false });
 
-            const directoryToggle = shadow.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
-            directoryToggle.checked = false;
-            directoryToggle.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-            await flushUi();
+            const directoryNotice = shadow.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-retired-notice"]')!;
 
-            expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgptDirectory', { enabled: false });
+            expect(directoryNotice).toBeTruthy();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeNull();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeNull();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
+            expect(settingsClientRpc.setCategory).not.toHaveBeenCalledWith('chatgptDirectory', expect.anything());
         } finally {
             panel.hide();
             document.removeEventListener('click', documentClick);

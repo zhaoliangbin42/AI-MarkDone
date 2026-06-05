@@ -32,6 +32,13 @@ export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behav
     };
 }
 
+export function normalizePlatformSettings(platforms: unknown): AppSettings['platforms'] {
+    const record = isRecord(platforms) ? platforms : {};
+    return {
+        chatgpt: Boolean((record as any).chatgpt ?? DEFAULT_SETTINGS.platforms.chatgpt),
+    };
+}
+
 export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unknown): FormulaSettings {
     const record = isRecord(formula) ? formula : {};
     const legacyRecord = isRecord(legacyBehavior) ? legacyBehavior : {};
@@ -69,9 +76,18 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         : DEFAULT_SETTINGS.chatgptDirectory.promptLabelMode;
 
     return {
-        enabled: Boolean((record as any).enabled ?? DEFAULT_SETTINGS.chatgptDirectory.enabled),
+        enabled: false,
         mode,
         promptLabelMode,
+    };
+}
+
+export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['chatgptBehavior'] {
+    const record = isRecord(value) ? value : {};
+    return {
+        restorePositionAfterSend: Boolean((record as any).restorePositionAfterSend ?? DEFAULT_SETTINGS.chatgptBehavior.restorePositionAfterSend),
+        showMessageStepper: Boolean((record as any).showMessageStepper ?? DEFAULT_SETTINGS.chatgptBehavior.showMessageStepper),
+        enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
     };
 }
 
@@ -122,10 +138,7 @@ export function loadAndNormalize(stored: unknown): AppSettings {
 export function mergeWithDefaults(stored: AppSettings): AppSettings {
     return {
         version: DEFAULT_SETTINGS.version,
-        platforms: {
-            ...DEFAULT_SETTINGS.platforms,
-            ...stored.platforms,
-        },
+        platforms: normalizePlatformSettings((stored as any).platforms),
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
@@ -136,6 +149,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         formula: normalizeFormulaSettings((stored as any).formula, stored.behavior),
         export: normalizeExportSettings((stored as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((stored as any).chatgptDirectory),
+        chatgptBehavior: normalizeChatGPTBehaviorSettings((stored as any).chatgptBehavior),
         appearance: normalizeAppearanceSettings((stored as any).appearance),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -162,13 +176,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 
     return {
         version: DEFAULT_SETTINGS.version,
-        platforms: {
-            ...DEFAULT_SETTINGS.platforms,
-            chatgpt: Boolean((platforms as any).chatgpt ?? true),
-            gemini: Boolean((platforms as any).gemini ?? true),
-            claude: Boolean((platforms as any).claude ?? true),
-            deepseek: Boolean((platforms as any).deepseek ?? true),
-        },
+        platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
             saveContextOnly: Boolean((storage as any).saveContextOnly ?? false),
@@ -184,6 +192,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
         formula: normalizeFormulaSettings(undefined, behavior),
         export: normalizeExportSettings(undefined),
         chatgptDirectory: normalizeChatGPTDirectorySettings(undefined),
+        chatgptBehavior: normalizeChatGPTBehaviorSettings(undefined),
         appearance: normalizeAppearanceSettings(undefined),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,
@@ -207,10 +216,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
 
     return {
         version: DEFAULT_SETTINGS.version,
-        platforms: {
-            ...DEFAULT_SETTINGS.platforms,
-            ...platforms,
-        } as any,
+        platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings(behavior),
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
@@ -221,6 +227,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         formula: normalizeFormulaSettings((rec as any).formula, behavior),
         export: normalizeExportSettings((rec as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((rec as any).chatgptDirectory),
+        chatgptBehavior: normalizeChatGPTBehaviorSettings((rec as any).chatgptBehavior),
         appearance: normalizeAppearanceSettings((rec as any).appearance),
         bookmarks: {
             ...DEFAULT_SETTINGS.bookmarks,

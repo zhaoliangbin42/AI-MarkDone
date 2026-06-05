@@ -10,17 +10,37 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-05-15');
-        expect(en.entries[0]?.leadBlocks[0]).toEqual(
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-06-05');
+        expect(en.entries[3]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
             }),
         );
-        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(['新增', '变更', '修复']);
-        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(['Added', 'Changed', 'Fixed']);
+        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual([
+            'Google Drive 云备份',
+            '发送后位置保持与消息切换',
+            '平台与导航收口',
+            '官网',
+            '原理解析',
+            '新增',
+            '优化',
+            '调整',
+            '修复',
+        ]);
+        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual([
+            'Google Drive Backup',
+            'Position Restore and Message Switching',
+            'Platform and Navigation Cleanup',
+            'Website',
+            'How it works',
+            'Added',
+            'Improved',
+            'Changed',
+            'Fixed',
+        ]);
     });
 
     it('parses about markdown into title, lead, and sections', () => {
@@ -54,7 +74,7 @@ describe('bookmarks content parser', () => {
 
         expect(en.title).toBe('FAQ');
         expect(en.leadBlocks).toEqual([]);
-        expect(en.items).toHaveLength(15);
+        expect(en.items).toHaveLength(16);
         expect(en.items[0]?.question).toContain('Which platforms does this extension support');
         expect(en.items[0]?.blocks[0]).toEqual(
             expect.objectContaining({

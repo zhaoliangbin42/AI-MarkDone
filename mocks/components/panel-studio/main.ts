@@ -130,9 +130,6 @@ type ImportMergeEntry = {
 type SettingsState = {
     platforms: {
         chatgpt: boolean;
-        gemini: boolean;
-        claude: boolean;
-        deepseek: boolean;
     };
     chatgpt: {
         foldingMode: 'off' | 'all' | 'keep_last_n';
@@ -389,9 +386,6 @@ const appState: MutableState = {
     settings: {
         platforms: {
             chatgpt: true,
-            gemini: true,
-            claude: true,
-            deepseek: false,
         },
         chatgpt: {
             foldingMode: 'keep_last_n',
@@ -1273,9 +1267,6 @@ function getSettingsTabHtml(): string {
         <section class="settings-card">
           <div class="card-title">${icon(globeIcon)} Platforms</div>
           ${renderToggle('settings-platform-chatgpt', 'ChatGPT', s.platforms.chatgpt, 'Enable AI-MarkDone on ChatGPT.')}
-          ${renderToggle('settings-platform-gemini', 'Gemini', s.platforms.gemini, 'Enable AI-MarkDone on Gemini.')}
-          ${renderToggle('settings-platform-claude', 'Claude', s.platforms.claude, 'Enable AI-MarkDone on Claude.')}
-          ${renderToggle('settings-platform-deepseek', 'DeepSeek', s.platforms.deepseek, 'Enable AI-MarkDone on DeepSeek.')}
         </section>
         <section class="settings-card">
           <div class="card-title">${icon(sharedChatgptIcon)} ChatGPT</div>
@@ -4654,9 +4645,6 @@ function createPanelStudio(root: HTMLElement): void {
         const role = target.dataset.role || '';
 
         if (role === 'settings-platform-chatgpt') appState.settings.platforms.chatgpt = target.checked;
-        if (role === 'settings-platform-gemini') appState.settings.platforms.gemini = target.checked;
-        if (role === 'settings-platform-claude') appState.settings.platforms.claude = target.checked;
-        if (role === 'settings-platform-deepseek') appState.settings.platforms.deepseek = target.checked;
         if (role === 'settings-fold-dock') appState.settings.chatgpt.showFoldDock = target.checked;
         if (role === 'settings-show-view-source') appState.settings.behavior.showViewSource = target.checked;
         if (role === 'settings-show-save-messages') appState.settings.behavior.showSaveMessages = target.checked;

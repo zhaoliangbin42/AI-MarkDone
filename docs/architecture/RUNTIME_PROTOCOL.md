@@ -64,6 +64,7 @@
 
 - 对于已通过协议校验并进入 handler 的请求，background 必须返回稳定错误码
 - 对于非法或非扩展消息，当前 background entry 采用静默忽略，而不是回发结构化 `INVALID_REQUEST` / `UNTRUSTED_SENDER`
+- 对于面向 tab 的 Chrome 生命周期竞态（例如 `No tab with id`、`Receiving end does not exist`、`Could not establish connection`），background entry 采用 best-effort 静默降级，不把它们作为协议错误返回
 - 调用方应基于错误码决定降级、提示或重试
 - 新增错误码时，必须同步更新本文档与代码契约
 
@@ -74,10 +75,13 @@
 ### Connectivity
 
 - `ping`
+- `content:ready`
 
 用途：
 
 - content 与 background 之间的协议可用性确认
+- content runtime 在 ChatGPT 页面完成初始化后向 background 发送 `content:ready`，payload 为 `{ platform: "chatgpt", url }`
+- background 以 `sender.tab.id` 为权威更新该 tab 的 action icon/popup 状态；没有 sender tab id 时返回 `{ ready: false }`，不记录长期 tab registry
 
 ### UI intent
 
@@ -85,7 +89,8 @@
 
 用途：
 
-- background action click 通知 content 切换主面板入口
+- background action click 先向当前 ChatGPT tab 发送 `ping`；成功后才发送 `ui:toggle_toolbar` 通知 content 切换主面板入口
+- 如果 tab 已关闭、discard/freeze 恢复中，或 content script 暂不可达，background 将该次点击视为生命周期竞态并静默跳过；页面恢复后由 `content:ready` 重新接回
 
 ### Settings
 
@@ -120,14 +125,45 @@
 - `bookmarks:uiState:set`
 - `bookmarks:changelogNotice:get`
 - `bookmarks:changelogNotice:ack`
+- `cloudBackup:status`
+- `cloudBackup:diagnostics`
+- `cloudBackup:connect`
+- `cloudBackup:disconnect`
+- `cloudBackup:backupNow`
+- `cloudBackup:listSnapshots`
+- `cloudBackup:previewRestore`
+- `cloudBackup:applyRestore`
+- `cloudBackup:deleteSnapshot`
 
 用途：
 
 - 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
 - changelog install/update notice 的本地读取与确认
+- Google Drive 书签备份/恢复；Settings/UI 只能发送协议请求，不能直接调用 Google Drive provider、Chrome identity 或 WebExtension identity
+- Google Drive Backup UI 使用 operation-specific RPC timeout：`status`/`diagnostics` 8s，`connect` 300s，`disconnect` 60s，`backupNow` 180s，`listSnapshots`/`deleteSnapshot` 60s，`previewRestore` 120s，`applyRestore` 180s。`connect` 必须覆盖用户完成 Google OAuth 测试/授权页的交互时间，不能复用通用 8s timeout。
+- Google Drive OAuth 的账号隔离边界：OAuth client ID 是 AI-MarkDone 的公开应用标识，不是开发者账号凭据；runtime 不请求 `identity.email`，不把 OAuth token 写入协议响应或 snapshot。连接成功后可返回/保存 Drive `about.get` 的账号摘要（邮箱、显示名、头像 URL）供用户确认，不能保存 refresh token、cookie 或 Google account id。Chromium build 以 manifest `oauth2` 作为 `getAuthToken` 的 SSOT，浏览器 identity cache 管理长期授权体验；WebAuth fallback 使用 Web application OAuth client 与 `identity.getRedirectURL()`；provider 只把短期 access token 缓存在 extension local storage，过期前用于抗 service worker 重启。用户安装后授权的是当前浏览器/profile 中自己的 Google 账号。
 
 关键语义：
 
+- `cloudBackup:status`
+  - 返回本地保存的连接/最近备份状态，并附带 provider 的只读配置诊断；其中 `connectedAccount` 表示用户曾连接的 Google Drive 账号摘要，`sessionState` 表示当前 provider 策略是否可继续执行用户触发的 Drive 操作
+  - `sessionState` 可为 `unknown`、`readyInThisSession`、`needsConfirmation`、`error`。UI 不应把 `connected=true` 解读为长期 token 可用；当 `connectedAccount` 存在但 session 未 ready 时，下一次用户触发的 Drive 操作可以自然进入 Google 确认流程
+  - Google Drive provider 会在不触发登录的前提下检查当前认证策略：Chromium build 要求 `identity` permission、manifest `oauth2.client_id/scopes`、Web OAuth client ID、Google API host permission、`getAuthToken` 或 `launchWebAuthFlow/getRedirectURL` 与稳定 extension ID；Firefox 要求 `launchWebAuthFlow`、`getRedirectURL` 与已配置 Web OAuth client ID；Firefox allizom redirect 会转成 MDN 允许的 loopback redirect 后再传给 Google OAuth
+  - 缺少当前认证策略配置、Client ID 格式明显错误、或 identity API 不可用时，UI 应显示配置错误，不应直接触发 Google 授权
+- `cloudBackup:diagnostics`
+  - 返回当前 extension ID、期望的 Chrome Web Store Item ID、ID 是否匹配、`browserFamily`、identity permission、Google API host permission、manifest OAuth client/scope 检查、`getAuthToken` 可用性、`launchWebAuthFlow/getRedirectURL` 可用性、WebAuth redirect URL、OAuth client ID、sanitized OAuth request preview、`usesManifestOAuthClient`、`usesWebOAuthClient`、`authStrategy` 与 `ready`
+  - `browserFamily` 使用能力语义：`googleChrome`、`webAuthCompatible`、`firefox` 或 `unsupported`；不按具体浏览器品牌维护授权分支
+  - `authStrategy` 可为 `browserManagedGoogleIdentity`、`webExtensionAccessToken` 或 `unsupported`
+  - 不返回 OAuth token、cookie、Drive 文件内容或浏览器 profile 数据
+  - 该协议保留为开发者/错误排障能力；用户常规设置面板不常驻展示诊断按钮
+- `cloudBackup:connect`
+  - 只能由用户显式点击连接/重新连接触发 interactive auth；provider 先复用未过期本地 token，再尝试 `getAuthToken({ interactive: false })`，需要确认时调用 `getAuthToken({ interactive: true })`；若 browser-managed identity 不可用或失败，再使用 Web OAuth client 调用 `launchWebAuthFlow({ interactive: true })`
+  - 成功后调用 Drive `about.get?fields=user(displayName,emailAddress,photoLink)`，返回并保存账号摘要、`connectedAccount`、`sessionState=readyInThisSession`、`authStrategy` 与 `lastVerifiedAt`
+- `cloudBackup:backupNow` / `cloudBackup:listSnapshots` / `cloudBackup:previewRestore` / `cloudBackup:applyRestore` / `cloudBackup:deleteSnapshot`
+  - 这些请求来自用户显式点击的备份、恢复或管理操作；provider 先复用未过期本地 token，再按能力调用 `getAuthToken({ interactive: false })` / `getAuthToken({ interactive: true })`，最后 fallback 到 `launchWebAuthFlow({ interactive: true })`；Drive 401 时移除 browser cached token 和本地 token cache 后重试一次
+  - 该 fallback 不适用于 `status` / `diagnostics`，避免设置页渲染或只读诊断触发登录
+- `cloudBackup:disconnect`
+  - 必须清除 background 保存的连接状态和账号摘要，并尽量取得当前 token 调用 Google OAuth revoke endpoint 取消服务器侧授权；若浏览器提供 `clearAllCachedAuthTokens` 或 `removeCachedAuthToken`，可 best-effort 清理 identity 缓存
 - `bookmarks:bulkRemove`
   - payload 现在支持：
     - `items`
@@ -140,6 +176,23 @@
     - 递归删除命中的 folder 与其后代
     - 删除这些 folder 下的书签
     - 修正相关 folder index 与 bookmarks UI state
+
+- `cloudBackup:backupNow`
+  - 在 `backgroundStorageQueue` 中捕获一致的本地书签集合
+  - 复用现有 `exportBookmarks(..., preserveStructure: true)` 生成 v2.0 export payload
+  - 包装为 `CloudBackupSnapshotV1`，上传到 Google Drive 可见文件夹 `AI-MarkDone/Backups/bookmarks`
+  - 使用 Drive resumable upload，上传成功后回读并校验 `snapshotId` 与 `payloadHash`
+- `cloudBackup:previewRestore`
+  - 下载并校验 snapshot
+  - 复用 `parseImportData` 解析书签 payload
+  - 生成可驱动共享导入合并详情页的安全合并预览；不写本地 storage，不传播删除
+- `cloudBackup:applyRestore`
+  - 仅支持 v1 `safeMerge`
+  - 必须由 UI 在 `previewRestore` 后经用户明确确认触发
+  - 写入前先创建本地 emergency export snapshot，并写入 extension local storage
+  - 通过 `backgroundStorageQueue` 写入 bookmarks storage/index；只新增云端独有书签，跳过重复项，本地独有项保留，冲突项保持本地版本不变，不传播删除
+- `cloudBackup:deleteSnapshot`
+  - 将用户选中的云端 snapshot 移到 Google Drive 回收站，返回 `{ trashed: true }`；不会永久删除 Drive 文件夹，也不会修改本地书签
 
 ---
 

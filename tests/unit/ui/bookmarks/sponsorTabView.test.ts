@@ -32,10 +32,12 @@ describe('SponsorTabView', () => {
         expect(sections[1]?.querySelector('[data-action="sponsor-github"]')).toBe(cta);
         const thanksList = sections[2]?.querySelector('.sponsor-thanks-list');
         expect(thanksList).toBeTruthy();
-        expect(thanksList?.querySelectorAll('.sponsor-thanks-item').length).toBe(6);
+        expect(thanksList?.querySelectorAll('.sponsor-thanks-item').length).toBe(17);
         expect(root.textContent).toContain('sponsorThanksTitle');
         expect(root.textContent).toContain('@匿名（Danke!）');
         expect(root.textContent).toContain('@Kayka.Z（很有用的软件，节省了我大量的时间）');
+        expect(root.textContent).toContain('淡定的喵（真的很棒，效率大大提高，世界因为有您这样的人而更美好，祝顺利）');
+        expect(root.textContent).toContain('匿名（👍👍👍）');
         expect(actions.getAssetUrl).toHaveBeenCalledWith('icons/icon128.png');
         expect(actions.getAssetUrl).toHaveBeenCalledWith('icons/bmc_qr.png');
         expect(actions.getAssetUrl).toHaveBeenCalledWith('icons/wechat_qr.png');

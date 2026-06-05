@@ -11,7 +11,7 @@ import {
     THEME_ACCENT_SWATCHES,
     type ThemeAccentColor,
 } from '../../../../../core/settings/types';
-import { normalizeThemeAccentColor } from '../../../../../core/settings/migrations';
+import { normalizeChatGPTDirectorySettings, normalizeThemeAccentColor } from '../../../../../core/settings/migrations';
 import {
     MAX_PNG_EXPORT_PIXEL_RATIO,
     MAX_PNG_EXPORT_WIDTH,
@@ -45,6 +45,7 @@ import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from 
 import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 import { FormulaAssetSettingsPopover } from '../popovers/FormulaAssetSettingsPopover';
+import { CloudBackupSettingsPanel, type CloudBackupSettingsPanelActions } from '../cloudBackup/CloudBackupSettingsPanel';
 
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
@@ -54,9 +55,11 @@ export type SettingsTabViewActions = {
     setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<void> | void;
     setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
+    setChatGptBehaviorSettings?: (patch: Partial<AppSettings['chatgptBehavior']>) => Promise<void> | void;
     setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<void> | void;
     setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
     exportAllBookmarks?: () => Promise<void> | void;
+    cloudBackup?: CloudBackupSettingsPanelActions;
 };
 
 type SelectRef = {
@@ -86,7 +89,7 @@ type StepperFieldRef = {
 };
 
 type Refs = {
-    platforms: Record<'chatgpt' | 'gemini' | 'claude' | 'deepseek', HTMLInputElement>;
+    platforms: Record<'chatgpt', HTMLInputElement>;
     behavior: {
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
@@ -118,9 +121,9 @@ type Refs = {
         pngPixelRatio: NumberFieldRef;
     };
     chatgptDirectory: {
-        enabled: HTMLInputElement;
-        mode: SelectRef;
-        promptLabelMode: HTMLInputElement;
+        restorePositionAfterSend: HTMLInputElement;
+        showMessageStepper: HTMLInputElement;
+        arrowKeyMessageNavigation: HTMLInputElement;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -162,11 +165,7 @@ export class SettingsTabView {
         const platformsGroup = this.createGroup(Icons.globe, t('platforms'));
         const platforms = {
             chatgpt: this.createToggle(platformsGroup.body, `${Icons.chatgpt} ChatGPT`, t('enableOnChatGPT')),
-            gemini: this.createToggle(platformsGroup.body, `${Icons.gemini} Gemini`, t('enableOnGemini')),
-            claude: this.createToggle(platformsGroup.body, `${Icons.claude} Claude`, t('enableOnClaude')),
-            deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} DeepSeek`, t('enableOnDeepseek')),
         };
-        const platformRetirementNotice = this.createNotice(platformsGroup.body, t('platformRetirementNotice'));
 
         const pageActionsGroup = this.createGroup(Icons.settings, t('toolbarPageActionsSettingsLabel'));
         const showSaveMessages = this.createToggle(pageActionsGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
@@ -231,27 +230,27 @@ export class SettingsTabView {
             'settings-export-pixel-ratio-value',
         );
 
-        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptDirectorySettingsLabel'));
-        const chatGptDirectoryEnabled = this.createToggle(
+        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptSettingsLabel'));
+        const chatGptRestorePositionAfterSend = this.createToggle(
             chatGptDirectoryGroup.body,
-            t('chatgptDirectoryEnabledLabel'),
-            t('chatgptDirectoryEnabledDesc'),
+            t('chatgptRestorePositionAfterSendLabel'),
+            t('chatgptRestorePositionAfterSendDesc'),
         );
-        const chatGptDirectoryMode = this.createSelect(
+        const chatGptShowMessageStepper = this.createToggle(
             chatGptDirectoryGroup.body,
-            t('chatgptDirectoryModeLabel'),
-            t('chatgptDirectoryModeDesc'),
-            [
-                { value: 'preview', label: t('chatgptDirectoryModePreview') },
-                { value: 'expanded', label: t('chatgptDirectoryModeExpanded') },
-            ],
-            'chatgpt-directory-mode',
+            t('chatgptShowMessageStepperLabel'),
+            t('chatgptShowMessageStepperDesc'),
         );
-        const chatGptDirectoryPromptLabelMode = this.createToggle(
+        const chatGptArrowKeyMessageNavigation = this.createToggle(
             chatGptDirectoryGroup.body,
-            t('chatgptDirectoryPromptLabelModeLabel'),
-            t('chatgptDirectoryPromptLabelModeDesc'),
+            t('chatgptArrowKeyMessageNavigationLabel'),
+            t('chatgptArrowKeyMessageNavigationDesc'),
         );
+        const chatGptDirectoryRetiredNotice = this.createNotice(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryRetiredNotice'),
+        );
+        chatGptDirectoryRetiredNotice.dataset.role = 'settings-chatgpt-directory-retired-notice';
 
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -261,8 +260,32 @@ export class SettingsTabView {
             { value: 'zh_CN', label: t('languageZhCN') },
         ], 'language');
 
-        // Data & storage group (legacy shows storage usage + export)
-        const storageGroup = this.createGroup(Icons.database, t('dataAndStorage'));
+        // Data management group (Google Drive backup + local backup/export)
+        const storageGroup = this.createSection(Icons.database, t('dataManagement'));
+        const googleDriveBackupCard = document.createElement('section');
+        googleDriveBackupCard.className = 'settings-data-card';
+        googleDriveBackupCard.dataset.role = 'settings-google-drive-backup-card';
+        const googleDriveBackupTitle = document.createElement('h4');
+        googleDriveBackupTitle.className = 'settings-data-card__title';
+        googleDriveBackupTitle.textContent = `${t('googleDriveBackupCardTitle')} (${t('cloudBackupExperimentalLabel')})`;
+        googleDriveBackupCard.appendChild(googleDriveBackupTitle);
+        if (this.actions.cloudBackup) {
+            const cloudBackup = new CloudBackupSettingsPanel({
+                modal: this.modal,
+                actions: this.actions.cloudBackup,
+            });
+            googleDriveBackupCard.appendChild(cloudBackup.getElement());
+        }
+        storageGroup.body.appendChild(googleDriveBackupCard);
+
+        const backupCard = document.createElement('section');
+        backupCard.className = 'settings-data-card';
+        backupCard.dataset.role = 'settings-data-backup-card';
+        const backupTitle = document.createElement('h4');
+        backupTitle.className = 'settings-data-card__title';
+        backupTitle.textContent = t('localBackupCardTitle');
+        backupCard.appendChild(backupTitle);
+
         const storageInfo = document.createElement('div');
         storageInfo.className = 'settings-storage-info';
         storageInfo.innerHTML = `
@@ -274,23 +297,27 @@ export class SettingsTabView {
               <div class="storage-fill storage-progress-bar" data-field="storage_bar" style="width: 0%"></div>
             </div>
         `;
-        storageGroup.body.appendChild(storageInfo);
+        backupCard.appendChild(storageInfo);
 
         const backup = document.createElement('div');
-        backup.className = 'settings-backup-warning';
-        backup.innerHTML = `
-          <div class="settings-item-info">
-            <span class="settings-item-label">${t('backupTitle')}</span>
-            <span class="settings-item-warning-text">${t('backupWarning')}</span>
-          </div>
-        `;
+        backup.className = 'settings-row settings-item settings-backup-warning';
+        backup.dataset.role = 'settings-local-backup-row';
+        const backupInfo = document.createElement('div');
+        backupInfo.className = 'settings-label settings-item-info';
+        const backupLabel = document.createElement('strong');
+        backupLabel.textContent = t('localBackupTitle');
+        const backupDesc = document.createElement('p');
+        backupDesc.textContent = t('backupWarning');
+        backupInfo.append(backupLabel, backupDesc);
         const exportBtn = document.createElement('button');
         exportBtn.type = 'button';
-        exportBtn.className = 'export-backup-btn';
+        exportBtn.className = 'secondary-btn';
+        exportBtn.dataset.role = 'settings-export-all-bookmarks';
         exportBtn.innerHTML = `${Icons.download} ${t('exportAllBtn')}`;
         exportBtn.addEventListener('click', () => void this.actions.exportAllBookmarks?.());
-        backup.appendChild(exportBtn);
-        storageGroup.body.appendChild(backup);
+        backup.append(backupInfo, exportBtn);
+        backupCard.appendChild(backup);
+        storageGroup.body.appendChild(backupCard);
 
         const advancedGroup = this.createAdvancedSettingsGroup();
 
@@ -311,9 +338,6 @@ export class SettingsTabView {
         this.refs = {
             platforms: {
                 chatgpt: platforms.chatgpt.input,
-                gemini: platforms.gemini.input,
-                claude: platforms.claude.input,
-                deepseek: platforms.deepseek.input,
             },
             behavior: {
                 showSaveMessages: showSaveMessages.input,
@@ -341,18 +365,14 @@ export class SettingsTabView {
                 pngPixelRatio,
             },
             chatgptDirectory: {
-                enabled: chatGptDirectoryEnabled.input,
-                mode: chatGptDirectoryMode,
-                promptLabelMode: chatGptDirectoryPromptLabelMode.input,
+                restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
+                showMessageStepper: chatGptShowMessageStepper.input,
+                arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
             },
             language,
             storageText,
         };
         this.refs.platforms.chatgpt.dataset.role = 'settings-platform-chatgpt';
-        this.refs.platforms.gemini.dataset.role = 'settings-platform-gemini';
-        this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
-        this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
-        platformRetirementNotice.dataset.role = 'settings-platform-retirement-notice';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
@@ -366,9 +386,9 @@ export class SettingsTabView {
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
-        this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
-        this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
-        this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
+        this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
+        this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
+        this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
@@ -425,7 +445,8 @@ export class SettingsTabView {
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
             formula: this.normalizeFormulaSettings(params.settings.formula),
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
-            chatgptDirectory: { ...DEFAULT_SETTINGS.chatgptDirectory, ...params.settings.chatgptDirectory },
+            chatgptDirectory: normalizeChatGPTDirectorySettings(params.settings.chatgptDirectory),
+            chatgptBehavior: { ...DEFAULT_SETTINGS.chatgptBehavior, ...params.settings.chatgptBehavior },
             appearance: {
                 fontSizePx: this.normalizeGlobalFontSize(params.settings.appearance?.fontSizePx ?? DEFAULT_SETTINGS.appearance.fontSizePx),
                 accentColor: this.normalizeAccentColor(params.settings.appearance?.accentColor),
@@ -559,20 +580,20 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setExportSettings?.({ pngPixelRatio: raw });
         });
-        this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
-            const next = this.refs.chatgptDirectory.enabled.checked;
-            this.settings.chatgptDirectory.enabled = next;
-            void this.actions.setChatGptDirectorySettings?.({ enabled: next });
+        this.refs.chatgptDirectory.restorePositionAfterSend.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.restorePositionAfterSend.checked;
+            this.settings.chatgptBehavior.restorePositionAfterSend = next;
+            void this.actions.setChatGptBehaviorSettings?.({ restorePositionAfterSend: next });
         });
-        this.refs.chatgptDirectory.mode.onChange((value) => {
-            const next = value === 'expanded' ? 'expanded' : 'preview';
-            this.settings.chatgptDirectory.mode = next;
-            void this.actions.setChatGptDirectorySettings?.({ mode: next });
+        this.refs.chatgptDirectory.showMessageStepper.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.showMessageStepper.checked;
+            this.settings.chatgptBehavior.showMessageStepper = next;
+            void this.actions.setChatGptBehaviorSettings?.({ showMessageStepper: next });
         });
-        this.refs.chatgptDirectory.promptLabelMode.addEventListener('change', () => {
-            const next = this.refs.chatgptDirectory.promptLabelMode.checked ? 'headTail' : 'head';
-            this.settings.chatgptDirectory.promptLabelMode = next;
-            void this.actions.setChatGptDirectorySettings?.({ promptLabelMode: next });
+        this.refs.chatgptDirectory.arrowKeyMessageNavigation.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked;
+            this.settings.chatgptBehavior.enableArrowKeyMessageNavigation = next;
+            void this.actions.setChatGptBehaviorSettings?.({ enableArrowKeyMessageNavigation: next });
         });
         // Language
         this.refs.language.onChange((value) => {
@@ -587,9 +608,6 @@ export class SettingsTabView {
         const commentExport = this.getReaderCommentExport();
         const usagePercent = this.formatPercent(this.storageUsage?.usedPercentage);
         this.refs.platforms.chatgpt.checked = Boolean(s.platforms.chatgpt);
-        this.refs.platforms.gemini.checked = Boolean(s.platforms.gemini);
-        this.refs.platforms.claude.checked = Boolean(s.platforms.claude);
-        this.refs.platforms.deepseek.checked = Boolean(s.platforms.deepseek);
 
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
@@ -606,15 +624,12 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
-        this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
-        this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
-        this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
+        this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
+        this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
+        this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
-        this.syncToggle(this.refs.platforms.gemini);
-        this.syncToggle(this.refs.platforms.claude);
-        this.syncToggle(this.refs.platforms.deepseek);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.saveContextOnly);
@@ -622,8 +637,9 @@ export class SettingsTabView {
         this.syncToggle(this.refs.reader.renderCodeInReader);
         this.syncToggle(this.refs.reader.showOutlineInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
-        this.syncToggle(this.refs.chatgptDirectory.enabled);
-        this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
+        this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
+        this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
+        this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
 
         this.refs.storageText.textContent = usagePercent;
         this.renderAdvancedSettings();
@@ -647,6 +663,18 @@ export class SettingsTabView {
         h.className = 'card-title settings-group-title';
         h.innerHTML = `${icon}<span>${title}</span>`;
         const body = document.createElement('div');
+        root.append(h, body);
+        return { root, body };
+    }
+
+    private createSection(icon: string, title: string): { root: HTMLElement; body: HTMLElement } {
+        const root = document.createElement('section');
+        root.className = 'settings-section settings-group';
+        const h = document.createElement('h3');
+        h.className = 'card-title settings-group-title';
+        h.innerHTML = `${icon}<span>${title}</span>`;
+        const body = document.createElement('div');
+        body.className = 'settings-section-body';
         root.append(h, body);
         return { root, body };
     }

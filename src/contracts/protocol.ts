@@ -13,7 +13,14 @@ export type ProtocolErrorCode =
     | 'MIGRATION_IN_PROGRESS'
     | 'NOT_FOUND'
     | 'INVALID_PATH'
-    | 'CONFLICT';
+    | 'CONFLICT'
+    | 'AUTH_REQUIRED'
+    | 'PERMISSION_DENIED'
+    | 'RATE_LIMITED'
+    | 'PROVIDER_UNAVAILABLE'
+    | 'INTEGRITY_MISMATCH'
+    | 'SNAPSHOT_CORRUPTED'
+    | 'SCHEMA_UNSUPPORTED';
 
 export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
 
@@ -24,6 +31,7 @@ export type SettingsCategory =
     | 'formula'
     | 'export'
     | 'chatgptDirectory'
+    | 'chatgptBehavior'
     | 'appearance'
     | 'bookmarks'
     | 'language';
@@ -90,11 +98,69 @@ export type BookmarksStorageUsageResponse = {
     warningLevel: 'none' | 'warning' | 'critical';
 };
 
+export type CloudBackupProviderId = 'googleDrive';
+export type CloudBackupRestoreStrategy = 'previewOnly' | 'safeMerge' | 'replaceLocal';
+export type CloudBackupAuthStrategy = 'browserManagedGoogleIdentity' | 'webExtensionAccessToken' | 'unsupported';
+export type CloudBackupBrowserFamily = 'googleChrome' | 'webAuthCompatible' | 'firefox' | 'unsupported';
+export type CloudBackupSessionState = 'unknown' | 'readyInThisSession' | 'needsConfirmation' | 'error';
+export type CloudBackupAccountSummary = {
+    accountEmail: string | null;
+    accountDisplayName: string | null;
+    accountPhotoUrl: string | null;
+};
+export type CloudBackupConnectedAccount = CloudBackupAccountSummary & {
+    connectedAt: string | null;
+};
+export type CloudBackupDiagnostics = {
+    extensionId: string | null;
+    expectedExtensionId: string;
+    extensionIdMatchesExpected: boolean;
+    chromeExtensionClientId: string | null;
+    webAuthClientId: string | null;
+    browserFamily: CloudBackupBrowserFamily;
+    hasIdentityPermission: boolean;
+    hasGoogleApiHostPermission: boolean;
+    hasManifestOAuthClient: boolean;
+    hasDriveFileScope: boolean;
+    supportsGetAuthToken: boolean;
+    supportsLaunchWebAuthFlow: boolean;
+    redirectUrl: string | null;
+    oauthRequestPreview: {
+        clientId: string | null;
+        redirectUri: string | null;
+        scope: string;
+        responseType: 'token';
+    } | null;
+    authStrategy: CloudBackupAuthStrategy;
+    usesManifestOAuthClient: boolean;
+    usesWebOAuthClient: boolean;
+    ready: boolean;
+};
+export type CloudBackupStatusPayload = { provider: CloudBackupProviderId };
+export type CloudBackupDiagnosticsPayload = { provider: CloudBackupProviderId };
+export type CloudBackupConnectPayload = { provider: CloudBackupProviderId };
+export type CloudBackupDisconnectPayload = { provider: CloudBackupProviderId };
+export type CloudBackupBackupNowPayload = { provider: CloudBackupProviderId };
+export type CloudBackupListSnapshotsPayload = { provider: CloudBackupProviderId };
+export type CloudBackupPreviewRestorePayload = {
+    provider: CloudBackupProviderId;
+    snapshotId: string;
+    strategy?: CloudBackupRestoreStrategy;
+};
+export type CloudBackupApplyRestorePayload = {
+    provider: CloudBackupProviderId;
+    snapshotId: string;
+    strategy: 'safeMerge';
+};
+export type CloudBackupDeleteSnapshotPayload = { provider: CloudBackupProviderId; snapshotId: string };
+
 export type SettingsGetCategoryPayload = { category: SettingsCategory };
 export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
+export type ContentReadyPayload = { platform: 'chatgpt'; url: string };
 
 export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'ping' }
+    | { v: ProtocolVersion; id: RequestId; type: 'content:ready'; payload: ContentReadyPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'ui:toggle_toolbar' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getAll' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
@@ -119,7 +185,16 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:get'; payload: BookmarksUiStateGetPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:uiState:set'; payload: BookmarksUiStateSetPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:get' }
-    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:ack'; payload: BookmarksChangelogNoticeAckPayload };
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:changelogNotice:ack'; payload: BookmarksChangelogNoticeAckPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:status'; payload: CloudBackupStatusPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:diagnostics'; payload: CloudBackupDiagnosticsPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:connect'; payload: CloudBackupConnectPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:disconnect'; payload: CloudBackupDisconnectPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:backupNow'; payload: CloudBackupBackupNowPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:listSnapshots'; payload: CloudBackupListSnapshotsPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:previewRestore'; payload: CloudBackupPreviewRestorePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:applyRestore'; payload: CloudBackupApplyRestorePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'cloudBackup:deleteSnapshot'; payload: CloudBackupDeleteSnapshotPayload };
 
 export type ExtResponse =
     | { v: ProtocolVersion; id: RequestId; ok: true; type: ExtRequest['type']; data?: unknown }
@@ -140,6 +215,7 @@ export function isExtRequest(value: unknown): value is ExtRequest {
 
     const allowedTypes = new Set<string>([
         'ping',
+        'content:ready',
         'ui:toggle_toolbar',
         'settings:getAll',
         'settings:getCategory',
@@ -165,7 +241,26 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'bookmarks:uiState:set',
         'bookmarks:changelogNotice:get',
         'bookmarks:changelogNotice:ack',
+        'cloudBackup:status',
+        'cloudBackup:diagnostics',
+        'cloudBackup:connect',
+        'cloudBackup:disconnect',
+        'cloudBackup:backupNow',
+        'cloudBackup:listSnapshots',
+        'cloudBackup:previewRestore',
+        'cloudBackup:applyRestore',
+        'cloudBackup:deleteSnapshot',
     ]);
 
-    return allowedTypes.has(type);
+    if (!allowedTypes.has(type)) return false;
+    if (type === 'content:ready') {
+        const payload = rec.payload;
+        if (typeof payload !== 'object' || payload === null) return false;
+        const readyPayload = payload as Record<string, unknown>;
+        return readyPayload.platform === 'chatgpt'
+            && typeof readyPayload.url === 'string'
+            && readyPayload.url.trim().length > 0;
+    }
+
+    return true;
 }

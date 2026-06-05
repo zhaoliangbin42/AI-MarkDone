@@ -1,26 +1,24 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extName__",
-    "version": "4.4.6",
+    "version": "4.5.0",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
+    "homepage_url": "https://zhaoliangbin42.github.io/ai-markdone/en/",
     "permissions": [
         "clipboardWrite",
         "storage",
+        "identity",
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://gemini.google.com/*",
-        "https://claude.ai/*",
-        "https://chat.deepseek.com/*"
+        "https://www.googleapis.com/*",
+        "https://oauth2.googleapis.com/*"
     ],
     "content_scripts": [
         {
             "matches": [
                 "https://chatgpt.com/*",
-                "https://chat.openai.com/*",
-                "https://gemini.google.com/*",
-                "https://claude.ai/*",
-                "https://chat.deepseek.com/*"
+                "https://chat.openai.com/*"
             ],
             "js": [
                 "content.js"
@@ -56,6 +54,7 @@
     ],
     "browser_specific_settings": {
         "gecko": {
+            "id": "ai-markdone@zhaoliangbin.com",
             "strict_min_version": "109.0",
             "data_collection_permissions": {
                 "required": [

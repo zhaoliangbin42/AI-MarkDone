@@ -91,6 +91,24 @@ describe('background settings handler', () => {
         expect(raw.export.pngCustomWidth).toBe(420);
     });
 
+    it('persists ChatGPT restore-position behavior settings through the protocol', async () => {
+        const sync = mockSyncStorage();
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        (globalThis as any).chrome = undefined;
+
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const setRes = await handleSettingsRequest({
+            v: PROTOCOL_VERSION,
+            id: 'req_chatgpt_behavior',
+            type: 'settings:setCategory',
+            payload: { category: 'chatgptBehavior', value: { restorePositionAfterSend: true } },
+        } as any);
+        expect(setRes?.response.ok).toBe(true);
+
+        const raw = sync.state[LEGACY_STORAGE_KEYS.appSettingsKey];
+        expect(raw.chatgptBehavior.restorePositionAfterSend).toBe(true);
+    });
+
     it('rejects retired ChatGPT settings category through the protocol', async () => {
         const sync = mockSyncStorage({
             [LEGACY_STORAGE_KEYS.appSettingsKey]: {

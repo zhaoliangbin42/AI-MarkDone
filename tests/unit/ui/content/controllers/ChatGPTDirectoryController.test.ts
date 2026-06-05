@@ -6,12 +6,15 @@ import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/Viewpo
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
-    highlightElement: vi.fn(),
+    highlightNavigationTarget: vi.fn(),
 }));
 
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({
     scrollToBookmarkTargetWithRetry: navigationMocks.scrollToBookmarkTargetWithRetry,
-    highlightElement: navigationMocks.highlightElement,
+}));
+
+vi.mock('@/drivers/content/conversation/highlight', () => ({
+    highlightNavigationTarget: navigationMocks.highlightNavigationTarget,
 }));
 
 const detector: ThemeDetector = {
@@ -170,7 +173,7 @@ describe('ChatGPTDirectoryController', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         navigationMocks.scrollToBookmarkTargetWithRetry.mockReset();
-        navigationMocks.highlightElement.mockReset();
+        navigationMocks.highlightNavigationTarget.mockReset();
         buildSkeletonDom();
     });
 
@@ -200,7 +203,7 @@ describe('ChatGPTDirectoryController', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         expect(anchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-        expect(navigationMocks.highlightElement).toHaveBeenCalledWith(anchor);
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(anchor);
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
@@ -892,6 +895,34 @@ describe('ChatGPTDirectoryController', () => {
         const items = Array.from(host?.shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
         expect(host?.isConnected).toBe(true);
         expect(items).toHaveLength(2);
+    });
+
+    it('does not reattach a stale rail when another controller already owns the connected rail', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const staleController = new ChatGPTDirectoryController(adapter, engine);
+        const currentController = new ChatGPTDirectoryController(adapter, engine);
+
+        try {
+            staleController.init('light');
+            await Promise.resolve();
+            const staleHost = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement;
+
+            currentController.init('light');
+            await Promise.resolve();
+            const currentHost = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement;
+
+            expect(currentHost).not.toBe(staleHost);
+            expect(staleHost.isConnected).toBe(false);
+
+            await (staleController as any).refresh();
+
+            expect(document.querySelectorAll('#aimd-chatgpt-directory-rail')).toHaveLength(1);
+            expect(document.getElementById('aimd-chatgpt-directory-rail')).toBe(currentHost);
+        } finally {
+            staleController.dispose();
+            currentController.dispose();
+        }
     });
 
     it('does not synthesize user-round placeholders from assistant-only messages', () => {

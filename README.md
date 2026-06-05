@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.4.6-10A37F" alt="Version 4.4.6">
+    <img src="https://img.shields.io/badge/Version-4.5.0-10A37F" alt="Version 4.5.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -17,14 +17,14 @@
     </a>
   </p>
   <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>ChatGPT directory navigation, Reader source copy, Dynamic Annotation, bookmarks, PNG export, and beautiful PDF export.</em></p>
+  <p><em>ChatGPT message navigation, Reader source copy, Dynamic Annotation, bookmarks, Google Drive backup, PNG export, and beautiful PDF export.</em></p>
 
-  [中文文档](./README.zh.md) | English
+  [Official website](https://zhaoliangbin42.github.io/ai-markdone/en/) | [中文文档](./README.zh.md) | English
 </div>
 
 AI-MarkDone is an open-source ChatGPT browser extension for long conversations, research reading, source-aware copying, bookmarks, Markdown export, PDF export, and PNG image sharing. It helps users turn ChatGPT outputs into reusable knowledge without leaving the conversation page.
 
-**Use it for:** ChatGPT reading mode, conversation outline navigation, Markdown copy, LaTeX formula copy, formula PNG/SVG export, message bookmarks, Deep Research cleanup, PDF export, and shareable PNG snapshots.
+**Use it for:** ChatGPT reading mode, message navigation, Markdown copy, LaTeX formula copy, formula PNG/SVG export, message bookmarks, optional Google Drive backup, Deep Research cleanup, PDF export, and shareable PNG snapshots.
 
 ---
 
@@ -52,7 +52,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 | Need | What AI-MarkDone Provides |
 | :--- | :--- |
-| ChatGPT long conversation navigation | A right-side conversation outline with previews and direct jump back to the target turn |
+| ChatGPT long conversation navigation | Lower-right previous/next message controls, optional Left/Right arrow-key navigation, and direct jump back to the target turn |
 | ChatGPT reading mode | A stable Reader view with Markdown rendering and keyboard navigation |
 | Copy ChatGPT answers to Markdown | Source-aware Markdown copy for formulas, code blocks, tables, images, and selected passages |
 | Export ChatGPT messages | Markdown, PDF, PNG, and ZIP workflows for reusable deliverables |
@@ -77,12 +77,11 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 ## ✨ Core Features
 
-### ⚡ ChatGPT Directory
-- **Right-side outline**: See a live directory of the current ChatGPT conversation without leaving the native page.
-- **Message previews**: Scan compact previews, or switch to expanded mode when you want to see every summary at once.
-- **Directory toggle**: Hide the directory when you want the native page to stay clean.
-- **Direct jump**: Click an item to return to the target turn through the same stable anchor path used by ChatGPT bookmarks and Reader locate.
-- **Built for the new ChatGPT page**: Replaces the old folding workflow, which is no longer stable under ChatGPT's incremental loading model.
+### ⚡ ChatGPT Message Navigation
+- **Lower-right stepper**: Move to the previous or next ChatGPT message without reopening a directory rail.
+- **Optional arrow keys**: Use `Left` / `Right` to move between messages when you are not typing; the setting can be turned off from ChatGPT Settings.
+- **Direct jump**: Navigation uses the same stable anchor path as ChatGPT bookmarks and Reader locate.
+- **Built for the new ChatGPT page**: Keeps navigation lightweight under ChatGPT's incremental loading model.
 
 ### 📚 Reading Mode (Focus View)
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
@@ -110,6 +109,12 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **Preview + jump**: Preview a bookmark and jump back to its original chat position, with improved ChatGPT positioning for both saving and navigation.
 - **Built-in info pages**: Check Changelog, FAQ, and About directly inside the bookmarks panel.
 
+### ☁️ Google Drive Backup (Experimental)
+- **Optional cloud backup**: Save a verified bookmark snapshot to your own Google Drive.
+- **Safe restore**: Preview a safe merge first, then apply only remote-only additions after confirmation.
+- **Local-first warning**: Because the feature is experimental, AI-MarkDone recommends exporting a local backup before using Google Drive backup.
+- **User-owned data**: AI-MarkDone does not collect your Google account, token, password, or bookmarks.
+
 ### 🧮 One-Click LaTeX Copy
 - **Click-to-copy**: Copy LaTeX from inline (`$...$`) and block (`$$...$$`) formulas.
 - **No selection hassle**: Grab exactly one formula without breaking the text.
@@ -133,12 +138,12 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 | Platform | Status |
 | :--- | :--- |
-| **ChatGPT** | ✅ Only supported platform after v4.5.0 |
-| **Gemini** | ⚠️ Support will be retired starting in v4.5.0 |
-| **Claude** | ⚠️ Support will be retired starting in v4.5.0 |
-| **DeepSeek** | ⚠️ Support will be retired starting in v4.5.0 |
+| **ChatGPT** | ✅ Supported |
+| **Gemini** | Retired in v4.5.0 |
+| **Claude** | Retired in v4.5.0 |
+| **DeepSeek** | Retired in v4.5.0 |
 
-AI-MarkDone is returning to a ChatGPT-only direction. Starting in v4.5.0, Gemini, Claude, and DeepSeek adaptations will be retired, and ChatGPT will be the only supported platform for this extension.
+AI-MarkDone 4.5.0 is ChatGPT-only. Gemini, Claude, and DeepSeek pages are no longer injected by the extension. Existing saved bookmarks and backups from those retired platforms remain visible and exportable in the bookmarks library.
 
 For Gemini, consider [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager). For cross-platform bookmark workflows, [Timeline](https://github.com/houyanchao/Timeline) is also a project I like.
 
@@ -199,10 +204,12 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.4.6
-- Fixed stutter in the ChatGPT navigation rail when moving through long conversations.
-- Fixed a split between toolbar Copy and Reader Copy, so toolbar Copy now follows the same content path as Reader.
-- Fixed cases where toolbar Copy could fail in the previous release. Thanks to Xiaohongshu user @momo.
+### 4.5.0
+- Retired Gemini, Claude, and DeepSeek runtime support so AI-MarkDone now focuses on ChatGPT.
+- Kept existing saved bookmarks and backups from retired platforms available for viewing, filtering, export, and backup.
+- Kept Chrome, Firefox, and Safari browser builds while narrowing AI platform injection to ChatGPT hosts.
+- Added optional Google Drive bookmark backup/restore with a connect-before-OAuth confirmation and local-backup reminder.
+- Added a lightweight lower-right ChatGPT message stepper with optional Left/Right arrow-key navigation.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

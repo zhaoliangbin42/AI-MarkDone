@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [4.5.0] - 2026-06-05
+
+### Added
+- ChatGPT: Added a lightweight lower-right message stepper with Previous/Next controls, now with a Settings toggle to hide the buttons, plus optional Left/Right arrow-key message navigation that stays out of text inputs and can be disabled separately.
+- Google Drive Backup: Reworked authorization around the browser's real OAuth capability. Google Chrome uses browser-managed `getAuthToken` with the manifest Chrome Extension OAuth client; WebAuth-compatible browsers use `launchWebAuthFlow` with the configured Web OAuth client and exact extension redirect URI.
+- Google Drive Backup: Kept refresh tokens out of extension storage; browser identity handles the long-lived authorization experience, and short-lived access tokens are cached only until expiry for service-worker recovery.
+- ChatGPT: Added an optional Settings toggle to restore your reading position after sending a message from older conversation history. The restore guard only runs after an intentional send and stops on manual scrolling or explicit navigation.
+- Added an optional Google Drive bookmark backup entry under Settings → Data Management, with browser-extension OAuth configuration, resumable verified snapshot upload, and safe-merge restore.
+
+### Fixed
+- ChatGPT: Improved recovery after Chrome suspends the extension background or restores long-idle tabs. The extension icon now uses a lightweight ping before toggling the panel, and stale tab lifecycle errors are handled without unchecked runtime errors.
+
+### Changed
+- AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, Claude, and DeepSeek page injection, host permissions, adapters, settings toggles, popup links, and copy parity fixtures have been retired.
+- Existing saved bookmarks and backups from Gemini, Claude, and DeepSeek remain available in the bookmarks library for viewing, filtering, export, local import, and Google Drive backup/restore.
+- Save Messages now opens with only the current message selected by default instead of selecting every message in the conversation.
+- ChatGPT: Temporarily retired the AI-MarkDone right-side directory rail because ChatGPT now provides native conversation navigation; Reader locate and bookmark navigation still use the shared positioning helper.
+- Google Drive backup now gives OAuth sign-in and Drive backup/restore requests longer RPC timeouts so the UI does not report a timeout while the Google authorization flow is still in progress.
+- Google Drive backup now shows immediate staged progress with a timeout-budget countdown, uses a custom long-name-safe restore picker, and attempts to delete a just-created Drive file when upload verification fails.
+- Google Drive backup is now labeled experimental, confirms before starting OAuth, recommends exporting a local backup first, keeps the gear menu focused on status, test connection, privacy, and cloud backup management, reuses the local import merge review for Drive restore preview, and moves user-managed Drive backup files to trash instead of permanently deleting them.
+- Google Drive backup now uses a split official OAuth chain: Google Chrome uses the manifest Chrome Extension OAuth client with browser-managed identity, WebAuth-compatible browsers use WebExtension `launchWebAuthFlow` with the Web OAuth client, and Safari stays hidden until a verified auth path exists.
+
 ## [4.4.6] - 2026-05-28
 ### Fixed
 - ChatGPT Directory hover previews now respond more smoothly when moving through long conversations.

@@ -3,28 +3,23 @@ export const AIMD_VIEWPORT_RESIZE_IDLE_EVENT = 'aimd:viewport-resize-idle';
 const STYLE_ID = 'aimd-viewport-resize-suspend-style';
 const RESIZING_ATTR = 'aimdViewportResizing';
 const DEFAULT_WIDTH_THRESHOLD_PX = 8;
-const DEFAULT_ENTER_DELAY_MS = 80;
-const DEFAULT_IDLE_DELAY_MS = 350;
+const DEFAULT_IDLE_DELAY_MS = 1000;
 
 type ViewportResizeSuspendControllerOptions = {
     widthThresholdPx?: number;
-    enterDelayMs?: number;
     idleDelayMs?: number;
 };
 
 export class ViewportResizeSuspendController {
     private widthThresholdPx: number;
-    private enterDelayMs: number;
     private idleDelayMs: number;
     private initialized = false;
     private suspended = false;
     private lastWidth = 0;
-    private enterTimer: number | null = null;
     private idleTimer: number | null = null;
 
     constructor(options: ViewportResizeSuspendControllerOptions = {}) {
         this.widthThresholdPx = options.widthThresholdPx ?? DEFAULT_WIDTH_THRESHOLD_PX;
-        this.enterDelayMs = options.enterDelayMs ?? DEFAULT_ENTER_DELAY_MS;
         this.idleDelayMs = options.idleDelayMs ?? DEFAULT_IDLE_DELAY_MS;
     }
 
@@ -40,7 +35,6 @@ export class ViewportResizeSuspendController {
         if (!this.initialized) return;
         this.initialized = false;
         window.removeEventListener('resize', this.handleResize);
-        this.clearEnterTimer();
         this.clearIdleTimer();
         this.exitSuspend(false);
     }
@@ -51,16 +45,11 @@ export class ViewportResizeSuspendController {
 
     private handleResize = (): void => {
         const nextWidth = this.readViewportWidth();
-        const hasActiveResizeSession = this.enterTimer !== null || this.idleTimer !== null || this.suspended;
+        const hasActiveResizeSession = this.idleTimer !== null || this.suspended;
         if (!hasActiveResizeSession && Math.abs(nextWidth - this.lastWidth) < this.widthThresholdPx) return;
 
         this.lastWidth = nextWidth;
-        if (!this.suspended && this.enterTimer === null) {
-            this.enterTimer = window.setTimeout(() => {
-                this.enterTimer = null;
-                this.enterSuspend();
-            }, this.enterDelayMs);
-        }
+        this.enterSuspend();
 
         this.clearIdleTimer();
         this.idleTimer = window.setTimeout(() => {
@@ -88,12 +77,6 @@ export class ViewportResizeSuspendController {
         }
     }
 
-    private clearEnterTimer(): void {
-        if (this.enterTimer === null) return;
-        window.clearTimeout(this.enterTimer);
-        this.enterTimer = null;
-    }
-
     private clearIdleTimer(): void {
         if (this.idleTimer === null) return;
         window.clearTimeout(this.idleTimer);
@@ -107,7 +90,8 @@ export class ViewportResizeSuspendController {
         style.textContent = `
 html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-rail,
 html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-preview,
-html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-step-controls {
+html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-step-controls,
+html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-message-stepper {
   visibility: hidden;
   pointer-events: none;
   content-visibility: hidden;

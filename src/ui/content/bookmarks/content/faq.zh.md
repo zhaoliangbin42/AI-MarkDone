@@ -2,9 +2,9 @@
 
 ## 这个插件都支持哪些平台？
 
-目前主要支持的平台还是 ChatGPT，这也是我平时使用最多、测试最多的平台。除此之外，AI-MarkDone 也支持 Gemini、Claude 和 DeepSeek。
+AI-MarkDone 4.5.0 之后，当前唯一支持的 AI 页面运行时是 ChatGPT。
 
-不过坦白说，后面这三个平台并不是我的主力平台，所以测试覆盖不一定像 ChatGPT 那么充分。如果你在使用过程中碰到了问题，欢迎直接发邮件告诉我：zhaoliangbin42@gmail.com
+Gemini、Claude 和 DeepSeek 的页面适配已经下架。如果你之前在这些平台保存过书签，这些书签不会被删除，仍然可以在书签库里查看、筛选、导出和备份；只是插件不再往这些页面里注入工具栏和功能入口。
 
 ## 这个插件到底能做什么？入口都在哪？
 
@@ -14,7 +14,8 @@
 - 书签保存：工具栏 -> 书签
 - 消息导出：工具栏 -> 导出
 - 字数统计：工具栏右侧统计区
-- ChatGPT 右侧目录：ChatGPT 页面右侧目录条
+- ChatGPT 消息导航：ChatGPT 对话页右下角上一条/下一条按钮
+- Google Drive 备份：书签管理面板 -> 设置 -> 数据管理
 - 灵动注释：阅读器中选中内容后 -> 悬浮注释按钮
 - 注释一键复制：阅读器顶部 -> 复制注释
 - 注释一键插入：阅读器左下角发送框上方 -> 插入注释
@@ -147,13 +148,29 @@
 
 我一直不太喜欢那种“功能很多，但全都硬塞给你”的工具，所以这里尽量做成了能自己裁剪的样子。
 
-## ChatGPT 右侧目录怎么用？
+## Google Drive 备份会把书签保存到哪里？
 
-打开 ChatGPT 对话页后，右侧会出现目录条。
+打开书签管理面板，进入设置里的“数据管理”，就可以在“Google Drive 备份（实验性功能）”卡片中连接你的 Google Drive 账号，并保存一份经过校验的书签快照。在进入 Google 授权前，AI-MarkDone 会先显示一段简短确认，并提醒你这个功能仍在实验阶段，建议先导出一份本地副本。设置面板会显示当前连接的 Google Drive 账号，也可以测试连接或管理云端备份。
 
-每一项对应一轮用户对话。鼠标悬停可以查看预览，点击之后会跳转到对应位置。
+备份文件会保存到你自己的 Google Drive：`AI-MarkDone/Backups/bookmarks`。AI-MarkDone 不运行备份服务器，快照里也不会包含 OAuth token、密码或扩展设置。
 
-目前右侧目录只在 ChatGPT 页面提供。
+扩展里的 OAuth client ID 只是 AI-MarkDone 这个应用的身份标识，不会让别人登录到开发者的 Google 账号。每个用户授权的是自己浏览器/profile 中已有的 Google 账号，或者在 Google 授权流程里登录自己的账号。
+
+当前版本是书签备份，不会实时双向更新。从 Drive 恢复时会先显示安全合并预览：云端独有书签可以新增，本地独有书签会保留，重复项会跳过，冲突项默认保留本地版本。
+
+备份过程中，AI-MarkDone 会展示阶段进度和本次操作的超时预算倒计时，但不会显示真实字节级上传速度。当前 Drive 上传使用 resumable upload session，但 v1 会把快照通过一次 PUT 请求传完，还不是完整的分块断点续传。如果浏览器关闭或扩展在上传中途卸载，Google Drive 里可能会留下备份文件夹，或者留下一个已经上传但没有被报告成功的 JSON 文件。上传完成后，AI-MarkDone 会回读文件并校验 snapshot id 和 payload hash；如果校验失败，会尝试删除刚创建的 Drive 文件，并在清理失败时提示你手动处理。
+
+点击“退出登录”会先请求 Google 撤销 AI-MarkDone 当前的 Drive OAuth 授权，再清除浏览器 identity API 为 AI-MarkDone 缓存的授权状态。再次登录时，浏览器会按需打开 Google 登录或授权页面。
+
+如果备份失败是因为当前加载的构建缺少 OAuth 配置，AI-MarkDone 会直接在错误提示里给出对应诊断，不会为了诊断而触发登录。如果浏览器仍在加载不完整的 manifest，请移除旧的未打包 AI-MarkDone，并重新加载当前构建。如果 Google Chrome 报告 browser identity 请求无效，请确认 manifest OAuth client 已绑定当前 extension ID；如果 WebAuth 报告 `redirect_uri_mismatch`，请将诊断里显示的 exact redirect URI 与 Google Cloud Web OAuth client 中的 Authorized redirect URIs 对齐。
+
+你也可以在 Google Drive 备份设置面板中管理云端备份。把某个备份移到 Google Drive 回收站，不会影响本地书签；如果你更习惯直接在 Google Drive 里整理，也可以在那里手动清理这些 JSON 文件。
+
+## ChatGPT 消息导航怎么用？
+
+打开 ChatGPT 对话页后，AI-MarkDone 会保留右下角的上一条/下一条消息按钮。非输入状态下，也可以使用左右方向键切换消息；如果不需要，可以在 ChatGPT 设置里关闭方向键导航。
+
+Stepper 和左右方向键消息导航目前只在 ChatGPT 对话页提供。
 
 ## 字数统计是按什么原则算的？
 

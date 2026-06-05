@@ -3,12 +3,15 @@ import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/dr
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
-    highlightElement: vi.fn(),
+    highlightNavigationTarget: vi.fn(),
 }));
 
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({
     scrollToBookmarkTargetWithRetry: navigationMocks.scrollToBookmarkTargetWithRetry,
-    highlightElement: navigationMocks.highlightElement,
+}));
+
+vi.mock('@/drivers/content/conversation/highlight', () => ({
+    highlightNavigationTarget: navigationMocks.highlightNavigationTarget,
 }));
 
 const detector: ThemeDetector = {
@@ -127,7 +130,7 @@ describe('ChatGPT directory navigation', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         navigationMocks.scrollToBookmarkTargetWithRetry.mockReset();
-        navigationMocks.highlightElement.mockReset();
+        navigationMocks.highlightNavigationTarget.mockReset();
         window.localStorage.clear();
         document.body.innerHTML = '';
     });
@@ -143,6 +146,8 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const anchor = buildSkeletonDom();
+        const releaseListener = vi.fn();
+        window.addEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
         let top = 0;
         anchor.getBoundingClientRect = vi.fn(() => ({
             x: 0,
@@ -175,8 +180,10 @@ describe('ChatGPT directory navigation', () => {
         const result = await resultPromise;
 
         expect(result).toEqual({ ok: true });
+        expect(releaseListener).toHaveBeenCalled();
         expect(anchor.scrollIntoView).toHaveBeenCalledTimes(2);
-        expect(navigationMocks.highlightElement).toHaveBeenCalledWith(anchor);
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(anchor);
+        window.removeEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
     });
 
     it('does not keep realigning after the user starts navigating manually', async () => {

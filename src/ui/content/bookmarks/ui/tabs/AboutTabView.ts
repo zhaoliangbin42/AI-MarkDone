@@ -3,6 +3,7 @@ import { parseBookmarksDoc } from '../../content/parser';
 import { t } from '../../../components/i18n';
 import { renderInfoBlocks } from './renderInfoBlocks';
 import { TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED } from '../../../../../config/targetSurface';
+import { AI_MARKDONE_HOMEPAGE_URL } from '../../../../../../config/extension/productLinks';
 import { copyIcon, externalLinkIcon } from '../../../../../assets/icons';
 import { copyTextToClipboard } from '../../../../../drivers/content/clipboard/clipboard';
 
@@ -77,7 +78,7 @@ export class AboutTabView {
             infoSections.appendChild(container);
         }
 
-        shell.append(hero, profileCard, this.createSupportContactCard(), infoSections);
+        shell.append(hero, profileCard, this.createWebsiteCard(), this.createSupportContactCard(), infoSections);
         if (TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED && actions.showSocialFollowCard !== false) {
             const socialFollow = document.createElement('section');
             socialFollow.className = 'social-follow-card';
@@ -143,6 +144,38 @@ export class AboutTabView {
 
         actions.append(emailLink, copyButton);
         card.append(content, actions);
+        return card;
+    }
+
+    private createWebsiteCard(): HTMLElement {
+        const card = document.createElement('section');
+        card.className = 'about-website-card';
+
+        const content = document.createElement('div');
+        content.className = 'about-website-card__content';
+
+        const title = document.createElement('div');
+        title.className = 'about-website-card__title';
+        title.textContent = tr('aboutWebsiteTitle', 'AI-MarkDone website');
+
+        const copy = document.createElement('p');
+        copy.className = 'about-website-card__copy';
+        copy.textContent = tr(
+            'aboutWebsiteDesc',
+            'The website is finally online. Feel free to take a look, and I would be grateful if you shared it with someone who might need AI-MarkDone too.',
+        );
+
+        content.append(title, copy);
+
+        const link = document.createElement('a');
+        link.className = 'support-contact-card__button about-website-card__button';
+        link.href = AI_MARKDONE_HOMEPAGE_URL;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = tr('aboutWebsiteButton', 'Visit website');
+        link.insertAdjacentHTML('afterbegin', `<span class="support-contact-card__button-icon" aria-hidden="true">${externalLinkIcon}</span>`);
+
+        card.append(content, link);
         return card;
     }
 

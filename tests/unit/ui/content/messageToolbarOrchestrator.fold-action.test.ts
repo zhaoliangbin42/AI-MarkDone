@@ -22,9 +22,9 @@ const detector: ThemeDetector = {
     hasExplicitTheme: () => true,
 };
 
-class NonChatGPTAdapter extends SiteAdapter {
+class UnknownAdapter extends SiteAdapter {
     matches(): boolean { return true; }
-    getPlatformId(): string { return 'gemini'; }
+    getPlatformId(): string { return 'unknown'; }
     getThemeDetector(): ThemeDetector { return detector; }
     extractUserPrompt(): string | null { return 'Prompt'; }
     getMessageSelector(): string { return '.assistant-message'; }
@@ -1114,7 +1114,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             title: 'Prompt',
         } as any);
 
-        const adapter = new NonChatGPTAdapter();
+        const adapter = new UnknownAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
@@ -1137,7 +1137,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         expect(bookmarkSaveDialog.open).toHaveBeenCalledTimes(1);
         expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
-            platform: 'Gemini',
+            platform: 'unknown',
             position: 7,
             messageId: 'm1',
             folderPath: '/Research',
