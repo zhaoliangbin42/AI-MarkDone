@@ -44,6 +44,7 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         version: extensionMeta.version,
         description: `__MSG_${extensionMeta.descriptionMessageKey}__`,
         default_locale: extensionMeta.defaultLocale,
+        homepage_url: extensionMeta.homepageUrl,
         permissions: [
             'clipboardWrite',
             'storage',

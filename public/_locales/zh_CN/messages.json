@@ -924,8 +924,16 @@
         "description": "Message for chatgptRestorePositionAfterSendLabel"
     },
     "chatgptRestorePositionAfterSendDesc": {
-        "message": "阅读历史消息时，如果 ChatGPT 发送后跳到底部，会尽快跳回原来的阅读位置。这个功能是快速恢复位置，不是直接拦截滚动。",
+        "message": "阅读历史消息时，发送后会尽快回到原来的阅读位置。",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
+    },
+    "chatgptShowMessageStepperLabel": {
+        "message": "显示右下角消息切换按钮",
+        "description": "Message for chatgptShowMessageStepperLabel"
+    },
+    "chatgptShowMessageStepperDesc": {
+        "message": "在 ChatGPT 对话页显示小型上一条 / 下一条消息按钮。",
+        "description": "Message for chatgptShowMessageStepperDesc"
     },
     "chatgptArrowKeyMessageNavigationLabel": {
         "message": "使用左右方向键切换消息",
@@ -1327,6 +1335,18 @@
         "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。",
         "description": "Message for aboutProfileBio"
     },
+    "aboutWebsiteTitle": {
+        "message": "AI-MarkDone 官网",
+        "description": "Message for aboutWebsiteTitle"
+    },
+    "aboutWebsiteDesc": {
+        "message": "官网终于做出来了，欢迎大家去逛一逛。也欢迎帮忙多多传播，让更多有同样需求的朋友看到它。",
+        "description": "Message for aboutWebsiteDesc"
+    },
+    "aboutWebsiteButton": {
+        "message": "浏览官网",
+        "description": "Message for aboutWebsiteButton"
+    },
     "supportContactEyebrow": {
         "message": "支持联系",
         "description": "Message for supportContactEyebrow"
@@ -1628,7 +1648,7 @@
         "description": "Confirmation title before starting Google Drive authorization"
     },
     "cloudBackupConnectConfirmDesc": {
-        "message": "AI-MarkDone 会打开 Google 授权，让你选择自己的 Drive。这个功能仍在实验阶段；备份到 Google Drive 前，建议先导出一份本地副本。AI-MarkDone 不会收集你的 Google 账号、token、密码或书签。",
+        "message": "AI-MarkDone 会打开 Google 授权，让你选择自己的 Drive。这个功能仍在实验阶段；备份到 Google Drive 前，建议先导出一份本地副本。AI-MarkDone 不会收集你的信息。",
         "description": "Confirmation message before starting Google Drive authorization"
     },
     "cloudBackupConnectConfirmAction": {
@@ -1692,7 +1712,7 @@
         "description": "Cloud backup status check message"
     },
     "cloudBackupPrivacyNote": {
-        "message": "AI-MarkDone 不会收集你的 Google 账号、token、密码或书签。",
+        "message": "AI-MarkDone 不会收集你的信息。",
         "description": "Cloud backup privacy note"
     },
     "cloudBackupStatusLabel": {

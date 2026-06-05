@@ -165,7 +165,7 @@ You can manage backup JSON files from the Google Drive backup settings panel. Mo
 
 ## How do I use ChatGPT message navigation?
 
-Open a ChatGPT conversation. AI-MarkDone keeps a small lower-right message stepper with previous and next controls. You can also use Left and Right arrow keys to move between messages when you are not typing; this can be turned off from ChatGPT Settings.
+Open a ChatGPT conversation. AI-MarkDone keeps a small lower-right message stepper with previous and next controls. You can hide those buttons from ChatGPT Settings. You can also use Left and Right arrow keys to move between messages when you are not typing; keyboard navigation has its own setting.
 
 The stepper and arrow-key navigation are currently available on ChatGPT conversation pages only.
 

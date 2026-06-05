@@ -29,6 +29,7 @@ export type ChatGPTDirectorySettings = {
 
 export type ChatGPTBehaviorSettings = {
     restorePositionAfterSend: boolean;
+    showMessageStepper: boolean;
     enableArrowKeyMessageNavigation: boolean;
 };
 
@@ -102,7 +103,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
-    chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: true },
+    chatgptBehavior: { restorePositionAfterSend: true, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',

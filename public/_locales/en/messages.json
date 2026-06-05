@@ -924,8 +924,16 @@
         "description": "Message for chatgptRestorePositionAfterSendLabel"
     },
     "chatgptRestorePositionAfterSendDesc": {
-        "message": "When reading older messages, jump back to your reading position after ChatGPT moves to the bottom. This restores position quickly, but it is not a direct scroll block.",
+        "message": "When reading older messages, sending a new message brings you back to your reading position.",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
+    },
+    "chatgptShowMessageStepperLabel": {
+        "message": "Show lower-right message buttons",
+        "description": "Message for chatgptShowMessageStepperLabel"
+    },
+    "chatgptShowMessageStepperDesc": {
+        "message": "Show the small Previous and Next message buttons on ChatGPT conversation pages.",
+        "description": "Message for chatgptShowMessageStepperDesc"
     },
     "chatgptArrowKeyMessageNavigationLabel": {
         "message": "Use arrow keys to move between messages",
@@ -1327,6 +1335,18 @@
         "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me.",
         "description": "Message for aboutProfileBio"
     },
+    "aboutWebsiteTitle": {
+        "message": "AI-MarkDone website",
+        "description": "Message for aboutWebsiteTitle"
+    },
+    "aboutWebsiteDesc": {
+        "message": "The website is finally online. Feel free to take a look, and I would be grateful if you shared it with someone who might need AI-MarkDone too.",
+        "description": "Message for aboutWebsiteDesc"
+    },
+    "aboutWebsiteButton": {
+        "message": "Visit website",
+        "description": "Message for aboutWebsiteButton"
+    },
     "supportContactEyebrow": {
         "message": "Support",
         "description": "Message for supportContactEyebrow"
@@ -1628,7 +1648,7 @@
         "description": "Confirmation title before starting Google Drive authorization"
     },
     "cloudBackupConnectConfirmDesc": {
-        "message": "AI-MarkDone will open Google authorization so you can choose your own Drive. This feature is experimental; before backing up to Google Drive, we recommend exporting a local copy first. AI-MarkDone does not collect your Google account, token, password, or bookmarks.",
+        "message": "AI-MarkDone will open Google authorization so you can choose your own Drive. This feature is experimental; before backing up to Google Drive, we recommend exporting a local copy first. AI-MarkDone does not collect your information.",
         "description": "Confirmation message before starting Google Drive authorization"
     },
     "cloudBackupConnectConfirmAction": {
@@ -1692,7 +1712,7 @@
         "description": "Cloud backup status check message"
     },
     "cloudBackupPrivacyNote": {
-        "message": "AI-MarkDone does not collect your Google account, token, password, or bookmarks.",
+        "message": "AI-MarkDone does not collect your information.",
         "description": "Cloud backup privacy note"
     },
     "cloudBackupStatusLabel": {

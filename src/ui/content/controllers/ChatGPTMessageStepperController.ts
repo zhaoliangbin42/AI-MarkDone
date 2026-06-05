@@ -75,6 +75,7 @@ function getRangeDistanceFromReference(range: { top: number; bottom: number }, r
 export class ChatGPTMessageStepperController {
     private initialized = false;
     private keyboardEnabled = true;
+    private visibleEnabled = true;
     private host: HTMLDivElement | null = null;
     private previousButton: HTMLButtonElement | null = null;
     private nextButton: HTMLButtonElement | null = null;
@@ -125,12 +126,24 @@ export class ChatGPTMessageStepperController {
         this.keyboardEnabled = enabled;
     }
 
+    setVisible(enabled: boolean): void {
+        this.visibleEnabled = enabled;
+        if (!this.initialized) return;
+        if (!enabled) {
+            this.removeHost();
+            return;
+        }
+        this.ensureHost();
+        this.refreshState();
+    }
+
     setThemeOverrides(overrides: UserThemeOverrides): void {
         this.themeOverrides = { ...overrides };
         this.ensureStyle({ force: true });
     }
 
     private ensureHost(): void {
+        if (!this.visibleEnabled) return;
         if (this.host?.isConnected) return;
         const existing = document.getElementById(HOST_ID);
         if (existing instanceof HTMLDivElement) existing.remove();
@@ -151,6 +164,13 @@ export class ChatGPTMessageStepperController {
         this.host = host;
         this.previousButton = previous;
         this.nextButton = next;
+    }
+
+    private removeHost(): void {
+        this.host?.remove();
+        this.host = null;
+        this.previousButton = null;
+        this.nextButton = null;
     }
 
     private createButton(action: string, label: string, onClick: () => void): HTMLButtonElement {

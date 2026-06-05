@@ -48,7 +48,8 @@ const baseSettings = {
         promptLabelMode: 'head',
     },
     chatgptBehavior: {
-        restorePositionAfterSend: false,
+        restorePositionAfterSend: true,
+        showMessageStepper: true,
         enableArrowKeyMessageNavigation: true,
     },
     appearance: { fontSizePx: 16, accentColor: null },
@@ -91,9 +92,12 @@ describe('SettingsTabView', () => {
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-message-stepper"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeTruthy();
-        expect(chatGptGroup.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-enabled"]')?.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeNull();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeNull();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
     });
 
     it('only exposes the ChatGPT platform runtime toggle', () => {
@@ -149,16 +153,11 @@ describe('SettingsTabView', () => {
 
         const root = view.getElement();
         const notice = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-retired-notice"]')!;
-        const enabled = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
-        const mode = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-mode"]')!;
-        const promptLabelMode = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-prompt-label-mode"]')!;
 
         expect(notice.textContent).toBe('chatgptDirectoryRetiredNotice');
-        expect(enabled.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
-        expect(mode.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
-        expect(promptLabelMode.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
-        expect(enabled.checked).toBe(false);
-        expect(promptLabelMode.checked).toBe(false);
+        expect(root.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
         expect(onSetChatGptDirectorySettings).not.toHaveBeenCalled();
     });
 
@@ -178,12 +177,12 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-restore-position-after-send"]')!;
 
-        expect(toggle.checked).toBe(false);
+        expect(toggle.checked).toBe(true);
 
-        toggle.checked = true;
+        toggle.checked = false;
         toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: true });
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: false });
     });
 
     it('wires ChatGPT arrow-key message navigation to the scoped behavior category', () => {
@@ -208,6 +207,30 @@ describe('SettingsTabView', () => {
         toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ enableArrowKeyMessageNavigation: false });
+    });
+
+    it('lets users hide the lower-right ChatGPT message stepper buttons', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-message-stepper"]')!;
+
+        expect(toggle.checked).toBe(true);
+
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showMessageStepper: false });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {

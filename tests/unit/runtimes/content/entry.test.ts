@@ -113,12 +113,14 @@ const sendPositionRestoreCtor = vi.fn(function () {
 const messageStepperInit = vi.fn();
 const messageStepperDispose = vi.fn();
 const messageStepperSetKeyboardEnabled = vi.fn();
+const messageStepperSetVisible = vi.fn();
 const messageStepperSetThemeOverrides = vi.fn();
 const messageStepperCtor = vi.fn(function () {
     return {
         init: messageStepperInit,
         dispose: messageStepperDispose,
         setKeyboardEnabled: messageStepperSetKeyboardEnabled,
+        setVisible: messageStepperSetVisible,
         setThemeOverrides: messageStepperSetThemeOverrides,
     };
 });
@@ -362,7 +364,7 @@ describe('content runtime entry', () => {
             },
             export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
             chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail' },
-            chatgptBehavior: { restorePositionAfterSend: true, enableArrowKeyMessageNavigation: false },
+            chatgptBehavior: { restorePositionAfterSend: true, showMessageStepper: true, enableArrowKeyMessageNavigation: false },
             bookmarks: { sortMode: 'alpha-asc' },
             appearance: { fontSizePx: 16, accentColor: null },
         });
@@ -380,6 +382,7 @@ describe('content runtime entry', () => {
         expect(sendPositionRestoreSetEnabled).toHaveBeenCalledWith(true);
         expect(messageStepperCtor).toHaveBeenCalledTimes(1);
         expect(messageStepperInit).toHaveBeenCalledTimes(1);
+        expect(messageStepperSetVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
         expect(directorySetEnabled).not.toHaveBeenCalled();
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
@@ -498,7 +501,7 @@ describe('content runtime entry', () => {
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
-        expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
+        expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(true);
         expect(messageStepperInit).toHaveBeenCalledTimes(2);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(true);
         expect(directoryCtor).not.toHaveBeenCalled();
@@ -637,12 +640,13 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail' },
-                chatgptBehavior: { restorePositionAfterSend: false, enableArrowKeyMessageNavigation: false },
+                chatgptBehavior: { restorePositionAfterSend: false, showMessageStepper: false, enableArrowKeyMessageNavigation: false },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
         });
 
+        expect(messageStepperSetVisible).toHaveBeenLastCalledWith(false);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(false);
         expect(directoryCtor).not.toHaveBeenCalled();
         expect(directorySetEnabled).not.toHaveBeenCalled();

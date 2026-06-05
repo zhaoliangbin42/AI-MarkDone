@@ -1,20 +1,73 @@
 # Changelog
 
 # 4.5.0
-2026-06-03
+2026-06-05
 
-AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, Claude, and DeepSeek page injection has been retired, but existing saved bookmarks and backups from those platforms stay in your library.
+Thanks for waiting. I wanted this update to feel like a real meal, so I spent a lot of time in the kitchen. I believe good food is worth the wait, and I think this release is one of those good meals. It adds several practical features, fixes a number of rough edges, and finally brings AI-MarkDone its own product website.
+
+## Google Drive Backup
+
+The biggest and most time-consuming feature in this release is Google Drive Backup. You can find it in Settings. The authorization flow is intentionally direct: click the button, follow Google's authorization page, and you are ready to back up.
+
+AI-MarkDone itself does not collect your information. Your data stays on this device, or, after you authorize Google Drive, in your own Drive. Once connected, you can back up your bookmarks to Google Drive and restore them on another device.
+
+Restore does not write immediately. It first shows a preview of the merge result. The restore path uses safe merge: it keeps your existing local bookmarks and only adds remote-only items. This feature is still experimental, though, so before using it for the first time, please export a local copy of your bookmarks.
+
+## Position Restore and Message Switching
+
+This release also adds two practical ChatGPT improvements.
+
+First, after sending a message, AI-MarkDone can keep you near your current reading position instead of letting ChatGPT force you to the bottom every time. Second, you can use the Left and Right arrow keys to move between messages. If you do not like keyboard navigation, you can turn it off from Settings.
+
+Both features are small on the surface, but they solve real reading pain: staying focused, moving faster, and landing on the right message more precisely.
+
+## Platform and Navigation Cleanup
+
+AI-MarkDone now retires DeepSeek, Claude, and Gemini page adaptation. Existing bookmarks from those platforms stay in the bookmarks panel and will not be deleted. I am focusing maintenance on ChatGPT, because I want the ChatGPT path to be as polished, reliable, and useful as possible.
+
+The old AI-MarkDone right-side navigation rail is also gone for now. It was originally a useful replacement when ChatGPT did not provide its own navigation. Now that ChatGPT has an official navigation experience, I think our old rail no longer needs to stay on the page. I will continue watching feedback.
+
+## Website
+
+One more piece of good news: the long-delayed product website is finally online.
+
+Website: https://zhaoliangbin42.github.io/ai-markdone/en/
+
+The site is still not perfect, but I hope it helps AI-MarkDone reach more people who have the same workflow pain. The extension will stay free. If you like it, ratings in the extension store and stars on GitHub are both very welcome.
+
+## How it works
+
+This time I want to explain a bug that made the extension feel disconnected after a ChatGPT tab had been open for a long time.
+
+The reason is related to how modern Chrome extensions work. Under Manifest V3, the background runtime is not a page that stays alive forever. It is an event-driven service worker. When the browser thinks it has nothing to do, it may stop that worker and wake it again later.
+
+At the same time, a ChatGPT tab left in the background for a long time may be frozen, discarded, or restored lazily by the browser. When the extension background tries to send a message to that tab, the tab may already be closed, its id may be stale, or the content script inside the page may not be ready yet. That is when errors like "No tab with id" or "Receiving end does not exist" can appear.
+
+The fix is not to keep the background alive forever. That would waste resources and fight the browser. Instead, AI-MarkDone now treats those lifecycle failures as normal: before toggling the UI, it pings the page first; if the page is not ready, it does not force the command. When the ChatGPT page becomes available again, the content script sends a ready signal back to the background, and the background updates state using the real tab id.
+
+In short: no polling, no artificial keep-alive, and no background busywork. The page and background simply reconnect when the browser wakes them. I will keep watching this path, but I think this is the right direction: recover when needed without quietly burning system resources.
 
 ## Added
-- Added optional Google Drive bookmark backup and safe-merge restore. Google Chrome uses browser-managed identity; WebAuth-compatible browsers use `launchWebAuthFlow` with the configured Web OAuth client.
-- Added a short Google Drive connect confirmation that reminds users this backup is experimental and recommends exporting a local copy first.
-- Added a lightweight lower-right ChatGPT message stepper with optional Left/Right arrow-key message navigation.
-- Added an optional ChatGPT setting to restore your reading position after sending from older conversation history.
+
+- Added Google Drive Backup and Restore (experimental). Please send feedback, and export a local copy before using it for the first time. Thanks to GitHub user @eagleshang5-lang and Xiaohongshu user @Lunas.
+- Added restore-position-after-send, so sending a message does not always pull you to the bottom. Thanks to Xiaohongshu user @不歸.
+- Added Left / Right arrow-key message navigation for the lower-right stepper. Both the buttons and keyboard navigation can be turned off in Settings.
+- Launched the product website. Sharing, store ratings, and GitHub stars are very welcome.
+
+## Improved
+
+- Save Messages from the toolbar now selects only the current message by default instead of selecting the whole conversation. Thanks to Xiaohongshu user @momo and Email user @Johan Song.
+- The lower-right stepper is now horizontal, which better matches the Previous / Next message action.
+- During page-width changes, the extension enters temporary resize suspend more quickly to reduce repeated rendering while dragging the window.
 
 ## Changed
-- Retired Gemini, Claude, and DeepSeek host permissions, adapters, Settings toggles, popup links, and copy parity fixtures.
-- Kept old Gemini, Claude, and DeepSeek bookmarks visible, filterable, exportable, and backed up as user data.
-- Save Messages now opens with only the current message selected by default.
+
+- Retired DeepSeek, Claude, and Gemini page adaptation. Existing bookmarks from those platforms remain in the bookmarks panel.
+- Removed the old AI-MarkDone right-side navigation rail for now, while keeping the lighter lower-right Previous / Next message stepper.
+
+## Fixed
+
+- Improved recovery when a ChatGPT tab has been open for a long time and the extension needs to reconnect.
 
 # 4.4.6
 2026-05-28

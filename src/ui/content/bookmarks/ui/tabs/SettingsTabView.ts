@@ -122,10 +122,8 @@ type Refs = {
     };
     chatgptDirectory: {
         restorePositionAfterSend: HTMLInputElement;
+        showMessageStepper: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
-        enabled: HTMLInputElement;
-        mode: SelectRef;
-        promptLabelMode: HTMLInputElement;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -238,6 +236,11 @@ export class SettingsTabView {
             t('chatgptRestorePositionAfterSendLabel'),
             t('chatgptRestorePositionAfterSendDesc'),
         );
+        const chatGptShowMessageStepper = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptShowMessageStepperLabel'),
+            t('chatgptShowMessageStepperDesc'),
+        );
         const chatGptArrowKeyMessageNavigation = this.createToggle(
             chatGptDirectoryGroup.body,
             t('chatgptArrowKeyMessageNavigationLabel'),
@@ -247,30 +250,7 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptDirectoryRetiredNotice'),
         );
-        const chatGptDirectoryEnabled = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptDirectoryEnabledLabel'),
-            t('chatgptDirectoryEnabledDesc'),
-        );
-        const chatGptDirectoryMode = this.createSelect(
-            chatGptDirectoryGroup.body,
-            t('chatgptDirectoryModeLabel'),
-            t('chatgptDirectoryModeDesc'),
-            [
-                { value: 'preview', label: t('chatgptDirectoryModePreview') },
-                { value: 'expanded', label: t('chatgptDirectoryModeExpanded') },
-            ],
-            'chatgpt-directory-mode',
-        );
-        const chatGptDirectoryPromptLabelMode = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptDirectoryPromptLabelModeLabel'),
-            t('chatgptDirectoryPromptLabelModeDesc'),
-        );
         chatGptDirectoryRetiredNotice.dataset.role = 'settings-chatgpt-directory-retired-notice';
-        chatGptDirectoryEnabled.root.hidden = true;
-        chatGptDirectoryMode.root.hidden = true;
-        chatGptDirectoryPromptLabelMode.root.hidden = true;
 
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -386,10 +366,8 @@ export class SettingsTabView {
             },
             chatgptDirectory: {
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
+                showMessageStepper: chatGptShowMessageStepper.input,
                 arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
-                enabled: chatGptDirectoryEnabled.input,
-                mode: chatGptDirectoryMode,
-                promptLabelMode: chatGptDirectoryPromptLabelMode.input,
             },
             language,
             storageText,
@@ -409,10 +387,8 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
+        this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
-        this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
-        this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
-        this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
@@ -609,25 +585,15 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.restorePositionAfterSend = next;
             void this.actions.setChatGptBehaviorSettings?.({ restorePositionAfterSend: next });
         });
+        this.refs.chatgptDirectory.showMessageStepper.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.showMessageStepper.checked;
+            this.settings.chatgptBehavior.showMessageStepper = next;
+            void this.actions.setChatGptBehaviorSettings?.({ showMessageStepper: next });
+        });
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked;
             this.settings.chatgptBehavior.enableArrowKeyMessageNavigation = next;
             void this.actions.setChatGptBehaviorSettings?.({ enableArrowKeyMessageNavigation: next });
-        });
-        this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
-            const next = this.refs.chatgptDirectory.enabled.checked;
-            this.settings.chatgptDirectory.enabled = next;
-            void this.actions.setChatGptDirectorySettings?.({ enabled: next });
-        });
-        this.refs.chatgptDirectory.mode.onChange((value) => {
-            const next = value === 'expanded' ? 'expanded' : 'preview';
-            this.settings.chatgptDirectory.mode = next;
-            void this.actions.setChatGptDirectorySettings?.({ mode: next });
-        });
-        this.refs.chatgptDirectory.promptLabelMode.addEventListener('change', () => {
-            const next = this.refs.chatgptDirectory.promptLabelMode.checked ? 'headTail' : 'head';
-            this.settings.chatgptDirectory.promptLabelMode = next;
-            void this.actions.setChatGptDirectorySettings?.({ promptLabelMode: next });
         });
         // Language
         this.refs.language.onChange((value) => {
@@ -659,10 +625,8 @@ export class SettingsTabView {
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
+        this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
-        this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
-        this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode);
-        this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -674,9 +638,8 @@ export class SettingsTabView {
         this.syncToggle(this.refs.reader.showOutlineInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
+        this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
-        this.syncToggle(this.refs.chatgptDirectory.enabled);
-        this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
 
         this.refs.storageText.textContent = usagePercent;
         this.renderAdvancedSettings();

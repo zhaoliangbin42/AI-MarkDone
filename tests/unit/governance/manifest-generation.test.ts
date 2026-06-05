@@ -41,9 +41,10 @@ describe('extension manifest generation', () => {
     }
 
     it('keeps package metadata and generated target manifests aligned', () => {
-        const pkg = readJson<{ version: string }>('package.json');
+        const pkg = readJson<{ homepage: string; version: string }>('package.json');
 
         expect(extensionMeta.version).toBe(pkg.version);
+        expect(extensionMeta.homepageUrl).toBe(pkg.homepage);
         expect(Object.keys(extensionTargets).sort()).toEqual(['chrome', 'firefox', 'safari']);
 
         for (const target of Object.keys(extensionTargets) as Array<keyof typeof extensionTargets>) {
@@ -52,6 +53,7 @@ describe('extension manifest generation', () => {
             expect(manifest.name).toBe(`__MSG_${extensionMeta.displayNameMessageKey}__`);
             expect(manifest.description).toBe(`__MSG_${extensionMeta.descriptionMessageKey}__`);
             expect(manifest.default_locale).toBe(extensionMeta.defaultLocale);
+            expect(manifest.homepage_url).toBe(extensionMeta.homepageUrl);
         }
     });
 

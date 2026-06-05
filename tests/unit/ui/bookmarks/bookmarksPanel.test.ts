@@ -448,6 +448,10 @@ describe('BookmarksPanel', () => {
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About');
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(2);
+        expect(refreshedAboutActiveTab?.querySelector<HTMLAnchorElement>('.about-website-card__button')?.href).toBe(
+            'https://zhaoliangbin42.github.io/ai-markdone/en/',
+        );
+        expect(refreshedAboutActiveTab?.querySelector('.support-contact-card__button--website')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(0);
         expect(refreshedAboutActiveTab?.querySelector('.social-follow-card')).toBeTruthy();
@@ -567,8 +571,8 @@ describe('BookmarksPanel', () => {
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
         expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.0");
-        expect(modal?.textContent).toContain('2026-06-03');
-        expect(modal?.textContent).toContain('ChatGPT as the only active AI page runtime');
+        expect(modal?.textContent).toContain('2026-06-05');
+        expect(modal?.textContent).toContain('Thanks for waiting');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
@@ -982,10 +986,11 @@ describe('BookmarksPanel', () => {
             expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('platforms', { chatgpt: false });
 
             const directoryNotice = shadow.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-retired-notice"]')!;
-            const directoryToggle = shadow.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
 
             expect(directoryNotice).toBeTruthy();
-            expect(directoryToggle.closest<HTMLElement>('.settings-item')?.hidden).toBe(true);
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeNull();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeNull();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
             expect(settingsClientRpc.setCategory).not.toHaveBeenCalledWith('chatgptDirectory', expect.anything());
         } finally {
             panel.hide();

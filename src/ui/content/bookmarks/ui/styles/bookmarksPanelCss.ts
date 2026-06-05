@@ -2371,6 +2371,47 @@ ${getPanelChromeCss()}
   line-height: 1.65;
 }
 
+.about-website-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--aimd-space-4);
+  align-items: center;
+  padding: var(--aimd-space-5);
+  border-radius: var(--_bookmarks-card-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 22%, var(--aimd-border-default));
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--aimd-interactive-primary) 9%, var(--aimd-bg-surface)),
+      color-mix(in srgb, var(--aimd-bg-primary) 94%, var(--aimd-bg-secondary))
+    );
+  box-shadow: var(--aimd-shadow-sm);
+}
+
+.about-website-card__content {
+  min-width: 0;
+  display: grid;
+  gap: var(--aimd-space-2);
+}
+
+.about-website-card__title {
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-base);
+  font-weight: var(--aimd-font-semibold);
+  line-height: 1.35;
+}
+
+.about-website-card__copy {
+  margin: 0;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
+  font-size: var(--aimd-text-sm);
+  line-height: 1.6;
+}
+
+.about-website-card__button {
+  white-space: nowrap;
+}
+
 .support-contact-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2788,8 +2829,9 @@ ${getPanelChromeCss()}
 }
 
 .sponsor-thanks-list {
-  width: min(100%, 520px);
+  width: 100%;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2806,6 +2848,10 @@ ${getPanelChromeCss()}
 }
 
 .sponsor-thanks-item:first-child {
+  border-top: 0;
+}
+
+.sponsor-thanks-item:nth-child(2) {
   border-top: 0;
 }
 
@@ -2972,8 +3018,26 @@ ${getPanelChromeCss()}
     grid-template-columns: 1fr;
   }
 
+  .sponsor-thanks-list {
+    grid-template-columns: 1fr;
+  }
+
+  .sponsor-thanks-item:nth-child(2) {
+    border-top: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
+  }
+
   .sponsor-card {
     padding: var(--aimd-space-5);
+  }
+
+  .about-website-card,
+  .support-contact-card {
+    grid-template-columns: 1fr;
+  }
+
+  .about-website-card__button {
+    width: 100%;
+    min-width: 0;
   }
 
   .sponsor-action-row {

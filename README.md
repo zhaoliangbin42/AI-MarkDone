@@ -19,7 +19,7 @@
   <p><strong>Read, save, export. Stay in flow.</strong></p>
   <p><em>ChatGPT message navigation, Reader source copy, Dynamic Annotation, bookmarks, Google Drive backup, PNG export, and beautiful PDF export.</em></p>
 
-  [中文文档](./README.zh.md) | English
+  [Official website](https://zhaoliangbin42.github.io/ai-markdone/en/) | [中文文档](./README.zh.md) | English
 </div>
 
 AI-MarkDone is an open-source ChatGPT browser extension for long conversations, research reading, source-aware copying, bookmarks, Markdown export, PDF export, and PNG image sharing. It helps users turn ChatGPT outputs into reusable knowledge without leaving the conversation page.

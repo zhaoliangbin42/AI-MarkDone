@@ -75,7 +75,7 @@ Current production settings:
 - Sensitive scopes: none
 - Restricted scopes: none
 - Authorized domains: `zhaoliangbin42.github.io`
-- Homepage: `https://zhaoliangbin42.github.io/ai-markdone/`
+- Homepage: `https://zhaoliangbin42.github.io/ai-markdone/en/`
 - Privacy policy: `https://zhaoliangbin42.github.io/ai-markdone/privacy/`
 - Terms link: `https://zhaoliangbin42.github.io/ai-markdone/privacy/`
 

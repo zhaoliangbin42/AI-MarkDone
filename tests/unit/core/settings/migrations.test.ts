@@ -24,6 +24,7 @@ describe('settings migrations', () => {
         expect(next.version).toBe(4);
         expect(next.platforms).toEqual({ chatgpt: false });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
+        expect(next.chatgptBehavior.showMessageStepper).toBe(true);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.enableClickToCopy).toBe(false);
@@ -94,7 +95,7 @@ describe('settings migrations', () => {
         expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded', promptLabelMode: 'headTail' });
     });
 
-    it('normalizes ChatGPT message navigation keyboard behavior with a default-on setting', () => {
+    it('normalizes ChatGPT message navigation behavior with default-on controls', () => {
         const defaulted = loadAndNormalize({
             version: 4,
             chatgptBehavior: { restorePositionAfterSend: true },
@@ -103,16 +104,19 @@ describe('settings migrations', () => {
             version: 4,
             chatgptBehavior: {
                 restorePositionAfterSend: false,
+                showMessageStepper: false,
                 enableArrowKeyMessageNavigation: false,
             },
         } as any);
 
         expect(defaulted.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            showMessageStepper: true,
             enableArrowKeyMessageNavigation: true,
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
+            showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
         });
     });

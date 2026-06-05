@@ -155,12 +155,14 @@ describe('settingsService', () => {
     it('writes scoped ChatGPT behavior settings without restoring retired ChatGPT category', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
             restorePositionAfterSend: true,
+            showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
             unrelated: true,
         }).next;
 
         expect(next.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
         });
         expect(next).not.toHaveProperty('chatgpt');
@@ -170,7 +172,8 @@ describe('settingsService', () => {
             chatgptBehavior: undefined,
         } as any);
         expect(normalized.chatgptBehavior).toEqual({
-            restorePositionAfterSend: false,
+            restorePositionAfterSend: true,
+            showMessageStepper: true,
             enableArrowKeyMessageNavigation: true,
         });
     });

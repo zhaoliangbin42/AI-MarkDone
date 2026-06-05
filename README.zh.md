@@ -19,7 +19,7 @@
   <p><strong>Read, save, export. Stay in flow.</strong></p>
   <p><em>ChatGPT 消息导航、阅读器源码复制、灵动注释、书签管理、Google Drive 备份、PNG 导出与精美 PDF 导出。</em></p>
 
-  中文文档 | [English](./README.md)
+  [官网](https://zhaoliangbin42.github.io/ai-markdone/en/) | 中文文档 | [English](./README.md)
 </div>
 
 AI-MarkDone 是一个开源 ChatGPT 浏览器扩展，面向长对话阅读、对话目录导航、源码级复制、书签整理、Markdown 导出、PDF 导出与 PNG 图片分享。它帮助用户把 ChatGPT 输出整理成可阅读、可复用、可归档的知识内容，同时尽量不打断原本的对话流程。

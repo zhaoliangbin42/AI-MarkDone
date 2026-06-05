@@ -6,18 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [4.5.0] - 2026-06-05
+
 ### Added
-- ChatGPT: Added a lightweight lower-right message stepper with Previous/Next controls, plus optional Left/Right arrow-key message navigation that stays out of text inputs and can be disabled in Settings.
+- ChatGPT: Added a lightweight lower-right message stepper with Previous/Next controls, now with a Settings toggle to hide the buttons, plus optional Left/Right arrow-key message navigation that stays out of text inputs and can be disabled separately.
 - Google Drive Backup: Reworked authorization around the browser's real OAuth capability. Google Chrome uses browser-managed `getAuthToken` with the manifest Chrome Extension OAuth client; WebAuth-compatible browsers use `launchWebAuthFlow` with the configured Web OAuth client and exact extension redirect URI.
 - Google Drive Backup: Kept refresh tokens out of extension storage; browser identity handles the long-lived authorization experience, and short-lived access tokens are cached only until expiry for service-worker recovery.
+- ChatGPT: Added an optional Settings toggle to restore your reading position after sending a message from older conversation history. The restore guard only runs after an intentional send and stops on manual scrolling or explicit navigation.
+- Added an optional Google Drive bookmark backup entry under Settings → Data Management, with browser-extension OAuth configuration, resumable verified snapshot upload, and safe-merge restore.
 
 ### Fixed
 - ChatGPT: Improved recovery after Chrome suspends the extension background or restores long-idle tabs. The extension icon now uses a lightweight ping before toggling the panel, and stale tab lifecycle errors are handled without unchecked runtime errors.
-
-## [4.5.0] - 2026-06-03
-### Added
-- ChatGPT: Added an optional Settings toggle to restore your reading position after sending a message from older conversation history. The restore guard only runs after an intentional send and stops on manual scrolling or explicit navigation.
-- Added an optional Google Drive bookmark backup entry under Settings → Data Management, with browser-extension OAuth configuration, resumable verified snapshot upload, and safe-merge restore.
 
 ### Changed
 - AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, Claude, and DeepSeek page injection, host permissions, adapters, settings toggles, popup links, and copy parity fixtures have been retired.

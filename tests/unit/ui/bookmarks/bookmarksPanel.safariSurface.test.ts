@@ -140,6 +140,10 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
         expect(aboutPanel?.dataset.active).toBe('1');
         expect(aboutPanel?.querySelector('.aimd-about')).toBeTruthy();
         expect(aboutPanel?.querySelector('.info-profile__avatar')).toBeTruthy();
+        expect(aboutPanel?.querySelector<HTMLAnchorElement>('.about-website-card__button')?.href).toBe(
+            'https://zhaoliangbin42.github.io/ai-markdone/en/',
+        );
+        expect(aboutPanel?.querySelector('.support-contact-card__button--website')).toBeNull();
         expect(aboutPanel?.querySelector<HTMLAnchorElement>('.support-contact-card__button--email')?.href).toBe(
             'mailto:zhaoliangbin42@gmail.com?subject=AI-MarkDone%20Safari%20Feedback',
         );

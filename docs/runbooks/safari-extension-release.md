@@ -25,7 +25,7 @@
    - `dist-safari/manifest.json` 不使用 `icons/*.png`，只声明 Safari allowlist 图标资源
    - `dist-safari/_locales/*/messages.json` 不包含 sponsor/donate/coffee/xiaohongshu 相关 message keys
    - Safari content build 隐藏消息 `Copy as PNG`、公式 `Copy as PNG` 和公式 `Copy as SVG` 这类二进制 clipboard copy surface；Save/Export 下载路径继续保留
-   - About 页继续保留 support contact card、`mailto:zhaoliangbin42@gmail.com` 反馈入口和复制邮箱按钮；该入口不得混入赞助、打赏或社交引流内容
+   - About 页继续保留官网卡片、support contact card、`mailto:zhaoliangbin42@gmail.com` 反馈入口和复制邮箱按钮；这些入口不得混入赞助、打赏或社交引流内容
 
 ## Xcode / Local Packaging Path
 

@@ -213,4 +213,28 @@ describe('ChatGPTMessageStepperController', () => {
             { position: 3, messageId: 'message-3' },
         );
     });
+
+    it('lets settings hide the visible buttons without disabling keyboard navigation', async () => {
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+
+        expect(document.getElementById('aimd-chatgpt-message-stepper')).toBeTruthy();
+
+        controller.setVisible(false);
+
+        expect(document.getElementById('aimd-chatgpt-message-stepper')).toBeNull();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
+            adapter,
+            { position: 3, messageId: 'message-3' },
+        );
+
+        controller.setVisible(true);
+
+        expect(document.getElementById('aimd-chatgpt-message-stepper')).toBeTruthy();
+    });
 });

@@ -156,6 +156,7 @@ if (adapter) {
             ...settings,
         };
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
+        chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
     };
 
