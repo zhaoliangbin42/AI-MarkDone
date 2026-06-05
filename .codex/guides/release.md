@@ -68,6 +68,10 @@
    - any touched files under `src/ui/content/bookmarks/content/`
    - This manual review is required even if tests and build already pass.
 13. If the release changes adapters, runtime protocol, or browser support behavior, update the corresponding docs before finishing.
+14. Merge the verified release commit into `main` before tagging.
+   - The release tag must point to the commit that is on `main`, not to an integration or feature branch commit that has not been merged.
+   - Prefer a fast-forward merge when `main` has not diverged; otherwise resolve the merge and rerun the relevant release gates before tagging.
+   - Push `main` first, then create and push the annotated release tag from the `main` HEAD.
 
 ## References
 
@@ -88,3 +92,5 @@
 - Safari free DMG packaging has run with `SAFARI_APP_PATH="/path/to/AI-MarkDone.app" npm run package:safari:dmg`, or a concrete signing/export/notarization blocker has been reported.
 - Safari paid App Store Connect archive/upload readiness has been confirmed, including price-setting ownership and required store metadata blockers.
 - `npm run build` succeeds.
+- The verified release commit is on `main`.
+- The annotated version tag points at the `main` release commit.
