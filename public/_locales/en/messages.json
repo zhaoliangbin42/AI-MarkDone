@@ -948,11 +948,11 @@
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
-        "message": "The AI-MarkDone ChatGPT directory is temporarily unavailable because ChatGPT now provides a native conversation navigation surface.",
+        "message": "The directory appears on short conversations with one to four messages, covering the gap before ChatGPT's native navigation appears at five or more messages.",
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "The right-side directory rail is retired; message navigation now uses the lower-right stepper.",
+        "message": "Show a compact right-side directory for short conversations.",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {

@@ -986,12 +986,17 @@ describe('BookmarksPanel', () => {
             expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('platforms', { chatgpt: false });
 
             const directoryNotice = shadow.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-retired-notice"]')!;
+            const directoryToggle = shadow.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
 
             expect(directoryNotice).toBeTruthy();
-            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeNull();
+            expect(directoryToggle).toBeTruthy();
             expect(shadow.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeNull();
             expect(shadow.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
-            expect(settingsClientRpc.setCategory).not.toHaveBeenCalledWith('chatgptDirectory', expect.anything());
+            directoryToggle.checked = false;
+            directoryToggle.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            await flushUi();
+
+            expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgptDirectory', { enabled: false });
         } finally {
             panel.hide();
             document.removeEventListener('click', documentClick);

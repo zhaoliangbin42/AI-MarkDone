@@ -76,7 +76,7 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         : DEFAULT_SETTINGS.chatgptDirectory.promptLabelMode;
 
     return {
-        enabled: false,
+        enabled: Boolean((record as any).enabled ?? DEFAULT_SETTINGS.chatgptDirectory.enabled),
         mode,
         promptLabelMode,
     };

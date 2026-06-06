@@ -121,6 +121,7 @@ type Refs = {
         pngPixelRatio: NumberFieldRef;
     };
     chatgptDirectory: {
+        enabled: HTMLInputElement;
         restorePositionAfterSend: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
@@ -231,6 +232,11 @@ export class SettingsTabView {
         );
 
         const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptSettingsLabel'));
+        const chatGptDirectoryEnabled = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryEnabledLabel'),
+            t('chatgptDirectoryEnabledDesc'),
+        );
         const chatGptRestorePositionAfterSend = this.createToggle(
             chatGptDirectoryGroup.body,
             t('chatgptRestorePositionAfterSendLabel'),
@@ -365,6 +371,7 @@ export class SettingsTabView {
                 pngPixelRatio,
             },
             chatgptDirectory: {
+                enabled: chatGptDirectoryEnabled.input,
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
@@ -386,6 +393,7 @@ export class SettingsTabView {
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
+        this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
@@ -580,6 +588,11 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setExportSettings?.({ pngPixelRatio: raw });
         });
+        this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.enabled.checked;
+            this.settings.chatgptDirectory.enabled = next;
+            void this.actions.setChatGptDirectorySettings?.({ enabled: next });
+        });
         this.refs.chatgptDirectory.restorePositionAfterSend.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.restorePositionAfterSend.checked;
             this.settings.chatgptBehavior.restorePositionAfterSend = next;
@@ -624,6 +637,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
+        this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
@@ -637,6 +651,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.reader.renderCodeInReader);
         this.syncToggle(this.refs.reader.showOutlineInReader);
         this.syncToggle(this.refs.reader.promptPositionBottom);
+        this.syncToggle(this.refs.chatgptDirectory.enabled);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);

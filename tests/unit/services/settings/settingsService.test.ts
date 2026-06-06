@@ -137,7 +137,7 @@ describe('settingsService', () => {
         );
     });
 
-    it('keeps the scoped ChatGPT directory retired even when stored settings request it', () => {
+    it('writes scoped ChatGPT compact directory settings', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptDirectory', {
             enabled: true,
             mode: 'expanded',
@@ -145,11 +145,11 @@ describe('settingsService', () => {
             showFoldDock: true,
         }).next;
 
-        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded', promptLabelMode: 'headTail' });
+        expect(next.chatgptDirectory).toEqual({ enabled: true, mode: 'expanded', promptLabelMode: 'headTail' });
         expect(next).not.toHaveProperty('chatgpt');
 
         const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense', promptLabelMode: 'tail' }).next;
-        expect(invalid.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
+        expect(invalid.chatgptDirectory).toEqual({ enabled: true, mode: 'preview', promptLabelMode: 'head' });
     });
 
     it('writes scoped ChatGPT behavior settings without restoring retired ChatGPT category', () => {

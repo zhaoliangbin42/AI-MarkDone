@@ -948,11 +948,11 @@
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
-        "message": "由于 ChatGPT 已经提供官方对话导航，AI-MarkDone 的 ChatGPT 目录条暂时下架。",
+        "message": "目录条会在包含 1 到 4 条消息的短对话中显示，用来补足 ChatGPT 官方导航只在 5 条以上消息时出现的空档。",
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "右侧目录条已下架；消息导航现在使用右下角 Stepper。",
+        "message": "为短对话显示右侧紧凑目录条。",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {

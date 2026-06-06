@@ -18,7 +18,7 @@ import { SendController } from '../../ui/content/sending/SendController';
 import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
-import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
+import { ChatGPTCompactDirectoryController } from '../../ui/content/controllers/ChatGPTCompactDirectoryController';
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
 import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
@@ -32,7 +32,7 @@ ensurePageTokens();
 installPerfProbeGlobal();
 installLongTaskProbe();
 
-const CHATGPT_DIRECTORY_SURFACE_ENABLED: boolean = false;
+const CHATGPT_DIRECTORY_SURFACE_ENABLED: boolean = true;
 
 const isDebugEnabled = () => {
     try {
@@ -60,7 +60,7 @@ if (adapter) {
     const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
     const chatGptDirectory = CHATGPT_DIRECTORY_SURFACE_ENABLED && adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
-        ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
+        ? new ChatGPTCompactDirectoryController(adapter, chatGptConversationEngine)
         : null;
     const viewportResizeSuspend = adapter.getPlatformId() === 'chatgpt'
         ? new ViewportResizeSuspendController()
@@ -145,8 +145,6 @@ if (adapter) {
             ...DEFAULT_SETTINGS.chatgptDirectory,
             ...settings,
         };
-        chatGptDirectory.setDisplayMode(next.mode === 'expanded' ? 'expanded' : 'preview');
-        chatGptDirectory.setPromptLabelMode(next.promptLabelMode === 'headTail' ? 'headTail' : 'head');
         chatGptDirectory.setEnabled(Boolean(next.enabled));
     };
 

@@ -57,7 +57,7 @@ The product should avoid decorative weight. It should make long-form reading and
 | Bookmarks panel | Saved items, folders, metadata, actions | Operational density | Bookmarks surface profile + shared rows/buttons | Empty state, long titles, folder actions, selection, list virtualization risk |
 | Settings panel | Product configuration and advanced preferences | Form density | Shared form primitives | Label/help alignment, defaults, disabled states, validation copy |
 | Message toolbar | High-frequency inline actions in ChatGPT conversation flow | Compact | Toolbar component tokens and native CSS modules | Hydration, re-scan, icon alignment, hit target, host-page interference |
-| ChatGPT directory | Temporarily retired visible surface | Compact navigation density | Directory surface profile | Keep code recoverable; do not mount while ChatGPT native navigation is available |
+| ChatGPT directory | Compact short-conversation navigation | Compact navigation density | Directory surface profile | Mount only the compact rail for 1-4 message conversations; keep the older expanded rail recoverable but unmounted |
 | Modal/dialog | Focused decision or blocking action | Compact, centered | Shared dialog primitive | Focus trap, escape, inert/backdrop behavior, z-index, reduced motion |
 | Popover/hover portal | Contextual actions or previews | Compact | Shared popover primitive or documented local boundary | Anchor position, viewport collision, hover delay, dismissal |
 | Save messages dialog | Selection and confirmation flow | Task density | Dialog primitive + save-flow body | Multi-select state, error state, keyboard flow, restore scroll |

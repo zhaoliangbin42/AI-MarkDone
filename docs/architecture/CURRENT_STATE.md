@@ -78,7 +78,7 @@
 - Gemini、Claude、DeepSeek 页面运行时支持已在 v4.5.0 下线；旧书签中的平台字符串仍作为用户历史数据保留
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
   - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main` 内的结构化 turn scope（旧 `[data-turn-id-container]` 或语义 `[data-turn="user"|"assistant"]` wrapper）读取 React turn 数据，并允许在该 turn scope 内查找承载 `turn/currentTurn/prevTurn` props 的 React carrier，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
-  - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 目前作为可恢复的历史 surface 保留，但 ChatGPT 已提供官方对话导航，AI-MarkDone runtime 不再挂载自己的右侧目录条。`chatgptDirectory.enabled` 始终归一化为 `false`，Settings 仅显示下架说明，不再创建目录条开关、mode 或 prompt label controls；兼容字段仍可被迁移/归一化。该下架不影响 ChatGPTConversationEngine、Reader、Save Messages、复制、书签存储或定位 helper。
+  - `ChatGPTCompactDirectoryController` + `ChatGPTCompactDirectoryRail` 是当前右侧目录 surface：它只在当前 conversation 发现 1-4 条消息时显示，marker 宽度保持统一，当前消息只通过颜色区分；hover/touch/focus 到目录任意位置会打开一个固定最大高度的整体标题浮层，标题过多时浮层内部滚动。`chatgptDirectory.enabled` 默认开启并只控制该新版紧凑目录。旧 `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 作为可恢复的历史 surface 保留，但 runtime 不挂载。
   - `ChatGPTMessageStepperController` 是独立于旧 directory rail 的轻量 lower-right surface：它默认提供上一条/下一条按钮，按钮显示可由 `chatgptBehavior.showMessageStepper` 关闭；Left/Right 键消息导航由 `chatgptBehavior.enableArrowKeyMessageNavigation` 单独控制。定位时复用 `src/ui/content/chatgptDirectory/navigation.ts` 的 same-page helper。键盘监听默认开启，但会跳过 input、textarea、contenteditable、role=textbox、组合键、IME composing 与 AI-MarkDone 自有面板/弹窗/输入区。
   - 若未来恢复 `ChatGPTDirectoryRail`，hover accordion 与 compact preview 仍只能属于 rail UI 热路径：已渲染条目和轮次可在组件内缓存，鼠标移动时只允许更新旧/新 hover 邻近范围内的少量视觉状态，并复用已存在的 body-level preview/step-control style；不得在 hover 时全量扫描 `.rail__item`、按轮次线性查找 preview 内容、重写 token style、读取 layout rect 定位 preview，或触发目录发现、snapshot、Reader、toolbar、bookmark、resize suspend 等下层链路。
   - `ViewportResizeSuspendController` 是 ChatGPT content runtime 的轻量 viewport 宽度拖拽保护层：它只消费浏览器 `window.resize` 信号和宽度变化阈值，不依赖 ChatGPT DOM/mutation；宽度变化超过 8px 时立即通过页面级 `data-aimd-viewport-resizing` 标记让 ChatGPT action-row toolbar chrome 暂时隐藏并暂停子树渲染，停止 resize 1 秒后派发一次恢复事件。该链路只影响插件 chrome 的临时可见性，不卸载 DOM、不重建 toolbar record、不折叠 action-row toolbar 布局、不改变 snapshot、Reader、Save Messages 或书签语义。
@@ -161,7 +161,7 @@ flowchart TD
 - `ModalHost` 现在和 `panel-window` 家族一样遵守单次 dismiss/close 提交；已进入 `closing` 的 surface 不再重复触发 dismiss 回调或恢复逻辑
 - `ModalHost` 与 `panel-window` 家族现在都使用共享 focus lifecycle：打开前捕获 opener，打开稳定后把焦点移入 surface，关闭后再恢复焦点
 - Settings tab 中的公式配置写入独立 `formula` category；旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT
-- Settings tab 中的 ChatGPT Settings 分组持有 `chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关、`chatgptBehavior.showMessageStepper` 右下角消息切换按钮显示开关，以及 `chatgptBehavior.enableArrowKeyMessageNavigation` 左右方向键切换消息开关，并继续展示 ChatGPT 目录条暂时下架说明；Settings 不再创建目录条开关/模式控件；`chatgptDirectory` 仍作为兼容 category 存在但 `enabled` 归一化为 `false`，不复用平台总开关或旧 `chatgpt` category
+- Settings tab 中的 ChatGPT Settings 分组持有 `chatgptDirectory.enabled` 新版紧凑目录开关、`chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关、`chatgptBehavior.showMessageStepper` 右下角消息切换按钮显示开关，以及 `chatgptBehavior.enableArrowKeyMessageNavigation` 左右方向键切换消息开关；Settings 不恢复旧 directory mode / prompt label controls，也不复用平台总开关或旧 `chatgpt` category
 - 更新日志的一次性提示由 background 的 `bookmarks:changelogNotice:get/ack` 状态持有；BookmarksPanel 与 Reader conversation profile 都通过共享 presenter 读取并确认同一条 pending notice，因此同一版本只提示一次，不新增 Reader 私有计数或存储字段
 - `ToolbarHoverActionPortal` 是消息工具栏 hover 次动作与公式 hover 图片动作的共享 anchored portal；它负责 viewport clamp、anchor bridge 定位与顶部空间不足时的下翻，不允许调用方各自实现一次性边界补偿
 
@@ -199,11 +199,11 @@ flowchart TD
 
 ### ChatGPT Directory And Stepper
 
-- ChatGPT right-side directory rail 当前暂时下架，content runtime 不再创建 `ChatGPTDirectoryController`。
-- `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 代码作为可恢复 surface 保留；若未来恢复，rail 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
+- ChatGPT right-side directory 当前由 `ChatGPTCompactDirectoryController` / `ChatGPTCompactDirectoryRail` 挂载；仅在 1-4 条消息时显示，避免长对话时和官方导航抢占注意力。
+- `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 代码作为可恢复历史 surface 保留但不挂载；若未来恢复，rail 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
 - 右下角上一条/下一条入口由独立 `ChatGPTMessageStepperController` 持有，不属于已下架的 directory rail；它复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型。`chatgptBehavior.showMessageStepper` 只控制按钮显示，`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
 - Rail hover preview 与 accordion 的历史约束保留：只能更新 UI 层缓存和邻近 marker 状态，preview 内容从 rail 内轮次缓存读取，preview 位置保持固定 body-level surface，避免 hover 期间触发 layout measurement 或 portal style 重写。
-- 浏览器 viewport 宽度变化超过 8px 时，页面级 resize suspend 会立即保护 action-row message toolbar chrome，并临时隐藏 lower-right message stepper；停止 resize 1 秒后恢复。目录 rail chrome 不再挂载，因此不参与运行时 resize suspend。
+- 浏览器 viewport 宽度变化超过 8px 时，页面级 resize suspend 会立即保护 action-row message toolbar chrome，并临时隐藏 lower-right message stepper；停止 resize 1 秒后恢复。新版紧凑目录不参与 resize suspend。
 
 ### ChatGPT Send Position Restore
 

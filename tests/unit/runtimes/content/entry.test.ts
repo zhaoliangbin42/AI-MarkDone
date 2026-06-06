@@ -215,8 +215,8 @@ vi.mock('@/ui/content/components/i18n', () => ({
     setLocale,
 }));
 
-vi.mock('@/ui/content/controllers/ChatGPTDirectoryController', () => ({
-    ChatGPTDirectoryController: directoryCtor,
+vi.mock('@/ui/content/controllers/ChatGPTCompactDirectoryController', () => ({
+    ChatGPTCompactDirectoryController: directoryCtor,
 }));
 
 vi.mock('@/ui/content/controllers/ViewportResizeSuspendController', () => ({
@@ -337,7 +337,7 @@ describe('content runtime entry', () => {
         }));
     });
 
-    it('creates ChatGPT-only conversation engine without mounting the retired directory controller', async () => {
+    it('creates ChatGPT-only conversation engine with the compact directory controller', async () => {
         adapterPlatformId = 'chatgpt';
         settingsGetCached.mockReturnValue({
             language: 'auto',
@@ -372,9 +372,9 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         expect(engineCtor).toHaveBeenCalledTimes(1);
-        expect(directoryCtor).not.toHaveBeenCalled();
+        expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(engineInit).toHaveBeenCalledTimes(1);
-        expect(directoryInit).not.toHaveBeenCalled();
+        expect(directoryInit).toHaveBeenCalledTimes(1);
         expect(viewportResizeSuspendCtor).toHaveBeenCalledTimes(1);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreCtor).toHaveBeenCalledTimes(1);
@@ -384,7 +384,7 @@ describe('content runtime entry', () => {
         expect(messageStepperInit).toHaveBeenCalledTimes(1);
         expect(messageStepperSetVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
-        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
         expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
@@ -408,7 +408,7 @@ describe('content runtime entry', () => {
         expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
-    it('keeps retired ChatGPT directory settings from mounting a directory surface', async () => {
+    it('syncs compact ChatGPT directory visibility settings', async () => {
         adapterPlatformId = 'chatgpt';
         document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
         vi.resetModules();
@@ -454,8 +454,9 @@ describe('content runtime entry', () => {
         expect(viewportResizeSuspendDispose).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreDispose).toHaveBeenCalledTimes(1);
         expect(messageStepperDispose).toHaveBeenCalledTimes(1);
-        expect(directoryCtor).not.toHaveBeenCalled();
-        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directoryCtor).toHaveBeenCalledTimes(1);
+        expect(directoryDispose).toHaveBeenCalledTimes(1);
+        expect(directorySetEnabled).toHaveBeenLastCalledWith(false);
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
         expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
@@ -504,8 +505,8 @@ describe('content runtime entry', () => {
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(true);
         expect(messageStepperInit).toHaveBeenCalledTimes(2);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(true);
-        expect(directoryCtor).not.toHaveBeenCalled();
-        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directoryCtor).toHaveBeenCalledTimes(1);
+        expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
         expect(directorySetDisplayMode).not.toHaveBeenCalled();
         expect(directorySetPromptLabelMode).not.toHaveBeenCalled();
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
@@ -608,7 +609,7 @@ describe('content runtime entry', () => {
         });
     });
 
-    it('syncs ChatGPT arrow-key message navigation without reviving the retired directory surface', async () => {
+    it('syncs ChatGPT arrow-key message navigation independently of the compact directory surface', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
         await import('@/runtimes/content/entry');
@@ -648,7 +649,7 @@ describe('content runtime entry', () => {
 
         expect(messageStepperSetVisible).toHaveBeenLastCalledWith(false);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(false);
-        expect(directoryCtor).not.toHaveBeenCalled();
-        expect(directorySetEnabled).not.toHaveBeenCalled();
+        expect(directoryCtor).toHaveBeenCalledTimes(1);
+        expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
     });
 });
