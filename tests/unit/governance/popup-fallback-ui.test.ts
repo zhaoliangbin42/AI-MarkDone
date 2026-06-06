@@ -19,22 +19,31 @@ describe('fallback popup UI', () => {
     });
 
     it('keeps popup theme color fallback constrained to approved swatches', () => {
-        const html = readPopupHtml();
+        const script = readFileSync(resolve(process.cwd(), 'src/popup/popup.js'), 'utf-8');
 
-        expect(html).toContain('const approvedAccentColors = new Set');
-        expect(html).toContain("'#2563eb'");
-        expect(html).toContain("'#059669'");
-        expect(html).toContain("'#7c3aed'");
-        expect(html).toContain("'#e11d48'");
-        expect(html).toContain("'#d97706'");
+        expect(script).toContain('const approvedAccentColors = new Set');
+        expect(script).toContain("'#2563eb'");
+        expect(script).toContain("'#059669'");
+        expect(script).toContain("'#7c3aed'");
+        expect(script).toContain("'#e11d48'");
+        expect(script).toContain("'#d97706'");
     });
 
-    it('only links to ChatGPT from the unsupported-site popup', () => {
+    it('keeps popup JavaScript external so extension CSP does not need unsafe-inline', () => {
+        const html = readPopupHtml();
+
+        expect(html).toContain('<script src="/src/popup/popup.js"></script>');
+        expect(html).not.toMatch(/<script\b(?![^>]*\bsrc=)[^>]*>/i);
+    });
+
+    it('links to ChatGPT plus formula copy hosts from the unsupported-site popup', () => {
         const html = readPopupHtml();
 
         expect(html).toContain('href="https://chatgpt.com/"');
-        expect(html).not.toContain('gemini.google.com');
-        expect(html).not.toContain('claude.ai');
-        expect(html).not.toContain('chat.deepseek.com');
+        expect(html).toContain('href="https://gemini.google.com/"');
+        expect(html).toContain('href="https://claude.ai/"');
+        expect(html).toContain('href="https://chat.deepseek.com/"');
+        expect(html).toContain('Formula copy');
+        expect(html).toContain('Open ChatGPT, Gemini, Claude, or DeepSeek to use AI-MarkDone.');
     });
 });

@@ -9,10 +9,10 @@ describe('settings migrations', () => {
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
     });
 
-    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and strips retired ChatGPT and platform fields', () => {
+    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and preserves platform runtime fields', () => {
         const stored: any = {
             version: 3,
-            platforms: { chatgpt: false, gemini: true, claude: true, deepseek: true },
+            platforms: { chatgpt: false, gemini: true, claude: false, deepseek: true },
             chatgpt: { showConversationDirectory: false, foldingMode: 'all', enableVirtualization: false },
             behavior: { enableClickToCopy: false },
             reader: { renderCodeInReader: false, markdownTheme: 'github-light-colorblind' },
@@ -22,7 +22,7 @@ describe('settings migrations', () => {
 
         const next = loadAndNormalize(stored);
         expect(next.version).toBe(4);
-        expect(next.platforms).toEqual({ chatgpt: false });
+        expect(next.platforms).toEqual({ chatgpt: false, gemini: true, claude: false, deepseek: true });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
@@ -43,13 +43,13 @@ describe('settings migrations', () => {
         expect(next.language).toBe('zh_CN');
     });
 
-    it('ignores retired platform settings while preserving the ChatGPT runtime toggle', () => {
+    it('defaults missing formula-only platform settings on while preserving stored values', () => {
         const next = loadAndNormalize({
             version: 4,
-            platforms: { chatgpt: true, gemini: false, claude: false, deepseek: false },
+            platforms: { chatgpt: true, gemini: false, deepseek: false },
         } as any);
 
-        expect(next.platforms).toEqual({ chatgpt: true });
+        expect(next.platforms).toEqual({ chatgpt: true, gemini: false, claude: true, deepseek: false });
     });
 
     it('normalizes v3 appearance font size settings', () => {

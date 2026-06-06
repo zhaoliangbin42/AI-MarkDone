@@ -89,7 +89,7 @@ type StepperFieldRef = {
 };
 
 type Refs = {
-    platforms: Record<'chatgpt', HTMLInputElement>;
+    platforms: Record<keyof AppSettings['platforms'], HTMLInputElement>;
     behavior: {
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
@@ -165,6 +165,9 @@ export class SettingsTabView {
         const platformsGroup = this.createGroup(Icons.globe, t('platforms'));
         const platforms = {
             chatgpt: this.createToggle(platformsGroup.body, `${Icons.chatgpt} ChatGPT`, t('enableOnChatGPT')),
+            gemini: this.createToggle(platformsGroup.body, `${Icons.gemini} Gemini`, t('enableFormulaOnlyOnGemini')),
+            claude: this.createToggle(platformsGroup.body, `${Icons.claude} Claude`, t('enableFormulaOnlyOnClaude')),
+            deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} DeepSeek`, t('enableFormulaOnlyOnDeepSeek')),
         };
 
         const pageActionsGroup = this.createGroup(Icons.settings, t('toolbarPageActionsSettingsLabel'));
@@ -338,6 +341,9 @@ export class SettingsTabView {
         this.refs = {
             platforms: {
                 chatgpt: platforms.chatgpt.input,
+                gemini: platforms.gemini.input,
+                claude: platforms.claude.input,
+                deepseek: platforms.deepseek.input,
             },
             behavior: {
                 showSaveMessages: showSaveMessages.input,
@@ -373,6 +379,9 @@ export class SettingsTabView {
             storageText,
         };
         this.refs.platforms.chatgpt.dataset.role = 'settings-platform-chatgpt';
+        this.refs.platforms.gemini.dataset.role = 'settings-platform-gemini';
+        this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
+        this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
@@ -608,6 +617,9 @@ export class SettingsTabView {
         const commentExport = this.getReaderCommentExport();
         const usagePercent = this.formatPercent(this.storageUsage?.usedPercentage);
         this.refs.platforms.chatgpt.checked = Boolean(s.platforms.chatgpt);
+        this.refs.platforms.gemini.checked = Boolean(s.platforms.gemini);
+        this.refs.platforms.claude.checked = Boolean(s.platforms.claude);
+        this.refs.platforms.deepseek.checked = Boolean(s.platforms.deepseek);
 
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
@@ -630,6 +642,9 @@ export class SettingsTabView {
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
+        this.syncToggle(this.refs.platforms.gemini);
+        this.syncToggle(this.refs.platforms.claude);
+        this.syncToggle(this.refs.platforms.deepseek);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.saveContextOnly);

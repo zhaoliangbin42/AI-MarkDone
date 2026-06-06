@@ -35,15 +35,20 @@ describe('settingsService', () => {
         expect(() => planGetCategory(DEFAULT_SETTINGS as any, 'performance')).toThrow('Invalid category: performance');
     });
 
-    it('ignores retired platform toggles when writing platform settings', () => {
+    it('persists ChatGPT full runtime and formula-only platform toggles separately', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'platforms', {
             chatgpt: false,
-            gemini: true,
+            gemini: false,
             claude: true,
-            deepseek: true,
+            deepseek: false,
         }).next;
 
-        expect(next.platforms).toEqual({ chatgpt: false });
+        expect(next.platforms).toEqual({
+            chatgpt: false,
+            gemini: false,
+            claude: true,
+            deepseek: false,
+        });
     });
 
     it('merges reader comment export settings while preserving renderCodeInReader', () => {

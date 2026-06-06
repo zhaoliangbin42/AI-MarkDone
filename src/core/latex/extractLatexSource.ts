@@ -1,4 +1,10 @@
-const LATEX_ATTRIBUTE_KEYS = ['data-latex-source', 'data-math'] as const;
+const LATEX_ATTRIBUTE_KEYS = [
+    'data-latex-source',
+    'data-latex',
+    'data-tex',
+    'data-math',
+    'data-original-tex',
+] as const;
 
 const looksLikeLatex = (value: string): boolean =>
     /\\[a-zA-Z]+/.test(value) || /\\[^\s]/.test(value) || /[_^]/.test(value);
@@ -39,6 +45,15 @@ const getKatexErrorLatex = (element: Element): string | null => {
     return text;
 };
 
+const getAccessibleLatex = (element: Element): string | null => {
+    const label = element.getAttribute('aria-label')?.trim()
+        || element.getAttribute('title')?.trim()
+        || null;
+    if (!label) return null;
+    if (!looksLikeLatex(label)) return null;
+    return label;
+};
+
 export function extractLatexSource(element: Element | null): string | null {
     if (!element) return null;
 
@@ -48,6 +63,8 @@ export function extractLatexSource(element: Element | null): string | null {
     const annotationLatex = getAnnotationLatex(element);
     if (annotationLatex) return annotationLatex;
 
-    return getKatexErrorLatex(element);
-}
+    const katexErrorLatex = getKatexErrorLatex(element);
+    if (katexErrorLatex) return katexErrorLatex;
 
+    return getAccessibleLatex(element);
+}

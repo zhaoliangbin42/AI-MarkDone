@@ -57,6 +57,7 @@ export function prepareExtensionTarget(target: ExtensionTarget): void {
     cpSync(resolve(process.cwd(), 'public/formula-renderer.html'), join(distDir, 'formula-renderer.html'));
     mkdirSync(join(distDir, 'src/popup'), { recursive: true });
     cpSync(resolve(process.cwd(), 'src/popup/popup.html'), join(distDir, 'src/popup/popup.html'));
+    cpSync(resolve(process.cwd(), 'src/popup/popup.js'), join(distDir, 'src/popup/popup.js'));
     mkdirSync(join(distDir, 'vendor/katex'), { recursive: true });
     cpSync(resolve(process.cwd(), 'node_modules/katex/dist/katex.min.css'), join(distDir, 'vendor/katex/katex.min.css'));
     cpSync(resolve(process.cwd(), 'node_modules/katex/dist/fonts'), join(distDir, 'vendor/katex/fonts'), { recursive: true });

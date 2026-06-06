@@ -16,6 +16,18 @@ describe('extractLatexSource', () => {
         expect(extractLatexSource(child)).toBe('\\frac{1}{2}');
     });
 
+    it('extracts from common platform formula attributes', () => {
+        for (const [attribute, value] of [
+            ['data-latex', '\\alpha_1'],
+            ['data-tex', '\\beta_2'],
+            ['data-original-tex', '\\gamma_3'],
+        ] as const) {
+            const el = document.createElement('span');
+            el.setAttribute(attribute, value);
+            expect(extractLatexSource(el)).toBe(value);
+        }
+    });
+
     it('extracts from KaTeX annotation', () => {
         const el = document.createElement('span');
         el.innerHTML = '<annotation encoding="application/x-tex">E=mc^2</annotation>';
@@ -28,5 +40,14 @@ describe('extractLatexSource', () => {
         el.textContent = '\\alpha_1';
         expect(extractLatexSource(el)).toBe('\\alpha_1');
     });
-});
 
+    it('uses accessible labels only when they look like LaTeX', () => {
+        const latex = document.createElement('mjx-container');
+        latex.setAttribute('aria-label', '\\sqrt{x}');
+        expect(extractLatexSource(latex)).toBe('\\sqrt{x}');
+
+        const plain = document.createElement('mjx-container');
+        plain.setAttribute('aria-label', 'square root of x');
+        expect(extractLatexSource(plain)).toBeNull();
+    });
+});

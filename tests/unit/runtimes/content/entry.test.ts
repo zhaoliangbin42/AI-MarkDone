@@ -141,15 +141,24 @@ const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
 const addListener = vi.fn();
 const runtimeSendMessage = vi.fn(async () => ({ ok: true }));
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
+const startFormulaOnlyRuntime = vi.fn();
+let formulaOnlyProfile: any = null;
 
 let adapterPlatformId = 'chatgpt';
 
 vi.mock('@/drivers/content/adapters/registry', () => ({
-    getAdapter: () => ({
-        getPlatformId: () => adapterPlatformId,
-        getMessageSelector: () => '[data-testid="message"]',
-        getObserverContainer: () => document.body,
-    }),
+    getAdapter: () => adapterPlatformId === 'unknown'
+        ? null
+        : ({
+            getPlatformId: () => adapterPlatformId,
+            getMessageSelector: () => '[data-testid="message"]',
+            getObserverContainer: () => document.body,
+        }),
+}));
+
+vi.mock('@/runtimes/content/formulaOnlyRuntime', () => ({
+    getFormulaOnlyPlatformProfile: () => formulaOnlyProfile,
+    startFormulaOnlyRuntime,
 }));
 
 vi.mock('@/drivers/content/theme/theme-manager', () => ({
@@ -248,6 +257,7 @@ afterEach(() => {
     vi.clearAllMocks();
     settingsGetCached.mockReturnValue(null);
     adapterPlatformId = 'chatgpt';
+    formulaOnlyProfile = null;
     settingsSubscriber = null;
     runtimeMessageListener = null;
     document.documentElement.removeAttribute('data-aimd-theme');
@@ -255,23 +265,50 @@ afterEach(() => {
 });
 
 describe('content runtime entry', () => {
-    it('keeps runtime surfaces disabled for unsupported adapters', async () => {
+    it('does not construct runtime surfaces for unsupported hosts', async () => {
         adapterPlatformId = 'unknown';
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
         expect(ensurePageTokens).toHaveBeenCalled();
-        expect(messageToolbarCtor).toHaveBeenCalledTimes(1);
+        expect(messageToolbarCtor).not.toHaveBeenCalled();
         expect(messageToolbarsInit).not.toHaveBeenCalled();
-        expect(headerIconCtor).toHaveBeenCalledTimes(1);
+        expect(headerIconCtor).not.toHaveBeenCalled();
         expect(headerIconInit).not.toHaveBeenCalled();
-        expect(bookmarksControllerCtor).toHaveBeenCalledTimes(1);
-        expect(bookmarksPanelCtor).toHaveBeenCalledTimes(1);
-        expect(addListener).toHaveBeenCalledTimes(1);
+        expect(bookmarksControllerCtor).not.toHaveBeenCalled();
+        expect(bookmarksPanelCtor).not.toHaveBeenCalled();
+        expect(addListener).not.toHaveBeenCalled();
         expect(engineCtor).not.toHaveBeenCalled();
         expect(directoryCtor).not.toHaveBeenCalled();
-        expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeUndefined();
         expect(runtimeSendMessage).not.toHaveBeenCalled();
+    });
+
+    it('routes formula-only hosts without constructing the full ChatGPT runtime', async () => {
+        formulaOnlyProfile = {
+            id: 'gemini',
+            hostnames: ['gemini.google.com'],
+            observerRootSelectors: ['main'],
+            contentRootSelectors: ['model-response'],
+            formulaSelectors: ['.math-inline'],
+        };
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(ensurePageTokens).toHaveBeenCalled();
+        expect(startFormulaOnlyRuntime).toHaveBeenCalledWith(formulaOnlyProfile);
+        expect(readerPanelCtor).not.toHaveBeenCalled();
+        expect(sendControllerCtor).not.toHaveBeenCalled();
+        expect(bookmarksControllerCtor).not.toHaveBeenCalled();
+        expect(bookmarksPanelCtor).not.toHaveBeenCalled();
+        expect(messageToolbarCtor).not.toHaveBeenCalled();
+        expect(headerIconCtor).not.toHaveBeenCalled();
+        expect(engineCtor).not.toHaveBeenCalled();
+        expect(addListener).not.toHaveBeenCalled();
+        expect(runtimeSendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            v: 1,
+            type: 'content:ready',
+            payload: { platform: 'gemini', url: 'http://localhost:3000/' },
+        }));
     });
 
     it('announces a ChatGPT content ready handshake once after runtime setup', async () => {

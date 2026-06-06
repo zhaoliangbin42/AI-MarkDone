@@ -9,13 +9,19 @@
         "clipboardWrite",
         "storage",
         "https://chatgpt.com/*",
-        "https://chat.openai.com/*"
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://claude.ai/*",
+        "https://chat.deepseek.com/*"
     ],
     "content_scripts": [
         {
             "matches": [
                 "https://chatgpt.com/*",
-                "https://chat.openai.com/*"
+                "https://chat.openai.com/*",
+                "https://gemini.google.com/*",
+                "https://claude.ai/*",
+                "https://chat.deepseek.com/*"
             ],
             "js": [
                 "content.js"

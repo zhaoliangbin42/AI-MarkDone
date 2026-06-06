@@ -7,6 +7,11 @@ import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/se
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { copyIcon, downloadIcon } from '../../../assets/icons';
+import type { MarkdownParserAdapter } from '../../../drivers/content/adapters/parser/MarkdownParserAdapter';
+
+export type FormulaAssetHoverControllerOptions = {
+    parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
+};
 
 export class FormulaAssetHoverController {
     private readonly mathClick: MathClickHandler;
@@ -20,11 +25,12 @@ export class FormulaAssetHoverController {
     private formulaSettings: FormulaSettings = structuredClone(DEFAULT_FORMULA_SETTINGS);
     private themeOverrides: UserThemeOverrides = {};
 
-    constructor() {
+    constructor(options: FormulaAssetHoverControllerOptions = {}) {
         this.mathClick = new MathClickHandler({
             onFormulaHoverEnter: (context) => this.scheduleHoverActionOpen(context),
             onFormulaHoverLeave: () => this.scheduleHoverActionClose(),
             onFormulaDisable: () => this.disposePortal(),
+            parserAdapter: options.parserAdapter,
         });
     }
 

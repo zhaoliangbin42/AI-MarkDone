@@ -27,10 +27,8 @@ import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
 import { getPerfFlags, installLongTaskProbe, installPerfProbeGlobal } from '../../core/perf/perfProbe';
-
-ensurePageTokens();
-installPerfProbeGlobal();
-installLongTaskProbe();
+import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formulaOnlyRuntime';
+import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
 
 const CHATGPT_DIRECTORY_SURFACE_ENABLED: boolean = false;
 
@@ -49,7 +47,30 @@ const writeDebugState = (patch: Record<string, string | boolean | number | null 
     }
 };
 
-const adapter = getAdapter();
+const formulaOnlyProfile = getFormulaOnlyPlatformProfile();
+if (formulaOnlyProfile) {
+    ensurePageTokens();
+    writeDebugState({
+        Content: 'formula-only',
+        Platform: formulaOnlyProfile.id,
+        RuntimeEnabled: true,
+    });
+    startFormulaOnlyRuntime(formulaOnlyProfile);
+    void browser.runtime.sendMessage({
+        v: PROTOCOL_VERSION,
+        id: createRequestId(),
+        type: 'content:ready',
+        payload: { platform: formulaOnlyProfile.id, url: window.location.href },
+    }).catch(() => {
+        // Background may be unavailable during extension reload or tab teardown; the next page lifecycle will retry.
+    });
+} else {
+    ensurePageTokens();
+    installPerfProbeGlobal();
+    installLongTaskProbe();
+}
+
+const adapter = formulaOnlyProfile ? null : getAdapter();
 if (adapter) {
     const themeManager = new ThemeManager();
     const mathClick = new FormulaAssetHoverController();
@@ -280,28 +301,6 @@ if (adapter) {
             // Background may be unavailable during extension reload or tab teardown; the next page lifecycle will retry.
         });
     }
-}
-
-function resolveFormulaSettings(settings: typeof DEFAULT_SETTINGS.formula | undefined): typeof DEFAULT_SETTINGS.formula {
-    return {
-        ...DEFAULT_SETTINGS.formula,
-        ...settings,
-        assetActions: {
-            ...DEFAULT_SETTINGS.formula.assetActions,
-            ...settings?.assetActions,
-        },
-    };
-}
-
-function shouldEnableFormulaInteractions(settings: typeof DEFAULT_SETTINGS.formula): boolean {
-    return Boolean(
-        settings.clickCopyMarkdown
-        || settings.assetActions.copyPng
-        || settings.assetActions.copySvg
-        || settings.assetActions.copyMathml
-        || settings.assetActions.savePng
-        || settings.assetActions.saveSvg
-    );
 }
 
 function getThemeOverrides(settings: typeof DEFAULT_SETTINGS | null | undefined): UserThemeOverrides {

@@ -182,7 +182,7 @@
   <body>
     <main class="popup-shell">
       <section class="popup-header">
-        <div class="popup-note">Unsupported page</div>
+        <div class="popup-note">Supported sites</div>
         <div class="popup-brand">
           <img class="popup-logo" src="/icons/icon48.png" alt="AI-MarkDone logo" />
           <div class="popup-brand__copy">
@@ -199,40 +199,35 @@
           </span>
           <span class="popup-link__arrow" aria-hidden="true">→</span>
         </a>
+        <a class="popup-link" href="https://gemini.google.com/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">Gemini</span>
+            <span class="popup-link__hint">Formula copy</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="popup-link" href="https://claude.ai/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">Claude</span>
+            <span class="popup-link__hint">Formula copy</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="popup-link" href="https://chat.deepseek.com/" target="_blank" rel="noreferrer">
+          <span class="popup-link__meta">
+            <span class="popup-link__label">DeepSeek</span>
+            <span class="popup-link__hint">Formula copy</span>
+          </span>
+          <span class="popup-link__arrow" aria-hidden="true">→</span>
+        </a>
       </section>
 
       <footer class="popup-footer">
         <p class="popup-footer__text">
-          The toolbar icon becomes active when the current tab matches one of the supported hosts above.
+          Open ChatGPT, Gemini, Claude, or DeepSeek to use AI-MarkDone.
         </p>
       </footer>
     </main>
-    <script>
-      (() => {
-        const approvedAccentColors = new Set(['#2563eb', '#059669', '#7c3aed', '#e11d48', '#d97706']);
-        const normalizeHexColor = (value) => {
-          if (typeof value !== 'string') return null;
-          const trimmed = value.trim();
-          if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return null;
-          const normalized = trimmed.toLowerCase();
-          return approvedAccentColors.has(normalized) ? normalized : null;
-        };
-        const applyAccentColor = (accentColor) => {
-          const color = normalizeHexColor(accentColor);
-          if (!color) return;
-          const root = document.documentElement;
-          root.style.setProperty('--aimd-interactive-primary', color);
-          root.style.setProperty('--aimd-interactive-primary-hover', `color-mix(in srgb, ${color} 82%, var(--aimd-text-primary))`);
-          root.style.setProperty('--aimd-interactive-selected', `color-mix(in srgb, ${color} 14%, transparent)`);
-        };
-        const storage = globalThis.browser?.storage ?? globalThis.chrome?.storage;
-        const result = storage?.sync?.get?.('app_settings', (result) => {
-          applyAccentColor(result?.app_settings?.appearance?.accentColor);
-        });
-        result?.then?.((next) => {
-          applyAccentColor(next?.app_settings?.appearance?.accentColor);
-        });
-      })();
-    </script>
+    <script src="/src/popup/popup.js"></script>
   </body>
 </html>

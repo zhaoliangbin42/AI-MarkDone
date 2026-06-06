@@ -33,11 +33,12 @@
 
 - 入口：`src/runtimes/content/entry.ts`
 - 当前职责：
-  - 选择当前站点 adapter
+  - 先按 URL 分流：ChatGPT 进入完整 content runtime；Gemini、Claude、DeepSeek 进入 formula runtime；未知 host 不启动页面能力
+  - 为 ChatGPT 选择当前站点 adapter
   - 初始化 theme、math click、reader、send controller
   - 初始化 bookmarks panel 与 message toolbar orchestrator
-  - 监听 background 发来的 `ui:toggle_toolbar`
-  - 启动后向 background 发送一次 `content:ready`，让长时间休眠/恢复后的 service worker 能重新识别当前 ChatGPT tab
+  - ChatGPT 完整 runtime 与 Gemini/Claude/DeepSeek formula runtime 都监听 background 发来的 `ui:toggle_toolbar`；ChatGPT 切换完整 BookmarksPanel，formula runtime 切换全局书签管理面板
+  - 启动后向 background 发送一次 `content:ready`，让长时间休眠/恢复后的 service worker 能重新识别当前 supported tab
   - 处理 best-effort 的书签跳转恢复
 
 ### Background runtime
@@ -46,7 +47,8 @@
 - 当前职责：
   - 响应 content 发起的 protocol request
   - 路由到 bookmarks handler / settings handler
-  - 处理 action icon 状态，并对已关闭、discard/freeze 恢复中、content script 暂不可达的 tab 做 best-effort 静默降级
+  - 处理 action icon/popup 状态：supported hosts 保持 active/no-popup 并通过 `ping -> ui:toggle_toolbar` 路由到 content runtime；其它页面显示 unsupported popup
+  - 对已关闭、discard/freeze 恢复中、content script 暂不可达的 tab 做 best-effort 静默降级
   - 在启动时执行 best-effort journal recovery
 
 ---
@@ -64,7 +66,7 @@
 - request id `id`
 - type-based request/response
 - 统一错误码
-- ChatGPT content runtime 通过 `content:ready` 进行轻量恢复握手；extension action click 使用 `ping -> ui:toggle_toolbar`，不保活 MV3 service worker，也不新增动态注入权限
+- Supported content runtime 通过 `content:ready` 进行轻量恢复握手；extension action click 使用 `ping -> ui:toggle_toolbar`，不保活 MV3 service worker，也不新增动态注入权限。ChatGPT full runtime 打开完整 BookmarksPanel；Gemini、Claude、DeepSeek formula runtime 打开全局书签管理面板
 
 当前协议语义说明已经以 `docs/architecture/RUNTIME_PROTOCOL.md` 为权威；阅读时应以它和 `src/contracts/protocol.ts` 共同作为当前真相。
 
@@ -74,8 +76,8 @@
 
 ### Platform adapter
 
-- 当前生产 adapter 为 `src/drivers/content/adapters/sites/chatgpt.ts`
-- Gemini、Claude、DeepSeek 页面运行时支持已在 v4.5.0 下线；旧书签中的平台字符串仍作为用户历史数据保留
+- 当前生产完整页面 adapter 为 `src/drivers/content/adapters/sites/chatgpt.ts`
+- Gemini、Claude、DeepSeek 当前保留公式复制 runtime，用于单公式 LaTeX 点击复制与用户启用的公式 PNG/SVG/MathML copy/save；旧书签中的平台字符串仍作为用户历史数据保留
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
   - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main` 内的结构化 turn scope（旧 `[data-turn-id-container]` 或语义 `[data-turn="user"|"assistant"]` wrapper）读取 React turn 数据，并允许在该 turn scope 内查找承载 `turn/currentTurn/prevTurn` props 的 React carrier，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
   - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 目前作为可恢复的历史 surface 保留，但 ChatGPT 已提供官方对话导航，AI-MarkDone runtime 不再挂载自己的右侧目录条。`chatgptDirectory.enabled` 始终归一化为 `false`，Settings 仅显示下架说明，不再创建目录条开关、mode 或 prompt label controls；兼容字段仍可被迁移/归一化。该下架不影响 ChatGPTConversationEngine、Reader、Save Messages、复制、书签存储或定位 helper。
@@ -160,7 +162,7 @@ flowchart TD
 - `ReaderPanel`、`SaveMessagesDialog`、`BookmarkSaveDialog` 与 `BookmarksPanel` 现在都通过 stable shell/backdrop ownership 保持首次 mount 的外层节点；后续内容刷新只更新内部内容区，不再重建进入动画绑定的外层 DOM
 - `ModalHost` 现在和 `panel-window` 家族一样遵守单次 dismiss/close 提交；已进入 `closing` 的 surface 不再重复触发 dismiss 回调或恢复逻辑
 - `ModalHost` 与 `panel-window` 家族现在都使用共享 focus lifecycle：打开前捕获 opener，打开稳定后把焦点移入 surface，关闭后再恢复焦点
-- Settings tab 中的公式配置写入独立 `formula` category；旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT
+- Settings tab 中的公式配置写入独立 `formula` category；平台开关写入 `platforms` category。`platforms.chatgpt` 控制 ChatGPT 完整 runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime。旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT
 - Settings tab 中的 ChatGPT Settings 分组持有 `chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关、`chatgptBehavior.showMessageStepper` 右下角消息切换按钮显示开关，以及 `chatgptBehavior.enableArrowKeyMessageNavigation` 左右方向键切换消息开关，并继续展示 ChatGPT 目录条暂时下架说明；Settings 不再创建目录条开关/模式控件；`chatgptDirectory` 仍作为兼容 category 存在但 `enabled` 归一化为 `false`，不复用平台总开关或旧 `chatgpt` category
 - 更新日志的一次性提示由 background 的 `bookmarks:changelogNotice:get/ack` 状态持有；BookmarksPanel 与 Reader conversation profile 都通过共享 presenter 读取并确认同一条 pending notice，因此同一版本只提示一次，不新增 Reader 私有计数或存储字段
 - `ToolbarHoverActionPortal` 是消息工具栏 hover 次动作与公式 hover 图片动作的共享 anchored portal；它负责 viewport clamp、anchor bridge 定位与顶部空间不足时的下翻，不允许调用方各自实现一次性边界补偿
@@ -193,7 +195,7 @@ flowchart TD
   - inline comments：comment session、highlight overlay 与右侧 gutter anchor 仍局限在 Reader overlay 内，不依赖 background/storage；但 comment export 的 prompt/template/prompt-position 配置已提升到 settings 域持久化，Reader export popover 只负责预览与复制最终结果
 - Reader conversation profile 还拥有一条临时 Sticky 摘录链路：选区浮层的 `Stick` action 只消费现有 atomic selection Markdown export，将内容在当前页面生命周期内渲染为 sanitized Markdown block；Sticky block 保存在 `ReaderPanel` 实例内存状态中，翻页和关闭/重开 Reader 时保持不变，只有页面刷新或 content runtime 重新初始化才允许丢失。block 自身不限高且不使用卡片外框，左侧只保留拖拽与删除两枚纵向操作按钮。该链路不进入 bookmark-preview profile，不写入 background/storage，也不改变 Reader 内容采集、导出、书签、发送或评论合同。宽屏时 Sticky 是左侧 rail，宽度可拖拽且最大 clamp 到 Reader body 宽度的 2/3；窄屏时只允许作为 Reader 内部 drawer 覆盖，不形成三栏布局；展开入口位于 Reader footer 左侧 action cluster 前。
 - Reader 不再新增专用图表渲染扩展链路；需要展示图表时保持 fenced code 源码，避免把重型渲染库重新带入 content runtime 或额外 overlay 生命周期
-- 公式点击复制与单公式 PNG/SVG/MathML hover 动作由 `FormulaAssetHoverController` 统一承载，运行时消费 `formula` settings 与 build-time target surface policy 做 gating；hover 动作默认全部关闭，只有用户显式启用的 action 才显示，既有已存 `formula.assetActions` 选择在归一化/迁移中保留。Safari App Store target 隐藏二进制 PNG/SVG clipboard copy 动作，但保留 MathML copy 与 PNG/SVG save 下载动作。LaTeX source 提取、MathJax iframe renderer、PNG rasterize、clipboard/download services 仍保持独立，不感知 Settings UI
+- 公式点击复制与单公式 PNG/SVG/MathML hover 动作由 `FormulaAssetHoverController` 统一承载，运行时消费 `formula` settings、`platforms` settings 与 build-time target surface policy 做 gating；hover 动作默认全部关闭，只有用户显式启用的 action 才显示，既有已存 `formula.assetActions` 选择在归一化/迁移中保留。ChatGPT 通过完整 message runtime 启用该 controller；Gemini、Claude、DeepSeek 通过 formula runtime 在 bounded formula roots 上启用同一个 controller，并把恢复的旧 `MarkdownParserAdapter` 公式子链路注入 `MathClickHandler`，由平台自己的 `isMathNode`、`extractLatex` 与 `isBlockMath` 完成识别、源码提取和 display mode 判定。Formula runtime 可由对应平台开关实时关闭；它会参与 `content:ready` / `ping` / `ui:toggle_toolbar` 运行时协议，使扩展图标保持 active 并可打开全局 BookmarksPanel。Safari App Store target 隐藏二进制 PNG/SVG clipboard copy 动作，但保留 MathML copy 与 PNG/SVG save 下载动作。LaTeX source 提取、MathJax iframe renderer、PNG rasterize、clipboard/download services 仍保持独立，不感知 Settings UI
 - Reader shell chrome 与正文排版都继续由 tokenized panel/template contract 持有，不再额外接入开源 Markdown 主题 preset
 - fullscreen Reader 切换仍属于 surface state change，不复用 centered panel 的 open/close transform；fullscreen Reader 只保留更轻的 fade-style motion
 

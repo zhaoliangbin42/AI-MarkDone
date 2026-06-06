@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Formula: Restored formula copy on Gemini, Claude, and DeepSeek pages. These hosts now support single-formula LaTeX click-copy and any formula PNG/SVG/MathML copy/save actions the user has enabled.
+- Settings: Added per-platform toggles for Gemini, Claude, and DeepSeek formula copy.
+
+### Fixed
+- Formula: Restored the active extension action state on Gemini, Claude, and DeepSeek so the extension icon no longer falls back to the unsupported-page popup.
+- Formula: Kept DeepSeek think-content formulas outside the restored formula copy roots.
+- Formula: Reconnected Gemini, Claude, and DeepSeek to their legacy formula parser chain for formula recognition, LaTeX extraction, and display-mode detection.
+
 ## [4.5.0] - 2026-06-05
 
 ### Added

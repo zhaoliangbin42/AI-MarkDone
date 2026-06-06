@@ -2290,5 +2290,17 @@
     "streamingStatus": {
         "message": "生成中...",
         "description": "Message for streamingStatus"
+    },
+    "enableFormulaOnlyOnGemini": {
+        "message": "在 Gemini 启用公式复制。",
+        "description": "Message for enableFormulaOnlyOnGemini"
+    },
+    "enableFormulaOnlyOnClaude": {
+        "message": "在 Claude 启用公式复制。",
+        "description": "Message for enableFormulaOnlyOnClaude"
+    },
+    "enableFormulaOnlyOnDeepSeek": {
+        "message": "在 DeepSeek 启用公式复制。",
+        "description": "Message for enableFormulaOnlyOnDeepSeek"
     }
 }

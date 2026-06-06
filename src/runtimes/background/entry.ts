@@ -4,24 +4,12 @@ import { handleCloudBackupRequest } from './handlers/cloudBackup';
 import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
 import { logger } from '../../core/logger';
+import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
-function extractSupportedHostPatterns(): string[] {
-    const runtime = browserCompat.runtime;
-    const manifest = runtime?.getManifest?.() as any;
-    if (!manifest) return [];
-    const mv = manifest.manifest_version;
-    if (mv === 3) {
-        return (manifest.host_permissions || []) as string[];
-    }
-    // MV2: host permissions are included in `permissions` array as URL patterns.
-    return (manifest.permissions || []).filter((p: any) => typeof p === 'string' && p.startsWith('http')) as string[];
-}
-
-function isSupportedUrl(url?: string): boolean {
+function matchesHostPatterns(url: string | undefined, patterns: readonly string[]): boolean {
     if (!url) return false;
     try {
         const hostname = new URL(url).hostname;
-        const patterns = extractSupportedHostPatterns();
         return patterns.some((p) => {
             try {
                 const ph = new URL(p.replace('*://', 'https://').replace('/*', '/')).hostname;
@@ -33,6 +21,10 @@ function isSupportedUrl(url?: string): boolean {
     } catch {
         return false;
     }
+}
+
+function isSupportedUrl(url?: string): boolean {
+    return matchesHostPatterns(url, SUPPORTED_HOST_PATTERNS);
 }
 
 function isBenignTabLifecycleError(error: unknown): boolean {

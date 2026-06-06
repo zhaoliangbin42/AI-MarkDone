@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { MathClickHandler } from '@/drivers/content/math/math-click';
+import { getFormulaPlatformParserAdapter } from '@/runtimes/content/formulaPlatformParsers';
 
 function setClipboardMock() {
     const writeText = vi.fn(async () => undefined);
@@ -104,6 +105,146 @@ describe('MathClickHandler', () => {
         container.remove();
         document.documentElement.style.removeProperty('--aimd-interactive-highlight');
         document.documentElement.style.removeProperty('--aimd-interactive-flash');
+    });
+
+    it('copies LaTeX from MathJax containers with platform source attributes', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        const math = document.createElement('mjx-container');
+        math.setAttribute('data-latex', '\\int_0^1 x dx');
+        container.appendChild(math);
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler();
+        handler.enable(container);
+
+        const target = container.querySelector('mjx-container') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledWith('\\int_0^1 x dx');
+        handler.disable();
+        container.remove();
+    });
+
+    it('uses an injected platform parser for formula discovery and extraction', async () => {
+        const { writeText } = setClipboardMock();
+        const parserAdapter = {
+            isMathNode: vi.fn((node: Element) => node.classList.contains('platform-math')),
+            extractLatex: vi.fn((_node: HTMLElement) => ({ latex: '\\sqrt{x}', isBlock: true })),
+            isBlockMath: vi.fn(() => true),
+        };
+        const onFormulaHoverEnter = vi.fn();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="katex" data-latex-source="wrong"></span>
+          <span class="platform-math katex"></span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ parserAdapter, onFormulaHoverEnter });
+        handler.enable(container);
+
+        const ignored = container.querySelector('[data-latex-source]') as HTMLElement;
+        ignored.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        expect(writeText).not.toHaveBeenCalled();
+
+        const target = container.querySelector('.platform-math') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(onFormulaHoverEnter).toHaveBeenCalledWith(expect.objectContaining({
+            source: '\\sqrt{x}',
+            displayMode: true,
+        }));
+        expect(writeText).toHaveBeenCalledWith('\\sqrt{x}');
+        expect(parserAdapter.extractLatex).toHaveBeenCalledWith(target);
+        handler.disable();
+        container.remove();
+    });
+
+    it('restores the DeepSeek KaTeX annotation chain for click copy', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.className = 'ds-markdown';
+        container.innerHTML = `
+          <span class="katex-display">
+            <span class="katex">
+              <span class="katex-mathml">
+                <math><semantics><mrow></mrow><annotation encoding="application/x-tex">\\sum_i x_i</annotation></semantics></math>
+              </span>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ parserAdapter: getFormulaPlatformParserAdapter('deepseek') });
+        handler.enable(container);
+
+        const target = container.querySelector('.katex-display') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledWith('\\sum_i x_i');
+        handler.disable();
+        container.remove();
+    });
+
+    it('restores the Gemini top-level data-math chain without binding nested rendered children', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="math-inline" data-math="\\frac{1}{2}">
+            <span class="katex"><span class="katex-html">rendered</span></span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ parserAdapter: getFormulaPlatformParserAdapter('gemini') });
+        handler.enable(container);
+
+        const nested = container.querySelector('.katex') as HTMLElement;
+        nested.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledWith('\\frac{1}{2}');
+        handler.disable();
+        container.remove();
+    });
+
+    it('restores the Claude shared KaTeX parser chain for hover and click', async () => {
+        const { writeText } = setClipboardMock();
+        const onFormulaHoverEnter = vi.fn();
+        const container = document.createElement('div');
+        container.className = 'font-claude-response';
+        container.innerHTML = `
+          <span class="katex">
+            <annotation encoding="application/x-tex">\\sqrt{x}</annotation>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({
+            parserAdapter: getFormulaPlatformParserAdapter('claude'),
+            onFormulaHoverEnter,
+        });
+        handler.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(onFormulaHoverEnter).toHaveBeenCalledWith(expect.objectContaining({
+            source: '\\sqrt{x}',
+            displayMode: false,
+        }));
+        expect(writeText).toHaveBeenCalledWith('\\sqrt{x}');
+        handler.disable();
+        container.remove();
     });
 
     it('does not intercept formula clicks when Markdown click-copy is disabled', async () => {

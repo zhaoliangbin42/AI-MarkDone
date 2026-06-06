@@ -37,7 +37,13 @@ describe('background entry changelog notice wiring', () => {
                 getManifest: () => ({
                     manifest_version: 3,
                     version: '4.1.2',
-                    host_permissions: ['https://chatgpt.com/*', 'https://chat.openai.com/*'],
+                    host_permissions: [
+                        'https://chatgpt.com/*',
+                        'https://chat.openai.com/*',
+                        'https://gemini.google.com/*',
+                        'https://claude.ai/*',
+                        'https://chat.deepseek.com/*',
+                    ],
                 }),
                 onInstalled: {
                     addListener: (listener: (details: { reason?: string; previousVersion?: string }) => void) => {
@@ -191,6 +197,27 @@ describe('background entry changelog notice wiring', () => {
 
         expect(tabs.sendMessage).toHaveBeenNthCalledWith(1, 42, expect.objectContaining({ type: 'ping' }), expect.any(Function));
         expect(tabs.sendMessage).toHaveBeenNthCalledWith(2, 42, expect.objectContaining({ type: 'ui:toggle_toolbar' }), expect.any(Function));
+    });
+
+    it('treats formula-only hosts as active content runtimes for action clicks', async () => {
+        await import('@/runtimes/background/entry');
+        const tabs = (globalThis as any).browser.tabs;
+        const action = (globalThis as any).browser.action;
+
+        tabUpdatedListener?.(43, { status: 'complete' }, { url: 'https://chat.deepseek.com/a/chat/s/mock' });
+        await vi.waitFor(() => {
+            expect(action.setIcon).toHaveBeenCalledWith(expect.objectContaining({
+                tabId: 43,
+                path: expect.objectContaining({ '16': 'icons/icon16.png' }),
+            }), expect.any(Function));
+            expect(action.setPopup).toHaveBeenCalledWith({ tabId: 43, popup: '' }, expect.any(Function));
+        });
+
+        await actionClickedListener?.({ id: 43, url: 'https://chat.deepseek.com/a/chat/s/mock' });
+        await Promise.resolve();
+
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(1, 43, expect.objectContaining({ type: 'ping' }), expect.any(Function));
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(2, 43, expect.objectContaining({ type: 'ui:toggle_toolbar' }), expect.any(Function));
     });
 
     it('does not toggle the toolbar when the clicked tab has no content receiver', async () => {

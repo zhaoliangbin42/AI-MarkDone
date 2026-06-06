@@ -2,9 +2,9 @@
 
 ## Which platforms does this extension support?
 
-AI-MarkDone 4.5.0 supports ChatGPT as the only active AI page runtime.
+AI-MarkDone fully supports ChatGPT. Gemini, Claude, and DeepSeek support formula copy, along with any formula image/MathML actions you have enabled.
 
-Gemini, Claude, and DeepSeek page support has been retired. If you saved bookmarks from those platforms before, they stay in your bookmark library. You can still view, filter, export, and back them up; the extension just no longer injects tools into those sites.
+If you saved bookmarks from those platforms before, they stay in your bookmark library for viewing, filtering, export, and backup.
 
 ## What does the extension actually do, and where do I find each feature?
 

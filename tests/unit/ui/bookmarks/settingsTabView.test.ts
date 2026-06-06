@@ -4,7 +4,7 @@ import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView'
 
 const baseSettings = {
     version: 4,
-    platforms: { chatgpt: true },
+    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
         showSaveMessages: true,
         showWordCount: true,
@@ -100,9 +100,10 @@ describe('SettingsTabView', () => {
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
     });
 
-    it('only exposes the ChatGPT platform runtime toggle', () => {
+    it('exposes ChatGPT full runtime and formula-only platform toggles', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
-        const view = new SettingsTabView({ modal });
+        const onSetPlatforms = vi.fn(async () => undefined);
+        const view = new SettingsTabView({ modal, actions: { setPlatforms: onSetPlatforms } });
         view.setState({
             settings: structuredClone(baseSettings),
             storageUsage: null,
@@ -111,10 +112,16 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
 
         expect(root.querySelector('[data-role="settings-platform-chatgpt"]')).toBeTruthy();
-        expect(root.querySelector('[data-role="settings-platform-gemini"]')).toBeNull();
-        expect(root.querySelector('[data-role="settings-platform-claude"]')).toBeNull();
-        expect(root.querySelector('[data-role="settings-platform-deepseek"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-platform-gemini"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-platform-claude"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-platform-deepseek"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-platform-retirement-notice"]')).toBeNull();
+
+        const gemini = root.querySelector<HTMLInputElement>('[data-role="settings-platform-gemini"]')!;
+        gemini.checked = false;
+        gemini.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetPlatforms).toHaveBeenCalledWith({ gemini: false });
     });
 
     it('does not expose retired ChatGPT folding or directory visibility controls', async () => {
@@ -249,7 +256,7 @@ describe('SettingsTabView', () => {
         const exportButton = root.querySelector<HTMLButtonElement>('[data-role="settings-export-all-bookmarks"]');
 
         expect(root.classList.contains('aimd-settings')).toBe(true);
-        expect(platformIcons).toHaveLength(1);
+        expect(platformIcons).toHaveLength(4);
         expect(storageFill?.getAttribute('style')).toContain('50%');
         expect(exportButton).toBeTruthy();
         expect(exportButton?.classList.contains('secondary-btn')).toBe(true);

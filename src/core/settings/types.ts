@@ -54,6 +54,9 @@ export type AppSettings = {
     version: SettingsVersion;
     platforms: {
         chatgpt: boolean;
+        gemini: boolean;
+        claude: boolean;
+        deepseek: boolean;
     };
     behavior: {
         showSaveMessages: boolean;
@@ -86,7 +89,7 @@ export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
 
 export const DEFAULT_SETTINGS: AppSettings = {
     version: 4,
-    platforms: { chatgpt: true },
+    platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
         showSaveMessages: true,
         showWordCount: true,

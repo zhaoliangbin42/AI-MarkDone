@@ -2290,5 +2290,17 @@
     "streamingStatus": {
         "message": "Streaming...",
         "description": "Message for streamingStatus"
+    },
+    "enableFormulaOnlyOnGemini": {
+        "message": "Enable formula copy on Gemini.",
+        "description": "Message for enableFormulaOnlyOnGemini"
+    },
+    "enableFormulaOnlyOnClaude": {
+        "message": "Enable formula copy on Claude.",
+        "description": "Message for enableFormulaOnlyOnClaude"
+    },
+    "enableFormulaOnlyOnDeepSeek": {
+        "message": "Enable formula copy on DeepSeek.",
+        "description": "Message for enableFormulaOnlyOnDeepSeek"
     }
 }

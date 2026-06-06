@@ -36,6 +36,9 @@ export function normalizePlatformSettings(platforms: unknown): AppSettings['plat
     const record = isRecord(platforms) ? platforms : {};
     return {
         chatgpt: Boolean((record as any).chatgpt ?? DEFAULT_SETTINGS.platforms.chatgpt),
+        gemini: Boolean((record as any).gemini ?? DEFAULT_SETTINGS.platforms.gemini),
+        claude: Boolean((record as any).claude ?? DEFAULT_SETTINGS.platforms.claude),
+        deepseek: Boolean((record as any).deepseek ?? DEFAULT_SETTINGS.platforms.deepseek),
     };
 }
 

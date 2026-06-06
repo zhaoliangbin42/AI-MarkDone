@@ -2,6 +2,7 @@ import { logger } from '../../../core/logger';
 import { extractLatexSource } from '../../../core/latex/extractLatexSource';
 import { copyTextToClipboard } from '../clipboard/clipboard';
 import { getDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
+import type { MarkdownParserAdapter } from '../adapters/parser/MarkdownParserAdapter';
 
 const STYLE_ID = 'aimd-math-click-style';
 function ensureMathClickStyle(): void {
@@ -37,6 +38,7 @@ export type MathClickHandlerOptions = {
     onFormulaHoverLeave?: () => void;
     onFormulaDisable?: () => void;
     clickCopyMarkdown?: boolean;
+    parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
 };
 
 /**
@@ -136,55 +138,70 @@ export class MathClickHandler {
             if (!elements.includes(el)) elements.push(el);
         };
 
+        const addCandidate = (el: Element) => {
+            if (!this.isFormulaElement(el)) return;
+            addUnique(el);
+        };
+
         // Include container itself when it matches (MutationObserver can deliver leaf nodes).
-        if (container.matches('.katex-display, .math-block')) {
-            addUnique(container);
+        if (container.matches('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')) {
+            addCandidate(container);
         }
-        if (container.matches('.math-inline')) {
-            addUnique(container);
+        if (container.matches('.math-inline, mjx-container, .MathJax')) {
+            addCandidate(container);
         }
         if (container.matches('.katex')) {
             if (!container.closest('.katex-display') && !container.closest('.math-block') && !container.closest('.math-inline')) {
-                addUnique(container);
+                addCandidate(container);
             }
         }
         if (container.matches('.katex-error')) {
             const text = container.textContent?.trim() || '';
             if (text.length > 0 && text.length < 200) {
-                addUnique(container);
+                addCandidate(container);
             }
         }
-        if (container.matches('[data-latex-source], [data-math]')) {
-            if (!container.closest('.katex') && !container.closest('.katex-display') && !container.closest('.math-block') && !container.closest('.math-inline')) {
-                addUnique(container);
+        if (container.matches('[data-latex-source], [data-latex], [data-tex], [data-math], [data-original-tex]')) {
+            if (!container.closest('.katex, .katex-display, .math-block, .math-inline, mjx-container, .MathJax')) {
+                addCandidate(container);
             }
         }
 
-        container.querySelectorAll('.katex-display, .math-block').forEach(addUnique);
-        container.querySelectorAll('.math-inline').forEach(addUnique);
+        container.querySelectorAll('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]').forEach(addCandidate);
+        container.querySelectorAll('.math-inline, mjx-container, .MathJax').forEach(addCandidate);
 
         container.querySelectorAll('.katex').forEach((el) => {
             if (el.closest('.katex-display') || el.closest('.math-block') || el.closest('.math-inline')) {
                 return;
             }
-            addUnique(el);
+            addCandidate(el);
         });
 
         container.querySelectorAll('.katex-error').forEach((el) => {
             const text = el.textContent?.trim() || '';
             if (text.length > 0 && text.length < 200) {
-                addUnique(el);
+                addCandidate(el);
             }
         });
 
-        container.querySelectorAll('[data-latex-source], [data-math]').forEach((el) => {
-            if (el.closest('.katex') || el.closest('.katex-display') || el.closest('.math-block') || el.closest('.math-inline')) {
+        container.querySelectorAll('[data-latex-source], [data-latex], [data-tex], [data-math], [data-original-tex]').forEach((el) => {
+            if (el.closest('.katex, .katex-display, .math-block, .math-inline, mjx-container, .MathJax')) {
                 return;
             }
-            addUnique(el);
+            addCandidate(el);
         });
 
         return elements;
+    }
+
+    private isFormulaElement(element: Element): boolean {
+        if (!this.options.parserAdapter) return true;
+        try {
+            return this.options.parserAdapter.isMathNode(element);
+        } catch (error) {
+            logger.warn('[AI-MarkDone][MathClick] Formula parser adapter rejected a candidate', error);
+            return false;
+        }
     }
 
     private queueNodeForProcessing(node: Element): void {
@@ -304,30 +321,57 @@ export class MathClickHandler {
 
     private notifyFormulaHoverEnter(element: Element, anchor: HTMLElement): void {
         if (!this.options.onFormulaHoverEnter) return;
-        const source = extractLatexSource(element);
-        if (!source) return;
+        const formula = this.resolveFormula(element);
+        if (!formula) return;
         this.options.onFormulaHoverEnter({
             element,
             anchor,
-            source,
-            displayMode: isDisplayMathElement(element),
+            source: formula.source,
+            displayMode: formula.displayMode,
         });
     }
 
     private async handleClick(element: Element): Promise<void> {
-        const latex = extractLatexSource(element);
-        if (!latex) {
+        const formula = this.resolveFormula(element);
+        if (!formula) {
             logger.warn('[AI-MarkDone][MathClick] No LaTeX source found for clicked element');
             return;
         }
 
-        const success = await copyTextToClipboard(latex);
+        const success = await copyTextToClipboard(formula.source);
 
         if (success) {
             this.showCopyFeedback(element as HTMLElement);
         } else {
             logger.error('[AI-MarkDone][MathClick] Failed to copy LaTeX');
         }
+    }
+
+    private resolveFormula(element: Element): { source: string; displayMode: boolean } | null {
+        const adapter = this.options.parserAdapter;
+        if (adapter && element instanceof HTMLElement) {
+            try {
+                const result = adapter.extractLatex(element);
+                const source = result?.latex?.trim();
+                if (source) {
+                    return {
+                        source,
+                        displayMode: result?.isBlock ?? adapter.isBlockMath(element),
+                    };
+                }
+                return null;
+            } catch (error) {
+                logger.warn('[AI-MarkDone][MathClick] Formula parser adapter extraction failed', error);
+                return null;
+            }
+        }
+
+        const source = extractLatexSource(element);
+        if (!source) return null;
+        return {
+            source,
+            displayMode: isDisplayMathElement(element),
+        };
     }
 
     private showCopyFeedback(element: HTMLElement): void {
@@ -353,5 +397,6 @@ export class MathClickHandler {
 function isDisplayMathElement(element: Element): boolean {
     return element.classList.contains('katex-display')
         || element.classList.contains('math-block')
-        || Boolean(element.closest('.katex-display, .math-block'));
+        || element.matches('mjx-container[display="true"], mjx-container[display="block"]')
+        || Boolean(element.closest('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]'));
 }

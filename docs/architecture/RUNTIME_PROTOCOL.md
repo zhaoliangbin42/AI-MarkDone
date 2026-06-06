@@ -80,7 +80,7 @@
 用途：
 
 - content 与 background 之间的协议可用性确认
-- content runtime 在 ChatGPT 页面完成初始化后向 background 发送 `content:ready`，payload 为 `{ platform: "chatgpt", url }`
+- content runtime 在 supported 页面完成初始化后向 background 发送 `content:ready`，payload 为 `{ platform, url }`
 - background 以 `sender.tab.id` 为权威更新该 tab 的 action icon/popup 状态；没有 sender tab id 时返回 `{ ready: false }`，不记录长期 tab registry
 
 ### UI intent
@@ -89,7 +89,8 @@
 
 用途：
 
-- background action click 先向当前 ChatGPT tab 发送 `ping`；成功后才发送 `ui:toggle_toolbar` 通知 content 切换主面板入口
+- background action click 对 supported hosts 发送 `ping`；成功后才发送 `ui:toggle_toolbar` 通知 content 切换主面板入口
+- ChatGPT full runtime 处理该 intent 时打开完整 BookmarksPanel；Gemini、Claude、DeepSeek formula runtime 处理该 intent 时打开全局书签管理面板
 - 如果 tab 已关闭、discard/freeze 恢复中，或 content script 暂不可达，background 将该次点击视为生命周期竞态并静默跳过；页面恢复后由 `content:ready` 重新接回
 
 ### Settings
