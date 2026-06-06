@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+- ChatGPT: Added a new compact right-side directory for short conversations with one to four messages, covering the gap before ChatGPT's native navigation appears on longer conversations. Old bar is kept in order to reuse in the future.
+
 ## [4.5.0] - 2026-06-05
 
 ### Added
