@@ -88,6 +88,7 @@
   - `src/ui/content/chatgptDirectory/navigation.ts` 现在是 ChatGPT 同页定位的稳定入口：Reader locate、Bookmark Go 与跨页 pending navigation 优先消费 adapter/content-discovery 产出的用户轮次位置模型，点击使用该轮次的 `jumpAnchor`；命中 anchor 后会用短生命周期的位置校准抵消官方 hydration/layout shift，但不会抢占焦点，且用户主动滚动、触摸、指针或键盘导航会中止后续校准
   - `ChatGPTSendPositionRestoreController` 是 ChatGPT-only page-behavior 层能力，由 `chatgptBehavior.restorePositionAfterSend` 默认开启地控制。它只负责发送后的阅读位置恢复，不进入正文发现链路；仅在用户主动发送前记录主滚动容器、scrollTop 与顶部附近 turn anchor，发送后用短生命周期 MutationObserver / scroll listener / rAF 合并做 instant restore。关闭时没有 observer/rAF/额外 scroll listener；开启但未发送时只有少量 capture 事件监听；armed 后会在用户 wheel/touch/pointer/keyboard、官方滚到底部、Reader locate、Bookmark Go、90 秒超时或恢复次数上限时释放。
   - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 与书签保存正文通过 `readerContentSource` 共享唯一正文供给：ChatGPT 上的正式正文入口必须强制刷新 `ChatGPTConversationEngine` 的完整 snapshot 后构造 `ReaderItem[]`，避免被旧缓存或当前 DOM hydration/virtualization 范围截断；导出、复制、PNG 和书签保存不得各自选择正文发现或提取路径。
+  - ChatGPT snapshot 正文进入 `ReaderItem[]` 前必须经过 `normalizeChatGPTReaderMarkdown()`：引用/file citation 噪声继续移除；ChatGPT 内部 annotation token 不能裸露到 Reader/Copy/Export/Bookmark。已知 `entity` token 归一成正文显示名，已知 GenUI math widget 归一成 Markdown inline/block math，未知 annotation token 安全丢弃。
   - ChatGPT Reader 的 `jump to message` 与书签面板的同页/跨页定位入口都复用同一条 directory navigation helper
   - ChatGPT 工具栏书签保存与高亮会先通过 skeleton/container 轮次映射到 payload 的绝对 `position`，再复用现有 `url + position` 书签身份，不改变底层存储 schema
   - 消息工具栏只注入到 adapter 返回的官方 action row；ChatGPT 上若 assistant message 先出现而官方 action row 后 hydrate，`MessageToolbarOrchestrator` 会把可归属的 action-row mutation 映射回对应消息，并通过本地 lifecycle reconcile 从 `anchor_pending` 推进到 `injected`。如果 action row 已出现但首次 `injectToolbar` 在官网 hydration / network jitter 窗口失败，状态会进入 `stale` 并由 bounded targeted recovery 把该消息重新放回 incremental reconcile；该恢复只针对未注入成功的消息，不使用长期整页轮询、正文 fallback 或整页补扫作为常规路径
@@ -134,6 +135,7 @@ flowchart TD
 
 - Reader、工具栏 Copy/Copy PNG、Save Messages 导出与书签保存正文必须只通过 fresh `readerContentSource` 获取正文，并消费同一份 `ReaderItem[]` 语义。
 - ChatGPT 正文完整性由 `ChatGPTConversationEngine snapshot` 负责；DOM markdown collection 不再作为 ChatGPT 长对话的主内容源。
+- ChatGPT snapshot 可能包含官方页面渲染层已经消化掉的内部 annotation token，例如 entity metadata 或 GenUI math widget；这些 token 必须在 snapshot Markdown normalizer 层转换/清理，而不是依赖 Reader renderer 或 DOM fallback 后处理。
 - Reader locate、书签 Go、跨页 pending navigation 与当前 lower-right message stepper 共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影；已下架的右侧目录条若未来恢复，也必须复用同一投影。它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
 - ChatGPT Reader 打开后的内容页集不得通过 DOM 正文补齐；snapshot 是完整页集来源，DOM round refs 只允许把新 round position 标记为 Reader tail pending。Reader 已打开时，pending position 只有在刷新后的 `ChatGPTConversationEngine snapshot` 中存在非空 assistant 内容时才追加为新 `ReaderItem`；追加后 position 进入 known，避免 ChatGPT streaming 期间 assistant `messageId` 从占位变为真实值时重复新增页面。
 - 两个投影允许的差异只在职责上：snapshot 投影回答“每一轮的完整内容是什么”，DOM anchor 投影回答“这一轮在页面哪里、如何跳过去”。不得再引入第三套 ChatGPT 轮次发现入口。

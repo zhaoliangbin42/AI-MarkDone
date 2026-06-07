@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanChatGPTReferenceNoise } from '@/drivers/content/chatgpt/normalizeReaderMarkdown';
+import { cleanChatGPTReferenceNoise, normalizeChatGPTReaderMarkdown } from '@/drivers/content/chatgpt/normalizeReaderMarkdown';
 
 describe('cleanChatGPTReferenceNoise', () => {
     it('removes ChatGPT citation markers and file citations', () => {
@@ -41,5 +41,35 @@ describe('cleanChatGPTReferenceNoise', () => {
     it('can keep markdown links when configured for a future settings toggle', () => {
         expect(cleanChatGPTReferenceNoise('[paper](https://example.com)', { stripMarkdownLinks: false, stripBareUrls: false }))
             .toBe('[paper](https://example.com)');
+    });
+
+    it('keeps citation markers when citation stripping is disabled', () => {
+        expect(cleanChatGPTReferenceNoise('Alpha citeturn0search0 beta.', { stripCitationMarkers: false }))
+            .toBe('Alpha citeturn0search0 beta.');
+    });
+
+    it('turns ChatGPT entity annotations into their display names', () => {
+        expect(normalizeChatGPTReaderMarkdown(
+            '1976年\n由 entity["people","Whitfield Diffie","Public-key cryptography pioneer"] 和 entity["people","Martin Hellman","Public-key cryptography pioneer"] 提出。'
+        )).toBe('1976年\n由 Whitfield Diffie 和 Martin Hellman 提出。');
+    });
+
+    it('turns ChatGPT GenUI math block annotations into Markdown math', () => {
+        expect(normalizeChatGPTReaderMarkdown(
+            '其核心模型：\n\ngenui{"math_block_widget_always_prefetch_v2":{"content":"\\\\mathbf{y}=\\\\mathbf{H}\\\\mathbf{x}+\\\\mathbf{n}"}}\n\n强调：'
+        )).toBe([
+            '其核心模型：',
+            '',
+            '$$',
+            '\\mathbf{y}=\\mathbf{H}\\mathbf{x}+\\mathbf{n}',
+            '$$',
+            '',
+            '强调：',
+        ].join('\n'));
+    });
+
+    it('removes unknown ChatGPT internal annotations instead of exposing payload JSON', () => {
+        expect(normalizeChatGPTReaderMarkdown('前文 unknown{"private":"metadata"} 后文'))
+            .toBe('前文  后文');
     });
 });

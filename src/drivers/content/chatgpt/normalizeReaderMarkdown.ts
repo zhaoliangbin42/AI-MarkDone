@@ -60,6 +60,82 @@ function normalizeLatexDelimiters(markdown: string): string {
     return result;
 }
 
+function parseAnnotationPayload(payload: string): unknown {
+    try {
+        return JSON.parse(payload);
+    } catch {
+        return null;
+    }
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : null;
+}
+
+function readString(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function readEntityAnnotationText(payload: unknown): string {
+    if (Array.isArray(payload)) {
+        return readString(payload[1]) || readString(payload[0]);
+    }
+
+    const record = readRecord(payload);
+    if (!record) return '';
+
+    return readString(record.name)
+        || readString(record.title)
+        || readString(record.text)
+        || readString(record.label);
+}
+
+function readGenUiMathAnnotation(payload: unknown): { content: string; display: 'block' | 'inline' } | null {
+    const record = readRecord(payload);
+    if (!record) return null;
+
+    for (const [key, value] of Object.entries(record)) {
+        if (!key.toLowerCase().includes('math')) continue;
+        const widget = readRecord(value);
+        const content = readString(widget?.content) || readString(widget?.latex) || readString(value);
+        if (!content) continue;
+
+        const display = key.toLowerCase().includes('inline') ? 'inline' : 'block';
+        return { content, display };
+    }
+
+    return null;
+}
+
+function normalizeChatGPTAnnotationToken(kind: string, payloadSource: string): string {
+    const payload = parseAnnotationPayload(payloadSource);
+    const normalizedKind = kind.toLowerCase();
+
+    if (normalizedKind === 'entity') {
+        return readEntityAnnotationText(payload);
+    }
+
+    if (normalizedKind === 'genui') {
+        const math = readGenUiMathAnnotation(payload);
+        if (!math) return '';
+        return math.display === 'inline'
+            ? `$${math.content}$`
+            : `\n\n$$\n${math.content}\n$$\n\n`;
+    }
+
+    return '';
+}
+
+function normalizeChatGPTInternalAnnotations(markdown: string): string {
+    return markdown.replace(/([A-Za-z][\w-]*)([\s\S]*?)/g, (match: string, kind: string, payload: string) => {
+        const normalizedKind = kind.toLowerCase();
+        if (normalizedKind === 'cite' || normalizedKind === 'filecite') return match;
+        return normalizeChatGPTAnnotationToken(kind, payload);
+    });
+}
+
 export function cleanChatGPTReferenceNoise(
     markdown: string,
     options: ChatGPTReferenceNoiseOptions = DEFAULT_CHATGPT_REFERENCE_NOISE_OPTIONS,
@@ -71,6 +147,8 @@ export function cleanChatGPTReferenceNoise(
     if (resolved.stripCitationMarkers) {
         result = stripCitationMarkers(result);
     }
+
+    result = normalizeChatGPTInternalAnnotations(result);
 
     if (resolved.stripMarkdownLinks) {
         result = stripMarkdownLinks(result);

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added per-platform toggles for Gemini, Claude, and DeepSeek formula copy.
 
 ### Fixed
+- Reader: Cleaned ChatGPT snapshot-only entity and GenUI math annotations before Reader, copy, export, and bookmark content are rendered.
 - Formula: Restored the active extension action state on Gemini, Claude, and DeepSeek so the extension icon no longer falls back to the unsupported-page popup.
 - Formula: Kept DeepSeek think-content formulas outside the restored formula copy roots.
 - Formula: Reconnected Gemini, Claude, and DeepSeek to their legacy formula parser chain for formula recognition, LaTeX extraction, and display-mode detection.
