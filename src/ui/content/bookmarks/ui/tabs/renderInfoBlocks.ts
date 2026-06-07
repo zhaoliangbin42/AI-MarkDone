@@ -41,7 +41,7 @@ export function renderInfoBlocks(
     return fragment;
 }
 
-const inlineMarkdownPattern = /(\*\*([^*][\s\S]*?)\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
+const inlineMarkdownPattern = /(==([^=\n][\s\S]*?)==|\*\*([^*][\s\S]*?)\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
 
 function appendInlineMarkdown(container: HTMLElement, text: string): void {
     let lastIndex = 0;
@@ -55,15 +55,20 @@ function appendInlineMarkdown(container: HTMLElement, text: string): void {
         }
 
         if (match[2]) {
+            const mark = document.createElement('span');
+            mark.className = 'info-mark';
+            appendTextWithLineBreaks(mark, match[2]);
+            container.append(mark);
+        } else if (match[3]) {
             const strong = document.createElement('strong');
-            appendTextWithLineBreaks(strong, match[2]);
+            appendTextWithLineBreaks(strong, match[3]);
             container.append(strong);
-        } else if (match[3] && match[4]) {
+        } else if (match[4] && match[5]) {
             const anchor = document.createElement('a');
-            anchor.href = match[4];
+            anchor.href = match[5];
             anchor.target = '_blank';
             anchor.rel = 'noopener noreferrer';
-            appendTextWithLineBreaks(anchor, match[3]);
+            appendTextWithLineBreaks(anchor, match[4]);
             container.append(anchor);
         }
         lastIndex = matchIndex + match[0].length;

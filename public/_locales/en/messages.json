@@ -1455,6 +1455,10 @@
         "message": "Changelog",
         "description": "Message for tabChangelog"
     },
+    "tabFeedback": {
+        "message": "Feedback",
+        "description": "Message for tabFeedback"
+    },
     "tabAbout": {
         "message": "About",
         "description": "Message for tabAbout"

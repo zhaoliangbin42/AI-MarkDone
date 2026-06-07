@@ -77,7 +77,7 @@ dist-safari/
 - manifest 生成入口：`scripts/generate-manifest.ts`
 - dist 资源准备入口：`scripts/prepare-extension-target.ts`
 
-Safari App Store target 的 surface policy 是合规差异，不是功能 fork：Chrome/Firefox 继续保留 sponsor tab、Buy Me Coffee 二维码、GitHub 支持 CTA、赞助感谢名单、About 小红书关注卡，以及 PNG/SVG 二进制剪贴板 copy 动作；Safari 在 build-time 关闭 sponsor tab、社交关注卡和 binary clipboard copy surfaces，并在 dist 阶段裁剪 `bmc_qr.png`、`wechat_qr.png`、`xiaohongshu_card.png` 以及对应 sponsor/social locale keys。Safari 的 Save/Export PNG/SVG 下载动作继续保留，About 的官网卡片、反馈邮箱与 support contact card 也继续保留。
+Safari App Store target 的 surface policy 是合规差异，不是功能 fork：Chrome/Firefox 继续保留 sponsor tab、Buy Me Coffee 二维码、GitHub 支持 CTA、赞助感谢名单、About 小红书关注卡，以及 PNG/SVG 二进制剪贴板 copy 动作；Safari 在 build-time 关闭 sponsor tab、社交关注卡和 binary clipboard copy surfaces，并在 dist 阶段裁剪 `bmc_qr.png`、`wechat_qr.png`、`xiaohongshu_card.png` 以及对应 sponsor/social locale keys。Safari 的 Save/Export PNG/SVG 下载动作继续保留，底部 Feedback tab 的官网卡片、反馈邮箱与 support contact card 也继续保留。
 
 Google Drive Backup v1 是浏览器兼容性边界内的显式差异：Google Chrome 使用 `chrome.identity.getAuthToken()` 与 manifest `oauth2.client_id/scopes`，由浏览器托管授权缓存；支持 WebAuth 的浏览器使用 `identity.launchWebAuthFlow()` 与 `identity.getRedirectURL()`，并要求 Google Cloud Web OAuth client 配置 exact redirect URI；Firefox 使用同一 WebAuth 代码路径，必要时把 Firefox allizom redirect 转成 MDN 允许的 loopback redirect。Safari v1 不展示 Google Drive Backup，直到有可验证的 Safari auth 路径。所有 target 都不得把 refresh token、client secret、cookie、Google account id 或 Drive 文件内容写入协议响应、snapshot 或 `storage.sync`。
 

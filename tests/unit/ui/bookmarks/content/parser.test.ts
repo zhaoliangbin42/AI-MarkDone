@@ -10,36 +10,25 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-06-05');
-        expect(en.entries[3]?.leadBlocks[0]).toEqual(
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-06-07');
+        expect(zh.entries[1]?.date).toBe('2026-06-05');
+        expect(en.entries[4]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
             }),
         );
         expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual([
-            'Google Drive 云备份',
-            '发送后位置保持与消息切换',
-            '平台与导航收口',
-            '官网',
-            '原理解析',
-            '新增',
-            '优化',
-            '调整',
+            '恢复',
             '修复',
+            '官网与支持',
         ]);
         expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual([
-            'Google Drive Backup',
-            'Position Restore and Message Switching',
-            'Platform and Navigation Cleanup',
-            'Website',
-            'How it works',
-            'Added',
-            'Improved',
-            'Changed',
+            'Restored',
             'Fixed',
+            'Website and Support',
         ]);
     });
 
@@ -54,17 +43,16 @@ describe('bookmarks content parser', () => {
         );
         expect(zh.sections.map((section) => section.heading)).toEqual([
             '为什么我会做 AI-MarkDone',
-            '反馈与联系',
         ]);
         expect(zh.sections[0]?.blocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
             }),
         );
-        expect(zh.sections[1]?.blocks[1]).toEqual(
+        expect(zh.sections[0]?.blocks.at(-1)).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
-                text: expect.stringContaining('zhaoliangbin42@gmail.com'),
+                text: expect.not.stringContaining('zhaoliangbin42@gmail.com'),
             }),
         );
     });

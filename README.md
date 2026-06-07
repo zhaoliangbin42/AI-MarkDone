@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.5.0-10A37F" alt="Version 4.5.0">
+    <img src="https://img.shields.io/badge/Version-4.5.1-10A37F" alt="Version 4.5.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -52,7 +52,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 | Need | What AI-MarkDone Provides |
 | :--- | :--- |
-| ChatGPT long conversation navigation | Lower-right previous/next message controls, optional Left/Right arrow-key navigation, and direct jump back to the target turn |
+| ChatGPT long conversation navigation | Optional right-side directory rail, lower-right previous/next controls, optional Left/Right arrow-key navigation, and direct jump back to the target turn |
 | ChatGPT reading mode | A stable Reader view with Markdown rendering and keyboard navigation |
 | Copy ChatGPT answers to Markdown | Source-aware Markdown copy for formulas, code blocks, tables, images, and selected passages |
 | Export ChatGPT messages | Markdown, PDF, PNG, and ZIP workflows for reusable deliverables |
@@ -78,7 +78,9 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 ## ✨ Core Features
 
 ### ⚡ ChatGPT Message Navigation
-- **Lower-right stepper**: Move to the previous or next ChatGPT message without reopening a directory rail.
+- **Optional directory rail**: Restore the AI-MarkDone right-side conversation rail when ChatGPT does not provide one, or when you prefer the plugin rail.
+- **Official rail hiding**: When the AI-MarkDone rail is enabled, ChatGPT's official conversation rail is hidden by default to avoid duplicate navigation.
+- **Lower-right stepper**: Move to the previous or next ChatGPT message without opening the directory rail.
 - **Optional arrow keys**: Use `Left` / `Right` to move between messages when you are not typing; the setting can be turned off from ChatGPT Settings.
 - **Direct jump**: Navigation uses the same stable anchor path as ChatGPT bookmarks and Reader locate.
 - **Built for the new ChatGPT page**: Keeps navigation lightweight under ChatGPT's incremental loading model.
@@ -139,13 +141,11 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 | Platform | Status |
 | :--- | :--- |
 | **ChatGPT** | ✅ Supported |
-| **Gemini** | Retired in v4.5.0 |
-| **Claude** | Retired in v4.5.0 |
-| **DeepSeek** | Retired in v4.5.0 |
+| **Gemini** | Formula recognition only |
+| **Claude** | Formula recognition only |
+| **DeepSeek** | Formula recognition only |
 
-AI-MarkDone 4.5.0 is ChatGPT-only. Gemini, Claude, and DeepSeek pages are no longer injected by the extension. Existing saved bookmarks and backups from those retired platforms remain visible and exportable in the bookmarks library.
-
-For Gemini, consider [Gemini Voyager](https://github.com/Nagi-ovo/gemini-voyager). For cross-platform bookmark workflows, [Timeline](https://github.com/houyanchao/Timeline) is also a project I like.
+AI-MarkDone's full runtime is focused on ChatGPT. Gemini, Claude, and DeepSeek keep formula-level support for click-to-copy LaTeX and enabled formula asset actions. Existing saved bookmarks and backups from these platforms remain visible and exportable in the bookmarks library.
 
 ---
 
@@ -204,12 +204,12 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.5.0
-- Retired Gemini, Claude, and DeepSeek runtime support so AI-MarkDone now focuses on ChatGPT.
-- Kept existing saved bookmarks and backups from retired platforms available for viewing, filtering, export, and backup.
-- Kept Chrome, Firefox, and Safari browser builds while narrowing AI platform injection to ChatGPT hosts.
-- Added optional Google Drive bookmark backup/restore with a connect-before-OAuth confirmation and local-backup reminder.
-- Added a lightweight lower-right ChatGPT message stepper with optional Left/Right arrow-key navigation.
+### 4.5.1
+- Restored the optional ChatGPT right-side directory rail. When enabled, it hides ChatGPT's official conversation rail by default.
+- Restored formula recognition support for DeepSeek, Claude, and Gemini.
+- Fixed ChatGPT generative UI noise cleanup so Reader, Markdown copy, export, and bookmark save no longer include strange internal markers.
+- Fixed Firefox ChatGPT content discovery for bookmarks, Copy Markdown, Reader, and related flows.
+- Added a bottom Feedback tab in the bookmarks panel with support contact actions and the AI-MarkDone website link.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

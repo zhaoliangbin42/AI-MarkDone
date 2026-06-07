@@ -167,7 +167,9 @@ You can manage backup JSON files from the Google Drive backup settings panel. Mo
 
 Open a ChatGPT conversation. AI-MarkDone keeps a small lower-right message stepper with previous and next controls. You can hide those buttons from ChatGPT Settings. You can also use Left and Right arrow keys to move between messages when you are not typing; keyboard navigation has its own setting.
 
-The stepper and arrow-key navigation are currently available on ChatGPT conversation pages only.
+If your ChatGPT page does not have the official conversation rail, or if you prefer the plugin rail, you can also enable the AI-MarkDone right-side directory rail from ChatGPT Settings. When enabled, AI-MarkDone hides ChatGPT's official conversation rail by default so the two do not appear at the same time.
+
+The stepper, arrow-key navigation, and right-side directory rail are currently available on ChatGPT conversation pages only.
 
 ## How does word count work?
 

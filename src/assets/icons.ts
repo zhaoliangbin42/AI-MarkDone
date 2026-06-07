@@ -862,6 +862,7 @@ export const fileCodeIcon = Icons.code;
 export const fileTextIcon = Icons.fileText;
 export const imageIcon = Icons.image;
 export const infoIcon = Icons.info;
+export const globeIcon = Icons.globe;
 export const sigmaIcon = Icons.sigma;
 export const sendIcon = Icons.send;
 export const locateIcon = Icons.locate;

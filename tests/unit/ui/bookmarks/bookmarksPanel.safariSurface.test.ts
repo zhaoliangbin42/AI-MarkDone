@@ -130,7 +130,7 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         const tabIds = Array.from(shadow.querySelectorAll<HTMLElement>('[data-action="set-bookmarks-tab"]')).map((node) => node.dataset.tab);
-        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about']);
+        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'feedback']);
         expect(shadow.querySelector('[data-action="set-bookmarks-tab"][data-tab="sponsor"]')).toBeNull();
         expect(shadow.querySelector('.sponsor-panel')).toBeNull();
         expect(shadow.textContent).not.toContain('Buy Me Coffee');
@@ -140,16 +140,25 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
         expect(aboutPanel?.dataset.active).toBe('1');
         expect(aboutPanel?.querySelector('.aimd-about')).toBeTruthy();
         expect(aboutPanel?.querySelector('.info-profile__avatar')).toBeTruthy();
-        expect(aboutPanel?.querySelector<HTMLAnchorElement>('.about-website-card__button')?.href).toBe(
-            'https://zhaoliangbin42.github.io/ai-markdone/en/',
-        );
-        expect(aboutPanel?.querySelector('.support-contact-card__button--website')).toBeNull();
-        expect(aboutPanel?.querySelector<HTMLAnchorElement>('.support-contact-card__button--email')?.href).toBe(
+        expect(aboutPanel?.querySelector('.about-website-card')).toBeNull();
+        expect(aboutPanel?.querySelector('.support-contact-card')).toBeNull();
+        expect(aboutPanel?.querySelector('.social-follow-card')).toBeNull();
+        expect(aboutPanel?.textContent).not.toContain('Feedback and contact');
+
+        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="feedback"]')!.click();
+        const feedbackPanel = shadow.querySelector<HTMLElement>('.feedback-panel');
+        const websiteCta = feedbackPanel?.querySelector<HTMLAnchorElement>('.about-website-card__button');
+        expect(feedbackPanel?.dataset.active).toBe('1');
+        expect(feedbackPanel?.querySelector('.aimd-feedback')).toBeTruthy();
+        expect(feedbackPanel?.querySelector('.info-hero__title')?.textContent).toBe('Feedback');
+        expect(feedbackPanel?.querySelector<HTMLAnchorElement>('.support-contact-card__button--email')?.href).toBe(
             'mailto:zhaoliangbin42@gmail.com?subject=AI-MarkDone%20Safari%20Feedback',
         );
-        expect(aboutPanel?.querySelector<HTMLButtonElement>('[data-action="copy-support-email"]')?.textContent?.trim()).toBe('Copy Email');
-        expect(aboutPanel?.querySelector('.social-follow-card')).toBeNull();
-        expect(aboutPanel?.textContent).toContain('Feedback and contact');
+        expect(feedbackPanel?.querySelector<HTMLButtonElement>('[data-action="copy-support-email"]')?.textContent?.trim()).toBe('Copy Email');
+        expect(websiteCta?.href).toBe('https://zhaoliangbin42.github.io/ai-markdone/en/');
+        expect(websiteCta?.target).toBe('_blank');
+        expect(websiteCta?.rel).toContain('noopener');
+        expect(websiteCta?.rel).toContain('noreferrer');
 
         panel.hide();
     });

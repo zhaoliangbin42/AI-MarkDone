@@ -16,10 +16,4 @@ So in the beginning, AI-MarkDone was really just my way of removing those daily 
 
 Later on, I realized I was not the only person dealing with these things. Some people cared most about formulas. Some cared about export. Some just wanted a better way to keep track of important conversations. Every time someone told me a feature helped with a real task, I felt genuinely happy. It made the whole project feel worth continuing.
 
-If you use this extension, or take the time to send feedback, thank you. The project still has a very personal starting point, and maybe that is why I care so much about getting the details right.
-
-## Feedback and contact
-
-If you run into a problem while using it, or just want to share an idea, feel free to email me:
-
-zhaoliangbin42@gmail.com
+If you use this extension, thank you. The project still has a very personal starting point, and maybe that is why I care so much about getting the details right.

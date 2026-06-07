@@ -10,6 +10,7 @@ import {
     fileTextIcon,
     infoIcon,
     messageSquareTextIcon,
+    sendIcon,
     settingsIcon,
     xIcon,
 } from '../../../assets/icons';
@@ -19,6 +20,7 @@ import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
 import { createBookmarksTabActions } from './ui/tabs/bookmarksTabActions';
 import { SettingsTabView, type SettingsTabViewActions } from './ui/tabs/SettingsTabView';
 import { ChangelogTabView } from './ui/tabs/ChangelogTabView';
+import { FeedbackTabView } from './ui/tabs/FeedbackTabView';
 import { AboutTabView } from './ui/tabs/AboutTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
@@ -41,7 +43,7 @@ import {
 } from '../../../config/targetSurface';
 import { GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID } from '../../../../config/extension/cloudBackup';
 
-type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor';
+type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor' | 'feedback';
 
 type UiState = {
     bookmarksTab: PanelTabId;
@@ -72,7 +74,8 @@ function isPanelTabId(value: string): value is PanelTabId {
         || value === 'changelog'
         || value === 'about'
         || value === 'faq'
-        || value === 'sponsor';
+        || value === 'sponsor'
+        || value === 'feedback';
 }
 
 function isEnabledPanelTab(tab: PanelTabId): boolean {
@@ -175,6 +178,7 @@ export class BookmarksPanel {
         about: 0,
         faq: 0,
         sponsor: 0,
+        feedback: 0,
     };
 
     private visible = false;
@@ -187,6 +191,7 @@ export class BookmarksPanel {
     private aboutView: BookmarksPanelTabView | null = null;
     private faqView: BookmarksPanelTabView | null = null;
     private sponsorView: BookmarksPanelTabView | null = null;
+    private feedbackView: BookmarksPanelTabView | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private closing = false;
@@ -214,6 +219,7 @@ export class BookmarksPanel {
         if (!eventWithinTransientRoot(event)) {
             this.bookmarksView?.dismissTransientUi?.();
             this.settingsView?.dismissTransientUi?.();
+            this.feedbackView?.dismissTransientUi?.();
         }
     };
 
@@ -285,6 +291,8 @@ export class BookmarksPanel {
             this.faqView = null;
             this.sponsorView?.destroy?.();
             this.sponsorView = null;
+            this.feedbackView?.destroy?.();
+            this.feedbackView = null;
             this.render();
         });
 
@@ -360,6 +368,8 @@ export class BookmarksPanel {
         this.faqView = null;
         this.sponsorView?.destroy?.();
         this.sponsorView = null;
+        this.feedbackView?.destroy?.();
+        this.feedbackView = null;
         this.focusLifecycle.restore(document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
@@ -537,6 +547,8 @@ export class BookmarksPanel {
         aboutPanel.classList.add('about-panel');
         const faqPanel = this.faqView?.getElement() ?? document.createElement('section');
         faqPanel.classList.add('faq-panel');
+        const feedbackPanel = this.feedbackView?.getElement() ?? document.createElement('section');
+        feedbackPanel.classList.add('feedback-panel');
 
         const titleText = this.uiState.bookmarksTab === 'bookmarks'
             ? tr('tabBookmarks', 'Bookmarks')
@@ -548,9 +560,11 @@ export class BookmarksPanel {
                         ? tr('tabFaq', 'FAQ')
                         : this.uiState.bookmarksTab === 'about'
                             ? tr('tabAbout', 'About')
-                            : TARGET_SURFACE_SPONSOR_TAB_ENABLED
-                                ? tr('tabSponsor', 'Buy Me Coffee')
-                                : tr('tabBookmarks', 'Bookmarks');
+                            : this.uiState.bookmarksTab === 'feedback'
+                                ? tr('tabFeedback', 'Feedback')
+                                : TARGET_SURFACE_SPONSOR_TAB_ENABLED
+                                    ? tr('tabSponsor', 'Buy Me Coffee')
+                                    : tr('tabBookmarks', 'Bookmarks');
         const tabs: BookmarksPanelTabSpec[] = [
             { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
             { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
@@ -563,6 +577,7 @@ export class BookmarksPanel {
             sponsorPanel.classList.add('sponsor-panel');
             tabs.push({ id: 'sponsor', label: tr('tabSponsor', 'Buy Me Coffee'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' });
         }
+        tabs.push({ id: 'feedback', label: tr('tabFeedback', 'Feedback'), icon: sendIcon, content: feedbackPanel, panelClassName: 'feedback-panel' });
 
         const shell = createBookmarksPanelShell({
             titleText,
@@ -611,6 +626,7 @@ export class BookmarksPanel {
                 if (this.aboutView?.consumeEscape?.()) return;
                 if (this.faqView?.consumeEscape?.()) return;
                 if (this.sponsorView?.consumeEscape?.()) return;
+                if (this.feedbackView?.consumeEscape?.()) return;
                 this.hide();
             },
             stopPropagationAll: true,
@@ -652,6 +668,7 @@ export class BookmarksPanel {
             && this.changelogView
             && this.aboutView
             && this.faqView
+            && this.feedbackView
             && (!TARGET_SURFACE_SPONSOR_TAB_ENABLED || this.sponsorView)
         ) return;
 
@@ -745,6 +762,17 @@ export class BookmarksPanel {
                 this.sponsorView = createFallbackTabView('aimd-sponsor');
             }
         }
+
+        if (!this.feedbackView) {
+            try {
+                this.feedbackView = new FeedbackTabView();
+            } catch (error) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create feedback tab view; keeping the shell open.', {
+                    error: String(error),
+                });
+                this.feedbackView = createFallbackTabView('aimd-feedback');
+            }
+        }
     }
 
     private syncTabViews(): void {
@@ -766,6 +794,7 @@ export class BookmarksPanel {
         this.aboutView?.dismissTransientUi?.();
         this.faqView?.dismissTransientUi?.();
         this.sponsorView?.dismissTransientUi?.();
+        this.feedbackView?.dismissTransientUi?.();
         this.uiState.bookmarksTab = nextTab;
         this.render();
     }
@@ -836,6 +865,7 @@ export class BookmarksPanel {
         const aboutPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.about-panel');
         const faqPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.faq-panel');
         const sponsorPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.sponsor-panel');
+        const feedbackPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.feedback-panel');
 
         if (typeof bookmarksPanel === 'number') this.panelScrollTops.bookmarks = bookmarksPanel;
         if (settingsPanel) this.panelScrollTops.settings = settingsPanel.scrollTop;
@@ -843,6 +873,7 @@ export class BookmarksPanel {
         if (aboutPanel) this.panelScrollTops.about = aboutPanel.scrollTop;
         if (faqPanel) this.panelScrollTops.faq = faqPanel.scrollTop;
         if (sponsorPanel) this.panelScrollTops.sponsor = sponsorPanel.scrollTop;
+        if (feedbackPanel) this.panelScrollTops.feedback = feedbackPanel.scrollTop;
     }
 
     private restoreScrollTop(): void {
@@ -868,13 +899,16 @@ export class BookmarksPanel {
                     ? '.about-panel'
                     : this.uiState.bookmarksTab === 'faq'
                         ? '.faq-panel'
-                        : '.sponsor-panel';
+                        : this.uiState.bookmarksTab === 'sponsor'
+                            ? '.sponsor-panel'
+                            : '.feedback-panel';
         const panel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>(panelClass);
         if (!panel) return;
         if (this.uiState.bookmarksTab === 'changelog') panel.scrollTop = this.panelScrollTops.changelog;
         if (this.uiState.bookmarksTab === 'about') panel.scrollTop = this.panelScrollTops.about;
         if (this.uiState.bookmarksTab === 'faq') panel.scrollTop = this.panelScrollTops.faq;
         if (this.uiState.bookmarksTab === 'sponsor') panel.scrollTop = this.panelScrollTops.sponsor;
+        if (this.uiState.bookmarksTab === 'feedback') panel.scrollTop = this.panelScrollTops.feedback;
     }
 
     private emitSponsorBurst(event: MouseEvent): void {

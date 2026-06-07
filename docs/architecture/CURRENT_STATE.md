@@ -148,8 +148,8 @@ flowchart TD
 - background 负责写入和恢复
 - content UI 负责意图触发与界面交互
 - `BookmarksPanel` 现在主要承担 shell / overlay lifecycle / tab orchestration
-- `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相；`SponsorTabView` 只进入 Chrome/Firefox target surface
-- bookmarks 信息页职责已经拆开：`AboutTabView` 持有个人介绍、项目背景、独立官网卡片和 support contact card，三端都保留官网入口与反馈邮箱入口；Chrome/Firefox 额外保留 About 小红书入口，`SponsorTabView` 作为最后一个 `请我喝咖啡` tab 持有付款二维码、GitHub 支持入口与感谢赞助名单；Safari App Store target 通过 build-time surface policy 移除 sponsor tab、赞助/社交文案资源、付款二维码资源与 About 小红书关注卡
+- `BookmarksTabView`、`SettingsTabView`、`FeedbackTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相；`SponsorTabView` 只进入 Chrome/Firefox target surface
+- bookmarks 信息页职责已经拆开：`FeedbackTabView` 是最底部反馈入口，集中持有反馈邮箱动作与官网入口，三端都保留；`AboutTabView` 持有个人介绍、项目背景与 About 小红书入口；`SponsorTabView` 持有付款二维码、GitHub 支持入口与感谢赞助名单；Safari App Store target 通过 build-time surface policy 移除 sponsor tab、赞助/社交文案资源、付款二维码资源与 About 小红书关注卡
 - 书签树渲染与 virtualization 已收口到 `BookmarksTreeViewport`
 - `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot
 - `BookmarksPanel`、`BookmarkSaveDialog` 与 `SaveMessagesDialog` 已直接复用通用 `OverlaySession`；Bookmarks family 不再保留独立 overlay wrapper

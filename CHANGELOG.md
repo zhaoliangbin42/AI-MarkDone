@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [4.5.1] - 2026-06-07
+
 ### Added
+- Bookmarks panel: Added a bottom Feedback tab that groups the support email actions and the AI-MarkDone website link.
 - Formula: Restored formula copy on Gemini, Claude, and DeepSeek pages. These hosts now support single-formula LaTeX click-copy and any formula PNG/SVG/MathML copy/save actions the user has enabled.
 - Settings: Added per-platform toggles for Gemini, Claude, and DeepSeek formula copy.
 - ChatGPT: Restored the optional right-side directory rail, default off, with Settings controls for display mode and prompt labels; enabling the AI-MarkDone rail also hides ChatGPT’s own conversation navigation when detected.

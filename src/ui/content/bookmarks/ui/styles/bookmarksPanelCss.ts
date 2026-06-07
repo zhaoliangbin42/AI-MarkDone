@@ -808,7 +808,8 @@ ${getPanelChromeCss()}
 .changelog-panel,
 .about-panel,
 .faq-panel,
-.sponsor-panel {
+.sponsor-panel,
+.feedback-panel {
   min-width: 0;
   min-height: 0;
   padding: 20px;
@@ -819,7 +820,8 @@ ${getPanelChromeCss()}
 .changelog-panel-scroll,
 .about-panel-scroll,
 .faq-panel-scroll,
-.sponsor-panel-scroll {
+.sponsor-panel-scroll,
+.feedback-panel-scroll {
   width: 100%;
   max-width: 100%;
   min-height: 0;
@@ -2330,6 +2332,11 @@ ${getPanelChromeCss()}
   gap: var(--aimd-space-3);
 }
 
+.info-mark {
+  color: var(--aimd-interactive-primary);
+  font-weight: var(--aimd-font-semibold);
+}
+
 .info-profile-card {
   padding: var(--aimd-space-5);
   border-radius: var(--_bookmarks-card-radius-lg);
@@ -2378,13 +2385,8 @@ ${getPanelChromeCss()}
   align-items: center;
   padding: var(--aimd-space-5);
   border-radius: var(--_bookmarks-card-radius-lg);
-  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 22%, var(--aimd-border-default));
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--aimd-interactive-primary) 9%, var(--aimd-bg-surface)),
-      color-mix(in srgb, var(--aimd-bg-primary) 94%, var(--aimd-bg-secondary))
-    );
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
   box-shadow: var(--aimd-shadow-sm);
 }
 

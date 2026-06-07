@@ -23,6 +23,22 @@ describe('renderInfoBlocks', () => {
         expect(listStrong?.textContent).toBe('important');
     });
 
+    it('renders theme-highlight inline marks for paragraphs and list items', () => {
+        const fragment = renderInfoBlocks([
+            { type: 'paragraph', text: 'Visit the ==website==.' },
+            { type: 'list', items: ['Open ==官网=='] },
+        ]);
+
+        const host = document.createElement('div');
+        host.appendChild(fragment);
+
+        const paragraphMark = host.querySelector('p.info-copy .info-mark');
+        const listMark = host.querySelector('ul.info-list li .info-mark');
+
+        expect(paragraphMark?.textContent).toBe('website');
+        expect(listMark?.textContent).toBe('官网');
+    });
+
     it('renders image blocks through the provided asset resolver', () => {
         const fragment = renderInfoBlocks(
             [{ type: 'image', alt: 'Project mark', src: 'icons/icon128.png' }],

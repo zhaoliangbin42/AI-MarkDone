@@ -1,5 +1,31 @@
 # Changelog
 
+# 4.5.1
+2026-06-07
+
+Friends, thank you for waiting, and thank you for all the support. A few days ago, ChatGPT started rolling out its own conversation navigation rail, so in the previous version I removed the AI-MarkDone navigation rail. What I did not expect was that many people reached out and told me their ChatGPT page did not have that official rail. It now looks like the official navigation is probably a staged rollout rather than something available to everyone.
+
+So in this version, the AI-MarkDone navigation rail is back. When you enable the plugin rail, AI-MarkDone will hide ChatGPT's official rail by default so the two do not appear at the same time. Some people also told me they prefer the plugin rail, so this version gives that choice back to you.
+
+This release also includes several fixes. The ==website== built specifically for AI-MarkDone is now mostly ready as well. You are very welcome to visit it and help share it. It contains many practical guides for using the extension, and because I also want to help people understand how things work, I have added some notes about extension development too. There is still a lot to improve on the site, because the workload is not small, but if you are interested, feel free to bookmark it early.
+
+If AI-MarkDone is useful to you, a five-star rating and a short review in the extension store would help a lot. Sharing it with more people is also very welcome, so the extension can reach others who need it.
+
+## Restored
+
+- Restored the ChatGPT right-side navigation rail. Since some users already have ChatGPT's official rail, enabling the AI-MarkDone rail now hides the official one by default. Thanks to everyone on Xiaohongshu who kept asking for it.
+- Restored formula recognition support for DeepSeek, Claude, and Gemini. Some users said removing these platforms also removed a high-frequency formula workflow. After weighing the complexity of formula recognition against how often these websites change, I decided to restore formula recognition only. Other features on those platforms will not be maintained. Thanks to Xiaohongshu user @蝴蝶译梦机.
+
+## Fixed
+
+- Reader extraction now correctly handles new ChatGPT noise content. Previously, formulas or underlined text could sometimes turn into strange characters in Reader or copied Markdown source. In short, these are ChatGPT's new generative UI blocks or internal annotations; AI-MarkDone now cleans them before Reader, copy, export, and bookmark save. Thanks to Xiaohongshu user @momo.
+- Fixed Firefox content discovery failures that could break bookmark saving, Copy Markdown, Reader, and related features. Thanks to Xiaohongshu user @老年人.
+
+## Website and Support
+
+- The ==website== is mostly ready: https://zhaoliangbin42.github.io/ai-markdone/en/
+- If you like the extension, ratings, reviews, and sharing are all very welcome. They help AI-MarkDone reach more people who may need it.
+
 # 4.5.0
 2026-06-05
 

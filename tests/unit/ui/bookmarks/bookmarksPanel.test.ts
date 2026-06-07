@@ -351,6 +351,7 @@ describe('BookmarksPanel', () => {
         const panelWindow = shadow.querySelector<HTMLElement>('.panel-window.panel-window--bookmarks');
         const settingsTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]');
         const changelogTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="changelog"]');
+        const feedbackTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="feedback"]');
         const aboutTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="about"]');
         const faqTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="faq"]');
         const sponsorTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="sponsor"]');
@@ -361,6 +362,7 @@ describe('BookmarksPanel', () => {
         const aboutPanel = shadow.querySelector<HTMLElement>('.about-panel');
         const faqPanel = shadow.querySelector<HTMLElement>('.faq-panel');
         const sponsorPanel = shadow.querySelector<HTMLElement>('.sponsor-panel');
+        const feedbackPanel = shadow.querySelector<HTMLElement>('.feedback-panel');
 
         expect(panelWindow).toBeTruthy();
         expect(settingsTabButton).toBeTruthy();
@@ -368,8 +370,9 @@ describe('BookmarksPanel', () => {
         expect(aboutTabButton).toBeTruthy();
         expect(faqTabButton).toBeTruthy();
         expect(sponsorTabButton).toBeTruthy();
+        expect(feedbackTabButton).toBeTruthy();
         const tabIds = Array.from(shadow.querySelectorAll<HTMLElement>('[data-action="set-bookmarks-tab"]')).map((node) => node.dataset.tab);
-        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'sponsor']);
+        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'sponsor', 'feedback']);
         expect(sponsorTabButton?.textContent).toContain('Buy Me Coffee');
         expect(sponsorTabButton?.innerHTML).toContain('aimd-icon');
         expect(bookmarksPanel?.querySelector('.bookmarks-tab-content')).toBeTruthy();
@@ -381,6 +384,7 @@ describe('BookmarksPanel', () => {
         expect(aboutPanel?.dataset.active).toBe('0');
         expect(faqPanel?.dataset.active).toBe('0');
         expect(sponsorPanel?.dataset.active).toBe('0');
+        expect(feedbackPanel?.dataset.active).toBe('0');
         expect(panelWindow?.querySelector('.panel-footer')).toBeNull();
 
         platformTrigger!.click();
@@ -394,6 +398,7 @@ describe('BookmarksPanel', () => {
         const refreshedAboutPanel = shadow.querySelector<HTMLElement>('.about-panel');
         const refreshedFaqPanel = shadow.querySelector<HTMLElement>('.faq-panel');
         const refreshedSponsorPanel = shadow.querySelector<HTMLElement>('.sponsor-panel');
+        const refreshedFeedbackPanel = shadow.querySelector<HTMLElement>('.feedback-panel');
 
         expect(refreshedSettingsPanel?.dataset.active).toBe('1');
         expect(refreshedBookmarksPanel?.dataset.active).toBe('0');
@@ -401,6 +406,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutPanel?.dataset.active).toBe('0');
         expect(refreshedFaqPanel?.dataset.active).toBe('0');
         expect(refreshedSponsorPanel?.dataset.active).toBe('0');
+        expect(refreshedFeedbackPanel?.dataset.active).toBe('0');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Settings');
         expect(refreshedSettingsPanel?.querySelector('.aimd-settings')).toBeTruthy();
         expect(refreshedSettingsPanel?.querySelector('.settings-card')).toBeTruthy();
@@ -427,6 +433,7 @@ describe('BookmarksPanel', () => {
         const refreshedAboutTab = shadow.querySelector<HTMLElement>('.about-panel');
         const refreshedFaqTab = shadow.querySelector<HTMLElement>('.faq-panel');
         const refreshedSponsorTab = shadow.querySelector<HTMLElement>('.sponsor-panel');
+        const refreshedFeedbackTab = shadow.querySelector<HTMLElement>('.feedback-panel');
 
         expect(refreshedChangelogTab?.dataset.active).toBe('1');
         expect(refreshedBookmarksTab?.dataset.active).toBe('0');
@@ -434,6 +441,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutTab?.dataset.active).toBe('0');
         expect(refreshedFaqTab?.dataset.active).toBe('0');
         expect(refreshedSponsorTab?.dataset.active).toBe('0');
+        expect(refreshedFeedbackTab?.dataset.active).toBe('0');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
         expect(refreshedChangelogTab?.querySelector('.aimd-changelog')).toBeTruthy();
         expect(refreshedChangelogTab?.querySelector('.info-section')).toBeTruthy();
@@ -447,11 +455,9 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About');
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
-        expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(2);
-        expect(refreshedAboutActiveTab?.querySelector<HTMLAnchorElement>('.about-website-card__button')?.href).toBe(
-            'https://zhaoliangbin42.github.io/ai-markdone/en/',
-        );
-        expect(refreshedAboutActiveTab?.querySelector('.support-contact-card__button--website')).toBeNull();
+        expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(1);
+        expect(refreshedAboutActiveTab?.querySelector('.about-website-card')).toBeNull();
+        expect(refreshedAboutActiveTab?.querySelector('.support-contact-card')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(0);
         expect(refreshedAboutActiveTab?.querySelector('.social-follow-card')).toBeTruthy();
@@ -469,10 +475,10 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.textContent).not.toContain('AI-MarkDone is open source. Star us on GitHub.');
         expect(refreshedAboutActiveTab?.textContent).not.toContain('If this project helps you');
         expect(refreshedAboutActiveTab?.textContent).not.toContain('Support the project with a coffee if you want to.');
+        expect(refreshedAboutActiveTab?.textContent).not.toContain('Feedback and contact');
+        expect(refreshedAboutActiveTab?.textContent).not.toContain('zhaoliangbin42@gmail.com');
         expect(refreshedAboutActiveTab?.textContent).toContain('Why I built AI-MarkDone');
         expect(refreshedAboutActiveTab?.textContent).toContain('copy the whole block first');
-        expect(refreshedAboutActiveTab?.textContent).toContain('Feedback and contact');
-        expect(refreshedAboutActiveTab?.textContent).toContain('zhaoliangbin42@gmail.com');
         expect(refreshedAboutActiveTab?.textContent).toContain('Xiaohongshu');
         expect(refreshedAboutActiveTab?.textContent).toContain('Follow me');
         expect(refreshedAboutActiveTab?.textContent).toContain('Find me on Xiaohongshu');
@@ -498,6 +504,25 @@ describe('BookmarksPanel', () => {
         expect(refreshedSponsorActiveTab?.textContent).toContain('@匿名（Danke!）');
         expect(refreshedSponsorActiveTab?.textContent).toContain('@。（特别喜欢那个目录条功能，请你喝瓶水）');
 
+        feedbackTabButton!.click();
+
+        const refreshedFeedbackActiveTab = shadow.querySelector<HTMLElement>('.feedback-panel');
+        const feedbackWebsiteCta = refreshedFeedbackActiveTab?.querySelector<HTMLAnchorElement>('.about-website-card__button');
+        const feedbackEmailCta = refreshedFeedbackActiveTab?.querySelector<HTMLAnchorElement>('.support-contact-card__button--email');
+        expect(refreshedFeedbackActiveTab?.dataset.active).toBe('1');
+        expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Feedback');
+        expect(refreshedFeedbackActiveTab?.querySelector('.aimd-feedback')).toBeTruthy();
+        expect(refreshedFeedbackActiveTab?.querySelector('.info-hero__title')?.textContent).toBe('Feedback');
+        expect(refreshedFeedbackActiveTab?.querySelector('.support-contact-card')).toBeTruthy();
+        expect(refreshedFeedbackActiveTab?.querySelector('.about-website-card')).toBeTruthy();
+        expect(feedbackEmailCta?.href).toBe('mailto:zhaoliangbin42@gmail.com?subject=AI-MarkDone%20Safari%20Feedback');
+        expect(feedbackWebsiteCta?.href).toBe('https://zhaoliangbin42.github.io/ai-markdone/en/');
+        expect(feedbackWebsiteCta?.target).toBe('_blank');
+        expect(feedbackWebsiteCta?.rel).toContain('noopener');
+        expect(feedbackWebsiteCta?.rel).toContain('noreferrer');
+        expect(refreshedFeedbackActiveTab?.textContent).toContain('AI-MarkDone website');
+        expect(refreshedFeedbackActiveTab?.textContent).toContain('Copy Email');
+
         faqTabButton!.click();
 
         const refreshedFaqActiveTab = shadow.querySelector<HTMLElement>('.faq-panel');
@@ -517,7 +542,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.5.0',
+                pendingVersion: '4.5.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -570,15 +595,15 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.0");
-        expect(modal?.textContent).toContain('2026-06-05');
-        expect(modal?.textContent).toContain('Thanks for waiting');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.1");
+        expect(modal?.textContent).toContain('2026-06-07');
+        expect(modal?.textContent).toContain('Friends, thank you for waiting');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.1');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -586,7 +611,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.5.0',
+                pendingVersion: '4.5.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -643,7 +668,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.0');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.1');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
@@ -654,7 +679,7 @@ describe('BookmarksPanel', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
-                    pendingVersion: '4.5.0',
+                    pendingVersion: '4.5.1',
                     lastShownVersion: null,
                     reason: 'update',
                     previousVersion: '4.4.6',
@@ -664,7 +689,7 @@ describe('BookmarksPanel', () => {
                 ok: true,
                 data: {
                     pendingVersion: null,
-                    lastShownVersion: '4.5.0',
+                    lastShownVersion: '4.5.1',
                     reason: null,
                     previousVersion: '4.4.6',
                 },
@@ -891,7 +916,7 @@ describe('BookmarksPanel', () => {
             Array.from(shadow.querySelectorAll('.tab-btn span'))
                 .map((node) => node.textContent?.trim() ?? '')
                 .filter(Boolean),
-        ).toEqual(['书签', '设置', '更新日志', '常见问题', '关于我', '请我喝咖啡']);
+        ).toEqual(['书签', '设置', '更新日志', '常见问题', '关于我', '请我喝咖啡', '反馈']);
         expect(shadow.querySelector<HTMLElement>('.settings-panel')?.textContent).toContain('存储占用');
 
         panel.hide();

@@ -1455,6 +1455,10 @@
         "message": "更新日志",
         "description": "Message for tabChangelog"
     },
+    "tabFeedback": {
+        "message": "反馈",
+        "description": "Message for tabFeedback"
+    },
     "tabAbout": {
         "message": "关于我",
         "description": "Message for tabAbout"

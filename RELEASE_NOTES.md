@@ -1,5 +1,25 @@
 # Release Notes
 
+## v4.5.1 (2026-06-07)
+
+This patch restores the optional AI-MarkDone navigation rail for ChatGPT users who do not have ChatGPT's official rail, brings back formula recognition on DeepSeek, Claude, and Gemini, and fixes several Reader and browser-compatibility issues.
+
+### Added
+- Added a bottom Feedback tab in the bookmarks panel with support contact actions and the AI-MarkDone website link.
+
+### Changed
+- Restored the optional ChatGPT right-side directory rail. It remains off by default, and when enabled it hides ChatGPT's official conversation rail by default.
+- Restored formula recognition support for DeepSeek, Claude, and Gemini. These platforms support formula-level interactions only; the full runtime remains focused on ChatGPT.
+
+### Fixed
+- Fixed ChatGPT generative UI and internal annotation noise so Reader, Copy Markdown, export, and bookmark save no longer include strange marker text.
+- Fixed Firefox ChatGPT content discovery failures that could break bookmark saving, Copy Markdown, Reader, and related flows.
+
+### How it works
+- ChatGPT Reader, bookmarks, export, copy, and navigation continue to share the same snapshot-based content discovery path.
+- DeepSeek, Claude, and Gemini use a formula-only runtime that reuses the existing formula extraction and asset actions without restoring the old full adapters.
+- Firefox now uses a JSON-string bridge transport for ChatGPT page snapshots while Chrome keeps the existing object-detail path.
+
 ## v4.5.0 (2026-06-05)
 
 This release narrows AI-MarkDone to ChatGPT as the only active AI page runtime, adds Google Drive Backup, and smooths the long-conversation reading flow while keeping existing user bookmark data intact.
