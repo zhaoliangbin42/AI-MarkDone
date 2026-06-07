@@ -10,23 +10,30 @@ function installBridge(): void {
     window.eval(script);
 }
 
-function requestSnapshot(conversationId: string): Promise<any> {
+function decodeDetail(detail: unknown): any {
+    return typeof detail === 'string' ? JSON.parse(detail) : detail;
+}
+
+function requestSnapshot(conversationId: string, options?: { stringDetail?: boolean; onRawResponse?: (detail: unknown) => void }): Promise<any> {
     const requestId = `test-${Math.random().toString(36).slice(2)}`;
     return new Promise((resolve) => {
         const listener = ((event: Event) => {
-            const detail = (event as CustomEvent<any>).detail;
+            const rawDetail = (event as CustomEvent<any>).detail;
+            options?.onRawResponse?.(rawDetail);
+            const detail = decodeDetail(rawDetail);
             if (detail?.requestId !== requestId) return;
             window.removeEventListener(RESPONSE_EVENT, listener);
             resolve(detail);
         }) as EventListener;
         window.addEventListener(RESPONSE_EVENT, listener);
+        const detail = {
+            requestId,
+            type: 'snapshot',
+            conversationId,
+            force: true,
+        };
         window.dispatchEvent(new CustomEvent(REQUEST_EVENT, {
-            detail: {
-                requestId,
-                type: 'snapshot',
-                conversationId,
-                force: true,
-            },
+            detail: options?.stringDetail ? JSON.stringify(detail) : detail,
         }));
     });
 }
@@ -133,6 +140,40 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.snapshot.rounds.map((round: any) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
         expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
         expect(response.snapshot.rounds.map((round: any) => round.messageId)).toEqual(['a1', 'a2']);
+    });
+
+    it('keeps object responses for object requests', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const fetchMock = vi.fn(async () => new Response('', { status: 404 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        attachStructuredTurns();
+        const rawResponses: unknown[] = [];
+
+        installBridge();
+        const response = await requestSnapshot(conversationId, { onRawResponse: (detail) => rawResponses.push(detail) });
+
+        expect(response.ok).toBe(true);
+        expect(typeof rawResponses[0]).toBe('object');
+    });
+
+    it('returns string responses for string requests used by Firefox content scripts', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const fetchMock = vi.fn(async () => new Response('', { status: 404 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        attachStructuredTurns();
+        const rawResponses: unknown[] = [];
+
+        installBridge();
+        const response = await requestSnapshot(conversationId, {
+            stringDetail: true,
+            onRawResponse: (detail) => rawResponses.push(detail),
+        });
+
+        expect(response.ok).toBe(true);
+        expect(typeof rawResponses[0]).toBe('string');
+        expect(JSON.parse(rawResponses[0] as string).requestId).toBe(response.requestId);
     });
 
     it('builds a full snapshot from structured React turn containers when backend payload is unavailable', async () => {

@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const browserMockState = vi.hoisted(() => ({
+    isFirefox: false,
+}));
+
 vi.mock('@/drivers/shared/browser', () => ({
     browser: {
         runtime: {
             getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
+        },
+    },
+    browserInfo: {
+        get isFirefox() {
+            return browserMockState.isFirefox;
         },
     },
 }));
@@ -55,6 +64,7 @@ describe('ChatGPTConversationEngine', () => {
             configurable: true,
             value: 'visible',
         });
+        browserMockState.isFirefox = false;
     });
 
     afterEach(() => {
@@ -65,22 +75,110 @@ describe('ChatGPTConversationEngine', () => {
     });
 
     function installBridgeResponder(
-        handler: (detail: Record<string, any>) => Record<string, any>
+        handler: (detail: Record<string, any>) => Record<string, any>,
+        onRawDetail?: (detail: unknown) => void,
     ): void {
         const listener = ((event: Event) => {
-            const detail = (event as CustomEvent<any>).detail;
+            const rawDetail = (event as CustomEvent<any>).detail;
+            onRawDetail?.(rawDetail);
+            const detail = typeof rawDetail === 'string' ? JSON.parse(rawDetail) : rawDetail;
             const response = handler(detail);
+            const payload = {
+                requestId: detail.requestId,
+                ok: true,
+                ...response,
+            };
             window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                detail: {
-                    requestId: detail.requestId,
-                    ok: true,
-                    ...response,
-                },
+                detail: typeof rawDetail === 'string' ? JSON.stringify(payload) : payload,
             }));
         }) as EventListener;
         window.addEventListener('aimd:chatgpt-conversation-bridge:request', listener);
         removeBridgeResponder = () => window.removeEventListener('aimd:chatgpt-conversation-bridge:request', listener);
     }
+
+    it('dispatches object bridge detail on the default Chrome-compatible path', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const rawDetails: unknown[] = [];
+        installBridgeResponder(() => ({ snapshot: makeSnapshot(1) }), (detail) => rawDetails.push(detail));
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot?.source).toBe('runtime-bridge');
+        expect(rawDetails).toHaveLength(1);
+        expect(typeof rawDetails[0]).toBe('object');
+        expect(rawDetails[0]).toMatchObject({ type: 'snapshot', conversationId, force: false });
+    });
+
+    it('dispatches string bridge detail and parses string responses on Firefox', async () => {
+        browserMockState.isFirefox = true;
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const rawDetails: unknown[] = [];
+        installBridgeResponder(() => ({ snapshot: makeSnapshot(1) }), (detail) => rawDetails.push(detail));
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot?.source).toBe('runtime-bridge');
+        expect(rawDetails).toHaveLength(1);
+        expect(typeof rawDetails[0]).toBe('string');
+        expect(JSON.parse(rawDetails[0] as string)).toMatchObject({ type: 'snapshot', conversationId, force: false });
+    });
+
+    it('resolves null for malformed Firefox bridge responses without throwing', async () => {
+        browserMockState.isFirefox = true;
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const listener = ((event: Event) => {
+            const detail = JSON.parse((event as CustomEvent<string>).detail);
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: `{"requestId":"${detail.requestId}",`,
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+        removeBridgeResponder = () => window.removeEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot).toBeNull();
+    });
+
+    it('calls requestIdleCallback with window binding for Firefox', () => {
+        const originalRequestIdleCallback = window.requestIdleCallback;
+        const requestIdleCallback = vi.fn(function (this: unknown, callback: IdleRequestCallback) {
+            expect(this).toBe(window);
+            window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 0);
+            return 1;
+        });
+        (window as any).requestIdleCallback = requestIdleCallback;
+
+        try {
+            const engine = new ChatGPTConversationEngine(createAdapter());
+            engine.init();
+
+            expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+        } finally {
+            (window as any).requestIdleCallback = originalRequestIdleCallback;
+        }
+    });
 
     it('loads a bridge snapshot once and serves subsequent requests from cache', async () => {
         const appendSpy = vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {

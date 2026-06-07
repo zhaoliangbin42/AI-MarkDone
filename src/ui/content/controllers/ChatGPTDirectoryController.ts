@@ -382,7 +382,7 @@ export class ChatGPTDirectoryController {
         };
         const ric = window.requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
         if (typeof ric === 'function') {
-            this.rebuildTimer = ric(run, { timeout: 500 });
+            this.rebuildTimer = ric.call(window, run, { timeout: 500 });
         } else {
             this.rebuildTimer = window.setTimeout(run, 120);
         }

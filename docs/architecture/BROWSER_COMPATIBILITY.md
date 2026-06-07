@@ -99,6 +99,7 @@ Content runtime 共享同一份 TypeScript 源码，但浏览器对部分 Web AP
 当前长期规则：
 
 - `requestIdleCallback` / `cancelIdleCallback` 必须以 `window` 作为 receiver 调用。Firefox 对裸函数调用会执行 WebIDL receiver 校验，裸调用可能抛出 `called on an object that does not implement interface Window`，从而中断扫描调度、公式增量增强或其他延迟任务。
+- ChatGPT page bridge 的 Firefox content/page script 通信必须使用 JSON string `CustomEvent.detail`；Chrome/Chromium 继续使用 object detail。bridge 双端必须同时支持 object 与 string detail，浏览器差异只能停留在 transport encode/decode 层，不允许扩散到 Reader、Bookmark、Copy 或 ChatGPT snapshot 业务逻辑。
 - Shadow DOM 样式注入不得假设 `shadowRoot.adoptedStyleSheets` 在所有浏览器中都是普通数组。共享样式路径应先安全读取并验证必要数组能力；若读取、构造样式表、`replaceSync` 或重新赋值失败，必须降级到 root-scoped `<style data-aimd-style-id>` 注入。
 - 构造样式表共享缓存仍是支持浏览器的首选性能路径；fallback 只用于不支持或行为不兼容的 runtime，不应引入浏览器名称分支。
 - 站点 toolbar anchor、header anchor 与 message discovery 仍由 adapter contract 管理。Firefox runtime 兼容修复不得通过修改 ChatGPT DOM selector、添加正文 fallback、长期轮询或 aggressive retry 来绕过底层 API 错误。
@@ -108,3 +109,4 @@ Content runtime 共享同一份 TypeScript 源码，但浏览器对部分 Web AP
 - Firefox-like `adoptedStyleSheets` 非普通数组或缺少必要数组 helper 时，`ensureStyle(..., { cache: 'shared' })` 不应抛错，并应插入 root-scoped `<style>`。
 - Chrome-like `adoptedStyleSheets: CSSStyleSheet[]` 时，共享样式缓存应继续跨 ShadowRoot 复用同一个 `CSSStyleSheet`。
 - 延迟扫描与公式增量处理应覆盖 Firefox receiver binding 场景，确保 idle callback 和 cancel callback 均以 `window` 作为 `this`。
+- ChatGPT snapshot bridge 应覆盖 object detail 与 JSON string detail 两条 transport，确保 Firefox 不因 content/page 隔离边界丢失 snapshot。

@@ -1,5 +1,6 @@
 import type { SiteAdapter } from '../adapters/base';
-import { browser } from '../../shared/browser';
+import { browser, browserInfo } from '../../shared/browser';
+import { decodeBridgeDetail, encodeBridgeRequest, type BridgeWireDetail } from './bridgeTransport';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from './types';
 import { RouteWatcher } from '../injection/routeWatcher';
 import { getPerfFlags, perfCount, perfMeasure, perfSpanAsync } from '../../../core/perf/perfProbe';
@@ -429,7 +430,7 @@ export class ChatGPTConversationEngine {
             void this.rebuildCurrentConversation();
         };
         if (typeof window.requestIdleCallback === 'function') {
-            window.requestIdleCallback(run, { timeout: 1500 });
+            window.requestIdleCallback.call(window, run, { timeout: 1500 });
         } else {
             window.setTimeout(run, 600);
         }
@@ -698,11 +699,11 @@ export class ChatGPTConversationEngine {
             };
 
             const onResponse = (event: Event) => {
-                const custom = event as CustomEvent<BridgeResponse>;
-                if (!custom.detail || custom.detail.requestId !== requestId) return;
+                const detail = decodeBridgeDetail<BridgeResponse>((event as CustomEvent<unknown>).detail);
+                if (!detail || detail.requestId !== requestId) return;
                 settled = true;
                 cleanup();
-                resolve(custom.detail.ok ? custom.detail.snapshot ?? null : null);
+                resolve(detail.ok ? detail.snapshot ?? null : null);
             };
 
             const timeoutId = window.setTimeout(() => {
@@ -712,13 +713,13 @@ export class ChatGPTConversationEngine {
             }, RESPONSE_TIMEOUT_MS);
 
             window.addEventListener(RESPONSE_EVENT, onResponse as EventListener);
-            window.dispatchEvent(new CustomEvent<BridgeRequest>(REQUEST_EVENT, {
-                detail: {
+            window.dispatchEvent(new CustomEvent<BridgeWireDetail<BridgeRequest>>(REQUEST_EVENT, {
+                detail: encodeBridgeRequest({
                     requestId,
-                    type: 'snapshot',
+                    type: 'snapshot' as const,
                     conversationId,
                     force,
-                },
+                }, browserInfo.isFirefox),
             }));
         });
     }

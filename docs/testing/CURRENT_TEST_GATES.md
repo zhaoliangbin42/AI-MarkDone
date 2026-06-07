@@ -75,6 +75,8 @@ For Save Messages source changes, verification must prove the dialog enters thro
 
 For ChatGPT content-discovery changes, browser evidence is part of the gate, not an optional manual check. Before editing shared collectors, verify the proposed source order on representative conversations, route changes, and refreshes. The accepted source order is backend conversation payload first, then structurally scoped turn data (`data-turn-id-container`, `data-testid^="conversation-turn-"`, `data-turn`, or role-backed turns inside the conversation root), then lower-quality store/visible-DOM fallbacks. Lower-quality fallbacks must not replace a fuller snapshot for the same conversation, and assistant-only DOM counts must not create extra user rounds. Focused unit coverage should include `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts`, `tests/unit/drivers/content/chatgpt/chatgptConversationBridge.test.ts`, `tests/unit/drivers/content/chatgpt-adapter-fold-groups.test.ts`, and `tests/unit/drivers/content/conversation/collectConversationMessageRefs.test.ts`.
 
+If the change affects ChatGPT snapshot bridge transport, focused coverage must prove both Chrome/Chromium object `CustomEvent.detail` and Firefox JSON string `CustomEvent.detail` paths. Reader, Bookmark, Copy, and Save Messages tests should continue to exercise the shared snapshot source without adding browser-specific branches at those upper layers.
+
 If the change affects a shared surface with 2+ entrypoints, verification must also prove that production callers route through the surface-owned profile contract instead of directly shaping low-level chrome flags.
 
 If the change affects shared overlay / modal motion, verification must also prove:

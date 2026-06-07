@@ -1097,6 +1097,26 @@ describe('ChatGPTDirectoryController', () => {
         expect(railRoot?.querySelector('[data-action="directory-step-previous"]')).toBeNull();
         expect(railRoot?.querySelector('[data-action="directory-step-next"]')).toBeNull();
     });
+
+    it('calls requestIdleCallback with window binding for Firefox-compatible rebuild scheduling', () => {
+        const originalRequestIdleCallback = window.requestIdleCallback;
+        const requestIdleCallback = vi.fn(function (this: unknown) {
+            expect(this).toBe(window);
+            return 1;
+        });
+        (window as any).requestIdleCallback = requestIdleCallback;
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        try {
+            (controller as any).scheduleIndexRebuild('test');
+
+            expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+        } finally {
+            (window as any).requestIdleCallback = originalRequestIdleCallback;
+        }
+    });
 });
 
 describe('ChatGPTDirectoryRail active following', () => {

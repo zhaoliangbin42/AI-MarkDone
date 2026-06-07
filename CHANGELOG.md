@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Restored the optional right-side directory rail, default off, with Settings controls for display mode and prompt labels; enabling the AI-MarkDone rail also hides ChatGPT’s own conversation navigation when detected.
 
 ### Fixed
+- Firefox: Fixed ChatGPT snapshot bridge transport so Reader, copy, export, and bookmark saves can read ChatGPT content across Firefox's content-script/page-script boundary.
 - Reader: Cleaned ChatGPT snapshot-only entity and GenUI math annotations before Reader, copy, export, and bookmark content are rendered.
 - Formula: Restored the active extension action state on Gemini, Claude, and DeepSeek so the extension icon no longer falls back to the unsupported-page popup.
 - Formula: Kept DeepSeek think-content formulas outside the restored formula copy roots.

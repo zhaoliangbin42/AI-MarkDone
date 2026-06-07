@@ -28,6 +28,22 @@
     discoveryPromise: null,
   };
 
+  function decodeBridgeDetail(detail) {
+    if (typeof detail === 'string') {
+      try {
+        const parsed = JSON.parse(detail);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch {
+        return null;
+      }
+    }
+    return detail && typeof detail === 'object' ? detail : null;
+  }
+
+  function encodeBridgeResponse(payload, requestWasString) {
+    return requestWasString ? JSON.stringify(payload) : payload;
+  }
+
   function nowTs() {
     return Date.now();
   }
@@ -803,32 +819,35 @@
   }
 
   window.addEventListener(REQUEST_EVENT, (event) => {
-    const detail = event instanceof CustomEvent ? event.detail : null;
+    const rawDetail = event instanceof CustomEvent ? event.detail : null;
+    const detail = decodeBridgeDetail(rawDetail);
     if (!detail || detail.type !== 'snapshot') return;
+    const requestWasString = typeof rawDetail === 'string';
+    const respond = (payload) => {
+      window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
+        detail: encodeBridgeResponse(payload, requestWasString),
+      }));
+    };
 
     Promise.resolve()
       .then(() => getSnapshot(detail.conversationId, { force: detail.force === true }))
       .then((snapshot) => {
-        window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
-          detail: {
-            requestId: detail.requestId,
-            ok: Boolean(snapshot),
-            snapshot: snapshot || undefined,
-            error: snapshot ? undefined : { code: 'BRIDGE_UNAVAILABLE', message: 'ChatGPT runtime bridge unavailable.' },
-          },
-        }));
+        respond({
+          requestId: detail.requestId,
+          ok: Boolean(snapshot),
+          snapshot: snapshot || undefined,
+          error: snapshot ? undefined : { code: 'BRIDGE_UNAVAILABLE', message: 'ChatGPT runtime bridge unavailable.' },
+        });
       })
       .catch((error) => {
-        window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
-          detail: {
-            requestId: detail.requestId,
-            ok: false,
-            error: {
-              code: 'BRIDGE_ERROR',
-              message: error?.message || String(error),
-            },
+        respond({
+          requestId: detail.requestId,
+          ok: false,
+          error: {
+            code: 'BRIDGE_ERROR',
+            message: error?.message || String(error),
           },
-        }));
+        });
       });
   });
 
