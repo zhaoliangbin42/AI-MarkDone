@@ -225,8 +225,6 @@ export class ChatGPTDirectoryController {
         }
         this.rail = new ChatGPTDirectoryRail(this.theme, (round) => {
             void this.handleSelect(round);
-        }, (delta) => {
-            void this.handleStep(delta);
         }, this.themeOverrides);
         this.rail.setDisplayMode(this.displayMode);
         this.rail.setPromptLabelMode(this.promptLabelMode);
@@ -289,7 +287,6 @@ export class ChatGPTDirectoryController {
         this.rail.setRounds(rounds);
         this.syncBookmarkedPositions(rounds);
         this.updateActivePosition();
-        this.syncStepControls();
         perfMeasure('directory.render', performance.now() - startedAt, {
             rounds: rounds.length,
             anchors: this.skeletonAnchors.length,
@@ -407,7 +404,7 @@ export class ChatGPTDirectoryController {
     private isExtensionOwnedNode(node: Node | null | undefined): boolean {
         if (!(node instanceof Element)) return false;
         return Boolean(node.closest(
-            '[data-aimd-role], .aimd-message-toolbar-host, #aimd-chatgpt-directory-rail, #aimd-chatgpt-directory-preview, #aimd-chatgpt-directory-step-controls'
+            '[data-aimd-role], .aimd-message-toolbar-host, #aimd-chatgpt-directory-rail, #aimd-chatgpt-directory-preview'
         ));
     }
 
@@ -564,7 +561,6 @@ export class ChatGPTDirectoryController {
         if (this.isViewportResizeSuspended()) return;
         if (this.roundPositions.length === 0) {
             this.rail.setActivePosition(0, { follow: options?.followRail });
-            this.syncStepControls();
             return;
         }
 
@@ -594,7 +590,6 @@ export class ChatGPTDirectoryController {
         if (!active) active = this.activePosition || this.roundPositions[0]?.position || 0;
         this.activePosition = active;
         this.rail.setActivePosition(active, { follow: options?.followRail });
-        this.syncStepControls();
     }
 
     private getRoundViewportRange(position: ChatGPTRoundPosition): { top: number; bottom: number } | null {
@@ -621,35 +616,6 @@ export class ChatGPTDirectoryController {
     private async handleSelect(round: ChatGPTConversationRound): Promise<void> {
         const result = await this.navigateToPosition(round.position, round.messageId);
         if (result.ok) return;
-    }
-
-    private async handleStep(delta: -1 | 1): Promise<void> {
-        const positions = this.roundPositions.map((position) => position.position);
-        if (positions.length === 0) return;
-        const activeIndex = positions.indexOf(this.activePosition);
-        if (activeIndex < 0) return;
-        const targetPosition = positions[activeIndex + delta];
-        if (!targetPosition) return;
-        const round = this.buildDirectoryRounds().find((item) => item.position === targetPosition);
-        const result = await this.navigateToPosition(targetPosition, round?.messageId ?? null);
-        if (result.ok) {
-            this.activePosition = targetPosition;
-            this.rail?.setActivePosition(targetPosition);
-            this.syncStepControls();
-        }
-    }
-
-    private syncStepControls(): void {
-        if (!this.rail || this.roundPositions.length === 0) {
-            this.rail?.setStepAvailability({ canGoPrevious: false, canGoNext: false });
-            return;
-        }
-        const positions = this.roundPositions.map((position) => position.position);
-        const activeIndex = positions.indexOf(this.activePosition);
-        this.rail.setStepAvailability({
-            canGoPrevious: activeIndex > 0,
-            canGoNext: activeIndex >= 0 && activeIndex < positions.length - 1,
-        });
     }
 
     private async navigateToPosition(position: number, messageId?: string | null) {

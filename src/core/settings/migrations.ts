@@ -79,9 +79,10 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         : DEFAULT_SETTINGS.chatgptDirectory.promptLabelMode;
 
     return {
-        enabled: false,
+        enabled: Boolean((record as any).enabled ?? DEFAULT_SETTINGS.chatgptDirectory.enabled),
         mode,
         promptLabelMode,
+        hideOfficialNavigation: Boolean((record as any).hideOfficialNavigation ?? DEFAULT_SETTINGS.chatgptDirectory.hideOfficialNavigation),
     };
 }
 

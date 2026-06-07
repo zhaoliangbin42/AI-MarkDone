@@ -413,10 +413,10 @@ describe('BookmarksPanel', () => {
         const platformLabels = Array.from(refreshedSettingsPanel?.querySelectorAll<HTMLElement>('.settings-card:first-child .settings-label strong') ?? []);
         const platformIconHtml = platformLabels.map((node) => node.innerHTML).join('\n');
         expect(platformIconHtml).toContain('ChatGPT');
-        expect(platformIconHtml).not.toContain('Gemini');
-        expect(platformIconHtml).not.toContain('Claude');
-        expect(platformIconHtml).not.toContain('DeepSeek');
-        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(1);
+        expect(platformIconHtml).toContain('Gemini');
+        expect(platformIconHtml).toContain('Claude');
+        expect(platformIconHtml).toContain('DeepSeek');
+        expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
         expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
 
         changelogTabButton!.click();
@@ -985,13 +985,19 @@ describe('BookmarksPanel', () => {
             expect(documentChange).not.toHaveBeenCalled();
             expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('platforms', { chatgpt: false });
 
-            const directoryNotice = shadow.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-retired-notice"]')!;
+            const directoryToggle = shadow.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeNull();
+            expect(directoryToggle).toBeTruthy();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeTruthy();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeTruthy();
+            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-hide-official-navigation"]')).toBeNull();
 
-            expect(directoryNotice).toBeTruthy();
-            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeNull();
-            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeNull();
-            expect(shadow.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeNull();
-            expect(settingsClientRpc.setCategory).not.toHaveBeenCalledWith('chatgptDirectory', expect.anything());
+            directoryToggle.checked = true;
+            directoryToggle.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            await flushUi();
+
+            expect(documentChange).not.toHaveBeenCalled();
+            expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('chatgptDirectory', { enabled: true });
         } finally {
             panel.hide();
             document.removeEventListener('click', documentClick);

@@ -2,13 +2,10 @@ import type { Theme } from '../../../core/types/theme';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
-import { chevronDownIcon, chevronUpIcon } from '../../../assets/icons';
 
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
 const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
 const PREVIEW_STYLE_ID = 'aimd-chatgpt-directory-preview-style';
-const STEP_CONTROLS_ID = 'aimd-chatgpt-directory-step-controls';
-const STEP_CONTROLS_STYLE_ID = 'aimd-chatgpt-directory-step-controls-style';
 const HOVER_RADIUS = 3;
 const EXPANDED_LABEL_HEAD_LENGTH = 15;
 const EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH = 30;
@@ -36,9 +33,6 @@ export class ChatGPTDirectoryRail {
     private shadowRoot: ShadowRoot;
     private styleEl: HTMLStyleElement;
     private listEl: HTMLDivElement;
-    private stepControlsEl: HTMLDivElement;
-    private previousButton: HTMLButtonElement;
-    private nextButton: HTMLButtonElement;
     private previewEl: HTMLDivElement;
     private rounds: ChatGPTConversationRound[] = [];
     private roundsSignature = '';
@@ -54,13 +48,11 @@ export class ChatGPTDirectoryRail {
     private userInteracting = false;
     private interactionIdleTimer: number | null = null;
     private onSelect: (round: ChatGPTConversationRound) => void;
-    private onStep: (delta: -1 | 1) => void;
     private theme: Theme;
     private themeOverrides: UserThemeOverrides;
 
-    constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void, onStep: (delta: -1 | 1) => void = () => undefined, themeOverrides: UserThemeOverrides = {}) {
+    constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void, themeOverrides: UserThemeOverrides = {}) {
         this.onSelect = onSelect;
-        this.onStep = onStep;
         this.theme = theme;
         this.themeOverrides = themeOverrides;
 
@@ -68,8 +60,6 @@ export class ChatGPTDirectoryRail {
         if (existing instanceof HTMLElement) existing.remove();
         const existingPreview = document.getElementById(PREVIEW_ID);
         if (existingPreview instanceof HTMLElement) existingPreview.remove();
-        const existingStepControls = document.getElementById(STEP_CONTROLS_ID);
-        if (existingStepControls instanceof HTMLElement) existingStepControls.remove();
 
         this.rootEl = document.createElement('div');
         this.rootEl.id = RAIL_ID;
@@ -125,16 +115,6 @@ export class ChatGPTDirectoryRail {
         shell.appendChild(this.listEl);
         this.shadowRoot.appendChild(shell);
 
-        this.stepControlsEl = document.createElement('div');
-        this.stepControlsEl.id = STEP_CONTROLS_ID;
-        this.stepControlsEl.className = 'aimd-chatgpt-directory-step-controls';
-        this.stepControlsEl.setAttribute('data-aimd-theme', theme);
-        this.previousButton = this.createStepButton('directory-step-previous', 'Previous message', chevronUpIcon, () => this.onStep(-1));
-        this.nextButton = this.createStepButton('directory-step-next', 'Next message', chevronDownIcon, () => this.onStep(1));
-        this.stepControlsEl.append(this.previousButton, this.nextButton);
-        this.ensureStepControlsStyle();
-        document.body.appendChild(this.stepControlsEl);
-
         this.previewEl = document.createElement('div');
         this.previewEl.id = PREVIEW_ID;
         this.previewEl.className = 'aimd-chatgpt-directory-preview';
@@ -155,14 +135,12 @@ export class ChatGPTDirectoryRail {
             this.interactionIdleTimer = null;
         }
         this.rootEl.remove();
-        this.stepControlsEl.remove();
         this.previewEl.remove();
     }
 
     setTheme(theme: Theme): void {
         this.theme = theme;
         this.rootEl.setAttribute('data-aimd-theme', theme);
-        this.stepControlsEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.setAttribute('data-aimd-theme', theme);
         this.styleEl.textContent = getTokenCss(theme, this.themeOverrides) + this.getCss();
     }
@@ -171,12 +149,10 @@ export class ChatGPTDirectoryRail {
         this.themeOverrides = { ...overrides };
         this.styleEl.textContent = getTokenCss(this.theme, this.themeOverrides) + this.getCss();
         this.ensurePreviewStyle({ force: true });
-        this.ensureStepControlsStyle({ force: true });
     }
 
     setVisible(visible: boolean): void {
         this.rootEl.style.display = visible ? 'block' : 'none';
-        this.stepControlsEl.style.display = visible ? 'flex' : 'none';
         if (!visible) {
             this.previewEl.dataset.open = '0';
             this.hoverPosition = null;
@@ -246,29 +222,6 @@ export class ChatGPTDirectoryRail {
             if (!right.has(value)) return false;
         }
         return true;
-    }
-
-    setStepAvailability(params: { canGoPrevious: boolean; canGoNext: boolean }): void {
-        this.ensureStepControlsAttached();
-        this.previousButton.disabled = !params.canGoPrevious;
-        this.previousButton.dataset.disabled = this.previousButton.disabled ? '1' : '0';
-        this.nextButton.disabled = !params.canGoNext;
-        this.nextButton.dataset.disabled = this.nextButton.disabled ? '1' : '0';
-    }
-
-    private createStepButton(action: string, label: string, icon: string, onClick: () => void): HTMLButtonElement {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'aimd-chatgpt-directory-step-controls__button';
-        button.dataset.action = action;
-        button.setAttribute('aria-label', label);
-        button.setAttribute('title', label);
-        button.innerHTML = `<span class="aimd-chatgpt-directory-step-controls__icon">${icon}</span>`;
-        button.addEventListener('click', () => {
-            if (button.disabled) return;
-            onClick();
-        });
-        return button;
     }
 
     private render(): void {
@@ -410,11 +363,6 @@ export class ChatGPTDirectoryRail {
         if (!this.previewEl.isConnected) document.body.appendChild(this.previewEl);
     }
 
-    private ensureStepControlsAttached(): void {
-        this.ensureStepControlsStyle();
-        if (!this.stepControlsEl.isConnected) document.body.appendChild(this.stepControlsEl);
-    }
-
     private ensurePreviewStyle(options: { force?: boolean } = {}): void {
         let style = document.getElementById(PREVIEW_STYLE_ID) as HTMLStyleElement | null;
         if (!style) {
@@ -424,17 +372,6 @@ export class ChatGPTDirectoryRail {
         }
         if (!options.force && style.textContent) return;
         style.textContent = this.getPreviewCss();
-    }
-
-    private ensureStepControlsStyle(options: { force?: boolean } = {}): void {
-        let style = document.getElementById(STEP_CONTROLS_STYLE_ID) as HTMLStyleElement | null;
-        if (!style) {
-            style = document.createElement('style');
-            style.id = STEP_CONTROLS_STYLE_ID;
-            document.head.appendChild(style);
-        }
-        if (!options.force && style.textContent) return;
-        style.textContent = this.getStepControlsCss();
     }
 
     private buildPreviewText(round: ChatGPTConversationRound): string {
@@ -500,51 +437,6 @@ export class ChatGPTDirectoryRail {
   white-space: normal;
 }
 
-`;
-    }
-
-    private getStepControlsCss(): string {
-        return `${getPortalTokenCss('.aimd-chatgpt-directory-step-controls', this.themeOverrides)}
-.aimd-chatgpt-directory-step-controls {
-  position: fixed;
-  right: var(--aimd-space-4);
-  bottom: var(--aimd-space-6);
-  z-index: var(--aimd-z-panel);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--aimd-space-1);
-  pointer-events: auto;
-  font-family: var(--aimd-font-family-sans);
-}
-.aimd-chatgpt-directory-step-controls__button {
-  all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--aimd-size-control-icon-panel-nav);
-  height: var(--aimd-size-control-icon-panel-nav);
-  color: var(--aimd-text-secondary);
-}
-.aimd-chatgpt-directory-step-controls__button:hover:not(:disabled),
-.aimd-chatgpt-directory-step-controls__button:focus-visible:not(:disabled) {
-  color: var(--aimd-interactive-primary);
-}
-.aimd-chatgpt-directory-step-controls__button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--aimd-interactive-primary) 78%, transparent);
-  outline-offset: 2px;
-}
-.aimd-chatgpt-directory-step-controls__button:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
-}
-.aimd-chatgpt-directory-step-controls__icon,
-.aimd-chatgpt-directory-step-controls__icon svg {
-  width: var(--aimd-size-control-glyph-panel);
-  height: var(--aimd-size-control-glyph-panel);
-}
 `;
     }
 

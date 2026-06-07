@@ -944,15 +944,15 @@
         "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "显示 ChatGPT 目录条",
+        "message": "显示目录条",
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
-        "message": "由于 ChatGPT 已经提供官方对话导航，AI-MarkDone 的 ChatGPT 目录条暂时下架。",
+        "message": "你可以在 ChatGPT 设置中开启 AI-MarkDone 目录条。",
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "右侧目录条已下架；消息导航现在使用右下角 Stepper。",
+        "message": "在 ChatGPT 对话页显示 AI-MarkDone 右侧目录，并自动隐藏 ChatGPT 官方对话导航。",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
@@ -960,23 +960,23 @@
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "选择右侧目录条展示消息预览的方式。",
+        "message": "选择右侧目录在对话页中的显示方式。",
         "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "紧凑预览",
+        "message": "预览",
         "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "展开列表",
+        "message": "展开",
         "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
-        "message": "显示 Prompt 结尾",
+        "message": "更长的提示词标题",
         "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "在展开目录条中同时显示 Prompt 前 15 个字符和后 15 个字符。",
+        "message": "展开目录时显示长提示词的开头和结尾。",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "reader": {

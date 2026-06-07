@@ -81,7 +81,7 @@ describe('ViewportResizeSuspendController', () => {
 
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-rail');
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-preview');
-        expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-directory-step-controls');
+        expect(css).not.toContain('#aimd-chatgpt-directory-step-controls');
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] #aimd-chatgpt-message-stepper');
         expect(css).toContain('html[data-aimd-viewport-resizing="1"] .aimd-message-toolbar-host[data-aimd-placement="actionbar"]');
         expect(css).toContain('visibility: hidden;');

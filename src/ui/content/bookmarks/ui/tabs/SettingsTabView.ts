@@ -124,6 +124,9 @@ type Refs = {
         restorePositionAfterSend: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
+        enabled: HTMLInputElement;
+        mode: SelectRef;
+        promptLabelMode: HTMLInputElement;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -249,12 +252,26 @@ export class SettingsTabView {
             t('chatgptArrowKeyMessageNavigationLabel'),
             t('chatgptArrowKeyMessageNavigationDesc'),
         );
-        const chatGptDirectoryRetiredNotice = this.createNotice(
+        const chatGptDirectoryEnabled = this.createToggle(
             chatGptDirectoryGroup.body,
-            t('chatgptDirectoryRetiredNotice'),
+            t('chatgptDirectoryEnabledLabel'),
+            t('chatgptDirectoryEnabledDesc'),
         );
-        chatGptDirectoryRetiredNotice.dataset.role = 'settings-chatgpt-directory-retired-notice';
-
+        const chatGptDirectoryMode = this.createSelect(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryModeLabel'),
+            t('chatgptDirectoryModeDesc'),
+            [
+                { value: 'preview', label: t('chatgptDirectoryModePreview') },
+                { value: 'expanded', label: t('chatgptDirectoryModeExpanded') },
+            ],
+            'chatgpt-directory-mode',
+        );
+        const chatGptDirectoryPromptLabelMode = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryPromptLabelModeLabel'),
+            t('chatgptDirectoryPromptLabelModeDesc'),
+        );
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
         const language = this.createSelect(languageGroup.body, t('settingsLanguageLabel'), t('settingsLanguageDesc'), [
@@ -374,6 +391,9 @@ export class SettingsTabView {
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
+                enabled: chatGptDirectoryEnabled.input,
+                mode: chatGptDirectoryMode,
+                promptLabelMode: chatGptDirectoryPromptLabelMode.input,
             },
             language,
             storageText,
@@ -398,6 +418,9 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
+        this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
+        this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
+        this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
@@ -604,6 +627,21 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.enableArrowKeyMessageNavigation = next;
             void this.actions.setChatGptBehaviorSettings?.({ enableArrowKeyMessageNavigation: next });
         });
+        this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.enabled.checked;
+            this.settings.chatgptDirectory.enabled = next;
+            void this.actions.setChatGptDirectorySettings?.({ enabled: next });
+        });
+        this.refs.chatgptDirectory.mode.onChange((value) => {
+            const next = value === 'expanded' ? 'expanded' : 'preview';
+            this.settings.chatgptDirectory.mode = next;
+            void this.actions.setChatGptDirectorySettings?.({ mode: next });
+        });
+        this.refs.chatgptDirectory.promptLabelMode.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.promptLabelMode.checked ? 'headTail' : 'head';
+            this.settings.chatgptDirectory.promptLabelMode = next;
+            void this.actions.setChatGptDirectorySettings?.({ promptLabelMode: next });
+        });
         // Language
         this.refs.language.onChange((value) => {
             this.settings.language = value as any;
@@ -639,6 +677,9 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
+        this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
+        this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode === 'expanded' ? 'expanded' : 'preview');
+        this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -655,6 +696,8 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
+        this.syncToggle(this.refs.chatgptDirectory.enabled);
+        this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
 
         this.refs.storageText.textContent = usagePercent;
         this.renderAdvancedSettings();
@@ -726,14 +769,6 @@ export class SettingsTabView {
         item.append(info, toggle);
         parent.appendChild(item);
         return { root: item, input };
-    }
-
-    private createNotice(parent: HTMLElement, text: string): HTMLElement {
-        const notice = document.createElement('p');
-        notice.className = 'settings-notice settings-platform-retirement-notice';
-        notice.textContent = text;
-        parent.appendChild(notice);
-        return notice;
     }
 
     private createActionRow(parent: HTMLElement, labelText: string, desc: string, role: string): {

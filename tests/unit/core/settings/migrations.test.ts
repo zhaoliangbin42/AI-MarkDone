@@ -78,21 +78,31 @@ describe('settings migrations', () => {
     it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {
         const next = loadAndNormalize({
             version: 3,
-            chatgptDirectory: { enabled: false, mode: 'dense', promptLabelMode: 'tail' },
+            chatgptDirectory: { enabled: false, mode: 'dense', promptLabelMode: 'tail', hideOfficialNavigation: false },
             chatgpt: { showConversationDirectory: false },
         } as any);
 
-        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'preview', promptLabelMode: 'head' });
+        expect(next.chatgptDirectory).toEqual({
+            enabled: false,
+            mode: 'preview',
+            promptLabelMode: 'head',
+            hideOfficialNavigation: false,
+        });
         expect(next).not.toHaveProperty('chatgpt');
     });
 
-    it('retains ChatGPT directory preferences but keeps the retired rail disabled', () => {
+    it('retains ChatGPT directory preferences', () => {
         const next = loadAndNormalize({
             version: 3,
             chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail' },
         } as any);
 
-        expect(next.chatgptDirectory).toEqual({ enabled: false, mode: 'expanded', promptLabelMode: 'headTail' });
+        expect(next.chatgptDirectory).toEqual({
+            enabled: true,
+            mode: 'expanded',
+            promptLabelMode: 'headTail',
+            hideOfficialNavigation: true,
+        });
     });
 
     it('normalizes ChatGPT message navigation behavior with default-on controls', () => {

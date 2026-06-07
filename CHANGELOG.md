@@ -10,12 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Formula: Restored formula copy on Gemini, Claude, and DeepSeek pages. These hosts now support single-formula LaTeX click-copy and any formula PNG/SVG/MathML copy/save actions the user has enabled.
 - Settings: Added per-platform toggles for Gemini, Claude, and DeepSeek formula copy.
+- ChatGPT: Restored the optional right-side directory rail, default off, with Settings controls for display mode and prompt labels; enabling the AI-MarkDone rail also hides ChatGPT’s own conversation navigation when detected.
 
 ### Fixed
 - Reader: Cleaned ChatGPT snapshot-only entity and GenUI math annotations before Reader, copy, export, and bookmark content are rendered.
 - Formula: Restored the active extension action state on Gemini, Claude, and DeepSeek so the extension icon no longer falls back to the unsupported-page popup.
 - Formula: Kept DeepSeek think-content formulas outside the restored formula copy roots.
 - Formula: Reconnected Gemini, Claude, and DeepSeek to their legacy formula parser chain for formula recognition, LaTeX extraction, and display-mode detection.
+- ChatGPT: Improved official conversation navigation hiding by targeting ChatGPT’s delayed fixed right child inside the conversation highlight root, with a CSS guard plus observer refresh instead of broad navigation semantics.
+
+### Changed
+- ChatGPT: The directory rail no longer owns lower-right Previous/Next controls; adjacent message stepping remains in the standalone message stepper.
 
 ## [4.5.0] - 2026-06-05
 

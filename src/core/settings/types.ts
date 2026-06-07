@@ -25,6 +25,7 @@ export type ChatGPTDirectorySettings = {
     enabled: boolean;
     mode: ChatGPTDirectoryMode;
     promptLabelMode: ChatGPTDirectoryPromptLabelMode;
+    hideOfficialNavigation: boolean;
 };
 
 export type ChatGPTBehaviorSettings = {
@@ -105,7 +106,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
-    chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head' },
+    chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head', hideOfficialNavigation: true },
     chatgptBehavior: { restorePositionAfterSend: true, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },

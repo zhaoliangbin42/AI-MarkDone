@@ -944,39 +944,39 @@
         "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "Show ChatGPT directory",
+        "message": "Show directory rail",
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
-        "message": "The AI-MarkDone ChatGPT directory is temporarily unavailable because ChatGPT now provides a native conversation navigation surface.",
+        "message": "The AI-MarkDone ChatGPT directory can be enabled from ChatGPT Settings.",
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "The right-side directory rail is retired; message navigation now uses the lower-right stepper.",
+        "message": "Show AI-MarkDone’s right-side directory for ChatGPT conversations and automatically hide ChatGPT’s own conversation navigation.",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "Directory display mode",
+        "message": "Directory display",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "Choose how message previews appear from the right-side directory.",
+        "message": "Choose how the right-side directory opens while browsing a conversation.",
         "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "Compact preview",
+        "message": "Preview",
         "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "Expanded list",
+        "message": "Expanded",
         "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
-        "message": "Show prompt endings",
+        "message": "Longer prompt labels",
         "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "In expanded directory mode, show the first 15 and last 15 prompt characters.",
+        "message": "Show the beginning and end of long prompts in the expanded directory.",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "reader": {

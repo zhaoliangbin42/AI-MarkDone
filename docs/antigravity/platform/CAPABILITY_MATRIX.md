@@ -10,7 +10,7 @@
 
 | Platform | Status | Host patterns | Notable deltas |
 |:---|:---:|:---|:---|
-| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader；可选发送后恢复阅读位置；AI-MarkDone 右侧 conversation directory rail 暂时下架，右下角 message stepper 默认保留且可关闭；保留 classic host 链接与权限一致性门禁。 |
+| ChatGPT | ✅ Active | `chatgpt.com`, `chat.openai.com` | 支持 payload/store-first Reader；可选发送后恢复阅读位置；AI-MarkDone 右侧 conversation directory rail 默认关闭但可启用，右下角 message stepper 默认保留且可关闭；保留 classic host 链接与权限一致性门禁。 |
 | Gemini | ✅ Formula copy | `gemini.google.com` | 支持公式点击复制与已启用的公式 hover asset actions；扩展图标可打开全局书签管理面板。 |
 | Claude | ✅ Formula copy | `claude.ai` | 支持公式点击复制与已启用的公式 hover asset actions；扩展图标可打开全局书签管理面板。 |
 | DeepSeek | ✅ Formula copy | `chat.deepseek.com` | 支持公式点击复制与已启用的公式 hover asset actions；扩展图标可打开全局书签管理面板。 |
@@ -49,5 +49,5 @@
 | URL 匹配 | `chatgpt.com`, `chat.openai.com` |
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
-| 特殊处理 | payload/store-first Reader；可选发送后恢复阅读位置；右侧 conversation directory rail 暂时下架；右下角 message stepper 默认保留且可关闭 |
-| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptBehavior.showMessageStepper` 控制右下角上一条/下一条按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 控制左右方向键消息导航；`chatgptDirectory` 仅保留兼容字段且 `enabled=false` |
+| 特殊处理 | payload/store-first Reader；可选发送后恢复阅读位置；可选右侧 conversation directory rail；右下角 message stepper 默认保留且可关闭 |
+| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptBehavior.showMessageStepper` 控制右下角上一条/下一条按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 控制左右方向键消息导航；`chatgptDirectory.enabled` 默认关闭并控制 AI-MarkDone 右侧目录条，启用目录条时同步隐藏 ChatGPT conversation highlight root 下贴右侧的 delayed fixed 直接子容器 |
