@@ -71,6 +71,10 @@
         "message": "阅读器",
         "description": "Message for btnReader"
     },
+    "btnDetachedReader": {
+        "message": "独立打开阅读器",
+        "description": "Message for btnDetachedReader"
+    },
     "btnSaveAs": {
         "message": "另存为",
         "description": "Message for btnSaveAs"
@@ -2306,5 +2310,41 @@
     "enableFormulaOnlyOnDeepSeek": {
         "message": "在 DeepSeek 启用公式复制。",
         "description": "Message for enableFormulaOnlyOnDeepSeek"
+    },
+    "detachedReaderOpened": {
+        "message": "已打开独立阅读器",
+        "description": "Message for detachedReaderOpened"
+    },
+    "detachedReaderOpenFailed": {
+        "message": "无法打开独立阅读器",
+        "description": "Message for detachedReaderOpenFailed"
+    },
+    "detachedReaderSessionExpired": {
+        "message": "这个阅读会话已过期。请从 ChatGPT 页面重新打开。",
+        "description": "Message for detachedReaderSessionExpired"
+    },
+    "detachedReaderSourceUnavailable": {
+        "message": "源 ChatGPT 页面暂不可用",
+        "description": "Message for detachedReaderSourceUnavailable"
+    },
+    "detachedReaderRefresh": {
+        "message": "从源页面刷新",
+        "description": "Message for detachedReaderRefresh"
+    },
+    "detachedReaderRefreshed": {
+        "message": "阅读器已刷新",
+        "description": "Message for detachedReaderRefreshed"
+    },
+    "detachedReaderSendPrompt": {
+        "message": "发送到源 ChatGPT 页面的内容",
+        "description": "Message for detachedReaderSendPrompt"
+    },
+    "detachedReaderSent": {
+        "message": "已发送",
+        "description": "Message for detachedReaderSent"
+    },
+    "detachedReaderLocated": {
+        "message": "已定位源消息",
+        "description": "Message for detachedReaderLocated"
     }
 }

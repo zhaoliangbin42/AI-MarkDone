@@ -59,6 +59,7 @@
 - `NOT_FOUND`
 - `INVALID_PATH`
 - `CONFLICT`
+- `SOURCE_UNAVAILABLE`
 
 规则：
 
@@ -92,6 +93,31 @@
 - background action click 对 supported hosts 发送 `ping`；成功后才发送 `ui:toggle_toolbar` 通知 content 切换主面板入口
 - ChatGPT full runtime 处理该 intent 时打开完整 BookmarksPanel；Gemini、Claude、DeepSeek formula runtime 处理该 intent 时打开全局书签管理面板
 - 如果 tab 已关闭、discard/freeze 恢复中，或 content script 暂不可达，background 将该次点击视为生命周期竞态并静默跳过；页面恢复后由 `content:ready` 重新接回
+
+### Detached Reader session
+
+- `readerSession:create`
+- `readerSession:get`
+- `readerSession:refresh`
+- `readerSession:send`
+- `readerSession:locate`
+- `readerSession:close`
+
+用途：
+
+- ChatGPT content runtime 打开独立扩展页 `reader.html`，并把当前 fresh `ReaderItem[]` 序列化为 `ReaderSessionSnapshot`
+- detached Reader 页按 `sessionId` 读取快照，复用现有 ReaderPanel 渲染、复制、评论与 Sticky 基础能力
+- detached Reader 页请求 refresh/send/locate 时，background 按 session 记录把请求路由回原 `sourceTabId`，由源 content runtime 调用既有 `collectFreshReaderContent`、`sendText(adapter, text)` 与 ChatGPT same-page navigation helper
+
+关键语义：
+
+- session identity 由 `sessionId + sourceTabId + readerTabId` 绑定；所有 reader 发起的 `get/refresh/send/locate` 请求必须来自绑定的 `readerTabId`
+- `readerSession:create` 只能由带有 `sender.tab.id` 的源 content runtime 发起；source tab id 以浏览器 sender 为准，不从 payload 信任
+- session 状态写入 `chrome.storage.session` / `browser.storage.session`，不依赖 MV3 service worker 全局变量；service worker 休眠后，下一次用户动作可从 session storage 重新读取并继续路由
+- v1 不做实时 tail sync、不强制保活、不设置 tab `autoDiscardable=false`；detached Reader 启动时拿一次 fresh snapshot，用户可手动 refresh
+- source tab 关闭时，background 监听 `tabs.onRemoved(sourceTabId)`，删除 session 并 best-effort 关闭对应 `readerTabId`
+- reader tab 关闭时，只删除 session，不关闭官方 ChatGPT 页
+- source tab frozen/discarded、content script 不可达或扩展重载导致 session 丢失时，调用方应展示只读快照、source unavailable 或 session expired 状态，不抛 unchecked runtime error
 
 ### Settings
 

@@ -8,11 +8,11 @@ if [[ -z "$target" ]]; then
 fi
 
 if [[ "$target" == "chrome" ]]; then
-  files=("dist-chrome/background.js" "dist-chrome/content.js")
+  files=("dist-chrome/background.js" "dist-chrome/content.js" "dist-chrome/reader.js")
 elif [[ "$target" == "firefox" ]]; then
-  files=("dist-firefox/background.js" "dist-firefox/content.js")
+  files=("dist-firefox/background.js" "dist-firefox/content.js" "dist-firefox/reader.js")
 elif [[ "$target" == "safari" ]]; then
-  files=("dist-safari/background.js" "dist-safari/content.js")
+  files=("dist-safari/background.js" "dist-safari/content.js" "dist-safari/reader.js")
 else
   echo "Unknown target: $target"
   exit 1

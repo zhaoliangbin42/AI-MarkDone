@@ -78,6 +78,14 @@
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
 
+Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Reader：
+
+1. ChatGPT content runtime 仍通过既有 `readerContentSource` 生成 fresh `ReaderItem[]`
+2. Background 只持有 `sessionId + sourceTabId + readerTabId` 路由与可恢复快照，不理解 ChatGPT 正文结构
+3. Extension page 复用 Reader UI/rendering 能力，默认以 fullscreen surface 打开，panel/half-screen 只是 Reader surface 自己的 presentation state
+4. refresh/send/locate 继续回源 content runtime 执行，不能在 extension page 直接操作 ChatGPT DOM
+5. 首次打开的实验性说明属于用户意图确认边界，必须复用现有 modal/notice family，不新增孤立提示框组件
+
 ### 2.3.3 Bookmarks 闭环（保存/导入导出/恢复）
 
 1. UI 收集意图（保存/删除/移动/导入/导出/批量操作）
@@ -177,10 +185,12 @@ Surface profile / motion ownership 规则补充：
   - `profile` 负责 header/footer/action rail
   - Markdown body 视觉继续由 Reader 自己持有的默认正文主题负责
   - baseline chrome 与正文主题都属于 surface-owned contract，而不是 caller-owned override
+- Reader 的 fullscreen/panel opening size 与 panel resize 都属于 `ReaderPanel` surface-owned state。调用方只能通过设置或命名 profile 选择语义，不得传 CSS、像素宽度或外部 layout override。Detached Reader extension page 的默认 presentation 是 fullscreen；半屏/panel 模式必须复用同一个 Reader shell 与 motion/focus 合同。
 - shared overlay/modal surface 的 enter/exit motion 也必须由 surface 自己持有；caller 不得注入自定义 open/close motion
 - `panel-window` family 与 `modal-dialog` family 可以拥有不同的共享 motion contract，但都必须使用 tokenized shared chrome CSS，而不是每个 surface 各自定义 keyframes
 - 共享 surface 的 open-focus / restore-focus 也必须由 surface owner 持有并复用共享 lifecycle helper；不得只让 `ModalHost` 独占完整的焦点语义，而让其它 panel family 各自零散实现
 - 同一 surface 在首次打开后，外层 shell/backdrop 必须保持 stable ownership；后续异步数据刷新只能更新内部内容区，不能通过重建外层 DOM 重新消费 opening motion
+- Detached Reader 的首次实验性提示必须归入既有 modal/notice family，复用 tokenized chrome、focus restore、ESC/outside-click 语义和按钮样式；不能用 `window.confirm`、host page 原生 dialog 或自定义一次性 DOM。
 
 ### Service 层（目标：统一用例编排，跨站一致）
 

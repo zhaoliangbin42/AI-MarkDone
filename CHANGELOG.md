@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Reader: Added a detached ChatGPT Reader tab that reuses the existing Reader rendering and content source while routing refresh, send, locate, and close actions back through the original ChatGPT tab.
+
 ## [4.5.1] - 2026-06-07
 
 ### Added

@@ -4,7 +4,7 @@ import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
-import { PROTOCOL_VERSION, createRequestId, isExtRequest } from '../../contracts/protocol';
+import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtRequest, type ExtResponse } from '../../contracts/protocol';
 import { ensurePageTokens } from '../../style/pageTokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
@@ -24,6 +24,9 @@ import { ChatGPTMessageStepperController } from '../../ui/content/controllers/Ch
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
+import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
+import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
+import { sendText } from '../../services/sending/sendService';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
@@ -269,6 +272,77 @@ if (adapter) {
         chatGptDirectory?.setTheme(theme);
     });
 
+    const handleDetachedReaderRequest = async (request: ExtRequest): Promise<ExtResponse> => {
+        try {
+            if (request.type === 'readerSession:refresh') {
+                const result = await collectFreshReaderContent(adapter, null, {
+                    chatGptConversationEngine,
+                    pageUrl: window.location.href,
+                });
+                const snapshot = await buildReaderSessionSnapshot({
+                    items: result.items,
+                    startIndex: result.startIndex,
+                    sourceUrl: window.location.href,
+                    theme: currentTheme,
+                });
+                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { snapshot } };
+            }
+
+            if (request.type === 'readerSession:send') {
+                const result = await sendText(adapter, request.payload.text, { focusComposer: true, timeoutMs: 3000 });
+                if (!result.ok) {
+                    return {
+                        v: PROTOCOL_VERSION,
+                        id: request.id,
+                        ok: false,
+                        type: request.type,
+                        error: { code: 'SOURCE_UNAVAILABLE', message: result.message },
+                    };
+                }
+                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { sent: true } };
+            }
+
+            if (request.type === 'readerSession:locate') {
+                const position = Math.max(1, Math.round(Number(request.payload.position ?? 0)));
+                const result = adapter.getPlatformId() === 'chatgpt'
+                    ? await navigateChatGPTDirectoryTarget(adapter, {
+                        position,
+                        messageId: request.payload.messageId ?? null,
+                    }, { timeoutMs: 2500, intervalMs: 200 })
+                    : await scrollToBookmarkTargetWithRetry(adapter, {
+                        position,
+                        messageId: request.payload.messageId ?? null,
+                    }, { timeoutMs: 2500, intervalMs: 200 });
+                if (!result.ok) {
+                    return {
+                        v: PROTOCOL_VERSION,
+                        id: request.id,
+                        ok: false,
+                        type: request.type,
+                        error: { code: 'NOT_FOUND', message: 'Message position not found' },
+                    };
+                }
+                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { located: true } };
+            }
+        } catch (error) {
+            return {
+                v: PROTOCOL_VERSION,
+                id: request.id,
+                ok: false,
+                type: request.type,
+                error: { code: 'INTERNAL_ERROR', message: error instanceof Error ? error.message : 'Detached reader request failed' },
+            };
+        }
+
+        return {
+            v: PROTOCOL_VERSION,
+            id: request.id,
+            ok: false,
+            type: request.type,
+            error: { code: 'UNKNOWN_TYPE', message: 'Unsupported detached reader request' },
+        };
+    };
+
     browser.runtime.onMessage.addListener((msg: unknown, _sender: unknown, sendResponse?: (response: unknown) => void) => {
         if (!isExtRequest(msg)) return;
         if (msg.type === 'ping') {
@@ -277,6 +351,10 @@ if (adapter) {
         }
         if (msg.type === 'ui:toggle_toolbar') {
             void bookmarksPanel.toggle();
+        }
+        if (msg.type === 'readerSession:refresh' || msg.type === 'readerSession:send' || msg.type === 'readerSession:locate') {
+            void handleDetachedReaderRequest(msg).then((response) => sendResponse?.(response));
+            return true;
         }
     });
 

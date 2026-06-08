@@ -20,7 +20,8 @@ export type ProtocolErrorCode =
     | 'PROVIDER_UNAVAILABLE'
     | 'INTEGRITY_MISMATCH'
     | 'SNAPSHOT_CORRUPTED'
-    | 'SCHEMA_UNSUPPORTED';
+    | 'SCHEMA_UNSUPPORTED'
+    | 'SOURCE_UNAVAILABLE';
 
 export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
 
@@ -156,12 +157,53 @@ export type CloudBackupDeleteSnapshotPayload = { provider: CloudBackupProviderId
 
 export type SettingsGetCategoryPayload = { category: SettingsCategory };
 export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
-export type ContentReadyPayload = { platform: 'chatgpt'; url: string };
+export type ContentReadyPayload = { platform: 'chatgpt' | 'gemini' | 'claude' | 'deepseek'; url: string };
+
+export type ReaderSessionSerializableItem = {
+    id: string;
+    userPrompt: string;
+    content: string;
+    meta?: {
+        platformId?: string;
+        messageId?: string | null;
+        position?: number;
+        url?: string;
+        bookmarkable?: boolean;
+        bookmarked?: boolean;
+    };
+};
+
+export type ReaderSessionSnapshot = {
+    items: ReaderSessionSerializableItem[];
+    startIndex: number;
+    sourceUrl: string;
+    theme: 'light' | 'dark';
+    createdAt: number;
+    updatedAt: number;
+};
+
+export type ReaderSessionCreatePayload = {
+    snapshot: ReaderSessionSnapshot;
+};
+
+export type ReaderSessionByIdPayload = { sessionId: string };
+export type ReaderSessionSendPayload = { sessionId: string; text: string };
+export type ReaderSessionLocatePayload = {
+    sessionId: string;
+    position?: number;
+    messageId?: string | null;
+};
 
 export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'ping' }
     | { v: ProtocolVersion; id: RequestId; type: 'content:ready'; payload: ContentReadyPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'ui:toggle_toolbar' }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:create'; payload: ReaderSessionCreatePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:get'; payload: ReaderSessionByIdPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:refresh'; payload: ReaderSessionByIdPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:send'; payload: ReaderSessionSendPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:locate'; payload: ReaderSessionLocatePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:close'; payload: ReaderSessionByIdPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getAll' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:setCategory'; payload: SettingsSetCategoryPayload }
@@ -217,6 +259,12 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'ping',
         'content:ready',
         'ui:toggle_toolbar',
+        'readerSession:create',
+        'readerSession:get',
+        'readerSession:refresh',
+        'readerSession:send',
+        'readerSession:locate',
+        'readerSession:close',
         'settings:getAll',
         'settings:getCategory',
         'settings:setCategory',
@@ -257,9 +305,38 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         const payload = rec.payload;
         if (typeof payload !== 'object' || payload === null) return false;
         const readyPayload = payload as Record<string, unknown>;
-        return readyPayload.platform === 'chatgpt'
+        return (
+            readyPayload.platform === 'chatgpt'
+            || readyPayload.platform === 'gemini'
+            || readyPayload.platform === 'claude'
+            || readyPayload.platform === 'deepseek'
+        )
             && typeof readyPayload.url === 'string'
             && readyPayload.url.trim().length > 0;
+    }
+
+    if (type.startsWith('readerSession:')) {
+        const payload = rec.payload;
+        if (typeof payload !== 'object' || payload === null) return false;
+        const sessionPayload = payload as Record<string, unknown>;
+        if (type === 'readerSession:create') {
+            const snapshot = sessionPayload.snapshot as Record<string, unknown> | null;
+            return !!snapshot
+                && Array.isArray(snapshot.items)
+                && typeof snapshot.startIndex === 'number'
+                && typeof snapshot.sourceUrl === 'string'
+                && (snapshot.theme === 'light' || snapshot.theme === 'dark')
+                && typeof snapshot.createdAt === 'number'
+                && typeof snapshot.updatedAt === 'number';
+        }
+        if (typeof sessionPayload.sessionId !== 'string' || sessionPayload.sessionId.trim().length === 0) return false;
+        if (type === 'readerSession:send') {
+            return typeof sessionPayload.text === 'string';
+        }
+        if (type === 'readerSession:locate') {
+            return sessionPayload.position === undefined || typeof sessionPayload.position === 'number' || typeof sessionPayload.messageId === 'string' || sessionPayload.messageId === null;
+        }
+        return true;
     }
 
     return true;

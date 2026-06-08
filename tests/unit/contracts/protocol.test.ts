@@ -41,13 +41,52 @@ describe('protocol', () => {
             id: createRequestId(),
             type: 'content:ready',
             payload: { platform: 'gemini', url: 'https://gemini.google.com/app' },
-        })).toBe(false);
+        })).toBe(true);
 
         expect(isExtRequest({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'content:ready',
             payload: { platform: 'chatgpt' },
+        })).toBe(false);
+    });
+
+    it('accepts detached reader session requests and rejects malformed create payloads', () => {
+        const snapshot = {
+            items: [{ id: 'item-1', userPrompt: 'Hello', content: 'World' }],
+            startIndex: 0,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            theme: 'light',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        };
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'readerSession:create',
+            payload: { snapshot },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'readerSession:get',
+            payload: { sessionId: 'reader_1' },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'readerSession:send',
+            payload: { sessionId: 'reader_1', text: 'Next prompt' },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'readerSession:create',
+            payload: { snapshot: { ...snapshot, items: 'bad' } },
         })).toBe(false);
     });
 });

@@ -1,6 +1,7 @@
 import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtResponse, type ExtRequest } from '../../contracts/protocol';
 import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNotice } from './handlers/bookmarks';
 import { handleCloudBackupRequest } from './handlers/cloudBackup';
+import { handleReaderSessionRequest, handleReaderSessionTabRemoved } from './handlers/readerSession';
 import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
 import { logger } from '../../core/logger';
@@ -204,6 +205,9 @@ if (tabs?.onUpdated?.addListener) {
     tabs.onUpdated.addListener((tabId: number, changeInfo: { status?: string; url?: string }, tab: { url?: string }) => {
         if (changeInfo.status === 'complete' || changeInfo.url) void updateActionState(tabId, tab.url);
     });
+    tabs.onRemoved?.addListener?.((tabId: number) => {
+        void handleReaderSessionTabRemoved(tabId);
+    });
     tabs.onActivated?.addListener?.(async (activeInfo: { tabId: number }) => {
         const tab = await safeGetTab(activeInfo.tabId);
         if (tab) void updateActionState(activeInfo.tabId, tab.url);
@@ -239,6 +243,8 @@ runtime?.onMessage?.addListener?.((msg: unknown, sender: any, sendResponse: (r: 
     }
 
     void (async () => {
+        const readerSession = await handleReaderSessionRequest(msg, sender);
+        if (readerSession) return readerSession;
         const settings = await handleSettingsRequest(msg);
         if (settings) return settings;
         const cloudBackup = await handleCloudBackupRequest(msg);

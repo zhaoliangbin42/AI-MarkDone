@@ -71,6 +71,10 @@
         "message": "Reader",
         "description": "Message for btnReader"
     },
+    "btnDetachedReader": {
+        "message": "Open Detached Reader",
+        "description": "Message for btnDetachedReader"
+    },
     "btnSaveAs": {
         "message": "Save as",
         "description": "Message for btnSaveAs"
@@ -2306,5 +2310,41 @@
     "enableFormulaOnlyOnDeepSeek": {
         "message": "Enable formula copy on DeepSeek.",
         "description": "Message for enableFormulaOnlyOnDeepSeek"
+    },
+    "detachedReaderOpened": {
+        "message": "Detached Reader opened",
+        "description": "Message for detachedReaderOpened"
+    },
+    "detachedReaderOpenFailed": {
+        "message": "Detached Reader could not be opened",
+        "description": "Message for detachedReaderOpenFailed"
+    },
+    "detachedReaderSessionExpired": {
+        "message": "This Reader session has expired. Open it again from the ChatGPT page.",
+        "description": "Message for detachedReaderSessionExpired"
+    },
+    "detachedReaderSourceUnavailable": {
+        "message": "Source ChatGPT page is unavailable",
+        "description": "Message for detachedReaderSourceUnavailable"
+    },
+    "detachedReaderRefresh": {
+        "message": "Refresh from source",
+        "description": "Message for detachedReaderRefresh"
+    },
+    "detachedReaderRefreshed": {
+        "message": "Reader refreshed",
+        "description": "Message for detachedReaderRefreshed"
+    },
+    "detachedReaderSendPrompt": {
+        "message": "Message to send to the source ChatGPT page",
+        "description": "Message for detachedReaderSendPrompt"
+    },
+    "detachedReaderSent": {
+        "message": "Sent",
+        "description": "Message for detachedReaderSent"
+    },
+    "detachedReaderLocated": {
+        "message": "Source message located",
+        "description": "Message for detachedReaderLocated"
     }
 }

@@ -55,6 +55,7 @@ export function prepareExtensionTarget(target: ExtensionTarget): void {
     copyLocales(target, resolve(process.cwd(), 'public/_locales'), join(distDir, '_locales'));
     cpSync(resolve(process.cwd(), 'public/page-bridges'), join(distDir, 'page-bridges'), { recursive: true });
     cpSync(resolve(process.cwd(), 'public/formula-renderer.html'), join(distDir, 'formula-renderer.html'));
+    cpSync(resolve(process.cwd(), 'public/reader.html'), join(distDir, 'reader.html'));
     mkdirSync(join(distDir, 'src/popup'), { recursive: true });
     cpSync(resolve(process.cwd(), 'src/popup/popup.html'), join(distDir, 'src/popup/popup.html'));
     cpSync(resolve(process.cwd(), 'src/popup/popup.js'), join(distDir, 'src/popup/popup.js'));
