@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import { DEFAULT_SETTINGS } from '@/core/settings/types';
 
 function setClipboardMock() {
     const writeText = vi.fn(async () => undefined);
@@ -76,6 +77,10 @@ describe('ReaderPanel (MVP)', () => {
 
     it('toggles between standard and fullscreen reader layouts', async () => {
         const panel = new ReaderPanel();
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            defaultOpenMode: 'panel',
+        });
         await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'md1' }], 0, 'light');
 
         const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;

@@ -251,7 +251,6 @@ ${getPanelChromeCss()}
 }
 
 .panel-window--reader {
-  min-height: min(720px, calc(100vh - var(--aimd-space-6)));
   width: min(calc(100vw * var(--_reader-panel-width-ratio, 0.72)), calc(100vw - var(--aimd-space-6)));
   height: min(calc(100vh * var(--_reader-panel-height-ratio, 0.82)), calc(100vh - var(--aimd-space-6)));
 }
@@ -1246,11 +1245,6 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 
 .reader-settings-toggle input:checked + .reader-settings-toggle__track::after {
   transform: translateX(18px);
-}
-
-.reader-settings-popover__footer-hint {
-  color: var(--aimd-text-secondary);
-  font-size: var(--aimd-text-xs);
 }
 
 .reader-prompt-settings {

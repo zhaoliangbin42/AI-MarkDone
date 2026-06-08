@@ -51,6 +51,13 @@ function renderStatus(message: string): void {
     document.body.appendChild(root);
 }
 
+function syncDetachedReaderTheme(theme: ReaderSessionSnapshot['theme'], settings: AppSettings): UserThemeOverrides {
+    document.documentElement.setAttribute('data-aimd-theme', theme);
+    const overrides = getThemeOverrides(settings);
+    ensurePageTokens(overrides);
+    return overrides;
+}
+
 async function loadSettings(): Promise<AppSettings> {
     const response = await sendExtRequest({
         v: PROTOCOL_VERSION,
@@ -74,6 +81,15 @@ async function getSession(sessionId: string): Promise<ReaderSessionRecord | null
     return (response.data as { session?: ReaderSessionRecord }).session ?? null;
 }
 
+async function closeSession(sessionId: string): Promise<void> {
+    await sendExtRequest({
+        v: PROTOCOL_VERSION,
+        id: createRequestId(),
+        type: 'readerSession:close',
+        payload: { sessionId },
+    }, { timeoutMs: 4000 });
+}
+
 async function run(): Promise<void> {
     ensurePageTokens();
     const sessionId = getSessionId();
@@ -84,10 +100,11 @@ async function run(): Promise<void> {
 
     let settings = await loadSettings();
     await setLocale(settings.language ?? DEFAULT_SETTINGS.language);
-    ensurePageTokens(getThemeOverrides(settings));
+    let currentThemeOverrides = getThemeOverrides(settings);
+    ensurePageTokens(currentThemeOverrides);
 
     const panel = new ReaderPanel();
-    panel.setThemeOverrides(getThemeOverrides(settings));
+    panel.setThemeOverrides(currentThemeOverrides);
     panel.setReaderSettings(settings.reader);
     panel.setReaderSettingsController({
         onChange: async (patch) => {
@@ -99,7 +116,8 @@ async function run(): Promise<void> {
                     commentExport: patch.commentExport ?? settings.reader.commentExport,
                 },
             };
-            panel.setThemeOverrides(getThemeOverrides(settings));
+            currentThemeOverrides = syncDetachedReaderTheme(session?.snapshot.theme ?? 'light', settings);
+            panel.setThemeOverrides(currentThemeOverrides);
             await sendExtRequest({
                 v: PROTOCOL_VERSION,
                 id: createRequestId(),
@@ -184,10 +202,18 @@ async function run(): Promise<void> {
         ];
 
         const snapshot = session.snapshot;
+        currentThemeOverrides = syncDetachedReaderTheme(snapshot.theme, settings);
         panel.setTheme(snapshot.theme);
+        panel.setThemeOverrides(currentThemeOverrides);
         await panel.show(toReaderItems(snapshot), snapshot.startIndex, snapshot.theme, {
             profile: 'conversation-reader',
             actions,
+            onRequestClose: async () => {
+                panel.hide();
+                await closeSession(sessionId);
+                window.close();
+                renderStatus(t('detachedReaderClosed'));
+            },
         });
     };
 

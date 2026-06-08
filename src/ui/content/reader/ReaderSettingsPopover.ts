@@ -102,18 +102,25 @@ export class ReaderSettingsPopover {
         if (!this.rootEl) return;
         const body = this.rootEl.querySelector<HTMLElement>('.dialog-body--reader-settings');
         const footer = this.rootEl.querySelector<HTMLElement>('.panel-footer--reader-settings');
-        if (body && footer) this.render(body, footer);
+        if (body) this.render(body, footer ?? undefined);
     }
 
-    private render(body: HTMLElement, footer: HTMLElement): void {
+    private render(body: HTMLElement, footer?: HTMLElement): void {
         const settings = this.settings;
         if (!settings) return;
         body.replaceChildren();
-        footer.replaceChildren();
+        footer?.replaceChildren();
         body.append(
             this.createOpenModeRow(settings),
             this.createFontSizeRow(settings),
             this.createContentWidthRow(settings),
+            this.createActionRow(
+                t('readerDetachedNoticeResetLabel'),
+                t('readerDetachedNoticeResetDesc'),
+                () => this.applyPatch({ detachedNoticeConfirmed: false }),
+                t('btnReset'),
+                'reader-settings-detached-notice-reset',
+            ),
             this.createToggleRow(
                 t('renderCodeBlocksLabel'),
                 t('renderCodeBlocksDesc'),
@@ -144,10 +151,7 @@ export class ReaderSettingsPopover {
             ),
         );
 
-        const hint = document.createElement('div');
-        hint.className = 'reader-settings-popover__footer-hint';
-        hint.textContent = t('readerSettingsLivePreviewHint');
-        footer.appendChild(hint);
+        footer?.remove();
     }
 
     private createOpenModeRow(settings: AppSettings['reader']): HTMLElement {
@@ -227,12 +231,13 @@ export class ReaderSettingsPopover {
         return row;
     }
 
-    private createActionRow(labelText: string, desc: string, onClick: () => void): HTMLElement {
+    private createActionRow(labelText: string, desc: string, onClick: () => void, actionLabel = t('btnEdit'), action?: string): HTMLElement {
         const row = this.createBaseRow(labelText, desc);
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'secondary-btn secondary-btn--compact';
-        button.textContent = t('btnEdit');
+        if (action) button.dataset.action = action;
+        button.textContent = actionLabel;
         button.addEventListener('click', onClick);
         row.appendChild(button);
         return row;

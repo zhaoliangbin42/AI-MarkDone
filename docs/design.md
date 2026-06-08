@@ -183,6 +183,7 @@ Rules:
 - Reader body size is stored as `reader.bodyFontSizePx` and emitted as a Reader-scoped custom property.
 - Markdown headings continue to use proportional `em` sizing from the Reader body size.
 - Inline code and code blocks use the mono family with proportional sizing from Reader body size.
+- KaTeX formulas derive from the Reader body scale, but their assets have two scopes: selector/layout CSS stays inside the Reader Shadow DOM, while KaTeX `@font-face` rules are registered at the document layer so detached Reader pages do not depend on ChatGPT host-page fonts.
 - Reader settings changes apply live to any open Reader surface after settings persistence succeeds.
 - Reader content width remains a separate measure control; it does not imply font scaling.
 

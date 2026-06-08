@@ -50,4 +50,4 @@
 | 输入框 | ProseMirror (`#prompt-textarea`) |
 | 发送按钮 | `.composer-submit-button-color` |
 | 特殊处理 | payload/store-first Reader；可选发送后恢复阅读位置；可选右侧 conversation directory rail；右下角 message stepper 默认保留且可关闭 |
-| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptBehavior.showMessageStepper` 控制右下角上一条/下一条按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 控制左右方向键消息导航；`chatgptDirectory.enabled` 默认关闭并控制 AI-MarkDone 右侧目录条，启用目录条时同步隐藏 ChatGPT conversation highlight root 下贴右侧的 delayed fixed 直接子容器 |
+| 设置分组 | 使用平台总开关 `platforms.chatgpt` 控制 ChatGPT runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime；`chatgptBehavior.restorePositionAfterSend` 控制发送后恢复阅读位置；`chatgptBehavior.showMessageStepper` 控制右下角上一条/下一条按钮显示，不隐藏 Detached Reader Split View 入口；`chatgptBehavior.enableArrowKeyMessageNavigation` 控制左右方向键消息导航；`chatgptDirectory.enabled` 默认关闭并控制 AI-MarkDone 右侧目录条，启用目录条时同步隐藏 ChatGPT conversation highlight root 下贴右侧的 delayed fixed 直接子容器 |

@@ -19,6 +19,8 @@ const readerPanelCtor = vi.fn(function () {
         setRenderCodeInReader: vi.fn(),
         setShowOutlineInReader: vi.fn(),
         setContentMaxWidthPx: vi.fn(),
+        setReaderSettings: vi.fn(),
+        setReaderSettingsController: vi.fn(),
         setCommentExportSettings: vi.fn(),
     };
 });
@@ -28,6 +30,7 @@ const sendControllerCtor = vi.fn(function () {
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
 const settingsGetCached = vi.fn(() => null);
+const settingsSetCategory = vi.fn(async () => {});
 let settingsSubscriber: ((snap: any) => void) | null = null;
 const settingsClientCtor = vi.fn(function () {
     return {
@@ -37,6 +40,7 @@ const settingsClientCtor = vi.fn(function () {
             return settingsSubscribe(fn);
         },
         getCached: settingsGetCached,
+        setCategory: settingsSetCategory,
     };
 });
 const bookmarksControllerRefreshAll = vi.fn(async () => {});
@@ -143,9 +147,31 @@ const engineCtor = vi.fn(function () {
     };
 });
 const setLocale = vi.fn(async () => {});
+const t = vi.fn((key: string) => key);
 const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
 const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
+const collectFreshReaderContent = vi.fn(async () => ({
+    items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
+    startIndex: 0,
+}));
+const buildReaderSessionSnapshot = vi.fn(async (input: any) => ({
+    items: input.items,
+    startIndex: input.startIndex,
+    sourceUrl: input.sourceUrl,
+    theme: input.theme,
+    createdAt: 1,
+    updatedAt: 1,
+}));
+let modalConfirmResult = true;
+const modalConfirm = vi.fn(async () => modalConfirmResult);
+const overlayUnmount = vi.fn();
+const overlaySessionCtor = vi.fn(function () {
+    return {
+        modalHost: { confirm: modalConfirm },
+        unmount: overlayUnmount,
+    };
+});
 const addListener = vi.fn();
 const runtimeSendMessage = vi.fn(async () => ({ ok: true }));
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
@@ -230,6 +256,19 @@ vi.mock('@/drivers/content/settings/settingsClient', () => ({
 
 vi.mock('@/ui/content/components/i18n', () => ({
     setLocale,
+    t,
+}));
+
+vi.mock('@/ui/content/overlay/OverlaySession', () => ({
+    OverlaySession: overlaySessionCtor,
+}));
+
+vi.mock('@/services/reader/readerContentSource', () => ({
+    collectFreshReaderContent,
+}));
+
+vi.mock('@/services/reader/readerSessionSnapshot', () => ({
+    buildReaderSessionSnapshot,
 }));
 
 vi.mock('@/ui/content/controllers/ChatGPTDirectoryController', () => ({
@@ -267,11 +306,25 @@ vi.mock('@/contracts/protocol', async () => {
 
 afterEach(() => {
     vi.clearAllMocks();
+    runtimeSendMessage.mockImplementation(async () => ({ ok: true }));
+    collectFreshReaderContent.mockImplementation(async () => ({
+        items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
+        startIndex: 0,
+    }));
+    buildReaderSessionSnapshot.mockImplementation(async (input: any) => ({
+        items: input.items,
+        startIndex: input.startIndex,
+        sourceUrl: input.sourceUrl,
+        theme: input.theme,
+        createdAt: 1,
+        updatedAt: 1,
+    }));
     settingsGetCached.mockReturnValue(null);
     adapterPlatformId = 'chatgpt';
     formulaOnlyProfile = null;
     settingsSubscriber = null;
     runtimeMessageListener = null;
+    modalConfirmResult = true;
     document.documentElement.removeAttribute('data-aimd-theme');
     document.body.innerHTML = '';
 });
@@ -513,7 +566,12 @@ describe('content runtime entry', () => {
             clickCopyMarkdown: false,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
-        expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
+        expect(reader?.setReaderSettings).toHaveBeenCalledWith(expect.objectContaining({
+            renderCodeInReader: false,
+            commentExport: expect.objectContaining({
+                prompts: [{ id: 'prompt-1', title: 'Prompt 1', content: 'Please review.' }],
+            }),
+        }));
 
         settingsSubscriber!({
             settings: {
@@ -561,7 +619,9 @@ describe('content runtime entry', () => {
         expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('head');
         expect(officialNavigationSetEnabled).toHaveBeenLastCalledWith(true);
         expect(mathClickEnable).toHaveBeenCalledTimes(2);
-        expect(reader?.setRenderCodeInReader).toHaveBeenLastCalledWith(true);
+        expect(reader?.setReaderSettings).toHaveBeenLastCalledWith(expect.objectContaining({
+            renderCodeInReader: true,
+        }));
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
             showSaveMessages: true,
             showWordCount: true,
@@ -652,8 +712,10 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         const reader = readerPanelCtor.mock.results[0]?.value;
-        expect(reader?.setRenderCodeInReader).toHaveBeenCalledWith(false);
-        expect(reader?.setCommentExportSettings).toHaveBeenCalledWith(cachedCommentExport);
+        expect(reader?.setReaderSettings).toHaveBeenCalledWith(expect.objectContaining({
+            renderCodeInReader: false,
+            commentExport: cachedCommentExport,
+        }));
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
             clickCopyMarkdown: false,
             assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
@@ -705,5 +767,89 @@ describe('content runtime entry', () => {
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('headTail');
         expect(officialNavigationSetEnabled).toHaveBeenLastCalledWith(true);
+    });
+
+    it('does not create a detached reader session when the experimental notice is cancelled', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        modalConfirmResult = false;
+        settingsGetCached.mockReturnValue({
+            ...DEFAULT_SETTINGS,
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                detachedNoticeConfirmed: false,
+            },
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onOpenDetachedReader = messageStepperCtor.mock.calls[0]?.[1]?.onOpenDetachedReader;
+        await onOpenDetachedReader?.();
+
+        expect(modalConfirm).toHaveBeenCalledTimes(1);
+        expect(collectFreshReaderContent).not.toHaveBeenCalled();
+        expect(runtimeSendMessage).not.toHaveBeenCalledWith(expect.objectContaining({
+            type: 'readerSession:create',
+        }));
+        expect(settingsSetCategory).not.toHaveBeenCalledWith('reader', expect.objectContaining({
+            detachedNoticeConfirmed: true,
+        }));
+    });
+
+    it('does not persist the detached reader notice when session creation fails', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        settingsGetCached.mockReturnValue({
+            ...DEFAULT_SETTINGS,
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                detachedNoticeConfirmed: false,
+            },
+        });
+        runtimeSendMessage.mockImplementation(async (message: any) => {
+            if (message?.type === 'readerSession:create') {
+                return { ok: false, error: { code: 'SOURCE_UNAVAILABLE', message: 'source unavailable' } };
+            }
+            return { ok: true };
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onOpenDetachedReader = messageStepperCtor.mock.calls[0]?.[1]?.onOpenDetachedReader;
+        await onOpenDetachedReader?.();
+
+        expect(runtimeSendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'readerSession:create',
+        }));
+        expect(settingsSetCategory).not.toHaveBeenCalledWith('reader', expect.objectContaining({
+            detachedNoticeConfirmed: true,
+        }));
+    });
+
+    it('persists the detached reader notice only after session creation succeeds', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        settingsGetCached.mockReturnValue({
+            ...DEFAULT_SETTINGS,
+            reader: {
+                ...DEFAULT_SETTINGS.reader,
+                detachedNoticeConfirmed: false,
+            },
+        });
+        runtimeSendMessage.mockImplementation(async (message: any) => {
+            if (message?.type === 'readerSession:create') {
+                return { ok: true, data: { sessionId: 'session-1' } };
+            }
+            return { ok: true };
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onOpenDetachedReader = messageStepperCtor.mock.calls[0]?.[1]?.onOpenDetachedReader;
+        await onOpenDetachedReader?.();
+
+        expect(runtimeSendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'readerSession:create',
+        }));
+        expect(settingsSetCategory).toHaveBeenCalledWith('reader', expect.objectContaining({
+            detachedNoticeConfirmed: true,
+        }));
     });
 });

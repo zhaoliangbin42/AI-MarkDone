@@ -59,6 +59,7 @@ import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { UserThemeOverrides } from '../../../style/tokens';
+import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss, hasKatexMarkup } from '../../../drivers/content/export/katexAssets';
 import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ReaderSettingsPopover } from './ReaderSettingsPopover';
@@ -95,6 +96,7 @@ export type ReaderPanelProfile = 'conversation-reader' | 'bookmark-preview';
 export type ReaderPanelShowOptions = {
     profile?: ReaderPanelProfile;
     onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
+    onRequestClose?: () => void | Promise<void>;
     actions?: ReaderPanelAction[];
 };
 
@@ -111,6 +113,7 @@ type ReaderPanelState = {
     defaultOpenMode: AppSettings['reader']['defaultOpenMode'];
     panelSizeRatio: AppSettings['reader']['panelSizeRatio'];
     bodyFontSizePx: number;
+    detachedNoticeConfirmed: boolean;
     renderedHtml: string;
     renderedMarkdownSource: string;
     renderedAtomicUnits: ReaderAtomicUnit[];
@@ -134,6 +137,7 @@ type ReaderPanelState = {
         dotStyle: 'meta' | 'plain';
         actions: ReaderPanelAction[];
         onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
+        onRequestClose?: () => void | Promise<void>;
     };
 };
 
@@ -168,6 +172,7 @@ export class ReaderPanel {
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private contentRenderToken = 0;
+    private katexCssToken = 0;
     private statusTimer: number | null = null;
     private renderCodeInReader = true;
     private themeOverrides: UserThemeOverrides = {};
@@ -202,6 +207,7 @@ export class ReaderPanel {
         defaultOpenMode: DEFAULT_READER_OPEN_MODE,
         panelSizeRatio: DEFAULT_READER_PANEL_SIZE_RATIO,
         bodyFontSizePx: DEFAULT_READER_BODY_FONT_SIZE_PX,
+        detachedNoticeConfirmed: false,
         renderedHtml: '',
         renderedMarkdownSource: '',
         renderedAtomicUnits: [],
@@ -291,6 +297,7 @@ export class ReaderPanel {
         this.state.defaultOpenMode = normalized.defaultOpenMode;
         this.state.panelSizeRatio = normalized.panelSizeRatio;
         this.state.bodyFontSizePx = normalized.bodyFontSizePx;
+        this.state.detachedNoticeConfirmed = normalized.detachedNoticeConfirmed;
         this.state.contentMaxWidthPx = normalized.contentMaxWidthPx;
         this.commentExportSettings = normalized.commentExport;
         this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
@@ -337,6 +344,7 @@ export class ReaderPanel {
         this.state.options = {
             ...resolvedProfile,
             onOpenConversation: options?.onOpenConversation,
+            onRequestClose: options?.onRequestClose,
             actions: options?.actions ?? [],
         };
 
@@ -344,7 +352,7 @@ export class ReaderPanel {
         this.render(false);
         this.overlaySession?.syncKeyboardScope({
             root: this.overlaySession?.host ?? document.body,
-            onEscape: () => this.hide(),
+            onEscape: () => this.requestClose(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
             trapTabWithin: this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession?.host ?? undefined,
@@ -382,6 +390,18 @@ export class ReaderPanel {
         this.unmount();
     }
 
+    private requestClose(): void {
+        const customClose = this.state.options.onRequestClose;
+        if (!customClose) {
+            this.hide();
+            return;
+        }
+        void Promise.resolve(customClose()).catch((error) => {
+            const message = error instanceof Error ? error.message : 'Unable to close Reader';
+            this.notify(message);
+        });
+    }
+
     notify(text: string, timeoutMs: number = 1400): void {
         this.setStatus(text);
         if (this.statusTimer) window.clearTimeout(this.statusTimer);
@@ -404,7 +424,7 @@ export class ReaderPanel {
         this.overlaySession = session;
         this.tooltipDelegate = new TooltipDelegate(session.shadow, { upgradeTitles: false });
 
-        session.syncBackdropDismiss(() => this.hide());
+        session.syncBackdropDismiss(() => this.requestClose());
         session.surfaceRoot.addEventListener('click', (event) => void this.handleSurfaceClick(event));
         this.onSurfacePointerDown = (event: PointerEvent) => this.handleSurfacePointerDown(event);
         this.onSurfaceDragStart = (event: DragEvent) => this.handleSurfaceDragStart(event);
@@ -507,6 +527,7 @@ export class ReaderPanel {
         }
 
         this.contentRenderToken += 1;
+        this.katexCssToken += 1;
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
@@ -526,7 +547,7 @@ export class ReaderPanel {
         const action = actionEl.dataset.action;
         switch (action) {
             case 'close-panel':
-                this.hide();
+                this.requestClose();
                 return;
             case 'reader-prev':
                 await this.go(-1);
@@ -798,6 +819,7 @@ export class ReaderPanel {
             copyLabel: this.getLabel('btnCopyText', 'Copy code'),
         });
         this.render(false);
+        void this.ensureKatexStylesForHtml(this.state.renderedHtml, token);
         this.syncAtomicSelection();
         this.syncCommentUi();
 
@@ -919,6 +941,9 @@ export class ReaderPanel {
                 readerBodyFontSizePx: this.state.bodyFontSizePx,
             });
         }
+        if (typeof patch.detachedNoticeConfirmed !== 'undefined') {
+            this.state.detachedNoticeConfirmed = Boolean(patch.detachedNoticeConfirmed);
+        }
         if (typeof patch.contentMaxWidthPx !== 'undefined') {
             this.state.contentMaxWidthPx = normalizeReaderContentMaxWidthPx(patch.contentMaxWidthPx);
             this.overlaySession?.setThemeOverrides({
@@ -939,7 +964,7 @@ export class ReaderPanel {
             defaultOpenMode: this.state.defaultOpenMode,
             panelSizeRatio: this.state.panelSizeRatio,
             bodyFontSizePx: this.state.bodyFontSizePx,
-            detachedNoticeConfirmed: false,
+            detachedNoticeConfirmed: this.state.detachedNoticeConfirmed,
             contentMaxWidthPx: this.state.contentMaxWidthPx,
             commentExport: this.commentExportSettings,
         });
@@ -1003,7 +1028,7 @@ export class ReaderPanel {
         );
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
-            onEscape: () => this.hide(),
+            onEscape: () => this.requestClose(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
             trapTabWithin: panel ?? this.overlaySession.host,
@@ -1318,6 +1343,40 @@ export class ReaderPanel {
         } catch {
             return '';
         }
+    }
+
+    private async ensureKatexStylesForHtml(html: string, renderToken: number): Promise<void> {
+        const shadow = this.overlaySession?.shadow;
+        if (!shadow || !hasKatexMarkup(html)) return;
+
+        const cssToken = ++this.katexCssToken;
+        try {
+            const [result, fontFaceCss] = await Promise.all([
+                getKatexCssWithRuntimeFontUrls(html),
+                getKatexRuntimeFontFaceCss(),
+            ]);
+            if (renderToken !== this.contentRenderToken || cssToken !== this.katexCssToken) return;
+            if (result.mode !== 'runtime-url' || !result.css) return;
+
+            const existing = shadow.querySelector<HTMLStyleElement>('style[data-aimd-style-link="aimd-reader-panel-katex-embedded"]');
+            const style = existing ?? document.createElement('style');
+            style.setAttribute('data-aimd-style-link', 'aimd-reader-panel-katex-embedded');
+            style.textContent = result.css;
+            if (!existing) shadow.appendChild(style);
+            this.ensureGlobalKatexFontFaces(fontFaceCss);
+        } catch {
+            // The local stylesheet link mounted during panel setup remains as a fallback.
+        }
+    }
+
+    private ensureGlobalKatexFontFaces(css: string): void {
+        if (!css) return;
+        const root = document.head || document.documentElement;
+        const existing = root.querySelector<HTMLStyleElement>('style[data-aimd-style-link="aimd-reader-katex-font-faces"]');
+        const style = existing ?? document.createElement('style');
+        style.setAttribute('data-aimd-style-link', 'aimd-reader-katex-font-faces');
+        style.textContent = css;
+        if (!existing) root.appendChild(style);
     }
 
     private getMarkdownRoot(): HTMLElement | null {

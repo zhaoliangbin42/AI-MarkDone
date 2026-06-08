@@ -146,6 +146,32 @@ describe('ChatGPTMessageStepperController', () => {
         expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.disabled).toBe(true);
     });
 
+    it('keeps the detached Reader button available when message step buttons are hidden', async () => {
+        const onOpenDetachedReader = vi.fn(async () => undefined);
+        const controller = new ChatGPTMessageStepperController(adapter, { onOpenDetachedReader });
+        controllers.push(controller);
+        controller.init();
+        controller.setVisible(false);
+
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        const split = host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')!;
+        const previous = host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')!;
+        const next = host.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+
+        expect(host.dataset.visible).toBe('1');
+        expect(split.hidden).toBe(false);
+        expect(previous.hidden).toBe(true);
+        expect(next.hidden).toBe(true);
+
+        split.click();
+        await Promise.resolve();
+        expect(onOpenDetachedReader).toHaveBeenCalledTimes(1);
+
+        previous.click();
+        await Promise.resolve();
+        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+    });
+
     it('uses left and right arrow keys for message navigation outside editable targets', async () => {
         const controller = new ChatGPTMessageStepperController(adapter);
         controllers.push(controller);
@@ -235,11 +261,11 @@ describe('ChatGPTMessageStepperController', () => {
 
         controller.setVisible(false);
 
-        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
-        expect(host).toBeTruthy();
-        expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
-        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(true);
-        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(true);
+        const hiddenHost = document.getElementById('aimd-chatgpt-message-stepper')!;
+        expect(hiddenHost).toBeTruthy();
+        expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(true);
+        expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(true);
 
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
         await Promise.resolve();
@@ -251,7 +277,8 @@ describe('ChatGPTMessageStepperController', () => {
 
         controller.setVisible(true);
 
-        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
-        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
+        const visibleHost = document.getElementById('aimd-chatgpt-message-stepper')!;
+        expect(visibleHost.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
+        expect(visibleHost.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
     });
 });

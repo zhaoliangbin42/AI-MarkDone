@@ -371,10 +371,6 @@
         "message": "Reader",
         "description": "Message for readerSettingsLabel"
     },
-    "readerSettingsLivePreviewHint": {
-        "message": "Changes apply to the open Reader immediately.",
-        "description": "Message for readerSettingsLivePreviewHint"
-    },
     "readerDefaultOpenModeLabel": {
         "message": "Default Reader size",
         "description": "Message for readerDefaultOpenModeLabel"
@@ -406,6 +402,14 @@
     "readerContentWidthDesc": {
         "message": "Maximum Reader body width in pixels. The content still shrinks to fit the panel.",
         "description": "Message for readerContentWidthDesc"
+    },
+    "readerDetachedNoticeResetLabel": {
+        "message": "Detached Reader notice",
+        "description": "Message for readerDetachedNoticeResetLabel"
+    },
+    "readerDetachedNoticeResetDesc": {
+        "message": "Reset this to show the experimental notice again the next time Detached Reader opens from Split View.",
+        "description": "Message for readerDetachedNoticeResetDesc"
     },
     "appearanceSettingsLabel": {
         "message": "Appearance",
@@ -2372,7 +2376,7 @@
         "description": "Message for detachedReaderLocated"
     },
     "detachedReaderExperimentalTitle": {
-        "message": "Experimental detached Reader",
+        "message": "Open detached Reader?",
         "description": "Message for detachedReaderExperimentalTitle"
     },
     "detachedReaderExperimentalMessage": {
@@ -2380,11 +2384,15 @@
         "description": "Message for detachedReaderExperimentalMessage"
     },
     "detachedReaderExperimentalConfirm": {
-        "message": "Open detached Reader",
+        "message": "Continue",
         "description": "Message for detachedReaderExperimentalConfirm"
     },
     "detachedReaderExperimentalCancel": {
         "message": "Cancel",
         "description": "Message for detachedReaderExperimentalCancel"
+    },
+    "detachedReaderClosed": {
+        "message": "Detached Reader closed.",
+        "description": "Message for detachedReaderClosed"
     }
 }

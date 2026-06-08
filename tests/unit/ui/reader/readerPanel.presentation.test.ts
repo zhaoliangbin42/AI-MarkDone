@@ -25,9 +25,19 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
     },
 }));
 
+vi.mock('@/drivers/content/export/katexAssets', () => ({
+    hasKatexMarkup: (html: string) => /\bkatex\b/.test(html || ''),
+    getKatexCssWithRuntimeFontUrls: vi.fn(async () => ({
+        mode: 'runtime-url',
+        css: '@font-face{font-family:KaTeX_Main;src:url("chrome-extension://mock/vendor/katex/fonts/KaTeX_Main-Regular.woff2")}.katex{font-family:KaTeX_Main}.katex-display{display:block}',
+    })),
+    getKatexRuntimeFontFaceCss: vi.fn(async () => '@font-face{font-family:KaTeX_Main;src:url("chrome-extension://mock/vendor/katex/fonts/KaTeX_Main-Regular.woff2")}'),
+}));
+
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
+import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss } from '@/drivers/content/export/katexAssets';
 
 async function flushMotionFrames(): Promise<void> {
     await new Promise<void>((resolve) => {
@@ -161,6 +171,32 @@ describe('ReaderPanel presentation', () => {
             expect(templateSource).toContain('.panel-window--reader {');
             expect(templateSource).not.toContain('top: var(--aimd-panel-top);');
             expect(katexLink?.rel).toBe('stylesheet');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('injects self-contained KaTeX styles when Reader content contains formulas', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'Inline $x+y$ math.' }], 0, 'light');
+            await Promise.resolve();
+            await Promise.resolve();
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown');
+            const katexLink = shadow.querySelector<HTMLLinkElement>('link[data-aimd-style-link="aimd-reader-panel-katex"]');
+            const katexEmbeddedStyle = shadow.querySelector<HTMLStyleElement>('style[data-aimd-style-link="aimd-reader-panel-katex-embedded"]');
+            const katexFontFaceStyle = document.querySelector<HTMLStyleElement>('style[data-aimd-style-link="aimd-reader-katex-font-faces"]');
+
+            expect(markdownRoot?.querySelector('.katex')).toBeTruthy();
+            expect(katexLink?.rel).toBe('stylesheet');
+            expect(getKatexCssWithRuntimeFontUrls).toHaveBeenCalledWith(expect.stringContaining('katex'));
+            expect(getKatexRuntimeFontFaceCss).toHaveBeenCalledTimes(1);
+            expect(katexEmbeddedStyle?.textContent).toContain('.katex{font-family:KaTeX_Main}');
+            expect(katexFontFaceStyle?.textContent).toContain('@font-face{font-family:KaTeX_Main');
         } finally {
             panel.hide();
         }
@@ -315,7 +351,10 @@ describe('ReaderPanel presentation', () => {
     it('opens Reader settings from the header and applies font-size changes live', async () => {
         const panel = new ReaderPanel();
         const onChange = vi.fn(async () => undefined);
-        panel.setReaderSettings(DEFAULT_SETTINGS.reader);
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            detachedNoticeConfirmed: true,
+        });
         panel.setReaderSettingsController({ onChange });
 
         try {
@@ -327,12 +366,39 @@ describe('ReaderPanel presentation', () => {
             shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
             const settingsPanel = shadow.querySelector<HTMLElement>('.panel-window--reader-settings')!;
             expect(settingsPanel).toBeTruthy();
+            expect(settingsPanel.querySelector('.reader-settings-popover__footer-hint')).toBeNull();
 
             settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-font-increase"]')!.click();
             await Promise.resolve();
 
             expect(onChange).toHaveBeenCalledWith({ bodyFontSizePx: 17 });
             expect(shell.getAttribute('style')).toContain('--aimd-reader-markdown-body-size: 17px');
+
+            settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-detached-notice-reset"]')!.click();
+            await Promise.resolve();
+
+            expect(onChange).toHaveBeenCalledWith({ detachedNoticeConfirmed: false });
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('uses a custom close handler when the detached Reader owns the surface', async () => {
+        const panel = new ReaderPanel();
+        const onRequestClose = vi.fn(async () => undefined);
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light', {
+                onRequestClose,
+            });
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="close-panel"]')!.click();
+            await Promise.resolve();
+
+            expect(onRequestClose).toHaveBeenCalledTimes(1);
+            expect(document.querySelector('#aimd-reader-panel-host')).toBeTruthy();
         } finally {
             panel.hide();
         }

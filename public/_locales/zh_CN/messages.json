@@ -371,10 +371,6 @@
         "message": "阅读器",
         "description": "Message for readerSettingsLabel"
     },
-    "readerSettingsLivePreviewHint": {
-        "message": "修改会立即应用到当前打开的阅读器。",
-        "description": "Message for readerSettingsLivePreviewHint"
-    },
     "readerDefaultOpenModeLabel": {
         "message": "阅读器默认大小",
         "description": "Message for readerDefaultOpenModeLabel"
@@ -406,6 +402,14 @@
     "readerContentWidthDesc": {
         "message": "阅读器正文的最大像素宽度。内容仍会自动收缩以适配面板。",
         "description": "Message for readerContentWidthDesc"
+    },
+    "readerDetachedNoticeResetLabel": {
+        "message": "独立阅读器提示",
+        "description": "Message for readerDetachedNoticeResetLabel"
+    },
+    "readerDetachedNoticeResetDesc": {
+        "message": "重置后，下次从右下角 Split View 打开独立阅读器时会再次显示实验功能提示。",
+        "description": "Message for readerDetachedNoticeResetDesc"
     },
     "appearanceSettingsLabel": {
         "message": "外观",
@@ -2372,7 +2376,7 @@
         "description": "Message for detachedReaderLocated"
     },
     "detachedReaderExperimentalTitle": {
-        "message": "实验性的独立阅读器",
+        "message": "打开独立阅读器？",
         "description": "Message for detachedReaderExperimentalTitle"
     },
     "detachedReaderExperimentalMessage": {
@@ -2380,11 +2384,15 @@
         "description": "Message for detachedReaderExperimentalMessage"
     },
     "detachedReaderExperimentalConfirm": {
-        "message": "打开独立阅读器",
+        "message": "继续打开",
         "description": "Message for detachedReaderExperimentalConfirm"
     },
     "detachedReaderExperimentalCancel": {
         "message": "取消",
         "description": "Message for detachedReaderExperimentalCancel"
+    },
+    "detachedReaderClosed": {
+        "message": "独立阅读器已关闭。",
+        "description": "Message for detachedReaderClosed"
     }
 }
