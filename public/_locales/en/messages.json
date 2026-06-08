@@ -951,6 +951,14 @@
         "message": "ChatGPT Settings",
         "description": "Message for chatgptSettingsLabel"
     },
+    "messageToolbarLabel": {
+        "message": "Toolbar > Message Toolbar",
+        "description": "Message for messageToolbarLabel"
+    },
+    "messageToolbarDesc": {
+        "message": "Show the AI-MarkDone toolbar on each ChatGPT response",
+        "description": "Message for messageToolbarDesc"
+    },
     "chatgptRestorePositionAfterSendLabel": {
         "message": "Restore position after sending",
         "description": "Message for chatgptRestorePositionAfterSendLabel"

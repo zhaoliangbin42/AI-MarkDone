@@ -623,6 +623,7 @@ describe('content runtime entry', () => {
             renderCodeInReader: true,
         }));
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
+            showMessageToolbar: true,
             showSaveMessages: true,
             showWordCount: true,
         });

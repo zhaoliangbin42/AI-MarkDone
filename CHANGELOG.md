@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Reader: Added a detached ChatGPT Reader tab that reuses the existing Reader rendering and content source while routing refresh, send, locate, and close actions back through the original ChatGPT tab.
 - Reader: Added a lower-right Split View button for detached Reader, a first-use experimental notice, fullscreen default opening, Reader-local display settings, live Reader font-size controls, and centered panel resizing.
+- Settings: Added a master Message Toolbar toggle that removes existing per-message toolbar hosts and stops future toolbar injection when disabled.
 
 ### Fixed
 - Reader: Kept detached Reader sessions in extension session storage only, avoiding persistent local storage for conversation snapshots.

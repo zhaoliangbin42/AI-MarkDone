@@ -78,6 +78,7 @@ type StepperFieldRef = {
 type Refs = {
     platforms: Record<keyof AppSettings['platforms'], HTMLInputElement>;
     behavior: {
+        showMessageToolbar: HTMLInputElement;
         showSaveMessages: HTMLInputElement;
         showWordCount: HTMLInputElement;
         saveContextOnly: HTMLInputElement;
@@ -150,6 +151,7 @@ export class SettingsTabView {
         };
 
         const pageActionsGroup = this.createGroup(Icons.settings, t('toolbarPageActionsSettingsLabel'));
+        const showMessageToolbar = this.createToggle(pageActionsGroup.body, t('messageToolbarLabel'), t('messageToolbarDesc'));
         const showSaveMessages = this.createToggle(pageActionsGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
         const showWordCount = this.createToggle(pageActionsGroup.body, t('wordCountLabel'), t('wordCountDesc'));
         const saveContextOnly = this.createToggle(pageActionsGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
@@ -317,6 +319,7 @@ export class SettingsTabView {
                 deepseek: platforms.deepseek.input,
             },
             behavior: {
+                showMessageToolbar: showMessageToolbar.input,
                 showSaveMessages: showSaveMessages.input,
                 showWordCount: showWordCount.input,
                 saveContextOnly: saveContextOnly.input,
@@ -347,6 +350,7 @@ export class SettingsTabView {
         this.refs.platforms.gemini.dataset.role = 'settings-platform-gemini';
         this.refs.platforms.claude.dataset.role = 'settings-platform-claude';
         this.refs.platforms.deepseek.dataset.role = 'settings-platform-deepseek';
+        this.refs.behavior.showMessageToolbar.dataset.role = 'settings-show-message-toolbar';
         this.refs.behavior.showSaveMessages.dataset.role = 'settings-show-save-messages';
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
@@ -439,6 +443,11 @@ export class SettingsTabView {
         }
 
         // Behavior + reader
+        this.refs.behavior.showMessageToolbar.addEventListener('change', () => {
+            const next = this.refs.behavior.showMessageToolbar.checked;
+            this.settings.behavior.showMessageToolbar = next;
+            void this.actions.setBehaviorSettings?.({ showMessageToolbar: next });
+        });
         this.refs.behavior.showSaveMessages.addEventListener('change', () => {
             const next = this.refs.behavior.showSaveMessages.checked;
             this.settings.behavior.showSaveMessages = next;
@@ -560,6 +569,7 @@ export class SettingsTabView {
         this.refs.platforms.claude.checked = Boolean(s.platforms.claude);
         this.refs.platforms.deepseek.checked = Boolean(s.platforms.deepseek);
 
+        this.refs.behavior.showMessageToolbar.checked = Boolean(s.behavior.showMessageToolbar);
         this.refs.behavior.showSaveMessages.checked = Boolean(s.behavior.showSaveMessages);
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
@@ -582,6 +592,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.platforms.gemini);
         this.syncToggle(this.refs.platforms.claude);
         this.syncToggle(this.refs.platforms.deepseek);
+        this.syncToggle(this.refs.behavior.showMessageToolbar);
         this.syncToggle(this.refs.behavior.showSaveMessages);
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.saveContextOnly);

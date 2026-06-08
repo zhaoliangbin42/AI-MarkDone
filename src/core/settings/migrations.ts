@@ -34,6 +34,7 @@ export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behav
     const record = isRecord(behavior) ? behavior : {};
 
     return {
+        showMessageToolbar: Boolean((record as any).showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar),
         showSaveMessages: Boolean((record as any).showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages),
         showWordCount: Boolean((record as any).showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount),
         enableClickToCopy: Boolean((record as any).enableClickToCopy ?? DEFAULT_SETTINGS.behavior.enableClickToCopy),

@@ -351,6 +351,11 @@ if (adapter) {
     mathClick.setFormulaSettings(resolveFormulaSettings(cachedSettings?.formula));
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     messageToolbars.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
+    messageToolbars.setBehaviorFlags({
+        showMessageToolbar: cachedSettings?.behavior?.showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar,
+        showSaveMessages: cachedSettings?.behavior?.showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages,
+        showWordCount: cachedSettings?.behavior?.showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount,
+    });
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
@@ -369,8 +374,9 @@ if (adapter) {
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         syncThemeOverrides(snap.settings);
         messageToolbars.setBehaviorFlags({
-            showSaveMessages: snap.settings.behavior.showSaveMessages,
-            showWordCount: snap.settings.behavior.showWordCount,
+            showMessageToolbar: snap.settings.behavior?.showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar,
+            showSaveMessages: snap.settings.behavior?.showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages,
+            showWordCount: snap.settings.behavior?.showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount,
         });
     });
 

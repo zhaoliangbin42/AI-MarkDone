@@ -6,6 +6,7 @@ const baseSettings = {
     version: 4,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
+        showMessageToolbar: true,
         showSaveMessages: true,
         showWordCount: true,
         enableClickToCopy: true,
@@ -80,6 +81,7 @@ describe('SettingsTabView', () => {
 
         const pageActionsGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('toolbarPageActionsSettingsLabel'))!;
+        expect(pageActionsGroup.querySelector('[data-role="settings-show-message-toolbar"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-show-save-messages"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
@@ -122,6 +124,24 @@ describe('SettingsTabView', () => {
         gemini.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetPlatforms).toHaveBeenCalledWith({ gemini: false });
+    });
+
+    it('wires the master message toolbar toggle to behavior settings', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetBehaviorSettings = vi.fn(async () => undefined);
+        const view = new SettingsTabView({ modal, actions: { setBehaviorSettings: onSetBehaviorSettings } });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const toggle = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-show-message-toolbar"]')!;
+        expect(toggle.checked).toBe(true);
+
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetBehaviorSettings).toHaveBeenCalledWith({ showMessageToolbar: false });
     });
 
     it('does not expose retired ChatGPT folding controls while showing the restored directory controls', async () => {

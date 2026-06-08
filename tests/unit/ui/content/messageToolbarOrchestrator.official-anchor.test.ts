@@ -118,6 +118,33 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         expect(getToolbarCount()).toBe(1);
     });
 
+    it('clears existing message toolbars and stops injection when the master toolbar setting is disabled', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+          <div class="assistant-message" data-message-id="m2">
+            <div class="content">Second</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const adapter = new FakeOfficialToolbarAdapter();
+        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+
+        (orchestrator as any).scanAndInject(new Set(['init']));
+        expect(getToolbarCount()).toBe(2);
+
+        orchestrator.setBehaviorFlags({ showMessageToolbar: false });
+        expect(getToolbarCount()).toBe(0);
+
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
+        expect(getToolbarCount()).toBe(0);
+    });
+
     it('injects once when the official toolbar appears through an action-bar mutation without a full rescan', () => {
         document.body.innerHTML = `
           <div class="assistant-message" data-message-id="m1">

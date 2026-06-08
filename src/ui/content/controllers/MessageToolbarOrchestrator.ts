@@ -104,6 +104,12 @@ type ChatGptToolbarState = {
     phase: ChatGptToolbarPhase;
 };
 
+type MessageToolbarBehaviorFlags = {
+    showMessageToolbar: boolean;
+    showSaveMessages: boolean;
+    showWordCount: boolean;
+};
+
 const CHATGPT_TOOLBAR_RECOVERY_BASE_MS = 400;
 const CHATGPT_TOOLBAR_RECOVERY_MAX_MS = 4000;
 
@@ -124,7 +130,11 @@ export class MessageToolbarOrchestrator {
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
     private chatGptConversationEngine: ChatGPTConversationEngine | null = null;
-    private behavior = { showSaveMessages: true, showWordCount: true };
+    private behavior: MessageToolbarBehaviorFlags = {
+        showMessageToolbar: true,
+        showSaveMessages: true,
+        showWordCount: true,
+    };
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
     private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
     private wordCounter = new WordCounter();
@@ -646,8 +656,16 @@ export class MessageToolbarOrchestrator {
         bookmarkSaveDialog.setThemeOverrides(this.themeOverrides);
     }
 
-    setBehaviorFlags(flags: Partial<{ showSaveMessages: boolean; showWordCount: boolean }>): void {
+    setBehaviorFlags(flags: Partial<MessageToolbarBehaviorFlags>): void {
+        const wasToolbarVisible = this.behavior.showMessageToolbar;
         this.behavior = { ...this.behavior, ...flags };
+        if (!this.behavior.showMessageToolbar) {
+            this.clearAllToolbars();
+            return;
+        }
+        if (!wasToolbarVisible && this.scanScheduler) {
+            this.scanScheduler.schedule('manual');
+        }
     }
 
     setExportSettings(settings: ExportSettings): void {
@@ -888,6 +906,10 @@ export class MessageToolbarOrchestrator {
         position: number;
         pending: boolean;
     }): ToolbarRecord | null {
+        if (!this.behavior.showMessageToolbar) {
+            this.removeExistingToolbarsInAnchor(params.anchor);
+            return null;
+        }
         let recordRef: ToolbarRecord | null = null;
         const getToolbar = () => recordRef?.toolbar ?? null;
         const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(params.message, getToolbar), {

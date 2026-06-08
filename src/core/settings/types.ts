@@ -75,6 +75,7 @@ export type AppSettings = {
         deepseek: boolean;
     };
     behavior: {
+        showMessageToolbar: boolean;
         showSaveMessages: boolean;
         showWordCount: boolean;
         enableClickToCopy: boolean;
@@ -111,6 +112,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     version: 4,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
+        showMessageToolbar: true,
         showSaveMessages: true,
         showWordCount: true,
         enableClickToCopy: true,

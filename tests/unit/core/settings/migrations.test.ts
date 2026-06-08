@@ -27,6 +27,7 @@ describe('settings migrations', () => {
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next).not.toHaveProperty('chatgpt');
+        expect(next.behavior.showMessageToolbar).toBe(true);
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.formula.clickCopyMarkdown).toBe(false);
         expect(next.formula.assetActions).toEqual({
@@ -156,13 +157,14 @@ describe('settings migrations', () => {
         const stored: any = {
             version: 2,
             chatgpt: { showFoldDock: false, foldingMode: 'keep_last_n', defaultExpandedCount: 6 },
-            behavior: { showWordCount: false },
+            behavior: { showMessageToolbar: false, showWordCount: false },
             bookmarks: { sortMode: 'time' },
         };
 
         const next = loadAndNormalize(stored);
         expect(next.version).toBe(4);
         expect(next).not.toHaveProperty('chatgpt');
+        expect(next.behavior.showMessageToolbar).toBe(false);
         expect(next.behavior.showWordCount).toBe(false);
         expect(next.bookmarks.sortMode).toBe('time-desc');
         expect('performance' in next).toBe(false);

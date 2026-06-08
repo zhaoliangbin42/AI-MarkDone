@@ -951,6 +951,14 @@
         "message": "ChatGPT 设置",
         "description": "Message for chatgptSettingsLabel"
     },
+    "messageToolbarLabel": {
+        "message": "工具栏 > 显示消息工具栏",
+        "description": "Message for messageToolbarLabel"
+    },
+    "messageToolbarDesc": {
+        "message": "关闭后不再注入每条 ChatGPT 回复下方的 AI-MarkDone 工具栏",
+        "description": "Message for messageToolbarDesc"
+    },
     "chatgptRestorePositionAfterSendLabel": {
         "message": "发送后恢复阅读位置",
         "description": "Message for chatgptRestorePositionAfterSendLabel"
