@@ -169,9 +169,24 @@ Rules:
 - Letter spacing should remain `0` unless a component token explicitly defines otherwise.
 - Long text must wrap or truncate by component contract, not by accidental overflow.
 - User-facing global font size is an appearance setting, not a component prop: `appearance.fontSizePx` is limited to `12px`-`20px`, defaults to `16px`, changes by `1px` stepper controls only, and maps to `UserThemeOverrides.baseFontScale`.
+- Reader-facing body font size is a Reader setting, not a global appearance override: `reader.bodyFontSizePx` is limited to the same readable range, defaults to `16px`, changes by `1px` stepper controls inside Reader, and maps only to Reader markdown content.
+- Reader markdown typography follows a semantic scale from the Reader body size. Headings, code, lists, quotes, tables, math, comments, and prompt/source blocks derive from Reader body size through relative units and Reader tokens; they are not independently user-configurable levels.
+- Reader shell chrome keeps using the global UI type tokens so changing Reader body size does not resize icon buttons, modal labels, Settings rows, or page controls.
 - User-facing theme color is also an appearance setting: `appearance.accentColor` is selected through visual swatches only, never typed text, and maps to `UserThemeOverrides.accentColor`.
 
-### 5.1 Current Typography Values
+### 5.1 Reader Typography Contract
+
+Reader is the product's long-form reading surface. It may expose one user-facing body-size control for comfort, but it must preserve a coherent hierarchy rather than exposing many unrelated type controls. This follows the same principle used by mature platform/design-system typography guidance: a readable body size anchors semantic text roles, and the rest of the scale moves with it.
+
+Rules:
+
+- Reader body size is stored as `reader.bodyFontSizePx` and emitted as a Reader-scoped custom property.
+- Markdown headings continue to use proportional `em` sizing from the Reader body size.
+- Inline code and code blocks use the mono family with proportional sizing from Reader body size.
+- Reader settings changes apply live to any open Reader surface after settings persistence succeeds.
+- Reader content width remains a separate measure control; it does not imply font scaling.
+
+### 5.2 Current Typography Values
 
 | Intent | Token | Value |
 |:--|:--|:--|

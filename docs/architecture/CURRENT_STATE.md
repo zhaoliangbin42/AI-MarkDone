@@ -133,14 +133,14 @@ flowchart TD
     Root --> AdapterGroups
     AdapterGroups --> TurnRefs
     TurnRefs --> Navigation
-    TurnRefs -. "retained only if restored" .-> Directory
+    TurnRefs -. "optional directory rail" .-> Directory
     TurnRefs -. "lower-right stepper" .-> StepControls
 ```
 
 - Reader、工具栏 Copy/Copy PNG、Save Messages 导出与书签保存正文必须只通过 fresh `readerContentSource` 获取正文，并消费同一份 `ReaderItem[]` 语义。
 - ChatGPT 正文完整性由 `ChatGPTConversationEngine snapshot` 负责；DOM markdown collection 不再作为 ChatGPT 长对话的主内容源。
 - ChatGPT snapshot 可能包含官方页面渲染层已经消化掉的内部 annotation token，例如 entity metadata 或 GenUI math widget；这些 token 必须在 snapshot Markdown normalizer 层转换/清理，而不是依赖 Reader renderer 或 DOM fallback 后处理。
-- Reader locate、书签 Go、跨页 pending navigation 与当前 lower-right message stepper 共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影；已下架的右侧目录条若未来恢复，也必须复用同一投影。它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
+- Reader locate、书签 Go、跨页 pending navigation、当前 lower-right message stepper 与可选右侧目录条共用 adapter-owned DOM round refs 与 `collectConversationTurnRefs()` 的位置/锚点投影。它们与 Reader/导出共享同一轮次语义，但不读取正文内容。
 - ChatGPT Reader 打开后的内容页集不得通过 DOM 正文补齐；snapshot 是完整页集来源，DOM round refs 只允许把新 round position 标记为 Reader tail pending。Reader 已打开时，pending position 只有在刷新后的 `ChatGPTConversationEngine snapshot` 中存在非空 assistant 内容时才追加为新 `ReaderItem`；追加后 position 进入 known，避免 ChatGPT streaming 期间 assistant `messageId` 从占位变为真实值时重复新增页面。
 - 两个投影允许的差异只在职责上：snapshot 投影回答“每一轮的完整内容是什么”，DOM anchor 投影回答“这一轮在页面哪里、如何跳过去”。不得再引入第三套 ChatGPT 轮次发现入口。
 - ChatGPT send position restore 与上述内容/定位 SSOT 平行：它只消费发送事件与页面滚动位置，不读取正文、不刷新 snapshot、不改变 Reader/Save Messages/Copy/Bookmark 内容语义。
@@ -210,7 +210,7 @@ flowchart TD
 
 - ChatGPT right-side directory rail 当前是可选 surface，默认关闭；content runtime 会创建 `ChatGPTDirectoryController`，实际显示由 `chatgptDirectory.enabled` 与 perf kill switch 控制。
 - `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
-- 右下角上一条/下一条入口由独立 `ChatGPTMessageStepperController` 持有，不属于已下架的 directory rail；它复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型。`chatgptBehavior.showMessageStepper` 只控制按钮显示，`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
+- 右下角上一条/下一条入口由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型。`chatgptBehavior.showMessageStepper` 只控制按钮显示，`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
 - Rail hover preview 与 accordion 的历史约束保留：只能更新 UI 层缓存和邻近 marker 状态，preview 内容从 rail 内轮次缓存读取，preview 位置保持固定 body-level surface，避免 hover 期间触发 layout measurement 或 portal style 重写。
 - 浏览器 viewport 宽度变化超过 8px 时，页面级 resize suspend 会立即保护 action-row message toolbar chrome，并临时隐藏 directory rail、directory preview 与 lower-right message stepper；停止 resize 1 秒后恢复。
 
