@@ -113,11 +113,13 @@
 
 - session identity 由 `sessionId + sourceTabId + readerTabId` 绑定；所有 reader 发起的 `get/refresh/send/locate` 请求必须来自绑定的 `readerTabId`
 - `readerSession:create` 只能由带有 `sender.tab.id` 的源 content runtime 发起；source tab id 以浏览器 sender 为准，不从 payload 信任
+- `reader.html#sessionId=...` 中的 hash 只作为 Reader 页启动时的 session lookup key；它不能绕过 background 的 `readerTabId` sender 校验，不能单独授权读取 snapshot 或触发 refresh/send/locate
 - session 状态只写入 `chrome.storage.session` / `browser.storage.session`，不 fallback 到 `storage.local`，不依赖 MV3 service worker 全局变量；service worker 休眠后，下一次用户动作可从 session storage 重新读取并继续路由；如果当前浏览器目标不提供 session storage，`readerSession:create` 必须稳定失败，不能把对话快照持久化到 local storage
 - v1 不做实时 tail sync、不强制保活、不设置 tab `autoDiscardable=false`；detached Reader 启动时拿一次 fresh snapshot，用户可手动 refresh
 - source tab 关闭时，background 监听 `tabs.onRemoved(sourceTabId)`，删除 session 并 best-effort 关闭对应 `readerTabId`
 - reader tab 关闭时，只删除 session，不关闭官方 ChatGPT 页；detached Reader 页内的 Reader close action 会发送 `readerSession:close` 并关闭当前扩展页
 - source tab frozen/discarded、content script 不可达或扩展重载导致 session 丢失时，调用方应展示只读快照、source unavailable 或 session expired 状态，不抛 unchecked runtime error
+- 当前合规边界接受 `src/contracts/protocol.ts` 对 `ReaderSessionSnapshot` 的外层结构校验配合 background sender-tab binding、Reader Markdown sanitize、extension session storage 共同作为 v1 防线；更细的 item-level schema/size validation 或 source URL 复核可以作为后续防御深度增强，但不是当前协议可用性的前置条件
 
 ### Settings
 
