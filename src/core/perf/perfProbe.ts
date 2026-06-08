@@ -3,6 +3,9 @@ export type PerfProbeFlags = {
     disableToolbar: boolean;
     disableWordCount: boolean;
     disableDirectory: boolean;
+    disableStepper: boolean;
+    disableFormula: boolean;
+    disableRuntime: boolean;
     disableSnapshotLiveRefresh: boolean;
     disableMutationObserver: boolean;
     disableReaderPreload: boolean;
@@ -39,11 +42,15 @@ type PerfSummary = {
 };
 
 const REDACTED_DATA_KEYS = new Set(['conversationId', 'messageKey']);
+const LOAD_PROBE_DATASET_PREFIX = 'aimdLoad';
 const DEFAULT_FLAGS: PerfProbeFlags = {
     enabled: false,
     disableToolbar: false,
     disableWordCount: false,
     disableDirectory: false,
+    disableStepper: false,
+    disableFormula: false,
+    disableRuntime: false,
     disableSnapshotLiveRefresh: false,
     disableMutationObserver: false,
     disableReaderPreload: false,
@@ -96,6 +103,23 @@ function readStorageFlags(): Partial<PerfProbeFlags> {
     }
 }
 
+function readUrlFlags(): Partial<PerfProbeFlags> {
+    try {
+        const parsedUrl = new URL(window.location.href);
+        const raw = parsedUrl.searchParams.get('aimd_perf_flags');
+        if (!raw) return {};
+        const requested = new Set(raw.split(',').map((flag) => flag.trim()).filter(Boolean));
+        const next: Partial<PerfProbeFlags> = {};
+        for (const key of Object.keys(DEFAULT_FLAGS) as Array<keyof PerfProbeFlags>) {
+            if (key === 'enabled') continue;
+            if (requested.has(key)) next[key] = true;
+        }
+        return next;
+    } catch {
+        return {};
+    }
+}
+
 function readGlobalFlags(): Partial<PerfProbeFlags> {
     try {
         const globalFlags = (globalThis as any).__AIMD_PERF_FLAGS__;
@@ -126,6 +150,7 @@ export function getPerfFlags(): PerfProbeFlags {
         ...DEFAULT_FLAGS,
         enabled: globalEnabled ?? storageEnabled ?? legacyDebug ?? DEFAULT_FLAGS.enabled,
         ...readStorageFlags(),
+        ...readUrlFlags(),
         ...readGlobalFlags(),
         ...overrides,
     };
@@ -133,6 +158,56 @@ export function getPerfFlags(): PerfProbeFlags {
 
 export function isPerfEnabled(): boolean {
     return getPerfFlags().enabled;
+}
+
+export function isLoadProbeEnabled(): boolean {
+    const urlEnabled = (() => {
+        try {
+            return new URL(window.location.href).searchParams.get('aimd_load_probe') === '1';
+        } catch {
+            return false;
+        }
+    })();
+    return isPerfEnabled() || readBooleanStorage('aimd:loadProbe') === true || urlEnabled;
+}
+
+function toLoadProbeDatasetKey(name: string): string {
+    const parts = name
+        .split(/[^a-z0-9]+/i)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    const suffix = parts
+        .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+        .join('');
+    return `${LOAD_PROBE_DATASET_PREFIX}${suffix || 'Mark'}Ms`;
+}
+
+function getNavigationElapsedMs(): number {
+    try {
+        const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+        if (navigation) return performance.now() - navigation.startTime;
+    } catch {
+        // Fall back to the monotonic clock below.
+    }
+    return now();
+}
+
+export function markLoadProbe(name: string, data?: Record<string, unknown>): void {
+    if (!isLoadProbeEnabled()) return;
+    const elapsedMs = Number(getNavigationElapsedMs().toFixed(2));
+    try {
+        const root = document.documentElement;
+        root.dataset.aimdLoadProbe = '1';
+        root.dataset[toLoadProbeDatasetKey(name)] = String(elapsedMs);
+        root.dataset.aimdLoadLastMark = name;
+        root.dataset.aimdLoadLastMarkMs = String(elapsedMs);
+        if (data) {
+            root.dataset.aimdLoadLastData = JSON.stringify(redactEvent({ name, at: elapsedMs, data }).data ?? {});
+        }
+    } catch {
+        // Load probing is diagnostic only and must never affect runtime behavior.
+    }
+    perfMark(`load.${name}`, data);
 }
 
 function pushEvent(event: PerfEvent): void {
