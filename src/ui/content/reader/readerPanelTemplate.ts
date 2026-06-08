@@ -7,6 +7,7 @@ import {
     messageSquareShareIcon,
     minimizeIcon,
     panelLeftIcon,
+    settingsIcon,
     trashIcon,
     xIcon,
 } from '../../../assets/icons';
@@ -20,7 +21,9 @@ type ReaderTemplateState = {
     items: ReaderItem[];
     index: number;
     fullscreen: boolean;
+    panelSizeRatio: { widthRatio: number; heightRatio: number };
     contentMaxWidthPx: number;
+    bodyFontSizePx: number;
     stickyEnabled: boolean;
     stickyOpen: boolean;
     stickyWidthPx: number;
@@ -152,13 +155,14 @@ export function getReaderPanelHtml(params: {
     const fullscreenLabel = state.fullscreen
         ? getLabel('exitFullscreen', 'Exit fullscreen')
         : getLabel('toggleFullscreen', 'Toggle fullscreen');
+    const settingsLabel = getLabel('readerSettingsLabel', 'Reader settings');
     const closeLabel = getLabel('btnClose', 'Close panel');
     const previousLabel = getLabel('previousMessage', 'Previous message');
     const nextLabel = getLabel('nextMessage', 'Next message');
     const pagerHint = '';
 
     return `
-<div class="panel-window panel-window--reader" data-fullscreen="${state.fullscreen ? '1' : '0'}" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+<div class="panel-window panel-window--reader" data-fullscreen="${state.fullscreen ? '1' : '0'}" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" style="--_reader-panel-width-ratio: ${Math.max(0.01, state.panelSizeRatio.widthRatio)}; --_reader-panel-height-ratio: ${Math.max(0.01, state.panelSizeRatio.heightRatio)}; --aimd-reader-markdown-body-size: ${Math.max(1, Math.round(state.bodyFontSizePx))}px;">
   <div class="panel-header">
     <div class="panel-header__meta panel-header__meta--reader">
       <h2>${escapeHtml(title)}</h2>
@@ -169,6 +173,7 @@ export function getReaderPanelHtml(params: {
       ${state.showOpenConversation && canOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}">${iconMarkup(messageSquareShareIcon)}</button>
       ${state.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
+      <button class="icon-btn" data-action="reader-settings" aria-label="${escapeHtml(settingsLabel)}" title="${escapeHtml(settingsLabel)}">${iconMarkup(settingsIcon)}</button>
       <button class="icon-btn" data-action="reader-fullscreen" aria-label="${escapeHtml(fullscreenLabel)}" title="${escapeHtml(fullscreenLabel)}">${iconMarkup(state.fullscreen ? minimizeIcon : maximizeIcon)}</button>
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
@@ -220,6 +225,7 @@ export function getReaderPanelHtml(params: {
       <div class="status-line" data-field="status">${escapeHtml(state.statusText)}</div>
     </div>
   </div>
+  <div class="reader-panel-resize" data-action="reader-panel-resize" aria-hidden="true"></div>
 </div>
 `;
 }
@@ -246,6 +252,8 @@ ${getPanelChromeCss()}
 
 .panel-window--reader {
   min-height: min(720px, calc(100vh - var(--aimd-space-6)));
+  width: min(calc(100vw * var(--_reader-panel-width-ratio, 0.72)), calc(100vw - var(--aimd-space-6)));
+  height: min(calc(100vh * var(--_reader-panel-height-ratio, 0.82)), calc(100vh - var(--aimd-space-6)));
 }
 
 .panel-window--reader[data-fullscreen="1"] {
@@ -255,6 +263,46 @@ ${getPanelChromeCss()}
   height: 100%;
   max-height: none;
   border-radius: 0;
+}
+
+.reader-panel-resize {
+  position: absolute;
+  right: var(--aimd-space-2);
+  bottom: var(--aimd-space-2);
+  width: var(--aimd-size-control-compact);
+  height: var(--aimd-size-control-compact);
+  cursor: nwse-resize;
+  border-radius: var(--aimd-radius-sm);
+  opacity: 0.64;
+}
+
+.reader-panel-resize::before,
+.reader-panel-resize::after {
+  content: "";
+  position: absolute;
+  right: var(--aimd-space-1);
+  bottom: var(--aimd-space-1);
+  border-right: 1px solid var(--aimd-text-secondary);
+  border-bottom: 1px solid var(--aimd-text-secondary);
+}
+
+.reader-panel-resize::before {
+  width: 14px;
+  height: 14px;
+}
+
+.reader-panel-resize::after {
+  width: 8px;
+  height: 8px;
+}
+
+.reader-panel-resize:hover {
+  opacity: 1;
+  background: var(--aimd-button-icon-hover);
+}
+
+.panel-window--reader[data-fullscreen="1"] .reader-panel-resize {
+  display: none;
 }
 
 .panel-header__meta {
@@ -514,7 +562,7 @@ ${getPanelChromeCss()}
 }
 
 .reader-message__body--prompt {
-  font-size: var(--aimd-text-base);
+  font-size: var(--aimd-reader-markdown-body-size, var(--aimd-text-base));
   line-height: var(--aimd-leading-reading);
   color: var(--aimd-text-primary);
 }
@@ -1033,6 +1081,382 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 .reader-outline-rail__item:focus-visible {
   outline: 2px solid var(--aimd-focus-ring);
   outline-offset: 2px;
+}
+
+.reader-settings-popover-layer {
+  position: absolute;
+  inset: 0;
+  padding: var(--aimd-space-4);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: var(--aimd-z-panel);
+}
+
+.panel-window--reader-settings {
+  position: relative;
+  inset: auto;
+  transform: none;
+  pointer-events: auto;
+  width: min(920px, calc(100% - var(--aimd-space-6)));
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.dialog-body--reader-settings {
+  display: grid;
+  gap: var(--aimd-space-3);
+  min-height: 0;
+  overflow: auto;
+  padding: calc(var(--aimd-space-5) + var(--aimd-space-1));
+}
+
+.panel-footer--reader-settings {
+  justify-content: flex-end;
+}
+
+.reader-settings-dialog__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+}
+
+.reader-settings-dialog__title-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--aimd-interactive-primary);
+}
+
+.reader-settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--aimd-space-4);
+  min-height: var(--aimd-size-control-action-panel);
+  padding: var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+}
+
+.reader-settings-row__info {
+  min-width: 0;
+  display: grid;
+  gap: var(--aimd-space-1);
+}
+
+.reader-settings-row__info strong {
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+}
+
+.reader-settings-row__info p {
+  margin: 0;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.45;
+}
+
+.reader-settings-segmented,
+.reader-settings-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-1);
+  padding: var(--aimd-space-1);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid var(--aimd-border-subtle);
+  background: var(--aimd-bg-secondary);
+}
+
+.reader-settings-segmented__button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  min-height: var(--aimd-size-control-compact);
+  padding: 0 var(--aimd-space-3);
+  border-radius: var(--aimd-radius-lg);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-sm);
+}
+
+.reader-settings-segmented__button[data-active="1"] {
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-interactive-selected);
+  font-weight: var(--aimd-font-semibold);
+}
+
+.reader-settings-stepper__value {
+  min-width: 3.25em;
+  text-align: center;
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.reader-settings-number-input {
+  width: 108px;
+  min-height: var(--aimd-size-control-action-panel);
+  padding: 0 var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+  color: var(--aimd-text-primary);
+  font: inherit;
+}
+
+.reader-settings-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 26px;
+}
+
+.reader-settings-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.reader-settings-toggle__track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: var(--aimd-radius-full);
+  background: var(--aimd-border-default);
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-settings-toggle__track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--aimd-radius-full);
+  background: var(--aimd-bg-primary);
+  transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
+}
+
+.reader-settings-toggle input:checked + .reader-settings-toggle__track {
+  background: var(--aimd-interactive-primary);
+}
+
+.reader-settings-toggle input:checked + .reader-settings-toggle__track::after {
+  transform: translateX(18px);
+}
+
+.reader-settings-popover__footer-hint {
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+}
+
+.reader-prompt-settings {
+  overflow: hidden;
+}
+
+.reader-prompt-settings__back {
+  margin-inline-end: var(--aimd-space-1);
+}
+
+.reader-prompt-settings__back .aimd-icon {
+  transform: rotate(180deg);
+}
+
+.reader-prompt-settings__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aimd-space-2);
+  min-height: 220px;
+}
+
+.reader-prompt-settings__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  min-height: var(--aimd-size-control-action-panel);
+  padding: var(--aimd-space-2) var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.reader-prompt-settings__row:hover,
+.reader-prompt-settings__row:focus-within {
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 20%, transparent);
+}
+
+.reader-prompt-settings__row-main {
+  all: unset;
+  display: grid;
+  gap: var(--aimd-space-1);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.reader-prompt-settings__row-title {
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+}
+
+.reader-prompt-settings__row-content {
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reader-prompt-settings__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-1);
+}
+
+.reader-prompt-settings__drag {
+  cursor: grab;
+  touch-action: none;
+  color: var(--aimd-text-secondary);
+}
+
+.reader-settings-popover__field {
+  display: grid;
+  gap: var(--aimd-space-2);
+}
+
+.reader-settings-popover__field-label {
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+}
+
+.reader-settings-popover__input,
+.reader-settings-popover__textarea,
+.reader-settings-template__editor,
+.reader-settings-template__preview {
+  width: 100%;
+  padding: var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+  color: var(--aimd-text-primary);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.reader-settings-popover__textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.reader-settings-template__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aimd-space-2);
+}
+
+.reader-settings-template__menu-shell {
+  position: relative;
+  display: inline-flex;
+}
+
+.reader-settings-template__menu {
+  position: absolute;
+  top: calc(100% + var(--aimd-space-2));
+  left: 0;
+  z-index: var(--aimd-z-panel);
+  min-width: 220px;
+  display: none;
+  flex-direction: column;
+  gap: var(--aimd-space-1);
+  padding: var(--aimd-space-2);
+  border-radius: var(--aimd-radius-2xl);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 84%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
+  box-shadow: var(--aimd-shadow-lg);
+}
+
+.reader-settings-template__menu[data-open="1"] {
+  display: flex;
+}
+
+.reader-settings-template__menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  min-height: var(--aimd-size-control-action-panel);
+  padding: 0 var(--aimd-space-3);
+  border-radius: var(--aimd-radius-xl);
+  color: var(--aimd-text-primary);
+  cursor: pointer;
+}
+
+.reader-settings-template__menu-item:hover {
+  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
+}
+
+.reader-settings-template__editor {
+  min-height: 220px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.reader-settings-template__editor:focus-visible,
+.reader-settings-popover__input:focus-visible,
+.reader-settings-popover__textarea:focus-visible,
+.reader-settings-number-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 58%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+}
+
+.reader-settings-template__editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--aimd-text-secondary);
+}
+
+.reader-settings-template__hint {
+  margin: 0;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.reader-settings-template__preview {
+  margin: 0;
+  min-height: 180px;
+  font-family: var(--aimd-font-family-mono);
+  font-size: var(--aimd-text-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reader-comment-template-editor__token {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.2em;
+  padding: 0 var(--aimd-space-2);
+  min-height: 1.75em;
+  border-radius: var(--aimd-radius-xl);
+  background: color-mix(in srgb, var(--aimd-interactive-primary) 12%, var(--aimd-bg-surface));
+  color: var(--aimd-interactive-primary);
+  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 24%, transparent);
+  font-size: 0.95em;
+  font-weight: var(--aimd-font-medium);
+  vertical-align: baseline;
+  user-select: none;
 }
 
 @media (max-width: 900px) {

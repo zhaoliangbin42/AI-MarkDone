@@ -39,6 +39,7 @@ function getThemeOverrides(settings: AppSettings | null | undefined): UserThemeO
         ...(accentColor ? { accentColor } : {}),
         baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
         readerContentWidthPx: settings?.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
+        readerBodyFontSizePx: settings?.reader?.bodyFontSizePx ?? DEFAULT_SETTINGS.reader.bodyFontSizePx,
     };
 }
 
@@ -81,16 +82,32 @@ async function run(): Promise<void> {
         return;
     }
 
-    const settings = await loadSettings();
+    let settings = await loadSettings();
     await setLocale(settings.language ?? DEFAULT_SETTINGS.language);
     ensurePageTokens(getThemeOverrides(settings));
 
     const panel = new ReaderPanel();
     panel.setThemeOverrides(getThemeOverrides(settings));
-    panel.setRenderCodeInReader(Boolean(settings.reader.renderCodeInReader));
-    panel.setShowOutlineInReader(Boolean(settings.reader.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader));
-    panel.setContentMaxWidthPx(settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
-    panel.setCommentExportSettings(settings.reader.commentExport);
+    panel.setReaderSettings(settings.reader);
+    panel.setReaderSettingsController({
+        onChange: async (patch) => {
+            settings = {
+                ...settings,
+                reader: {
+                    ...settings.reader,
+                    ...patch,
+                    commentExport: patch.commentExport ?? settings.reader.commentExport,
+                },
+            };
+            panel.setThemeOverrides(getThemeOverrides(settings));
+            await sendExtRequest({
+                v: PROTOCOL_VERSION,
+                id: createRequestId(),
+                type: 'settings:setCategory',
+                payload: { category: 'reader', value: settings.reader },
+            });
+        },
+    });
 
     let session = await getSession(sessionId);
     if (!session) {

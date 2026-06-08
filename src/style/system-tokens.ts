@@ -4,6 +4,7 @@ export type UserThemeOverrides = {
     accentColor?: string;
     density?: 'compact' | 'comfortable';
     readerContentWidthPx?: number;
+    readerBodyFontSizePx?: number;
     baseFontScale?: number;
     cornerScale?: number;
 };
@@ -30,6 +31,7 @@ function getUserThemeOverrideCss(overrides: UserThemeOverrides): string {
     const fontScale = clampNumber(overrides.baseFontScale, 0.75, 1.25);
     const cornerScale = clampNumber(overrides.cornerScale, 0.75, 1.35);
     const readerContentWidthPx = clampNumber(overrides.readerContentWidthPx, 480, 1200);
+    const readerBodyFontSizePx = clampNumber(overrides.readerBodyFontSizePx, 12, 22);
 
     if (accentColor) {
         declarations.push(`  --aimd-sys-color-accent: ${accentColor};`);
@@ -67,6 +69,10 @@ function getUserThemeOverrideCss(overrides: UserThemeOverrides): string {
 
     if (readerContentWidthPx) {
         declarations.push(`  --aimd-user-reader-content-width: ${Math.round(readerContentWidthPx)}px;`);
+    }
+
+    if (readerBodyFontSizePx) {
+        declarations.push(`  --aimd-user-reader-body-font-size: ${Math.round(readerBodyFontSizePx)}px;`);
     }
 
     return declarations.length ? `${declarations.join('\n')}\n` : '';

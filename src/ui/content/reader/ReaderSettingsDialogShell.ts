@@ -1,6 +1,6 @@
-import { xIcon } from '../../../../../assets/icons';
-import { createIcon } from '../../../components/Icon';
-import { markTransientRoot } from '../../../components/transientUi';
+import { xIcon } from '../../../assets/icons';
+import { createIcon } from '../components/Icon';
+import { markTransientRoot } from '../components/transientUi';
 
 type ReaderSettingsDialogShellParams = {
     parent: HTMLElement;

@@ -1,7 +1,7 @@
 import { imageIcon } from '../../../../../assets/icons';
 import type { FormulaSettings } from '../../../../../core/settings/formula';
 import { createIcon } from '../../../components/Icon';
-import { createReaderSettingsDialogShell } from './ReaderSettingsDialogShell';
+import { createReaderSettingsDialogShell } from '../../../reader/ReaderSettingsDialogShell';
 
 type OpenParams = {
     parent: HTMLElement;

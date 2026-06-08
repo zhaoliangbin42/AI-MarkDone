@@ -86,6 +86,22 @@ describe('settingsService', () => {
         expect(next.reader.contentMaxWidthPx).toBe(1600);
     });
 
+    it('normalizes reader display settings while preserving other reader settings', () => {
+        const next = planSetCategory(DEFAULT_SETTINGS, 'reader', {
+            defaultOpenMode: 'panel',
+            panelSizeRatio: { widthRatio: 2, heightRatio: 0.1 },
+            bodyFontSizePx: 99,
+            detachedNoticeConfirmed: true,
+        }).next;
+
+        expect(next.reader.defaultOpenMode).toBe('panel');
+        expect(next.reader.panelSizeRatio).toEqual({ widthRatio: 0.96, heightRatio: 0.46 });
+        expect(next.reader.bodyFontSizePx).toBe(22);
+        expect(next.reader.detachedNoticeConfirmed).toBe(true);
+        expect(next.reader.renderCodeInReader).toBe(DEFAULT_SETTINGS.reader.renderCodeInReader);
+        expect(next.reader.commentExport).toEqual(DEFAULT_SETTINGS.reader.commentExport);
+    });
+
     it('normalizes reader outline visibility settings', () => {
         const off = planSetCategory(DEFAULT_SETTINGS, 'reader', { showOutlineInReader: false }).next;
         const inherited = planSetCategory(off, 'reader', { contentMaxWidthPx: 980 }).next;

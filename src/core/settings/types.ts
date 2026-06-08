@@ -38,6 +38,21 @@ export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
 export const MIN_READER_CONTENT_MAX_WIDTH_PX = 480;
 export const MAX_READER_CONTENT_MAX_WIDTH_PX = 1600;
 export const READER_CONTENT_MAX_WIDTH_STEP_PX = 20;
+export type ReaderOpenMode = 'fullscreen' | 'panel';
+export type ReaderPanelSizeRatio = {
+    widthRatio: number;
+    heightRatio: number;
+};
+export const DEFAULT_READER_OPEN_MODE: ReaderOpenMode = 'fullscreen';
+export const DEFAULT_READER_PANEL_SIZE_RATIO: ReaderPanelSizeRatio = { widthRatio: 0.72, heightRatio: 0.82 };
+export const MIN_READER_PANEL_WIDTH_RATIO = 0.42;
+export const MAX_READER_PANEL_WIDTH_RATIO = 0.96;
+export const MIN_READER_PANEL_HEIGHT_RATIO = 0.46;
+export const MAX_READER_PANEL_HEIGHT_RATIO = 0.96;
+export const DEFAULT_READER_BODY_FONT_SIZE_PX = 16;
+export const MIN_READER_BODY_FONT_SIZE_PX = 12;
+export const MAX_READER_BODY_FONT_SIZE_PX = 22;
+export const READER_BODY_FONT_SIZE_STEP_PX = 1;
 export const DEFAULT_GLOBAL_FONT_SIZE_PX = 16;
 export const MIN_GLOBAL_FONT_SIZE_PX = 12;
 export const MAX_GLOBAL_FONT_SIZE_PX = 20;
@@ -69,6 +84,10 @@ export type AppSettings = {
     reader: {
         renderCodeInReader: boolean;
         showOutlineInReader: boolean;
+        defaultOpenMode: ReaderOpenMode;
+        panelSizeRatio: ReaderPanelSizeRatio;
+        bodyFontSizePx: number;
+        detachedNoticeConfirmed: boolean;
         contentMaxWidthPx: number;
         commentExport: ReaderCommentExportSettings;
     };
@@ -101,6 +120,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     reader: {
         renderCodeInReader: true,
         showOutlineInReader: true,
+        defaultOpenMode: DEFAULT_READER_OPEN_MODE,
+        panelSizeRatio: DEFAULT_READER_PANEL_SIZE_RATIO,
+        bodyFontSizePx: DEFAULT_READER_BODY_FONT_SIZE_PX,
+        detachedNoticeConfirmed: false,
         contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         commentExport: createDefaultReaderCommentExportSettings(),
     },

@@ -1,11 +1,21 @@
 import {
     DEFAULT_GLOBAL_FONT_SIZE_PX,
+    DEFAULT_READER_BODY_FONT_SIZE_PX,
     DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
+    DEFAULT_READER_OPEN_MODE,
+    DEFAULT_READER_PANEL_SIZE_RATIO,
     GLOBAL_FONT_SIZE_STEP_PX,
     MAX_GLOBAL_FONT_SIZE_PX,
+    MAX_READER_BODY_FONT_SIZE_PX,
     MAX_READER_CONTENT_MAX_WIDTH_PX,
+    MAX_READER_PANEL_HEIGHT_RATIO,
+    MAX_READER_PANEL_WIDTH_RATIO,
+    MIN_READER_BODY_FONT_SIZE_PX,
     MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
+    MIN_READER_PANEL_HEIGHT_RATIO,
+    MIN_READER_PANEL_WIDTH_RATIO,
+    READER_BODY_FONT_SIZE_STEP_PX,
     READER_CONTENT_MAX_WIDTH_STEP_PX,
     THEME_ACCENT_SWATCHES,
     DEFAULT_SETTINGS,
@@ -102,6 +112,31 @@ export function normalizeReaderContentMaxWidthPx(value: unknown): number {
     return Math.round(clamped / READER_CONTENT_MAX_WIDTH_STEP_PX) * READER_CONTENT_MAX_WIDTH_STEP_PX;
 }
 
+export function normalizeReaderOpenMode(value: unknown): AppSettings['reader']['defaultOpenMode'] {
+    return value === 'panel' || value === 'fullscreen' ? value : DEFAULT_READER_OPEN_MODE;
+}
+
+function normalizeRatio(value: unknown, min: number, max: number, fallback: number): number {
+    const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(max, Math.max(min, numeric));
+}
+
+export function normalizeReaderPanelSizeRatio(value: unknown): AppSettings['reader']['panelSizeRatio'] {
+    const record = isRecord(value) ? value : {};
+    return {
+        widthRatio: normalizeRatio((record as any).widthRatio, MIN_READER_PANEL_WIDTH_RATIO, MAX_READER_PANEL_WIDTH_RATIO, DEFAULT_READER_PANEL_SIZE_RATIO.widthRatio),
+        heightRatio: normalizeRatio((record as any).heightRatio, MIN_READER_PANEL_HEIGHT_RATIO, MAX_READER_PANEL_HEIGHT_RATIO, DEFAULT_READER_PANEL_SIZE_RATIO.heightRatio),
+    };
+}
+
+export function normalizeReaderBodyFontSizePx(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_READER_BODY_FONT_SIZE_PX;
+    const clamped = Math.min(MAX_READER_BODY_FONT_SIZE_PX, Math.max(MIN_READER_BODY_FONT_SIZE_PX, numeric));
+    return Math.round(clamped / READER_BODY_FONT_SIZE_STEP_PX) * READER_BODY_FONT_SIZE_STEP_PX;
+}
+
 export function normalizeGlobalFontSizePx(value: unknown): number {
     const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
     if (!Number.isFinite(numeric)) return DEFAULT_GLOBAL_FONT_SIZE_PX;
@@ -147,6 +182,10 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((stored.reader as any)?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            defaultOpenMode: normalizeReaderOpenMode((stored.reader as any)?.defaultOpenMode),
+            panelSizeRatio: normalizeReaderPanelSizeRatio((stored.reader as any)?.panelSizeRatio),
+            bodyFontSizePx: normalizeReaderBodyFontSizePx((stored.reader as any)?.bodyFontSizePx),
+            detachedNoticeConfirmed: Boolean((stored.reader as any)?.detachedNoticeConfirmed ?? DEFAULT_SETTINGS.reader.detachedNoticeConfirmed),
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((stored.reader as any)?.contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
@@ -190,6 +229,10 @@ export function migrateFromV1(v1: unknown): AppSettings {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
             showOutlineInReader: Boolean((behavior as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            defaultOpenMode: normalizeReaderOpenMode((behavior as any).defaultOpenMode),
+            panelSizeRatio: normalizeReaderPanelSizeRatio((behavior as any).panelSizeRatio),
+            bodyFontSizePx: normalizeReaderBodyFontSizePx((behavior as any).bodyFontSizePx),
+            detachedNoticeConfirmed: Boolean((behavior as any).detachedNoticeConfirmed ?? DEFAULT_SETTINGS.reader.detachedNoticeConfirmed),
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((behavior as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
@@ -225,6 +268,10 @@ export function migrateFromV2(v2: unknown): AppSettings {
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((reader as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            defaultOpenMode: normalizeReaderOpenMode((reader as any).defaultOpenMode),
+            panelSizeRatio: normalizeReaderPanelSizeRatio((reader as any).panelSizeRatio),
+            bodyFontSizePx: normalizeReaderBodyFontSizePx((reader as any).bodyFontSizePx),
+            detachedNoticeConfirmed: Boolean((reader as any).detachedNoticeConfirmed ?? DEFAULT_SETTINGS.reader.detachedNoticeConfirmed),
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((reader as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,

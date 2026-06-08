@@ -1,7 +1,7 @@
-import { chevronRightIcon, gripHorizontalIcon, messageSquareTextIcon, plusIcon, trashIcon, xIcon } from '../../../../../assets/icons';
-import type { ReaderCommentExportSettings, ReaderCommentPrompt } from '../../../../../core/settings/readerCommentExport';
-import { createIcon } from '../../../components/Icon';
-import { installInputEventBoundary } from '../../../components/inputEventBoundary';
+import { chevronRightIcon, gripHorizontalIcon, messageSquareTextIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
+import type { ReaderCommentExportSettings, ReaderCommentPrompt } from '../../../core/settings/readerCommentExport';
+import { createIcon } from '../components/Icon';
+import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { createReaderSettingsDialogLayer } from './ReaderSettingsDialogShell';
 
 type OpenParams = {

@@ -71,10 +71,6 @@
         "message": "Reader",
         "description": "Message for btnReader"
     },
-    "btnDetachedReader": {
-        "message": "Open Detached Reader",
-        "description": "Message for btnDetachedReader"
-    },
     "btnSaveAs": {
         "message": "Save as",
         "description": "Message for btnSaveAs"
@@ -374,6 +370,34 @@
     "readerSettingsLabel": {
         "message": "Reader",
         "description": "Message for readerSettingsLabel"
+    },
+    "readerSettingsLivePreviewHint": {
+        "message": "Changes apply to the open Reader immediately.",
+        "description": "Message for readerSettingsLivePreviewHint"
+    },
+    "readerDefaultOpenModeLabel": {
+        "message": "Default Reader size",
+        "description": "Message for readerDefaultOpenModeLabel"
+    },
+    "readerDefaultOpenModeDesc": {
+        "message": "Choose whether Reader opens fullscreen or as a centered panel.",
+        "description": "Message for readerDefaultOpenModeDesc"
+    },
+    "readerOpenModeFullscreen": {
+        "message": "Fullscreen",
+        "description": "Message for readerOpenModeFullscreen"
+    },
+    "readerOpenModePanel": {
+        "message": "Panel",
+        "description": "Message for readerOpenModePanel"
+    },
+    "readerBodyFontSizeLabel": {
+        "message": "Reader font size",
+        "description": "Message for readerBodyFontSizeLabel"
+    },
+    "readerBodyFontSizeDesc": {
+        "message": "Adjust the Reader body size. Headings and code scale with it.",
+        "description": "Message for readerBodyFontSizeDesc"
     },
     "readerContentWidthLabel": {
         "message": "Reader content width",
@@ -2346,5 +2370,21 @@
     "detachedReaderLocated": {
         "message": "Source message located",
         "description": "Message for detachedReaderLocated"
+    },
+    "detachedReaderExperimentalTitle": {
+        "message": "Experimental detached Reader",
+        "description": "Message for detachedReaderExperimentalTitle"
+    },
+    "detachedReaderExperimentalMessage": {
+        "message": "Detached Reader is experimental. It opens the current conversation in a new extension page to avoid as much ChatGPT page lag as possible. It does not collect or upload any information; the content comes from the Reader snapshot in the original ChatGPT tab. Refresh, send, and locate still use that source tab. If the source tab is closed or unavailable, the detached page keeps the opened content but cannot refresh, send, or locate. This version does not sync in real time; refresh manually when needed.",
+        "description": "Message for detachedReaderExperimentalMessage"
+    },
+    "detachedReaderExperimentalConfirm": {
+        "message": "Open detached Reader",
+        "description": "Message for detachedReaderExperimentalConfirm"
+    },
+    "detachedReaderExperimentalCancel": {
+        "message": "Cancel",
+        "description": "Message for detachedReaderExperimentalCancel"
     }
 }

@@ -27,6 +27,7 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
 
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
+import { DEFAULT_SETTINGS } from '@/core/settings/types';
 
 async function flushMotionFrames(): Promise<void> {
     await new Promise<void>((resolve) => {
@@ -311,6 +312,77 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('opens Reader settings from the header and applies font-size changes live', async () => {
+        const panel = new ReaderPanel();
+        const onChange = vi.fn(async () => undefined);
+        panel.setReaderSettings(DEFAULT_SETTINGS.reader);
+        panel.setReaderSettingsController({ onChange });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const shell = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
+            const settingsPanel = shadow.querySelector<HTMLElement>('.panel-window--reader-settings')!;
+            expect(settingsPanel).toBeTruthy();
+
+            settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-font-increase"]')!.click();
+            await Promise.resolve();
+
+            expect(onChange).toHaveBeenCalledWith({ bodyFontSizePx: 17 });
+            expect(shell.getAttribute('style')).toContain('--aimd-reader-markdown-body-size: 17px');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('opens in panel mode and persists center-symmetric resize as viewport ratios', async () => {
+        const panel = new ReaderPanel();
+        const onChange = vi.fn(async () => undefined);
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            defaultOpenMode: 'panel',
+            panelSizeRatio: { widthRatio: 0.6, heightRatio: 0.7 },
+        });
+        panel.setReaderSettingsController({ onChange });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const shell = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+            expect(shell.dataset.fullscreen).toBe('0');
+
+            shell.getBoundingClientRect = () => ({
+                x: 0,
+                y: 0,
+                left: 0,
+                top: 0,
+                right: 600,
+                bottom: 500,
+                width: 600,
+                height: 500,
+                toJSON: () => ({}),
+            } as DOMRect);
+
+            shadow.querySelector<HTMLElement>('[data-action="reader-panel-resize"]')!
+                .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 600, clientY: 500 }));
+            document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 650, clientY: 540 }));
+            document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 650, clientY: 540 }));
+
+            expect(onChange).toHaveBeenCalledWith({
+                panelSizeRatio: expect.objectContaining({
+                    widthRatio: expect.any(Number),
+                    heightRatio: expect.any(Number),
+                }),
+            });
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('keeps the same shell mounted through async content rendering and promotes it to open after the entering frames', async () => {
         const panel = new ReaderPanel();
 
@@ -354,7 +426,7 @@ describe('ReaderPanel presentation', () => {
         expect(source).toContain('.reader-message__body--prompt {');
         expect(source).toContain('.reader-message__body--prompt-truncated {');
         expect(source).toContain('.reader-message__ellipsis-line {');
-        expect(source).toContain('font-size: var(--aimd-text-base);');
+        expect(source).toContain('font-size: var(--aimd-reader-markdown-body-size, var(--aimd-text-base));');
         expect(source).toContain('line-height: var(--aimd-leading-reading);');
         expect(source).not.toContain('font-size: 17px;');
     });

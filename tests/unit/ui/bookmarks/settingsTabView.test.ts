@@ -73,7 +73,6 @@ describe('SettingsTabView', () => {
         expect(groupTitles).toEqual([
             'platforms',
             'toolbarPageActionsSettingsLabel',
-            'readerSettingsLabel',
             'chatgptSettingsLabel',
             'settingsLanguageLabel',
             'dataManagement',
@@ -85,10 +84,8 @@ describe('SettingsTabView', () => {
         expect(pageActionsGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
 
-        const readerGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
-            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('readerSettingsLabel'))!;
-        expect(readerGroup.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
-        expect(readerGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-prompts"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-render-code-reader"]')).toBeNull();
 
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptSettingsLabel'))!;
@@ -553,11 +550,10 @@ describe('SettingsTabView', () => {
         expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngPixelRatio: 2.7 });
     });
 
-    it('keeps advanced reader width settings collapsed until the footer action is opened', () => {
+    it('does not expose Reader-specific settings in the Settings page', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
-        const onSetReaderSettings = vi.fn(async () => undefined);
 
-        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
+        const view = new SettingsTabView({ modal });
         view.setState({
             settings: structuredClone(baseSettings),
             storageUsage: null,
@@ -568,17 +564,12 @@ describe('SettingsTabView', () => {
 
         expect(advancedButton).toBeTruthy();
         expect(root.querySelector('[data-role="settings-reader-content-width"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-show-outline"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-prompt-position-bottom"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-template"]')).toBeNull();
 
         advancedButton.click();
-        const widthInput = root.querySelector<HTMLInputElement>('[data-role="settings-reader-content-width"]')!;
-        expect(widthInput).toBeTruthy();
-        expect(widthInput.value).toBe('1000');
-
-        widthInput.value = '1611';
-        widthInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(widthInput.value).toBe('1600');
-        expect(onSetReaderSettings).toHaveBeenCalledWith({ contentMaxWidthPx: 1611 });
+        expect(root.querySelector('[data-role="settings-reader-content-width"]')).toBeNull();
     });
 
     it('renders global font size as a stepper-only advanced appearance setting', () => {
@@ -633,56 +624,6 @@ describe('SettingsTabView', () => {
 
         expect(onSetAppearanceSettings).toHaveBeenLastCalledWith({ accentColor: '#7c3aed' });
         expect(swatches.find((button) => button.dataset.color === '#7c3aed')?.dataset.selected).toBe('1');
-    });
-
-    it('wires the reader comment prompt position toggle without replacing prompts or template', () => {
-        const modal = { confirm: vi.fn(async () => true) } as any;
-        const onSetReaderSettings = vi.fn(async () => undefined);
-
-        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
-        view.setState({
-            settings: structuredClone(baseSettings),
-            storageUsage: null,
-        });
-
-        const root = view.getElement();
-        const promptPositionToggle = root.querySelector<HTMLInputElement>('[data-role="settings-reader-prompt-position-bottom"]')!;
-
-        expect(promptPositionToggle).toBeTruthy();
-        expect(promptPositionToggle.checked).toBe(false);
-
-        promptPositionToggle.checked = true;
-        promptPositionToggle.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(onSetReaderSettings).toHaveBeenCalledWith({
-            commentExport: {
-                prompts: baseSettings.reader.commentExport.prompts,
-                template: baseSettings.reader.commentExport.template,
-                promptPosition: 'bottom',
-            },
-        });
-    });
-
-    it('wires the Reader outline visibility toggle to reader settings', () => {
-        const modal = { confirm: vi.fn(async () => true) } as any;
-        const onSetReaderSettings = vi.fn(async () => undefined);
-
-        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
-        view.setState({
-            settings: structuredClone(baseSettings),
-            storageUsage: null,
-        });
-
-        const root = view.getElement();
-        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-reader-show-outline"]')!;
-
-        expect(toggle).toBeTruthy();
-        expect(toggle.checked).toBe(true);
-
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(onSetReaderSettings).toHaveBeenCalledWith({ showOutlineInReader: false });
     });
 
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {

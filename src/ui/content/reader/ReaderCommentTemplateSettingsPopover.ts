@@ -1,7 +1,7 @@
-import { fileCodeIcon, messageSquareTextIcon, messageSquareTextIcon as commentTokenIcon } from '../../../../../assets/icons';
-import type { CommentTemplateSegment, CommentTemplateTokenKey } from '../../../../../core/settings/readerCommentExport';
-import { createIcon } from '../../../components/Icon';
-import { ReaderCommentTemplateEditor } from '../../../reader/ReaderCommentTemplateEditor';
+import { fileCodeIcon, messageSquareTextIcon, messageSquareTextIcon as commentTokenIcon } from '../../../assets/icons';
+import type { CommentTemplateSegment, CommentTemplateTokenKey } from '../../../core/settings/readerCommentExport';
+import { createIcon } from '../components/Icon';
+import { ReaderCommentTemplateEditor } from './ReaderCommentTemplateEditor';
 import { createReaderSettingsDialogShell } from './ReaderSettingsDialogShell';
 
 type OpenParams = {

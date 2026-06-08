@@ -9,7 +9,10 @@ import {
     normalizeChatGPTDirectorySettings,
     normalizeFormulaSettings,
     normalizePlatformSettings,
+    normalizeReaderBodyFontSizePx,
     normalizeReaderContentMaxWidthPx,
+    normalizeReaderOpenMode,
+    normalizeReaderPanelSizeRatio,
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
@@ -66,6 +69,26 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         patch.showOutlineInReader
                         ?? cur.reader.showOutlineInReader
                         ?? DEFAULT_SETTINGS.reader.showOutlineInReader
+                    ),
+                    defaultOpenMode: normalizeReaderOpenMode(
+                        patch.defaultOpenMode
+                        ?? cur.reader.defaultOpenMode
+                        ?? DEFAULT_SETTINGS.reader.defaultOpenMode
+                    ),
+                    panelSizeRatio: normalizeReaderPanelSizeRatio(
+                        patch.panelSizeRatio
+                        ?? cur.reader.panelSizeRatio
+                        ?? DEFAULT_SETTINGS.reader.panelSizeRatio
+                    ),
+                    bodyFontSizePx: normalizeReaderBodyFontSizePx(
+                        patch.bodyFontSizePx
+                        ?? cur.reader.bodyFontSizePx
+                        ?? DEFAULT_SETTINGS.reader.bodyFontSizePx
+                    ),
+                    detachedNoticeConfirmed: Boolean(
+                        patch.detachedNoticeConfirmed
+                        ?? cur.reader.detachedNoticeConfirmed
+                        ?? DEFAULT_SETTINGS.reader.detachedNoticeConfirmed
                     ),
                     contentMaxWidthPx: normalizeReaderContentMaxWidthPx(
                         patch.contentMaxWidthPx

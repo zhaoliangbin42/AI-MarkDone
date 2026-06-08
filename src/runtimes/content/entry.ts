@@ -4,7 +4,9 @@ import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
+import { sendExtRequest } from '../../drivers/shared/rpc';
 import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtRequest, type ExtResponse } from '../../contracts/protocol';
+import { logger } from '../../core/logger';
 import { ensurePageTokens } from '../../style/pageTokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
@@ -12,7 +14,7 @@ import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
-import { setLocale } from '../../ui/content/components/i18n';
+import { setLocale, t } from '../../ui/content/components/i18n';
 import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
 import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
@@ -22,6 +24,7 @@ import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPT
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
 import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
+import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
@@ -74,6 +77,7 @@ if (formulaOnlyProfile) {
 
 const adapter = formulaOnlyProfile ? null : getAdapter();
 if (adapter) {
+    const contentAdapter = adapter;
     const themeManager = new ThemeManager();
     const mathClick = new FormulaAssetHoverController();
     const readerPanel = new ReaderPanel();
@@ -95,7 +99,9 @@ if (adapter) {
         ? new ChatGPTSendPositionRestoreController(adapter)
         : null;
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
-        ? new ChatGPTMessageStepperController(adapter)
+        ? new ChatGPTMessageStepperController(adapter, {
+            onOpenDetachedReader: () => openDetachedReaderFromStepper(),
+        })
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
@@ -146,6 +152,71 @@ if (adapter) {
         }
         syncClickToCopy(shouldEnableFormulaInteractions(next));
     };
+
+    async function confirmDetachedReaderExperimentIfNeeded(): Promise<boolean> {
+        const settings = settingsClient.getCached() ?? DEFAULT_SETTINGS;
+        if (settings.reader.detachedNoticeConfirmed) return true;
+
+        const noticeSession = new OverlaySession({
+            id: 'aimd-detached-reader-notice-host',
+            theme: currentTheme,
+            themeOverrides: currentThemeOverrides,
+            surfaceCss: '',
+            lockScroll: true,
+            surfaceStyleId: 'aimd-detached-reader-notice-surface',
+            overlayStyleId: 'aimd-detached-reader-notice-overlay',
+        });
+        try {
+            const ok = await noticeSession.modalHost.confirm({
+                kind: 'warning',
+                title: t('detachedReaderExperimentalTitle'),
+                message: t('detachedReaderExperimentalMessage'),
+                confirmText: t('detachedReaderExperimentalConfirm'),
+                cancelText: t('detachedReaderExperimentalCancel'),
+            });
+            return ok;
+        } finally {
+            noticeSession.unmount();
+        }
+    }
+
+    async function markDetachedReaderNoticeConfirmed(): Promise<void> {
+        const current = settingsClient.getCached()?.reader ?? DEFAULT_SETTINGS.reader;
+        if (current.detachedNoticeConfirmed) return;
+        await settingsClient.setCategory('reader', {
+            ...current,
+            detachedNoticeConfirmed: true,
+        });
+    }
+
+    async function openDetachedReaderFromStepper(): Promise<void> {
+        if (!runtimeEnabled || contentAdapter.getPlatformId() !== 'chatgpt') return;
+        const confirmed = await confirmDetachedReaderExperimentIfNeeded();
+        if (!confirmed) return;
+
+        const itemsResult = await collectFreshReaderContent(contentAdapter, null, {
+            chatGptConversationEngine,
+            pageUrl: window.location.href,
+        });
+        const snapshot = await buildReaderSessionSnapshot({
+            items: itemsResult.items,
+            startIndex: itemsResult.startIndex,
+            sourceUrl: window.location.href,
+            theme: currentTheme,
+        });
+        const response = await sendExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'readerSession:create',
+            payload: { snapshot },
+        }, { timeoutMs: 12000 });
+        if (!response.ok) {
+            // Keep this non-blocking; the detached page is an auxiliary speed surface.
+            logger.warn('Detached reader open failed', { error: response.error.message });
+            return;
+        }
+        await markDetachedReaderNoticeConfirmed();
+    }
 
     const initChatGptIfNeeded = () => {
         if (!chatGptConversationEngine) return;
@@ -227,11 +298,14 @@ if (adapter) {
     void setLocale(lastLocale);
     syncThemeOverrides(cachedSettings);
     if (cachedSettings?.reader) {
-        readerPanel.setRenderCodeInReader(Boolean(cachedSettings.reader.renderCodeInReader));
-        readerPanel.setShowOutlineInReader(Boolean(cachedSettings.reader.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader));
-        readerPanel.setContentMaxWidthPx(cachedSettings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
-        readerPanel.setCommentExportSettings(cachedSettings.reader.commentExport);
+        readerPanel.setReaderSettings(cachedSettings.reader);
     }
+    readerPanel.setReaderSettingsController({
+        onChange: async (patch) => {
+            const current = settingsClient.getCached()?.reader ?? DEFAULT_SETTINGS.reader;
+            await settingsClient.setCategory('reader', { ...current, ...patch });
+        },
+    });
     mathClick.setFormulaSettings(resolveFormulaSettings(cachedSettings?.formula));
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     messageToolbars.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
@@ -248,10 +322,7 @@ if (adapter) {
         syncChatGptBehaviorSettings(snap.settings.chatgptBehavior);
         if (!nextRuntimeEnabled) disableRuntime();
         syncFormulaSettings(snap.settings.formula);
-        readerPanel.setRenderCodeInReader(Boolean(snap.settings.reader.renderCodeInReader));
-        readerPanel.setShowOutlineInReader(Boolean(snap.settings.reader.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader));
-        readerPanel.setContentMaxWidthPx(snap.settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
-        readerPanel.setCommentExportSettings(snap.settings.reader.commentExport);
+        readerPanel.setReaderSettings(snap.settings.reader);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         syncThemeOverrides(snap.settings);
@@ -392,5 +463,6 @@ function getThemeOverrides(settings: typeof DEFAULT_SETTINGS | null | undefined)
         ...(accentColor ? { accentColor } : {}),
         baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
         readerContentWidthPx: settings?.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
+        readerBodyFontSizePx: settings?.reader?.bodyFontSizePx ?? DEFAULT_SETTINGS.reader.bodyFontSizePx,
     };
 }

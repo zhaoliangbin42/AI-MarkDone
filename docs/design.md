@@ -395,6 +395,7 @@ The supported override shape is `UserThemeOverrides`:
 | `baseFontScale` | UI font scaling | Maps `appearance.fontSizePx / 16` to type-size system tokens, clamped to the public `12px`-`20px` setting range. |
 | `cornerScale` | Roundedness strength | Maps to shared radius system tokens. |
 | `readerContentWidthPx` | Reader measure | Emits a clamped custom property for reader surfaces. |
+| `readerBodyFontSizePx` | Reader body type size | Emits a Reader-scoped custom property for markdown/prompt reading content only. |
 
 Components may consume only the resulting public `--aimd-*` tokens or their local private geometry variables.
 

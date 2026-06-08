@@ -72,21 +72,33 @@ describe('ChatGPTMessageStepperController', () => {
     });
 
     it('renders left and right message step buttons and routes clicks around the active round', async () => {
-        const controller = new ChatGPTMessageStepperController(adapter);
+        const onOpenDetachedReader = vi.fn(async () => undefined);
+        const controller = new ChatGPTMessageStepperController(adapter, { onOpenDetachedReader });
         controllers.push(controller);
         controller.init();
 
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        const split = host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')!;
         const previous = host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')!;
         const next = host.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
 
         expect(host).toBeTruthy();
+        expect(Array.from(host.querySelectorAll<HTMLButtonElement>('button')).map((button) => button.dataset.action)).toEqual([
+            'open-detached-reader',
+            'previous-message',
+            'next-message',
+        ]);
+        expect(split.getAttribute('aria-label')).toBe('Open Reader in split view');
         expect(previous.getAttribute('aria-label')).toBe('Previous message');
         expect(next.getAttribute('aria-label')).toBe('Next message');
         const style = document.getElementById('aimd-chatgpt-message-stepper-style')?.textContent ?? '';
         expect(style).toContain('bottom: 0;');
         expect(style).toContain('border-radius: var(--aimd-radius-lg);');
         expect(style).toContain('background: var(--aimd-button-icon-hover);');
+
+        split.click();
+        await Promise.resolve();
+        expect(onOpenDetachedReader).toHaveBeenCalledTimes(1);
 
         previous.click();
         await Promise.resolve();
@@ -214,7 +226,7 @@ describe('ChatGPTMessageStepperController', () => {
         );
     });
 
-    it('lets settings hide the visible buttons without disabling keyboard navigation', async () => {
+    it('lets settings hide Previous/Next without hiding Split View or disabling keyboard navigation', async () => {
         const controller = new ChatGPTMessageStepperController(adapter);
         controllers.push(controller);
         controller.init();
@@ -223,7 +235,11 @@ describe('ChatGPTMessageStepperController', () => {
 
         controller.setVisible(false);
 
-        expect(document.getElementById('aimd-chatgpt-message-stepper')).toBeNull();
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        expect(host).toBeTruthy();
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(true);
 
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
         await Promise.resolve();
@@ -235,6 +251,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         controller.setVisible(true);
 
-        expect(document.getElementById('aimd-chatgpt-message-stepper')).toBeTruthy();
+        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
     });
 });

@@ -71,10 +71,6 @@
         "message": "阅读器",
         "description": "Message for btnReader"
     },
-    "btnDetachedReader": {
-        "message": "独立打开阅读器",
-        "description": "Message for btnDetachedReader"
-    },
     "btnSaveAs": {
         "message": "另存为",
         "description": "Message for btnSaveAs"
@@ -374,6 +370,34 @@
     "readerSettingsLabel": {
         "message": "阅读器",
         "description": "Message for readerSettingsLabel"
+    },
+    "readerSettingsLivePreviewHint": {
+        "message": "修改会立即应用到当前打开的阅读器。",
+        "description": "Message for readerSettingsLivePreviewHint"
+    },
+    "readerDefaultOpenModeLabel": {
+        "message": "阅读器默认大小",
+        "description": "Message for readerDefaultOpenModeLabel"
+    },
+    "readerDefaultOpenModeDesc": {
+        "message": "选择阅读器默认以全屏还是居中面板打开。",
+        "description": "Message for readerDefaultOpenModeDesc"
+    },
+    "readerOpenModeFullscreen": {
+        "message": "全屏",
+        "description": "Message for readerOpenModeFullscreen"
+    },
+    "readerOpenModePanel": {
+        "message": "面板",
+        "description": "Message for readerOpenModePanel"
+    },
+    "readerBodyFontSizeLabel": {
+        "message": "阅读器字号",
+        "description": "Message for readerBodyFontSizeLabel"
+    },
+    "readerBodyFontSizeDesc": {
+        "message": "调整阅读器正文字号。标题和代码会随之按比例变化。",
+        "description": "Message for readerBodyFontSizeDesc"
     },
     "readerContentWidthLabel": {
         "message": "阅读器内容宽度",
@@ -2346,5 +2370,21 @@
     "detachedReaderLocated": {
         "message": "已定位源消息",
         "description": "Message for detachedReaderLocated"
+    },
+    "detachedReaderExperimentalTitle": {
+        "message": "实验性的独立阅读器",
+        "description": "Message for detachedReaderExperimentalTitle"
+    },
+    "detachedReaderExperimentalMessage": {
+        "message": "独立阅读器是实验性功能，用来尽量避开 ChatGPT 官网页面的卡顿。确定后，当前对话会在新的扩展页中显示。它不会收集或上传你的任何信息；内容来自原 ChatGPT 标签页的阅读器快照，刷新、发送和定位仍会回到原标签页执行。若原标签页关闭或不可达，独立页会保留已打开的内容，但无法刷新、发送或定位。当前版本不做实时同步，需要手动刷新。",
+        "description": "Message for detachedReaderExperimentalMessage"
+    },
+    "detachedReaderExperimentalConfirm": {
+        "message": "打开独立阅读器",
+        "description": "Message for detachedReaderExperimentalConfirm"
+    },
+    "detachedReaderExperimentalCancel": {
+        "message": "取消",
+        "description": "Message for detachedReaderExperimentalCancel"
     }
 }

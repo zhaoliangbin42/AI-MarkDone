@@ -4,10 +4,7 @@ import {
     DEFAULT_GLOBAL_FONT_SIZE_PX,
     GLOBAL_FONT_SIZE_STEP_PX,
     MAX_GLOBAL_FONT_SIZE_PX,
-    MAX_READER_CONTENT_MAX_WIDTH_PX,
     MIN_GLOBAL_FONT_SIZE_PX,
-    MIN_READER_CONTENT_MAX_WIDTH_PX,
-    READER_CONTENT_MAX_WIDTH_STEP_PX,
     THEME_ACCENT_SWATCHES,
     type ThemeAccentColor,
 } from '../../../../../core/settings/types';
@@ -23,27 +20,17 @@ import {
     resolvePngExportWidth,
     type PngExportWidthPreset,
 } from '../../../../../core/settings/export';
-import {
-    createDefaultCommentTemplate as createDefaultAnnotationTemplate,
-    createDefaultReaderCommentPrompts as createDefaultAnnotationPrompts,
-    normalizeReaderCommentExportSettings,
-    type CommentTemplateSegment,
-    type ReaderCommentExportSettings,
-} from '../../../../../core/settings/readerCommentExport';
 import type { BookmarksStorageUsageResponse } from '../../../../../contracts/protocol';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../../../core/settings/formula';
 import type { ModalHost } from '../../../components/ModalHost';
 import { setLocale, t } from '../../../components/i18n';
 import { createIcon } from '../../../components/Icon';
 import { Icons } from '../../../../../assets/icons';
-import { buildCommentsExport, normalizeCommentTemplate } from '../../../../../services/reader/commentExport';
 import {
     installTransientOutsideDismissBoundary,
     type TransientOutsideDismissBoundaryHandle,
 } from '../../../components/transientUi';
 import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from '../components/BookmarksInlineSelect';
-import { ReaderPromptSettingsPopover } from '../popovers/ReaderPromptSettingsPopover';
-import { ReaderCommentTemplateSettingsPopover } from '../popovers/ReaderCommentTemplateSettingsPopover';
 import { FormulaAssetSettingsPopover } from '../popovers/FormulaAssetSettingsPopover';
 import { CloudBackupSettingsPanel, type CloudBackupSettingsPanelActions } from '../cloudBackup/CloudBackupSettingsPanel';
 
@@ -100,15 +87,6 @@ type Refs = {
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
     };
-    reader: {
-        renderCodeInReader: HTMLInputElement;
-        showOutlineInReader: HTMLInputElement;
-        promptPositionBottom: HTMLInputElement;
-        promptsButton: HTMLButtonElement;
-        promptsSummary: HTMLElement;
-        templateButton: HTMLButtonElement;
-        templateSummary: HTMLElement;
-    };
     advanced: {
         root: HTMLElement;
         button: HTMLButtonElement;
@@ -140,8 +118,6 @@ export class SettingsTabView {
     private storageUsage: BookmarksStorageUsageResponse | null = null;
     private refs: Refs;
     private selectRefs: SelectRef[] = [];
-    private readonly promptSettingsPopover = new ReaderPromptSettingsPopover();
-    private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
     private readonly formulaAssetSettingsPopover = new FormulaAssetSettingsPopover();
     private readonly outsideDismissBoundary: TransientOutsideDismissBoundaryHandle;
     private advancedExpanded = false;
@@ -188,27 +164,6 @@ export class SettingsTabView {
             t('formulaAssetActionsLabel'),
             t('formulaAssetActionsDesc'),
             'settings-formula-asset-actions',
-        );
-
-        const readerGroup = this.createGroup(Icons.bookOpen, t('readerSettingsLabel'));
-        const renderCodeInReader = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
-        const showOutlineInReader = this.createToggle(readerGroup.body, t('readerOutlineToggleLabel'), t('readerOutlineToggleDesc'));
-        const promptPositionBottom = this.createToggle(
-            readerGroup.body,
-            t('readerCommentPromptPositionBottomLabel'),
-            t('readerCommentPromptPositionBottomDesc'),
-        );
-        const promptsRow = this.createActionRow(
-            readerGroup.body,
-            t('readerCommentPromptListLabel'),
-            t('readerCommentPromptListDesc'),
-            'settings-reader-prompts',
-        );
-        const templateRow = this.createActionRow(
-            readerGroup.body,
-            t('readerCommentTemplateSettingsLabel'),
-            t('readerCommentTemplateSettingsDesc'),
-            'settings-reader-template',
         );
 
         const pngExportWidth = this.createPngExportWidthRow(
@@ -344,7 +299,6 @@ export class SettingsTabView {
         content.append(
             platformsGroup.root,
             pageActionsGroup.root,
-            readerGroup.root,
             chatGptDirectoryGroup.root,
             languageGroup.root,
             storageGroup.root,
@@ -372,15 +326,6 @@ export class SettingsTabView {
                 assetActionsButton: formulaAssetActions.button,
                 assetActionsSummary: formulaAssetActions.summary,
             },
-            reader: {
-                renderCodeInReader: renderCodeInReader.input,
-                showOutlineInReader: showOutlineInReader.input,
-                promptPositionBottom: promptPositionBottom.input,
-                promptsButton: promptsRow.button,
-                promptsSummary: promptsRow.summary,
-                templateButton: templateRow.button,
-                templateSummary: templateRow.summary,
-            },
             advanced: advancedGroup,
             export: {
                 pngWidthPreset: pngExportWidth.preset,
@@ -407,11 +352,6 @@ export class SettingsTabView {
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
-        this.refs.reader.renderCodeInReader.dataset.role = 'settings-render-code-reader';
-        this.refs.reader.showOutlineInReader.dataset.role = 'settings-reader-show-outline';
-        this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-prompt-position-bottom';
-        this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
-        this.refs.reader.templateButton.dataset.role = 'settings-reader-template';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
@@ -437,20 +377,10 @@ export class SettingsTabView {
 
     dismissTransientUi(): void {
         this.closeSelectMenus();
-        this.promptSettingsPopover.close();
-        this.templateSettingsPopover.close();
         this.formulaAssetSettingsPopover.close();
     }
 
     consumeEscape(): boolean {
-        if (this.templateSettingsPopover.isOpen()) {
-            this.templateSettingsPopover.close();
-            return true;
-        }
-        if (this.promptSettingsPopover.isOpen()) {
-            this.promptSettingsPopover.close();
-            return true;
-        }
         if (this.formulaAssetSettingsPopover.isOpen()) {
             this.formulaAssetSettingsPopover.close();
             return true;
@@ -485,14 +415,9 @@ export class SettingsTabView {
             },
             bookmarks: { ...DEFAULT_SETTINGS.bookmarks, ...params.settings.bookmarks },
             reader: {
-                renderCodeInReader: Boolean(
-                    params.settings.reader?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader,
-                ),
-                showOutlineInReader: Boolean(
-                    params.settings.reader?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader,
-                ),
-                contentMaxWidthPx: params.settings.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
-                commentExport: normalizeReaderCommentExportSettings(params.settings.reader?.commentExport),
+                ...DEFAULT_SETTINGS.reader,
+                ...params.settings.reader,
+                commentExport: params.settings.reader?.commentExport ?? DEFAULT_SETTINGS.reader.commentExport,
             },
         };
         this.storageUsage = params.storageUsage;
@@ -558,29 +483,6 @@ export class SettingsTabView {
         this.refs.formula.assetActionsButton.addEventListener('click', (event) => {
             event.preventDefault();
             this.openFormulaAssetSettingsPopover();
-        });
-        this.refs.reader.renderCodeInReader.addEventListener('change', () => {
-            const next = this.refs.reader.renderCodeInReader.checked;
-            this.settings.reader.renderCodeInReader = next;
-            void this.actions.setReaderSettings?.({ renderCodeInReader: next });
-        });
-        this.refs.reader.showOutlineInReader.addEventListener('change', () => {
-            const next = this.refs.reader.showOutlineInReader.checked;
-            this.settings.reader.showOutlineInReader = next;
-            void this.actions.setReaderSettings?.({ showOutlineInReader: next });
-        });
-        this.refs.reader.promptPositionBottom.addEventListener('change', () => {
-            const next = this.getReaderCommentExport();
-            next.promptPosition = this.refs.reader.promptPositionBottom.checked ? 'bottom' : 'top';
-            this.updateReaderCommentExport(next);
-        });
-        this.refs.reader.promptsButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            this.openPromptSettingsPopover();
-        });
-        this.refs.reader.templateButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            this.openTemplateSettingsPopover();
         });
         this.refs.advanced.button.addEventListener('click', () => {
             this.advancedExpanded = !this.advancedExpanded;
@@ -652,7 +554,6 @@ export class SettingsTabView {
 
     private applySettingsToDom(): void {
         const s = this.settings;
-        const commentExport = this.getReaderCommentExport();
         const usagePercent = this.formatPercent(this.storageUsage?.usedPercentage);
         this.refs.platforms.chatgpt.checked = Boolean(s.platforms.chatgpt);
         this.refs.platforms.gemini.checked = Boolean(s.platforms.gemini);
@@ -664,11 +565,6 @@ export class SettingsTabView {
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
-        this.refs.reader.renderCodeInReader.checked = Boolean(s.reader.renderCodeInReader);
-        this.refs.reader.showOutlineInReader.checked = Boolean(s.reader.showOutlineInReader);
-        this.refs.reader.promptPositionBottom.checked = commentExport.promptPosition === 'bottom';
-        this.refs.reader.promptsSummary.textContent = this.formatPromptSummary(commentExport);
-        this.refs.reader.templateSummary.textContent = this.formatTemplateSummary(commentExport.template);
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
         this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
@@ -690,9 +586,6 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
-        this.syncToggle(this.refs.reader.renderCodeInReader);
-        this.syncToggle(this.refs.reader.showOutlineInReader);
-        this.syncToggle(this.refs.reader.promptPositionBottom);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
@@ -968,42 +861,8 @@ export class SettingsTabView {
             t('themeAccentColorDesc'),
         );
 
-        const readerSection = document.createElement('div');
-        readerSection.className = 'settings-advanced-section';
-        const title = document.createElement('h4');
-        title.className = 'settings-advanced-section__title';
-        title.textContent = t('readerSettingsLabel');
-        readerSection.appendChild(title);
-        const width = this.createNumberRow(
-            readerSection,
-            t('readerContentWidthLabel'),
-            t('readerContentWidthDesc'),
-            MIN_READER_CONTENT_MAX_WIDTH_PX,
-            MAX_READER_CONTENT_MAX_WIDTH_PX,
-            READER_CONTENT_MAX_WIDTH_STEP_PX,
-            'settings-reader-content-width-value',
-        );
-        width.input.dataset.role = 'settings-reader-content-width';
-        width.input.value = String(this.settings.reader.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx);
-        width.input.addEventListener('change', () => {
-            const raw = Number.parseInt(width.input.value, 10);
-            if (!Number.isFinite(raw)) {
-                this.applySettingsToDom();
-                return;
-            }
-            this.settings.reader.contentMaxWidthPx = this.normalizeReaderContentWidth(raw);
-            width.input.value = String(this.settings.reader.contentMaxWidthPx);
-            this.applySettingsToDom();
-            void this.actions.setReaderSettings?.({ contentMaxWidthPx: raw });
-        });
-
-        body.append(appearanceSection, readerSection);
+        body.append(appearanceSection);
         this.syncAccentColorSwatches();
-    }
-
-    private normalizeReaderContentWidth(value: number): number {
-        const clamped = Math.min(MAX_READER_CONTENT_MAX_WIDTH_PX, Math.max(MIN_READER_CONTENT_MAX_WIDTH_PX, value));
-        return Math.round(clamped / READER_CONTENT_MAX_WIDTH_STEP_PX) * READER_CONTENT_MAX_WIDTH_STEP_PX;
     }
 
     private normalizeGlobalFontSize(value: unknown): number {
@@ -1137,23 +996,6 @@ export class SettingsTabView {
         for (const selectRef of this.selectRefs) selectRef.close();
     }
 
-    private getReaderCommentExport(): ReaderCommentExportSettings {
-        return normalizeReaderCommentExportSettings(this.settings.reader.commentExport);
-    }
-
-    private updateReaderCommentExport(next: ReaderCommentExportSettings): void {
-        this.settings.reader = {
-            ...this.settings.reader,
-            commentExport: {
-                prompts: next.prompts.map((prompt) => ({ ...prompt })),
-                template: next.template.map((segment) => ({ ...segment })),
-                promptPosition: next.promptPosition,
-            },
-        };
-        this.applySettingsToDom();
-        void this.actions.setReaderSettings?.({ commentExport: this.settings.reader.commentExport });
-    }
-
     private normalizeFormulaSettings(settings: unknown): FormulaSettings {
         const record = settings && typeof settings === 'object' ? settings as Partial<FormulaSettings> : {};
         const assetActions: Partial<FormulaSettings['assetActions']> = record.assetActions && typeof record.assetActions === 'object'
@@ -1171,159 +1013,12 @@ export class SettingsTabView {
         };
     }
 
-    private createPromptId(): string {
-        return `prompt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    }
-
-    private createDefaultReaderCommentPrompts(): ReaderCommentExportSettings['prompts'] {
-        return createDefaultAnnotationPrompts();
-    }
-
-    private createDefaultReaderCommentTemplate(): ReaderCommentExportSettings['template'] {
-        return createDefaultAnnotationTemplate();
-    }
-
-    private formatPromptSummary(commentExport: ReaderCommentExportSettings): string {
-        const first = commentExport.prompts[0];
-        if (!first) return t('readerCommentPromptListDesc');
-        return `${first.title} · ${commentExport.prompts.length}`;
-    }
-
-    private formatTemplateSummary(template: CommentTemplateSegment[]): string {
-        const normalized = normalizeCommentTemplate(template)
-            .map((segment) => segment.type === 'text' ? segment.value : segment.key === 'selected_source' ? t('readerCommentTemplateTokenSelectedSource') : t('readerCommentTemplateTokenUserComment'))
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        return normalized || t('readerCommentTemplateSettingsDesc');
-    }
-
     private formatFormulaAssetActionsSummary(settings: FormulaSettings): string {
         const actions = settings.assetActions;
         const count = [actions.copyPng, actions.copySvg, actions.copyMathml, actions.savePng, actions.saveSvg].filter(Boolean).length;
         if (count === 0) return t('formulaAssetActionsSummaryNone');
         if (count === 5) return t('formulaAssetActionsSummaryAll');
         return t('formulaAssetActionsSummaryCount', [String(count)]);
-    }
-
-    private buildTemplatePreview(template: CommentTemplateSegment[]): string {
-        const commentExport = this.getReaderCommentExport();
-        return buildCommentsExport(
-            [
-                {
-                    id: 'preview-comment-1',
-                    itemId: 'preview-item',
-                    quoteText: 'quote',
-                    sourceMarkdown: '`sample_source()`',
-                    comment: 'Needs clarification.',
-                    selectors: {
-                        textQuote: { exact: '', prefix: '', suffix: '' },
-                        textPosition: { start: 0, end: 0 },
-                        domRange: null,
-                        atomicRefs: [],
-                    },
-                    createdAt: 1,
-                    updatedAt: 1,
-                },
-                {
-                    id: 'preview-comment-2',
-                    itemId: 'preview-item',
-                    quoteText: 'quote',
-                    sourceMarkdown: '**another sample**',
-                    comment: 'Consider tightening this wording.',
-                    selectors: {
-                        textQuote: { exact: '', prefix: '', suffix: '' },
-                        textPosition: { start: 0, end: 0 },
-                        domRange: null,
-                        atomicRefs: [],
-                    },
-                    createdAt: 2,
-                    updatedAt: 2,
-                },
-            ],
-            {
-                userPrompt: commentExport.prompts[0]?.content ?? '',
-                promptPosition: commentExport.promptPosition,
-                commentTemplate: template,
-            },
-        );
-    }
-
-    private openPromptSettingsPopover(): void {
-        this.dismissTransientUi();
-        this.promptSettingsPopover.open({
-            parent: this.root,
-            settings: this.getReaderCommentExport(),
-            labels: {
-                title: t('readerCommentPromptListLabel'),
-                close: t('btnClose'),
-                addPrompt: t('readerCommentPromptAdd'),
-                restoreDefaults: t('readerCommentPromptRestoreDefaults'),
-                editPrompt: t('readerCommentPromptEdit'),
-                untitledPrompt: t('readerCommentPromptUntitled'),
-                back: t('btnBack'),
-                titleLabel: t('readerCommentPromptTitleLabel'),
-                contentLabel: t('readerCommentPromptContentLabel'),
-                titlePlaceholder: t('readerCommentPromptTitlePlaceholder'),
-                contentPlaceholder: t('readerCommentPromptContentPlaceholder'),
-                empty: t('readerCommentPromptEmpty'),
-                save: t('btnSave'),
-                cancel: t('btnCancel'),
-                delete: t('btnDelete'),
-            },
-            createPromptId: () => this.createPromptId(),
-            onChange: (next) => this.updateReaderCommentExport(next),
-            onConfirmDelete: () => this.modal.confirm({
-                kind: 'warning',
-                title: t('readerCommentPromptDeleteTitle'),
-                message: t('readerCommentPromptDeleteMessage'),
-                confirmText: t('btnDelete'),
-                cancelText: t('btnCancel'),
-            }),
-            onConfirmRestoreDefaults: () => this.modal.confirm({
-                kind: 'warning',
-                title: t('readerCommentPromptRestoreDefaultsTitle'),
-                message: t('readerCommentPromptRestoreDefaultsMessage'),
-                confirmText: t('readerCommentPromptRestoreDefaults'),
-                cancelText: t('btnCancel'),
-            }),
-            onRestoreDefaults: () => this.createDefaultReaderCommentPrompts(),
-        });
-    }
-
-    private openTemplateSettingsPopover(): void {
-        this.dismissTransientUi();
-        const current = this.getReaderCommentExport();
-        this.templateSettingsPopover.open({
-            parent: this.root,
-            template: current.template,
-            preview: this.buildTemplatePreview(current.template),
-            labels: {
-                title: t('readerCommentTemplateSettingsLabel'),
-                close: t('btnClose'),
-                template: t('readerCommentTemplate'),
-                templateHint: t('readerCommentTemplateHint'),
-                templatePlaceholder: t('readerCommentTemplatePlaceholder'),
-                insertPlaceholder: t('readerCommentTemplateInsertPlaceholder'),
-                insertSelectedSource: t('readerCommentTemplateInsertSelectedSource'),
-                insertUserComment: t('readerCommentTemplateInsertUserComment'),
-                tokenSelectedSource: t('readerCommentTemplateTokenSelectedSource'),
-                tokenUserComment: t('readerCommentTemplateTokenUserComment'),
-                preview: t('readerCommentTemplatePreviewLabel'),
-                restoreDefault: t('readerCommentTemplateRestoreDefault'),
-                save: t('btnSave'),
-                cancel: t('btnCancel'),
-                copied: t('btnCopied'),
-            },
-            onBuildPreview: (template) => this.buildTemplatePreview(template),
-            onRestoreDefault: () => this.createDefaultReaderCommentTemplate(),
-            onSave: (template) => {
-                this.updateReaderCommentExport({
-                    ...current,
-                    template,
-                });
-            },
-        });
     }
 
     private openFormulaAssetSettingsPopover(): void {

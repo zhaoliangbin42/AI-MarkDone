@@ -1,5 +1,5 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { chevronRightIcon } from '../../../assets/icons';
+import { chevronRightIcon, splitViewIcon } from '../../../assets/icons';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import {
     collectChatGPTRoundPositions,
@@ -75,7 +75,7 @@ function getRangeDistanceFromReference(range: { top: number; bottom: number }, r
 export class ChatGPTMessageStepperController {
     private initialized = false;
     private keyboardEnabled = true;
-    private visibleEnabled = true;
+    private navigationVisibleEnabled = true;
     private host: HTMLDivElement | null = null;
     private previousButton: HTMLButtonElement | null = null;
     private nextButton: HTMLButtonElement | null = null;
@@ -87,7 +87,10 @@ export class ChatGPTMessageStepperController {
     private navigationRequestId = 0;
     private themeOverrides: UserThemeOverrides = {};
 
-    constructor(private readonly adapter: SiteAdapter) {}
+    constructor(
+        private readonly adapter: SiteAdapter,
+        private readonly options: { onOpenDetachedReader?: () => Promise<void> | void } = {},
+    ) {}
 
     init(): void {
         if (this.initialized) return;
@@ -127,13 +130,10 @@ export class ChatGPTMessageStepperController {
     }
 
     setVisible(enabled: boolean): void {
-        this.visibleEnabled = enabled;
+        this.navigationVisibleEnabled = enabled;
         if (!this.initialized) return;
-        if (!enabled) {
-            this.removeHost();
-            return;
-        }
         this.ensureHost();
+        this.syncNavigationVisibility();
         this.refreshState();
     }
 
@@ -143,7 +143,6 @@ export class ChatGPTMessageStepperController {
     }
 
     private ensureHost(): void {
-        if (!this.visibleEnabled) return;
         if (this.host?.isConnected) return;
         const existing = document.getElementById(HOST_ID);
         if (existing instanceof HTMLDivElement) existing.remove();
@@ -157,32 +156,29 @@ export class ChatGPTMessageStepperController {
 
         const previous = this.createButton('previous-message', 'Previous message', () => this.step(-1));
         const next = this.createButton('next-message', 'Next message', () => this.step(1));
+        const detachedReader = this.createButton('open-detached-reader', 'Open Reader in split view', () => {
+            void this.options.onOpenDetachedReader?.();
+        }, splitViewIcon);
         previous.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'left';
         next.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'right';
-        host.append(previous, next);
+        host.append(detachedReader, previous, next);
         document.body.appendChild(host);
         this.host = host;
         this.previousButton = previous;
         this.nextButton = next;
+        this.syncNavigationVisibility();
     }
 
-    private removeHost(): void {
-        this.host?.remove();
-        this.host = null;
-        this.previousButton = null;
-        this.nextButton = null;
-    }
-
-    private createButton(action: string, label: string, onClick: () => void): HTMLButtonElement {
+    private createButton(action: string, label: string, onClick: () => void, icon: string = chevronRightIcon): HTMLButtonElement {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'aimd-chatgpt-message-stepper__button';
         button.dataset.action = action;
         button.setAttribute('aria-label', label);
         button.setAttribute('title', label);
-        button.innerHTML = `<span class="aimd-chatgpt-message-stepper__icon">${chevronRightIcon}</span>`;
+        button.innerHTML = `<span class="aimd-chatgpt-message-stepper__icon">${icon}</span>`;
         button.addEventListener('click', () => {
-            if (button.disabled) return;
+            if (button.disabled || button.hidden) return;
             onClick();
         });
         return button;
@@ -241,6 +237,9 @@ export class ChatGPTMessageStepperController {
 .aimd-chatgpt-message-stepper__button:disabled {
   cursor: not-allowed;
   opacity: 0.42;
+}
+.aimd-chatgpt-message-stepper__button[hidden] {
+  display: none;
 }
 .aimd-chatgpt-message-stepper__icon,
 .aimd-chatgpt-message-stepper__icon svg {
@@ -405,6 +404,7 @@ export class ChatGPTMessageStepperController {
     }
 
     private syncButtons(): void {
+        this.syncNavigationVisibility();
         const activeIndex = this.getActiveIndex();
         const canGoPrevious = activeIndex > 0;
         const canGoNext = activeIndex >= 0 && activeIndex < this.rounds.length - 1;
@@ -415,6 +415,13 @@ export class ChatGPTMessageStepperController {
         if (this.nextButton) {
             this.nextButton.disabled = !canGoNext;
             this.nextButton.dataset.disabled = this.nextButton.disabled ? '1' : '0';
+        }
+    }
+
+    private syncNavigationVisibility(): void {
+        for (const button of [this.previousButton, this.nextButton]) {
+            if (!button) continue;
+            button.hidden = !this.navigationVisibleEnabled;
         }
     }
 

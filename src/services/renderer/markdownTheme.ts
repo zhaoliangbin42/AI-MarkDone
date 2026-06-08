@@ -4,7 +4,7 @@ export function getMarkdownThemeCss(scope: string): string {
 ${s} {
   color: var(--aimd-text-primary);
   font-family: var(--aimd-font-family-sans);
-  font-size: var(--aimd-text-base);
+  font-size: var(--aimd-reader-markdown-body-size, var(--aimd-text-base));
   line-height: 1.72;
   word-break: break-word;
 }

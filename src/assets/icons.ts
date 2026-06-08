@@ -177,6 +177,28 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Minus icon
+     * Usage: Decrease actions
+     * Source: Lucide Icons style (ISC License)
+     */
+    minus: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>`,
+
+    /**
+     * Split view icon
+     * Usage: Open detached/split reading surface
+     * Source: Lucide Icons style (ISC License)
+     */
+    splitView: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="18" height="14" x="3" y="5" rx="2"/>
+    <path d="M12 5v14"/>
+    <path d="M7 9h2"/>
+    <path d="M15 9h2"/>
+    <path d="M15 13h2"/>
+  </svg>`,
+
+    /**
      * Grip horizontal icon
      * Usage: Drag handle for reordering lists
      * Source: Lucide Icons style (ISC License)
@@ -836,6 +858,8 @@ export const refreshCwIcon = Icons.refreshCw;
 export const wrenchIcon = Icons.wrench;
 export const folderPlusIcon = Icons.folderPlus;
 export const plusIcon = Icons.plus;
+export const minusIcon = Icons.minus;
+export const splitViewIcon = Icons.splitView;
 export const gripHorizontalIcon = Icons.gripHorizontal;
 export const folderIcon = Icons.folder;
 export const folderOpenIcon = Icons.folderOpen;

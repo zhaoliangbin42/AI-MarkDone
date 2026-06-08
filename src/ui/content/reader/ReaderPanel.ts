@@ -10,7 +10,23 @@ import { resolveContent } from '../../../services/reader/types';
 import { copyReaderItemMarkdownToClipboard } from '../../../services/reader/readerMarkdownCopy';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { AppSettings } from '../../../core/settings/types';
+import {
+    DEFAULT_READER_BODY_FONT_SIZE_PX,
+    DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
+    DEFAULT_READER_OPEN_MODE,
+    DEFAULT_READER_PANEL_SIZE_RATIO,
+    MAX_READER_PANEL_HEIGHT_RATIO,
+    MAX_READER_PANEL_WIDTH_RATIO,
+    MIN_READER_PANEL_HEIGHT_RATIO,
+    MIN_READER_PANEL_WIDTH_RATIO,
+} from '../../../core/settings/types';
 import { renderMarkdownForReader, type ReaderAtomicUnit, type ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
+import {
+    normalizeReaderBodyFontSizePx,
+    normalizeReaderContentMaxWidthPx,
+    normalizeReaderOpenMode,
+    normalizeReaderPanelSizeRatio,
+} from '../../../core/settings/migrations';
 import {
     annotateRenderedAtomicUnits,
     applyRenderedAtomicSelection,
@@ -45,6 +61,7 @@ import { OverlaySession } from '../overlay/OverlaySession';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
+import { ReaderSettingsPopover } from './ReaderSettingsPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
 import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
@@ -81,12 +98,19 @@ export type ReaderPanelShowOptions = {
     actions?: ReaderPanelAction[];
 };
 
+export type ReaderPanelSettingsController = {
+    onChange: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
+};
+
 type ReaderPanelState = {
     theme: Theme;
     items: ReaderItem[];
     index: number;
     visible: boolean;
     fullscreen: boolean;
+    defaultOpenMode: AppSettings['reader']['defaultOpenMode'];
+    panelSizeRatio: AppSettings['reader']['panelSizeRatio'];
+    bodyFontSizePx: number;
     renderedHtml: string;
     renderedMarkdownSource: string;
     renderedAtomicUnits: ReaderAtomicUnit[];
@@ -137,7 +161,9 @@ export class ReaderPanel {
     private overlaySession: OverlaySession | null = null;
     private readonly commentPopover = new ReaderCommentPopover();
     private readonly commentExportPopover = new ReaderCommentExportPopover();
+    private readonly settingsPopover = new ReaderSettingsPopover();
     private readonly commentPromptPicker = new CommentPromptPickerPopover();
+    private settingsController: ReaderPanelSettingsController | null = null;
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
@@ -163,6 +189,7 @@ export class ReaderPanel {
     private activeCommentId: string | null = null;
     private stickyDragBlockId: string | null = null;
     private stickyResizeCleanup: (() => void) | null = null;
+    private panelResizeCleanup: (() => void) | null = null;
     private stickyDragCleanup: (() => void) | null = null;
     private commentExportSettings: ReaderCommentExportSettings = createDefaultReaderCommentExportSettings();
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
@@ -172,6 +199,9 @@ export class ReaderPanel {
         index: 0,
         visible: false,
         fullscreen: false,
+        defaultOpenMode: DEFAULT_READER_OPEN_MODE,
+        panelSizeRatio: DEFAULT_READER_PANEL_SIZE_RATIO,
+        bodyFontSizePx: DEFAULT_READER_BODY_FONT_SIZE_PX,
         renderedHtml: '',
         renderedMarkdownSource: '',
         renderedAtomicUnits: [],
@@ -183,7 +213,7 @@ export class ReaderPanel {
         selectionExport: '',
         userPromptDisplay: formatReaderUserPromptDisplay(''),
         statusText: '',
-        contentMaxWidthPx: 1000,
+        contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         stickyOpen: false,
         stickyWidthPx: STICKY_WIDTH_DEFAULT_PX,
         stickyBlocks: [],
@@ -231,12 +261,14 @@ export class ReaderPanel {
 
     setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
         this.commentExportSettings = normalizeReaderCommentExportSettings(settings);
+        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
     }
 
     setContentMaxWidthPx(widthPx: number): void {
-        const next = Number.isFinite(widthPx) ? Math.max(1, Math.round(widthPx)) : 1000;
+        const next = normalizeReaderContentMaxWidthPx(widthPx);
         if (this.state.contentMaxWidthPx === next) return;
         this.state.contentMaxWidthPx = next;
+        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
         if (this.state.visible) this.render();
     }
 
@@ -244,7 +276,31 @@ export class ReaderPanel {
         const next = Boolean(enabled);
         if (this.state.showOutlineInReader === next) return;
         this.state.showOutlineInReader = next;
+        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
         if (this.state.visible) this.render();
+    }
+
+    setReaderSettingsController(controller: ReaderPanelSettingsController | null): void {
+        this.settingsController = controller;
+    }
+
+    setReaderSettings(settings: AppSettings['reader']): void {
+        const normalized = this.normalizeReaderSettings(settings);
+        this.renderCodeInReader = normalized.renderCodeInReader;
+        this.state.showOutlineInReader = normalized.showOutlineInReader;
+        this.state.defaultOpenMode = normalized.defaultOpenMode;
+        this.state.panelSizeRatio = normalized.panelSizeRatio;
+        this.state.bodyFontSizePx = normalized.bodyFontSizePx;
+        this.state.contentMaxWidthPx = normalized.contentMaxWidthPx;
+        this.commentExportSettings = normalized.commentExport;
+        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+        if (this.state.visible) {
+            if (this.state.fullscreen && this.state.defaultOpenMode === 'panel') {
+                this.state.fullscreen = false;
+            }
+            this.render();
+            void this.renderCurrentContent();
+        }
     }
 
     getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template']; promptPosition: ReaderCommentExportSettings['promptPosition'] } | null {
@@ -264,7 +320,7 @@ export class ReaderPanel {
         this.state.index = Math.max(0, Math.min(startIndex, Math.max(0, items.length - 1)));
         this.state.theme = theme;
         this.state.visible = true;
-        this.state.fullscreen = false;
+        this.state.fullscreen = this.state.defaultOpenMode === 'fullscreen';
         this.state.renderedHtml = '';
         this.state.renderedMarkdownSource = '';
         this.state.renderedAtomicUnits = [];
@@ -275,6 +331,7 @@ export class ReaderPanel {
         this.state.selectionExport = '';
         this.state.userPromptDisplay = formatReaderUserPromptDisplay(items[this.state.index]?.userPrompt ?? '');
         this.state.statusText = '';
+        this.state.panelSizeRatio = normalizeReaderPanelSizeRatio(this.state.panelSizeRatio);
         this.closing = false;
         this.motionNeedsOpen = true;
         this.state.options = {
@@ -420,6 +477,8 @@ export class ReaderPanel {
         this.onSurfaceDragEnd = null;
         this.stickyResizeCleanup?.();
         this.stickyResizeCleanup = null;
+        this.panelResizeCleanup?.();
+        this.panelResizeCleanup = null;
         this.stickyDragCleanup?.();
         this.stickyDragCleanup = null;
         this.stickyDragBlockId = null;
@@ -438,6 +497,7 @@ export class ReaderPanel {
         if (this.overlaySession?.shadow) {
             this.commentPopover.close(this.overlaySession.shadow, false);
             this.commentExportPopover.close(this.overlaySession.shadow);
+            this.settingsPopover.close();
             this.commentPromptPicker.close(this.overlaySession.shadow);
         }
 
@@ -490,6 +550,9 @@ export class ReaderPanel {
             case 'reader-copy-comments':
                 this.openCommentExportPopover();
                 return;
+            case 'reader-settings':
+                this.openReaderSettingsPopover();
+                return;
             case 'reader-copy-code':
                 await this.copyCodeBlock(actionEl);
                 return;
@@ -518,6 +581,12 @@ export class ReaderPanel {
             return;
         }
 
+        const panelResizeHandle = target?.closest<HTMLElement>('[data-action="reader-panel-resize"]');
+        if (panelResizeHandle) {
+            this.startPanelResize(event, panelResizeHandle);
+            return;
+        }
+
         const handle = target?.closest<HTMLElement>('[data-action="reader-sticky-resize"]');
         if (!handle || !this.overlaySession) return;
         event.preventDefault();
@@ -543,6 +612,56 @@ export class ReaderPanel {
         this.stickyResizeCleanup = onUp;
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onUp, { once: true });
+    }
+
+    private startPanelResize(event: PointerEvent, handle: HTMLElement): void {
+        if (!this.overlaySession || this.state.fullscreen) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const panel = handle.closest<HTMLElement>('.panel-window--reader');
+        if (!panel) return;
+
+        const rect = panel.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const startWidth = rect.width;
+        const startHeight = rect.height;
+        let nextRatio = normalizeReaderPanelSizeRatio(this.state.panelSizeRatio);
+
+        const onMove = (moveEvent: PointerEvent) => {
+            moveEvent.preventDefault();
+            const nextWidthPx = startWidth + ((moveEvent.clientX - startX) * 2);
+            const nextHeightPx = startHeight + ((moveEvent.clientY - startY) * 2);
+            nextRatio = this.clampPanelSizeRatio({
+                widthRatio: nextWidthPx / Math.max(1, window.innerWidth),
+                heightRatio: nextHeightPx / Math.max(1, window.innerHeight),
+            });
+            this.state.panelSizeRatio = nextRatio;
+            panel.style.setProperty('--_reader-panel-width-ratio', String(nextRatio.widthRatio));
+            panel.style.setProperty('--_reader-panel-height-ratio', String(nextRatio.heightRatio));
+        };
+        const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            this.panelResizeCleanup = null;
+            this.state.panelSizeRatio = nextRatio;
+            void this.settingsController?.onChange({ panelSizeRatio: nextRatio });
+            this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+            this.render();
+        };
+
+        this.panelResizeCleanup?.();
+        this.panelResizeCleanup = onUp;
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp, { once: true });
+    }
+
+    private clampPanelSizeRatio(ratio: AppSettings['reader']['panelSizeRatio']): AppSettings['reader']['panelSizeRatio'] {
+        return {
+            widthRatio: Math.min(MAX_READER_PANEL_WIDTH_RATIO, Math.max(MIN_READER_PANEL_WIDTH_RATIO, ratio.widthRatio)),
+            heightRatio: Math.min(MAX_READER_PANEL_HEIGHT_RATIO, Math.max(MIN_READER_PANEL_HEIGHT_RATIO, ratio.heightRatio)),
+        };
     }
 
     private startStickyPointerDrag(event: PointerEvent, sourceId: string): void {
@@ -765,6 +884,80 @@ export class ReaderPanel {
         window.open(url, '_blank', 'noopener,noreferrer');
     }
 
+    private openReaderSettingsPopover(): void {
+        if (!this.overlaySession) return;
+        this.settingsPopover.open({
+            parent: this.overlaySession.surfaceRoot,
+            modalHost: this.overlaySession.modalHost,
+            settings: this.getReaderSettingsSnapshot(),
+            onPreview: (patch) => this.applyReaderSettingsPatch(patch),
+            onChange: async (patch) => {
+                await this.settingsController?.onChange(patch);
+            },
+        });
+    }
+
+    private applyReaderSettingsPatch(patch: Partial<AppSettings['reader']>): void {
+        if (typeof patch.renderCodeInReader !== 'undefined') {
+            this.renderCodeInReader = Boolean(patch.renderCodeInReader);
+            void this.renderCurrentContent();
+        }
+        if (typeof patch.showOutlineInReader !== 'undefined') {
+            this.state.showOutlineInReader = Boolean(patch.showOutlineInReader);
+        }
+        if (typeof patch.defaultOpenMode !== 'undefined') {
+            this.state.defaultOpenMode = normalizeReaderOpenMode(patch.defaultOpenMode);
+            this.state.fullscreen = this.state.defaultOpenMode === 'fullscreen';
+        }
+        if (typeof patch.panelSizeRatio !== 'undefined') {
+            this.state.panelSizeRatio = normalizeReaderPanelSizeRatio(patch.panelSizeRatio);
+        }
+        if (typeof patch.bodyFontSizePx !== 'undefined') {
+            this.state.bodyFontSizePx = normalizeReaderBodyFontSizePx(patch.bodyFontSizePx);
+            this.overlaySession?.setThemeOverrides({
+                ...this.themeOverrides,
+                readerBodyFontSizePx: this.state.bodyFontSizePx,
+            });
+        }
+        if (typeof patch.contentMaxWidthPx !== 'undefined') {
+            this.state.contentMaxWidthPx = normalizeReaderContentMaxWidthPx(patch.contentMaxWidthPx);
+            this.overlaySession?.setThemeOverrides({
+                ...this.themeOverrides,
+                readerContentWidthPx: this.state.contentMaxWidthPx,
+            });
+        }
+        if (typeof patch.commentExport !== 'undefined') {
+            this.commentExportSettings = normalizeReaderCommentExportSettings(patch.commentExport);
+        }
+        this.render();
+    }
+
+    private getReaderSettingsSnapshot(): AppSettings['reader'] {
+        return this.normalizeReaderSettings({
+            renderCodeInReader: this.renderCodeInReader,
+            showOutlineInReader: this.state.showOutlineInReader,
+            defaultOpenMode: this.state.defaultOpenMode,
+            panelSizeRatio: this.state.panelSizeRatio,
+            bodyFontSizePx: this.state.bodyFontSizePx,
+            detachedNoticeConfirmed: false,
+            contentMaxWidthPx: this.state.contentMaxWidthPx,
+            commentExport: this.commentExportSettings,
+        });
+    }
+
+    private normalizeReaderSettings(settings: AppSettings['reader']): AppSettings['reader'] {
+        return {
+            renderCodeInReader: Boolean(settings.renderCodeInReader),
+            showOutlineInReader: Boolean(settings.showOutlineInReader),
+            defaultOpenMode: normalizeReaderOpenMode(settings.defaultOpenMode),
+            panelSizeRatio: normalizeReaderPanelSizeRatio(settings.panelSizeRatio),
+            bodyFontSizePx: normalizeReaderBodyFontSizePx(settings.bodyFontSizePx),
+            detachedNoticeConfirmed: Boolean(settings.detachedNoticeConfirmed),
+            contentMaxWidthPx: normalizeReaderContentMaxWidthPx(settings.contentMaxWidthPx),
+            commentExport: normalizeReaderCommentExportSettings(settings.commentExport),
+        };
+    }
+
     private setStatus(text: string): void {
         this.state.statusText = text;
         const status = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('[data-field="status"]');
@@ -788,7 +981,9 @@ export class ReaderPanel {
                 items: this.state.items,
                 index: this.state.index,
                 fullscreen: this.state.fullscreen,
+                panelSizeRatio: this.state.panelSizeRatio,
                 contentMaxWidthPx: this.state.contentMaxWidthPx,
+                bodyFontSizePx: this.state.bodyFontSizePx,
                 stickyEnabled: this.isStickyAvailable(),
                 stickyOpen: this.state.stickyOpen,
                 stickyWidthPx: this.state.stickyWidthPx,

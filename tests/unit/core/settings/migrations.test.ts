@@ -38,6 +38,10 @@ describe('settings migrations', () => {
         });
         expect(next.reader.renderCodeInReader).toBe(false);
         expect(next.reader).not.toHaveProperty('markdownTheme');
+        expect(next.reader.defaultOpenMode).toBe('fullscreen');
+        expect(next.reader.panelSizeRatio).toEqual(DEFAULT_SETTINGS.reader.panelSizeRatio);
+        expect(next.reader.bodyFontSizePx).toBe(DEFAULT_SETTINGS.reader.bodyFontSizePx);
+        expect(next.reader.detachedNoticeConfirmed).toBe(false);
         expect(next.appearance.fontSizePx).toBe(DEFAULT_SETTINGS.appearance.fontSizePx);
         expect(next.bookmarks.sortMode).toBe('alpha-asc');
         expect(next.language).toBe('zh_CN');
@@ -59,6 +63,23 @@ describe('settings migrations', () => {
         } as any);
 
         expect(next.appearance.fontSizePx).toBe(20);
+    });
+
+    it('normalizes v3 reader display settings', () => {
+        const next = loadAndNormalize({
+            version: 3,
+            reader: {
+                defaultOpenMode: 'panel',
+                panelSizeRatio: { widthRatio: 0.2, heightRatio: 3 },
+                bodyFontSizePx: 11,
+                detachedNoticeConfirmed: true,
+            },
+        } as any);
+
+        expect(next.reader.defaultOpenMode).toBe('panel');
+        expect(next.reader.panelSizeRatio).toEqual({ widthRatio: 0.42, heightRatio: 0.96 });
+        expect(next.reader.bodyFontSizePx).toBe(12);
+        expect(next.reader.detachedNoticeConfirmed).toBe(true);
     });
 
     it('normalizes v3 appearance accent color settings', () => {
