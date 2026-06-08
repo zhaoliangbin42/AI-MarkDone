@@ -2,7 +2,7 @@
 
 > **Purpose**: 只表达“当前支持哪些宿主平台、有哪些平台特有差异”。具体能力如何工作，请以 `docs/FEATURES.md` 为准。
 >
-> **Release policy**: v4.5.0 起，AI-MarkDone 的完整页面运行时聚焦 ChatGPT。Gemini、Claude、DeepSeek 保留公式复制运行时，用于单公式 LaTeX 点击复制以及用户启用的公式 PNG/SVG/MathML copy/save；旧书签数据仍可在书签库中查看、筛选、导出和备份。
+> **Release policy**: v4.5.0 起，AI-MarkDone 的完整页面运行时聚焦 ChatGPT。Gemini、Claude、DeepSeek 保留公式复制运行时，用于单公式 LaTeX 点击复制以及用户启用的公式 PNG/SVG/MathML copy/save；这些平台允许通过扩展图标打开全局书签管理面板，用于查看/管理既有书签与设置，但不恢复完整页面适配。旧书签数据仍可在书签库中查看、筛选、导出和备份。
 
 ---
 
@@ -19,7 +19,7 @@
 
 - 以上 host 列表必须与 `manifest.chrome.json`、`manifest.firefox.json`、content-script host gating、`src/popup/popup.html` 保持一致；background action gating 对所有 supported hosts 保持 active/no-popup，具体内容能力由 content runtime 决定。
 - 当前仓库通过 `tests/unit/governance/supported-hosts-consistency.test.ts` 对这四处的一致性做自动化门禁。
-- Settings `platforms.chatgpt` 控制 ChatGPT 完整页面 runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台的公式复制 runtime。
+- Settings `platforms.chatgpt` 控制 ChatGPT 完整页面 runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台的页面公式交互能力。非 ChatGPT 平台的扩展图标仍可打开全局书签管理面板；该 UI 入口不等同于恢复 Reader、消息 toolbar、发送、整条消息复制/导出或完整 adapter 链路。
 - Bookmarks platform filter 仍允许旧数据按原平台字符串筛选。
 
 ---
@@ -35,7 +35,7 @@
   - ChatGPT send position restore（仅 ChatGPT hosts，默认开启）
   - 可关闭的 ChatGPT message stepper 与可选左右方向键消息导航（仅 ChatGPT conversation 页面）
 - 当前明确的**公式复制**平台方向：
-  - Gemini、Claude、DeepSeek formula runtime：复用 `FormulaAssetHoverController` / `MathClickHandler` / 单公式 asset renderer，并恢复旧 `MarkdownParserAdapter` 的公式识别、LaTeX 提取和块级判定子链路；extension action 仍发送 toggle 消息，用于打开全局书签管理面板
+  - Gemini、Claude、DeepSeek formula runtime：复用 `FormulaAssetHoverController` / `MathClickHandler` / 单公式 asset renderer，并恢复旧 `MarkdownParserAdapter` 的公式识别、LaTeX 提取和块级判定子链路；extension action 仍发送 toggle 消息，用于打开全局书签管理面板。该面板是跨平台书签/设置 UI 入口，不代表恢复这些平台的页面 Reader、消息 toolbar、发送、整条消息复制/导出或定位能力
   - Gemini Deep Research（不纳入产品支持范围）
 
 ---
