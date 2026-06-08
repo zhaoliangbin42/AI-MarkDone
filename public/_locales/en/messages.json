@@ -2363,10 +2363,6 @@
         "message": "Reader refreshed",
         "description": "Message for detachedReaderRefreshed"
     },
-    "detachedReaderSendPrompt": {
-        "message": "Message to send to the source ChatGPT page",
-        "description": "Message for detachedReaderSendPrompt"
-    },
     "detachedReaderSent": {
         "message": "Sent",
         "description": "Message for detachedReaderSent"

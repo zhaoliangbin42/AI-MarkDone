@@ -31,10 +31,11 @@ import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '..
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
+import { createConversationReaderActions } from '../reader/conversationReaderActions';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
-import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, locateIcon, sendIcon, imageIcon } from '../../../assets/icons';
+import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, imageIcon } from '../../../assets/icons';
 import { saveMessagesDialog } from '../export/SaveMessagesDialog';
 import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
@@ -403,99 +404,50 @@ export class MessageToolbarOrchestrator {
     }
 
     private getReaderActions(_messageElement: HTMLElement): ReaderPanelAction[] {
-        const actions: ReaderPanelAction[] = [];
-
-        if (this.bookmarksController) {
-            actions.push({
-                id: 'bookmark_toggle',
-                label: t('btnBookmark'),
-                tooltip: t('btnBookmark'),
-                icon: bookmarkIcon,
-                placement: 'header',
-                toggle: true,
-                isActive: (ctx: any) => Boolean(ctx?.item?.meta?.bookmarked),
-                onClick: async (ctx: any) => {
-                    const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
-                    const url = typeof meta.url === 'string' ? meta.url : this.getBookmarkPageUrl();
-                    const position = Number(meta.position ?? 0);
-                    const messageId = typeof meta.messageId === 'string' ? meta.messageId : null;
-                    const userPrompt = String(ctx?.item?.userPrompt || '').trim();
-                    const markdown = await resolveContent(ctx.item.content);
-                    const result = await this.runBookmarkToggle({
-                        url,
-                        position,
-                        messageId,
-                        userPrompt,
-                        markdown,
-                        alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, position),
-                    });
-                    if (!result.ok) {
-                        if (!result.cancelled && result.message) ctx?.notify?.(result.message);
-                        return;
-                    }
-                    ctx.item.meta = { ...(ctx.item.meta || {}), url, position, messageId, bookmarked: result.bookmarked, bookmarkable: true };
-                    ctx?.notify?.(result.message);
-                    ctx?.rerender?.();
-                },
-            });
-        }
-
-        if (this.sendController) {
-            actions.push({
-                id: 'send',
-                label: t('send'),
-                icon: sendIcon,
-                kind: 'primary',
-                placement: 'footer_left',
-                toggle: true,
-                rerenderOnClick: false,
-                onClick: (ctx: any) => {
-                    const shadow = ctx?.shadow as ShadowRoot | undefined;
-                    const anchorBtn = ctx?.anchorEl as HTMLElement | undefined;
-                    if (!shadow || !anchorBtn) return;
-                    const anchorWrap = anchorBtn.closest?.('[data-role="footer-left-actions"]') as HTMLElement | null;
-                    this.sendController?.togglePopover({
-                        adapter: this.adapter,
-                        shadow,
-                        anchor: anchorWrap || anchorBtn,
-                        commentInsert: this.readerPanel.getCommentExportContext(),
-                    });
-                },
-            });
-        }
-
-        actions.push({
-            id: 'locate',
-            label: t('jumpToMessage'),
-            tooltip: t('jumpToMessage'),
-            icon: locateIcon,
-            placement: 'footer_left',
-            onClick: async (ctx: any) => {
-                const meta = (ctx?.item?.meta || {}) as Record<string, unknown>;
-                const position = Number(meta.position ?? 0);
-                const messageId = typeof meta.messageId === 'string' ? meta.messageId : null;
-                if (!position && !messageId) {
-                    ctx?.notify?.(t('positionNotAvailable'));
-                    return;
+        return createConversationReaderActions({
+            bookmark: this.bookmarksController
+                ? {
+                    resolveUrl: () => this.getBookmarkPageUrl(),
+                    isBookmarked: (url, position) => this.bookmarksController!.isPositionBookmarked(url, position),
+                    toggle: (input) => this.runBookmarkToggle(input),
                 }
-
-                this.readerPanel.hide();
-                const result = this.adapter.getPlatformId() === 'chatgpt'
-                    ? await navigateChatGPTDirectoryTarget(
-                        this.adapter,
-                        { position, messageId },
-                        { timeoutMs: 2500, intervalMs: 200 },
-                    )
-                    : await scrollToBookmarkTargetWithRetry(
-                        this.adapter,
-                        { position, messageId },
-                        { timeoutMs: 2500, intervalMs: 200 }
-                    );
-                if (!result.ok) ctx?.notify?.(t('positionNotAvailable'));
+                : null,
+            send: this.sendController
+                ? {
+                    open: (ctx) => {
+                        const shadow = ctx?.shadow as ShadowRoot | undefined;
+                        const anchorBtn = ctx?.anchorEl as HTMLElement | undefined;
+                        if (!shadow || !anchorBtn) return;
+                        const anchorWrap = anchorBtn.closest?.('[data-role="footer-left-actions"]') as HTMLElement | null;
+                        this.sendController?.togglePopover({
+                            adapter: this.adapter,
+                            shadow,
+                            anchor: anchorWrap || anchorBtn,
+                            commentInsert: this.readerPanel.getCommentExportContext(),
+                        });
+                    },
+                }
+                : null,
+            locate: {
+                beforeLocate: () => {
+                    this.readerPanel.hide();
+                },
+                locate: async ({ position, messageId }) => {
+                    const result = this.adapter.getPlatformId() === 'chatgpt'
+                        ? await navigateChatGPTDirectoryTarget(
+                            this.adapter,
+                            { position, messageId },
+                            { timeoutMs: 2500, intervalMs: 200 },
+                        )
+                        : await scrollToBookmarkTargetWithRetry(
+                            this.adapter,
+                            { position, messageId },
+                            { timeoutMs: 2500, intervalMs: 200 }
+                        );
+                    return { ok: result.ok };
+                },
             },
         });
-
-        return actions;
     }
 
     constructor(

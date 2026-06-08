@@ -49,10 +49,20 @@ describe('SendPopover send completion', () => {
         } as any;
 
         const popover = new SendPopover();
-        popover.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hello' });
+        popover.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: {
+                beforeSubmit: mocks.armRestore,
+                submit: async (text) => mocks.sendText(adapter, text, { focusComposer: true, timeoutMs: 3000 }),
+            },
+            theme: 'light',
+            initialText: 'hello',
+        });
 
         const sendButton = footerLeft.querySelector<HTMLButtonElement>('[data-action="send"]')!;
         sendButton.click();
+        await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
 

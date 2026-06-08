@@ -3,7 +3,8 @@ import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
 import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
 import { SendModal } from './SendModal';
-import { SendPopover } from './SendPopover';
+import { createContentSendPort } from './contentSendPort';
+import { type SendPort, SendPopover } from './SendPopover';
 import type { UserThemeOverrides } from '../../../style/tokens';
 
 export class SendController {
@@ -42,7 +43,8 @@ export class SendController {
     }
 
     togglePopover(params: {
-        adapter: SiteAdapter;
+        adapter?: SiteAdapter;
+        sendPort?: SendPort;
         shadow: ShadowRoot;
         anchor: HTMLElement;
         initialText?: string;
@@ -53,8 +55,10 @@ export class SendController {
             comments: ReaderCommentRecord[];
         } | null;
     }): void {
+        const sendPort = params.sendPort ?? (params.adapter ? createContentSendPort(params.adapter) : null);
+        if (!sendPort) return;
         this.popover.toggle({
-            adapter: params.adapter,
+            sendPort,
             shadow: params.shadow,
             anchor: params.anchor,
             theme: this.theme,

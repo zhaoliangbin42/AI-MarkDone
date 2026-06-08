@@ -163,10 +163,7 @@ describe('ReaderPanel actions placement', () => {
     it('keeps the real send popover mounted through the reader footer action seam', async () => {
         const panel = new ReaderPanel();
         const popover = new SendPopover();
-        const adapter = {
-            getComposerInputElement: () => null,
-            getComposerSendButtonElement: () => null,
-        } as any;
+        const sendPort = { submit: vi.fn(async () => ({ ok: true as const })) };
 
         try {
             await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'md1' }], 0, 'light', {
@@ -179,7 +176,7 @@ describe('ReaderPanel actions placement', () => {
                         rerenderOnClick: false,
                         onClick: ({ anchorEl, shadow }) => {
                             if (!anchorEl || !shadow) return;
-                            popover.open({ shadow, anchor: anchorEl.parentElement as HTMLElement, adapter, theme: 'light', initialText: 'hello' });
+                            popover.open({ shadow, anchor: anchorEl.parentElement as HTMLElement, sendPort, theme: 'light', initialText: 'hello' });
                         },
                     },
                 ],

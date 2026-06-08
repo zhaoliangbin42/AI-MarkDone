@@ -2363,10 +2363,6 @@
         "message": "阅读器已刷新",
         "description": "Message for detachedReaderRefreshed"
     },
-    "detachedReaderSendPrompt": {
-        "message": "发送到源 ChatGPT 页面的内容",
-        "description": "Message for detachedReaderSendPrompt"
-    },
     "detachedReaderSent": {
         "message": "已发送",
         "description": "Message for detachedReaderSent"

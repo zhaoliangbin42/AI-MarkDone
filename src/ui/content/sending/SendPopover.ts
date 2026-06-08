@@ -1,10 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
 import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
-import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { readComposer, writeComposer } from '../../../drivers/content/sending/composerPort';
-import { armChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
-import { sendText } from '../../../services/sending/sendService';
 import { createIcon } from '../components/Icon';
 import { messageSquarePlusIcon, sendIcon, xIcon } from '../../../assets/icons';
 import { subscribeLocaleChange, t } from '../components/i18n';
@@ -17,7 +13,7 @@ import type { UserThemeOverrides } from '../../../style/tokens';
 
 type State = {
     theme: Theme;
-    adapter: SiteAdapter | null;
+    sendPort: SendPort | null;
     open: boolean;
     anchor: HTMLElement | null;
     width: number;
@@ -39,6 +35,15 @@ type ResizeState = {
     shadow: ShadowRoot;
 };
 
+export type SendPortResult = { ok: true; message?: string } | { ok: false; message?: string };
+
+export type SendPort = {
+    readDraft?: () => string;
+    writeDraft?: (text: string) => void | Promise<void>;
+    beforeSubmit?: () => void;
+    submit: (text: string) => Promise<SendPortResult>;
+};
+
 const DEFAULT_WIDTH = 420;
 const DEFAULT_HEIGHT = 260;
 const MIN_WIDTH = 320;
@@ -57,7 +62,7 @@ function escapeHtml(value: string): string {
 export class SendPopover {
     private state: State = {
         theme: 'light',
-        adapter: null,
+        sendPort: null,
         open: false,
         anchor: null,
         width: DEFAULT_WIDTH,
@@ -90,7 +95,7 @@ export class SendPopover {
     toggle(params: {
         shadow: ShadowRoot;
         anchor: HTMLElement;
-        adapter: SiteAdapter;
+        sendPort: SendPort;
         theme: Theme;
         initialText?: string;
         commentInsert?: CommentInsertContext | null;
@@ -102,10 +107,10 @@ export class SendPopover {
         this.open(params);
     }
 
-    open(params: { shadow: ShadowRoot; anchor: HTMLElement; adapter: SiteAdapter; theme: Theme; initialText?: string; commentInsert?: CommentInsertContext | null }): void {
+    open(params: { shadow: ShadowRoot; anchor: HTMLElement; sendPort: SendPort; theme: Theme; initialText?: string; commentInsert?: CommentInsertContext | null }): void {
         this.ensureStyles(params.shadow);
 
-        this.state.adapter = params.adapter;
+        this.state.sendPort = params.sendPort;
         this.state.theme = params.theme;
         this.state.open = true;
         this.state.anchor = params.anchor;
@@ -146,8 +151,7 @@ export class SendPopover {
         this.popoverEl = pop;
 
         const text = params.initialText ?? (() => {
-            const snap = readComposer(params.adapter);
-            return snap.ok ? snap.text : '';
+            return this.state.sendPort?.readDraft?.() ?? '';
         })();
         const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) {
@@ -224,11 +228,11 @@ export class SendPopover {
     }
 
     close(shadow: ShadowRoot, opts?: { syncBack?: boolean }): void {
-        const adapter = this.state.adapter;
+        const sendPort = this.state.sendPort;
         const text = this.popoverEl?.querySelector<HTMLTextAreaElement>('[data-role="text"]')?.value ?? '';
 
-        if (opts?.syncBack && adapter) {
-            void writeComposer(adapter, text, { focus: false, strategy: 'auto' });
+        if (opts?.syncBack && sendPort?.writeDraft) {
+            void sendPort.writeDraft(text);
         }
 
         this.stopResize();
@@ -237,6 +241,7 @@ export class SendPopover {
         this.pending = false;
         this.state.open = false;
         this.state.anchor = null;
+        this.state.sendPort = null;
         this.anchorPositionReset?.();
         this.anchorPositionReset = null;
         this.unsubscribeLocale?.();
@@ -439,8 +444,8 @@ export class SendPopover {
 
     private async submit(shadow: ShadowRoot): Promise<void> {
         if (this.pending) return;
-        const adapter = this.state.adapter;
-        if (!adapter) return;
+        const sendPort = this.state.sendPort;
+        if (!sendPort) return;
         const textarea = this.popoverEl?.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (!textarea) return;
 
@@ -454,8 +459,8 @@ export class SendPopover {
         this.setPending(true);
         this.setStatus(t('sendingStatus'));
         try {
-            armChatGPTSendPositionRestore();
-            const res = await sendText(adapter, text, { focusComposer: true, timeoutMs: 3000 });
+            sendPort.beforeSubmit?.();
+            const res = await sendPort.submit(text);
             if (!res.ok) {
                 this.setStatus(res.message || t('sendFailed'));
                 return;

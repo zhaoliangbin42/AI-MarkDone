@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Closing a detached Reader from inside the Reader page now cleans up its session and closes the detached extension page.
 - Reader: Detached Reader now syncs the extension page theme and token overrides before rendering, and only stores first-use notice acknowledgement after the detached session is created successfully.
 - Reader: Formula rendering now registers KaTeX font faces at the document layer while keeping KaTeX layout CSS inside the Reader shadow surface, so detached Reader pages do not lose math styling when the source ChatGPT page is no longer providing global formula fonts.
+- Reader: Detached Reader send now uses the same tokenized SendPopover as the in-page Reader instead of a native browser prompt.
 - ChatGPT: Hiding Previous/Next message buttons no longer hides the detached Reader Split View entry.
 
 ## [4.5.1] - 2026-06-07

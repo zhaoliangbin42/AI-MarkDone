@@ -82,7 +82,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 1. ChatGPT content runtime 仍通过既有 `readerContentSource` 生成 fresh `ReaderItem[]`
 2. Background 只持有 `sessionId + sourceTabId + readerTabId` 路由与可恢复快照，不理解 ChatGPT 正文结构
-3. Extension page 复用 ReaderPanel、Reader settings surface、Markdown rendering、copy/comment/Sticky/prompt 能力，默认以 fullscreen surface 打开，panel/half-screen 只是 Reader surface 自己的 presentation state
+3. Extension page 复用 ReaderPanel、Reader settings surface、Markdown rendering、copy/comment/Sticky/prompt 与 conversation Reader action service；发送弹框必须复用同一个 tokenized SendPopover，通过 SendPort 在 content adapter 与 detached `readerSession:send` 之间切换，不得退回 `window.prompt` 或一次性原生弹框
 4. refresh/send/locate 继续回源 content runtime 执行，不能在 extension page 直接操作 ChatGPT DOM
 5. 首次打开的实验性说明属于用户意图确认边界，必须复用现有 modal/notice family，不新增孤立提示框组件
 6. Reader 专属配置由 Reader 内 settings dialog 拥有；Settings 页面不再承载 Reader rendering、Reader typography、Reader prompt/template 或 Reader presentation 控件

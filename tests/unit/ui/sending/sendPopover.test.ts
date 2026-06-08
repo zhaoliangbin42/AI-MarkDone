@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SendPopover } from '@/ui/content/sending/SendPopover';
+import { createContentSendPort } from '@/ui/content/sending/contentSendPort';
 import { setLocale } from '@/ui/content/components/i18n';
 
 function readLocaleJson(locale: 'en' | 'zh_CN'): any {
@@ -51,7 +52,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
         const opened = footerLeft.querySelector<HTMLElement>('.send-popover');
         const styleNode = shadow.querySelector('style[data-aimd-send-popover-style]');
         expect(opened).toBeTruthy();
@@ -91,7 +92,7 @@ describe('SendPopover', () => {
         expect(footerLeft.querySelector('.send-popover')).toBeNull();
 
         // Reopen and close via outside click.
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
         expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
         const outside = document.createElement('div');
         shadow.appendChild(outside);
@@ -118,7 +119,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
         expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
 
         document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
@@ -150,7 +151,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
 
         const popover = footerLeft.querySelector<HTMLElement>('.send-popover')!;
         const handle = footerLeft.querySelector<HTMLElement>('.send-popover__resize-handle')!;
@@ -195,7 +196,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light' });
 
         const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
         textarea.value = 'hello world';
@@ -210,6 +211,41 @@ describe('SendPopover', () => {
         expect(composer.value).toBe('hello world');
 
         composer.remove();
+    });
+
+    it('can submit through a send port without a content adapter', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const submit = vi.fn(async () => ({ ok: true as const }));
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: {
+                readDraft: () => 'detached draft',
+                submit,
+            },
+            theme: 'light',
+        });
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        expect(textarea.value).toBe('detached draft');
+        textarea.value = 'hello detached';
+        footerLeft.querySelector<HTMLButtonElement>('[data-action="send"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(submit).toHaveBeenCalledWith('hello detached');
+        pop.close(shadow, { syncBack: false });
     });
 
     it('inserts compiled reader comments into the local textarea at the current caret after choosing a prompt', async () => {
@@ -233,7 +269,7 @@ describe('SendPopover', () => {
         pop.open({
             shadow,
             anchor: footerLeft,
-            adapter,
+            sendPort: createContentSendPort(adapter),
             theme: 'light',
             initialText: 'Hello \nworld',
             commentInsert: {
@@ -316,7 +352,7 @@ describe('SendPopover', () => {
         pop.open({
             shadow,
             anchor: footerLeft,
-            adapter,
+            sendPort: createContentSendPort(adapter),
             theme: 'light',
             initialText: 'Draft',
             commentInsert: {
@@ -370,7 +406,7 @@ describe('SendPopover', () => {
         pop.open({
             shadow,
             anchor: footerLeft,
-            adapter,
+            sendPort: createContentSendPort(adapter),
             theme: 'light',
             initialText: 'Draft',
             commentInsert: {
@@ -424,7 +460,7 @@ describe('SendPopover', () => {
         pop.open({
             shadow,
             anchor: footerLeft,
-            adapter,
+            sendPort: createContentSendPort(adapter),
             theme: 'light',
             initialText: '',
             commentInsert: {
@@ -462,7 +498,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light' });
         await Promise.resolve();
 
         expect(composer.value).toBe('seed');
@@ -495,7 +531,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light' });
         await Promise.resolve();
 
         const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
@@ -540,7 +576,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light' });
         await Promise.resolve();
 
         const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
@@ -582,7 +618,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
         await Promise.resolve();
 
         const status = footerLeft.querySelector<HTMLElement>('.send-popover [data-role="status"]');
@@ -610,7 +646,7 @@ describe('SendPopover', () => {
         } as any;
 
         const pop = new SendPopover();
-        pop.open({ shadow, anchor: footerLeft, adapter, theme: 'light', initialText: 'hi' });
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
 
         expect(footerLeft.querySelector('.send-popover__head strong')?.textContent).toBe('Send');
         expect(footerLeft.querySelector('.send-popover__resize-handle')?.getAttribute('aria-label')).toBe('Resize send popover');

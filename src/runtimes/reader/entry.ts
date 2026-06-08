@@ -4,9 +4,10 @@ import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core
 import { sendExtRequest } from '../../drivers/shared/rpc';
 import { ensurePageTokens } from '../../style/pageTokens';
 import type { UserThemeOverrides } from '../../style/tokens';
-import { locateIcon, refreshCwIcon, sendIcon } from '../../assets/icons';
-import { ReaderPanel, type ReaderPanelAction } from '../../ui/content/reader/ReaderPanel';
+import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
+import { createConversationReaderActions } from '../../ui/content/reader/conversationReaderActions';
 import { setLocale, t } from '../../ui/content/components/i18n';
+import { SendPopover, type SendPort } from '../../ui/content/sending/SendPopover';
 import type { ReaderItem } from '../../services/reader/types';
 
 type ReaderSessionRecord = {
@@ -104,6 +105,7 @@ async function run(): Promise<void> {
     ensurePageTokens(currentThemeOverrides);
 
     const panel = new ReaderPanel();
+    const sendPopover = new SendPopover();
     panel.setThemeOverrides(currentThemeOverrides);
     panel.setReaderSettings(settings.reader);
     panel.setReaderSettingsController({
@@ -135,14 +137,22 @@ async function run(): Promise<void> {
 
     const showSession = async (): Promise<void> => {
         if (!session) return;
-        const actions: ReaderPanelAction[] = [
-            {
-                id: 'detached_refresh',
-                label: t('detachedReaderRefresh'),
-                tooltip: t('detachedReaderRefresh'),
-                icon: refreshCwIcon,
-                placement: 'header',
-                onClick: async (ctx) => {
+        const detachedSendPort: SendPort = {
+            submit: async (text) => {
+                const response = await sendExtRequest({
+                    v: PROTOCOL_VERSION,
+                    id: createRequestId(),
+                    type: 'readerSession:send',
+                    payload: { sessionId, text },
+                }, { timeoutMs: 12000 });
+                return response.ok
+                    ? { ok: true }
+                    : { ok: false, message: response.error.message };
+            },
+        };
+        const actions = createConversationReaderActions({
+            refresh: {
+                refresh: async (ctx) => {
                     const response = await sendExtRequest({
                         v: PROTOCOL_VERSION,
                         id: createRequestId(),
@@ -158,48 +168,35 @@ async function run(): Promise<void> {
                     await showSession();
                 },
             },
-            {
-                id: 'detached_send',
-                label: t('send'),
-                tooltip: t('send'),
-                icon: sendIcon,
-                kind: 'primary',
-                placement: 'footer_left',
-                onClick: async (ctx) => {
-                    const text = window.prompt(t('detachedReaderSendPrompt'));
-                    if (!text) return;
-                    const response = await sendExtRequest({
-                        v: PROTOCOL_VERSION,
-                        id: createRequestId(),
-                        type: 'readerSession:send',
-                        payload: { sessionId, text },
-                    }, { timeoutMs: 12000 });
-                    ctx.notify(response.ok ? t('detachedReaderSent') : response.error.message);
+            send: {
+                open: (ctx) => {
+                    const shadow = ctx.shadow;
+                    const anchorBtn = ctx.anchorEl;
+                    if (!shadow || !anchorBtn || !session) return;
+                    const anchorWrap = anchorBtn.closest?.('[data-role="footer-left-actions"]') as HTMLElement | null;
+                    sendPopover.toggle({
+                        sendPort: detachedSendPort,
+                        shadow,
+                        anchor: anchorWrap || anchorBtn,
+                        theme: session.snapshot.theme,
+                        commentInsert: panel.getCommentExportContext(),
+                    });
                 },
             },
-            {
-                id: 'detached_locate',
-                label: t('jumpToMessage'),
-                tooltip: t('jumpToMessage'),
-                icon: locateIcon,
-                placement: 'footer_left',
-                onClick: async (ctx) => {
-                    const position = Number(ctx.item.meta?.position ?? 0);
-                    const messageId = typeof ctx.item.meta?.messageId === 'string' ? ctx.item.meta.messageId : null;
-                    if (!position && !messageId) {
-                        ctx.notify(t('positionNotAvailable'));
-                        return;
-                    }
+            locate: {
+                locate: async ({ position, messageId }) => {
                     const response = await sendExtRequest({
                         v: PROTOCOL_VERSION,
                         id: createRequestId(),
                         type: 'readerSession:locate',
                         payload: { sessionId, position, messageId },
                     }, { timeoutMs: 12000 });
-                    ctx.notify(response.ok ? t('detachedReaderLocated') : response.error.message);
+                    return response.ok
+                        ? { ok: true, message: t('detachedReaderLocated') }
+                        : { ok: false, message: response.error.message };
                 },
             },
-        ];
+        });
 
         const snapshot = session.snapshot;
         currentThemeOverrides = syncDetachedReaderTheme(snapshot.theme, settings);
