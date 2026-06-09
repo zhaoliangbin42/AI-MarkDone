@@ -46,7 +46,6 @@ import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessag
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { buildChatGPTReaderItems } from '../../../services/reader/chatgptReaderItems';
-import { getPerfFlags, perfCount, perfMeasure, perfSpan } from '../../../core/perf/perfProbe';
 
 type ToolbarRecord = {
     messageKey: string;
@@ -501,10 +500,6 @@ export class MessageToolbarOrchestrator {
     }
 
     init(): void {
-        if (getPerfFlags().disableToolbar) {
-            perfCount('toolbar.init.skipped', 1, { reason: 'disableToolbar' });
-            return;
-        }
         this.scanScheduler = new ScanScheduler(
             (reasons) => {
                 this.scanAndInject(reasons);
@@ -873,20 +868,9 @@ export class MessageToolbarOrchestrator {
     }
 
     private getAnchorForMessage(messageElement: HTMLElement): HTMLElement | null {
-        const startedAt = performance.now();
         try {
-            const anchor = this.adapter.getToolbarAnchorElement(messageElement);
-            perfMeasure('toolbar.anchor.lookup', performance.now() - startedAt, {
-                platform: this.adapter.getPlatformId(),
-                found: Boolean(anchor),
-            });
-            return anchor;
+            return this.adapter.getToolbarAnchorElement(messageElement);
         } catch {
-            perfMeasure('toolbar.anchor.lookup', performance.now() - startedAt, {
-                platform: this.adapter.getPlatformId(),
-                found: false,
-                error: true,
-            });
             return null;
         }
     }
@@ -921,14 +905,7 @@ export class MessageToolbarOrchestrator {
         host.setAttribute('data-aimd-message-key', params.messageKey);
 
         this.removeExistingToolbarsInAnchor(params.anchor, host);
-        const startedAt = performance.now();
         const injected = this.adapter.injectToolbar(params.message, host);
-        perfMeasure('toolbar.inject', performance.now() - startedAt, {
-            platform: this.adapter.getPlatformId(),
-            injected,
-            messageKey: params.messageKey,
-            position: params.position,
-        });
         if (!injected) {
             logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
             this.rememberChatGptToolbarState(params, 'stale', params.anchor);
@@ -1033,15 +1010,12 @@ export class MessageToolbarOrchestrator {
     }
 
     private buildFullScanSnapshot(): Map<string, ScanSnapshotItem> {
-        return perfSpan('toolbar.snapshot.full', undefined, () => {
-            const selector = this.adapter.getMessageSelector();
-            const container = this.adapter.getObserverContainer() || document.body;
-            const nodes = discoverMessageElements(container, selector);
-            perfCount('toolbar.messages.discovered', nodes.length, { mode: 'full' });
-            this.rebuildMessageCaches(nodes);
-            this.rebuildTurnIndex();
-            return this.buildSnapshotFromNodes(nodes);
-        });
+        const selector = this.adapter.getMessageSelector();
+        const container = this.adapter.getObserverContainer() || document.body;
+        const nodes = discoverMessageElements(container, selector);
+        this.rebuildMessageCaches(nodes);
+        this.rebuildTurnIndex();
+        return this.buildSnapshotFromNodes(nodes);
     }
 
     private sortMessagesByDocumentOrder(nodes: HTMLElement[]): HTMLElement[] {
@@ -1084,7 +1058,6 @@ export class MessageToolbarOrchestrator {
 
     private buildIncrementalSnapshot(candidates: HTMLElement[]): Map<string, ScanSnapshotItem> | null {
         const sortedCandidates = this.sortMessagesByDocumentOrder(Array.from(new Set(candidates)).filter((node) => node.isConnected));
-        perfCount('toolbar.messages.discovered', sortedCandidates.length, { mode: 'incremental' });
         if (sortedCandidates.length === 0) return new Map<string, ScanSnapshotItem>();
 
         for (const messageElement of sortedCandidates) {
@@ -1161,54 +1134,34 @@ export class MessageToolbarOrchestrator {
     }
 
     private scanAndInject(reasons: Set<string> = new Set(['manual'])): void {
-        const startedAt = performance.now();
-        const reasonList = Array.from(reasons);
-        let mode: 'full' | 'incremental' | 'fallback-full' = 'incremental';
-        let snapshotSize = 0;
-        try {
-            const shouldRunFull =
-                reasons.has('init')
-                || reasons.has('route_change')
-                || reasons.has('manual')
-                || this.needsFullRescan
-                || this.messageOrder.length === 0;
+        const shouldRunFull =
+            reasons.has('init')
+            || reasons.has('route_change')
+            || reasons.has('manual')
+            || this.needsFullRescan
+            || this.messageOrder.length === 0;
 
-            if (shouldRunFull) {
-                mode = 'full';
-                const snapshot = this.buildFullScanSnapshot();
-                snapshotSize = snapshot.size;
-                this.needsFullRescan = false;
-                this.dirtyMessages.clear();
-                this.reconcileScanSnapshot(snapshot, 'full');
-                void this.syncReaderTailPages();
-                return;
-            }
-
-            const dirtyCount = this.dirtyMessages.size;
-            const snapshot = this.buildIncrementalSnapshot(Array.from(this.dirtyMessages));
+        if (shouldRunFull) {
+            const snapshot = this.buildFullScanSnapshot();
+            this.needsFullRescan = false;
             this.dirtyMessages.clear();
-            if (snapshot === null) {
-                mode = 'fallback-full';
-                const fullSnapshot = this.buildFullScanSnapshot();
-                snapshotSize = fullSnapshot.size;
-                this.needsFullRescan = false;
-                this.reconcileScanSnapshot(fullSnapshot, 'full');
-                void this.syncReaderTailPages();
-                return;
-            }
-
-            snapshotSize = snapshot.size;
-            this.reconcileScanSnapshot(snapshot, 'incremental');
+            this.reconcileScanSnapshot(snapshot, 'full');
             void this.syncReaderTailPages();
-            perfCount('toolbar.scan.dirty', dirtyCount);
-        } finally {
-            perfMeasure('toolbar.scan', performance.now() - startedAt, {
-                mode,
-                reasons: reasonList.join(','),
-                snapshotSize,
-                records: this.recordsByMessageKey.size,
-            });
+            return;
         }
+
+        const snapshot = this.buildIncrementalSnapshot(Array.from(this.dirtyMessages));
+        this.dirtyMessages.clear();
+        if (snapshot === null) {
+            const fullSnapshot = this.buildFullScanSnapshot();
+            this.needsFullRescan = false;
+            this.reconcileScanSnapshot(fullSnapshot, 'full');
+            void this.syncReaderTailPages();
+            return;
+        }
+
+        this.reconcileScanSnapshot(snapshot, 'incremental');
+        void this.syncReaderTailPages();
     }
 
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, fallbackPosition: number): void {
@@ -1277,11 +1230,6 @@ export class MessageToolbarOrchestrator {
 
     private refreshWordCountForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, pending: boolean): void {
         if (!this.behavior.showWordCount) return;
-        if (getPerfFlags().disableWordCount) {
-            toolbar.setStats([]);
-            perfCount('wordCount.skipped', 1, { reason: 'disableWordCount' });
-            return;
-        }
         if (pending) {
             // Avoid duplicating the streaming note ("Streaming…") in both the stats area and the note field.
             // During pending/streaming, keep the stats area quiet and recompute once stable.
@@ -1291,28 +1239,19 @@ export class MessageToolbarOrchestrator {
 
         // Legacy-like: compute when content is stable; if empty, retry a few times.
         const tryCompute = (attempt: number) => {
-            const startedAt = performance.now();
             const md = this.getMergedMarkdownForElement(messageElement);
             if (!md.ok) {
-                perfMeasure('wordCount.compute', performance.now() - startedAt, { ok: false, attempt });
                 toolbar.setStats(['—']);
                 return;
             }
             const text = (md.markdown || '').trim();
             if (text.length === 0) {
-                perfMeasure('wordCount.compute', performance.now() - startedAt, { ok: true, empty: true, attempt });
                 if (attempt < 6) window.setTimeout(() => tryCompute(attempt + 1), 500 * (attempt + 1));
                 else toolbar.setStats(['—']);
                 return;
             }
 
             const res = this.wordCounter.count(text);
-            perfMeasure('wordCount.compute', performance.now() - startedAt, {
-                ok: true,
-                attempt,
-                chars: text.length,
-                words: res.words,
-            });
             const formatted = this.wordCounter.format(res);
             const parts = formatted.split(' / ');
             if (parts.length >= 2) toolbar.setStats([parts[0], parts.slice(1).join(' ')]);
@@ -1323,10 +1262,6 @@ export class MessageToolbarOrchestrator {
     }
 
     private async syncReaderTailPages(): Promise<void> {
-        if (getPerfFlags().disableReaderPreload) {
-            perfCount('reader.tailSync.skipped', 1, { reason: 'disableReaderPreload' });
-            return;
-        }
         if (typeof this.readerPanel.isShowingConversationReader !== 'function') return;
         if (typeof this.readerPanel.getItemsSnapshot !== 'function') return;
         if (typeof this.readerPanel.appendItem !== 'function') return;
@@ -1638,19 +1573,10 @@ export class MessageToolbarOrchestrator {
     }
 
     private handleObservedMutations(mutations: ArrayLike<MutationRecord | { target?: Node; addedNodes?: ArrayLike<Node>; removedNodes?: ArrayLike<Node> }>): void {
-        if (getPerfFlags().disableMutationObserver) {
-            perfCount('toolbar.mutation.skipped', Array.from(mutations).length, { reason: 'disableMutationObserver' });
-            return;
-        }
-        const startedAt = performance.now();
         let shouldSchedule = false;
-        let addedCount = 0;
-        let removedCount = 0;
-        let candidateCount = 0;
 
         for (const mutation of Array.from(mutations)) {
             const removedNodes = Array.from(mutation.removedNodes || []);
-            removedCount += removedNodes.length;
             for (const node of removedNodes) {
                 if (this.isToolbarManagedHostNode(node)) continue;
                 const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorRemoval(node, mutation.target);
@@ -1666,10 +1592,8 @@ export class MessageToolbarOrchestrator {
             }
 
             const addedNodes = Array.from(mutation.addedNodes || []);
-            addedCount += addedNodes.length;
             for (const node of addedNodes) {
                 const candidates = this.collectMutationMessageCandidates(node);
-                candidateCount += candidates.length;
                 if (candidates.length === 0) {
                     const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorMutation(node);
                     if (chatGptActionMessages.length > 0) {
@@ -1694,21 +1618,9 @@ export class MessageToolbarOrchestrator {
         if (shouldSchedule) {
             this.scanScheduler?.schedule('mutation');
         }
-        perfMeasure('toolbar.mutation.handle', performance.now() - startedAt, {
-            mutations: Array.from(mutations).length,
-            addedCount,
-            removedCount,
-            candidateCount,
-            scheduled: shouldSchedule,
-        });
     }
 
     private rebindObserverIfNeeded(force: boolean = false): void {
-        if (getPerfFlags().disableMutationObserver) {
-            this.disposeObserversOnly();
-            perfCount('toolbar.observer.skipped', 1, { reason: 'disableMutationObserver' });
-            return;
-        }
         const nextContainer = this.adapter.getObserverContainer() || document.body;
         if (!force && this.observedContainer === nextContainer && this.observer) return;
 

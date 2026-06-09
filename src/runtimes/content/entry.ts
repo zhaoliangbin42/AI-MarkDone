@@ -33,7 +33,6 @@ import { sendText } from '../../services/sending/sendService';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
-import { getPerfFlags, installLongTaskProbe, installPerfProbeGlobal, markLoadProbe } from '../../core/perf/perfProbe';
 import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formulaOnlyRuntime';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
 
@@ -55,7 +54,6 @@ const writeDebugState = (patch: Record<string, string | boolean | number | null 
 const formulaOnlyProfile = getFormulaOnlyPlatformProfile();
 if (formulaOnlyProfile) {
     ensurePageTokens();
-    markLoadProbe('content-entry', { platform: formulaOnlyProfile.id, runtime: 'formula-only' });
     writeDebugState({
         Content: 'formula-only',
         Platform: formulaOnlyProfile.id,
@@ -72,9 +70,6 @@ if (formulaOnlyProfile) {
     });
 } else {
     ensurePageTokens();
-    installPerfProbeGlobal();
-    installLongTaskProbe();
-    markLoadProbe('content-entry', { runtime: 'content' });
 }
 
 const adapter = formulaOnlyProfile ? null : getAdapter();
@@ -126,7 +121,7 @@ if (adapter) {
     let lastLocale = cachedSettings?.language ?? DEFAULT_SETTINGS.language;
     const platformKey = 'chatgpt' as const;
     let runtimeEnabled = adapter.getPlatformId() === 'chatgpt'
-        ? (cachedSettings?.platforms?.[platformKey] ?? true) && !getPerfFlags().disableRuntime
+        ? cachedSettings?.platforms?.[platformKey] ?? true
         : false;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
     let currentThemeOverrides: UserThemeOverrides = getThemeOverrides(cachedSettings);
@@ -136,42 +131,6 @@ if (adapter) {
         RuntimeEnabled: runtimeEnabled,
         DirectoryAvailable: Boolean(chatGptDirectory),
     });
-    markLoadProbe('adapter-ready', {
-        platform: adapter.getPlatformId(),
-        runtimeEnabled,
-        directoryAvailable: Boolean(chatGptDirectory),
-    });
-
-    let loadProbeUiReadyMarked = false;
-    const readLoadProbeUiState = () => ({
-        platform: adapter.getPlatformId(),
-        runtimeEnabled,
-        headerIcon: Boolean(document.querySelector('#aimd-header-icon-btn')),
-        directoryRail: Boolean(document.querySelector('#aimd-chatgpt-directory-rail')),
-        directoryPreview: Boolean(document.querySelector('#aimd-chatgpt-directory-preview')),
-        stepper: Boolean(document.querySelector('#aimd-chatgpt-message-stepper')),
-        toolbarHosts: document.querySelectorAll('.aimd-message-toolbar-host').length,
-    });
-    const scheduleLoadProbeUiReady = () => {
-        if (loadProbeUiReadyMarked) return;
-        let attempts = 0;
-        const check = () => {
-            if (loadProbeUiReadyMarked) return;
-            attempts += 1;
-            const state = readLoadProbeUiState();
-            const chatGptReady = adapter.getPlatformId() !== 'chatgpt'
-                || !runtimeEnabled
-                || (state.headerIcon && (state.stepper || attempts >= 10));
-            if (chatGptReady || attempts >= 50) {
-                loadProbeUiReadyMarked = true;
-                markLoadProbe('aimd-ready', { ...state, attempts });
-                return;
-            }
-            window.setTimeout(check, 100);
-        };
-        window.setTimeout(check, 0);
-    };
-
     const syncClickToCopy = (enabled: boolean) => {
         mathClick.disable();
         if (!enabled) return;
@@ -183,7 +142,7 @@ if (adapter) {
     const syncFormulaSettings = (settings: typeof DEFAULT_SETTINGS.formula | undefined) => {
         const next = resolveFormulaSettings(settings);
         mathClick.setFormulaSettings(next);
-        if (!runtimeEnabled || getPerfFlags().disableFormula) {
+        if (!runtimeEnabled) {
             mathClick.disable();
             return;
         }
@@ -259,10 +218,9 @@ if (adapter) {
         if (!chatGptConversationEngine) return;
         viewportResizeSuspend?.init();
         chatGptSendPositionRestore?.init();
-        if (!getPerfFlags().disableStepper) chatGptMessageStepper?.init();
-        else chatGptMessageStepper?.dispose();
+        chatGptMessageStepper?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
-        if (!chatGptDirectory || getPerfFlags().disableDirectory) {
+        if (!chatGptDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
             chatGptConversationEngine.init();
             return;
@@ -292,9 +250,8 @@ if (adapter) {
             ...settings,
         };
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
-        const stepperEnabled = !getPerfFlags().disableStepper;
-        chatGptMessageStepper?.setVisible(stepperEnabled && Boolean(next.showMessageStepper));
-        chatGptMessageStepper?.setKeyboardEnabled(stepperEnabled && Boolean(next.enableArrowKeyMessageNavigation));
+        chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
+        chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
     };
 
     const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
@@ -315,10 +272,8 @@ if (adapter) {
         runtimeEnabled = true;
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         initChatGptIfNeeded();
-        if (!getPerfFlags().disableToolbar) messageToolbars.init();
+        messageToolbars.init();
         headerIcon.init();
-        markLoadProbe('runtime-enabled', readLoadProbeUiState());
-        scheduleLoadProbeUiReady();
     };
 
     const disableRuntime = () => {
@@ -333,7 +288,6 @@ if (adapter) {
         viewportResizeSuspend?.dispose();
         chatGptSendPositionRestore?.dispose();
         chatGptMessageStepper?.dispose();
-        markLoadProbe('runtime-disabled', readLoadProbeUiState());
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
@@ -362,7 +316,7 @@ if (adapter) {
             void setLocale(lastLocale);
         }
         const nextRuntimeEnabled = adapter.getPlatformId() === 'chatgpt'
-            ? (snap.settings.platforms?.[platformKey] ?? true) && !getPerfFlags().disableRuntime
+            ? snap.settings.platforms?.[platformKey] ?? true
             : false;
         if (nextRuntimeEnabled) enableRuntime();
         syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
@@ -478,14 +432,9 @@ if (adapter) {
     });
 
     if (runtimeEnabled) {
-        if (!getPerfFlags().disableToolbar) messageToolbars.init();
+        messageToolbars.init();
         headerIcon.init();
         initChatGptIfNeeded();
-        markLoadProbe('runtime-ready', readLoadProbeUiState());
-        scheduleLoadProbeUiReady();
-    } else {
-        markLoadProbe('runtime-skipped', readLoadProbeUiState());
-        scheduleLoadProbeUiReady();
     }
 
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.

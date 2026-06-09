@@ -12,7 +12,6 @@ import {
     type ChatGPTSkeletonAnchor,
 } from '../chatgptDirectory/navigation';
 import type { UserThemeOverrides } from '../../../style/tokens';
-import { getPerfFlags, perfCount, perfMeasure, perfSpanAsync } from '../../../core/perf/perfProbe';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
 
 type DirectoryBookmarksState = {
@@ -114,10 +113,6 @@ export class ChatGPTDirectoryController {
 
     init(theme: Theme): void {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
-        if (getPerfFlags().disableDirectory) {
-            perfCount('directory.init.skipped', 1, { reason: 'disableDirectory' });
-            return;
-        }
         this.theme = theme;
         this.ensureRail();
         this.bindViewportResizeSuspend();
@@ -234,12 +229,6 @@ export class ChatGPTDirectoryController {
     }
 
     private async refresh(): Promise<void> {
-        if (getPerfFlags().disableDirectory) {
-            this.rail?.setVisible(false);
-            perfCount('directory.refresh.skipped', 1, { reason: 'disableDirectory' });
-            return;
-        }
-        const startedAt = performance.now();
         if (!this.enabled || (!isChatGPTConversationPage(window.location.href) && !hasChatGPTConversationDom())) {
             this.snapshot = null;
             this.rail?.setRounds([]);
@@ -257,10 +246,10 @@ export class ChatGPTDirectoryController {
         this.render();
         this.requestMissingPromptHydration('refresh');
         const bookmarkUrl = getDirectoryBookmarkUrl();
-        const [snapshot] = await perfSpanAsync('directory.refresh.snapshotAndBookmarks', undefined, () => Promise.all([
+        const [snapshot] = await Promise.all([
             Promise.resolve(this.engine.peekCurrentSnapshot?.() ?? this.snapshot),
             this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined) ?? Promise.resolve(),
-        ]));
+        ]);
         if (snapshot) this.snapshot = snapshot;
         else if (conversationId && this.snapshot?.conversationId !== conversationId) this.snapshot = null;
         this.render();
@@ -272,25 +261,15 @@ export class ChatGPTDirectoryController {
             DirectoryRounds: this.roundPositions.length,
             DirectoryAnchors: this.skeletonAnchors.length,
         });
-        perfMeasure('directory.refresh', performance.now() - startedAt, {
-            hasSnapshot: Boolean(this.snapshot),
-            rounds: this.roundPositions.length,
-            anchors: this.skeletonAnchors.length,
-        });
     }
 
     private render(): void {
         if (!this.rail) return;
-        const startedAt = performance.now();
         this.refreshRoundPositions();
         const rounds = this.buildDirectoryRounds();
         this.rail.setRounds(rounds);
         this.syncBookmarkedPositions(rounds);
         this.updateActivePosition();
-        perfMeasure('directory.render', performance.now() - startedAt, {
-            rounds: rounds.length,
-            anchors: this.skeletonAnchors.length,
-        });
     }
 
     private syncBookmarkedPositions(rounds: ChatGPTConversationRound[]): void {
@@ -353,15 +332,9 @@ export class ChatGPTDirectoryController {
         if (observerContainer) {
             this.mutationObserver = new MutationObserver((mutations) => {
                 if (typeof document === 'undefined') return;
-                if (getPerfFlags().disableMutationObserver) {
-                    perfCount('directory.mutation.skipped', 1, { reason: 'disableMutationObserver' });
-                    return;
-                }
                 if (!this.shouldRebuildForMutations(mutations)) {
-                    perfCount('directory.mutation.ignored', 1);
                     return;
                 }
-                perfCount('directory.mutation.rebuild', 1);
                 this.scheduleIndexRebuild('mutation');
             });
             this.mutationObserver.observe(observerContainer, { childList: true, subtree: true });
@@ -373,12 +346,9 @@ export class ChatGPTDirectoryController {
         if (this.rebuildTimer !== null) return;
         const run = () => {
             this.rebuildTimer = null;
-            const reasons = Array.from(this.pendingRebuildReasons).join(',');
             this.pendingRebuildReasons.clear();
-            const startedAt = performance.now();
             this.render();
             this.requestMissingPromptHydration('mutation');
-            perfMeasure('directory.rebuild.flush', performance.now() - startedAt, { reasons });
         };
         const ric = window.requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
         if (typeof ric === 'function') {
@@ -457,7 +427,7 @@ export class ChatGPTDirectoryController {
         }));
     }
 
-    private requestMissingPromptHydration(reason: string): void {
+    private requestMissingPromptHydration(_reason: string): void {
         const signature = this.buildMissingPromptHydrationSignature();
         if (!signature) return;
         if (this.requestedMissingPromptHydrationSignatures.has(signature)) return;
@@ -465,18 +435,18 @@ export class ChatGPTDirectoryController {
         this.pendingMissingPromptHydrationSignature = signature;
         if (this.missingPromptHydrationPromise) return;
 
-        this.missingPromptHydrationPromise = this.flushMissingPromptHydration(reason).finally(() => {
+        this.missingPromptHydrationPromise = this.flushMissingPromptHydration().finally(() => {
             this.missingPromptHydrationPromise = null;
         });
     }
 
-    private async flushMissingPromptHydration(reason: string): Promise<void> {
+    private async flushMissingPromptHydration(): Promise<void> {
         while (this.pendingMissingPromptHydrationSignature) {
             const signature = this.pendingMissingPromptHydrationSignature;
             this.pendingMissingPromptHydrationSignature = null;
             if (this.requestedMissingPromptHydrationSignatures.has(signature)) continue;
             this.requestedMissingPromptHydrationSignatures.add(signature);
-            await this.hydrateMissingPromptLabels(reason);
+            await this.hydrateMissingPromptLabels();
         }
     }
 
@@ -505,25 +475,22 @@ export class ChatGPTDirectoryController {
             .map((position) => position.position);
     }
 
-    private async hydrateMissingPromptLabels(reason: string): Promise<void> {
-        const startedAt = performance.now();
+    private async hydrateMissingPromptLabels(): Promise<void> {
         try {
             const forceRefresh = (this.engine as {
                 forceRefreshCurrentConversation?: () => Promise<ChatGPTConversationSnapshot | null>;
             }).forceRefreshCurrentConversation;
-            const snapshot = await perfSpanAsync('directory.promptHydration.snapshot', { reason }, () => (
+            const snapshot = await (
                 typeof forceRefresh === 'function'
                     ? forceRefresh.call(this.engine)
                     : this.engine.getSnapshot()
-            ));
+            );
             if (!snapshot) return;
             this.snapshot = snapshot;
             this.snapshotRetryCount = 0;
             this.render();
         } catch {
             // Missing prompt hydration is an enhancement; DOM-discovered navigation remains usable.
-        } finally {
-            perfMeasure('directory.promptHydration', performance.now() - startedAt, { reason });
         }
     }
 
