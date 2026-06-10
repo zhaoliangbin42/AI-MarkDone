@@ -4,21 +4,27 @@ export type SelectedAtomicUnit = ReaderAtomicUnit & {
     element: HTMLElement;
 };
 
+const READER_ATOMIC_UNIT_KINDS = [
+    'inline-math',
+    'display-math',
+    'inline-code',
+    'code-block',
+    'table',
+    'image',
+    'heading',
+    'list-item',
+    'blockquote',
+    'thematic-break',
+] as const satisfies readonly ReaderAtomicUnitKind[];
+
+const READER_ATOMIC_UNIT_KIND_SET = new Set<string>(READER_ATOMIC_UNIT_KINDS);
+
 export function isTextSelectableAtomicUnitKind(kind: ReaderAtomicUnitKind): boolean {
     return kind === 'inline-code' || kind === 'code-block' || kind === 'table';
 }
 
 function isReaderAtomicUnitKind(value: string | null): value is ReaderAtomicUnitKind {
-    return value === 'inline-math'
-        || value === 'display-math'
-        || value === 'inline-code'
-        || value === 'code-block'
-        || value === 'table'
-        || value === 'image'
-        || value === 'heading'
-        || value === 'list-item'
-        || value === 'blockquote'
-        || value === 'thematic-break';
+    return Boolean(value && READER_ATOMIC_UNIT_KIND_SET.has(value));
 }
 
 function isStructuralUnitKind(kind: ReaderAtomicUnitKind | null): boolean {
@@ -151,26 +157,32 @@ export function resolveReaderSelectionRange(selection: Selection | null, shadow:
 
 export function resolveSelectedAtomicUnits(range: Range, root: HTMLElement): SelectedAtomicUnit[] {
     const selected = Array.from(root.querySelectorAll<HTMLElement>('[data-aimd-unit-id]'))
-        .filter((element) => {
-            if (!range.intersectsNode(element)) return false;
-            const kind = resolveRenderedAtomicUnitKind(element);
-            const mode = resolveRenderedAtomicUnitMode(element, kind);
-            if (mode === 'structural') return rangeCoversElementText(range, element);
-            if (kind && isTextSelectableAtomicUnitKind(kind)) return rangeCoversElementText(range, element);
-            return true;
-        })
         .map((element) => {
             const kind = resolveRenderedAtomicUnitKind(element);
+            if (!kind) return null;
             return {
-                id: element.getAttribute('data-aimd-unit-id') || '',
-                kind: (kind || '') as ReaderAtomicUnitKind,
-                mode: resolveRenderedAtomicUnitMode(element, kind),
-                start: Number(element.getAttribute('data-aimd-md-start') || 0),
-                end: Number(element.getAttribute('data-aimd-md-end') || 0),
-                source: '',
                 element,
+                kind,
+                mode: resolveRenderedAtomicUnitMode(element, kind),
             };
-        });
+        })
+        .filter((candidate): candidate is { element: HTMLElement; kind: ReaderAtomicUnitKind; mode: ReaderAtomicUnitMode } => {
+            if (!candidate) return false;
+            const { element, kind, mode } = candidate;
+            if (!range.intersectsNode(element)) return false;
+            if (mode === 'structural') return rangeCoversElementText(range, element);
+            if (isTextSelectableAtomicUnitKind(kind)) return rangeCoversElementText(range, element);
+            return true;
+        })
+        .map(({ element, kind, mode }) => ({
+            id: element.getAttribute('data-aimd-unit-id') || '',
+            kind,
+            mode,
+            start: Number(element.getAttribute('data-aimd-md-start') || 0),
+            end: Number(element.getAttribute('data-aimd-md-end') || 0),
+            source: '',
+            element,
+        }));
 
     return selected
         .filter((unit) => !selected.some((candidate) => (

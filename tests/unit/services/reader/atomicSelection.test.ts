@@ -196,6 +196,22 @@ console.log(answer);</code></pre>
         expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['code-block']);
     });
 
+    it('ignores unclassified unit metadata instead of returning invalid unit kinds', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <span data-aimd-unit-id="unknown">Unknown unit</span>
+          </div>
+        `;
+
+        const text = root.querySelector('span')!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(text, 0);
+        range.setEnd(text, text.data.length);
+
+        expect(resolveSelectedAtomicUnits(range, root)).toHaveLength(0);
+    });
+
     it('rejects selections whose endpoints are not both inside the reader markdown root', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
