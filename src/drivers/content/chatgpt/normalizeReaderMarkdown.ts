@@ -1,3 +1,8 @@
+import { unified } from 'unified';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import remarkParse from 'remark-parse';
+
 export type ChatGPTReferenceNoiseOptions = {
     stripCitationMarkers?: boolean;
     stripMarkdownLinks?: boolean;
@@ -12,6 +17,16 @@ const DEFAULT_CHATGPT_REFERENCE_NOISE_OPTIONS: Required<ChatGPTReferenceNoiseOpt
 
 const PROTECTED_CODE_TOKEN_PREFIX = '\uE000AIMD_CODE_';
 const PROTECTED_CODE_TOKEN_SUFFIX = '\uE001';
+
+type MarkdownAstNode = {
+    type?: string;
+    value?: string;
+    position?: {
+        start?: { offset?: number };
+        end?: { offset?: number };
+    };
+    children?: MarkdownAstNode[];
+};
 
 function protectMarkdownCode(markdown: string): { masked: string; restore: (value: string) => string } {
     const protectedBlocks: string[] = [];
@@ -37,15 +52,63 @@ function protectMarkdownCode(markdown: string): { masked: string; restore: (valu
     };
 }
 
-function normalizeBlockMath(markdown: string): string {
-    return markdown.replace(/\$\$([\s\S]*?)\$\$/g, (_match, content: string) => {
-        const normalized = String(content).replace(/\r\n?/g, '\n').replace(/\n\s*\n/g, '\n').trim();
-        return `$$\n${normalized}\n$$`;
-    });
+function visitMarkdownAst(node: MarkdownAstNode, visitor: (node: MarkdownAstNode) => void): void {
+    visitor(node);
+    node.children?.forEach((child) => visitMarkdownAst(child, visitor));
+}
+
+function normalizeInlineMathContent(value: string): string {
+    return value.replace(/\r\n?/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeDisplayMathContent(value: string): string {
+    return value.replace(/\r\n?/g, '\n').replace(/\n\s*\n/g, '\n').trim();
+}
+
+function normalizeMarkdownMathDelimiters(markdown: string): string {
+    try {
+        const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown || '') as MarkdownAstNode;
+        const replacements: Array<{ start: number; end: number; value: string }> = [];
+
+        visitMarkdownAst(tree, (node) => {
+            const start = node.position?.start?.offset;
+            const end = node.position?.end?.offset;
+            if (typeof start !== 'number' || typeof end !== 'number' || end <= start) return;
+            if (typeof node.value !== 'string') return;
+
+            if (node.type === 'inlineMath') {
+                replacements.push({
+                    start,
+                    end,
+                    value: `$${normalizeInlineMathContent(node.value)}$`,
+                });
+                return;
+            }
+
+            if (node.type === 'math') {
+                replacements.push({
+                    start,
+                    end,
+                    value: `$$\n${normalizeDisplayMathContent(node.value)}\n$$`,
+                });
+            }
+        });
+
+        let result = markdown;
+        replacements
+            .sort((a, b) => b.start - a.start)
+            .forEach((replacement) => {
+                result = result.slice(0, replacement.start) + replacement.value + result.slice(replacement.end);
+            });
+        return result;
+    } catch {
+        return markdown;
+    }
 }
 
 function normalizeLatexDelimiters(markdown: string): string {
-    let result = markdown;
+    const protectedCode = protectMarkdownCode(markdown);
+    let result = protectedCode.masked;
 
     result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match, content: string) => {
         const normalized = String(content).replace(/\r\n?/g, '\n').trim();
@@ -57,7 +120,7 @@ function normalizeLatexDelimiters(markdown: string): string {
         return `$${normalized}$`;
     });
 
-    return result;
+    return protectedCode.restore(result);
 }
 
 function parseAnnotationPayload(payload: string): unknown {
@@ -169,8 +232,8 @@ export function normalizeChatGPTReaderMarkdown(markdown: string, cleanupOptions?
     const source = markdown || '';
     const cleaned = cleanChatGPTReferenceNoise(source, cleanupOptions);
     const withLatexDelimiters = normalizeLatexDelimiters(cleaned);
-    const withBlockMath = normalizeBlockMath(withLatexDelimiters);
-    return withBlockMath.replace(/\n{3,}/g, '\n\n').trim();
+    const withMathDelimiters = normalizeMarkdownMathDelimiters(withLatexDelimiters);
+    return withMathDelimiters.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function stripCitationMarkers(markdown: string): string {

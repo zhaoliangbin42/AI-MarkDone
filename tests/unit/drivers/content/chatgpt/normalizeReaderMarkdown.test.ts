@@ -68,6 +68,71 @@ describe('cleanChatGPTReferenceNoise', () => {
         ].join('\n'));
     });
 
+    it('normalizes same-line double-dollar formulas as inline math', () => {
+        expect(normalizeChatGPTReaderMarkdown(
+            '这里的 $$a_j$$ 就是矩阵 $$A$$ 的第 $$j$$ 列，也就是变量 $$x_j$$ 在所有约束中的系数组成的列向量。'
+        )).toBe(
+            '这里的 $a_j$ 就是矩阵 $A$ 的第 $j$ 列，也就是变量 $x_j$ 在所有约束中的系数组成的列向量。'
+        );
+    });
+
+    it('keeps reference cleanup while preserving same-line double-dollar inline math', () => {
+        expect(normalizeChatGPTReaderMarkdown(
+            'Answer [paper](https://example.com/paper.pdf) citeturn0search0 这里的 $$a_j$$ 就是矩阵 $$A$$。'
+        )).toBe('Answer paper  这里的 $a_j$ 就是矩阵 $A$。');
+    });
+
+    it('does not rewrite math delimiters or links inside code spans and fenced code blocks', () => {
+        const markdown = [
+            'Inline code: `const formula = "$$x_j$$"; const wrapped = "\\\\(x\\\\)"; const link = "[docs](https://example.com/docs)";`',
+            '',
+            '```ts',
+            'const formula = "$$x_j$$";',
+            'const wrapped = "\\\\(x\\\\)";',
+            'const link = "[docs](https://example.com/docs)";',
+            '```',
+            '',
+            'Outside $$a_j$$ and [paper](https://example.com/paper.pdf).',
+        ].join('\n');
+
+        expect(normalizeChatGPTReaderMarkdown(markdown)).toBe([
+            'Inline code: `const formula = "$$x_j$$"; const wrapped = "\\\\(x\\\\)"; const link = "[docs](https://example.com/docs)";`',
+            '',
+            '```ts',
+            'const formula = "$$x_j$$";',
+            'const wrapped = "\\\\(x\\\\)";',
+            'const link = "[docs](https://example.com/docs)";',
+            '```',
+            '',
+            'Outside $a_j$ and paper.',
+        ].join('\n'));
+    });
+
+    it('keeps explicit display math delimiters as display math', () => {
+        expect(normalizeChatGPTReaderMarkdown([
+            'Block one:',
+            '\\[',
+            'x^2',
+            '\\]',
+            '',
+            'Block two:',
+            '$$',
+            'y^2',
+            '$$',
+        ].join('\n'))).toBe([
+            'Block one:',
+            '',
+            '$$',
+            'x^2',
+            '$$',
+            '',
+            'Block two:',
+            '$$',
+            'y^2',
+            '$$',
+        ].join('\n'));
+    });
+
     it('removes unknown ChatGPT internal annotations instead of exposing payload JSON', () => {
         expect(normalizeChatGPTReaderMarkdown('前文 unknown{"private":"metadata"} 后文'))
             .toBe('前文  后文');

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normalizeChatGPTReaderMarkdown } from '@/drivers/content/chatgpt/normalizeReaderMarkdown';
 import { renderMarkdownForReader, renderMarkdownToSanitizedHtml } from '@/services/renderer/renderMarkdown';
 
 describe('renderMarkdownToSanitizedHtml', () => {
@@ -113,6 +114,29 @@ describe('renderMarkdownToSanitizedHtml', () => {
             'image',
         ]);
         expect(rendered.atomicUnits.every((unit) => unit.end > unit.start)).toBe(true);
+    });
+
+    it('treats ChatGPT same-line double-dollar math normalization as inline math', () => {
+        const markdown = normalizeChatGPTReaderMarkdown('Text with $$a_j$$ and $$A$$.');
+        const rendered = renderMarkdownForReader(markdown);
+
+        expect(markdown).toBe('Text with $a_j$ and $A$.');
+        expect(rendered.atomicUnits.map((unit) => unit.kind)).toEqual(['inline-math', 'inline-math']);
+        expect(rendered.atomicUnits.some((unit) => unit.kind === 'display-math')).toBe(false);
+    });
+
+    it('keeps explicitly block-normalized ChatGPT math as display math', () => {
+        const markdown = normalizeChatGPTReaderMarkdown([
+            'Display:',
+            '\\[',
+            'x^2',
+            '\\]',
+        ].join('\n'));
+        const rendered = renderMarkdownForReader(markdown);
+
+        expect(markdown).toContain('$$\nx^2\n$$');
+        expect(rendered.html).toContain('katex-display');
+        expect(rendered.atomicUnits.map((unit) => unit.kind)).toContain('display-math');
     });
 
     it('produces structural metadata without treating paragraphs as units', () => {

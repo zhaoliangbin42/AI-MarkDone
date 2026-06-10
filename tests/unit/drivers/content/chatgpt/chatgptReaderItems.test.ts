@@ -109,6 +109,29 @@ describe('buildChatGPTReaderItems', () => {
         expect(items[0]?.content).toBe('Answer Huang 2020\n\nFormula: $x = y$');
     });
 
+    it('keeps payload-backed inline double-dollar math while removing citation and link noise', () => {
+        const { items } = buildChatGPTReaderItems({
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Prompt 1',
+                    assistantContent: 'Answer [paper](https://example.com) citeturn0search0 这里的 $$a_j$$ 就是矩阵 $$A$$。',
+                    preview: 'Prompt 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+            ],
+        }, { messageId: 'a1' });
+
+        expect(items[0]?.content).toBe('Answer paper  这里的 $a_j$ 就是矩阵 $A$。');
+    });
+
     it('preserves code block urls while removing citation noise from payload-backed Reader content', () => {
         const { items } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
