@@ -35,13 +35,14 @@ function isStructuralUnitKind(kind: ReaderAtomicUnitKind | null): boolean {
 }
 
 export function resolveRenderedAtomicUnitKind(element: HTMLElement): ReaderAtomicUnitKind | null {
+    if (element.matches('code') && element.closest('pre')) return null;
     const annotatedKind = element.getAttribute('data-aimd-unit-kind');
     if (isReaderAtomicUnitKind(annotatedKind)) return annotatedKind;
     if (element.matches('.katex-display')) return 'display-math';
     if (element.matches('.katex')) return 'inline-math';
     if (element.matches('pre')) return 'code-block';
     if (element.matches('table')) return 'table';
-    if (element.matches('code')) return element.closest('pre') ? 'code-block' : 'inline-code';
+    if (element.matches('code')) return 'inline-code';
     if (element.matches('img')) return 'image';
     if (element.matches('li')) return 'list-item';
     if (element.matches('blockquote')) return 'blockquote';
