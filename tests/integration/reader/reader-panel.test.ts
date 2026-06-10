@@ -19,13 +19,23 @@ function createSelection(range: Range): Selection {
     } as unknown as Selection;
 }
 
-function installSelectionLayout(range: Range, markdownRoot: HTMLElement): void {
+function attachSelectionRangeLayout(range: Range): Range {
     Object.assign(range, {
         getClientRects: () => ([
             { left: 40, top: 40, width: 64, height: 20, right: 104, bottom: 60, x: 40, y: 40, toJSON: () => ({}) },
         ]),
-        cloneRange: () => range,
+        cloneRange: () => {
+            const clone = document.createRange();
+            clone.setStart(range.startContainer, range.startOffset);
+            clone.setEnd(range.endContainer, range.endOffset);
+            return attachSelectionRangeLayout(clone);
+        },
     });
+    return range;
+}
+
+function installSelectionLayout(range: Range, markdownRoot: HTMLElement): void {
+    attachSelectionRangeLayout(range);
     Object.assign(markdownRoot, {
         getBoundingClientRect: () => ({
             left: 0, top: 0, width: 840, height: 320, right: 840, bottom: 320, x: 0, y: 0, toJSON: () => ({}),

@@ -173,6 +173,29 @@ console.log(answer);</code></pre>
         expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['code-block']);
     });
 
+    it('infers text-selectable code blocks when unit kind metadata is missing', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <pre data-aimd-unit-id="u1" data-aimd-md-start="0" data-aimd-md-end="44"><code>const answer = 42;
+console.log(answer);</code></pre>
+          </div>
+        `;
+
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const partial = document.createRange();
+        partial.setStart(codeText, 6);
+        partial.setEnd(codeText, 12);
+
+        expect(resolveSelectedAtomicUnits(partial, root)).toHaveLength(0);
+
+        const full = document.createRange();
+        full.setStart(codeText, 0);
+        full.setEnd(codeText, codeText.data.length);
+
+        expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['code-block']);
+    });
+
     it('rejects selections whose endpoints are not both inside the reader markdown root', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });

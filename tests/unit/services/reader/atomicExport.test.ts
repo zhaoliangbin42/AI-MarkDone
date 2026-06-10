@@ -71,7 +71,7 @@ describe('atomicExport', () => {
         const root = document.createElement('div');
         root.innerHTML = `
           <div class="reader-markdown">
-            <p><code data-aimd-unit-id="code1">answer</code> and <span data-aimd-unit-id="math1">x+y</span></p>
+            <p><code data-aimd-unit-id="code1" data-aimd-unit-kind="inline-code" data-aimd-unit-mode="atomic">answer</code> and <span data-aimd-unit-id="math1" data-aimd-unit-kind="inline-math" data-aimd-unit-mode="atomic">x+y</span></p>
           </div>
         `;
         const paragraph = root.querySelector('p')!;
@@ -104,7 +104,7 @@ describe('atomicExport', () => {
         const root = document.createElement('div');
         root.innerHTML = `
           <div class="reader-markdown">
-            <pre data-aimd-unit-id="code1"><code>const answer = 42;</code></pre>
+            <pre data-aimd-unit-id="code1" data-aimd-unit-kind="code-block" data-aimd-unit-mode="atomic"><code>const answer = 42;</code></pre>
           </div>
         `;
         const codeText = root.querySelector('code')!.firstChild as Text;
