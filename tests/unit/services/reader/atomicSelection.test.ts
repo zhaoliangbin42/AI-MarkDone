@@ -196,6 +196,31 @@ console.log(answer);</code></pre>
         expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['code-block']);
     });
 
+    it('keeps partial table selections as text and full table selections as atomic source', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <table data-aimd-unit-id="table1" data-aimd-unit-kind="table" data-aimd-unit-mode="atomic" data-aimd-md-start="0" data-aimd-md-end="32">
+              <tbody><tr><td>Alpha</td><td>Beta</td></tr></tbody>
+            </table>
+          </div>
+        `;
+
+        const firstCellText = root.querySelector('td')!.firstChild as Text;
+        const partial = document.createRange();
+        partial.setStart(firstCellText, 1);
+        partial.setEnd(firstCellText, firstCellText.data.length);
+
+        expect(resolveSelectedAtomicUnits(partial, root)).toHaveLength(0);
+
+        const lastCellText = root.querySelectorAll('td')[1]!.firstChild as Text;
+        const full = document.createRange();
+        full.setStart(firstCellText, 0);
+        full.setEnd(lastCellText, lastCellText.data.length);
+
+        expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['table']);
+    });
+
     it('ignores unclassified unit metadata instead of returning invalid unit kinds', () => {
         const root = document.createElement('div');
         root.innerHTML = `
