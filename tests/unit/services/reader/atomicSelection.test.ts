@@ -196,6 +196,25 @@ console.log(answer);</code></pre>
         expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['code-block']);
     });
 
+    it('does not collect nested code elements inside a selected code block', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <pre data-aimd-unit-id="outer" data-aimd-unit-kind="code-block" data-aimd-unit-mode="atomic" data-aimd-md-start="0" data-aimd-md-end="44"><code data-aimd-unit-id="inner" data-aimd-unit-kind="code-block" data-aimd-unit-mode="atomic" data-aimd-md-start="0" data-aimd-md-end="44">const answer = 42;</code></pre>
+          </div>
+        `;
+
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const full = document.createRange();
+        full.setStart(codeText, 0);
+        full.setEnd(codeText, codeText.data.length);
+
+        const selected = resolveSelectedAtomicUnits(full, root);
+
+        expect(selected.map((unit) => unit.id)).toEqual(['outer']);
+        expect(selected.map((unit) => unit.kind)).toEqual(['code-block']);
+    });
+
     it('keeps partial table selections as text and full table selections as atomic source', () => {
         const root = document.createElement('div');
         root.innerHTML = `
