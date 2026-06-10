@@ -132,6 +132,41 @@ describe('atomicExport', () => {
         expect(exportText).toBe('```ts\nconst answer = 42;\n```');
     });
 
+    it('suppresses text inside nested units when an ancestor unit is selected', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <blockquote data-aimd-unit-id="quote1" data-aimd-unit-kind="blockquote" data-aimd-unit-mode="structural">
+              Before <code data-aimd-unit-id="code1" data-aimd-unit-kind="inline-code" data-aimd-unit-mode="atomic">answer</code> after
+            </blockquote>
+          </div>
+        `;
+        const quote = root.querySelector('blockquote') as HTMLElement;
+        const beforeText = quote.firstChild as Text;
+        const afterText = quote.lastChild as Text;
+        const range = document.createRange();
+        range.setStart(beforeText, 0);
+        range.setEnd(afterText, afterText.textContent!.length);
+
+        const exportText = buildAtomicSelectionExport({
+            range,
+            root,
+            selectedUnits: [
+                {
+                    id: 'quote1',
+                    kind: 'blockquote',
+                    mode: 'structural',
+                    source: '> Before `answer` after',
+                    start: 0,
+                    end: 23,
+                    element: quote,
+                },
+            ],
+        });
+
+        expect(exportText).toBe('> Before `answer` after');
+    });
+
     it('exports fully selected structural units as markdown source', () => {
         const root = document.createElement('div');
         root.innerHTML = `

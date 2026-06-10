@@ -17,14 +17,14 @@ const READER_ATOMIC_UNIT_KINDS = [
     'thematic-break',
 ] as const satisfies readonly ReaderAtomicUnitKind[];
 
-const READER_ATOMIC_UNIT_KIND_SET = new Set<string>(READER_ATOMIC_UNIT_KINDS);
+const READER_ATOMIC_UNIT_KIND_SET = new Set<ReaderAtomicUnitKind>(READER_ATOMIC_UNIT_KINDS);
 
 export function isTextSelectableAtomicUnitKind(kind: ReaderAtomicUnitKind): boolean {
     return kind === 'inline-code' || kind === 'code-block' || kind === 'table';
 }
 
 function isReaderAtomicUnitKind(value: string | null): value is ReaderAtomicUnitKind {
-    return Boolean(value && READER_ATOMIC_UNIT_KIND_SET.has(value));
+    return Boolean(value && READER_ATOMIC_UNIT_KIND_SET.has(value as ReaderAtomicUnitKind));
 }
 
 function isStructuralUnitKind(kind: ReaderAtomicUnitKind | null): boolean {
@@ -73,14 +73,17 @@ function collectRenderedUnitElements(root: HTMLElement): Array<{ kind: ReaderAto
         })
         .sort(compareDocumentOrder);
 
-    return elements.map((element) => {
-        const kind = resolveRenderedAtomicUnitKind(element) ?? 'heading';
-        return {
-            kind,
-            mode: resolveRenderedAtomicUnitMode(element, kind),
-            element,
-        };
-    });
+    return elements
+        .map((element) => {
+            const kind = resolveRenderedAtomicUnitKind(element);
+            if (!kind) return null;
+            return {
+                kind,
+                mode: resolveRenderedAtomicUnitMode(element, kind),
+                element,
+            };
+        })
+        .filter((unit): unit is { kind: ReaderAtomicUnitKind; mode: ReaderAtomicUnitMode; element: HTMLElement } => Boolean(unit));
 }
 
 export function annotateRenderedAtomicUnits(root: HTMLElement, units: ReaderAtomicUnit[]): SelectedAtomicUnit[] {

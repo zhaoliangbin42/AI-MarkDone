@@ -40,8 +40,7 @@ export function buildAtomicSelectionExport(params: {
         }
 
         if (node instanceof Text) {
-            const selectedUnitElement = node.parentElement?.closest<HTMLElement>('[data-aimd-unit-id]');
-            if (selectedUnitElement && selectedUnitMap.has(selectedUnitElement)) return '';
+            if (hasSelectedUnitAncestor(node, root, selectedUnitMap)) return '';
             return collectTextSlice(node);
         }
 
@@ -49,6 +48,16 @@ export function buildAtomicSelectionExport(params: {
     };
 
     return visit(root).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function hasSelectedUnitAncestor(textNode: Text, root: HTMLElement, selectedUnitMap: Map<HTMLElement, SelectedAtomicUnit>): boolean {
+    let current = textNode.parentElement;
+    while (current && root.contains(current)) {
+        if (selectedUnitMap.has(current)) return true;
+        if (current === root) return false;
+        current = current.parentElement;
+    }
+    return false;
 }
 
 function isBlockUnit(unit: SelectedAtomicUnit): boolean {
