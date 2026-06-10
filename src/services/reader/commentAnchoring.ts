@@ -1,4 +1,4 @@
-import { isTextSelectableAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
+import { isTextSelectableAtomicUnitKind, resolveRenderedAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
 import { buildAtomicSelectionExport } from './atomicExport';
 import type {
     ReaderCommentAtomicRef,
@@ -123,8 +123,8 @@ function buildTextPosition(root: HTMLElement, range: Range): ReaderCommentTextPo
 function isExcludedAtomicTextNode(node: Node): boolean {
     const unitElement = node.parentElement?.closest<HTMLElement>('[data-aimd-unit-id]');
     if (!unitElement) return false;
-    const kind = unitElement.getAttribute('data-aimd-unit-kind');
-    return !kind || !isTextSelectableAtomicUnitKind(kind as SelectedAtomicUnit['kind']);
+    const kind = resolveRenderedAtomicUnitKind(unitElement);
+    return !kind || !isTextSelectableAtomicUnitKind(kind);
 }
 
 function buildTextQuote(root: HTMLElement, exact: string): ReaderCommentTextQuoteSelector {

@@ -56,7 +56,7 @@ describe('commentAnchoring', () => {
     it('captures text selectors for partial code selections without atomic refs', () => {
         document.body.innerHTML = `
           <div id="root">
-            <pre data-aimd-unit-id="u1" data-aimd-unit-kind="code-block" data-aimd-unit-mode="atomic"><code>const answer = 42;</code></pre>
+            <pre data-aimd-unit-id="u1"><code>const answer = 42;</code></pre>
           </div>
         `;
 

@@ -8,6 +8,48 @@ export function isTextSelectableAtomicUnitKind(kind: ReaderAtomicUnitKind): bool
     return kind === 'inline-code' || kind === 'code-block' || kind === 'table';
 }
 
+function isReaderAtomicUnitKind(value: string | null): value is ReaderAtomicUnitKind {
+    return value === 'inline-math'
+        || value === 'display-math'
+        || value === 'inline-code'
+        || value === 'code-block'
+        || value === 'table'
+        || value === 'image'
+        || value === 'heading'
+        || value === 'list-item'
+        || value === 'blockquote'
+        || value === 'thematic-break';
+}
+
+function isStructuralUnitKind(kind: ReaderAtomicUnitKind | null): boolean {
+    return kind === 'heading'
+        || kind === 'list-item'
+        || kind === 'blockquote'
+        || kind === 'thematic-break';
+}
+
+export function resolveRenderedAtomicUnitKind(element: HTMLElement): ReaderAtomicUnitKind | null {
+    const annotatedKind = element.getAttribute('data-aimd-unit-kind');
+    if (isReaderAtomicUnitKind(annotatedKind)) return annotatedKind;
+    if (element.matches('.katex-display')) return 'display-math';
+    if (element.matches('.katex')) return 'inline-math';
+    if (element.matches('pre')) return 'code-block';
+    if (element.matches('table')) return 'table';
+    if (element.matches('code')) return element.closest('pre') ? 'code-block' : 'inline-code';
+    if (element.matches('img')) return 'image';
+    if (element.matches('li')) return 'list-item';
+    if (element.matches('blockquote')) return 'blockquote';
+    if (element.matches('hr')) return 'thematic-break';
+    if (element.matches('h1, h2, h3, h4, h5, h6')) return 'heading';
+    return null;
+}
+
+function resolveRenderedAtomicUnitMode(element: HTMLElement, kind: ReaderAtomicUnitKind | null): ReaderAtomicUnitMode {
+    const mode = element.getAttribute('data-aimd-unit-mode');
+    if (mode === 'atomic' || mode === 'structural') return mode;
+    return isStructuralUnitKind(kind) ? 'structural' : 'atomic';
+}
+
 function compareDocumentOrder(a: Element, b: Element): number {
     if (a === b) return 0;
     const relation = a.compareDocumentPosition(b);
@@ -26,16 +68,12 @@ function collectRenderedUnitElements(root: HTMLElement): Array<{ kind: ReaderAto
         .sort(compareDocumentOrder);
 
     return elements.map((element) => {
-        if (element.matches('.katex-display')) return { kind: 'display-math' as const, mode: 'atomic' as const, element };
-        if (element.matches('.katex')) return { kind: 'inline-math' as const, mode: 'atomic' as const, element };
-        if (element.matches('code')) return { kind: 'inline-code' as const, mode: 'atomic' as const, element };
-        if (element.matches('pre')) return { kind: 'code-block' as const, mode: 'atomic' as const, element };
-        if (element.matches('img')) return { kind: 'image' as const, mode: 'atomic' as const, element };
-        if (element.matches('table')) return { kind: 'table' as const, mode: 'atomic' as const, element };
-        if (element.matches('li')) return { kind: 'list-item' as const, mode: 'structural' as const, element };
-        if (element.matches('blockquote')) return { kind: 'blockquote' as const, mode: 'structural' as const, element };
-        if (element.matches('hr')) return { kind: 'thematic-break' as const, mode: 'structural' as const, element };
-        return { kind: 'heading' as const, mode: 'structural' as const, element };
+        const kind = resolveRenderedAtomicUnitKind(element) ?? 'heading';
+        return {
+            kind,
+            mode: resolveRenderedAtomicUnitMode(element, kind),
+            element,
+        };
     });
 }
 
@@ -115,21 +153,24 @@ export function resolveSelectedAtomicUnits(range: Range, root: HTMLElement): Sel
     const selected = Array.from(root.querySelectorAll<HTMLElement>('[data-aimd-unit-id]'))
         .filter((element) => {
             if (!range.intersectsNode(element)) return false;
-            const kind = (element.getAttribute('data-aimd-unit-kind') || '') as ReaderAtomicUnitKind;
-            const mode = element.getAttribute('data-aimd-unit-mode') || 'atomic';
+            const kind = resolveRenderedAtomicUnitKind(element);
+            const mode = resolveRenderedAtomicUnitMode(element, kind);
             if (mode === 'structural') return rangeCoversElementText(range, element);
-            if (isTextSelectableAtomicUnitKind(kind)) return rangeCoversElementText(range, element);
+            if (kind && isTextSelectableAtomicUnitKind(kind)) return rangeCoversElementText(range, element);
             return true;
         })
-        .map((element) => ({
-            id: element.getAttribute('data-aimd-unit-id') || '',
-            kind: (element.getAttribute('data-aimd-unit-kind') || '') as ReaderAtomicUnitKind,
-            mode: (element.getAttribute('data-aimd-unit-mode') || 'atomic') as ReaderAtomicUnitMode,
-            start: Number(element.getAttribute('data-aimd-md-start') || 0),
-            end: Number(element.getAttribute('data-aimd-md-end') || 0),
-            source: '',
-            element,
-        }));
+        .map((element) => {
+            const kind = resolveRenderedAtomicUnitKind(element);
+            return {
+                id: element.getAttribute('data-aimd-unit-id') || '',
+                kind: (kind || '') as ReaderAtomicUnitKind,
+                mode: resolveRenderedAtomicUnitMode(element, kind),
+                start: Number(element.getAttribute('data-aimd-md-start') || 0),
+                end: Number(element.getAttribute('data-aimd-md-end') || 0),
+                source: '',
+                element,
+            };
+        });
 
     return selected
         .filter((unit) => !selected.some((candidate) => (
