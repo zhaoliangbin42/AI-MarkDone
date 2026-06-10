@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- Reader: Selecting text inside code blocks, inline code, or tables now keeps copy, annotations, and sticky pins limited to the exact selected text instead of expanding to the whole Markdown block.
+
 ## [4.5.1] - 2026-06-07
 
 ### Added

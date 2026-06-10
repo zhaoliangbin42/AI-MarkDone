@@ -4,6 +4,10 @@ export type SelectedAtomicUnit = ReaderAtomicUnit & {
     element: HTMLElement;
 };
 
+export function isTextSelectableAtomicUnitKind(kind: ReaderAtomicUnitKind): boolean {
+    return kind === 'inline-code' || kind === 'code-block' || kind === 'table';
+}
+
 function compareDocumentOrder(a: Element, b: Element): number {
     if (a === b) return 0;
     const relation = a.compareDocumentPosition(b);
@@ -111,8 +115,11 @@ export function resolveSelectedAtomicUnits(range: Range, root: HTMLElement): Sel
     const selected = Array.from(root.querySelectorAll<HTMLElement>('[data-aimd-unit-id]'))
         .filter((element) => {
             if (!range.intersectsNode(element)) return false;
+            const kind = (element.getAttribute('data-aimd-unit-kind') || '') as ReaderAtomicUnitKind;
             const mode = element.getAttribute('data-aimd-unit-mode') || 'atomic';
-            return mode === 'structural' ? rangeCoversElementText(range, element) : true;
+            if (mode === 'structural') return rangeCoversElementText(range, element);
+            if (isTextSelectableAtomicUnitKind(kind)) return rangeCoversElementText(range, element);
+            return true;
         })
         .map((element) => ({
             id: element.getAttribute('data-aimd-unit-id') || '',

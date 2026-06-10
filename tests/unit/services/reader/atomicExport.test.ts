@@ -67,6 +67,71 @@ describe('atomicExport', () => {
         expect(exportText).toBe('ading');
     });
 
+    it('keeps selected text inside an unselected text-selectable atomic unit', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <p><code data-aimd-unit-id="code1">answer</code> and <span data-aimd-unit-id="math1">x+y</span></p>
+          </div>
+        `;
+        const paragraph = root.querySelector('p')!;
+        const codeText = paragraph.querySelector('code')!.firstChild as Text;
+        const mathText = paragraph.querySelector('[data-aimd-unit-id="math1"]')!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(codeText, 0);
+        range.setEnd(mathText, mathText.textContent!.length);
+
+        const exportText = buildAtomicSelectionExport({
+            range,
+            root,
+            selectedUnits: [
+                {
+                    id: 'math1',
+                    kind: 'inline-math',
+                    mode: 'atomic',
+                    source: '$x+y$',
+                    start: 18,
+                    end: 23,
+                    element: paragraph.querySelector('[data-aimd-unit-id="math1"]') as HTMLElement,
+                },
+            ],
+        });
+
+        expect(exportText).toBe('answer and $x+y$');
+    });
+
+    it('exports a fully selected code block as fenced markdown source', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <pre data-aimd-unit-id="code1"><code>const answer = 42;</code></pre>
+          </div>
+        `;
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const codeBlock = root.querySelector('pre') as HTMLElement;
+        const range = document.createRange();
+        range.setStart(codeText, 0);
+        range.setEnd(codeText, codeText.data.length);
+
+        const exportText = buildAtomicSelectionExport({
+            range,
+            root,
+            selectedUnits: [
+                {
+                    id: 'code1',
+                    kind: 'code-block',
+                    mode: 'atomic',
+                    source: '```ts\nconst answer = 42;\n```',
+                    start: 0,
+                    end: 29,
+                    element: codeBlock,
+                },
+            ],
+        });
+
+        expect(exportText).toBe('```ts\nconst answer = 42;\n```');
+    });
+
     it('exports fully selected structural units as markdown source', () => {
         const root = document.createElement('div');
         root.innerHTML = `
