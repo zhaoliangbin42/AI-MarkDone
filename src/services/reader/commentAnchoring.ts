@@ -83,7 +83,7 @@ function collectVisibleText(root: HTMLElement): string {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             if (!node.textContent) return NodeFilter.FILTER_REJECT;
-            if (isExcludedAtomicTextNode(node)) return NodeFilter.FILTER_REJECT;
+            if (isNonTextSelectableUnitTextNode(node)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         },
     });
@@ -99,7 +99,7 @@ function getTextOffset(root: HTMLElement, container: Node, localOffset: number):
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             if (!node.textContent) return NodeFilter.FILTER_REJECT;
-            if (isExcludedAtomicTextNode(node)) return NodeFilter.FILTER_REJECT;
+            if (isNonTextSelectableUnitTextNode(node)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         },
     });
@@ -120,7 +120,7 @@ function buildTextPosition(root: HTMLElement, range: Range): ReaderCommentTextPo
     };
 }
 
-function isExcludedAtomicTextNode(node: Node): boolean {
+function isNonTextSelectableUnitTextNode(node: Node): boolean {
     const unitElement = node.parentElement?.closest<HTMLElement>('[data-aimd-unit-id]');
     if (!unitElement) return false;
     const kind = resolveRenderedAtomicUnitKind(unitElement);

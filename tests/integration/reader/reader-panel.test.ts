@@ -13,8 +13,17 @@ function setClipboardMock() {
 
 function createSelection(range: Range): Selection {
     return {
+        anchorNode: range.startContainer,
+        anchorOffset: range.startOffset,
+        focusNode: range.endContainer,
+        focusOffset: range.endOffset,
+        isCollapsed: range.collapsed,
         rangeCount: 1,
-        getRangeAt: () => range,
+        getRangeAt: (index: number) => {
+            if (index !== 0) throw new DOMException('Selection range index out of bounds.', 'IndexSizeError');
+            return range;
+        },
+        removeAllRanges: () => undefined,
         toString: () => range.toString(),
     } as unknown as Selection;
 }
