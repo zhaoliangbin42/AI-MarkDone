@@ -40,7 +40,8 @@ export function buildAtomicSelectionExport(params: {
         }
 
         if (node instanceof Text) {
-            if (node.parentElement?.closest('[data-aimd-unit-id]')) return '';
+            const selectedUnitElement = node.parentElement?.closest<HTMLElement>('[data-aimd-unit-id]');
+            if (selectedUnitElement && selectedUnitMap.has(selectedUnitElement)) return '';
             return collectTextSlice(node);
         }
 

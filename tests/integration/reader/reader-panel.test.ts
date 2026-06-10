@@ -11,6 +11,28 @@ function setClipboardMock() {
     return { writeText };
 }
 
+function createSelection(range: Range): Selection {
+    return {
+        rangeCount: 1,
+        getRangeAt: () => range,
+        toString: () => range.toString(),
+    } as unknown as Selection;
+}
+
+function installSelectionLayout(range: Range, markdownRoot: HTMLElement): void {
+    Object.assign(range, {
+        getClientRects: () => ([
+            { left: 40, top: 40, width: 64, height: 20, right: 104, bottom: 60, x: 40, y: 40, toJSON: () => ({}) },
+        ]),
+        cloneRange: () => range,
+    });
+    Object.assign(markdownRoot, {
+        getBoundingClientRect: () => ({
+            left: 0, top: 0, width: 840, height: 320, right: 840, bottom: 320, x: 0, y: 0, toJSON: () => ({}),
+        }),
+    });
+}
+
 async function waitFor<T>(
     read: () => T | null,
     timeoutMs: number = 200,
@@ -315,6 +337,69 @@ describe('ReaderPanel (MVP)', () => {
 
         expect(clipboardData.values.get('text/plain')).toContain('`code`');
         expect(clipboardData.values.get('text/plain')).toContain('$x+y$');
+        getSelectionSpy.mockRestore();
+    });
+
+    it('uses the exact text selected inside a fenced code block for copy, comment, and sticky actions', async () => {
+        const { writeText } = setClipboardMock();
+        const panel = new ReaderPanel();
+
+        await panel.show(
+            [{
+                id: 'a',
+                userPrompt: 'Q1',
+                content: '```ts\nconst answer = 42;\nconsole.log(answer);\n```',
+            }],
+            0,
+            'light'
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = await waitFor(() => shadow.querySelector<HTMLElement>('.reader-markdown'));
+        await waitFor(() => markdownRoot.querySelector<HTMLElement>('.reader-code-block'));
+
+        const walker = document.createTreeWalker(markdownRoot, NodeFilter.SHOW_TEXT);
+        let answerNode: Text | null = null;
+        while (walker.nextNode()) {
+            const node = walker.currentNode as Text;
+            if (node.data.includes('answer')) {
+                answerNode = node;
+                break;
+            }
+        }
+        expect(answerNode).toBeTruthy();
+
+        const start = answerNode!.data.indexOf('answer');
+        const range = document.createRange();
+        range.setStart(answerNode!, start);
+        range.setEnd(answerNode!, start + 'answer'.length);
+        installSelectionLayout(range, markdownRoot);
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-selection-copy"]')!.click();
+        await Promise.resolve();
+        expect(writeText).toHaveBeenLastCalledWith('answer');
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-add"]')!.click();
+        await Promise.resolve();
+        expect(shadow.querySelector<HTMLElement>('.reader-comment-popover__selection-value')?.textContent).toBe('answer');
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="cancel"]')!.click();
+        await Promise.resolve();
+
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-selection-stick"]')!.click();
+        await Promise.resolve();
+
+        const stickyBlock = shadow.querySelector<HTMLElement>('.reader-sticky-block')!;
+        expect(stickyBlock.textContent).toContain('answer');
+        expect(stickyBlock.textContent).not.toContain('console.log');
+        expect(stickyBlock.querySelector('pre')).toBeNull();
+
         getSelectionSpy.mockRestore();
     });
 

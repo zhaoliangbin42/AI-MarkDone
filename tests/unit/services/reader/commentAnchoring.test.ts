@@ -53,6 +53,37 @@ describe('commentAnchoring', () => {
         expect(resolved.units.map((unit) => unit.kind)).toEqual(['inline-code']);
     });
 
+    it('captures text selectors for partial code selections without atomic refs', () => {
+        document.body.innerHTML = `
+          <div id="root">
+            <pre data-aimd-unit-id="u1" data-aimd-unit-kind="code-block" data-aimd-unit-mode="atomic"><code>const answer = 42;</code></pre>
+          </div>
+        `;
+
+        const root = document.querySelector<HTMLElement>('#root')!;
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const start = codeText.data.indexOf('answer');
+        const range = document.createRange();
+        range.setStart(codeText, start);
+        range.setEnd(codeText, start + 'answer'.length);
+
+        const record = createReaderCommentRecord({
+            id: 'c1',
+            itemId: 'item-1',
+            comment: 'note',
+            range,
+            root,
+            selectedUnits: [],
+        });
+
+        expect(record.quoteText).toBe('answer');
+        expect(record.sourceMarkdown).toBe('answer');
+        expect(record.selectors.atomicRefs).toHaveLength(0);
+        expect(record.selectors.textQuote.exact).toBe('answer');
+        expect(record.selectors.textPosition.start).not.toBeNull();
+        expect(record.selectors.textPosition.end).not.toBeNull();
+    });
+
     it('computes overlay rectangles from a selection layout', () => {
         document.body.innerHTML = `<div id="root"><p>Alpha beta gamma</p></div>`;
         const root = document.querySelector<HTMLElement>('#root')!;

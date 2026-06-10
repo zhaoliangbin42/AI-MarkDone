@@ -128,6 +128,51 @@ describe('atomicSelection', () => {
         expect(resolveSelectedAtomicUnits(range, root)).toHaveLength(0);
     });
 
+    it('keeps partial inline code selections as plain text slices', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <p>Before <code data-aimd-unit-id="u1" data-aimd-unit-kind="inline-code" data-aimd-unit-mode="atomic" data-aimd-md-start="7" data-aimd-md-end="20">code sample</code> after</p>
+          </div>
+        `;
+
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const partial = document.createRange();
+        partial.setStart(codeText, 2);
+        partial.setEnd(codeText, 6);
+
+        expect(resolveSelectedAtomicUnits(partial, root)).toHaveLength(0);
+
+        const full = document.createRange();
+        full.setStart(codeText, 0);
+        full.setEnd(codeText, codeText.data.length);
+
+        expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['inline-code']);
+    });
+
+    it('keeps partial fenced code block selections as plain text slices', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <div class="reader-markdown">
+            <pre data-aimd-unit-id="u1" data-aimd-unit-kind="code-block" data-aimd-unit-mode="atomic" data-aimd-md-start="0" data-aimd-md-end="44"><code>const answer = 42;
+console.log(answer);</code></pre>
+          </div>
+        `;
+
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const partial = document.createRange();
+        partial.setStart(codeText, 6);
+        partial.setEnd(codeText, 12);
+
+        expect(resolveSelectedAtomicUnits(partial, root)).toHaveLength(0);
+
+        const full = document.createRange();
+        full.setStart(codeText, 0);
+        full.setEnd(codeText, codeText.data.length);
+
+        expect(resolveSelectedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['code-block']);
+    });
+
     it('rejects selections whose endpoints are not both inside the reader markdown root', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });

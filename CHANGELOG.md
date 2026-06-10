@@ -101,6 +101,9 @@ AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上
 - Reader: Fixed external-open affordances so the header action now hides when no conversation target exists, and rendered markdown links open with explicit safe external-link attributes.
 - ChatGPT: Hiding Previous/Next message buttons no longer hides the detached Reader Split View entry.
 
+### Fixed
+- Reader: Selecting text inside code blocks, inline code, or tables now keeps copy, annotations, and sticky pins limited to the exact selected text instead of expanding to the whole Markdown block.
+
 ## [4.5.1] - 2026-06-07
 
 ### Added

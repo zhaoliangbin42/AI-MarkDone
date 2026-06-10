@@ -1,4 +1,4 @@
-import type { SelectedAtomicUnit } from './atomicSelection';
+import { isTextSelectableAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
 import { buildAtomicSelectionExport } from './atomicExport';
 import type {
     ReaderCommentAtomicRef,
@@ -83,7 +83,7 @@ function collectVisibleText(root: HTMLElement): string {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             if (!node.textContent) return NodeFilter.FILTER_REJECT;
-            if (node.parentElement?.closest('[data-aimd-unit-id]')) return NodeFilter.FILTER_REJECT;
+            if (isExcludedAtomicTextNode(node)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         },
     });
@@ -99,7 +99,7 @@ function getTextOffset(root: HTMLElement, container: Node, localOffset: number):
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             if (!node.textContent) return NodeFilter.FILTER_REJECT;
-            if (node.parentElement?.closest('[data-aimd-unit-id]')) return NodeFilter.FILTER_REJECT;
+            if (isExcludedAtomicTextNode(node)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         },
     });
@@ -118,6 +118,13 @@ function buildTextPosition(root: HTMLElement, range: Range): ReaderCommentTextPo
         start: getTextOffset(root, range.startContainer, range.startOffset),
         end: getTextOffset(root, range.endContainer, range.endOffset),
     };
+}
+
+function isExcludedAtomicTextNode(node: Node): boolean {
+    const unitElement = node.parentElement?.closest<HTMLElement>('[data-aimd-unit-id]');
+    if (!unitElement) return false;
+    const kind = unitElement.getAttribute('data-aimd-unit-kind');
+    return !kind || !isTextSelectableAtomicUnitKind(kind as SelectedAtomicUnit['kind']);
 }
 
 function buildTextQuote(root: HTMLElement, exact: string): ReaderCommentTextQuoteSelector {
