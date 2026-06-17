@@ -17,6 +17,8 @@ const DEFAULT_CHATGPT_REFERENCE_NOISE_OPTIONS: Required<ChatGPTReferenceNoiseOpt
 
 const PROTECTED_CODE_TOKEN_PREFIX = '\uE000AIMD_CODE_';
 const PROTECTED_CODE_TOKEN_SUFFIX = '\uE001';
+const CHATGPT_COMPONENT_DIRECTIVE_RE = /^[ \t]{0,3}:::([A-Za-z][\w-]*)\{([^\n{}]*)\}[ \t]*\n([\s\S]*?)\n[ \t]{0,3}:::[ \t]*$/gm;
+const CHATGPT_COMPONENT_ATTR_RE = /(?:^|\s)(?:id|variant|type|title)=["'][^"']*["']/;
 
 type MarkdownAstNode = {
     type?: string;
@@ -199,6 +201,13 @@ function normalizeChatGPTInternalAnnotations(markdown: string): string {
     });
 }
 
+function unwrapChatGPTComponentDirectives(markdown: string): string {
+    return markdown.replace(CHATGPT_COMPONENT_DIRECTIVE_RE, (match: string, _name: string, attrs: string, body: string) => {
+        if (!CHATGPT_COMPONENT_ATTR_RE.test(attrs.trim())) return match;
+        return body.trim();
+    });
+}
+
 export function cleanChatGPTReferenceNoise(
     markdown: string,
     options: ChatGPTReferenceNoiseOptions = DEFAULT_CHATGPT_REFERENCE_NOISE_OPTIONS,
@@ -206,6 +215,8 @@ export function cleanChatGPTReferenceNoise(
     const resolved = { ...DEFAULT_CHATGPT_REFERENCE_NOISE_OPTIONS, ...options };
     const protectedCode = protectMarkdownCode(markdown || '');
     let result = protectedCode.masked;
+
+    result = unwrapChatGPTComponentDirectives(result);
 
     if (resolved.stripCitationMarkers) {
         result = stripCitationMarkers(result);

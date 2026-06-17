@@ -151,6 +151,10 @@ const t = vi.fn((key: string) => key);
 const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
 const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
+const readComposer = vi.fn(() => ({ ok: true as const, kind: 'contenteditable' as const, text: 'source draft' }));
+const writeComposer = vi.fn(async () => ({ ok: true as const, kind: 'contenteditable' as const }));
+const sendText = vi.fn(async () => ({ ok: true as const }));
+const armChatGPTSendPositionRestore = vi.fn();
 const collectFreshReaderContent = vi.fn(async () => ({
     items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
     startIndex: 0,
@@ -299,6 +303,23 @@ vi.mock('@/ui/content/sending/SendController', () => ({
     SendController: sendControllerCtor,
 }));
 
+vi.mock('@/drivers/content/sending/composerPort', async () => {
+    const actual = await vi.importActual<typeof import('@/drivers/content/sending/composerPort')>('@/drivers/content/sending/composerPort');
+    return {
+        ...actual,
+        readComposer,
+        writeComposer,
+    };
+});
+
+vi.mock('@/services/sending/sendService', () => ({
+    sendText,
+}));
+
+vi.mock('@/drivers/content/chatgpt/sendPositionRestoreEvents', () => ({
+    armChatGPTSendPositionRestore,
+}));
+
 vi.mock('@/contracts/protocol', async () => {
     const actual = await vi.importActual<typeof import('@/contracts/protocol')>('@/contracts/protocol');
     return actual;
@@ -319,6 +340,7 @@ afterEach(() => {
         createdAt: 1,
         updatedAt: 1,
     }));
+    readComposer.mockReturnValue({ ok: true, kind: 'contenteditable', text: 'source draft' });
     settingsGetCached.mockReturnValue(null);
     adapterPlatformId = 'chatgpt';
     formulaOnlyProfile = null;
@@ -851,6 +873,83 @@ describe('content runtime entry', () => {
         }));
         expect(settingsSetCategory).toHaveBeenCalledWith('reader', expect.objectContaining({
             detachedNoticeConfirmed: true,
+        }));
+    });
+
+    it('returns the source composer draft for detached reader draft requests', async () => {
+        adapterPlatformId = 'chatgpt';
+        readComposer.mockReturnValueOnce({ ok: true, kind: 'contenteditable', text: 'existing official composer text' });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+
+        const sendResponse = vi.fn();
+        (runtimeMessageListener as any)!(
+            { v: 1, id: 'draft_1', type: 'readerSession:draft', payload: { sessionId: 'session-1' } },
+            undefined,
+            sendResponse,
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(readComposer).toHaveBeenCalledWith(expect.objectContaining({
+            getPlatformId: expect.any(Function),
+        }));
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+            ok: true,
+            type: 'readerSession:draft',
+            data: { text: 'existing official composer text' },
+        }));
+    });
+
+    it('writes detached reader draft updates back to the source composer', async () => {
+        adapterPlatformId = 'chatgpt';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+
+        const sendResponse = vi.fn();
+        (runtimeMessageListener as any)!(
+            { v: 1, id: 'draft_write_1', type: 'readerSession:draft', payload: { sessionId: 'session-1', text: 'edited detached draft' } },
+            undefined,
+            sendResponse,
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(writeComposer).toHaveBeenCalledWith(expect.objectContaining({
+            getPlatformId: expect.any(Function),
+        }), 'edited detached draft', { focus: false, strategy: 'auto' });
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+            ok: true,
+            type: 'readerSession:draft',
+            data: { written: true },
+        }));
+    });
+
+    it('arms ChatGPT position restore before detached reader send writes to the source composer', async () => {
+        adapterPlatformId = 'chatgpt';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+
+        const sendResponse = vi.fn();
+        (runtimeMessageListener as any)!(
+            { v: 1, id: 'send_1', type: 'readerSession:send', payload: { sessionId: 'session-1', text: 'send from detached' } },
+            undefined,
+            sendResponse,
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(armChatGPTSendPositionRestore).toHaveBeenCalledBefore(sendText as any);
+        expect(sendText).toHaveBeenCalledWith(expect.objectContaining({
+            getPlatformId: expect.any(Function),
+        }), 'send from detached', { focusComposer: true, timeoutMs: 3000 });
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+            ok: true,
+            type: 'readerSession:send',
+            data: { sent: true },
         }));
     });
 });

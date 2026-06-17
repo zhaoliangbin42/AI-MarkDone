@@ -83,6 +83,17 @@ function getEnterMotionSpec(element: HTMLElement): MotionSpec | null {
         };
     }
 
+    if (element.classList.contains('panel-window--reader') && element.dataset.fullscreen === '1') {
+        return {
+            duration: reducedMotion ? 80 : 300,
+            easing: reducedMotion ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)',
+            fromOpacity: '0',
+            toOpacity: '1',
+            fromTransform: 'none',
+            toTransform: 'none',
+        };
+    }
+
     return {
         duration: reducedMotion ? 80 : 300,
         easing: reducedMotion ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)',

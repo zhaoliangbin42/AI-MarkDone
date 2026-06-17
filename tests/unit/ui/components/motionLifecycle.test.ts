@@ -47,6 +47,38 @@ describe('motionLifecycle', () => {
         expect(panel.style.transform).toBe('translate(-50%, -50%) scale(1)');
     });
 
+    it('uses a fade-only opening motion for fullscreen reader panels', () => {
+        const callbacks = new Map<number, FrameRequestCallback>();
+        let nextId = 1;
+
+        window.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+            const id = nextId++;
+            callbacks.set(id, callback);
+            return id;
+        }) as typeof window.requestAnimationFrame;
+        window.cancelAnimationFrame = vi.fn((id: number) => {
+            callbacks.delete(id);
+        }) as typeof window.cancelAnimationFrame;
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        panel.dataset.fullscreen = '1';
+        document.body.appendChild(panel);
+
+        setSurfaceMotionOpening([panel]);
+
+        expect(panel.dataset.motionState).toBe('opening');
+        expect(panel.style.transition).toBe('none');
+        expect(panel.style.transform).toBe('none');
+
+        callbacks.get(1)?.(0);
+        callbacks.get(2)?.(16);
+
+        expect(panel.dataset.motionState).toBe('open');
+        expect(panel.style.transition).toContain('opacity 300ms');
+        expect(panel.style.transform).toBe('none');
+    });
+
     it('cancels an in-flight opening transition before entering the shared closing pipeline', () => {
         const callbacks = new Map<number, FrameRequestCallback>();
         let nextId = 1;

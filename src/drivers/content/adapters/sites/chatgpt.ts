@@ -326,6 +326,8 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     normalizeDOM(root: HTMLElement): void {
+        this.unwrapComponentBlocks(root);
+
         root.querySelectorAll('[data-testid="webpage-citation-pill"]').forEach((pill) => {
             const wrapper = pill.parentElement;
             pill.remove();
@@ -338,6 +340,72 @@ export class ChatGPTAdapter extends SiteAdapter {
                 wrapper.remove();
             }
         });
+    }
+
+    private unwrapComponentBlocks(root: HTMLElement): void {
+        const seenBlocks = new Set<string>();
+        for (const container of this.findComponentBlockContainers(root)) {
+            if (!root.contains(container)) continue;
+            const editor = this.findComponentBlockEditor(container);
+            if (!editor) continue;
+            const replaceTarget = this.getComponentBlockReplaceTarget(container);
+
+            const normalizedText = (editor.textContent || '').replace(/\s+/g, ' ').trim();
+            const blockId = container.id.trim();
+            if (blockId && normalizedText && seenBlocks.has(blockId)) {
+                this.removeAdjacentWhitespace(replaceTarget);
+                replaceTarget.remove();
+                continue;
+            }
+            if (blockId && normalizedText) seenBlocks.add(blockId);
+
+            const replacement = document.createDocumentFragment();
+            editor.childNodes.forEach((child) => {
+                if (child.nodeType === Node.TEXT_NODE && !child.textContent?.trim()) return;
+                replacement.appendChild(child.cloneNode(true));
+            });
+            this.removeAdjacentWhitespace(replaceTarget);
+            replaceTarget.replaceWith(replacement);
+        }
+    }
+
+    private getComponentBlockReplaceTarget(container: HTMLElement): HTMLElement {
+        const parent = container.parentElement;
+        if (!parent) return container;
+        const isFallbackTarget = Array.from(parent.attributes).some((attr) => (
+            /^data-[a-z0-9-]+-block[a-z0-9-]*-fallback-target$/i.test(attr.name)
+        ));
+        if (!isFallbackTarget) return container;
+        const elementChildren = Array.from(parent.children).filter((child) => child instanceof HTMLElement);
+        return elementChildren.length === 1 && elementChildren[0] === container ? parent : container;
+    }
+
+    private removeAdjacentWhitespace(element: HTMLElement): void {
+        const previous = element.previousSibling;
+        if (previous?.nodeType === Node.TEXT_NODE && !previous.textContent?.trim()) previous.remove();
+        const next = element.nextSibling;
+        if (next?.nodeType === Node.TEXT_NODE && !next.textContent?.trim()) next.remove();
+    }
+
+    private findComponentBlockContainers(root: HTMLElement): HTMLElement[] {
+        const candidates = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))];
+        return candidates.filter((element) => {
+            const testId = element.getAttribute('data-testid') || '';
+            if (testId.endsWith('-block-container')) return true;
+            return Array.from(element.attributes).some((attr) => (
+                /^data-[a-z0-9-]+-block$/i.test(attr.name) && attr.value === 'true'
+            ));
+        });
+    }
+
+    private findComponentBlockEditor(container: HTMLElement): HTMLElement | null {
+        for (const element of Array.from(container.querySelectorAll<HTMLElement>('*'))) {
+            const hasEditorRegion = Array.from(element.attributes).some((attr) => (
+                /^data-[a-z0-9-]+-editor-region$/i.test(attr.name) && attr.value === 'true'
+            ));
+            if (hasEditorRegion) return element;
+        }
+        return null;
     }
 
     cleanMarkdown(markdown: string): string {

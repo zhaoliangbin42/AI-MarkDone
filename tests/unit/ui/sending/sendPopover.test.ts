@@ -248,6 +248,46 @@ describe('SendPopover', () => {
         pop.close(shadow, { syncBack: false });
     });
 
+    it('hydrates async send port drafts without overwriting local typing', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        let resolveDraft: (value: string) => void = () => undefined;
+        const draftPromise = new Promise<string>((resolve) => {
+            resolveDraft = resolve;
+        });
+
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: {
+                readDraft: () => draftPromise,
+                submit: vi.fn(async () => ({ ok: true as const })),
+            },
+            theme: 'light',
+        });
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        expect(textarea.value).toBe('');
+        textarea.value = 'local typing';
+
+        resolveDraft('source draft arrived late');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(textarea.value).toBe('local typing');
+        pop.close(shadow, { syncBack: false });
+    });
+
     it('inserts compiled reader comments into the local textarea at the current caret after choosing a prompt', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });

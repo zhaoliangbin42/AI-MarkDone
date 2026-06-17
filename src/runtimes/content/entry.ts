@@ -30,6 +30,8 @@ import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirector
 import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
+import { readComposer, writeComposer } from '../../drivers/content/sending/composerPort';
+import { armChatGPTSendPositionRestore } from '../../drivers/content/chatgpt/sendPositionRestoreEvents';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
@@ -361,7 +363,36 @@ if (adapter) {
                 return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { snapshot } };
             }
 
+            if (request.type === 'readerSession:draft') {
+                if (typeof request.payload.text === 'string') {
+                    const result = await writeComposer(adapter, request.payload.text, { focus: false, strategy: 'auto' });
+                    if (!result.ok) {
+                        return {
+                            v: PROTOCOL_VERSION,
+                            id: request.id,
+                            ok: false,
+                            type: request.type,
+                            error: { code: 'SOURCE_UNAVAILABLE', message: result.message },
+                        };
+                    }
+                    return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { written: true } };
+                }
+
+                const result = readComposer(adapter);
+                if (!result.ok) {
+                    return {
+                        v: PROTOCOL_VERSION,
+                        id: request.id,
+                        ok: false,
+                        type: request.type,
+                        error: { code: 'SOURCE_UNAVAILABLE', message: result.message },
+                    };
+                }
+                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { text: result.text } };
+            }
+
             if (request.type === 'readerSession:send') {
+                armChatGPTSendPositionRestore();
                 const result = await sendText(adapter, request.payload.text, { focusComposer: true, timeoutMs: 3000 });
                 if (!result.ok) {
                     return {
@@ -425,7 +456,7 @@ if (adapter) {
         if (msg.type === 'ui:toggle_toolbar') {
             void bookmarksPanel.toggle();
         }
-        if (msg.type === 'readerSession:refresh' || msg.type === 'readerSession:send' || msg.type === 'readerSession:locate') {
+        if (msg.type === 'readerSession:refresh' || msg.type === 'readerSession:draft' || msg.type === 'readerSession:send' || msg.type === 'readerSession:locate') {
             void handleDetachedReaderRequest(msg).then((response) => sendResponse?.(response));
             return true;
         }

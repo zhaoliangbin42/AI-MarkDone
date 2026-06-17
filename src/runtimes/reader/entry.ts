@@ -9,6 +9,7 @@ import { createConversationReaderActions } from '../../ui/content/reader/convers
 import { setLocale, t } from '../../ui/content/components/i18n';
 import { SendPopover, type SendPort } from '../../ui/content/sending/SendPopover';
 import type { ReaderItem } from '../../services/reader/types';
+import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
 type ReaderSessionRecord = {
     sessionId: string;
@@ -91,6 +92,41 @@ async function closeSession(sessionId: string): Promise<void> {
     }, { timeoutMs: 4000 });
 }
 
+async function readSourceDraft(sessionId: string): Promise<string> {
+    const response = await sendExtRequest({
+        v: PROTOCOL_VERSION,
+        id: createRequestId(),
+        type: 'readerSession:draft',
+        payload: { sessionId },
+    }, { timeoutMs: 4000 });
+    if (!response.ok || !response.data || typeof response.data !== 'object') return '';
+    const text = (response.data as { text?: unknown }).text;
+    return typeof text === 'string' ? text : '';
+}
+
+async function writeSourceDraft(sessionId: string, text: string): Promise<void> {
+    await sendExtRequest({
+        v: PROTOCOL_VERSION,
+        id: createRequestId(),
+        type: 'readerSession:draft',
+        payload: { sessionId, text },
+    }, { timeoutMs: 4000 });
+}
+
+async function readBookmarkedPositions(url: string): Promise<Set<number>> {
+    const response = await sendExtRequest({
+        v: PROTOCOL_VERSION,
+        id: createRequestId(),
+        type: 'bookmarks:positions',
+        payload: { url },
+    }, { timeoutMs: 4000 });
+    if (!response.ok || !response.data || typeof response.data !== 'object') return new Set();
+    const positions = (response.data as { positions?: unknown }).positions;
+    return Array.isArray(positions)
+        ? new Set(positions.map((position) => Number(position)).filter((position) => Number.isFinite(position)))
+        : new Set();
+}
+
 async function run(): Promise<void> {
     ensurePageTokens();
     const sessionId = getSessionId();
@@ -137,7 +173,12 @@ async function run(): Promise<void> {
 
     const showSession = async (): Promise<void> => {
         if (!session) return;
+        const bookmarkedPositions = await readBookmarkedPositions(session.snapshot.sourceUrl);
         const detachedSendPort: SendPort = {
+            readDraft: () => readSourceDraft(sessionId),
+            writeDraft: async (text) => {
+                await writeSourceDraft(sessionId, text);
+            },
             submit: async (text) => {
                 const response = await sendExtRequest({
                     v: PROTOCOL_VERSION,
@@ -150,6 +191,18 @@ async function run(): Promise<void> {
                     : { ok: false, message: response.error.message };
             },
         };
+        const items = toReaderItems(session.snapshot).map((item) => {
+            const position = Number(item.meta?.position ?? 0);
+            if (!position) return item;
+            return {
+                ...item,
+                meta: {
+                    ...(item.meta ?? {}),
+                    bookmarked: bookmarkedPositions.has(position),
+                    bookmarkable: true,
+                },
+            };
+        });
         const actions = createConversationReaderActions({
             refresh: {
                 refresh: async (ctx) => {
@@ -168,8 +221,61 @@ async function run(): Promise<void> {
                     await showSession();
                 },
             },
+            bookmark: {
+                resolveUrl: () => session?.snapshot.sourceUrl ?? window.location.href,
+                isBookmarked: (url, position) => {
+                    if (!session) return false;
+                    if (url !== session.snapshot.sourceUrl) return false;
+                    return bookmarkedPositions.has(position);
+                },
+                toggle: async (input) => {
+                    const position = Number(input.position || 0);
+                    if (!position) return { ok: false, message: t('positionNotAvailable') };
+                    const userPrompt = input.userPrompt.trim();
+                    if (!userPrompt) return { ok: false, message: t('failedToExtractUserMessage') };
+                    if (input.alreadyBookmarked) {
+                        const response = await sendExtRequest({
+                            v: PROTOCOL_VERSION,
+                            id: createRequestId(),
+                            type: 'bookmarks:remove',
+                            payload: { url: input.url, position },
+                        }, { timeoutMs: 4000 });
+                        if (!response.ok) return { ok: false, message: response.error.message };
+                        bookmarkedPositions.delete(position);
+                        return { ok: true, bookmarked: false, message: t('removedStatus') };
+                    }
+                    bookmarkSaveDialog.setTheme(session?.snapshot.theme ?? 'light');
+                    bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
+                    const dialogResult = await bookmarkSaveDialog.open({
+                        theme: session?.snapshot.theme ?? 'light',
+                        userPrompt,
+                        existingTitle: userPrompt,
+                        currentFolderPath: null,
+                        mode: 'create',
+                    });
+                    if (!dialogResult.ok) return { ok: false, cancelled: true };
+                    const response = await sendExtRequest({
+                        v: PROTOCOL_VERSION,
+                        id: createRequestId(),
+                        type: 'bookmarks:save',
+                        payload: {
+                            url: input.url,
+                            position,
+                            messageId: input.messageId,
+                            userMessage: userPrompt,
+                            aiResponse: input.markdown,
+                            platform: 'ChatGPT',
+                            title: dialogResult.title,
+                            folderPath: dialogResult.folderPath,
+                        },
+                    }, { timeoutMs: 4000 });
+                    if (!response.ok) return { ok: false, message: response.error.message };
+                    bookmarkedPositions.add(position);
+                    return { ok: true, bookmarked: true, message: t('savedStatus') };
+                },
+            },
             send: {
-                open: (ctx) => {
+                open: async (ctx) => {
                     const shadow = ctx.shadow;
                     const anchorBtn = ctx.anchorEl;
                     if (!shadow || !anchorBtn || !session) return;
@@ -202,7 +308,7 @@ async function run(): Promise<void> {
         currentThemeOverrides = syncDetachedReaderTheme(snapshot.theme, settings);
         panel.setTheme(snapshot.theme);
         panel.setThemeOverrides(currentThemeOverrides);
-        await panel.show(toReaderItems(snapshot), snapshot.startIndex, snapshot.theme, {
+        await panel.show(items, snapshot.startIndex, snapshot.theme, {
             profile: 'conversation-reader',
             actions,
             onRequestClose: async () => {

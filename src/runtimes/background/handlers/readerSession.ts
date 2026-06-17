@@ -162,6 +162,19 @@ async function removeTab(tabId: number): Promise<void> {
     }
 }
 
+async function activateTab(tabId: number): Promise<void> {
+    const chromeLike = getNativeChromeApi();
+    try {
+        if (typeof chromeLike?.tabs?.update === 'function') {
+            await callChromeCallbackApi(chromeLike, chromeLike.tabs.update.bind(chromeLike.tabs), [tabId, { active: true }], () => undefined);
+            return;
+        }
+        await Promise.resolve(browserCompat.tabs?.update?.(tabId, { active: true } as any));
+    } catch {
+        // Activation is a convenience for locate; routing can still succeed if it fails.
+    }
+}
+
 async function sendSourceTabMessage(sourceTabId: number, request: ExtRequest): Promise<ExtResponse> {
     const chromeLike = getNativeChromeApi();
     try {
@@ -256,6 +269,10 @@ export async function handleReaderSessionRequest(request: ExtRequest, sender: an
 
     const senderError = ensureReaderSender(request, record, getSenderTabId(sender));
     if (senderError) return { response: senderError };
+
+    if (request.type === 'readerSession:locate') {
+        await activateTab(record.sourceTabId);
+    }
 
     const forwarded: ExtRequest = { ...request, id: createRequestId() } as ExtRequest;
     const sourceResponse = await sendSourceTabMessage(record.sourceTabId, forwarded);

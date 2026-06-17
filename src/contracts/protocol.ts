@@ -187,6 +187,7 @@ export type ReaderSessionCreatePayload = {
 };
 
 export type ReaderSessionByIdPayload = { sessionId: string };
+export type ReaderSessionDraftPayload = { sessionId: string; text?: string };
 export type ReaderSessionSendPayload = { sessionId: string; text: string };
 export type ReaderSessionLocatePayload = {
     sessionId: string;
@@ -201,6 +202,7 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:create'; payload: ReaderSessionCreatePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:get'; payload: ReaderSessionByIdPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:refresh'; payload: ReaderSessionByIdPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:draft'; payload: ReaderSessionDraftPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:send'; payload: ReaderSessionSendPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:locate'; payload: ReaderSessionLocatePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:close'; payload: ReaderSessionByIdPayload }
@@ -262,6 +264,7 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'readerSession:create',
         'readerSession:get',
         'readerSession:refresh',
+        'readerSession:draft',
         'readerSession:send',
         'readerSession:locate',
         'readerSession:close',
@@ -330,6 +333,9 @@ export function isExtRequest(value: unknown): value is ExtRequest {
                 && typeof snapshot.updatedAt === 'number';
         }
         if (typeof sessionPayload.sessionId !== 'string' || sessionPayload.sessionId.trim().length === 0) return false;
+        if (type === 'readerSession:draft' && sessionPayload.text !== undefined) {
+            return typeof sessionPayload.text === 'string';
+        }
         if (type === 'readerSession:send') {
             return typeof sessionPayload.text === 'string';
         }

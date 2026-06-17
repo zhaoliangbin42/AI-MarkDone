@@ -38,7 +38,7 @@ type ResizeState = {
 export type SendPortResult = { ok: true; message?: string } | { ok: false; message?: string };
 
 export type SendPort = {
-    readDraft?: () => string;
+    readDraft?: () => string | Promise<string>;
     writeDraft?: (text: string) => void | Promise<void>;
     beforeSubmit?: () => void;
     submit: (text: string) => Promise<SendPortResult>;
@@ -150,12 +150,9 @@ export class SendPopover {
         params.anchor.appendChild(pop);
         this.popoverEl = pop;
 
-        const text = params.initialText ?? (() => {
-            return this.state.sendPort?.readDraft?.() ?? '';
-        })();
         const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) {
-            textarea.value = text;
+            this.hydrateDraftText(pop, textarea, params.initialText);
             this.installDraftEventBoundary(textarea);
         }
         window.setTimeout(() => textarea?.focus(), 0);
@@ -225,6 +222,27 @@ export class SendPopover {
         }
 
         this.applyTheme();
+    }
+
+    private hydrateDraftText(popover: HTMLElement, textarea: HTMLTextAreaElement, initialText?: string): void {
+        if (initialText !== undefined) {
+            textarea.value = initialText;
+            return;
+        }
+
+        const draft = this.state.sendPort?.readDraft?.() ?? '';
+        if (typeof (draft as Promise<string>).then !== 'function') {
+            textarea.value = String(draft);
+            return;
+        }
+
+        void (draft as Promise<string>).then((text) => {
+            if (!this.state.open || this.popoverEl !== popover) return;
+            if (textarea.value.length > 0) return;
+            textarea.value = text;
+        }).catch(() => {
+            // Draft hydration is best-effort; submit still uses the textarea value.
+        });
     }
 
     close(shadow: ShadowRoot, opts?: { syncBack?: boolean }): void {

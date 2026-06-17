@@ -37,6 +37,7 @@ describe('reader session background handler', () => {
         create: ReturnType<typeof vi.fn>;
         remove: ReturnType<typeof vi.fn>;
         sendMessage: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
     };
 
     async function loadHandler(options: { withSessionStorage?: boolean; withLocalStorage?: boolean } = {}) {
@@ -60,6 +61,9 @@ describe('reader session background handler', () => {
                     type: forwarded.type,
                     data: { routed: true },
                 });
+            }),
+            update: vi.fn((_tabId: number, _params: unknown, callback?: (tab: { id: number }) => void) => {
+                callback?.({ id: _tabId });
             }),
         };
 
@@ -155,6 +159,14 @@ describe('reader session background handler', () => {
         const bSessionId = (b?.response.data as { sessionId: string }).sessionId;
 
         await handleReaderSessionRequest(
+            request('readerSession:draft', { sessionId: aSessionId }),
+            { tab: { id: 500 } },
+        );
+        await handleReaderSessionRequest(
+            request('readerSession:draft', { sessionId: aSessionId, text: 'Edited draft' }),
+            { tab: { id: 500 } },
+        );
+        await handleReaderSessionRequest(
             request('readerSession:send', { sessionId: aSessionId, text: 'A prompt' }),
             { tab: { id: 500 } },
         );
@@ -166,11 +178,23 @@ describe('reader session background handler', () => {
         expect(tabs.sendMessage).toHaveBeenNthCalledWith(
             1,
             11,
-            expect.objectContaining({ type: 'readerSession:send', payload: expect.objectContaining({ text: 'A prompt' }) }),
+            expect.objectContaining({ type: 'readerSession:draft', payload: expect.objectContaining({ sessionId: aSessionId }) }),
             expect.any(Function),
         );
         expect(tabs.sendMessage).toHaveBeenNthCalledWith(
             2,
+            11,
+            expect.objectContaining({ type: 'readerSession:draft', payload: expect.objectContaining({ text: 'Edited draft' }) }),
+            expect.any(Function),
+        );
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(
+            3,
+            11,
+            expect.objectContaining({ type: 'readerSession:send', payload: expect.objectContaining({ text: 'A prompt' }) }),
+            expect.any(Function),
+        );
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(
+            4,
             22,
             expect.objectContaining({ type: 'readerSession:send', payload: expect.objectContaining({ text: 'B prompt' }) }),
             expect.any(Function),
@@ -221,6 +245,29 @@ describe('reader session background handler', () => {
 
         expect(response?.response.ok).toBe(false);
         expect(response?.response.error?.code).toBe('SOURCE_UNAVAILABLE');
+    });
+
+    it('activates the source tab before locate without closing the detached reader tab', async () => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const create = await handleReaderSessionRequest(
+            request('readerSession:create', { snapshot: snapshot('locate') }),
+            { tab: { id: 88 } },
+        );
+
+        const sessionId = (create?.response.data as { sessionId: string }).sessionId;
+        const response = await handleReaderSessionRequest(
+            request('readerSession:locate', { sessionId, position: 1, messageId: 'locate-message' }),
+            { tab: { id: 500 } },
+        );
+
+        expect(response?.response.ok).toBe(true);
+        expect(tabs.update).toHaveBeenCalledWith(88, { active: true }, expect.any(Function));
+        expect(tabs.sendMessage).toHaveBeenCalledWith(
+            88,
+            expect.objectContaining({ type: 'readerSession:locate', payload: expect.objectContaining({ messageId: 'locate-message' }) }),
+            expect.any(Function),
+        );
+        expect(tabs.remove).not.toHaveBeenCalled();
     });
 
     it('rejects close requests from tabs outside the session binding', async () => {

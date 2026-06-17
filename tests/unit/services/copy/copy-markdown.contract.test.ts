@@ -136,6 +136,79 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         expect(result.markdown).not.toContain('https://github.blog');
     });
 
+    it('unwraps ChatGPT component block chrome and keeps only the editor content', () => {
+        document.body.innerHTML = `
+          <div data-message-author-role="assistant" data-message-id="a1">
+            <div class="markdown prose">
+              <p>建议填写：</p>
+              <div data-writing-block-fullscreen-fallback-target="inline">
+                <div id="writing-block-1" data-writing-block="true" data-testid="writing-block-container">
+                  <div data-testid="writing-block-header-surface">
+                    <button>Edit</button>
+                    <button>Copy</button>
+                    <button aria-label="View in full screen">View in full screen</button>
+                  </div>
+                  <div class="writing-block-editor">
+                    <div class="ProseMirror markdown prose" data-writing-block-fullscreen-editor-region="true">
+                      <p>Yes. This manuscript was previously submitted to IEEE Internet of Things Journal.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const message = document.querySelector(adapter.getMessageSelector());
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toBe([
+            '建议填写：',
+            'Yes. This manuscript was previously submitted to IEEE Internet of Things Journal.',
+        ].join('\n\n'));
+        expect(result.markdown).not.toContain('Edit');
+        expect(result.markdown).not.toContain('Copy');
+        expect(result.markdown).not.toContain('View in full screen');
+    });
+
+    it('deduplicates repeated ChatGPT component block views with the same id', () => {
+        document.body.innerHTML = `
+          <div data-message-author-role="assistant" data-message-id="a1">
+            <div class="markdown prose">
+              <div id="writing-block-repeat" data-writing-block="true" data-testid="writing-block-container">
+                <div data-testid="writing-block-header-surface"><button>Edit</button></div>
+                <div data-writing-block-fullscreen-editor-region="true"><p>Shared generated text.</p></div>
+              </div>
+              <div id="writing-block-repeat" data-writing-block="true" data-testid="writing-block-container">
+                <div data-testid="writing-block-header-surface"><button>Edit</button></div>
+                <div data-writing-block-fullscreen-editor-region="true"><p>Shared generated text.</p></div>
+              </div>
+              <div id="writing-block-repeat" data-writing-block="true" data-testid="writing-block-container">
+                <div data-testid="writing-block-header-surface"><button>Edit</button></div>
+                <div data-writing-block-fullscreen-editor-region="true"><p>Duplicate generated view with changed chrome.</p></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const message = document.querySelector(adapter.getMessageSelector());
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toBe('Shared generated text.');
+    });
+
     it('preserves rendered math as markdown formulas inside HTML table cells', () => {
         const mathParserAdapter: MarkdownParserAdapter = {
             ...parserAdapter,

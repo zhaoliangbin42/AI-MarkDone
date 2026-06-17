@@ -68,6 +68,48 @@ describe('cleanChatGPTReferenceNoise', () => {
         ].join('\n'));
     });
 
+    it('unwraps attributed ChatGPT component directives while preserving their body', () => {
+        expect(normalizeChatGPTReaderMarkdown([
+            '建议填写：',
+            '',
+            ':::writing{variant="standard" id="28473"}',
+            'Yes. This manuscript was previously submitted to IEEE Internet of Things Journal.',
+            ':::',
+            '',
+            '另一个版本：',
+            '',
+            ':::response_card{variant="compact" id="card-1"}',
+            'Use the shorter answer.',
+            ':::',
+        ].join('\n'))).toBe([
+            '建议填写：',
+            '',
+            'Yes. This manuscript was previously submitted to IEEE Internet of Things Journal.',
+            '',
+            '另一个版本：',
+            '',
+            'Use the shorter answer.',
+        ].join('\n'));
+    });
+
+    it('does not unwrap component directive examples inside code or plain unattributed directives', () => {
+        const markdown = [
+            '```md',
+            ':::writing{variant="standard" id="28473"}',
+            'Keep this code sample.',
+            ':::',
+            '```',
+            '',
+            '`:::writing{variant="standard" id="inline"}`',
+            '',
+            ':::note',
+            'Keep this directive-like block.',
+            ':::',
+        ].join('\n');
+
+        expect(normalizeChatGPTReaderMarkdown(markdown)).toBe(markdown);
+    });
+
     it('normalizes same-line double-dollar formulas as inline math', () => {
         expect(normalizeChatGPTReaderMarkdown(
             '这里的 $$a_j$$ 就是矩阵 $$A$$ 的第 $$j$$ 列，也就是变量 $$x_j$$ 在所有约束中的系数组成的列向量。'

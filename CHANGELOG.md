@@ -13,11 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added a master Message Toolbar toggle that removes existing per-message toolbar hosts and stops future toolbar injection when disabled.
 
 ### Fixed
+- ChatGPT: Removed component block wrappers such as writing blocks from Reader, copy, export, and bookmark content while preserving the actual message body.
 - Reader: Kept detached Reader sessions in extension session storage only, avoiding persistent local storage for conversation snapshots.
 - Reader: Closing a detached Reader from inside the Reader page now cleans up its session and closes the detached extension page.
 - Reader: Detached Reader now syncs the extension page theme and token overrides before rendering, and only stores first-use notice acknowledgement after the detached session is created successfully.
 - Reader: Formula rendering now registers KaTeX font faces at the document layer while keeping KaTeX layout CSS inside the Reader shadow surface, so detached Reader pages do not lose math styling when the source ChatGPT page is no longer providing global formula fonts.
 - Reader: Detached Reader send now uses the same tokenized SendPopover as the in-page Reader instead of a native browser prompt.
+- Reader: Detached Reader send now opens through the same SendPort draft hydration path as the in-page Reader, including async source draft loading without overwriting local typing.
+- Reader: Detached Reader send now opens with the current ChatGPT composer draft from the source tab, matching the in-page Reader send popover.
+- Reader: Detached Reader send now writes cancelled draft edits back to the source ChatGPT composer and arms the same send-position restore before submitting.
+- Reader: Detached Reader now shows the same bookmark action as the in-page Reader, reuses the bookmark save dialog, and can locate the source ChatGPT message without closing the detached tab.
+- Reader: The in-page Reader header refresh now uses the same fresh Reader content source as detached Reader refresh, while keeping the user on the matching current page when possible.
+- Reader: Fullscreen Reader now opens with a fade-only motion instead of briefly inheriting the centered panel transform from the top-left area.
 - ChatGPT: Hiding Previous/Next message buttons no longer hides the detached Reader Split View entry.
 
 ## [4.5.1] - 2026-06-07

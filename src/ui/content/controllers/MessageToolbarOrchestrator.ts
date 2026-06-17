@@ -30,7 +30,7 @@ import { resolveContent, type ReaderItem } from '../../../services/reader/types'
 import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '../../../services/reader/readerMarkdownCopy';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
-import type { ReaderPanel, ReaderPanelAction } from '../reader/ReaderPanel';
+import type { ReaderPanel, ReaderPanelAction, ReaderPanelActionContext } from '../reader/ReaderPanel';
 import { createConversationReaderActions } from '../reader/conversationReaderActions';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
@@ -412,8 +412,52 @@ export class MessageToolbarOrchestrator {
         };
     }
 
-    private getReaderActions(_messageElement: HTMLElement): ReaderPanelAction[] {
+    private resolveRefreshedReaderIndex(items: ReaderItem[], currentItem: ReaderItem, fallbackIndex: number): number {
+        const currentPosition = this.getReaderTailPosition(currentItem);
+        if (currentPosition) {
+            const index = items.findIndex((item) => this.getReaderTailPosition(item) === currentPosition);
+            if (index >= 0) return index;
+        }
+
+        const currentMessageId = typeof currentItem.meta?.messageId === 'string' && currentItem.meta.messageId.trim()
+            ? currentItem.meta.messageId.trim()
+            : null;
+        if (currentMessageId) {
+            const index = items.findIndex((item) => item.meta?.messageId === currentMessageId);
+            if (index >= 0) return index;
+        }
+
+        const idIndex = items.findIndex((item) => item.id === currentItem.id);
+        if (idIndex >= 0) return idIndex;
+
+        return Math.max(0, Math.min(fallbackIndex, Math.max(0, items.length - 1)));
+    }
+
+    private async refreshConversationReader(messageElement: HTMLElement, ctx: ReaderPanelActionContext): Promise<void> {
+        const result = await collectFreshReaderContent(this.adapter, null, {
+            chatGptConversationEngine: this.chatGptConversationEngine,
+            pageUrl: this.getBookmarkPageUrl(),
+        });
+        const { items } = result;
+        if (items.length < 1) {
+            ctx.notify(t('contentNotFound'));
+            return;
+        }
+
+        this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
+        this.attachChatGptLiveTailReaderItem(items);
+        const nextIndex = this.resolveRefreshedReaderIndex(items, ctx.item, ctx.index);
+        await this.readerPanel.show(items, nextIndex, this.theme, {
+            profile: 'conversation-reader',
+            actions: this.getReaderActions(messageElement),
+        });
+    }
+
+    private getReaderActions(messageElement: HTMLElement): ReaderPanelAction[] {
         return createConversationReaderActions({
+            refresh: {
+                refresh: (ctx) => this.refreshConversationReader(messageElement, ctx),
+            },
             bookmark: this.bookmarksController
                 ? {
                     resolveUrl: () => this.getBookmarkPageUrl(),

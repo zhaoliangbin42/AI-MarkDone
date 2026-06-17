@@ -216,6 +216,92 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await expect(shownItems[0].content()).resolves.toBe('Formula: $x = y + z$');
     });
 
+    it('adds the shared Reader refresh action to the in-page Reader and refreshes through the Reader source', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Hello from user</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Initial visible answer</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const initialSnapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Hello from user',
+                    assistantContent: 'Initial answer',
+                    preview: 'Hello from user',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+            ],
+        };
+        const refreshedSnapshot = {
+            ...initialSnapshot,
+            capturedAt: Date.now() + 1,
+            rounds: [
+                {
+                    ...initialSnapshot.rounds[0],
+                    assistantContent: 'Refreshed answer with \\(x+y\\)',
+                },
+            ],
+        };
+
+        const adapter = new ChatGPTAdapter();
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+            getCommentExportContext: vi.fn(() => null),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(initialSnapshot)
+                .mockResolvedValueOnce(refreshedSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+        await readerAction.onClick();
+
+        const options = readerPanel.show.mock.calls[0][3];
+        const refreshAction = options.actions.find((action: any) => action.id === 'refresh');
+        expect(refreshAction).toBeTruthy();
+
+        await refreshAction.onClick({
+            item: shownItems[0],
+            index: 0,
+            items: shownItems,
+            notify: vi.fn(),
+            rerender: vi.fn(),
+        });
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(2);
+        expect(readerPanel.show).toHaveBeenCalledTimes(2);
+        expect(readerPanel.show.mock.calls[1][1]).toBe(0);
+        await expect(shownItems[0].content()).resolves.toBe('Refreshed answer with $x+y$');
+    });
+
     it('refreshes only the ChatGPT Reader tail item content when it is resolved again', async () => {
         document.body.innerHTML = `
           <div id="thread">
