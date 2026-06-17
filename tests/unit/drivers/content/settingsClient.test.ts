@@ -42,6 +42,7 @@ describe('SettingsClient', () => {
             ...structuredClone(DEFAULT_SETTINGS),
             formula: {
                 clickCopyMarkdown: true,
+                copyMarkdownDelimiters: true,
                 assetActions: {
                     copyPng: true,
                     copySvg: false,

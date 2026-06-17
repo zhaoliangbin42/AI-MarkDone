@@ -16,6 +16,7 @@ describe('settingsService', () => {
         const next = loadAndNormalize(null);
 
         expect(next.version).toBe(4);
+        expect(next.formula.copyMarkdownDelimiters).toBe(true);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
             copySvg: false,
@@ -323,6 +324,7 @@ describe('settingsService', () => {
 
         expect(next.formula).toEqual({
             clickCopyMarkdown: false,
+            copyMarkdownDelimiters: true,
             assetActions: {
                 copyPng: false,
                 copySvg: true,
@@ -340,6 +342,7 @@ describe('settingsService', () => {
             version: 4,
             formula: {
                 clickCopyMarkdown: true,
+                copyMarkdownDelimiters: false,
                 assetActions: {
                     copyPng: true,
                     copySvg: false,
@@ -353,6 +356,7 @@ describe('settingsService', () => {
         const next = planSetCategory(current, 'appearance', { fontSizePx: 18 }).next;
 
         expect(next.appearance.fontSizePx).toBe(18);
+        expect(next.formula.copyMarkdownDelimiters).toBe(false);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,
             copySvg: false,
@@ -366,6 +370,7 @@ describe('settingsService', () => {
         const next = planReset().next;
 
         expect(next.version).toBe(4);
+        expect(next.formula.copyMarkdownDelimiters).toBe(true);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
             copySvg: false,

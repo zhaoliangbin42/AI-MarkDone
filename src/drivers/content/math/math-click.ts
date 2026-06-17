@@ -38,6 +38,7 @@ export type MathClickHandlerOptions = {
     onFormulaHoverLeave?: () => void;
     onFormulaDisable?: () => void;
     clickCopyMarkdown?: boolean;
+    copyMarkdownDelimiters?: boolean;
     parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
 };
 
@@ -62,6 +63,10 @@ export class MathClickHandler {
 
     setClickCopyMarkdown(enabled: boolean): void {
         this.options.clickCopyMarkdown = enabled;
+    }
+
+    setCopyMarkdownDelimiters(enabled: boolean): void {
+        this.options.copyMarkdownDelimiters = enabled;
     }
 
     enable(container: HTMLElement): void {
@@ -338,7 +343,11 @@ export class MathClickHandler {
             return;
         }
 
-        const success = await copyTextToClipboard(formula.source);
+        const success = await copyTextToClipboard(formatFormulaClickCopySource(
+            formula.source,
+            formula.displayMode,
+            this.options.copyMarkdownDelimiters !== false,
+        ));
 
         if (success) {
             this.showCopyFeedback(element as HTMLElement);
@@ -392,6 +401,12 @@ export class MathClickHandler {
             }
         }, 1500);
     }
+}
+
+export function formatFormulaClickCopySource(source: string, displayMode: boolean, includeDelimiters: boolean): string {
+    const trimmed = source.trim();
+    if (!includeDelimiters) return trimmed;
+    return displayMode ? `$$\n${trimmed}\n$$` : `$${trimmed}$`;
 }
 
 function isDisplayMathElement(element: Element): boolean {

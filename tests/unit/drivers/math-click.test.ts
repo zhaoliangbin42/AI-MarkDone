@@ -96,7 +96,7 @@ describe('MathClickHandler', () => {
 
         expect(target.style.backgroundColor).toBe('rgba(37, 99, 235, 0.24)');
 
-        expect(writeText).toHaveBeenCalledWith('x_1 + y');
+        expect(writeText).toHaveBeenCalledWith('$x_1 + y$');
         const toast = document.body.querySelector<HTMLElement>('.aimd-toast');
         expect(toast).toBeTruthy();
         expect(toast?.textContent).toContain('Copied');
@@ -123,7 +123,7 @@ describe('MathClickHandler', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(writeText).toHaveBeenCalledWith('\\int_0^1 x dx');
+        expect(writeText).toHaveBeenCalledWith('$\\int_0^1 x dx$');
         handler.disable();
         container.remove();
     });
@@ -160,7 +160,7 @@ describe('MathClickHandler', () => {
             source: '\\sqrt{x}',
             displayMode: true,
         }));
-        expect(writeText).toHaveBeenCalledWith('\\sqrt{x}');
+        expect(writeText).toHaveBeenCalledWith('$$\n\\sqrt{x}\n$$');
         expect(parserAdapter.extractLatex).toHaveBeenCalledWith(target);
         handler.disable();
         container.remove();
@@ -188,7 +188,7 @@ describe('MathClickHandler', () => {
         target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await Promise.resolve();
 
-        expect(writeText).toHaveBeenCalledWith('\\sum_i x_i');
+        expect(writeText).toHaveBeenCalledWith('$$\n\\sum_i x_i\n$$');
         handler.disable();
         container.remove();
     });
@@ -210,7 +210,7 @@ describe('MathClickHandler', () => {
         nested.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await Promise.resolve();
 
-        expect(writeText).toHaveBeenCalledWith('\\frac{1}{2}');
+        expect(writeText).toHaveBeenCalledWith('$\\frac{1}{2}$');
         handler.disable();
         container.remove();
     });
@@ -242,7 +242,7 @@ describe('MathClickHandler', () => {
             source: '\\sqrt{x}',
             displayMode: false,
         }));
-        expect(writeText).toHaveBeenCalledWith('\\sqrt{x}');
+        expect(writeText).toHaveBeenCalledWith('$\\sqrt{x}$');
         handler.disable();
         container.remove();
     });
@@ -273,6 +273,30 @@ describe('MathClickHandler', () => {
         container.remove();
     });
 
+    it('copies raw LaTeX when Markdown delimiters are disabled', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="katex-display">
+            <span class="katex">
+              <annotation encoding="application/x-tex">\\sum_i x_i</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ copyMarkdownDelimiters: false });
+        handler.enable(container);
+
+        const target = container.querySelector('.katex-display') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledWith('\\sum_i x_i');
+        handler.disable();
+        container.remove();
+    });
+
     it('observes streaming DOM updates and attaches to new math nodes', async () => {
         vi.useFakeTimers();
         const { writeText } = setClipboardMock();
@@ -297,7 +321,7 @@ describe('MathClickHandler', () => {
         newNode.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await Promise.resolve();
 
-        expect(writeText).toHaveBeenCalledWith('\\alpha_1');
+        expect(writeText).toHaveBeenCalledWith('$\\alpha_1$');
 
         handler.disable();
         container.remove();

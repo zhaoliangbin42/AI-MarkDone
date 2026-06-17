@@ -61,6 +61,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
 
     return {
         clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
+        copyMarkdownDelimiters: Boolean((record as any).copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters),
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),

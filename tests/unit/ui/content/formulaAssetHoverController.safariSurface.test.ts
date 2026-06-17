@@ -35,6 +35,7 @@ describe('FormulaAssetHoverController Safari surface policy', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
+            copyMarkdownDelimiters: true,
             assetActions: {
                 copyPng: true,
                 copySvg: true,

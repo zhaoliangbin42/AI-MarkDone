@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Added a detached ChatGPT Reader tab that reuses the existing Reader rendering and content source while routing refresh, send, locate, and close actions back through the original ChatGPT tab.
 - Reader: Added a lower-right Split View button for detached Reader, a first-use experimental notice, fullscreen default opening, Reader-local display settings, live Reader font-size controls, and centered panel resizing.
 - Settings: Added a master Message Toolbar toggle that removes existing per-message toolbar hosts and stops future toolbar injection when disabled.
+- Formula: Added a setting for formula click-copy to include Markdown math delimiters by default, copying inline formulas as `$...$` and display formulas as `$$...$$`.
 
 ### Fixed
 - ChatGPT: Removed component block wrappers such as writing blocks from Reader, copy, export, and bookmark content while preserving the actual message body.

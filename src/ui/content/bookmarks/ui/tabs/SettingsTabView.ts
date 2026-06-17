@@ -85,6 +85,7 @@ type Refs = {
     };
     formula: {
         clickCopyMarkdown: HTMLInputElement;
+        copyMarkdownDelimiters: HTMLInputElement;
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
     };
@@ -160,6 +161,11 @@ export class SettingsTabView {
             pageActionsGroup.body,
             t('formulaClickCopyMarkdownLabel'),
             t('formulaClickCopyMarkdownDesc'),
+        );
+        const formulaCopyMarkdownDelimiters = this.createToggle(
+            pageActionsGroup.body,
+            t('formulaCopyMarkdownDelimitersLabel'),
+            t('formulaCopyMarkdownDelimitersDesc'),
         );
         const formulaAssetActions = this.createActionRow(
             pageActionsGroup.body,
@@ -326,6 +332,7 @@ export class SettingsTabView {
             },
             formula: {
                 clickCopyMarkdown: formulaClickCopyMarkdown.input,
+                copyMarkdownDelimiters: formulaCopyMarkdownDelimiters.input,
                 assetActionsButton: formulaAssetActions.button,
                 assetActionsSummary: formulaAssetActions.summary,
             },
@@ -355,6 +362,7 @@ export class SettingsTabView {
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
+        this.refs.formula.copyMarkdownDelimiters.dataset.role = 'settings-formula-copy-markdown-delimiters';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
@@ -489,6 +497,15 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setFormulaSettings?.({ clickCopyMarkdown: next });
         });
+        this.refs.formula.copyMarkdownDelimiters.addEventListener('change', () => {
+            const next = this.refs.formula.copyMarkdownDelimiters.checked;
+            this.settings.formula = this.normalizeFormulaSettings({
+                ...this.settings.formula,
+                copyMarkdownDelimiters: next,
+            });
+            this.applySettingsToDom();
+            void this.actions.setFormulaSettings?.({ copyMarkdownDelimiters: next });
+        });
         this.refs.formula.assetActionsButton.addEventListener('click', (event) => {
             event.preventDefault();
             this.openFormulaAssetSettingsPopover();
@@ -574,6 +591,7 @@ export class SettingsTabView {
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
+        this.refs.formula.copyMarkdownDelimiters.checked = Boolean(s.formula.copyMarkdownDelimiters);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
         this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
@@ -597,6 +615,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
+        this.syncToggle(this.refs.formula.copyMarkdownDelimiters);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
@@ -1014,6 +1033,7 @@ export class SettingsTabView {
             : {};
         return {
             clickCopyMarkdown: Boolean(record.clickCopyMarkdown ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown),
+            copyMarkdownDelimiters: Boolean(record.copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters),
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
                 copySvg: Boolean(assetActions.copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),

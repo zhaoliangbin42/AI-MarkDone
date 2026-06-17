@@ -58,6 +58,7 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
+            copyMarkdownDelimiters: true,
             assetActions: {
                 copyPng: true,
                 copySvg: true,
@@ -127,6 +128,7 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
+            copyMarkdownDelimiters: true,
             assetActions: {
                 copyPng: true,
                 copySvg: true,
@@ -170,6 +172,7 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
+            copyMarkdownDelimiters: true,
             assetActions: {
                 copyPng: false,
                 copySvg: true,
@@ -210,6 +213,7 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
+            copyMarkdownDelimiters: true,
             assetActions: {
                 copyPng: false,
                 copySvg: false,

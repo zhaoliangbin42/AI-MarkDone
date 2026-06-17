@@ -83,7 +83,7 @@ If you take notes, quote paragraphs, revise drafts, or only want part of a formu
 
 This one is straightforward. You do not need to open Reader first.
 
-If all you want is a specific formula, just click the formula itself inside the original message. The extension will try to copy the corresponding LaTeX source, so you do not have to copy the whole block first and then dig the formula back out by hand.
+If all you want is a specific formula, just click the formula itself inside the original message. By default, inline formulas are copied as `$...$` and display formulas as `$$...$$`; you can turn off those delimiters from Formula settings if you only want raw LaTeX.
 
 I use this a lot when I am taking notes or moving formulas into Typora, Obsidian, or other editors. It is much faster when the goal is just one formula, not an entire paragraph around it.
 

@@ -4,6 +4,7 @@ export function resolveFormulaSettings(settings: typeof DEFAULT_SETTINGS.formula
     return {
         ...DEFAULT_SETTINGS.formula,
         ...settings,
+        copyMarkdownDelimiters: settings?.copyMarkdownDelimiters ?? DEFAULT_SETTINGS.formula.copyMarkdownDelimiters,
         assetActions: {
             ...DEFAULT_SETTINGS.formula.assetActions,
             ...settings?.assetActions,

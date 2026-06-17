@@ -1291,6 +1291,14 @@
         "message": "点击公式时复制原始 LaTeX / Markdown 源码。",
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
+    "formulaCopyMarkdownDelimitersLabel": {
+        "message": "包含公式定界符",
+        "description": "Message for formulaCopyMarkdownDelimitersLabel"
+    },
+    "formulaCopyMarkdownDelimitersDesc": {
+        "message": "点击复制公式时，行内公式复制为 $...$，行间公式复制为 $$...$$。",
+        "description": "Message for formulaCopyMarkdownDelimitersDesc"
+    },
     "formulaAssetActionsLabel": {
         "message": "公式悬浮动作",
         "description": "Message for formulaAssetActionsLabel"

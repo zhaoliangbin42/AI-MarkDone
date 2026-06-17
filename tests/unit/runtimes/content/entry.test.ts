@@ -586,6 +586,7 @@ describe('content runtime entry', () => {
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,
+            copyMarkdownDelimiters: true,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
         expect(reader?.setReaderSettings).toHaveBeenCalledWith(expect.objectContaining({
@@ -741,6 +742,7 @@ describe('content runtime entry', () => {
         }));
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
             clickCopyMarkdown: false,
+            copyMarkdownDelimiters: true,
             assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
         });
     });

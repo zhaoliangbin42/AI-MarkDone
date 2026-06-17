@@ -1291,6 +1291,14 @@
         "message": "Click a formula to copy its original LaTeX / Markdown source.",
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
+    "formulaCopyMarkdownDelimitersLabel": {
+        "message": "Include math delimiters",
+        "description": "Message for formulaCopyMarkdownDelimitersLabel"
+    },
+    "formulaCopyMarkdownDelimitersDesc": {
+        "message": "Copy inline formulas as $...$ and display formulas as $$...$$ when clicking a formula.",
+        "description": "Message for formulaCopyMarkdownDelimitersDesc"
+    },
     "formulaAssetActionsLabel": {
         "message": "Formula image actions",
         "description": "Message for formulaAssetActionsLabel"

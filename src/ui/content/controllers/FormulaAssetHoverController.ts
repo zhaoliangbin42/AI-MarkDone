@@ -45,12 +45,14 @@ export class FormulaAssetHoverController {
     setFormulaSettings(settings: FormulaSettings): void {
         this.formulaSettings = {
             clickCopyMarkdown: Boolean(settings.clickCopyMarkdown),
+            copyMarkdownDelimiters: settings.copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters,
             assetActions: {
                 ...DEFAULT_FORMULA_SETTINGS.assetActions,
                 ...settings.assetActions,
             },
         };
         this.mathClick.setClickCopyMarkdown(this.formulaSettings.clickCopyMarkdown);
+        this.mathClick.setCopyMarkdownDelimiters(this.formulaSettings.copyMarkdownDelimiters);
         if (!this.hasEnabledAssetAction()) this.closeHoverAction();
     }
 

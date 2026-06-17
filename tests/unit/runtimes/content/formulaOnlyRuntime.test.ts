@@ -114,6 +114,7 @@ import {
 function enabledFormulaSettings() {
     return {
         clickCopyMarkdown: true,
+        copyMarkdownDelimiters: true,
         assetActions: {
             copyPng: true,
             copySvg: false,
@@ -127,6 +128,7 @@ function enabledFormulaSettings() {
 function disabledFormulaSettings() {
     return {
         clickCopyMarkdown: false,
+        copyMarkdownDelimiters: true,
         assetActions: {
             copyPng: false,
             copySvg: false,

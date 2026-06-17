@@ -8,11 +8,13 @@ export type FormulaAssetActionSettings = {
 
 export type FormulaSettings = {
     clickCopyMarkdown: boolean;
+    copyMarkdownDelimiters: boolean;
     assetActions: FormulaAssetActionSettings;
 };
 
 export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
     clickCopyMarkdown: true,
+    copyMarkdownDelimiters: true,
     assetActions: {
         copyPng: false,
         copySvg: false,

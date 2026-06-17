@@ -30,6 +30,7 @@ describe('settings migrations', () => {
         expect(next.behavior.showMessageToolbar).toBe(true);
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.formula.clickCopyMarkdown).toBe(false);
+        expect(next.formula.copyMarkdownDelimiters).toBe(true);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
             copySvg: false,
@@ -193,11 +194,13 @@ describe('settings migrations', () => {
             behavior: { enableClickToCopy: true },
             formula: {
                 clickCopyMarkdown: false,
+                copyMarkdownDelimiters: false,
                 assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true, extra: true },
             },
         } as any);
         expect(explicit.formula).toEqual({
             clickCopyMarkdown: false,
+            copyMarkdownDelimiters: false,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
 
@@ -222,12 +225,14 @@ describe('settings migrations', () => {
             behavior: { enableClickToCopy: false },
             formula: {
                 clickCopyMarkdown: true,
+                copyMarkdownDelimiters: false,
                 assetActions: { copyPng: true, copySvg: false, copyMathml: true, savePng: false, saveSvg: true },
             },
         } as any);
 
         expect(next.version).toBe(4);
         expect(next.formula.clickCopyMarkdown).toBe(true);
+        expect(next.formula.copyMarkdownDelimiters).toBe(false);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,
             copySvg: false,
