@@ -36,6 +36,7 @@ describe('FormulaAssetHoverController Safari surface policy', () => {
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: {
                 copyPng: true,
                 copySvg: true,

@@ -21,7 +21,14 @@ import {
     type PngExportWidthPreset,
 } from '../../../../../core/settings/export';
 import type { BookmarksStorageUsageResponse } from '../../../../../contracts/protocol';
-import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../../../core/settings/formula';
+import {
+    DEFAULT_FORMULA_SETTINGS,
+    FORMULA_ASSET_FONT_SIZE_STEP_PX,
+    MAX_FORMULA_ASSET_FONT_SIZE_PX,
+    MIN_FORMULA_ASSET_FONT_SIZE_PX,
+    normalizeFormulaAssetFontSizePx,
+    type FormulaSettings,
+} from '../../../../../core/settings/formula';
 import type { ModalHost } from '../../../components/ModalHost';
 import { setLocale, t } from '../../../components/i18n';
 import { createIcon } from '../../../components/Icon';
@@ -88,6 +95,7 @@ type Refs = {
         copyMarkdownDelimiters: HTMLInputElement;
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
+        assetFontSize: NumberFieldRef;
     };
     advanced: {
         root: HTMLElement;
@@ -172,6 +180,15 @@ export class SettingsTabView {
             t('formulaAssetActionsLabel'),
             t('formulaAssetActionsDesc'),
             'settings-formula-asset-actions',
+        );
+        const formulaAssetFontSize = this.createNumberRow(
+            pageActionsGroup.body,
+            t('formulaAssetFontSizeLabel'),
+            t('formulaAssetFontSizeDesc'),
+            MIN_FORMULA_ASSET_FONT_SIZE_PX,
+            MAX_FORMULA_ASSET_FONT_SIZE_PX,
+            FORMULA_ASSET_FONT_SIZE_STEP_PX,
+            'settings-formula-asset-font-size-value',
         );
 
         const pngExportWidth = this.createPngExportWidthRow(
@@ -335,6 +352,7 @@ export class SettingsTabView {
                 copyMarkdownDelimiters: formulaCopyMarkdownDelimiters.input,
                 assetActionsButton: formulaAssetActions.button,
                 assetActionsSummary: formulaAssetActions.summary,
+                assetFontSize: formulaAssetFontSize,
             },
             advanced: advancedGroup,
             export: {
@@ -364,6 +382,7 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
         this.refs.formula.copyMarkdownDelimiters.dataset.role = 'settings-formula-copy-markdown-delimiters';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
+        this.refs.formula.assetFontSize.input.dataset.role = 'settings-formula-asset-font-size';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
@@ -510,6 +529,15 @@ export class SettingsTabView {
             event.preventDefault();
             this.openFormulaAssetSettingsPopover();
         });
+        this.refs.formula.assetFontSize.input.addEventListener('change', () => {
+            const next = normalizeFormulaAssetFontSizePx(this.refs.formula.assetFontSize.input.value);
+            this.settings.formula = this.normalizeFormulaSettings({
+                ...this.settings.formula,
+                assetFontSizePx: next,
+            });
+            this.applySettingsToDom();
+            void this.actions.setFormulaSettings?.({ assetFontSizePx: next });
+        });
         this.refs.advanced.button.addEventListener('click', () => {
             this.advancedExpanded = !this.advancedExpanded;
             this.renderAdvancedSettings();
@@ -593,6 +621,7 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
         this.refs.formula.copyMarkdownDelimiters.checked = Boolean(s.formula.copyMarkdownDelimiters);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
+        this.refs.formula.assetFontSize.input.value = String(normalizeFormulaAssetFontSizePx(s.formula.assetFontSizePx));
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
         this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
@@ -1034,6 +1063,7 @@ export class SettingsTabView {
         return {
             clickCopyMarkdown: Boolean(record.clickCopyMarkdown ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown),
             copyMarkdownDelimiters: Boolean(record.copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters),
+            assetFontSizePx: normalizeFormulaAssetFontSizePx(record.assetFontSizePx),
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
                 copySvg: Boolean(assetActions.copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),

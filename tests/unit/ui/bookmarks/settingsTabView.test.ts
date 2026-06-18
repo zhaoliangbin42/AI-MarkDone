@@ -16,6 +16,7 @@ const baseSettings = {
     formula: {
         clickCopyMarkdown: true,
         copyMarkdownDelimiters: true,
+        assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
             copySvg: true,
@@ -86,6 +87,7 @@ describe('SettingsTabView', () => {
         expect(pageActionsGroup.querySelector('[data-role="settings-show-save-messages"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-formula-copy-markdown-delimiters"]')).toBeTruthy();
+        expect(pageActionsGroup.querySelector('[data-role="settings-formula-asset-font-size"]')).toBeTruthy();
         expect(pageActionsGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
 
         expect(root.querySelector('[data-role="settings-reader-prompts"]')).toBeNull();
@@ -488,16 +490,21 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
         const markdownToggle = root.querySelector<HTMLInputElement>('[data-role="settings-formula-click-copy-markdown"]')!;
         const delimiterToggle = root.querySelector<HTMLInputElement>('[data-role="settings-formula-copy-markdown-delimiters"]')!;
+        const assetFontSizeInput = root.querySelector<HTMLInputElement>('[data-role="settings-formula-asset-font-size"]')!;
         const assetButton = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-asset-actions"]')!;
 
         expect(markdownToggle.checked).toBe(true);
         expect(delimiterToggle.checked).toBe(true);
+        expect(assetFontSizeInput.value).toBe('36');
         markdownToggle.checked = false;
         markdownToggle.dispatchEvent(new Event('change', { bubbles: true }));
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ clickCopyMarkdown: false });
         delimiterToggle.checked = false;
         delimiterToggle.dispatchEvent(new Event('change', { bubbles: true }));
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ copyMarkdownDelimiters: false });
+        assetFontSizeInput.value = '44';
+        assetFontSizeInput.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetFormulaSettings).toHaveBeenCalledWith({ assetFontSizePx: 44 });
 
         assetButton.click();
         const popover = root.querySelector<HTMLElement>('.formula-asset-settings');

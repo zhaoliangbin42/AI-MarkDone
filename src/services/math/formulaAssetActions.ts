@@ -2,6 +2,7 @@ import { copyImageBlobToClipboard } from '../../drivers/content/clipboard/copyIm
 import { copyMathmlToClipboard } from '../../drivers/content/clipboard/copyMathmlToClipboard';
 import { copySvgBlobToClipboard } from '../../drivers/content/clipboard/copySvgToClipboard';
 import { downloadBlob } from '../../drivers/content/export/downloadBlob';
+import { renderFormulaDomPngBlob, renderFormulaDomSvgBlob } from '../../drivers/content/export/renderFormulaDomAsset';
 import { rasterizeFormulaSvgToPngBlob } from '../../drivers/content/export/renderFormulaPng';
 import { DEFAULT_FORMULA_FONT_SIZE_PX, renderFormulaMathmlAsset, renderFormulaSvgAsset } from './formulaAssetRenderer';
 
@@ -17,6 +18,7 @@ export type RunFormulaAssetActionOptions = {
     displayMode: boolean;
     fontSizePx?: number;
     pixelRatio?: number;
+    sourceElement?: Element | null;
 };
 
 const SVG_FILENAME = 'AI-MarkDone-formula.svg';
@@ -28,6 +30,47 @@ function svgBlob(svg: string): Blob {
 
 function clipboardError(code: 'CLIPBOARD_UNSUPPORTED' | 'CLIPBOARD_WRITE_FAILED', fallback: string): FormulaAssetActionResult {
     return { ok: false, code, message: fallback };
+}
+
+async function renderSvgBlob(options: RunFormulaAssetActionOptions, source: string): Promise<Blob> {
+    if (options.sourceElement) {
+        try {
+            return await renderFormulaDomSvgBlob({
+                sourceElement: options.sourceElement,
+                fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
+            });
+        } catch {
+            // Fall through to the MathJax renderer for non-DOM formulas or capture failures.
+        }
+    }
+
+    const asset = await renderFormulaSvgAsset({
+        source,
+        displayMode: options.displayMode,
+        fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
+    });
+    return svgBlob(asset.svg);
+}
+
+async function renderPngBlob(options: RunFormulaAssetActionOptions, source: string): Promise<Blob> {
+    if (options.sourceElement) {
+        try {
+            return await renderFormulaDomPngBlob({
+                sourceElement: options.sourceElement,
+                fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
+                pixelRatio: options.pixelRatio,
+            });
+        } catch {
+            // Fall through to the MathJax renderer for non-DOM formulas or capture failures.
+        }
+    }
+
+    const asset = await renderFormulaSvgAsset({
+        source,
+        displayMode: options.displayMode,
+        fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
+    });
+    return rasterizeFormulaSvgToPngBlob(asset, { pixelRatio: options.pixelRatio });
 }
 
 export async function runFormulaAssetAction(options: RunFormulaAssetActionOptions): Promise<FormulaAssetActionResult> {
@@ -45,25 +88,19 @@ export async function runFormulaAssetAction(options: RunFormulaAssetActionOption
             return clipboardError('CLIPBOARD_WRITE_FAILED', result.errorMessage || 'MathML clipboard copy failed.');
         }
 
-        const asset = await renderFormulaSvgAsset({
-            source,
-            displayMode: options.displayMode,
-            fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
-        });
-
         if (options.action === 'copy_svg') {
-            const result = await copySvgBlobToClipboard(svgBlob(asset.svg));
+            const result = await copySvgBlobToClipboard(await renderSvgBlob(options, source));
             if (result.ok) return { ok: true, status: 'copied' };
             if (result.reason === 'unsupported') return clipboardError('CLIPBOARD_UNSUPPORTED', 'SVG clipboard copy is not supported by this browser.');
             return clipboardError('CLIPBOARD_WRITE_FAILED', result.errorMessage || 'SVG clipboard copy failed.');
         }
 
         if (options.action === 'save_svg') {
-            downloadBlob({ filename: SVG_FILENAME, blob: svgBlob(asset.svg) });
+            downloadBlob({ filename: SVG_FILENAME, blob: await renderSvgBlob(options, source) });
             return { ok: true, status: 'saved' };
         }
 
-        const pngBlob = await rasterizeFormulaSvgToPngBlob(asset, { pixelRatio: options.pixelRatio });
+        const pngBlob = await renderPngBlob(options, source);
         if (options.action === 'save_png') {
             downloadBlob({ filename: PNG_FILENAME, blob: pngBlob });
             return { ok: true, status: 'saved' };

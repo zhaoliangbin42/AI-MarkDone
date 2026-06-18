@@ -115,6 +115,7 @@ function enabledFormulaSettings() {
     return {
         clickCopyMarkdown: true,
         copyMarkdownDelimiters: true,
+        assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
             copySvg: false,
@@ -129,6 +130,7 @@ function disabledFormulaSettings() {
     return {
         clickCopyMarkdown: false,
         copyMarkdownDelimiters: true,
+        assetFontSizePx: 36,
         assetActions: {
             copyPng: false,
             copySvg: false,

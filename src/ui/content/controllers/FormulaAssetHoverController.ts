@@ -46,6 +46,7 @@ export class FormulaAssetHoverController {
         this.formulaSettings = {
             clickCopyMarkdown: Boolean(settings.clickCopyMarkdown),
             copyMarkdownDelimiters: settings.copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters,
+            assetFontSizePx: settings.assetFontSizePx ?? DEFAULT_FORMULA_SETTINGS.assetFontSizePx,
             assetActions: {
                 ...DEFAULT_FORMULA_SETTINGS.assetActions,
                 ...settings.assetActions,
@@ -217,6 +218,8 @@ export class FormulaAssetHoverController {
                 action,
                 source: context.source,
                 displayMode: context.displayMode,
+                sourceElement: context.element,
+                fontSizePx: this.formulaSettings.assetFontSizePx,
             });
             const text = result.ok
                 ? getI18nLabel(result.status === 'saved' ? 'formulaAssetSaved' : 'btnCopied', result.status === 'saved' ? 'Saved' : 'Copied!')

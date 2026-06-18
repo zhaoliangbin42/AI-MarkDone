@@ -1307,6 +1307,14 @@
         "message": "Formula hover actions are off by default. Enable the PNG / SVG / MathML copy and save actions you want to show.",
         "description": "Message for formulaAssetActionsDesc"
     },
+    "formulaAssetFontSizeLabel": {
+        "message": "Formula export font size",
+        "description": "Message for formulaAssetFontSizeLabel"
+    },
+    "formulaAssetFontSizeDesc": {
+        "message": "Set the fixed font size used when copying or saving a single formula as PNG or SVG.",
+        "description": "Message for formulaAssetFontSizeDesc"
+    },
     "formulaAssetActionsPopupTitle": {
         "message": "Formula actions",
         "description": "Message for formulaAssetActionsPopupTitle"

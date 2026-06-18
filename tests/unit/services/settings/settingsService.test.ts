@@ -17,6 +17,7 @@ describe('settingsService', () => {
 
         expect(next.version).toBe(4);
         expect(next.formula.copyMarkdownDelimiters).toBe(true);
+        expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
             copySvg: false,
@@ -325,6 +326,7 @@ describe('settingsService', () => {
         expect(next.formula).toEqual({
             clickCopyMarkdown: false,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,
                 copySvg: true,
@@ -343,6 +345,7 @@ describe('settingsService', () => {
             formula: {
                 clickCopyMarkdown: true,
                 copyMarkdownDelimiters: false,
+                assetFontSizePx: 44,
                 assetActions: {
                     copyPng: true,
                     copySvg: false,
@@ -357,6 +360,7 @@ describe('settingsService', () => {
 
         expect(next.appearance.fontSizePx).toBe(18);
         expect(next.formula.copyMarkdownDelimiters).toBe(false);
+        expect(next.formula.assetFontSizePx).toBe(44);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,
             copySvg: false,
@@ -371,6 +375,7 @@ describe('settingsService', () => {
 
         expect(next.version).toBe(4);
         expect(next.formula.copyMarkdownDelimiters).toBe(true);
+        expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
             copySvg: false,

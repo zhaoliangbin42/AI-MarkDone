@@ -12,9 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Added a lower-right Split View button for detached Reader, a first-use experimental notice, fullscreen default opening, Reader-local display settings, live Reader font-size controls, and centered panel resizing.
 - Settings: Added a master Message Toolbar toggle that removes existing per-message toolbar hosts and stops future toolbar injection when disabled.
 - Formula: Added a setting for formula click-copy to include Markdown math delimiters by default, copying inline formulas as `$...$` and display formulas as `$$...$$`.
+- Formula: Added a setting for single-formula PNG/SVG export font size, defaulting to 36px for consistent paper-ready output.
 
 ### Fixed
 - ChatGPT: Removed component block wrappers such as writing blocks from Reader, copy, export, and bookmark content while preserving the actual message body.
+- Formula: Fixed formula SVG/PNG copy and save for formulas containing Chinese text by stabilizing fallback text fonts and SVG dimensions before rasterization.
+- Formula: Made single-formula PNG copy and save more reliable for large formulas by scaling the one-shot canvas output within browser-safe limits without slicing or stitching formulas.
+- Formula: Fixed SVG/PNG copy for formulas with stretch glyphs such as underbraces and NewCM script/calligraphic glyphs by preserving nested SVG glyphs inside the single exported formula SVG.
+- Formula: Changed single-formula PNG/SVG export to capture the already-rendered page formula DOM first, matching page-rendered Chinese underbraces and other complex formulas while keeping MathJax as a fallback and for MathML.
 - Reader: Kept detached Reader sessions in extension session storage only, avoiding persistent local storage for conversation snapshots.
 - Reader: Closing a detached Reader from inside the Reader page now cleans up its session and closes the detached extension page.
 - Reader: Detached Reader now syncs the extension page theme and token overrides before rendering, and only stores first-use notice acknowledgement after the detached session is created successfully.

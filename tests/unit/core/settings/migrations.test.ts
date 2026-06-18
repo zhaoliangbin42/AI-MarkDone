@@ -31,6 +31,7 @@ describe('settings migrations', () => {
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.formula.clickCopyMarkdown).toBe(false);
         expect(next.formula.copyMarkdownDelimiters).toBe(true);
+        expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
             copySvg: false,
@@ -195,12 +196,14 @@ describe('settings migrations', () => {
             formula: {
                 clickCopyMarkdown: false,
                 copyMarkdownDelimiters: false,
+                assetFontSizePx: 90,
                 assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true, extra: true },
             },
         } as any);
         expect(explicit.formula).toEqual({
             clickCopyMarkdown: false,
             copyMarkdownDelimiters: false,
+            assetFontSizePx: 72,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
 
@@ -233,6 +236,7 @@ describe('settings migrations', () => {
         expect(next.version).toBe(4);
         expect(next.formula.clickCopyMarkdown).toBe(true);
         expect(next.formula.copyMarkdownDelimiters).toBe(false);
+        expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,
             copySvg: false,

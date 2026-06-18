@@ -5,6 +5,16 @@ export type FormulaPngRasterizeOptions = {
     backgroundColor?: string;
 };
 
+const DEFAULT_PIXEL_RATIO = 2;
+const MAX_REQUESTED_PIXEL_RATIO = 4;
+const SAFE_CANVAS_DIMENSION_LIMIT = 16384;
+const SAFE_CANVAS_PIXEL_AREA_LIMIT = 24_000_000;
+
+type RasterSize = {
+    width: number;
+    height: number;
+};
+
 function imageFromBlobUrl(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
@@ -23,15 +33,40 @@ function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
     });
 }
 
+function requestedPixelRatio(value: number | undefined): number {
+    return Number.isFinite(value) && (value ?? 0) > 0
+        ? Math.min(MAX_REQUESTED_PIXEL_RATIO, Math.max(1, value!))
+        : DEFAULT_PIXEL_RATIO;
+}
+
+function fitCanvasSize(width: number, height: number): RasterSize {
+    let nextWidth = Math.min(SAFE_CANVAS_DIMENSION_LIMIT, Math.max(1, width));
+    let nextHeight = Math.min(SAFE_CANVAS_DIMENSION_LIMIT, Math.max(1, height));
+    const area = nextWidth * nextHeight;
+    if (area <= SAFE_CANVAS_PIXEL_AREA_LIMIT) return { width: nextWidth, height: nextHeight };
+
+    const scale = Math.sqrt(SAFE_CANVAS_PIXEL_AREA_LIMIT / area);
+    nextWidth = Math.max(1, Math.floor(nextWidth * scale));
+    nextHeight = Math.max(1, Math.floor(nextHeight * scale));
+    return { width: nextWidth, height: nextHeight };
+}
+
+function resolveRasterSize(asset: FormulaSvgAsset, pixelRatio: number): RasterSize {
+    const sourceWidth = Math.max(1, asset.width);
+    const sourceHeight = Math.max(1, asset.height);
+    const dimensionRatio = SAFE_CANVAS_DIMENSION_LIMIT / Math.max(sourceWidth, sourceHeight);
+    const areaRatio = Math.sqrt(SAFE_CANVAS_PIXEL_AREA_LIMIT / Math.max(1, sourceWidth * sourceHeight));
+    const effectivePixelRatio = Math.min(pixelRatio, dimensionRatio, areaRatio);
+    const width = Math.ceil(sourceWidth * effectivePixelRatio);
+    const height = Math.ceil(sourceHeight * effectivePixelRatio);
+    return fitCanvasSize(width, height);
+}
+
 export async function rasterizeFormulaSvgToPngBlob(
     asset: FormulaSvgAsset,
     options: FormulaPngRasterizeOptions = {},
 ): Promise<Blob> {
-    const pixelRatio = Number.isFinite(options.pixelRatio) && (options.pixelRatio ?? 0) > 0
-        ? Math.min(4, Math.max(1, options.pixelRatio!))
-        : 2;
-    const width = Math.max(1, Math.ceil(asset.width * pixelRatio));
-    const height = Math.max(1, Math.ceil(asset.height * pixelRatio));
+    const { width, height } = resolveRasterSize(asset, requestedPixelRatio(options.pixelRatio));
     const svgBlob = new Blob([asset.svg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(svgBlob);
 

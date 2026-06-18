@@ -23,7 +23,7 @@ import {
     type ThemeAccentColor,
 } from './types';
 import { normalizeExportSettings } from './export';
-import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from './formula';
+import { DEFAULT_FORMULA_SETTINGS, normalizeFormulaAssetFontSizePx, type FormulaSettings } from './formula';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,6 +69,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
             savePng: Boolean((assetActions as any).savePng ?? DEFAULT_FORMULA_SETTINGS.assetActions.savePng),
             saveSvg: Boolean((assetActions as any).saveSvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.saveSvg),
         },
+        assetFontSizePx: normalizeFormulaAssetFontSizePx((record as any).assetFontSizePx),
     };
 }
 

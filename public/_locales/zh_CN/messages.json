@@ -1307,6 +1307,14 @@
         "message": "公式悬浮动作默认关闭，可按需启用 PNG / SVG / MathML 复制和保存动作。",
         "description": "Message for formulaAssetActionsDesc"
     },
+    "formulaAssetFontSizeLabel": {
+        "message": "公式导出字号",
+        "description": "Message for formulaAssetFontSizeLabel"
+    },
+    "formulaAssetFontSizeDesc": {
+        "message": "设置单个公式复制或保存为 PNG / SVG 时使用的固定字号。",
+        "description": "Message for formulaAssetFontSizeDesc"
+    },
     "formulaAssetActionsPopupTitle": {
         "message": "公式动作",
         "description": "Message for formulaAssetActionsPopupTitle"

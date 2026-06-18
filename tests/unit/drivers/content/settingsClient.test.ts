@@ -43,6 +43,7 @@ describe('SettingsClient', () => {
             formula: {
                 clickCopyMarkdown: true,
                 copyMarkdownDelimiters: true,
+                assetFontSizePx: 36,
                 assetActions: {
                     copyPng: true,
                     copySvg: false,
@@ -87,6 +88,7 @@ describe('SettingsClient', () => {
             savePng: false,
             saveSvg: false,
         });
+        expect(latest.formula.assetFontSizePx).toBe(36);
     });
 
     it('returns normalized settings from refresh', async () => {
@@ -107,5 +109,6 @@ describe('SettingsClient', () => {
         expect(settings?.version).toBe(4);
         expect(settings?.formula.clickCopyMarkdown).toBe(false);
         expect(settings?.formula.assetActions.copyPng).toBe(false);
+        expect(settings?.formula.assetFontSizePx).toBe(36);
     });
 });

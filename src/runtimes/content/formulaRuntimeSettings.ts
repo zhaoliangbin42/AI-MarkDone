@@ -1,10 +1,12 @@
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
+import { normalizeFormulaAssetFontSizePx } from '../../core/settings/formula';
 
 export function resolveFormulaSettings(settings: typeof DEFAULT_SETTINGS.formula | undefined): typeof DEFAULT_SETTINGS.formula {
     return {
         ...DEFAULT_SETTINGS.formula,
         ...settings,
         copyMarkdownDelimiters: settings?.copyMarkdownDelimiters ?? DEFAULT_SETTINGS.formula.copyMarkdownDelimiters,
+        assetFontSizePx: normalizeFormulaAssetFontSizePx(settings?.assetFontSizePx),
         assetActions: {
             ...DEFAULT_SETTINGS.formula.assetActions,
             ...settings?.assetActions,

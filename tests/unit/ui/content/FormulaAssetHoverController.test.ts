@@ -59,6 +59,7 @@ describe('FormulaAssetHoverController', () => {
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 44,
             assetActions: {
                 copyPng: true,
                 copySvg: true,
@@ -105,6 +106,8 @@ describe('FormulaAssetHoverController', () => {
             action: 'copy_svg',
             source: 'x_1 + y',
             displayMode: false,
+            sourceElement: container.querySelector('.math-inline'),
+            fontSizePx: 44,
         });
         actionResolver?.({ ok: true, status: 'copied' });
         await Promise.resolve();
@@ -129,6 +132,7 @@ describe('FormulaAssetHoverController', () => {
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: {
                 copyPng: true,
                 copySvg: true,
@@ -173,6 +177,7 @@ describe('FormulaAssetHoverController', () => {
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,
                 copySvg: true,
@@ -214,6 +219,7 @@ describe('FormulaAssetHoverController', () => {
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,
                 copySvg: false,

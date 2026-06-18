@@ -587,6 +587,7 @@ describe('content runtime entry', () => {
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
         expect(reader?.setReaderSettings).toHaveBeenCalledWith(expect.objectContaining({
@@ -743,6 +744,7 @@ describe('content runtime entry', () => {
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
             clickCopyMarkdown: false,
             copyMarkdownDelimiters: true,
+            assetFontSizePx: 36,
             assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
         });
     });
