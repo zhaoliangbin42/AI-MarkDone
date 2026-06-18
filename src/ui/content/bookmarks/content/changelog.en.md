@@ -1,5 +1,80 @@
 # Changelog
 
+# 4.6.0
+2026-06-18
+
+Hi everyone. This update has been brewing for a long time, and it is a fairly large one.
+
+For a while now, I have wanted to solve a very specific and very annoying problem: long ChatGPT conversations can become painfully slow. I am a Pro user, and when I use Pro models, each answer can be very long. In my own daily use, once a conversation has more than three very long messages, the page can already feel heavy. Even Reader could only ease the problem before; it could not remove the underlying pressure completely.
+
+The reason is not mysterious. ChatGPT's page has to render a lot of heavy Markdown, especially when a response contains many formulas. When that rendering pressure is high, everything you do inside the ChatGPT page can become slower: scrolling, clicking, copying, and even opening extension UI. ChatGPT has already optimized this. Around the end of April, the page started moving toward incremental loading, where older messages can be unloaded to reduce the total rendering cost. Even so, the rendering pressure of very long messages does not disappear.
+
+So this time I tried a different route: if the ChatGPT page itself is slow, can we step outside that page?
+
+## How it works
+
+This is my favorite part.
+
+AI-MarkDone already had Reader. On the ChatGPT page, it discovers messages, extracts the content, normalizes the structure, and renders everything again inside Reader. Since AI-MarkDone can already extract the messages, I started wondering whether the same Reader could be opened in an independent extension page.
+
+After checking the browser extension APIs, I found that this is possible. An extension page can build a bridge with the original ChatGPT tab through the browser runtime. In other words, the independent page renders the full Reader, while the original ChatGPT tab still provides content, refresh, send, locate, and source-position actions. The two sides stay connected through browser-internal messaging.
+
+This means the main reading experience no longer depends on ChatGPT's own DOM and Markdown rendering load. The detached Reader runs in the extension's own page, with a cleaner environment and more controllable rendering cost. You can still refresh, send, and locate the original message, but the reading surface has been pulled out of the slow page.
+
+In practice, this was not just a matter of moving the Reader somewhere else. The bridge, session lifecycle, refresh, send, locate, bookmarks, themes, and formula styling all had to line up across the original page and the independent page. Since this is now a real Reader, I also moved several reading controls back into the Reader itself: font size, width, and display preferences can now be adjusted directly while reading.
+
+Honestly, I now prefer continuing conversations from Reader myself. It avoids long-page lag and gives me annotations, Sticky, copy, bookmarks, and other small conveniences in one place. If you often read long conversations and have not tried Reader yet, I really recommend giving it a try.
+
+## Privacy
+
+I also want to be very clear about privacy.
+
+AI-MarkDone currently has no networking capability, and all of the code is public on GitHub. If you are unsure, you can send the GitHub link to ChatGPT and ask it to help inspect the code with you.
+
+The content discovery path exists to support Copy Markdown, navigation, Reader, bookmarks, and export. These features need to read the current page content before they can work. The new detached Reader follows the same principle: it runs inside a browser-managed extension page and talks to the original ChatGPT tab through an internal browser channel. It does not send your content to any external server. When you close the detached page, that session ends as well; it is not saved as an extra long-term copy.
+
+## ==A small introduction to my iOS app: Mappamory==
+
+==Now comes the part where I reveal my little personal agenda. Graduation season is here, and many friends are heading to different places. I have always wanted a simple place to remember friends' hometowns, workplaces, schools, and cities they often visit. Because of that real need, I built an iOS app called “好友迹”, with the English name Mappamory.==
+
+==It is a friends map contact book. You can create people, add multiple places for each person, and tag those places. The people and places then appear on a map. Every time a friend mentions a place, you can quickly record it. Over time, the map slowly fills up, and you may realize how many people around you have scattered across different cities.==
+
+==When you meet again, you will not have to feel awkward because you forgot someone's hometown, school, or workplace. When you arrive in a city, you can open the map and remember that a friend is living there, and maybe decide to meet. The app is designed to be easy to use, simple, and pleasant.==
+
+![Mappamory - friends map contacts](icons/mappamory-changelog-4.6.0.png)
+
+==The app has just launched. If you download it before June 30, 2026, please contact me on Xiaohongshu or X, and I will give each person a one-year redemption code. I would also love your feedback, support, and help sharing it. I really enjoy the feeling of people working together to make something better.==
+
+==One more note: Mappamory is not a social app. It does not require an account or network access. Everything you record stays local on your device. If you are interested, you are very welcome to try it.==
+
+==Download: [https://apps.apple.com/cn/app/mappamory/id6769453796](https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB)==
+
+==Thank you again. AI-MarkDone will not run any third-party ads, but I hope you will not mind me introducing my own app here. Haha, ~\(>=▽<=)/~==
+
+## Added
+
+- Added detached Reader view mode, which opens Reader in an independent extension page to avoid ChatGPT long-message page lag. The entry is in the lower-right corner of the ChatGPT page.
+- Added a setting to open Reader fullscreen by default.
+- Added Reader-local display controls such as font size and width, making long reading sessions more comfortable.
+- Added an option for formula click-copy to include `$...$` or `$$...$$` math delimiters automatically. Thanks to Email user @Jiangpeng.
+
+## Improved
+
+- Reworked the single-formula PNG/SVG/MathML export path. Formula image export now prefers the formula DOM already rendered on the page, so Chinese text, underbraces, matrices, and other complex formulas should be more stable. Thanks to Xiaohongshu users @千载角黍 and @小红薯67542EF1.
+- Aligned detached Reader with in-page Reader for refresh, send, locate, bookmarks, theme, and formula rendering.
+
+## Fixed
+
+- Fixed Markdown parsing where inline `$$...$$` could be treated as display math. Thanks to Xiaohongshu user @花花有点坏.
+- Fixed cases where formula image export could fail, render Chinese text incorrectly, or become unstable for larger formulas.
+- Fixed ChatGPT component wrappers leaking into Reader, copy, export, and bookmark content.
+
+## Daily Tips
+
+- You can use the Left and Right arrow keys on the page to switch between previous and next messages, as long as the cursor is not inside the input box. In short: click an empty area first, then press the arrow keys. If it does not work, you can enable it separately in Settings.
+- Most features can be turned on or off individually from Settings. If something feels distracting, open Settings, find the matching switch, and turn it off.
+- Your ratings and feedback are what keep me improving AI-MarkDone. You are also welcome to leave me a message on X: https://x.com/Benkozhao.
+
 # 4.5.1
 2026-06-07
 

@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extName__",
-    "version": "4.5.1",
+    "version": "4.6.0",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
     "homepage_url": "https://zhaoliangbin42.github.io/ai-markdone/en/",
@@ -54,6 +54,8 @@
         "icons/icon48_gray.png",
         "icons/icon128_gray.png",
         "icons/about_avatar.png",
+        "icons/mappamory-changelog-4.6.0.png",
+        "icons/mappamory-about-en-4.6.0.png",
         "_locales/*/messages.json",
         "vendor/katex/*.css",
         "vendor/katex/fonts/*",

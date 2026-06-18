@@ -458,6 +458,21 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(1);
         expect(refreshedAboutActiveTab?.querySelector('.about-website-card')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelector('.support-contact-card')).toBeNull();
+        const mappamoryCard = refreshedAboutActiveTab?.querySelector<HTMLElement>('.mappamory-promo-card');
+        const mappamoryLink = mappamoryCard?.querySelector<HTMLAnchorElement>('.mappamory-promo-card__button');
+        const mappamoryXLink = mappamoryCard?.querySelector<HTMLAnchorElement>('.mappamory-promo-card__social-link');
+        const mappamoryImage = mappamoryCard?.querySelector<HTMLImageElement>('.mappamory-promo-card__image');
+        expect(mappamoryCard).toBeTruthy();
+        expect(mappamoryLink?.href).toBe('https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB');
+        expect(mappamoryLink?.target).toBe('_blank');
+        expect(mappamoryLink?.rel).toContain('noopener');
+        expect(mappamoryLink?.rel).toContain('noreferrer');
+        expect(mappamoryXLink?.textContent).toBe('X: https://x.com/Mappamory');
+        expect(mappamoryXLink?.href).toBe('https://x.com/Mappamory');
+        expect(mappamoryXLink?.target).toBe('_blank');
+        expect(mappamoryXLink?.rel).toContain('noopener');
+        expect(mappamoryXLink?.rel).toContain('noreferrer');
+        expect(mappamoryImage?.src).toContain('icons/mappamory-about-en-4.6.0.png');
         expect(refreshedAboutActiveTab?.querySelector('.sponsor-card')).toBeNull();
         expect(refreshedAboutActiveTab?.querySelectorAll('.sponsor-qr-card').length).toBe(0);
         expect(refreshedAboutActiveTab?.querySelector('.social-follow-card')).toBeTruthy();
@@ -482,6 +497,8 @@ describe('BookmarksPanel', () => {
         expect(refreshedAboutActiveTab?.textContent).toContain('Xiaohongshu');
         expect(refreshedAboutActiveTab?.textContent).toContain('Follow me');
         expect(refreshedAboutActiveTab?.textContent).toContain('Find me on Xiaohongshu');
+        expect(refreshedAboutActiveTab?.textContent).toContain('Mappamory');
+        expect(refreshedAboutActiveTab?.textContent).toContain('View on App Store');
 
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="sponsor"]')!.click();
 
@@ -542,7 +559,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.5.1',
+                pendingVersion: '4.6.0',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -595,15 +612,17 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.1");
-        expect(modal?.textContent).toContain('2026-06-07');
-        expect(modal?.textContent).toContain('Friends, thank you for waiting');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.6.0");
+        expect(modal?.textContent).toContain('2026-06-18');
+        expect(modal?.textContent).toContain('long ChatGPT conversations can become painfully slow');
+        expect(modal?.querySelector<HTMLImageElement>('.info-media__image')?.src).toContain('icons/mappamory-changelog-4.6.0.png');
+        expect(modal?.querySelector<HTMLAnchorElement>('.info-mark a')?.href).toBe('https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.1');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.6.0');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -611,7 +630,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.5.1',
+                pendingVersion: '4.6.0',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -668,7 +687,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.1');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.6.0');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
@@ -679,7 +698,7 @@ describe('BookmarksPanel', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
-                    pendingVersion: '4.5.1',
+                    pendingVersion: '4.6.0',
                     lastShownVersion: null,
                     reason: 'update',
                     previousVersion: '4.4.6',
@@ -689,7 +708,7 @@ describe('BookmarksPanel', () => {
                 ok: true,
                 data: {
                     pendingVersion: null,
-                    lastShownVersion: '4.5.1',
+                    lastShownVersion: '4.6.0',
                     reason: null,
                     previousVersion: '4.4.6',
                 },
@@ -918,6 +937,13 @@ describe('BookmarksPanel', () => {
                 .filter(Boolean),
         ).toEqual(['书签', '设置', '更新日志', '常见问题', '关于我', '请我喝咖啡', '反馈']);
         expect(shadow.querySelector<HTMLElement>('.settings-panel')?.textContent).toContain('存储占用');
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="set-bookmarks-tab"][data-tab="about"]')!.click();
+        const zhAboutPanel = shadow.querySelector<HTMLElement>('.about-panel');
+        expect(zhAboutPanel?.querySelector<HTMLImageElement>('.mappamory-promo-card__image')?.src).toContain(
+            'icons/mappamory-changelog-4.6.0.png',
+        );
+        expect(zhAboutPanel?.querySelector('.mappamory-promo-card__social-link')).toBeNull();
 
         panel.hide();
     });
@@ -1318,7 +1344,7 @@ describe('BookmarksPanel', () => {
         panel.hide();
     });
 
-    it('lets settings reader popovers consume Escape before the bookmarks panel closes', async () => {
+    it('lets settings formula asset popovers consume Escape before the bookmarks panel closes', async () => {
         const snapshot = {
             vm: {
                 query: '',
@@ -1364,36 +1390,21 @@ describe('BookmarksPanel', () => {
         const host = document.getElementById('aimd-bookmarks-panel-host')!;
         const shadow = host.shadowRoot!;
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
-        shadow.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')!.click();
-        expect(shadow.querySelector('.reader-settings-popover--template')).toBeTruthy();
-
-        shadow.querySelector<HTMLElement>('[data-role="commentTemplate"]')!
-            .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-        shadow.querySelector<HTMLElement>('.settings-panel')!
-            .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
-        expect(shadow.querySelector('.reader-settings-popover--template')).toBeTruthy();
-
-        shadow.querySelector<HTMLElement>('.settings-panel')!
-            .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-        shadow.querySelector<HTMLElement>('.settings-panel')!
-            .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
-        expect(shadow.querySelector('.reader-settings-popover--template')).toBeNull();
-
-        shadow.querySelector<HTMLButtonElement>('[data-role="settings-reader-template"]')!.click();
-        expect(shadow.querySelector('.reader-settings-popover--template')).toBeTruthy();
+        shadow.querySelector<HTMLButtonElement>('[data-role="settings-formula-asset-actions"]')!.click();
+        expect(shadow.querySelector('.formula-asset-settings')).toBeTruthy();
 
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
 
-        expect(shadow.querySelector('.reader-settings-popover--template')).toBeNull();
+        expect(shadow.querySelector('.formula-asset-settings')).toBeNull();
         expect(panel.isVisible()).toBe(true);
         expect(host.isConnected).toBe(true);
 
-        shadow.querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')!.click();
-        expect(shadow.querySelector('.reader-prompt-settings')).toBeTruthy();
+        shadow.querySelector<HTMLButtonElement>('[data-role="settings-formula-asset-actions"]')!.click();
+        expect(shadow.querySelector('.formula-asset-settings')).toBeTruthy();
 
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
 
-        expect(shadow.querySelector('.reader-prompt-settings')).toBeNull();
+        expect(shadow.querySelector('.formula-asset-settings')).toBeNull();
         expect(panel.isVisible()).toBe(true);
         expect(host.isConnected).toBe(true);
 

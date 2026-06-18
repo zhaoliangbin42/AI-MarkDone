@@ -2378,6 +2378,81 @@ ${getPanelChromeCss()}
   line-height: 1.65;
 }
 
+.mappamory-promo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(220px, 1.08fr);
+  gap: var(--aimd-space-5);
+  align-items: center;
+  padding: var(--aimd-space-5);
+  border-radius: var(--_bookmarks-card-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
+  background: color-mix(in srgb, var(--aimd-bg-surface) 96%, var(--aimd-bg-primary));
+  box-shadow: var(--aimd-shadow-sm);
+}
+
+.mappamory-promo-card__content {
+  min-width: 0;
+  display: grid;
+  gap: var(--aimd-space-3);
+  align-content: center;
+}
+
+.mappamory-promo-card__eyebrow {
+  width: fit-content;
+  color: var(--aimd-interactive-primary);
+  font-size: var(--aimd-text-xs);
+  font-weight: var(--aimd-font-semibold);
+  line-height: 1.35;
+}
+
+.mappamory-promo-card__title {
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-xl);
+  font-weight: var(--aimd-font-semibold);
+  line-height: 1.25;
+}
+
+.mappamory-promo-card__copy {
+  margin: 0;
+  color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
+  font-size: var(--aimd-text-sm);
+  line-height: 1.65;
+}
+
+.mappamory-promo-card__social-link {
+  width: fit-content;
+  max-width: 100%;
+  color: var(--aimd-interactive-primary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+  line-height: 1.45;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.mappamory-promo-card__social-link:hover {
+  text-decoration: underline;
+}
+
+.mappamory-promo-card__button {
+  justify-self: start;
+}
+
+.mappamory-promo-card__media {
+  min-width: 0;
+  padding: var(--aimd-space-2);
+  border-radius: var(--_bookmarks-card-radius);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 68%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+}
+
+.mappamory-promo-card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--_bookmarks-card-radius) - var(--aimd-space-1));
+}
+
 .about-website-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2911,12 +2986,20 @@ ${getPanelChromeCss()}
     grid-template-columns: 1fr;
   }
 
+  .mappamory-promo-card {
+    grid-template-columns: 1fr;
+  }
+
   .support-contact-card__actions {
     justify-content: stretch;
   }
 
   .support-contact-card__button {
     flex: 1 1 160px;
+  }
+
+  .mappamory-promo-card__button {
+    justify-self: stretch;
   }
 }
 

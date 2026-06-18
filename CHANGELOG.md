@@ -5,7 +5,57 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [4.6.0] - 2026-06-18
+
+大家好啊，这次更新酝酿了很久，也做了一次比较大幅度的升级。
+
+这段时间我一直想解决一个很具体、也很烦人的问题：ChatGPT 长对话真的太容易卡了。我自己是 Pro 用户，用 Pro 模型时，每一条消息都很长。实际用下来，超过三条长消息之后，网页就已经明显卡得动不了了；哪怕打开阅读器，也只能缓解，不能从根本上解决。
+
+从原理上讲，问题并不神秘。ChatGPT 页面本身要渲染非常重的 Markdown，尤其是公式很多的时候，渲染压力会非常大。只要你还在 ChatGPT 页面里操作，不管是滚动、点击、复制，还是打开插件界面，都多少会被这个页面的渲染压力拖住。ChatGPT 官方其实也做过优化。大概从 4 月底开始，网页逐渐变成增量加载模式，旧消息会被适当卸载，以降低整体渲染压力。但即便如此，长消息本身带来的渲染压力还是没有办法彻底消失。
+
+所以这次我换了一个思路：既然 ChatGPT 页面本身卡，那能不能跳出这个页面？
+
+### 原理解析
+
+AI-MarkDone 原本就有阅读器能力：在 ChatGPT 页面中发现消息、提取内容、整理结构，然后在阅读器里重新渲染。既然已经能提取消息，那么我就在想，能不能把这份阅读器内容放到一个独立的扩展页里打开？
+
+查了一圈浏览器扩展文档之后，我发现这是可行的。扩展页可以通过浏览器 runtime 和原始 ChatGPT 页面建立桥接。也就是说，独立页负责渲染一个完整的阅读器，原 ChatGPT 页面负责提供内容、发送、刷新、定位等能力；两边通过浏览器内部通信保持连接。
+
+这样一来，阅读本身就不再受 ChatGPT 官方网页的 DOM 和 Markdown 渲染压力影响。独立阅读器跑在扩展自己的页面里，页面更干净，渲染压力也更可控。你仍然可以刷新、发送、定位原文，但主要阅读体验已经从卡顿的 ChatGPT 页面里抽离出来了。
+
+当然，真正做起来并不是把阅读器搬过去这么简单。因为涉及原页面和独立页之间的桥接、会话、刷新、发送、定位、书签、主题、公式样式等一整套对齐，所以这次重写和补齐了不少底层链路。既然都叫阅读器了，我也顺手把一些原本藏在设置里的阅读功能搬回阅读器内部：现在可以直接调节字号、宽度和显示方式。
+
+说实话，我现在自己更喜欢在阅读器里继续对话。它既能避开长网页卡顿，又有注释、Sticky、复制、书签等一堆顺手的小功能。还没试过阅读器的朋友，尤其是经常读长对话的朋友，真的建议试试。
+
+### 隐私说明
+
+AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上。如果你不放心，可以把 GitHub 链接发给 ChatGPT，让它帮你一起看代码。
+
+插件里的内容发现链路，本质上是为了复制 Markdown、导航栏、阅读器、书签和导出这些功能服务的。只有能读取当前页面里的内容，才可能支撑这些能力。新的独立阅读器也是一样：它是在浏览器管理的扩展页里运行，通过浏览器内部通道和原 ChatGPT 标签页通信，不会把内容传到任何外部服务器。关闭独立页后，这次打开的会话也就结束了，不会额外长期保存。
+
+### 也介绍一下我的 iOS App：好友迹
+
+接下来我要图穷匕见了。现在已经是毕业季，很多朋友可能都要各奔东西。我自己一直希望有一个方便的地方，能够把朋友的家乡、工作地点、常去的城市记录下来。正因为这个真实需求，我开发了一个 iOS App，叫“好友迹”。
+
+它的定位是好友地图通讯录。你可以在里面创建人物，为每个人添加很多地点，并给地点打上标签。这些人和地点会在地图上展示出来。每次和朋友聊天聊到某个地方，就顺手记一下。久而久之，地图会一点点丰满起来，你会发现，原来身边这么多朋友已经散落在天南地北。
+
+以后再次见面时，你不会因为忘记 TA 的家乡、学校或工作地点而尴尬；到了某座城市，打开地图，也许就会想起某个朋友正在这里落脚，不如约着见一面。软件整体非常容易上手，也尽量做得简洁好看。
+
+![好友迹 - 好友地图通讯录](./public/icons/mappamory-changelog-4.6.0.png)
+
+这个 App 刚刚上架。**在 2026 年 6 月 30 日之前下载的朋友，可以联系我的小红书，我会为每人赠送一个一年的兑换码。** 也希望大家多提意见、多多支持、多多宣传。我真的很喜欢大家一起群策群力，把一件事情越做越好的感觉。
+
+另外也说明一下：**好友迹不是社交 App，不需要联网，也不需要账号。所有记录下来的内容都只会保存在本地。** 感兴趣的朋友欢迎下载体验。
+
+**下载地址：**[**https://apps.apple.com/cn/app/mappamory/id6769453796**](https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB)
+
+再次感谢大家。AI-MarkDone 不会打任何第三方广告，但我自己的作品还是想在这里宣传一下，哈哈哈，~\(≥▽≤)/~，希望没有打扰到大家。
+
+### 每日 Tips
+
+- 页面内支持使用左右方向键切换上一条 / 下一条消息，前提是光标没有停在输入框里。简单说，先点击页面空白处，再按左右方向键即可。如果不能切换，可以在设置里单独开启。
+- 当前绝大多数功能都可以在设置里单独开启或关闭。如果你觉得某个功能打扰到你，可以打开设置，找到对应开关后关闭。
+- 你的评分和反馈是我持续完善插件的动力，欢迎多多支持，也欢迎继续交流。插件也有小红书用户群，欢迎在“关于我”里面扫码关注我，并加入群聊，保持后续交流。
 
 ### Added
 - Reader: Added a detached ChatGPT Reader tab that reuses the existing Reader rendering and content source while routing refresh, send, locate, and close actions back through the original ChatGPT tab.
@@ -14,12 +64,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formula: Added a setting for formula click-copy to include Markdown math delimiters by default, copying inline formulas as `$...$` and display formulas as `$$...$$`.
 - Formula: Added a setting for single-formula PNG/SVG export font size, defaulting to 36px for consistent paper-ready output.
 
+### Changed
+- Reader annotation export now uses a multiline template with explicit `【选中文字】` and `【用户注释】` placeholders instead of separate prompt-1/2/3 fields, while keeping a separate user prompt header for LLM-ready output.
+- Formula: Changed single-formula PNG/SVG export to capture the already-rendered page formula DOM first, matching page-rendered Chinese underbraces and other complex formulas while keeping MathJax as a fallback and for MathML.
+- UI Contracts: Promoted transient-root outside-click handling into a shared UI contract and introduced a reusable overlay session wrapper, then moved Save Messages and shared modal flows onto the same overlay slot model.
+- Modal Stability: Mounted shared modals into explicit overlay modal roots and switched them onto the shared keyboard-scope stack so nested dialogs close and restore focus more reliably.
+- Sending/Toolbar: Moved Send Modal back onto the shared overlay-host route and renamed toolbar pseudo tokens to the formal `--aimd-toolbar-*` component contract without changing placement behavior.
+- UI: Rebalanced panel typography so settings groups, sponsor sections, bookmark folders, reader content, toolbar stats, send status, and folding controls follow a clearer shared size hierarchy.
+
 ### Fixed
 - ChatGPT: Removed component block wrappers such as writing blocks from Reader, copy, export, and bookmark content while preserving the actual message body.
+- Bookmarks/Modal: Added shared input-event isolation for rename, confirm, and save dialogs so host-page handlers are less likely to intercept modal interactions.
+- Bookmarks: Batch delete now removes checked folders themselves, along with their descendant folders and saved items.
+- Bookmarks: Fixed the ChatGPT folding settings dropdown so clicking its trigger again closes it inside the shadow-hosted panel, and corrected the expanded-count stepper arrows to use the proper up/down affordances.
+- Bookmarks: Brightened dark-mode platform toggles and added clearer spacing between platform icons and labels in settings so the platform section reads more cleanly against the dark panel surface.
+- Bookmarks: Fixed the Sponsor GitHub star CTA to render as a real external link with the expected target and rel attributes instead of relying on a button-only click action.
 - Formula: Fixed formula SVG/PNG copy and save for formulas containing Chinese text by stabilizing fallback text fonts and SVG dimensions before rasterization.
 - Formula: Made single-formula PNG copy and save more reliable for large formulas by scaling the one-shot canvas output within browser-safe limits without slicing or stitching formulas.
 - Formula: Fixed SVG/PNG copy for formulas with stretch glyphs such as underbraces and NewCM script/calligraphic glyphs by preserving nested SVG glyphs inside the single exported formula SVG.
-- Formula: Changed single-formula PNG/SVG export to capture the already-rendered page formula DOM first, matching page-rendered Chinese underbraces and other complex formulas while keeping MathJax as a fallback and for MathML.
 - Reader: Kept detached Reader sessions in extension session storage only, avoiding persistent local storage for conversation snapshots.
 - Reader: Closing a detached Reader from inside the Reader page now cleans up its session and closes the detached extension page.
 - Reader: Detached Reader now syncs the extension page theme and token overrides before rendering, and only stores first-use notice acknowledgement after the detached session is created successfully.
@@ -31,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Detached Reader now shows the same bookmark action as the in-page Reader, reuses the bookmark save dialog, and can locate the source ChatGPT message without closing the detached tab.
 - Reader: The in-page Reader header refresh now uses the same fresh Reader content source as detached Reader refresh, while keeping the user on the matching current page when possible.
 - Reader: Fullscreen Reader now opens with a fade-only motion instead of briefly inheriting the centered panel transform from the top-left area.
+- Reader: Fixed external-open affordances so the header action now hides when no conversation target exists, and rendered markdown links open with explicit safe external-link attributes.
 - ChatGPT: Hiding Previous/Next message buttons no longer hides the detached Reader Split View entry.
 
 ## [4.5.1] - 2026-06-07
@@ -594,17 +657,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [2.0.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v2.0.0
 [0.5.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v0.5.0
-- Bookmarks/Modal: Added shared input-event isolation for rename, confirm, and save dialogs so host-page handlers are less likely to intercept modal interactions.
-- Bookmarks: Batch delete now removes checked folders themselves, along with their descendant folders and saved items.
-- Bookmarks: Fixed the ChatGPT folding settings dropdown so clicking its trigger again closes it inside the shadow-hosted panel, and corrected the expanded-count stepper arrows to use the proper up/down affordances.
-- Bookmarks: Brightened dark-mode platform toggles and added clearer spacing between platform icons and labels in settings so the platform section reads more cleanly against the dark panel surface.
-- Bookmarks: Fixed the Sponsor GitHub star CTA to render as a real external link with the expected target and rel attributes instead of relying on a button-only click action.
-- Reader: Fixed external-open affordances so the header action now hides when no conversation target exists, and rendered markdown links open with explicit safe external-link attributes.
-- UI Contracts: Promoted transient-root outside-click handling into a shared UI contract and introduced a reusable overlay session wrapper, then moved Save Messages and shared modal flows onto the same overlay slot model.
-- Modal Stability: Mounted shared modals into explicit overlay modal roots and switched them onto the shared keyboard-scope stack so nested dialogs close and restore focus more reliably.
-- Sending/Toolbar: Moved Send Modal back onto the shared overlay-host route and renamed toolbar pseudo tokens to the formal `--aimd-toolbar-*` component contract without changing placement behavior.
-- UI: Rebalanced panel typography so settings groups, sponsor sections, bookmark folders, reader content, toolbar stats, send status, and folding controls follow a clearer shared size hierarchy.
-## Unreleased
-
-### Changed
-- Reader annotation export now uses a multiline template with explicit `【选中文字】` and `【用户注释】` placeholders instead of separate prompt-1/2/3 fields, while keeping a separate user prompt header for LLM-ready output.

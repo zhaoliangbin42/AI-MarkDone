@@ -9,6 +9,7 @@ import { renderChangelogSections } from '../bookmarks/ui/tabs/renderChangelogSec
 type ChangelogNoticePresenterParams = {
     modalHost: ModalHost;
     onViewAll?: () => void;
+    resolveAssetUrl?: (assetPath: string) => string;
     loggerScope?: string;
 };
 
@@ -60,7 +61,7 @@ export async function showChangelogNoticeIfNeeded(params: ChangelogNoticePresent
     await params.modalHost.showCustom({
         kind: 'info',
         title: tr('changelogNoticeTitle', `What's new in AI-MarkDone ${latestEntry.version}`, [latestEntry.version]),
-        body: buildChangelogNoticeBody(latestEntry),
+        body: buildChangelogNoticeBody(latestEntry, params.resolveAssetUrl),
         footer: (footer, close) => {
             if (params.onViewAll) {
                 const viewAll = document.createElement('button');
@@ -101,7 +102,10 @@ export async function showChangelogNoticeIfNeeded(params: ChangelogNoticePresent
     return true;
 }
 
-function buildChangelogNoticeBody(latestEntry: NonNullable<ReturnType<typeof loadLatestChangelogEntry>>): HTMLElement {
+function buildChangelogNoticeBody(
+    latestEntry: NonNullable<ReturnType<typeof loadLatestChangelogEntry>>,
+    resolveAssetUrl?: (assetPath: string) => string,
+): HTMLElement {
     const body = document.createElement('div');
     body.className = 'changelog-notice-modal';
 
@@ -118,13 +122,13 @@ function buildChangelogNoticeBody(latestEntry: NonNullable<ReturnType<typeof loa
 
     const content = document.createElement('div');
     content.className = 'changelog-notice-modal__content';
-    content.appendChild(renderInfoBlocks(latestEntry.leadBlocks));
+    content.appendChild(renderInfoBlocks(latestEntry.leadBlocks, { resolveAssetUrl }));
     body.appendChild(content);
 
     if (latestEntry.sections.length > 0) {
         const sections = document.createElement('div');
         sections.className = 'changelog-notice-modal__sections';
-        sections.appendChild(renderChangelogSections(latestEntry.sections));
+        sections.appendChild(renderChangelogSections(latestEntry.sections, { resolveAssetUrl }));
         body.appendChild(sections);
     }
 
@@ -175,6 +179,41 @@ function getChangelogNoticeCss(): string {
   color: color-mix(in srgb, var(--aimd-text-secondary) 92%, transparent);
   font-size: var(--aimd-text-sm);
   line-height: 1.7;
+}
+
+.info-copy a,
+.info-mark a,
+.info-list a {
+  color: var(--aimd-interactive-primary);
+  text-decoration: none;
+  font-weight: var(--aimd-font-semibold);
+}
+
+.info-copy a:hover,
+.info-mark a:hover,
+.info-list a:hover {
+  text-decoration: underline;
+}
+
+.info-mark {
+  color: var(--aimd-interactive-primary);
+  font-weight: var(--aimd-font-semibold);
+}
+
+.info-media {
+  margin: 0;
+  padding: var(--aimd-space-3);
+  border-radius: var(--aimd-radius-md);
+  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 68%, transparent);
+  background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+}
+
+.info-media__image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: calc(var(--aimd-radius-md) - var(--aimd-space-1));
 }
 
 .info-list {

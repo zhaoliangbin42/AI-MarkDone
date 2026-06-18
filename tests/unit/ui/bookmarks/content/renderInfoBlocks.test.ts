@@ -39,6 +39,24 @@ describe('renderInfoBlocks', () => {
         expect(listMark?.textContent).toBe('官网');
     });
 
+    it('keeps links clickable inside theme-highlight inline marks', () => {
+        const fragment = renderInfoBlocks([
+            { type: 'paragraph', text: '==Download: [App Store](https://apps.apple.com/cn/app/mappamory/id6769453796)==' },
+        ]);
+
+        const host = document.createElement('div');
+        host.appendChild(fragment);
+
+        const mark = host.querySelector<HTMLElement>('.info-mark');
+        const link = mark?.querySelector<HTMLAnchorElement>('a');
+
+        expect(mark?.textContent).toBe('Download: App Store');
+        expect(link?.textContent).toBe('App Store');
+        expect(link?.href).toBe('https://apps.apple.com/cn/app/mappamory/id6769453796');
+        expect(link?.target).toBe('_blank');
+        expect(link?.rel).toBe('noopener noreferrer');
+    });
+
     it('renders image blocks through the provided asset resolver', () => {
         const fragment = renderInfoBlocks(
             [{ type: 'image', alt: 'Project mark', src: 'icons/icon128.png' }],

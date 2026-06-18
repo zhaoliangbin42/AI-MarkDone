@@ -179,6 +179,8 @@ describe('extension manifest generation', () => {
         expect(safari.web_accessible_resources).toContain('icons/icon128.png');
         expect(safari.web_accessible_resources).toContain('icons/icon128_gray.png');
         expect(safari.web_accessible_resources).toContain('icons/about_avatar.png');
+        expect(safari.web_accessible_resources).toContain('icons/mappamory-changelog-4.6.0.png');
+        expect(safari.web_accessible_resources).toContain('icons/mappamory-about-en-4.6.0.png');
         expect(safari.web_accessible_resources).not.toContain('icons/*.png');
         expect(safari.web_accessible_resources).not.toContain('icons/bmc_qr.png');
         expect(safari.web_accessible_resources).not.toContain('icons/wechat_qr.png');

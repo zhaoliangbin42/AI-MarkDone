@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.5.1-10A37F" alt="Version 4.5.1">
+    <img src="https://img.shields.io/badge/Version-4.6.0-10A37F" alt="Version 4.6.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -204,12 +204,12 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.5.1
-- Restored the optional ChatGPT right-side directory rail. When enabled, it hides ChatGPT's official conversation rail by default.
-- Restored formula recognition support for DeepSeek, Claude, and Gemini.
-- Fixed ChatGPT generative UI noise cleanup so Reader, Markdown copy, export, and bookmark save no longer include strange internal markers.
-- Fixed Firefox ChatGPT content discovery for bookmarks, Copy Markdown, Reader, and related flows.
-- Added a bottom Feedback tab in the bookmarks panel with support contact actions and the AI-MarkDone website link.
+### 4.6.0
+- Added detached Reader view, opened from the lower-right corner of the ChatGPT page, to avoid long-message page lag.
+- Reader now supports fullscreen defaults, font-size controls, width controls, and aligned send, refresh, locate, and bookmark flows across in-page and detached Reader.
+- Reworked single-formula PNG/SVG/MathML export to prefer the already-rendered page formula, improving Chinese text, underbrace, and complex formula stability.
+- Formula click-copy can now include `$...$` or `$$...$$` math delimiters automatically.
+- Fixed inline `$$...$$` parsing, ChatGPT component wrapper cleanup, and formula image export reliability.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

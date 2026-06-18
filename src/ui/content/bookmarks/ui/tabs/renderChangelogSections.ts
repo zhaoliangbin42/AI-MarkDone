@@ -1,5 +1,5 @@
 import type { ParsedChangelogCategory } from '../../content/types';
-import { renderInfoBlocks } from './renderInfoBlocks';
+import { appendInlineMarkdown, renderInfoBlocks } from './renderInfoBlocks';
 
 export function renderChangelogSections(
     sections: ParsedChangelogCategory[],
@@ -13,7 +13,7 @@ export function renderChangelogSections(
 
         const heading = document.createElement('h4');
         heading.className = 'changelog-entry-section__title';
-        heading.textContent = section.heading;
+        appendInlineMarkdown(heading, section.heading);
         shell.appendChild(heading);
 
         const body = document.createElement('div');

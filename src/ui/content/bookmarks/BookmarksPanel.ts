@@ -807,6 +807,7 @@ export class BookmarksPanel {
         await showChangelogNoticeIfNeeded({
             modalHost,
             loggerScope: 'BookmarksPanel',
+            resolveAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
             onViewAll: () => {
                 if (!this.visible || this.closing) return;
                 this.switchToTab('changelog');

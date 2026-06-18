@@ -32,6 +32,8 @@ export const extensionIconFiles = [
     'icon48_gray.png',
     'icon128_gray.png',
     'about_avatar.png',
+    'mappamory-changelog-4.6.0.png',
+    'mappamory-about-en-4.6.0.png',
 ] as const;
 
 export const safariExcludedIconFiles = [

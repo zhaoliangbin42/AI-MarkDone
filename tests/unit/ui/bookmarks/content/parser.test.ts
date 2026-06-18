@@ -10,26 +10,39 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-06-07');
-        expect(zh.entries[1]?.date).toBe('2026-06-05');
-        expect(en.entries[4]?.leadBlocks[0]).toEqual(
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-06-18');
+        expect(zh.entries[1]?.date).toBe('2026-06-07');
+        expect(en.entries[5]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
             }),
         );
         expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual([
-            '恢复',
+            '原理解析',
+            '隐私说明',
+            '==也介绍一下我的 iOS App：好友迹==',
+            '新增',
+            '优化',
             '修复',
-            '官网与支持',
+            '每日 Tips',
         ]);
         expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual([
-            'Restored',
+            'How it works',
+            'Privacy',
+            '==A small introduction to my iOS app: Mappamory==',
+            'Added',
+            'Improved',
             'Fixed',
-            'Website and Support',
+            'Daily Tips',
         ]);
+        expect(zh.entries[0]?.sections[2]?.blocks).toContainEqual({
+            type: 'image',
+            alt: '好友迹 - 好友地图通讯录',
+            src: 'icons/mappamory-changelog-4.6.0.png',
+        });
     });
 
     it('parses about markdown into title, lead, and sections', () => {

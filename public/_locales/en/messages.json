@@ -1403,6 +1403,30 @@
         "message": "Visit website",
         "description": "Message for aboutWebsiteButton"
     },
+    "mappamoryPromoEyebrow": {
+        "message": "My iOS app",
+        "description": "Message for mappamoryPromoEyebrow"
+    },
+    "mappamoryPromoTitle": {
+        "message": "Mappamory",
+        "description": "Message for mappamoryPromoTitle"
+    },
+    "mappamoryPromoDesc": {
+        "message": "A local-first friends map contact book for remembering the hometowns, schools, workplaces, and meaningful places of people you care about. Before June 30, message me on X to get one year of membership. I hope you like it.",
+        "description": "Message for mappamoryPromoDesc"
+    },
+    "mappamoryPromoXLink": {
+        "message": "X: https://x.com/Mappamory",
+        "description": "Message for mappamoryPromoXLink"
+    },
+    "mappamoryPromoButton": {
+        "message": "View on App Store",
+        "description": "Message for mappamoryPromoButton"
+    },
+    "mappamoryPromoImageAlt": {
+        "message": "Mappamory app preview",
+        "description": "Message for mappamoryPromoImageAlt"
+    },
     "supportContactEyebrow": {
         "message": "Support",
         "description": "Message for supportContactEyebrow"

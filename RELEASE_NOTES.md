@@ -1,5 +1,24 @@
 # Release Notes
 
+## v4.6.0 (2026-06-18)
+
+This release adds a detached Reader for long ChatGPT conversations, aligns Reader actions across in-page and detached modes, and improves formula export reliability for Markdown-heavy and math-heavy work.
+
+### Added
+- Added a detached Reader view that opens from the lower-right ChatGPT page controls, giving long conversations a separate extension page that avoids ChatGPT page rendering lag.
+- Added Reader defaults and controls for fullscreen, font size, and content width.
+- Added a formula copy setting to include `$...$` or `$$...$$` math delimiters automatically when copying formulas.
+
+### Changed
+- Aligned send, refresh, locate, and bookmark actions between the in-page Reader and detached Reader.
+- Reworked single-formula SVG/PNG export to prefer the already-rendered page formula, with MathJax kept as a fallback path.
+- Formula PNG export now keeps a stable default formula size while safely scaling very large formulas into one complete image.
+
+### Fixed
+- Fixed inline `$$...$$` parsing so it no longer turns inline math into display math.
+- Fixed ChatGPT component wrapper cleanup so generated component shells are removed before Reader, Copy, Export, and Bookmark flows consume the content.
+- Improved formula image export for Chinese text, underbrace layouts, matrices, and other complex formulas.
+
 ## v4.5.1 (2026-06-07)
 
 This patch restores the optional AI-MarkDone navigation rail for ChatGPT users who do not have ChatGPT's official rail, brings back formula recognition on DeepSeek, Claude, and Gemini, and fixes several Reader and browser-compatibility issues.

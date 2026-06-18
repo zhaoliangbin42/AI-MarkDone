@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.5.1-10A37F" alt="Version 4.5.1">
+    <img src="https://img.shields.io/badge/Version-4.6.0-10A37F" alt="Version 4.6.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -203,12 +203,12 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.5.1
-- 恢复可选的 ChatGPT 右侧目录条。开启后，会默认隐藏 ChatGPT 官方对话导航。
-- 恢复 DeepSeek、Claude 和 Gemini 的公式识别适配。
-- 修复 ChatGPT 生成式 UI 噪音清理问题，阅读器、复制 Markdown、导出和书签保存不再混入奇怪内部标记。
-- 修复 Firefox 浏览器中 ChatGPT 内容发现失败的问题，书签、复制 Markdown、阅读器等功能恢复正常。
-- 书签管理面板底部新增反馈页，集中放置反馈邮箱和 AI-MarkDone 官网入口。
+### 4.6.0
+- 新增独立阅读器视图，可从 ChatGPT 页面右下角打开，绕开长消息页面卡顿。
+- 阅读器支持默认全屏、字号调节、宽度调节，并与网页内阅读器对齐发送、刷新、定位和书签链路。
+- 重构单公式 PNG/SVG/MathML 导出链路，优先复用页面已渲染公式，提升中文、下大括号和复杂公式导出稳定性。
+- 点击复制公式时，可以选择是否自动添加 `$...$` 或 `$$...$$` 数学环境。
+- 修复行内 `$$...$$` 误识别、ChatGPT 组件块外壳清理，以及公式图片导出稳定性问题。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

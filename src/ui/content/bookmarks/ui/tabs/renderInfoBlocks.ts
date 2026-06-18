@@ -43,7 +43,8 @@ export function renderInfoBlocks(
 
 const inlineMarkdownPattern = /(==([^=\n][\s\S]*?)==|\*\*([^*][\s\S]*?)\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
 
-function appendInlineMarkdown(container: HTMLElement, text: string): void {
+export function appendInlineMarkdown(container: HTMLElement, text: string, options: { allowMarks?: boolean } = {}): void {
+    const allowMarks = options.allowMarks ?? true;
     let lastIndex = 0;
 
     for (const match of text.matchAll(inlineMarkdownPattern)) {
@@ -54,11 +55,13 @@ function appendInlineMarkdown(container: HTMLElement, text: string): void {
             appendTextWithLineBreaks(container, text.slice(lastIndex, matchIndex));
         }
 
-        if (match[2]) {
+        if (match[2] && allowMarks) {
             const mark = document.createElement('span');
             mark.className = 'info-mark';
-            appendTextWithLineBreaks(mark, match[2]);
+            appendInlineMarkdown(mark, match[2], { allowMarks: false });
             container.append(mark);
+        } else if (match[2]) {
+            appendTextWithLineBreaks(container, match[0]);
         } else if (match[3]) {
             const strong = document.createElement('strong');
             appendTextWithLineBreaks(strong, match[3]);

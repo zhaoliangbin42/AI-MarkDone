@@ -142,6 +142,21 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
         expect(aboutPanel?.querySelector('.info-profile__avatar')).toBeTruthy();
         expect(aboutPanel?.querySelector('.about-website-card')).toBeNull();
         expect(aboutPanel?.querySelector('.support-contact-card')).toBeNull();
+        const mappamoryCard = aboutPanel?.querySelector<HTMLElement>('.mappamory-promo-card');
+        const mappamoryLink = mappamoryCard?.querySelector<HTMLAnchorElement>('.mappamory-promo-card__button');
+        const mappamoryXLink = mappamoryCard?.querySelector<HTMLAnchorElement>('.mappamory-promo-card__social-link');
+        const mappamoryImage = mappamoryCard?.querySelector<HTMLImageElement>('.mappamory-promo-card__image');
+        expect(mappamoryCard).toBeTruthy();
+        expect(mappamoryLink?.href).toBe('https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB');
+        expect(mappamoryLink?.target).toBe('_blank');
+        expect(mappamoryLink?.rel).toContain('noopener');
+        expect(mappamoryLink?.rel).toContain('noreferrer');
+        expect(mappamoryXLink?.textContent).toBe('X: https://x.com/Mappamory');
+        expect(mappamoryXLink?.href).toBe('https://x.com/Mappamory');
+        expect(mappamoryXLink?.target).toBe('_blank');
+        expect(mappamoryXLink?.rel).toContain('noopener');
+        expect(mappamoryXLink?.rel).toContain('noreferrer');
+        expect(mappamoryImage?.src).toContain('icons/mappamory-about-en-4.6.0.png');
         expect(aboutPanel?.querySelector('.social-follow-card')).toBeNull();
         expect(aboutPanel?.textContent).not.toContain('Feedback and contact');
 

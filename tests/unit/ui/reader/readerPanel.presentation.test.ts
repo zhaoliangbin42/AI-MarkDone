@@ -77,7 +77,7 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.5.1',
+                pendingVersion: '4.6.0',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -95,16 +95,17 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.5.1");
-            expect(modal?.textContent).toContain('2026-06-07');
-            expect(modal?.textContent).toContain('Friends, thank you for waiting');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.6.0");
+            expect(modal?.textContent).toContain('2026-06-18');
+            expect(modal?.textContent).toContain('long ChatGPT conversations can become painfully slow');
+            expect(modal?.querySelector<HTMLImageElement>('.info-media__image')?.src).toContain('icons/mappamory-changelog-4.6.0.png');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.5.1');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.6.0');
         } finally {
             panel.hide();
         }

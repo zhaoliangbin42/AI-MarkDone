@@ -1403,6 +1403,30 @@
         "message": "浏览官网",
         "description": "Message for aboutWebsiteButton"
     },
+    "mappamoryPromoEyebrow": {
+        "message": "我的 iOS App",
+        "description": "Message for mappamoryPromoEyebrow"
+    },
+    "mappamoryPromoTitle": {
+        "message": "好友迹",
+        "description": "Message for mappamoryPromoTitle"
+    },
+    "mappamoryPromoDesc": {
+        "message": "好友地图通讯录。把朋友的家乡、学校、工作地点和重要地点记在地图上，久而久之，就能看见一张属于你的朋友地图。6 月 30 日前，小红书后台私信我，可以领取一年会员。希望你喜欢。",
+        "description": "Message for mappamoryPromoDesc"
+    },
+    "mappamoryPromoXLink": {
+        "message": "X: https://x.com/Mappamory",
+        "description": "Message for mappamoryPromoXLink"
+    },
+    "mappamoryPromoButton": {
+        "message": "前往 App Store",
+        "description": "Message for mappamoryPromoButton"
+    },
+    "mappamoryPromoImageAlt": {
+        "message": "好友迹 App 预览",
+        "description": "Message for mappamoryPromoImageAlt"
+    },
     "supportContactEyebrow": {
         "message": "支持联系",
         "description": "Message for supportContactEyebrow"

@@ -363,6 +363,7 @@ export class ReaderPanel {
             void showChangelogNoticeIfNeeded({
                 modalHost: this.overlaySession.modalHost,
                 loggerScope: 'ReaderPanel',
+                resolveAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
             });
         }
     }
