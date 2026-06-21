@@ -7,6 +7,14 @@ const adapter = {
     getMessageSelector: () => '[data-message]',
 } as any;
 
+const controllers: ChatGPTSendPositionRestoreController[] = [];
+
+function createController(): ChatGPTSendPositionRestoreController {
+    const controller = new ChatGPTSendPositionRestoreController(adapter);
+    controllers.push(controller);
+    return controller;
+}
+
 class FakeMutationObserver {
     static instances: FakeMutationObserver[] = [];
     callback: MutationCallback;
@@ -73,6 +81,7 @@ describe('ChatGPTSendPositionRestoreController', () => {
     });
 
     afterEach(() => {
+        for (const controller of controllers.splice(0)) controller.dispose();
         vi.useRealTimers();
         vi.unstubAllGlobals();
         document.documentElement.removeAttribute('data-aimd-chatgpt-send-restore-active');
@@ -80,7 +89,7 @@ describe('ChatGPTSendPositionRestoreController', () => {
 
     it('does not register a MutationObserver while disabled', async () => {
         appendConversation();
-        const controller = new ChatGPTSendPositionRestoreController(adapter);
+        const controller = createController();
         controller.init();
         controller.setEnabled(false);
 
@@ -95,7 +104,7 @@ describe('ChatGPTSendPositionRestoreController', () => {
         const composer = document.createElement('textarea');
         composer.id = 'prompt-textarea';
         document.body.appendChild(composer);
-        const controller = new ChatGPTSendPositionRestoreController(adapter);
+        const controller = createController();
         controller.init();
         controller.setEnabled(true);
 
@@ -108,10 +117,29 @@ describe('ChatGPTSendPositionRestoreController', () => {
         expect(FakeMutationObserver.instances).toHaveLength(1);
     });
 
+    it('does not arm from official Enter when Enter-newline mode is enabled', async () => {
+        const root = appendConversation();
+        const composer = document.createElement('textarea');
+        composer.id = 'prompt-textarea';
+        document.body.appendChild(composer);
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        controller.setEnterKeyNewlineEnabled(true);
+
+        composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        root.scrollTop = 1200;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.runOnlyPendingTimersAsync();
+
+        expect(root.scrollTop).toBe(1200);
+        expect(FakeMutationObserver.instances).toHaveLength(0);
+    });
+
     it('does not arm when already near the bottom', () => {
         const root = appendConversation();
         defineScrollRoot(root, { scrollTop: 1370, scrollHeight: 2000, clientHeight: 500 });
-        const controller = new ChatGPTSendPositionRestoreController(adapter);
+        const controller = createController();
         controller.init();
         controller.setEnabled(true);
 
@@ -128,7 +156,7 @@ describe('ChatGPTSendPositionRestoreController', () => {
         }).mockReturnValue({
             x: 0, y: -420, top: -420, left: 0, right: 100, bottom: -380, width: 100, height: 40, toJSON: () => ({}),
         });
-        const controller = new ChatGPTSendPositionRestoreController(adapter);
+        const controller = createController();
         controller.init();
         controller.setEnabled(true);
 
@@ -142,7 +170,7 @@ describe('ChatGPTSendPositionRestoreController', () => {
 
     it('releases on explicit navigation and stops restoring', async () => {
         const root = appendConversation();
-        const controller = new ChatGPTSendPositionRestoreController(adapter);
+        const controller = createController();
         controller.init();
         controller.setEnabled(true);
 
@@ -158,7 +186,7 @@ describe('ChatGPTSendPositionRestoreController', () => {
 
     it('releases after too many restore attempts', async () => {
         const root = appendConversation();
-        const controller = new ChatGPTSendPositionRestoreController(adapter);
+        const controller = createController();
         controller.init();
         controller.setEnabled(true);
 

@@ -189,6 +189,7 @@ describe('settingsService', () => {
     it('writes scoped ChatGPT behavior settings without restoring retired ChatGPT category', () => {
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
             restorePositionAfterSend: true,
+            enterKeyNewline: true,
             showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
             unrelated: true,
@@ -196,6 +197,7 @@ describe('settingsService', () => {
 
         expect(next.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            enterKeyNewline: true,
             showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
         });
@@ -207,6 +209,7 @@ describe('settingsService', () => {
         } as any);
         expect(normalized.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            enterKeyNewline: false,
             showMessageStepper: true,
             enableArrowKeyMessageNavigation: true,
         });

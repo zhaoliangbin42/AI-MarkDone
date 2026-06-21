@@ -22,6 +22,7 @@ import { discoverMessageElements } from '../../drivers/content/injection/message
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
+import { ChatGPTComposerEnterController } from '../../ui/content/controllers/ChatGPTComposerEnterController';
 import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
 import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
@@ -96,6 +97,9 @@ if (adapter) {
         : null;
     const chatGptSendPositionRestore = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTSendPositionRestoreController(adapter)
+        : null;
+    const chatGptComposerEnter = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTComposerEnterController(adapter)
         : null;
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
@@ -220,6 +224,7 @@ if (adapter) {
         if (!chatGptConversationEngine) return;
         viewportResizeSuspend?.init();
         chatGptSendPositionRestore?.init();
+        chatGptComposerEnter?.init();
         chatGptMessageStepper?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
         if (!chatGptDirectory) {
@@ -252,6 +257,8 @@ if (adapter) {
             ...settings,
         };
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
+        chatGptSendPositionRestore?.setEnterKeyNewlineEnabled(Boolean(next.enterKeyNewline));
+        chatGptComposerEnter?.setEnabled(Boolean(next.enterKeyNewline));
         chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
     };
@@ -289,6 +296,7 @@ if (adapter) {
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
         chatGptSendPositionRestore?.dispose();
+        chatGptComposerEnter?.dispose();
         chatGptMessageStepper?.dispose();
     };
 

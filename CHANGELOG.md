@@ -5,6 +5,11 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Settings: Added an optional ChatGPT “Enter inserts a new line” toggle. When enabled, plain Enter creates a newline in the ChatGPT composer, while the send button and Cmd/Ctrl + Enter still send.
+
 ## [4.6.0] - 2026-06-18
 
 大家好啊，这次更新酝酿了很久，也做了一次比较大幅度的升级。

@@ -967,6 +967,14 @@
         "message": "When reading older messages, sending a new message brings you back to your reading position.",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
+    "chatgptEnterKeyNewlineLabel": {
+        "message": "Enter inserts a new line",
+        "description": "Message for chatgptEnterKeyNewlineLabel"
+    },
+    "chatgptEnterKeyNewlineDesc": {
+        "message": "When enabled, pressing Enter in the ChatGPT input box inserts a new line. Send with the send button, or press Cmd + Enter on Mac and Ctrl + Enter on Windows.",
+        "description": "Message for chatgptEnterKeyNewlineDesc"
+    },
     "chatgptShowMessageStepperLabel": {
         "message": "Show lower-right message buttons",
         "description": "Message for chatgptShowMessageStepperLabel"

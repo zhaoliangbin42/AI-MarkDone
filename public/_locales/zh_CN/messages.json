@@ -967,6 +967,14 @@
         "message": "阅读历史消息时，发送后会尽快回到原来的阅读位置。",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
+    "chatgptEnterKeyNewlineLabel": {
+        "message": "Enter 换行",
+        "description": "Message for chatgptEnterKeyNewlineLabel"
+    },
+    "chatgptEnterKeyNewlineDesc": {
+        "message": "开启后，在 ChatGPT 输入框中按 Enter 换行；发送请使用发送按钮，或在 Mac 按 Cmd + Enter、Windows 按 Ctrl + Enter。",
+        "description": "Message for chatgptEnterKeyNewlineDesc"
+    },
     "chatgptShowMessageStepperLabel": {
         "message": "显示右下角消息切换按钮",
         "description": "Message for chatgptShowMessageStepperLabel"

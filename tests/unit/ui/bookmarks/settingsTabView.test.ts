@@ -53,6 +53,7 @@ const baseSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
+        enterKeyNewline: false,
         showMessageStepper: true,
         enableArrowKeyMessageNavigation: true,
     },
@@ -96,6 +97,7 @@ describe('SettingsTabView', () => {
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-message-stepper"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeNull();
@@ -227,6 +229,30 @@ describe('SettingsTabView', () => {
         toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: false });
+    });
+
+    it('wires ChatGPT Enter-newline behavior to the scoped behavior category', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-enter-key-newline"]')!;
+
+        expect(toggle.checked).toBe(false);
+
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ enterKeyNewline: true });
     });
 
     it('wires ChatGPT arrow-key message navigation to the scoped behavior category', () => {

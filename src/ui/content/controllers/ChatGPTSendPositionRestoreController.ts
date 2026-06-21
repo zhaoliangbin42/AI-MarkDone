@@ -30,6 +30,7 @@ const TTL_MS = 90_000;
 
 export class ChatGPTSendPositionRestoreController {
     private enabled = false;
+    private enterKeyNewlineEnabled = false;
     private initialized = false;
     private session: RestoreSession | null = null;
 
@@ -66,6 +67,10 @@ export class ChatGPTSendPositionRestoreController {
     setEnabled(enabled: boolean): void {
         this.enabled = enabled;
         if (!enabled) this.release();
+    }
+
+    setEnterKeyNewlineEnabled(enabled: boolean): void {
+        this.enterKeyNewlineEnabled = enabled;
     }
 
     private onArm = (): void => this.arm();
@@ -228,6 +233,7 @@ export class ChatGPTSendPositionRestoreController {
 
     private isSendEnter(event: KeyboardEvent): boolean {
         return event.key === 'Enter'
+            && !this.enterKeyNewlineEnabled
             && !event.shiftKey
             && !event.metaKey
             && !event.ctrlKey

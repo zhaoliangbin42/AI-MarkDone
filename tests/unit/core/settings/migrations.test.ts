@@ -25,6 +25,7 @@ describe('settings migrations', () => {
         expect(next.platforms).toEqual({ chatgpt: false, gemini: true, claude: false, deepseek: true });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
+        expect(next.chatgptBehavior.enterKeyNewline).toBe(false);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.showMessageToolbar).toBe(true);
@@ -138,6 +139,7 @@ describe('settings migrations', () => {
             version: 4,
             chatgptBehavior: {
                 restorePositionAfterSend: false,
+                enterKeyNewline: true,
                 showMessageStepper: false,
                 enableArrowKeyMessageNavigation: false,
             },
@@ -145,11 +147,13 @@ describe('settings migrations', () => {
 
         expect(defaulted.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            enterKeyNewline: false,
             showMessageStepper: true,
             enableArrowKeyMessageNavigation: true,
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
+            enterKeyNewline: true,
             showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
         });

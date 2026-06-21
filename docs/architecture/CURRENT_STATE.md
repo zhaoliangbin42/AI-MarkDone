@@ -168,7 +168,7 @@ flowchart TD
 - `ModalHost` 现在和 `panel-window` 家族一样遵守单次 dismiss/close 提交；已进入 `closing` 的 surface 不再重复触发 dismiss 回调或恢复逻辑
 - `ModalHost` 与 `panel-window` 家族现在都使用共享 focus lifecycle：打开前捕获 opener，打开稳定后把焦点移入 surface，关闭后再恢复焦点
 - Settings tab 中的公式配置写入独立 `formula` category；平台开关写入 `platforms` category。`platforms.chatgpt` 控制 ChatGPT 完整 runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime。旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT
-- Settings tab 中的 ChatGPT Settings 分组持有 `chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关、`chatgptBehavior.showMessageStepper` 右下角消息切换按钮显示开关、`chatgptBehavior.enableArrowKeyMessageNavigation` 左右方向键切换消息开关，以及 `chatgptDirectory` 目录条开关、显示模式、prompt label 模式；`chatgptDirectory.enabled` 默认关闭，不复用平台总开关或旧 `chatgpt` category，且启用目录条时同步隐藏 ChatGPT 官方对话导航，不再暴露独立隐藏开关
+- Settings tab 中的 ChatGPT Settings 分组持有 `chatgptBehavior.restorePositionAfterSend` 发送后恢复阅读位置开关、`chatgptBehavior.enterKeyNewline` 输入框普通 Enter 换行开关、`chatgptBehavior.showMessageStepper` 右下角消息切换按钮显示开关、`chatgptBehavior.enableArrowKeyMessageNavigation` 左右方向键切换消息开关，以及 `chatgptDirectory` 目录条开关、显示模式、prompt label 模式；`chatgptBehavior.enterKeyNewline` 开启后普通 Enter 换行，发送保留 ChatGPT 发送按钮和 Cmd/Ctrl + Enter；`chatgptDirectory.enabled` 默认关闭，不复用平台总开关或旧 `chatgpt` category，且启用目录条时同步隐藏 ChatGPT 官方对话导航，不再暴露独立隐藏开关
 - 更新日志的一次性提示由 background 的 `bookmarks:changelogNotice:get/ack` 状态持有；BookmarksPanel 与 Reader conversation profile 都通过共享 presenter 读取并确认同一条 pending notice，因此同一版本只提示一次，不新增 Reader 私有计数或存储字段
 - `ToolbarHoverActionPortal` 是消息工具栏 hover 次动作与公式 hover 图片动作的共享 anchored portal；它负责 viewport clamp、anchor bridge 定位与顶部空间不足时的下翻，不允许调用方各自实现一次性边界补偿
 
