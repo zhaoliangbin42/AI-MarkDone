@@ -991,6 +991,18 @@
         "message": "Left and Right move to the previous or next message when you are not typing. Inside the ChatGPT input box, they still move the cursor.",
         "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
+    "chatgptPageWidthScaleLabel": {
+        "message": "Chat width",
+        "description": "Message for chatgptPageWidthScaleLabel"
+    },
+    "chatgptPageWidthScaleDesc": {
+        "message": "Widen the ChatGPT conversation area to make better use of screen space.",
+        "description": "Message for chatgptPageWidthScaleDesc"
+    },
+    "chatgptPageWidthScaleNormal": {
+        "message": "Normal",
+        "description": "Message for chatgptPageWidthScaleNormal"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "Show directory rail",
         "description": "Message for chatgptDirectoryEnabledLabel"
@@ -1026,6 +1038,14 @@
     "chatgptDirectoryPromptLabelModeDesc": {
         "message": "Show the beginning and end of long prompts in the expanded directory.",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
+    },
+    "chatgptDirectoryRightInsetLabel": {
+        "message": "Directory right spacing",
+        "description": "Message for chatgptDirectoryRightInsetLabel"
+    },
+    "chatgptDirectoryRightInsetDesc": {
+        "message": "Increase this spacing if the browser scrollbar overlaps the right-side directory rail.",
+        "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "reader": {
         "message": "Reader",

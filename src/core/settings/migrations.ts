@@ -1,15 +1,23 @@
 import {
+    CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
+    DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    CHATGPT_PAGE_WIDTH_SCALE_STEP,
     DEFAULT_GLOBAL_FONT_SIZE_PX,
+    DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
     DEFAULT_READER_BODY_FONT_SIZE_PX,
     DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
     DEFAULT_READER_OPEN_MODE,
     DEFAULT_READER_PANEL_SIZE_RATIO,
     GLOBAL_FONT_SIZE_STEP_PX,
+    MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MAX_CHATGPT_PAGE_WIDTH_SCALE,
     MAX_GLOBAL_FONT_SIZE_PX,
     MAX_READER_BODY_FONT_SIZE_PX,
     MAX_READER_CONTENT_MAX_WIDTH_PX,
     MAX_READER_PANEL_HEIGHT_RATIO,
     MAX_READER_PANEL_WIDTH_RATIO,
+    MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MIN_CHATGPT_PAGE_WIDTH_SCALE,
     MIN_READER_BODY_FONT_SIZE_PX,
     MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
@@ -96,7 +104,15 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         mode,
         promptLabelMode,
         hideOfficialNavigation: Boolean((record as any).hideOfficialNavigation ?? DEFAULT_SETTINGS.chatgptDirectory.hideOfficialNavigation),
+        rightInsetPx: normalizeChatGPTDirectoryRightInsetPx((record as any).rightInsetPx),
     };
+}
+
+export function normalizeChatGPTDirectoryRightInsetPx(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX;
+    const clamped = Math.min(MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX, Math.max(MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX, numeric));
+    return Math.round(clamped / CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX) * CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX;
 }
 
 export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['chatgptBehavior'] {
@@ -106,7 +122,15 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         enterKeyNewline: Boolean((record as any).enterKeyNewline ?? DEFAULT_SETTINGS.chatgptBehavior.enterKeyNewline),
         showMessageStepper: Boolean((record as any).showMessageStepper ?? DEFAULT_SETTINGS.chatgptBehavior.showMessageStepper),
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
+        pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
     };
+}
+
+export function normalizeChatGPTPageWidthScale(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_PAGE_WIDTH_SCALE;
+    const clamped = Math.min(MAX_CHATGPT_PAGE_WIDTH_SCALE, Math.max(MIN_CHATGPT_PAGE_WIDTH_SCALE, numeric));
+    return Math.round(clamped / CHATGPT_PAGE_WIDTH_SCALE_STEP) * CHATGPT_PAGE_WIDTH_SCALE_STEP;
 }
 
 export function normalizeReaderContentMaxWidthPx(value: unknown): number {

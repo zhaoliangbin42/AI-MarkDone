@@ -174,15 +174,17 @@ describe('settingsService', () => {
             mode: 'expanded',
             promptLabelMode: 'headTail',
             hideOfficialNavigation: false,
+            rightInsetPx: 0,
         });
         expect(next).not.toHaveProperty('chatgpt');
 
-        const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense', promptLabelMode: 'tail' }).next;
+        const invalid = planSetCategory(next, 'chatgptDirectory', { mode: 'dense', promptLabelMode: 'tail', rightInsetPx: 147 }).next;
         expect(invalid.chatgptDirectory).toEqual({
             enabled: true,
             mode: 'preview',
             promptLabelMode: 'head',
             hideOfficialNavigation: false,
+            rightInsetPx: 40,
         });
     });
 
@@ -192,6 +194,7 @@ describe('settingsService', () => {
             enterKeyNewline: true,
             showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
+            pageWidthScale: 147,
             unrelated: true,
         }).next;
 
@@ -200,6 +203,7 @@ describe('settingsService', () => {
             enterKeyNewline: true,
             showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
+            pageWidthScale: 145,
         });
         expect(next).not.toHaveProperty('chatgpt');
 
@@ -207,12 +211,17 @@ describe('settingsService', () => {
             ...DEFAULT_SETTINGS,
             chatgptBehavior: undefined,
         } as any);
+        const clamped = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
+            pageWidthScale: 237,
+        }).next;
         expect(normalized.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
             enterKeyNewline: false,
             showMessageStepper: true,
             enableArrowKeyMessageNavigation: true,
+            pageWidthScale: 100,
         });
+        expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

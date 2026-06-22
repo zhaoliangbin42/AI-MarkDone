@@ -1,7 +1,14 @@
 import type { Theme } from '../../../core/types/theme';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
-import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
+import {
+    CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
+    DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    type ChatGPTDirectoryMode,
+    type ChatGPTDirectoryPromptLabelMode,
+} from '../../../core/settings/types';
 
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
 const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
@@ -28,6 +35,13 @@ function formatExpandedLabel(value: string, mode: ChatGPTDirectoryPromptLabelMod
     return `${chars.slice(0, EXPANDED_LABEL_HEAD_LENGTH).join('')}…`;
 }
 
+function normalizeRightInsetPx(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX;
+    const clamped = Math.min(MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX, Math.max(MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX, numeric));
+    return Math.round(clamped / CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX) * CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX;
+}
+
 export class ChatGPTDirectoryRail {
     private rootEl: HTMLElement;
     private shadowRoot: ShadowRoot;
@@ -44,6 +58,8 @@ export class ChatGPTDirectoryRail {
     private lastHoverPosition: number | null = null;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
+    private rightInsetPx = DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX;
+    private viewportScrollbarWidthPx = 0;
     private expanded = false;
     private userInteracting = false;
     private interactionIdleTimer: number | null = null;
@@ -68,6 +84,7 @@ export class ChatGPTDirectoryRail {
         this.rootEl.dataset.expanded = '0';
         this.rootEl.setAttribute('data-aimd-theme', theme);
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
+        this.applyRightOffsetVars();
 
         this.styleEl = document.createElement('style');
         this.styleEl.textContent = getTokenCss(theme, this.themeOverrides) + this.getCss();
@@ -121,6 +138,9 @@ export class ChatGPTDirectoryRail {
         this.previewEl.dataset.open = '0';
         this.previewEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.innerHTML = '<div class="aimd-chatgpt-directory-preview__title"></div><div class="aimd-chatgpt-directory-preview__body"></div>';
+        this.applyRightOffsetVars();
+        this.syncViewportScrollbarWidth();
+        window.addEventListener('resize', this.handleViewportResize, { passive: true });
         this.ensurePreviewStyle();
         document.body.appendChild(this.previewEl);
     }
@@ -134,6 +154,7 @@ export class ChatGPTDirectoryRail {
             window.clearTimeout(this.interactionIdleTimer);
             this.interactionIdleTimer = null;
         }
+        window.removeEventListener('resize', this.handleViewportResize as any);
         this.rootEl.remove();
         this.previewEl.remove();
     }
@@ -174,6 +195,11 @@ export class ChatGPTDirectoryRail {
         this.promptLabelMode = mode === 'headTail' ? 'headTail' : 'head';
         this.listEl.dataset.promptLabelMode = this.promptLabelMode;
         this.render();
+    }
+
+    setRightInsetPx(value: number): void {
+        this.rightInsetPx = normalizeRightInsetPx(value);
+        this.applyRightOffsetVars();
     }
 
     setRounds(rounds: ChatGPTConversationRound[]): void {
@@ -254,6 +280,28 @@ export class ChatGPTDirectoryRail {
         this.renderHoverState();
         this.renderBookmarkedState();
         this.renderPreview();
+    }
+
+    private handleViewportResize = (): void => {
+        this.syncViewportScrollbarWidth();
+    };
+
+    private syncViewportScrollbarWidth(): void {
+        const innerWidth = window.innerWidth || 0;
+        const clientWidth = document.documentElement?.clientWidth || innerWidth;
+        const next = Math.max(0, Math.round(innerWidth - clientWidth));
+        if (next === this.viewportScrollbarWidthPx) return;
+        this.viewportScrollbarWidthPx = next;
+        this.applyRightOffsetVars();
+    }
+
+    private applyRightOffsetVars(): void {
+        const inset = `${this.rightInsetPx}px`;
+        const scrollbar = `${this.viewportScrollbarWidthPx}px`;
+        this.rootEl.style.setProperty('--aimd-chatgpt-directory-user-right-inset', inset);
+        this.rootEl.style.setProperty('--aimd-chatgpt-directory-scrollbar-width', scrollbar);
+        this.previewEl?.style.setProperty('--aimd-chatgpt-directory-user-right-inset', inset);
+        this.previewEl?.style.setProperty('--aimd-chatgpt-directory-scrollbar-width', scrollbar);
     }
 
     private renderBookmarkedState(): void {
@@ -394,7 +442,7 @@ export class ChatGPTDirectoryRail {
 .aimd-chatgpt-directory-preview {
   --_directory-preview-width: 280px;
   position: fixed;
-  right: calc(var(--aimd-space-2) + var(--aimd-space-4) + var(--aimd-space-6));
+  right: calc(var(--aimd-space-2) + var(--aimd-space-4) + var(--aimd-space-6) + var(--aimd-chatgpt-directory-scrollbar-width, 0px) + var(--aimd-chatgpt-directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
   top: 50%;
   width: var(--_directory-preview-width);
   max-width: min(var(--_directory-preview-width), calc(100vw - (var(--aimd-space-3) * 2)));
@@ -445,7 +493,7 @@ export class ChatGPTDirectoryRail {
 :host {
   position: fixed;
   top: 50%;
-  right: var(--aimd-space-2);
+  right: calc(var(--aimd-space-2) + var(--aimd-chatgpt-directory-scrollbar-width, 0px) + var(--aimd-chatgpt-directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
   transform: translateY(-50%);
   z-index: var(--aimd-z-panel);
   pointer-events: auto;
@@ -455,7 +503,7 @@ export class ChatGPTDirectoryRail {
 }
 :host([data-mode="expanded"][data-expanded="1"]) {
   width: fit-content;
-  max-width: calc(100vw - 32px);
+  max-width: calc(100vw - 32px - var(--aimd-chatgpt-directory-scrollbar-width, 0px) - var(--aimd-chatgpt-directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
 }
 .rail {
   display: flex;

@@ -50,12 +50,14 @@ const baseSettings = {
         mode: 'preview',
         promptLabelMode: 'head',
         hideOfficialNavigation: true,
+        rightInsetPx: 0,
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
         enterKeyNewline: false,
         showMessageStepper: true,
         enableArrowKeyMessageNavigation: true,
+        pageWidthScale: 100,
     },
     appearance: { fontSizePx: 16, accentColor: null },
     bookmarks: { sortMode: 'time-desc' },
@@ -100,10 +102,12 @@ describe('SettingsTabView', () => {
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-message-stepper"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-page-width-scale"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeNull();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-right-inset"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-hide-official-navigation"]')).toBeNull();
         expect(chatGptGroup.textContent).toContain('chatgptDirectoryEnabledDesc');
     });
@@ -167,6 +171,7 @@ describe('SettingsTabView', () => {
         expect(root.querySelector('[data-role="settings-chatgpt-directory-enabled"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-chatgpt-directory-mode"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-chatgpt-directory-prompt-label-mode"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-chatgpt-directory-right-inset"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-chatgpt-directory-hide-official-navigation"]')).toBeNull();
         expect(root.querySelector('#aimd-chatgpt-folding-mode')).toBeNull();
         expect(root.querySelector('[data-role="settings-fold-dock"]')).toBeNull();
@@ -190,21 +195,52 @@ describe('SettingsTabView', () => {
         const enabled = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-enabled"]')!;
         const mode = root.querySelector<HTMLElement>('[data-role="settings-chatgpt-directory-mode"]')!;
         const promptLabelMode = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-prompt-label-mode"]')!;
+        const rightInset = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-directory-right-inset"]')!;
 
         expect(root.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeNull();
         expect(root.querySelector('[data-role="settings-chatgpt-directory-hide-official-navigation"]')).toBeNull();
         expect(enabled.checked).toBe(true);
         expect(mode.textContent).toContain('chatgptDirectoryModePreview');
         expect(promptLabelMode.checked).toBe(false);
+        expect(rightInset.value).toBe('0');
+        expect(rightInset.type).toBe('range');
 
         enabled.checked = false;
         enabled.dispatchEvent(new Event('change', { bubbles: true }));
         promptLabelMode.checked = true;
         promptLabelMode.dispatchEvent(new Event('change', { bubbles: true }));
+        rightInset.value = '53';
+        rightInset.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetChatGptDirectorySettings).toHaveBeenCalledWith({ enabled: false });
         expect(onSetChatGptDirectorySettings).toHaveBeenCalledWith({ promptLabelMode: 'headTail' });
+        expect(onSetChatGptDirectorySettings).toHaveBeenCalledWith({ rightInsetPx: 40 });
+        expect(rightInset.value).toBe('40');
         expect(onSetChatGptDirectorySettings).not.toHaveBeenCalledWith(expect.objectContaining({ hideOfficialNavigation: expect.any(Boolean) }));
+    });
+
+    it('wires ChatGPT page width scale to the scoped behavior category', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const slider = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-chatgpt-page-width-scale"]')!;
+        expect(slider.type).toBe('range');
+        expect(slider.value).toBe('100');
+
+        slider.value = '147';
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ pageWidthScale: 145 });
+        expect(slider.value).toBe('145');
     });
 
     it('wires ChatGPT restore-position behavior to the scoped behavior category', () => {

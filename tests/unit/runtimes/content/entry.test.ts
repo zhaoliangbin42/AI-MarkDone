@@ -83,6 +83,7 @@ const directoryInit = vi.fn();
 const directorySetEnabled = vi.fn();
 const directorySetDisplayMode = vi.fn();
 const directorySetPromptLabelMode = vi.fn();
+const directorySetRightInsetPx = vi.fn();
 const directorySetTheme = vi.fn();
 const directoryDispose = vi.fn();
 const directoryCtor = vi.fn(function () {
@@ -91,6 +92,7 @@ const directoryCtor = vi.fn(function () {
         setEnabled: directorySetEnabled,
         setDisplayMode: directorySetDisplayMode,
         setPromptLabelMode: directorySetPromptLabelMode,
+        setRightInsetPx: directorySetRightInsetPx,
         setTheme: directorySetTheme,
         setThemeOverrides: vi.fn(),
         dispose: directoryDispose,
@@ -146,6 +148,16 @@ const messageStepperCtor = vi.fn(function () {
         setKeyboardEnabled: messageStepperSetKeyboardEnabled,
         setVisible: messageStepperSetVisible,
         setThemeOverrides: messageStepperSetThemeOverrides,
+    };
+});
+const pageWidthInit = vi.fn();
+const pageWidthDispose = vi.fn();
+const pageWidthSetScale = vi.fn();
+const pageWidthCtor = vi.fn(function () {
+    return {
+        init: pageWidthInit,
+        dispose: pageWidthDispose,
+        setScale: pageWidthSetScale,
     };
 });
 const engineInit = vi.fn();
@@ -311,6 +323,10 @@ vi.mock('@/ui/content/controllers/ChatGPTMessageStepperController', () => ({
     ChatGPTMessageStepperController: messageStepperCtor,
 }));
 
+vi.mock('@/ui/content/controllers/ChatGPTPageWidthController', () => ({
+    ChatGPTPageWidthController: pageWidthCtor,
+}));
+
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
     ChatGPTConversationEngine: engineCtor,
 }));
@@ -462,7 +478,7 @@ describe('content runtime entry', () => {
             chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head', hideOfficialNavigation: true },
             appearance: { fontSizePx: 18, accentColor: '#7c3aed' },
             bookmarks: { sortMode: 'alpha-asc' },
-            chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
+            chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true, pageWidthScale: 125 },
         });
 
         vi.resetModules();
@@ -504,7 +520,7 @@ describe('content runtime entry', () => {
             },
             export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
             chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: true },
-            chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: false },
+            chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: false, pageWidthScale: 130 },
             bookmarks: { sortMode: 'alpha-asc' },
             appearance: { fontSizePx: 16, accentColor: null },
         });
@@ -526,6 +542,9 @@ describe('content runtime entry', () => {
         expect(messageStepperInit).toHaveBeenCalledTimes(1);
         expect(messageStepperSetVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
+        expect(pageWidthCtor).toHaveBeenCalledTimes(1);
+        expect(pageWidthInit).toHaveBeenCalledTimes(1);
+        expect(pageWidthSetScale).toHaveBeenCalledWith(130);
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
@@ -586,7 +605,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: true },
-                chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: false },
+                chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: false, pageWidthScale: 145 },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -599,6 +618,7 @@ describe('content runtime entry', () => {
         expect(sendPositionRestoreDispose).toHaveBeenCalledTimes(1);
         expect(composerEnterDispose).toHaveBeenCalledTimes(1);
         expect(messageStepperDispose).toHaveBeenCalledTimes(1);
+        expect(pageWidthDispose).toHaveBeenCalledTimes(1);
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(directoryDispose).toHaveBeenCalledTimes(1);
         expect(officialNavigationDispose).toHaveBeenCalledTimes(1);
@@ -642,7 +662,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head', hideOfficialNavigation: true },
-                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
+                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true, pageWidthScale: 100 },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -657,6 +677,8 @@ describe('content runtime entry', () => {
         expect(composerEnterSetEnabled).toHaveBeenLastCalledWith(false);
         expect(messageStepperInit).toHaveBeenCalledTimes(2);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(true);
+        expect(pageWidthInit).toHaveBeenCalledTimes(2);
+        expect(pageWidthSetScale).toHaveBeenLastCalledWith(100);
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(directoryInit).toHaveBeenCalledTimes(2);
         expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
@@ -803,7 +825,7 @@ describe('content runtime entry', () => {
                     commentExport: { prompts: [], template: [] },
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
-                chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: false },
+                chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: false, rightInsetPx: 40 },
                 chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: true, showMessageStepper: false, enableArrowKeyMessageNavigation: false },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
@@ -818,6 +840,7 @@ describe('content runtime entry', () => {
         expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('headTail');
+        expect(directorySetRightInsetPx).toHaveBeenLastCalledWith(40);
         expect(officialNavigationSetEnabled).toHaveBeenLastCalledWith(true);
     });
 

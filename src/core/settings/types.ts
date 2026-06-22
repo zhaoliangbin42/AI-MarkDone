@@ -20,12 +20,21 @@ export type SettingsVersion = 4;
 
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
+export const DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
+export const MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
+export const MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 40;
+export const CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX = 4;
+export const DEFAULT_CHATGPT_PAGE_WIDTH_SCALE = 100;
+export const MIN_CHATGPT_PAGE_WIDTH_SCALE = 100;
+export const MAX_CHATGPT_PAGE_WIDTH_SCALE = 200;
+export const CHATGPT_PAGE_WIDTH_SCALE_STEP = 5;
 
 export type ChatGPTDirectorySettings = {
     enabled: boolean;
     mode: ChatGPTDirectoryMode;
     promptLabelMode: ChatGPTDirectoryPromptLabelMode;
     hideOfficialNavigation: boolean;
+    rightInsetPx: number;
 };
 
 export type ChatGPTBehaviorSettings = {
@@ -33,6 +42,7 @@ export type ChatGPTBehaviorSettings = {
     enterKeyNewline: boolean;
     showMessageStepper: boolean;
     enableArrowKeyMessageNavigation: boolean;
+    pageWidthScale: number;
 };
 
 export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
@@ -132,8 +142,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
-    chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head', hideOfficialNavigation: true },
-    chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
+    chatgptDirectory: {
+        enabled: true,
+        mode: 'preview',
+        promptLabelMode: 'head',
+        hideOfficialNavigation: true,
+        rightInsetPx: DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    },
+    chatgptBehavior: {
+        restorePositionAfterSend: true,
+        enterKeyNewline: false,
+        showMessageStepper: true,
+        enableArrowKeyMessageNavigation: true,
+        pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
+    },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },
     language: 'auto',

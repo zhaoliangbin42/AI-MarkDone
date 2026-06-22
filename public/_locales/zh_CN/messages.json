@@ -991,6 +991,18 @@
         "message": "不在输入时，左/右方向键会跳到上一条或下一条消息；在 ChatGPT 输入框里，它们仍然只移动光标。",
         "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
+    "chatgptPageWidthScaleLabel": {
+        "message": "对话宽度",
+        "description": "Message for chatgptPageWidthScaleLabel"
+    },
+    "chatgptPageWidthScaleDesc": {
+        "message": "调大 ChatGPT 对话区域宽度，充分利用屏幕空间。",
+        "description": "Message for chatgptPageWidthScaleDesc"
+    },
+    "chatgptPageWidthScaleNormal": {
+        "message": "正常",
+        "description": "Message for chatgptPageWidthScaleNormal"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "显示目录条",
         "description": "Message for chatgptDirectoryEnabledLabel"
@@ -1026,6 +1038,14 @@
     "chatgptDirectoryPromptLabelModeDesc": {
         "message": "展开目录时显示长提示词的开头和结尾。",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
+    },
+    "chatgptDirectoryRightInsetLabel": {
+        "message": "目录条右侧边距",
+        "description": "Message for chatgptDirectoryRightInsetLabel"
+    },
+    "chatgptDirectoryRightInsetDesc": {
+        "message": "如果浏览器滚动条覆盖右侧目录条，可增加这个边距。",
+        "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "reader": {
         "message": "阅读器",

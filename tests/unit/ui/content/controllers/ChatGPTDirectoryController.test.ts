@@ -416,6 +416,27 @@ describe('ChatGPTDirectoryController', () => {
         rail.dispose();
     });
 
+    it('offsets the rail and preview by measured scrollbar width plus configured right spacing', () => {
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: 983 });
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        const host = rail.getElement();
+        const preview = document.getElementById('aimd-chatgpt-directory-preview') as HTMLElement;
+
+        expect(host.style.getPropertyValue('--aimd-chatgpt-directory-scrollbar-width')).toBe('17px');
+        expect(host.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('0px');
+        expect(preview.style.getPropertyValue('--aimd-chatgpt-directory-scrollbar-width')).toBe('17px');
+        expect(preview.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('0px');
+
+        rail.setRightInsetPx(57);
+
+        expect(host.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('40px');
+        expect(preview.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('40px');
+        expect(host.shadowRoot?.querySelector('style')?.textContent).toContain('var(--aimd-chatgpt-directory-scrollbar-width, 0px)');
+
+        rail.dispose();
+    });
+
     it('keeps bookmarked directory markers at the normal collapsed length when not hovered or active', () => {
         const rail = new ChatGPTDirectoryRail('light', () => undefined);
         rail.setRounds(buildSnapshot().rounds);

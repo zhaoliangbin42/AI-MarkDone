@@ -27,6 +27,7 @@ describe('settings migrations', () => {
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
         expect(next.chatgptBehavior.enterKeyNewline).toBe(false);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
+        expect(next.chatgptBehavior.pageWidthScale).toBe(100);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.showMessageToolbar).toBe(true);
         expect(next.behavior.enableClickToCopy).toBe(false);
@@ -103,7 +104,7 @@ describe('settings migrations', () => {
     it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {
         const next = loadAndNormalize({
             version: 3,
-            chatgptDirectory: { enabled: false, mode: 'dense', promptLabelMode: 'tail', hideOfficialNavigation: false },
+            chatgptDirectory: { enabled: false, mode: 'dense', promptLabelMode: 'tail', hideOfficialNavigation: false, rightInsetPx: 147 },
             chatgpt: { showConversationDirectory: false },
         } as any);
 
@@ -112,6 +113,7 @@ describe('settings migrations', () => {
             mode: 'preview',
             promptLabelMode: 'head',
             hideOfficialNavigation: false,
+            rightInsetPx: 40,
         });
         expect(next).not.toHaveProperty('chatgpt');
     });
@@ -127,6 +129,7 @@ describe('settings migrations', () => {
             mode: 'expanded',
             promptLabelMode: 'headTail',
             hideOfficialNavigation: true,
+            rightInsetPx: 0,
         });
     });
 
@@ -142,6 +145,13 @@ describe('settings migrations', () => {
                 enterKeyNewline: true,
                 showMessageStepper: false,
                 enableArrowKeyMessageNavigation: false,
+                pageWidthScale: 147,
+            },
+        } as any);
+        const clamped = loadAndNormalize({
+            version: 4,
+            chatgptBehavior: {
+                pageWidthScale: 237,
             },
         } as any);
 
@@ -150,13 +160,16 @@ describe('settings migrations', () => {
             enterKeyNewline: false,
             showMessageStepper: true,
             enableArrowKeyMessageNavigation: true,
+            pageWidthScale: 100,
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
             enterKeyNewline: true,
             showMessageStepper: false,
             enableArrowKeyMessageNavigation: false,
+            pageWidthScale: 145,
         });
+        expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
     });
 
     it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {

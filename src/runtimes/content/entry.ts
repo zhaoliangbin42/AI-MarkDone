@@ -25,6 +25,7 @@ import { ChatGPTSendPositionRestoreController } from '../../ui/content/controlle
 import { ChatGPTComposerEnterController } from '../../ui/content/controllers/ChatGPTComposerEnterController';
 import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
+import { ChatGPTPageWidthController } from '../../ui/content/controllers/ChatGPTPageWidthController';
 import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
@@ -105,6 +106,9 @@ if (adapter) {
         ? new ChatGPTMessageStepperController(adapter, {
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
         })
+        : null;
+    const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTPageWidthController()
         : null;
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
@@ -226,6 +230,7 @@ if (adapter) {
         chatGptSendPositionRestore?.init();
         chatGptComposerEnter?.init();
         chatGptMessageStepper?.init();
+        chatGptPageWidth?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
         if (!chatGptDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
@@ -247,6 +252,7 @@ if (adapter) {
         };
         chatGptDirectory.setDisplayMode(next.mode === 'expanded' ? 'expanded' : 'preview');
         chatGptDirectory.setPromptLabelMode(next.promptLabelMode === 'headTail' ? 'headTail' : 'head');
+        chatGptDirectory.setRightInsetPx(next.rightInsetPx);
         chatGptDirectory.setEnabled(Boolean(next.enabled));
         chatGptOfficialNavigationVisibility?.setEnabled(Boolean(next.enabled));
     };
@@ -261,6 +267,7 @@ if (adapter) {
         chatGptComposerEnter?.setEnabled(Boolean(next.enterKeyNewline));
         chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
+        chatGptPageWidth?.setScale(next.pageWidthScale);
     };
 
     const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
@@ -298,6 +305,7 @@ if (adapter) {
         chatGptSendPositionRestore?.dispose();
         chatGptComposerEnter?.dispose();
         chatGptMessageStepper?.dispose();
+        chatGptPageWidth?.dispose();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).

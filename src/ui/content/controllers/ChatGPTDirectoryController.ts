@@ -201,6 +201,10 @@ export class ChatGPTDirectoryController {
         this.rail?.setPromptLabelMode(this.promptLabelMode);
     }
 
+    setRightInsetPx(value: number): void {
+        this.rail?.setRightInsetPx(value);
+    }
+
     private ensureRail(): void {
         if (this.rail) {
             const element = this.rail.getElement();

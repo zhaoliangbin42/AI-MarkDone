@@ -1,14 +1,25 @@
 import type { AppSettings } from '../../../../../core/settings/types';
 import {
+    CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
+    CHATGPT_PAGE_WIDTH_SCALE_STEP,
     DEFAULT_SETTINGS,
     DEFAULT_GLOBAL_FONT_SIZE_PX,
+    MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MAX_CHATGPT_PAGE_WIDTH_SCALE,
     GLOBAL_FONT_SIZE_STEP_PX,
     MAX_GLOBAL_FONT_SIZE_PX,
+    MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MIN_CHATGPT_PAGE_WIDTH_SCALE,
     MIN_GLOBAL_FONT_SIZE_PX,
     THEME_ACCENT_SWATCHES,
     type ThemeAccentColor,
 } from '../../../../../core/settings/types';
-import { normalizeChatGPTDirectorySettings, normalizeThemeAccentColor } from '../../../../../core/settings/migrations';
+import {
+    normalizeChatGPTDirectoryRightInsetPx,
+    normalizeChatGPTDirectorySettings,
+    normalizeChatGPTPageWidthScale,
+    normalizeThemeAccentColor,
+} from '../../../../../core/settings/migrations';
 import {
     MAX_PNG_EXPORT_PIXEL_RATIO,
     MAX_PNG_EXPORT_WIDTH,
@@ -74,6 +85,14 @@ type NumberFieldRef = {
     input: HTMLInputElement;
 };
 
+type SliderFieldRef = {
+    root: HTMLElement;
+    field: HTMLElement;
+    input: HTMLInputElement;
+    value: HTMLElement;
+    format: (value: number) => string;
+};
+
 type StepperFieldRef = {
     root: HTMLElement;
     field: HTMLElement;
@@ -113,9 +132,11 @@ type Refs = {
         enterKeyNewline: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
+        pageWidthScale: SliderFieldRef;
         enabled: HTMLInputElement;
         mode: SelectRef;
         promptLabelMode: HTMLInputElement;
+        rightInset: SliderFieldRef;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -238,6 +259,16 @@ export class SettingsTabView {
             t('chatgptArrowKeyMessageNavigationLabel'),
             t('chatgptArrowKeyMessageNavigationDesc'),
         );
+        const chatGptPageWidthScale = this.createSliderRow(
+            chatGptDirectoryGroup.body,
+            t('chatgptPageWidthScaleLabel'),
+            t('chatgptPageWidthScaleDesc'),
+            MIN_CHATGPT_PAGE_WIDTH_SCALE,
+            MAX_CHATGPT_PAGE_WIDTH_SCALE,
+            CHATGPT_PAGE_WIDTH_SCALE_STEP,
+            'settings-chatgpt-page-width-scale-value',
+            (value) => value <= MIN_CHATGPT_PAGE_WIDTH_SCALE ? t('chatgptPageWidthScaleNormal') : `${value}%`,
+        );
         const chatGptDirectoryEnabled = this.createToggle(
             chatGptDirectoryGroup.body,
             t('chatgptDirectoryEnabledLabel'),
@@ -257,6 +288,16 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptDirectoryPromptLabelModeLabel'),
             t('chatgptDirectoryPromptLabelModeDesc'),
+        );
+        const chatGptDirectoryRightInset = this.createSliderRow(
+            chatGptDirectoryGroup.body,
+            t('chatgptDirectoryRightInsetLabel'),
+            t('chatgptDirectoryRightInsetDesc'),
+            MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+            MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+            CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
+            'settings-chatgpt-directory-right-inset-value',
+            (value) => `${value}px`,
         );
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -371,9 +412,11 @@ export class SettingsTabView {
                 enterKeyNewline: chatGptEnterKeyNewline.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
+                pageWidthScale: chatGptPageWidthScale,
                 enabled: chatGptDirectoryEnabled.input,
                 mode: chatGptDirectoryMode,
                 promptLabelMode: chatGptDirectoryPromptLabelMode.input,
+                rightInset: chatGptDirectoryRightInset,
             },
             language,
             storageText,
@@ -397,9 +440,11 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.enterKeyNewline.dataset.role = 'settings-chatgpt-enter-key-newline';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
+        this.refs.chatgptDirectory.pageWidthScale.input.dataset.role = 'settings-chatgpt-page-width-scale';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
         this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
+        this.refs.chatgptDirectory.rightInset.input.dataset.role = 'settings-chatgpt-directory-right-inset';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
@@ -447,7 +492,11 @@ export class SettingsTabView {
             formula: this.normalizeFormulaSettings(params.settings.formula),
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
             chatgptDirectory: normalizeChatGPTDirectorySettings(params.settings.chatgptDirectory),
-            chatgptBehavior: { ...DEFAULT_SETTINGS.chatgptBehavior, ...params.settings.chatgptBehavior },
+            chatgptBehavior: {
+                ...DEFAULT_SETTINGS.chatgptBehavior,
+                ...params.settings.chatgptBehavior,
+                pageWidthScale: normalizeChatGPTPageWidthScale(params.settings.chatgptBehavior?.pageWidthScale),
+            },
             appearance: {
                 fontSizePx: this.normalizeGlobalFontSize(params.settings.appearance?.fontSizePx ?? DEFAULT_SETTINGS.appearance.fontSizePx),
                 accentColor: this.normalizeAccentColor(params.settings.appearance?.accentColor),
@@ -596,6 +645,15 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.enableArrowKeyMessageNavigation = next;
             void this.actions.setChatGptBehaviorSettings?.({ enableArrowKeyMessageNavigation: next });
         });
+        this.refs.chatgptDirectory.pageWidthScale.input.addEventListener('input', () => {
+            this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale);
+        });
+        this.refs.chatgptDirectory.pageWidthScale.input.addEventListener('change', () => {
+            const next = normalizeChatGPTPageWidthScale(this.refs.chatgptDirectory.pageWidthScale.input.value);
+            this.settings.chatgptBehavior.pageWidthScale = next;
+            this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, next);
+            void this.actions.setChatGptBehaviorSettings?.({ pageWidthScale: next });
+        });
         this.refs.chatgptDirectory.enabled.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.enabled.checked;
             this.settings.chatgptDirectory.enabled = next;
@@ -610,6 +668,15 @@ export class SettingsTabView {
             const next = this.refs.chatgptDirectory.promptLabelMode.checked ? 'headTail' : 'head';
             this.settings.chatgptDirectory.promptLabelMode = next;
             void this.actions.setChatGptDirectorySettings?.({ promptLabelMode: next });
+        });
+        this.refs.chatgptDirectory.rightInset.input.addEventListener('input', () => {
+            this.syncSliderValue(this.refs.chatgptDirectory.rightInset);
+        });
+        this.refs.chatgptDirectory.rightInset.input.addEventListener('change', () => {
+            const next = normalizeChatGPTDirectoryRightInsetPx(this.refs.chatgptDirectory.rightInset.input.value);
+            this.settings.chatgptDirectory.rightInsetPx = next;
+            this.syncSliderValue(this.refs.chatgptDirectory.rightInset, next);
+            void this.actions.setChatGptDirectorySettings?.({ rightInsetPx: next });
         });
         // Language
         this.refs.language.onChange((value) => {
@@ -644,9 +711,11 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.enterKeyNewline.checked = Boolean(s.chatgptBehavior.enterKeyNewline);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
+        this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, normalizeChatGPTPageWidthScale(s.chatgptBehavior.pageWidthScale));
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode === 'expanded' ? 'expanded' : 'preview');
         this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
+        this.syncSliderValue(this.refs.chatgptDirectory.rightInset, normalizeChatGPTDirectoryRightInsetPx(s.chatgptDirectory.rightInsetPx));
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -831,6 +900,53 @@ export class SettingsTabView {
         item.append(info, field.field);
         parent.appendChild(item);
         return field;
+    }
+
+    private createSliderRow(
+        parent: HTMLElement,
+        labelText: string,
+        desc: string,
+        min: number,
+        max: number,
+        step: number,
+        valueClassName: string,
+        format: (value: number) => string,
+    ): SliderFieldRef {
+        const item = document.createElement('div');
+        item.className = 'settings-row settings-item';
+        const info = document.createElement('div');
+        info.className = 'settings-label settings-item-info';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        const summary = document.createElement('p');
+        summary.textContent = desc;
+        info.append(label, summary);
+
+        const field = document.createElement('div');
+        field.className = 'settings-slider-field';
+        field.classList.add(valueClassName);
+
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.className = 'settings-slider';
+        input.min = String(min);
+        input.max = String(max);
+        input.step = String(step);
+
+        const value = document.createElement('span');
+        value.className = 'settings-slider-value';
+
+        field.append(input, value);
+        item.append(info, field);
+        parent.appendChild(item);
+        return { root: item, field, input, value, format };
+    }
+
+    private syncSliderValue(ref: SliderFieldRef, normalized?: number): void {
+        const next = normalized ?? Number.parseInt(ref.input.value, 10);
+        const value = Number.isFinite(next) ? next : Number.parseInt(ref.input.min, 10);
+        ref.input.value = String(value);
+        ref.value.textContent = ref.format(value);
     }
 
     private createStepperRow(
