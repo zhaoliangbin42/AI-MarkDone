@@ -1069,7 +1069,31 @@ describe('content runtime entry', () => {
         }));
     });
 
-    it('arms ChatGPT position restore before detached reader send writes to the source composer', async () => {
+    it('arms ChatGPT position restore from detached reader before-send requests', async () => {
+        adapterPlatformId = 'chatgpt';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+
+        const sendResponse = vi.fn();
+        (runtimeMessageListener as any)!(
+            { v: 1, id: 'before_send_1', type: 'readerSession:beforeSend', payload: { sessionId: 'session-1' } },
+            undefined,
+            sendResponse,
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(armChatGPTSendPositionRestore).toHaveBeenCalledTimes(1);
+        expect(sendText).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+            ok: true,
+            type: 'readerSession:beforeSend',
+            data: { ready: true },
+        }));
+    });
+
+    it('sends detached reader text through the source composer', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
         await import('@/runtimes/content/entry');
@@ -1084,7 +1108,7 @@ describe('content runtime entry', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(armChatGPTSendPositionRestore).toHaveBeenCalledBefore(sendText as any);
+        expect(armChatGPTSendPositionRestore).not.toHaveBeenCalled();
         expect(sendText).toHaveBeenCalledWith(expect.objectContaining({
             getPlatformId: expect.any(Function),
         }), 'send from detached', { focusComposer: true, timeoutMs: 3000 });

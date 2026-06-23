@@ -7,7 +7,8 @@ import type { UserThemeOverrides } from '../../style/tokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { createConversationReaderActions } from '../../ui/content/reader/conversationReaderActions';
 import { setLocale, t } from '../../ui/content/components/i18n';
-import { SendPopover, type SendPort } from '../../ui/content/sending/SendPopover';
+import { SendPopover } from '../../ui/content/sending/SendPopover';
+import { createDetachedReaderSendPort } from '../../ui/content/sending/detachedReaderSendPort';
 import type { ReaderItem } from '../../services/reader/types';
 import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
@@ -92,27 +93,6 @@ async function closeSession(sessionId: string): Promise<void> {
     }, { timeoutMs: 4000 });
 }
 
-async function readSourceDraft(sessionId: string): Promise<string> {
-    const response = await sendExtRequest({
-        v: PROTOCOL_VERSION,
-        id: createRequestId(),
-        type: 'readerSession:draft',
-        payload: { sessionId },
-    }, { timeoutMs: 4000 });
-    if (!response.ok || !response.data || typeof response.data !== 'object') return '';
-    const text = (response.data as { text?: unknown }).text;
-    return typeof text === 'string' ? text : '';
-}
-
-async function writeSourceDraft(sessionId: string, text: string): Promise<void> {
-    await sendExtRequest({
-        v: PROTOCOL_VERSION,
-        id: createRequestId(),
-        type: 'readerSession:draft',
-        payload: { sessionId, text },
-    }, { timeoutMs: 4000 });
-}
-
 async function readBookmarkedPositions(url: string): Promise<Set<number>> {
     const response = await sendExtRequest({
         v: PROTOCOL_VERSION,
@@ -174,23 +154,7 @@ async function run(): Promise<void> {
     const showSession = async (): Promise<void> => {
         if (!session) return;
         const bookmarkedPositions = await readBookmarkedPositions(session.snapshot.sourceUrl);
-        const detachedSendPort: SendPort = {
-            readDraft: () => readSourceDraft(sessionId),
-            writeDraft: async (text) => {
-                await writeSourceDraft(sessionId, text);
-            },
-            submit: async (text) => {
-                const response = await sendExtRequest({
-                    v: PROTOCOL_VERSION,
-                    id: createRequestId(),
-                    type: 'readerSession:send',
-                    payload: { sessionId, text },
-                }, { timeoutMs: 12000 });
-                return response.ok
-                    ? { ok: true }
-                    : { ok: false, message: response.error.message };
-            },
-        };
+        const detachedSendPort = createDetachedReaderSendPort(sessionId);
         const items = toReaderItems(session.snapshot).map((item) => {
             const position = Number(item.meta?.position ?? 0);
             if (!position) return item;

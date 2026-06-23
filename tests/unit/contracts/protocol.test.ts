@@ -92,6 +92,13 @@ describe('protocol', () => {
         expect(isExtRequest({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
+            type: 'readerSession:beforeSend',
+            payload: { sessionId: 'reader_1' },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
             type: 'readerSession:send',
             payload: { sessionId: 'reader_1', text: 'Next prompt' },
         })).toBe(true);

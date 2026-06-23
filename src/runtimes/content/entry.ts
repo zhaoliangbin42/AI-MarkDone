@@ -447,8 +447,12 @@ if (adapter) {
                 return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { text: result.text } };
             }
 
-            if (request.type === 'readerSession:send') {
+            if (request.type === 'readerSession:beforeSend') {
                 armChatGPTSendPositionRestore();
+                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { ready: true } };
+            }
+
+            if (request.type === 'readerSession:send') {
                 const result = await sendText(adapter, request.payload.text, { focusComposer: true, timeoutMs: 3000 });
                 if (!result.ok) {
                     return {
@@ -512,7 +516,7 @@ if (adapter) {
         if (msg.type === 'ui:toggle_toolbar') {
             void bookmarksPanel.toggle();
         }
-        if (msg.type === 'readerSession:refresh' || msg.type === 'readerSession:draft' || msg.type === 'readerSession:send' || msg.type === 'readerSession:locate') {
+        if (msg.type === 'readerSession:refresh' || msg.type === 'readerSession:draft' || msg.type === 'readerSession:beforeSend' || msg.type === 'readerSession:send' || msg.type === 'readerSession:locate') {
             void handleDetachedReaderRequest(msg).then((response) => sendResponse?.(response));
             return true;
         }

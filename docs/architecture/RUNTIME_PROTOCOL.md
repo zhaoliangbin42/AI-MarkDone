@@ -100,6 +100,7 @@
 - `readerSession:get`
 - `readerSession:refresh`
 - `readerSession:draft`
+- `readerSession:beforeSend`
 - `readerSession:send`
 - `readerSession:locate`
 - `readerSession:close`
@@ -108,7 +109,7 @@
 
 - ChatGPT content runtime 打开独立扩展页 `reader.html`，并把当前 fresh `ReaderItem[]` 序列化为 `ReaderSessionSnapshot`
 - detached Reader 页按 `sessionId` 读取快照，复用现有 ReaderPanel 渲染、bookmark、复制、评论与 Sticky 基础能力
-- detached Reader 页请求 refresh/draft/send/locate 时，background 按 session 记录把请求路由回原 `sourceTabId`，由源 content runtime 调用既有 `collectFreshReaderContent`、`readComposer(adapter)` / `writeComposer(adapter, text)`、发送前 position restore arm、`sendText(adapter, text)` 与 ChatGPT same-page navigation helper
+- detached Reader 页请求 refresh/draft/beforeSend/send/locate 时，background 按 session 记录把请求路由回原 `sourceTabId`，由源 content runtime 调用既有 `collectFreshReaderContent`、`readComposer(adapter)` / `writeComposer(adapter, text)`、发送前 position restore arm、`sendText(adapter, text)` 与 ChatGPT same-page navigation helper
 
 关键语义：
 
@@ -116,6 +117,8 @@
 - `readerSession:create` 只能由带有 `sender.tab.id` 的源 content runtime 发起；source tab id 以浏览器 sender 为准，不从 payload 信任
 - `reader.html#sessionId=...` 中的 hash 只作为 Reader 页启动时的 session lookup key；它不能绕过 background 的 `readerTabId` sender 校验，不能单独授权读取 snapshot 或触发 refresh/draft/send/locate
 - `readerSession:draft` 是 detached Reader 与源 ChatGPT composer 的草稿桥：不带 `text` 时读取源 composer 当前文本，带 `text` 时把 detached 发送浮层关闭/取消时的本地草稿写回源 composer；它不做实时双向同步
+- `readerSession:beforeSend` 是 detached Reader SendPort 的发送前准备桥：只在源 content runtime arm 发送后位置恢复，不写 composer、不触发发送
+- `readerSession:send` 在转发给源 content runtime 前会 best-effort 激活源 ChatGPT tab，让官方 composer 发送尽量匹配官网内 Reader 的可见/焦点条件；源 content runtime 随后调用 `sendText(adapter, text)`
 - `readerSession:locate` 在转发给源 content runtime 前会 best-effort 激活源 ChatGPT tab；定位成功或失败都不得关闭 detached Reader tab，只有用户显式关闭 Reader tab 或 Reader 内 close action 才清理该 session
 - detached Reader bookmark 不新增 reader-session 私有协议；它复用 `bookmarks:positions` 标记当前页保存状态，创建时复用 bookmark save dialog，再通过 `bookmarks:save` / `bookmarks:remove` 写入同一套 bookmarks storage/index
 - session 状态只写入 `chrome.storage.session` / `browser.storage.session`，不 fallback 到 `storage.local`，不依赖 MV3 service worker 全局变量；service worker 休眠后，下一次用户动作可从 session storage 重新读取并继续路由；如果当前浏览器目标不提供 session storage，`readerSession:create` 必须稳定失败，不能把对话快照持久化到 local storage

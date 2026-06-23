@@ -200,6 +200,7 @@ export type ReaderSessionCreatePayload = {
 
 export type ReaderSessionByIdPayload = { sessionId: string };
 export type ReaderSessionDraftPayload = { sessionId: string; text?: string };
+export type ReaderSessionBeforeSendPayload = { sessionId: string };
 export type ReaderSessionSendPayload = { sessionId: string; text: string };
 export type ReaderSessionLocatePayload = {
     sessionId: string;
@@ -215,6 +216,7 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:get'; payload: ReaderSessionByIdPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:refresh'; payload: ReaderSessionByIdPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:draft'; payload: ReaderSessionDraftPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'readerSession:beforeSend'; payload: ReaderSessionBeforeSendPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:send'; payload: ReaderSessionSendPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:locate'; payload: ReaderSessionLocatePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:close'; payload: ReaderSessionByIdPayload }
@@ -280,6 +282,7 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'readerSession:get',
         'readerSession:refresh',
         'readerSession:draft',
+        'readerSession:beforeSend',
         'readerSession:send',
         'readerSession:locate',
         'readerSession:close',

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added a slider for ChatGPT directory right spacing so users can add extra room when browser scrollbars overlap the right-side rail.
 
 ### Fixed
+- Reader: Detached Reader sending now uses the full SendPort flow, prepares the source ChatGPT page before submit, and activates the source tab before triggering the official send action.
 - Reader: Selecting text inside code blocks, inline code, or tables now keeps copy, annotations, and sticky pins limited to the exact selected text instead of expanding to the whole Markdown block.
 
 ## [4.6.0] - 2026-06-18

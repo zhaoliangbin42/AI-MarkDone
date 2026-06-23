@@ -270,7 +270,7 @@ export async function handleReaderSessionRequest(request: ExtRequest, sender: an
     const senderError = ensureReaderSender(request, record, getSenderTabId(sender));
     if (senderError) return { response: senderError };
 
-    if (request.type === 'readerSession:locate') {
+    if (request.type === 'readerSession:locate' || request.type === 'readerSession:send') {
         await activateTab(record.sourceTabId);
     }
 

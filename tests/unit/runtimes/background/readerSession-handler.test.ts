@@ -167,6 +167,10 @@ describe('reader session background handler', () => {
             { tab: { id: 500 } },
         );
         await handleReaderSessionRequest(
+            request('readerSession:beforeSend', { sessionId: aSessionId }),
+            { tab: { id: 500 } },
+        );
+        await handleReaderSessionRequest(
             request('readerSession:send', { sessionId: aSessionId, text: 'A prompt' }),
             { tab: { id: 500 } },
         );
@@ -190,15 +194,24 @@ describe('reader session background handler', () => {
         expect(tabs.sendMessage).toHaveBeenNthCalledWith(
             3,
             11,
-            expect.objectContaining({ type: 'readerSession:send', payload: expect.objectContaining({ text: 'A prompt' }) }),
+            expect.objectContaining({ type: 'readerSession:beforeSend', payload: expect.objectContaining({ sessionId: aSessionId }) }),
             expect.any(Function),
         );
         expect(tabs.sendMessage).toHaveBeenNthCalledWith(
             4,
+            11,
+            expect.objectContaining({ type: 'readerSession:send', payload: expect.objectContaining({ text: 'A prompt' }) }),
+            expect.any(Function),
+        );
+        expect(tabs.sendMessage).toHaveBeenNthCalledWith(
+            5,
             22,
             expect.objectContaining({ type: 'readerSession:send', payload: expect.objectContaining({ text: 'B prompt' }) }),
             expect.any(Function),
         );
+        expect(tabs.update).toHaveBeenCalledTimes(2);
+        expect(tabs.update).toHaveBeenNthCalledWith(1, 11, { active: true }, expect.any(Function));
+        expect(tabs.update).toHaveBeenNthCalledWith(2, 22, { active: true }, expect.any(Function));
     });
 
     it('closes the detached reader when the source tab is removed', async () => {

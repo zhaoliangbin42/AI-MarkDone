@@ -206,6 +206,10 @@ describe('detached reader runtime entry', () => {
         await Promise.resolve();
 
         expect(sendExtRequest).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'readerSession:beforeSend',
+            payload: { sessionId: 'session-1' },
+        }), { timeoutMs: 4000 });
+        expect(sendExtRequest).toHaveBeenCalledWith(expect.objectContaining({
             type: 'readerSession:send',
             payload: { sessionId: 'session-1', text: 'hello from detached' },
         }), { timeoutMs: 12000 });
