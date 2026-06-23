@@ -1,10 +1,11 @@
-import type { Bookmark, Folder, FolderTreeNode, BookmarksSortMode } from '../../core/bookmarks/types';
+import type { Bookmark, BookmarksKindFilter, Folder, FolderTreeNode, BookmarksSortMode } from '../../core/bookmarks/types';
 import { PathUtils } from '../../core/bookmarks/path';
 import { buildFolderTree, filterBookmarks, sortBookmarks } from '../../core/bookmarks/tree';
 
 export type BookmarksPanelState = {
     query: string;
     platform: string;
+    kind: BookmarksKindFilter;
     sortMode: BookmarksSortMode;
     selectedFolderPath: string | null;
     recursive: boolean;
@@ -18,6 +19,7 @@ export type BookmarksPanelViewModel = {
     selectedCount: number;
     query: string;
     platform: string;
+    kind: BookmarksKindFilter;
     sortMode: BookmarksSortMode;
     selectedFolderPath: string | null;
 };
@@ -37,7 +39,7 @@ export function computeBookmarksPanelViewModel(params: {
     });
 
     let items = params.bookmarks;
-    items = filterBookmarks({ bookmarks: items, query: state.query, platform: state.platform });
+    items = filterBookmarks({ bookmarks: items, query: state.query, platform: state.platform, kind: state.kind });
 
     if (state.selectedFolderPath) {
         const fp = PathUtils.normalize(state.selectedFolderPath);
@@ -57,8 +59,8 @@ export function computeBookmarksPanelViewModel(params: {
         selectedCount: state.selectedKeys.size,
         query: state.query,
         platform: state.platform,
+        kind: state.kind,
         sortMode: state.sortMode,
         selectedFolderPath: state.selectedFolderPath,
     };
 }
-

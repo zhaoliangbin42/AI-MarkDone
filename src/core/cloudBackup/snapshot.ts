@@ -1,6 +1,6 @@
 import type { Bookmark, ExportPayloadV2 } from '../bookmarks/types';
 import { parseImportData } from '../bookmarks/importExport';
-import { buildBookmarkStorageKey } from '../bookmarks/keys';
+import { buildBookmarkStorageKeyForBookmark } from '../bookmarks/keys';
 import type { CloudBackupRestorePlan, CloudBackupSnapshotV1 } from './types';
 
 function canonicalJson(value: unknown): string {
@@ -54,7 +54,7 @@ export async function validateCloudBackupSnapshot(value: unknown): Promise<Cloud
 }
 
 function keyOf(bookmark: Bookmark): string {
-    return buildBookmarkStorageKey(bookmark.url, bookmark.position);
+    return buildBookmarkStorageKeyForBookmark(bookmark);
 }
 
 function sameBookmark(a: Bookmark, b: Bookmark): boolean {

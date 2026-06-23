@@ -2,21 +2,24 @@ import { PathUtils } from '../../../core/bookmarks/path';
 import type { Bookmark, Folder } from '../../../core/bookmarks/types';
 import type { BookmarkIdentityKey } from './BookmarksPanelController';
 import { bookmarkKey, folderKey, getBookmarkIdentityKey, parseBookmarkIdentityKey } from './bookmarksPanelControllerHelpers';
+import type { BookmarksBulkItem } from '../../../contracts/protocol';
 
 export function getSelectedBookmarkItems(params: {
     bookmarks: Bookmark[];
     selectedKeys: Set<string>;
-}): Array<{ url: string; position: number }> {
+}): BookmarksBulkItem[] {
     const ids = new Set<BookmarkIdentityKey>();
     for (const key of params.selectedKeys) {
         const id = parseBookmarkIdentityKey(key);
         if (id) ids.add(id);
     }
 
-    const items: Array<{ url: string; position: number }> = [];
+    const items: BookmarksBulkItem[] = [];
     for (const id of ids) {
         const bookmark = params.bookmarks.find((candidate) => getBookmarkIdentityKey(candidate) === id);
-        if (bookmark) items.push({ url: bookmark.url, position: bookmark.position });
+        if (!bookmark) continue;
+        if (bookmark.kind === 'page') items.push({ kind: 'page', url: bookmark.url });
+        else if (typeof bookmark.position === 'number') items.push({ kind: 'message', url: bookmark.url, position: bookmark.position });
     }
     return items;
 }

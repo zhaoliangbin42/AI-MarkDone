@@ -1,16 +1,32 @@
 export type BookmarkPlatform = string;
 
+export type BookmarkKind = 'message' | 'page';
+
 export interface Bookmark {
+    kind?: BookmarkKind;
     url: string;
     urlWithoutProtocol: string;
-    position: number;
+    position?: number;
+    pageKey?: string;
     messageId?: string | null;
-    userMessage: string;
+    userMessage?: string;
     aiResponse?: string;
     timestamp: number;
     title: string;
     platform: BookmarkPlatform;
     folderPath: string;
+}
+
+export function getBookmarkKind(bookmark: Bookmark): BookmarkKind {
+    return bookmark.kind === 'page' ? 'page' : 'message';
+}
+
+export function isPageBookmark(bookmark: Bookmark): boolean {
+    return getBookmarkKind(bookmark) === 'page';
+}
+
+export function isMessageBookmark(bookmark: Bookmark): boolean {
+    return getBookmarkKind(bookmark) === 'message';
 }
 
 export interface Folder {
@@ -30,6 +46,7 @@ export interface FolderTreeNode {
 }
 
 export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
+export type BookmarksKindFilter = 'all' | 'page' | 'message';
 
 export type ExportBookmark = Omit<Bookmark, 'folderPath'> & { folderPath: string | null };
 

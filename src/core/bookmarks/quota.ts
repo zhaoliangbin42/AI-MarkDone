@@ -1,5 +1,5 @@
 import type { Bookmark, QuotaCheckResult } from './types';
-import { buildBookmarkStorageKey } from './keys';
+import { buildBookmarkStorageKeyForBookmark } from './keys';
 
 export const BOOKMARKS_QUOTA_THRESHOLDS = {
     warning: 0.95,
@@ -7,7 +7,7 @@ export const BOOKMARKS_QUOTA_THRESHOLDS = {
 } as const;
 
 export function estimateBookmarkBytes(bookmark: Bookmark): number {
-    const key = buildBookmarkStorageKey(bookmark.url, bookmark.position);
+    const key = buildBookmarkStorageKeyForBookmark(bookmark);
     const keySize = key.length;
     const valueSize = JSON.stringify(bookmark).length;
     return keySize + valueSize;
@@ -81,4 +81,3 @@ export function canImport(params: {
 
     return { canImport: true, estimatedBytes, currentUsed: params.currentUsedBytes, projectedPercentage };
 }
-

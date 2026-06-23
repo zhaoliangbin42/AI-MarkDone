@@ -1,4 +1,5 @@
-import type { Bookmark, BookmarksSortMode, Folder, FolderTreeNode } from './types';
+import type { Bookmark, BookmarksKindFilter, BookmarksSortMode, Folder, FolderTreeNode } from './types';
+import { getBookmarkKind } from './types';
 import { PathUtils } from './path';
 
 function compareCaseInsensitive(a: string, b: string): number {
@@ -107,19 +108,23 @@ export function filterBookmarks(params: {
     bookmarks: Bookmark[];
     query?: string;
     platform?: string;
+    kind?: BookmarksKindFilter;
 }): Bookmark[] {
     const query = params.query?.trim().toLowerCase() ?? '';
     const platform = params.platform?.trim() ?? '';
+    const kind = params.kind ?? 'all';
 
     return params.bookmarks.filter((b) => {
         if (platform && platform !== 'All' && b.platform !== platform) return false;
+        if (kind !== 'all' && getBookmarkKind(b) !== kind) return false;
         if (!query) return true;
+        const user = b.userMessage ?? '';
         const ai = b.aiResponse ?? '';
         return (
             b.title.toLowerCase().includes(query)
-            || b.userMessage.toLowerCase().includes(query)
+            || b.url.toLowerCase().includes(query)
+            || user.toLowerCase().includes(query)
             || ai.toLowerCase().includes(query)
         );
     });
 }
-

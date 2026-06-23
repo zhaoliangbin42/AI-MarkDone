@@ -25,6 +25,7 @@ describe('settings migrations', () => {
         expect(next.platforms).toEqual({ chatgpt: false, gemini: true, claude: false, deepseek: true });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
+        expect(next.chatgptBehavior.showPageBookmarkControl).toBe(true);
         expect(next.chatgptBehavior.enterKeyNewline).toBe(false);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next.chatgptBehavior.pageWidthScale).toBe(100);
@@ -144,6 +145,7 @@ describe('settings migrations', () => {
                 restorePositionAfterSend: false,
                 enterKeyNewline: true,
                 showMessageStepper: false,
+                showPageBookmarkControl: false,
                 enableArrowKeyMessageNavigation: false,
                 pageWidthScale: 147,
             },
@@ -159,6 +161,7 @@ describe('settings migrations', () => {
             restorePositionAfterSend: true,
             enterKeyNewline: false,
             showMessageStepper: true,
+            showPageBookmarkControl: true,
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
         });
@@ -166,6 +169,7 @@ describe('settings migrations', () => {
             restorePositionAfterSend: false,
             enterKeyNewline: true,
             showMessageStepper: false,
+            showPageBookmarkControl: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
         });

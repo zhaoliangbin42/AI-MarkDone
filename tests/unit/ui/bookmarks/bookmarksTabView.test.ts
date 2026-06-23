@@ -184,13 +184,59 @@ describe('BookmarksTabView', () => {
         } as any);
 
         const root = view.getElement();
-        const toolbarGroups = root.querySelectorAll<HTMLElement>('.toolbar-actions');
-        const sortButtons = toolbarGroups[0]?.querySelectorAll<HTMLButtonElement>('.icon-btn') ?? [];
-        const alphaBtn = sortButtons[1];
+        const alphaBtn = root.querySelector<HTMLButtonElement>('[data-action="toggle-sort-alpha"]')!;
 
         expect(alphaBtn.innerHTML).toContain('m3 8 4-4 4 4');
         expect(alphaBtn.innerHTML).toContain('M7 4v16');
         expect(alphaBtn.innerHTML).not.toContain('m3 16 4 4 4-4');
+    });
+
+    it('renders bookmark kind filtering as a compact segmented control', () => {
+        const controller = {
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setKindFilter: vi.fn(),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+        } as any;
+
+        const view = new BookmarksTabView({
+            controller,
+            readerPanel: {} as any,
+            modal: {} as any,
+        });
+
+        view.update({
+            vm: {
+                query: '',
+                platform: 'All',
+                kind: 'page',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Ready',
+        } as any);
+
+        const root = view.getElement();
+        const filter = root.querySelector<HTMLElement>('[data-role="bookmark-kind-filter"]')!;
+        const pageButton = filter.querySelector<HTMLButtonElement>('[data-value="page"]')!;
+
+        expect(filter.tagName).toBe('DIV');
+        expect(pageButton.getAttribute('aria-pressed')).toBe('true');
+
+        pageButton.click();
+
+        expect(controller.setKindFilter).toHaveBeenCalledWith('page');
     });
 
     it('allows a selected folder to render as collapsed when its node state is collapsed', () => {
@@ -873,6 +919,12 @@ describe('BookmarksTabView', () => {
         expect(bookmarkRow?.querySelector('.tree-label-row')).toBeTruthy();
         expect(bookmarkRow?.querySelector('button.tree-main--bookmark')).toBeTruthy();
         expect(bookmarkRow?.querySelector('.tree-label--bookmark')).toBeTruthy();
+        const titleMeta = bookmarkRow?.querySelector<HTMLElement>('.tree-title-meta');
+        const titleLine = bookmarkRow?.querySelector<HTMLElement>('.tree-title-line');
+        expect(titleMeta?.children[0]).toBe(titleLine);
+        expect(titleMeta?.children[1]?.classList.contains('tree-subtitle')).toBe(true);
+        expect(titleLine?.children[0]?.classList.contains('tree-kind-badge')).toBe(true);
+        expect(titleLine?.children[1]?.classList.contains('tree-label--bookmark')).toBe(true);
     });
 
     it('renders folder rows with a button-based main target like the mock panel', () => {

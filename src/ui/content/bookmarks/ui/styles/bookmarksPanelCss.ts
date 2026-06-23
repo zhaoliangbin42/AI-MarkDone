@@ -281,12 +281,53 @@ ${getPanelChromeCss()}
 
 /* Bookmark tree toolbar */
 .toolbar-row--bookmarks {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, var(--_bookmarks-sidebar-width));
   align-items: center;
   gap: var(--_bookmarks-toolbar-gap);
-  flex-wrap: nowrap;
   padding: var(--_bookmarks-toolbar-padding-top) var(--_bookmarks-toolbar-padding-inline) var(--_bookmarks-toolbar-padding-bottom);
   background: transparent;
+}
+
+.bookmark-kind-filter {
+  flex: 0 0 auto;
+  height: var(--_bookmarks-control-height);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-1);
+  border-radius: var(--aimd-radius-xl);
+  border: 1px solid var(--_bookmarks-control-border);
+  background: var(--_bookmarks-control-surface);
+  color: var(--aimd-text-primary);
+  box-shadow: var(--_bookmarks-control-inset-shadow);
+  padding: var(--aimd-space-1);
+}
+
+.bookmark-kind-filter__button {
+  all: unset;
+  box-sizing: border-box;
+  height: calc(var(--_bookmarks-control-height) - var(--aimd-space-2));
+  min-width: 42px;
+  padding: 0 var(--aimd-space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--aimd-radius-lg);
+  color: var(--aimd-text-muted);
+  font-size: var(--aimd-text-xs);
+  line-height: var(--aimd-leading-tight);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bookmark-kind-filter__button:hover {
+  color: var(--aimd-text-primary);
+  background: var(--aimd-surface-hover);
+}
+
+.bookmark-kind-filter__button[data-active="1"] {
+  color: var(--aimd-text-primary);
+  background: var(--aimd-interactive-selected);
 }
 
 .search-field {
@@ -324,12 +365,13 @@ ${getPanelChromeCss()}
 .platform-dropdown {
   position: relative;
   flex: 0 0 auto;
+  min-width: 0;
 }
 
 .platform-dropdown__trigger {
   all: unset;
   box-sizing: border-box;
-  width: var(--_bookmarks-sidebar-width);
+  width: 100%;
   height: var(--_bookmarks-control-height);
   padding: 0 14px;
   display: inline-flex;
@@ -342,6 +384,12 @@ ${getPanelChromeCss()}
   color: var(--aimd-text-primary);
   box-shadow: var(--_bookmarks-control-inset-shadow);
   cursor: pointer;
+}
+
+.toolbar-row--bookmarks > .toolbar-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .platform-dropdown__trigger:hover,
@@ -599,6 +647,18 @@ ${getPanelChromeCss()}
   gap: 12px;
 }
 
+.tree-title-line {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+}
+
+.tree-title-line .tree-label--bookmark {
+  width: auto;
+  min-width: 0;
+}
+
 .tree-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -617,6 +677,17 @@ ${getPanelChromeCss()}
 .tree-label--bookmark {
   font-size: var(--aimd-text-sm);
   font-weight: var(--aimd-font-medium);
+}
+
+.tree-kind-badge {
+  flex: 0 0 auto;
+  border-radius: var(--aimd-radius-sm);
+  border: 1px solid var(--aimd-border-subtle);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.25;
+  padding: 1px var(--aimd-space-1);
+  white-space: nowrap;
 }
 
 .tree-subtitle,

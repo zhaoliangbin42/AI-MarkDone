@@ -9,6 +9,9 @@ import type {
     BookmarksListPayload,
     BookmarksPositionsPayload,
     BookmarksRemovePayload,
+    BookmarksPageRemovePayload,
+    BookmarksPageSavePayload,
+    BookmarksPageStatusPayload,
     BookmarksSavePayload,
     BookmarksUiStateGetPayload,
     BookmarksUiStateSetPayload,
@@ -45,6 +48,7 @@ export type PositionsResponse = { positions: number[] };
 export type FoldersListResponse = { folderPaths: string[]; folders: Folder[] };
 export type SaveResponse = { warnings?: string[] };
 export type RemoveResponse = { removed: number };
+export type PageStatusResponse = { saved: boolean };
 export type BulkRemoveResponse = { removed: number };
 export type BulkMoveResponse = { moved: number; missing: number };
 export type ExportResponse = { payload: any };
@@ -66,6 +70,15 @@ export const bookmarksClient = {
     },
     async remove(payload: BookmarksRemovePayload): Promise<Result<RemoveResponse>> {
         return call('bookmarks:remove', payload);
+    },
+    async pageSave(payload: BookmarksPageSavePayload): Promise<Result<SaveResponse>> {
+        return call('bookmarks:page:save', payload);
+    },
+    async pageRemove(payload: BookmarksPageRemovePayload): Promise<Result<RemoveResponse>> {
+        return call('bookmarks:page:remove', payload);
+    },
+    async pageStatus(payload: BookmarksPageStatusPayload): Promise<Result<PageStatusResponse>> {
+        return call('bookmarks:page:status', payload);
     },
     async bulkRemove(payload: BookmarksBulkRemovePayload): Promise<Result<BulkRemoveResponse>> {
         return call('bookmarks:bulkRemove', payload);

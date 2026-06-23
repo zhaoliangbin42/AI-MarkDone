@@ -37,5 +37,27 @@ describe('bookmarks import/export', () => {
         const flat = buildExportPayload(source, false);
         expect(flat.bookmarks.every((b) => b.folderPath === null)).toBe(true);
     });
-});
 
+    it('round-trips page bookmarks without requiring message fields', () => {
+        const page: Bookmark = {
+            kind: 'page',
+            url: 'https://chatgpt.com/c/page-1',
+            urlWithoutProtocol: 'chatgpt.com/c/page-1',
+            pageKey: 'chatgpt.com/c/page-1',
+            timestamp: 1,
+            title: 'Conversation page',
+            platform: 'ChatGPT',
+            folderPath: 'Pages',
+        };
+
+        const payload = buildExportPayload([page], true);
+        const parsed = parseImportData(payload);
+
+        expect(parsed.bookmarks).toHaveLength(1);
+        expect(parsed.bookmarks[0]).toMatchObject({
+            kind: 'page',
+            title: 'Conversation page',
+            folderPath: 'Pages',
+        });
+    });
+});

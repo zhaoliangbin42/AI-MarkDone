@@ -12,6 +12,7 @@ import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
 import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
+import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale, t } from '../../ui/content/components/i18n';
@@ -105,6 +106,42 @@ if (adapter) {
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
+            onTogglePageBookmark: async () => {
+                const url = window.location.href.split('#')[0] || window.location.href;
+                const alreadySaved = bookmarksController.isCurrentPageBookmarked(url);
+                let title = resolveCurrentPageBookmarkTitle(url);
+                let folderPath = bookmarksController.getDefaultFolderPath();
+
+                if (!alreadySaved) {
+                    bookmarkSaveDialog.setTheme(currentTheme);
+                    bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
+                    const dialogRes = await bookmarkSaveDialog.open({
+                        theme: currentTheme,
+                        userPrompt: title,
+                        existingTitle: title,
+                        currentFolderPath: folderPath,
+                        mode: 'create',
+                    });
+                    if (!dialogRes.ok) {
+                        return { saved: bookmarksController.isCurrentPageBookmarked(url) };
+                    }
+                    title = dialogRes.title;
+                    folderPath = dialogRes.folderPath;
+                }
+
+                const res = await bookmarksController.togglePageBookmarkForCurrentPage({
+                    url,
+                    title,
+                    platform: 'ChatGPT',
+                    folderPath,
+                });
+                if (!res.ok) {
+                    bookmarksController.setPanelStatus(res.message);
+                    return { saved: bookmarksController.isCurrentPageBookmarked(url) };
+                }
+                return res.data;
+            },
+            onRefreshPageBookmarkState: async (url) => bookmarksController.refreshPageBookmarkStatus(url),
         })
         : null;
     const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
@@ -266,6 +303,7 @@ if (adapter) {
         chatGptSendPositionRestore?.setEnterKeyNewlineEnabled(Boolean(next.enterKeyNewline));
         chatGptComposerEnter?.setEnabled(Boolean(next.enterKeyNewline));
         chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
+        chatGptMessageStepper?.setPageBookmarkControlVisible(Boolean(next.showPageBookmarkControl));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
         chatGptPageWidth?.setScale(next.pageWidthScale);
     };
@@ -279,6 +317,7 @@ if (adapter) {
         sendController.setThemeOverrides?.(currentThemeOverrides);
         bookmarksController.setThemeOverrides?.(currentThemeOverrides);
         saveMessagesDialog.setThemeOverrides?.(currentThemeOverrides);
+        bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
         chatGptDirectory?.setThemeOverrides?.(currentThemeOverrides);
         chatGptMessageStepper?.setThemeOverrides?.(currentThemeOverrides);
     };
@@ -360,6 +399,7 @@ if (adapter) {
         sendController.setTheme(theme);
         bookmarksController.setTheme(theme);
         saveMessagesDialog.setTheme(theme);
+        bookmarkSaveDialog.setTheme(theme);
         chatGptDirectory?.setTheme(theme);
     });
 
@@ -484,6 +524,13 @@ if (adapter) {
         initChatGptIfNeeded();
     }
 
+    if (adapter.getPlatformId() === 'chatgpt') {
+        const url = window.location.href.split('#')[0] || window.location.href;
+        void bookmarksController.refreshPageBookmarkStatus(url).then((saved) => {
+            chatGptMessageStepper?.setPageBookmarked(saved);
+        });
+    }
+
     // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
     const pending = consumePendingNavigation();
     if (pending) {
@@ -502,6 +549,22 @@ if (adapter) {
         }).catch(() => {
             // Background may be unavailable during extension reload or tab teardown; the next page lifecycle will retry.
         });
+    }
+}
+
+function resolveCurrentPageBookmarkTitle(url: string): string {
+    const raw = (document.title || '').trim();
+    const cleaned = raw
+        .replace(/\s*[|·-]\s*ChatGPT\s*$/i, '')
+        .replace(/^ChatGPT\s*[|·-]\s*/i, '')
+        .trim();
+    if (cleaned && !/^chatgpt$/i.test(cleaned)) return cleaned;
+    try {
+        const parsed = new URL(url);
+        const last = parsed.pathname.split('/').filter(Boolean).pop();
+        return last || parsed.hostname || url;
+    } catch {
+        return url;
     }
 }
 

@@ -1,9 +1,10 @@
 import type { Theme } from '../../../core/types/theme';
-import type { Bookmark, Folder, BookmarksSortMode } from '../../../core/bookmarks/types';
+import type { Bookmark, BookmarksKindFilter, Folder, BookmarksSortMode } from '../../../core/bookmarks/types';
 import type { StorageUsageResponse } from '../../../drivers/shared/clients/bookmarksClient';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { PathUtils } from '../../../core/bookmarks/path';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
+import type { BookmarksBulkItem } from '../../../contracts/protocol';
 import type { Result } from '../../../drivers/shared/clients/bookmarksClient';
 import { computeBookmarksPanelViewModel, type BookmarksPanelState, type BookmarksPanelViewModel } from '../../../services/bookmarks/panelModel';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
@@ -25,7 +26,7 @@ import {
 } from './bookmarksPanelControllerSelection';
 import type { UserThemeOverrides } from '../../../style/tokens';
 
-export type BookmarkIdentityKey = string; // `${urlWithoutProtocol}:${position}`
+export type BookmarkIdentityKey = string; // `message:${urlWithoutProtocol}:${position}` or `page:${urlWithoutProtocol}`
 
 declare global {
     interface Window {
@@ -71,10 +72,13 @@ export class BookmarksPanelController {
 
     private positionsForCurrentUrl = new Set<number>();
     private positionsUrl: string | null = null;
+    private pageBookmarkUrl: string | null = null;
+    private pageBookmarkSaved = false;
 
     private state: BookmarksPanelState = {
         query: '',
         platform: 'All',
+        kind: 'all',
         sortMode: 'time-desc',
         selectedFolderPath: null,
         recursive: true,
@@ -213,6 +217,19 @@ export class BookmarksPanelController {
         this.emit();
     }
 
+    async refreshPageBookmarkStatus(url: string): Promise<boolean> {
+        this.pageBookmarkUrl = url;
+        const res = await bookmarksClient.pageStatus({ url });
+        this.pageBookmarkSaved = res.ok ? Boolean(res.data.saved) : false;
+        this.emit();
+        return this.pageBookmarkSaved;
+    }
+
+    isCurrentPageBookmarked(url: string): boolean {
+        if (!this.pageBookmarkUrl || !isSamePageUrl(this.pageBookmarkUrl, url)) return false;
+        return this.pageBookmarkSaved;
+    }
+
     isPositionBookmarked(url: string, position: number): boolean {
         if (!this.positionsUrl || !isSamePageUrl(this.positionsUrl, url)) return false;
         return this.positionsForCurrentUrl.has(position);
@@ -229,6 +246,11 @@ export class BookmarksPanelController {
 
     setPlatform(platform: string): void {
         this.state.platform = platform;
+        this.emit();
+    }
+
+    setKindFilter(kind: BookmarksKindFilter): void {
+        this.state.kind = kind;
         this.emit();
     }
 
@@ -315,12 +337,28 @@ export class BookmarksPanelController {
     }
 
     async copyBookmarkMarkdown(bookmark: Bookmark): Promise<void> {
-        const text = bookmark.aiResponse ?? '';
+        const text = bookmark.kind === 'page'
+            ? `${bookmark.title}\n${bookmark.url}`
+            : bookmark.aiResponse ?? '';
         const ok = await copyTextToClipboard(text);
         this.setStatus(ok ? t('btnCopied') : t('copyFailed'));
     }
 
     async deleteBookmark(bookmark: Bookmark): Promise<void> {
+        if (bookmark.kind === 'page') {
+            const res = await bookmarksClient.pageRemove({ url: bookmark.url });
+            if (!res.ok) {
+                this.setStatus(res.message);
+                return;
+            }
+            if (this.pageBookmarkUrl && isSamePageUrl(this.pageBookmarkUrl, bookmark.url)) {
+                this.pageBookmarkSaved = false;
+            }
+            await this.refreshAll();
+            this.setStatus(t('deletedStatus'));
+            return;
+        }
+        if (typeof bookmark.position !== 'number') return;
         const res = await bookmarksClient.remove({ url: bookmark.url, position: bookmark.position });
         if (!res.ok) {
             this.setStatus(res.message);
@@ -371,6 +409,20 @@ export class BookmarksPanelController {
     }
 
     async renameBookmark(bookmark: Bookmark, title: string): Promise<Result<any>> {
+        if (bookmark.kind === 'page') {
+            const res = await bookmarksClient.pageSave({
+                url: bookmark.url,
+                title,
+                platform: bookmark.platform,
+                folderPath: bookmark.folderPath,
+                timestamp: bookmark.timestamp,
+            });
+            if (res.ok) await this.refreshAll();
+            return res;
+        }
+        if (typeof bookmark.position !== 'number' || typeof bookmark.userMessage !== 'string') {
+            return { ok: false, errorCode: 'INVALID_REQUEST', message: 'Invalid message bookmark' };
+        }
         const res = await bookmarksClient.save({
             url: bookmark.url,
             position: bookmark.position,
@@ -427,8 +479,12 @@ export class BookmarksPanelController {
     }
 
     async moveBookmark(bookmark: Bookmark, targetFolderPath: string): Promise<Result<any>> {
+        const item: BookmarksBulkItem | null = bookmark.kind === 'page'
+            ? { kind: 'page', url: bookmark.url }
+            : (typeof bookmark.position === 'number' ? { kind: 'message', url: bookmark.url, position: bookmark.position } : null);
+        if (!item) return { ok: false, errorCode: 'INVALID_REQUEST', message: 'Invalid bookmark' };
         const res = await bookmarksClient.bulkMove({
-            items: [{ url: bookmark.url, position: bookmark.position }],
+            items: [item],
             targetFolderPath,
         });
         if (res.ok) {
@@ -440,12 +496,19 @@ export class BookmarksPanelController {
     async goToBookmark(bookmark: Bookmark): Promise<void> {
         const current = window.location.href;
         const target = bookmark.url;
+        if (bookmark.kind === 'page') {
+            if (!isSamePageUrl(current, target)) window.location.href = target;
+            else this.setStatus(t('alreadyOnPageStatus'));
+            return;
+        }
+        if (typeof bookmark.position !== 'number') return;
         if (isSamePageUrl(current, target)) {
             this.setStatus('Navigating…');
+            const targetRef = { position: bookmark.position, messageId: bookmark.messageId ?? null };
             if (this.adapter.getPlatformId() === 'chatgpt') {
-                await navigateChatGPTDirectoryTarget(this.adapter, bookmark, { timeoutMs: 2000, intervalMs: 200 });
+                await navigateChatGPTDirectoryTarget(this.adapter, targetRef, { timeoutMs: 2000, intervalMs: 200 });
             } else {
-                await scrollToBookmarkTargetWithRetry(this.adapter, bookmark, { timeoutMs: 2000, intervalMs: 200 });
+                await scrollToBookmarkTargetWithRetry(this.adapter, targetRef, { timeoutMs: 2000, intervalMs: 200 });
             }
             return;
         }
@@ -453,7 +516,7 @@ export class BookmarksPanelController {
         window.location.href = target;
     }
 
-    getSelectedBookmarkItems(): Array<{ url: string; position: number }> {
+    getSelectedBookmarkItems(): BookmarksBulkItem[] {
         return getSelectedBookmarkItems({
             bookmarks: this.bookmarks,
             selectedKeys: this.state.selectedKeys,
@@ -480,7 +543,39 @@ export class BookmarksPanelController {
     }
 
     getBookmarkRowSubtitle(bookmark: Bookmark): string {
-        return `${bookmark.platform} · ${bookmark.folderPath} · ${formatBookmarkTimestamp(bookmark.timestamp)}`;
+        const type = bookmark.kind === 'page' ? t('bookmarkTypePage') : t('bookmarkTypeMessage');
+        return `${type} · ${bookmark.platform} · ${bookmark.folderPath} · ${formatBookmarkTimestamp(bookmark.timestamp)}`;
+    }
+
+    async togglePageBookmarkForCurrentPage(params: {
+        url: string;
+        title: string;
+        platform: string;
+        folderPath?: string;
+    }): Promise<Result<{ saved: boolean }>> {
+        const isBookmarked = this.isCurrentPageBookmarked(params.url);
+        if (isBookmarked) {
+            const res = await bookmarksClient.pageRemove({ url: params.url });
+            if (!res.ok) return res;
+            this.pageBookmarkSaved = false;
+            await this.refreshAll();
+            this.emit();
+            return { ok: true, data: { saved: false } };
+        }
+
+        const res = await bookmarksClient.pageSave({
+            url: params.url,
+            title: params.title,
+            platform: params.platform,
+            folderPath: params.folderPath ?? this.getDefaultFolderPath(),
+            timestamp: Date.now(),
+        });
+        if (!res.ok) return res;
+        this.pageBookmarkUrl = params.url;
+        this.pageBookmarkSaved = true;
+        await this.refreshAll();
+        this.emit();
+        return { ok: true, data: { saved: true } };
     }
 
     async toggleBookmarkFromToolbar(params: {

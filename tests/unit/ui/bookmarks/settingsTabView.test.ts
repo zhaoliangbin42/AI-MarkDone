@@ -56,6 +56,7 @@ const baseSettings = {
         restorePositionAfterSend: true,
         enterKeyNewline: false,
         showMessageStepper: true,
+        showPageBookmarkControl: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: 100,
     },
@@ -101,6 +102,7 @@ describe('SettingsTabView', () => {
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-message-stepper"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-page-bookmark-control"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-page-width-scale"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeNull();
@@ -337,6 +339,30 @@ describe('SettingsTabView', () => {
         toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showMessageStepper: false });
+    });
+
+    it('lets users hide the lower-right ChatGPT page bookmark button', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-page-bookmark-control"]')!;
+
+        expect(toggle.checked).toBe(true);
+
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPageBookmarkControl: false });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {

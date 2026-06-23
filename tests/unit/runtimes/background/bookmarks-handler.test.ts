@@ -211,6 +211,36 @@ describe('background bookmarks handler', () => {
         expect((res as any).response.data.positions).toEqual([1, 2]);
     });
 
+    it('saves page bookmarks separately from message positions', async () => {
+        const store: StorageMap = {};
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        const save = await handleBookmarksRequest(req('bookmarks:page:save', {
+            url: 'https://chatgpt.com/c/page-1',
+            title: 'Conversation title',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+        }));
+        expect(save?.response.ok).toBe(true);
+        expect(store['bookmark:page:chatgpt.com/c/page-1']).toMatchObject({
+            kind: 'page',
+            title: 'Conversation title',
+            urlWithoutProtocol: 'chatgpt.com/c/page-1',
+        });
+
+        const status = await handleBookmarksRequest(req('bookmarks:page:status', { url: 'https://chatgpt.com/c/page-1' }));
+        expect((status as any).response.data.saved).toBe(true);
+
+        const positions = await handleBookmarksRequest(req('bookmarks:positions', { url: 'https://chatgpt.com/c/page-1' }));
+        expect((positions as any).response.data.positions).toEqual([]);
+
+        const remove = await handleBookmarksRequest(req('bookmarks:page:remove', { url: 'https://chatgpt.com/c/page-1' }));
+        expect(remove?.response.ok).toBe(true);
+        expect(store['bookmark:page:chatgpt.com/c/page-1']).toBeUndefined();
+    });
+
     it('supports bulk remove and keeps index consistent', async () => {
         const store: StorageMap = {};
         (globalThis as any).browser = createInMemoryBrowser(store);
@@ -289,6 +319,39 @@ describe('background bookmarks handler', () => {
         expect(payload.version).toBe('2.0');
         expect(payload.bookmarks).toHaveLength(1);
         expect(payload.bookmarks[0].position).toBe(2);
+    });
+
+    it('supports bulk move and selected export for page bookmarks', async () => {
+        const store: StorageMap = {
+            folderPaths: ['Import', 'Pages'],
+            'folder:Import': { path: 'Import', name: 'Import', depth: 1, createdAt: 1, updatedAt: 1 },
+            'folder:Pages': { path: 'Pages', name: 'Pages', depth: 1, createdAt: 1, updatedAt: 1 },
+        };
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+
+        await handleBookmarksRequest(req('bookmarks:page:save', {
+            url: 'https://chatgpt.com/c/page-1',
+            title: 'Conversation title',
+            platform: 'ChatGPT',
+            folderPath: 'Import',
+        }));
+
+        const move = await handleBookmarksRequest(req('bookmarks:bulkMove', {
+            items: [{ kind: 'page', url: 'https://chatgpt.com/c/page-1' }],
+            targetFolderPath: 'Pages',
+        }));
+        expect(move?.response.ok).toBe(true);
+        expect(store['bookmark:page:chatgpt.com/c/page-1'].folderPath).toBe('Pages');
+
+        const exported = await handleBookmarksRequest(req('bookmarks:exportSelected', {
+            items: [{ kind: 'page', url: 'https://chatgpt.com/c/page-1' }],
+            preserveStructure: true,
+        }));
+        const payload = (exported as any).response.data.payload;
+        expect(payload.bookmarks).toHaveLength(1);
+        expect(payload.bookmarks[0]).toMatchObject({ kind: 'page', title: 'Conversation title' });
     });
 
     it('bulkRemove also removes selected folders and their descendants when folder paths are provided', async () => {

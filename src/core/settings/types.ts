@@ -41,6 +41,7 @@ export type ChatGPTBehaviorSettings = {
     restorePositionAfterSend: boolean;
     enterKeyNewline: boolean;
     showMessageStepper: boolean;
+    showPageBookmarkControl: boolean;
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
 };
@@ -153,6 +154,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         restorePositionAfterSend: true,
         enterKeyNewline: false,
         showMessageStepper: true,
+        showPageBookmarkControl: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
     },

@@ -1,9 +1,10 @@
 import { PathUtils } from '../../../core/bookmarks/path';
 import type { Bookmark } from '../../../core/bookmarks/types';
 import type { BookmarkIdentityKey } from './BookmarksPanelController';
+import { buildBookmarkIdentityKeyForBookmark } from '../../../core/bookmarks/keys';
 
 export function getBookmarkIdentityKey(bookmark: Bookmark): BookmarkIdentityKey {
-    return `${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+    return buildBookmarkIdentityKeyForBookmark(bookmark);
 }
 
 export function folderKey(path: string): string {

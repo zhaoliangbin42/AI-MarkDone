@@ -2,7 +2,7 @@ import type { CloudBackupConnectedAccount, CloudBackupSessionState, ExtRequest, 
 import { PROTOCOL_VERSION } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from '../../../contracts/storage';
 import { parseImportData } from '../../../core/bookmarks/importExport';
-import { buildBookmarkStorageKey } from '../../../core/bookmarks/keys';
+import { buildBookmarkStorageKeyForBookmark } from '../../../core/bookmarks/keys';
 import { buildCloudBackupRestorePlan, createCloudBackupSnapshot } from '../../../core/cloudBackup/snapshot';
 import { exportBookmarks, planImportBookmarks } from '../../../services/bookmarks/bookmarksService';
 import { cloudBackupQueue } from '../../../drivers/background/cloudBackup/queue';
@@ -234,7 +234,7 @@ async function applyRestore(snapshotId: string, strategy: 'previewOnly' | 'safeM
 
         const bookmarkPatch: Record<string, unknown> = {};
         for (const bookmark of bookmarksToUpsert) {
-            bookmarkPatch[buildBookmarkStorageKey(bookmark.url, bookmark.position)] = bookmark;
+            bookmarkPatch[buildBookmarkStorageKeyForBookmark(bookmark)] = bookmark;
         }
 
         await localStoragePort.set({

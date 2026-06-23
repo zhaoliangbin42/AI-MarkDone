@@ -983,6 +983,14 @@
         "message": "在 ChatGPT 对话页显示小型上一条 / 下一条消息按钮。",
         "description": "Message for chatgptShowMessageStepperDesc"
     },
+    "chatgptShowPageBookmarkControlLabel": {
+        "message": "页面收藏按钮",
+        "description": "Message for chatgptShowPageBookmarkControlLabel"
+    },
+    "chatgptShowPageBookmarkControlDesc": {
+        "message": "在 ChatGPT 页面右下角显示当前页面收藏按钮。",
+        "description": "Message for chatgptShowPageBookmarkControlDesc"
+    },
     "chatgptArrowKeyMessageNavigationLabel": {
         "message": "使用左右方向键切换消息",
         "description": "Message for chatgptArrowKeyMessageNavigationLabel"
@@ -2107,6 +2115,30 @@
         "message": "全部平台",
         "description": "Message for allPlatforms"
     },
+    "bookmarkTypeFilterLabel": {
+        "message": "书签类型",
+        "description": "Message for bookmarkTypeFilterLabel"
+    },
+    "bookmarkTypeAll": {
+        "message": "全部",
+        "description": "Message for bookmarkTypeAll"
+    },
+    "bookmarkTypePages": {
+        "message": "页面",
+        "description": "Message for bookmarkTypePages"
+    },
+    "bookmarkTypeMessages": {
+        "message": "消息",
+        "description": "Message for bookmarkTypeMessages"
+    },
+    "bookmarkTypePage": {
+        "message": "页面",
+        "description": "Message for bookmarkTypePage"
+    },
+    "bookmarkTypeMessage": {
+        "message": "消息",
+        "description": "Message for bookmarkTypeMessage"
+    },
     "contextOnlyConfirmTitle": {
         "message": "启用仅保存上下文吗？",
         "description": "Message for contextOnlyConfirmTitle"
@@ -2198,6 +2230,10 @@
     "untitledLabel": {
         "message": "（未命名）",
         "description": "Message for untitledLabel"
+    },
+    "alreadyOnPageStatus": {
+        "message": "已在当前页面",
+        "description": "Message for alreadyOnPageStatus"
     },
     "emptyBookmarksHint": {
         "message": "创建一个文件夹，或导入书签后开始浏览已保存的消息。",

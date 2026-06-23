@@ -10,6 +10,18 @@ export function validateBookmarkRecord(bookmark: unknown): bookmark is Partial<B
     if (!isRecord(bookmark)) return false;
     const rec = bookmark as Record<string, unknown>;
 
+    if (rec.kind === 'page') {
+        return (
+            typeof rec.url === 'string'
+            && typeof rec.timestamp === 'number'
+            && (rec.title === undefined || typeof rec.title === 'string')
+            && (rec.platform === undefined || typeof rec.platform === 'string')
+            && (rec.folderPath === undefined || typeof rec.folderPath === 'string')
+            && (rec.urlWithoutProtocol === undefined || typeof rec.urlWithoutProtocol === 'string')
+            && (rec.pageKey === undefined || typeof rec.pageKey === 'string')
+        );
+    }
+
     return (
         typeof rec.url === 'string'
         && typeof rec.position === 'number'
@@ -51,6 +63,27 @@ export function buildRepairPlan(params: {
 
         if (validateBookmarkRecord(rawValue)) {
             const bm = rawValue as any;
+            if (bm.kind === 'page') {
+                const urlWithoutProtocol = bm.urlWithoutProtocol || normalizeUrlWithoutProtocol(bm.url);
+                const next: Bookmark = {
+                    kind: 'page',
+                    url: bm.url,
+                    urlWithoutProtocol,
+                    pageKey: bm.pageKey || urlWithoutProtocol,
+                    timestamp: bm.timestamp,
+                    title: bm.title || bm.url || 'Untitled',
+                    platform: bm.platform || DEFAULT_PLATFORM,
+                    folderPath: (!bm.folderPath || bm.folderPath === '/' ? DEFAULT_FOLDER_PATH : bm.folderPath) || DEFAULT_FOLDER_PATH,
+                };
+
+                const changed = JSON.stringify(next) !== JSON.stringify(rawValue);
+                if (changed) {
+                    setPatch[key] = next;
+                    repaired += 1;
+                }
+                continue;
+            }
+
             const next: Bookmark = {
                 url: bm.url,
                 urlWithoutProtocol: bm.urlWithoutProtocol || normalizeUrlWithoutProtocol(bm.url),
@@ -112,4 +145,3 @@ export function buildRepairPlan(params: {
         stats: { examined, repaired, removed, quarantined },
     };
 }
-

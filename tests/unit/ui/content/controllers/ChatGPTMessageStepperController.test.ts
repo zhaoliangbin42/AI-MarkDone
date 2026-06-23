@@ -84,6 +84,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         expect(host).toBeTruthy();
         expect(Array.from(host.querySelectorAll<HTMLButtonElement>('button')).map((button) => button.dataset.action)).toEqual([
+            'toggle-page-bookmark',
             'open-detached-reader',
             'previous-message',
             'next-message',
@@ -170,6 +171,37 @@ describe('ChatGPTMessageStepperController', () => {
         previous.click();
         await Promise.resolve();
         expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+    });
+
+    it('lets settings hide the page bookmark button without hiding other controls', async () => {
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+
+        controller.setPageBookmarkControlVisible(false);
+
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        expect(host.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
+    });
+
+    it('toggles page bookmark state through the lower-right button', async () => {
+        const onTogglePageBookmark = vi.fn(async () => ({ saved: true }));
+        const controller = new ChatGPTMessageStepperController(adapter, { onTogglePageBookmark });
+        controllers.push(controller);
+        controller.init();
+
+        const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')!;
+        expect(button.dataset.active).toBe('0');
+
+        button.click();
+        await Promise.resolve();
+
+        expect(onTogglePageBookmark).toHaveBeenCalledTimes(1);
+        expect(button.dataset.active).toBe('1');
+        expect(button.getAttribute('aria-label')).toBe('Remove page bookmark');
     });
 
     it('uses left and right arrow keys for message navigation outside editable targets', async () => {

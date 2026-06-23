@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Bookmarks: Added ChatGPT page-level bookmarks from the lower-right page controls. Page bookmarks save the current conversation URL and title, appear in the existing bookmark manager, and can be filtered separately from message bookmarks.
 - Settings: Added an optional ChatGPT “Enter inserts a new line” toggle. When enabled, plain Enter creates a newline in the ChatGPT composer, while the send button and Cmd/Ctrl + Enter still send.
 - Settings: Added a ChatGPT chat-width slider that can widen the conversation area from normal up to 200%.
 - Settings: Added a slider for ChatGPT directory right spacing so users can add extra room when browser scrollbars overlap the right-side rail.

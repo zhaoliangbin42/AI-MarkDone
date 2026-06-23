@@ -983,6 +983,14 @@
         "message": "Show the small Previous and Next message buttons on ChatGPT conversation pages.",
         "description": "Message for chatgptShowMessageStepperDesc"
     },
+    "chatgptShowPageBookmarkControlLabel": {
+        "message": "Page bookmark button",
+        "description": "Message for chatgptShowPageBookmarkControlLabel"
+    },
+    "chatgptShowPageBookmarkControlDesc": {
+        "message": "Show a current-page bookmark button in the lower-right ChatGPT controls.",
+        "description": "Message for chatgptShowPageBookmarkControlDesc"
+    },
     "chatgptArrowKeyMessageNavigationLabel": {
         "message": "Use arrow keys to move between messages",
         "description": "Message for chatgptArrowKeyMessageNavigationLabel"
@@ -2107,6 +2115,30 @@
         "message": "All Platforms",
         "description": "Message for allPlatforms"
     },
+    "bookmarkTypeFilterLabel": {
+        "message": "Bookmark type",
+        "description": "Message for bookmarkTypeFilterLabel"
+    },
+    "bookmarkTypeAll": {
+        "message": "All",
+        "description": "Message for bookmarkTypeAll"
+    },
+    "bookmarkTypePages": {
+        "message": "Pages",
+        "description": "Message for bookmarkTypePages"
+    },
+    "bookmarkTypeMessages": {
+        "message": "Messages",
+        "description": "Message for bookmarkTypeMessages"
+    },
+    "bookmarkTypePage": {
+        "message": "Page",
+        "description": "Message for bookmarkTypePage"
+    },
+    "bookmarkTypeMessage": {
+        "message": "Message",
+        "description": "Message for bookmarkTypeMessage"
+    },
     "contextOnlyConfirmTitle": {
         "message": "Enable Context-Only Save?",
         "description": "Message for contextOnlyConfirmTitle"
@@ -2198,6 +2230,10 @@
     "untitledLabel": {
         "message": "(untitled)",
         "description": "Message for untitledLabel"
+    },
+    "alreadyOnPageStatus": {
+        "message": "Already on this page",
+        "description": "Message for alreadyOnPageStatus"
     },
     "emptyBookmarksHint": {
         "message": "Create a folder or import bookmarks to start browsing saved messages.",

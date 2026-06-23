@@ -37,6 +37,7 @@ describe('bookmarks panel model', () => {
             state: {
                 query: 'be',
                 platform: 'ChatGPT',
+                kind: 'all',
                 sortMode: 'alpha-asc',
                 selectedFolderPath: 'Work',
                 recursive: true,
@@ -49,5 +50,39 @@ describe('bookmarks panel model', () => {
         expect(vm.bookmarks[0].title).toBe('Beta');
         expect(vm.selectedCount).toBe(1);
     });
-});
 
+    it('filters page and message bookmarks by type', () => {
+        const folders = [folder('Import')];
+        const bookmarks: Bookmark[] = [
+            bookmark({ position: 1, title: 'Message one' }),
+            {
+                kind: 'page',
+                url: 'https://chatgpt.com/c/1',
+                urlWithoutProtocol: 'chatgpt.com/c/1',
+                pageKey: 'chatgpt.com/c/1',
+                timestamp: 2,
+                title: 'Conversation page',
+                platform: 'ChatGPT',
+                folderPath: 'Import',
+            },
+        ];
+
+        const vm = computeBookmarksPanelViewModel({
+            folders,
+            bookmarks,
+            state: {
+                query: '',
+                platform: 'All',
+                kind: 'page',
+                sortMode: 'alpha-asc',
+                selectedFolderPath: null,
+                recursive: true,
+                expandedPaths: new Set(),
+                selectedKeys: new Set(),
+            },
+        });
+
+        expect(vm.bookmarks).toHaveLength(1);
+        expect(vm.bookmarks[0]?.kind).toBe('page');
+    });
+});

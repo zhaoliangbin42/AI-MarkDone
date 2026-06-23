@@ -13,13 +13,19 @@ export const DEFAULT_PLATFORM = 'ChatGPT';
 
 export function validateBookmarkLike(value: unknown): value is {
     url: unknown;
-    position: unknown;
+    position?: unknown;
     messageId?: unknown;
-    userMessage: unknown;
+    userMessage?: unknown;
     timestamp: unknown;
 } {
     if (typeof value !== 'object' || value === null) return false;
     const rec = value as Record<string, unknown>;
+    if (rec.kind === 'page') {
+        return (
+            typeof rec.url === 'string'
+            && typeof rec.timestamp === 'number'
+        );
+    }
     return (
         typeof rec.url === 'string'
         && typeof rec.position === 'number'
@@ -40,9 +46,8 @@ export function normalizeImportedBookmark(item: unknown): Bookmark | null {
     const rec = item as Record<string, unknown>;
 
     const url = rec.url as string;
-    const position = rec.position as number;
-    const userMessage = rec.userMessage as string;
     const timestamp = rec.timestamp as number;
+    const kind = rec.kind === 'page' ? 'page' : 'message';
     const messageId = typeof rec.messageId === 'string' && rec.messageId.trim().length > 0
         ? rec.messageId
         : null;
@@ -52,9 +57,12 @@ export function normalizeImportedBookmark(item: unknown): Bookmark | null {
         ? rec.urlWithoutProtocol
         : normalizeUrlWithoutProtocol(url);
 
+    const userMessage = typeof rec.userMessage === 'string' ? rec.userMessage : '';
     const title = typeof rec.title === 'string' && rec.title.trim().length > 0
         ? rec.title
-        : userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
+        : (userMessage
+            ? userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '')
+            : url);
 
     const platform = typeof rec.platform === 'string' && rec.platform.trim().length > 0
         ? rec.platform
@@ -70,10 +78,26 @@ export function normalizeImportedBookmark(item: unknown): Bookmark | null {
         folderPath = DEFAULT_FOLDER_PATH;
     }
 
+    if (kind === 'page') {
+        return {
+            kind: 'page',
+            url,
+            urlWithoutProtocol,
+            pageKey: typeof rec.pageKey === 'string' && rec.pageKey.trim().length > 0
+                ? rec.pageKey
+                : urlWithoutProtocol,
+            timestamp,
+            title,
+            platform,
+            folderPath,
+        };
+    }
+
     return {
+        kind: rec.kind === 'message' ? 'message' : undefined,
         url,
         urlWithoutProtocol,
-        position,
+        position: rec.position as number,
         messageId,
         userMessage,
         aiResponse,

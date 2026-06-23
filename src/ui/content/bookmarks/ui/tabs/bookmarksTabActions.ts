@@ -1,5 +1,6 @@
 import type { Theme } from '../../../../../core/types/theme';
 import type { Bookmark } from '../../../../../core/bookmarks/types';
+import { buildBookmarkIdentityKeyForBookmark } from '../../../../../core/bookmarks/keys';
 import type { ReaderItem } from '../../../../../services/reader/types';
 import { PathUtils } from '../../../../../core/bookmarks/path';
 import { validateBookmarkTitle } from '../../../../../core/bookmarks/title';
@@ -11,7 +12,7 @@ import { titleValidationMessage, validateFolderPathInput, validateFolderSegmentN
 import { bookmarkSaveDialog } from '../../save/bookmarkSaveDialogSingleton';
 
 function bookmarkSelectionKey(b: Bookmark): string {
-    return `bm:${b.urlWithoutProtocol}:${b.position}`;
+    return `bm:${buildBookmarkIdentityKeyForBookmark(b)}`;
 }
 
 function buildReaderScopeList(
@@ -19,7 +20,7 @@ function buildReaderScopeList(
     bookmark: Bookmark
 ): { list: Bookmark[]; startIndex: number } {
     const key = bookmarkSelectionKey(bookmark);
-    const visibleKeys = new Set<string>(snapshot.vm.bookmarks.map(bookmarkSelectionKey));
+    const visibleKeys = new Set<string>(snapshot.vm.bookmarks.filter((item) => item.kind !== 'page').map(bookmarkSelectionKey));
     const queryActive = Boolean(snapshot.vm.query.trim());
 
     const list = queryActive
@@ -55,7 +56,7 @@ function getVisibleBookmarksInSameFolder(
     const node = findFolderNode(snapshot.vm.folderTree, bookmark.folderPath);
     if (node) return node.bookmarks.filter((candidate) => visibleKeys.has(bookmarkSelectionKey(candidate)));
 
-    const list = snapshot.vm.bookmarks.filter((candidate) => candidate.folderPath === bookmark.folderPath);
+    const list = snapshot.vm.bookmarks.filter((candidate) => candidate.kind !== 'page' && candidate.folderPath === bookmark.folderPath);
     return list.length ? list : [bookmark];
 }
 

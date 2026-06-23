@@ -1,11 +1,12 @@
 import type {
     Bookmark,
+    BookmarksKindFilter,
     BookmarksSortMode,
     Folder,
     ImportParseResult,
     QuarantineEntry,
 } from '../../core/bookmarks/types';
-import { buildBookmarkStorageKey } from '../../core/bookmarks/keys';
+import { buildBookmarkStorageKey, buildBookmarkStorageKeyForBookmark, buildPageBookmarkStorageKey, normalizeUrlWithoutProtocol } from '../../core/bookmarks/keys';
 import { buildExportPayload, collectImportFolderPaths, parseImportData } from '../../core/bookmarks/importExport';
 import { planImportMerge } from '../../core/bookmarks/merge';
 import { PathUtils, PathValidationError } from '../../core/bookmarks/path';
@@ -29,6 +30,14 @@ export type SaveBookmarkInput = {
     userMessage: string;
     aiResponse?: string;
     title?: string;
+    platform?: string;
+    timestamp?: number;
+    folderPath?: string;
+};
+
+export type SavePageBookmarkInput = {
+    url: string;
+    title: string;
     platform?: string;
     timestamp?: number;
     folderPath?: string;
@@ -162,12 +171,61 @@ export function planSaveBookmark(params: {
     };
 }
 
+export function planSavePageBookmark(params: {
+    input: SavePageBookmarkInput;
+    existingIndex: string[];
+    now: number;
+    usedBytes: number;
+    quotaBytes: number;
+}): SaveBookmarkPlan {
+    const warnings: string[] = [];
+    const quota = checkQuota({ usedBytes: params.usedBytes, quotaBytes: params.quotaBytes });
+    if (!quota.canProceed) warnings.push(quota.message ?? 'Storage quota exceeded');
+
+    const key = buildPageBookmarkStorageKey(params.input.url);
+    const urlWithoutProtocol = normalizeUrlWithoutProtocol(params.input.url);
+    const title = params.input.title.trim() || params.input.url;
+    const platform = (params.input.platform ?? DEFAULT_PLATFORM).trim() || DEFAULT_PLATFORM;
+    const folderPath = normalizeFolderPath(params.input.folderPath);
+
+    const bookmark: Bookmark = {
+        kind: 'page',
+        url: params.input.url,
+        urlWithoutProtocol,
+        pageKey: urlWithoutProtocol,
+        timestamp: params.input.timestamp ?? params.now,
+        title,
+        platform,
+        folderPath,
+    };
+
+    const updatedIndex = params.existingIndex.includes(key)
+        ? [...params.existingIndex]
+        : [...params.existingIndex, key];
+
+    return {
+        setPatch: { [key]: bookmark },
+        updatedIndex,
+        quota,
+        warnings,
+    };
+}
+
 export function planRemoveBookmark(params: {
     url: string;
     position: number;
     existingIndex: string[];
 }): RemoveBookmarkPlan {
     const key = buildBookmarkStorageKey(params.url, params.position);
+    const updatedIndex = params.existingIndex.filter((k) => k !== key);
+    return { removeKeys: [key], updatedIndex };
+}
+
+export function planRemovePageBookmark(params: {
+    url: string;
+    existingIndex: string[];
+}): RemoveBookmarkPlan {
+    const key = buildPageBookmarkStorageKey(params.url);
     const updatedIndex = params.existingIndex.filter((k) => k !== key);
     return { removeKeys: [key], updatedIndex };
 }
@@ -179,6 +237,7 @@ export function listBookmarks(params: {
     folderPath?: string;
     recursive?: boolean;
     sortMode?: BookmarksSortMode;
+    kind?: BookmarksKindFilter;
 }): ListBookmarksResult {
     let items = params.bookmarks;
 
@@ -192,7 +251,7 @@ export function listBookmarks(params: {
         });
     }
 
-    items = filterBookmarks({ bookmarks: items, query: params.query, platform: params.platform });
+    items = filterBookmarks({ bookmarks: items, query: params.query, platform: params.platform, kind: params.kind });
     items = sortBookmarks(items, params.sortMode ?? 'time-desc');
     return { bookmarks: items };
 }
@@ -250,7 +309,7 @@ export function planImportBookmarks(params: {
     const incoming = params.saveContextOnly
         ? parse.bookmarks.map((b) => ({
             ...b,
-            userMessage: truncateContext(b.userMessage),
+            userMessage: b.userMessage ? truncateContext(b.userMessage) : undefined,
             aiResponse: b.aiResponse ? truncateContext(b.aiResponse) : undefined,
         }))
         : parse.bookmarks;
@@ -280,7 +339,7 @@ export function planImportBookmarks(params: {
 
     const nextIndex = new Set<string>(params.existingIndex);
     for (const b of bookmarksToUpsert) {
-        nextIndex.add(buildBookmarkStorageKey(b.url, b.position));
+        nextIndex.add(buildBookmarkStorageKeyForBookmark(b));
     }
 
     return {
@@ -437,7 +496,7 @@ export function planFolderRelocate(params: {
     for (const b of params.bookmarks) {
         if (b.folderPath !== oldPath && !b.folderPath.startsWith(`${oldPath}/`)) continue;
         const updatedFolderPath = PathUtils.updatePathPrefix(oldPath, newPath, b.folderPath);
-        const key = `${BOOKMARK_KEY_PREFIX}${b.urlWithoutProtocol}:${b.position}`;
+        const key = buildBookmarkStorageKeyForBookmark(b);
         bookmarkSetPatch[key] = { ...b, folderPath: updatedFolderPath };
     }
 

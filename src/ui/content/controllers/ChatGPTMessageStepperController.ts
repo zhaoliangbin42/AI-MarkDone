@@ -1,5 +1,5 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { chevronRightIcon, splitViewIcon } from '../../../assets/icons';
+import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, splitViewIcon } from '../../../assets/icons';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import {
     collectChatGPTRoundPositions,
@@ -76,7 +76,11 @@ export class ChatGPTMessageStepperController {
     private initialized = false;
     private keyboardEnabled = true;
     private navigationVisibleEnabled = true;
+    private pageBookmarkVisibleEnabled = true;
+    private pageBookmarked = false;
+    private pageBookmarkStatusUrl: string | null = null;
     private host: HTMLDivElement | null = null;
+    private pageBookmarkButton: HTMLButtonElement | null = null;
     private previousButton: HTMLButtonElement | null = null;
     private nextButton: HTMLButtonElement | null = null;
     private rounds: ChatGPTRoundPosition[] = [];
@@ -89,7 +93,11 @@ export class ChatGPTMessageStepperController {
 
     constructor(
         private readonly adapter: SiteAdapter,
-        private readonly options: { onOpenDetachedReader?: () => Promise<void> | void } = {},
+        private readonly options: {
+            onOpenDetachedReader?: () => Promise<void> | void;
+            onTogglePageBookmark?: () => Promise<{ saved: boolean }> | { saved: boolean } | void;
+            onRefreshPageBookmarkState?: (url: string) => Promise<boolean> | boolean;
+        } = {},
     ) {}
 
     init(): void {
@@ -117,12 +125,14 @@ export class ChatGPTMessageStepperController {
         }
         this.host?.remove();
         this.host = null;
+        this.pageBookmarkButton = null;
         this.previousButton = null;
         this.nextButton = null;
         this.rounds = [];
         this.activePosition = 0;
         this.navigationLockUntil = 0;
         this.navigationRequestId += 1;
+        this.pageBookmarkStatusUrl = null;
     }
 
     setKeyboardEnabled(enabled: boolean): void {
@@ -135,6 +145,19 @@ export class ChatGPTMessageStepperController {
         this.ensureHost();
         this.syncNavigationVisibility();
         this.refreshState();
+    }
+
+    setPageBookmarkControlVisible(enabled: boolean): void {
+        this.pageBookmarkVisibleEnabled = enabled;
+        if (!this.initialized) return;
+        this.ensureHost();
+        this.syncPageBookmarkButton();
+        this.refreshState();
+    }
+
+    setPageBookmarked(saved: boolean): void {
+        this.pageBookmarked = saved;
+        this.syncPageBookmarkButton();
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
@@ -154,6 +177,9 @@ export class ChatGPTMessageStepperController {
         host.dataset.visible = '0';
         host.setAttribute('data-aimd-theme', this.resolveTheme());
 
+        const pageBookmark = this.createButton('toggle-page-bookmark', 'Bookmark current page', () => {
+            void this.handlePageBookmarkClick();
+        }, bookmarkIcon);
         const previous = this.createButton('previous-message', 'Previous message', () => this.step(-1));
         const next = this.createButton('next-message', 'Next message', () => this.step(1));
         const detachedReader = this.createButton('open-detached-reader', 'Open Reader in split view', () => {
@@ -161,12 +187,14 @@ export class ChatGPTMessageStepperController {
         }, splitViewIcon);
         previous.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'left';
         next.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'right';
-        host.append(detachedReader, previous, next);
+        host.append(pageBookmark, detachedReader, previous, next);
         document.body.appendChild(host);
         this.host = host;
+        this.pageBookmarkButton = pageBookmark;
         this.previousButton = previous;
         this.nextButton = next;
         this.syncNavigationVisibility();
+        this.syncPageBookmarkButton();
     }
 
     private createButton(action: string, label: string, onClick: () => void, icon: string = chevronRightIcon): HTMLButtonElement {
@@ -237,6 +265,9 @@ export class ChatGPTMessageStepperController {
 .aimd-chatgpt-message-stepper__button:disabled {
   cursor: not-allowed;
   opacity: 0.42;
+}
+.aimd-chatgpt-message-stepper__button[data-active="1"] {
+  color: var(--aimd-interactive-primary);
 }
 .aimd-chatgpt-message-stepper__button[hidden] {
   display: none;
@@ -360,6 +391,7 @@ export class ChatGPTMessageStepperController {
             this.host.dataset.visible = visible ? '1' : '0';
             this.host.setAttribute('data-aimd-theme', this.resolveTheme());
         }
+        this.refreshPageBookmarkStatusIfNeeded();
         if (!visible) {
             this.activePosition = 0;
             this.syncButtons();
@@ -422,6 +454,46 @@ export class ChatGPTMessageStepperController {
         for (const button of [this.previousButton, this.nextButton]) {
             if (!button) continue;
             button.hidden = !this.navigationVisibleEnabled;
+        }
+    }
+
+    private syncPageBookmarkButton(): void {
+        if (!this.pageBookmarkButton) return;
+        const visible = this.pageBookmarkVisibleEnabled && isChatGPTConversationPage(window.location.href);
+        this.pageBookmarkButton.hidden = !visible;
+        this.pageBookmarkButton.dataset.active = this.pageBookmarked ? '1' : '0';
+        this.pageBookmarkButton.setAttribute('aria-label', this.pageBookmarked ? 'Remove page bookmark' : 'Bookmark current page');
+        this.pageBookmarkButton.setAttribute('title', this.pageBookmarked ? 'Remove page bookmark' : 'Bookmark current page');
+        const iconEl = this.pageBookmarkButton.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon');
+        if (iconEl) iconEl.innerHTML = this.pageBookmarked ? bookmarkCheckIcon : bookmarkIcon;
+    }
+
+    private refreshPageBookmarkStatusIfNeeded(): void {
+        const url = window.location.href.split('#')[0] || window.location.href;
+        if (!this.pageBookmarkVisibleEnabled || !isChatGPTConversationPage(url)) {
+            this.pageBookmarkStatusUrl = null;
+            this.pageBookmarked = false;
+            this.syncPageBookmarkButton();
+            return;
+        }
+        if (this.pageBookmarkStatusUrl === url) {
+            this.syncPageBookmarkButton();
+            return;
+        }
+        this.pageBookmarkStatusUrl = url;
+        void Promise.resolve(this.options.onRefreshPageBookmarkState?.(url) ?? false).then((saved) => {
+            if (this.pageBookmarkStatusUrl !== url) return;
+            this.setPageBookmarked(Boolean(saved));
+        }).catch(() => {
+            if (this.pageBookmarkStatusUrl === url) this.setPageBookmarked(false);
+        });
+    }
+
+    private async handlePageBookmarkClick(): Promise<void> {
+        if (!this.pageBookmarkButton || this.pageBookmarkButton.hidden || this.pageBookmarkButton.disabled) return;
+        const result = await this.options.onTogglePageBookmark?.();
+        if (result && typeof result.saved === 'boolean') {
+            this.setPageBookmarked(result.saved);
         }
     }
 

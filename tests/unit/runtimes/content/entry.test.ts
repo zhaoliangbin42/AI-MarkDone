@@ -45,11 +45,21 @@ const settingsClientCtor = vi.fn(function () {
 });
 const bookmarksControllerRefreshAll = vi.fn(async () => {});
 const bookmarksControllerRefreshPositions = vi.fn(async () => {});
+const bookmarksControllerRefreshPageBookmarkStatus = vi.fn(async () => false);
+const bookmarksControllerTogglePageBookmarkForCurrentPage = vi.fn(async () => ({ ok: true, data: { saved: true } }));
+const bookmarksControllerIsCurrentPageBookmarked = vi.fn(() => false);
+const bookmarksControllerGetDefaultFolderPath = vi.fn(() => 'Import');
+const bookmarksControllerSetPanelStatus = vi.fn();
 const bookmarksControllerSetTheme = vi.fn();
 const bookmarksControllerCtor = vi.fn(function () {
     return {
         refreshAll: bookmarksControllerRefreshAll,
         refreshPositionsForUrl: bookmarksControllerRefreshPositions,
+        refreshPageBookmarkStatus: bookmarksControllerRefreshPageBookmarkStatus,
+        togglePageBookmarkForCurrentPage: bookmarksControllerTogglePageBookmarkForCurrentPage,
+        isCurrentPageBookmarked: bookmarksControllerIsCurrentPageBookmarked,
+        getDefaultFolderPath: bookmarksControllerGetDefaultFolderPath,
+        setPanelStatus: bookmarksControllerSetPanelStatus,
         setTheme: bookmarksControllerSetTheme,
         setThemeOverrides: vi.fn(),
     };
@@ -59,6 +69,9 @@ const bookmarksHide = vi.fn();
 const bookmarksPanelCtor = vi.fn(function () {
     return { toggle: bookmarksToggle, hide: bookmarksHide };
 });
+const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved page title', folderPath: 'Saved/Pages' }));
+const bookmarkSaveDialogSetTheme = vi.fn();
+const bookmarkSaveDialogSetThemeOverrides = vi.fn();
 const messageToolbarsInit = vi.fn();
 const messageToolbarsSetTheme = vi.fn();
 const messageToolbarsSetBehaviorFlags = vi.fn();
@@ -140,6 +153,8 @@ const messageStepperInit = vi.fn();
 const messageStepperDispose = vi.fn();
 const messageStepperSetKeyboardEnabled = vi.fn();
 const messageStepperSetVisible = vi.fn();
+const messageStepperSetPageBookmarkControlVisible = vi.fn();
+const messageStepperSetPageBookmarked = vi.fn();
 const messageStepperSetThemeOverrides = vi.fn();
 const messageStepperCtor = vi.fn(function () {
     return {
@@ -147,6 +162,8 @@ const messageStepperCtor = vi.fn(function () {
         dispose: messageStepperDispose,
         setKeyboardEnabled: messageStepperSetKeyboardEnabled,
         setVisible: messageStepperSetVisible,
+        setPageBookmarkControlVisible: messageStepperSetPageBookmarkControlVisible,
+        setPageBookmarked: messageStepperSetPageBookmarked,
         setThemeOverrides: messageStepperSetThemeOverrides,
     };
 });
@@ -274,6 +291,14 @@ vi.mock('@/ui/content/bookmarks/BookmarksPanel', () => ({
     BookmarksPanel: bookmarksPanelCtor,
 }));
 
+vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
+    bookmarkSaveDialog: {
+        open: bookmarkSaveDialogOpen,
+        setTheme: bookmarkSaveDialogSetTheme,
+        setThemeOverrides: bookmarkSaveDialogSetThemeOverrides,
+    },
+}));
+
 vi.mock('@/ui/content/bookmarks/BookmarksPanelController', () => ({
     BookmarksPanelController: bookmarksControllerCtor,
 }));
@@ -360,6 +385,11 @@ vi.mock('@/contracts/protocol', async () => {
 afterEach(() => {
     vi.clearAllMocks();
     runtimeSendMessage.mockImplementation(async () => ({ ok: true }));
+    bookmarksControllerRefreshPageBookmarkStatus.mockImplementation(async () => false);
+    bookmarksControllerTogglePageBookmarkForCurrentPage.mockImplementation(async () => ({ ok: true, data: { saved: true } }));
+    bookmarksControllerIsCurrentPageBookmarked.mockReturnValue(false);
+    bookmarksControllerGetDefaultFolderPath.mockReturnValue('Import');
+    bookmarkSaveDialogOpen.mockImplementation(async () => ({ ok: true, title: 'Saved page title', folderPath: 'Saved/Pages' }));
     collectFreshReaderContent.mockImplementation(async () => ({
         items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
         startIndex: 0,
@@ -826,13 +856,14 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: false, rightInsetPx: 40 },
-                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: true, showMessageStepper: false, enableArrowKeyMessageNavigation: false },
+                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: true, showMessageStepper: false, showPageBookmarkControl: false, enableArrowKeyMessageNavigation: false },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
         });
 
         expect(messageStepperSetVisible).toHaveBeenLastCalledWith(false);
+        expect(messageStepperSetPageBookmarkControlVisible).toHaveBeenLastCalledWith(false);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(false);
         expect(sendPositionRestoreSetEnterKeyNewlineEnabled).toHaveBeenLastCalledWith(true);
         expect(composerEnterSetEnabled).toHaveBeenLastCalledWith(true);
@@ -868,6 +899,65 @@ describe('content runtime entry', () => {
         expect(settingsSetCategory).not.toHaveBeenCalledWith('reader', expect.objectContaining({
             detachedNoticeConfirmed: true,
         }));
+    });
+
+    it('opens the shared save dialog before creating a current-page bookmark', async () => {
+        adapterPlatformId = 'chatgpt';
+        Object.defineProperty(window, 'location', {
+            value: new URL('https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc'),
+            configurable: true,
+        });
+        document.title = 'Research Notes - ChatGPT';
+        bookmarksControllerIsCurrentPageBookmarked.mockReturnValue(false);
+        bookmarkSaveDialogOpen.mockResolvedValueOnce({ ok: true, title: 'Saved page title', folderPath: 'Saved/Pages' });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
+        const result = await onTogglePageBookmark?.();
+
+        expect(bookmarkSaveDialogSetTheme).toHaveBeenCalledWith('light');
+        expect(bookmarkSaveDialogSetThemeOverrides).toHaveBeenCalled();
+        expect(bookmarkSaveDialogOpen).toHaveBeenCalledWith(expect.objectContaining({
+            theme: 'light',
+            userPrompt: 'Research Notes',
+            existingTitle: 'Research Notes',
+            currentFolderPath: 'Import',
+            mode: 'create',
+        }));
+        expect(bookmarksControllerTogglePageBookmarkForCurrentPage).toHaveBeenCalledWith({
+            url: 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+            title: 'Saved page title',
+            platform: 'ChatGPT',
+            folderPath: 'Saved/Pages',
+        });
+        expect(result).toEqual({ saved: true });
+    });
+
+    it('does not reopen the save dialog when removing an existing current-page bookmark', async () => {
+        adapterPlatformId = 'chatgpt';
+        Object.defineProperty(window, 'location', {
+            value: new URL('https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc'),
+            configurable: true,
+        });
+        document.title = 'Research Notes - ChatGPT';
+        bookmarksControllerIsCurrentPageBookmarked.mockReturnValue(true);
+        bookmarksControllerTogglePageBookmarkForCurrentPage.mockResolvedValueOnce({ ok: true, data: { saved: false } });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
+        const result = await onTogglePageBookmark?.();
+
+        expect(bookmarkSaveDialogOpen).not.toHaveBeenCalled();
+        expect(bookmarksControllerTogglePageBookmarkForCurrentPage).toHaveBeenCalledWith(expect.objectContaining({
+            url: 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+            title: 'Research Notes',
+            platform: 'ChatGPT',
+        }));
+        expect(result).toEqual({ saved: false });
     });
 
     it('does not persist the detached reader notice when session creation fails', async () => {

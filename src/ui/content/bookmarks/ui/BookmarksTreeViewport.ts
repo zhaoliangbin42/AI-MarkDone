@@ -1,5 +1,6 @@
 import type { Bookmark, FolderTreeNode } from '../../../../core/bookmarks/types';
 import { filterBookmarks, getAllBookmarks } from '../../../../core/bookmarks/tree';
+import { buildBookmarkIdentityKeyForBookmark } from '../../../../core/bookmarks/keys';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../BookmarksPanelController';
 import {
     Icons,
@@ -98,7 +99,7 @@ function tr(key: string, fallback: string, substitutions?: string[]): string {
 }
 
 function bookmarkSelectionKey(bookmark: Bookmark): string {
-    return `bm:${bookmark.urlWithoutProtocol}:${bookmark.position}`;
+    return `bm:${buildBookmarkIdentityKeyForBookmark(bookmark)}`;
 }
 
 function buildVisibleFolderCountMap(nodes: FolderTreeNode[], visibleKeys: Set<string>): Map<string, number> {
@@ -149,6 +150,7 @@ function getTreeVisibleBookmarks(snapshot: BookmarksPanelSnapshot): Bookmark[] {
         bookmarks: allBookmarks,
         query: snapshot.vm.query,
         platform: snapshot.vm.platform,
+        kind: snapshot.vm.kind,
     });
 }
 
@@ -156,15 +158,19 @@ function renderBookmarkRow(bookmark: Bookmark, depth: number, selectedKeys: Set<
     const selected = selectedKeys.has(bookmarkSelectionKey(bookmark));
     const indent = 10 + depth * 18;
     const untitled = tr('untitledLabel', '(untitled)');
+    const typeLabel = bookmark.kind === 'page' ? tr('bookmarkTypePage', 'Page') : tr('bookmarkTypeMessage', 'Message');
     return `
-      <div class="tree-item tree-item--bookmark" style="padding-left:${indent}px" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" role="treeitem" aria-level="${depth + 1}">
+      <div class="tree-item tree-item--bookmark" data-bookmark-kind="${bookmark.kind === 'page' ? 'page' : 'message'}" style="padding-left:${indent}px" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" role="treeitem" aria-level="${depth + 1}">
         <span class="tree-caret-slot" aria-hidden="true"></span>
         <input class="tree-check" type="checkbox" data-action="toggle-bookmark-selection" data-bookmark-id="${bookmarkSelectionKey(bookmark)}" ${selected ? 'checked' : ''} />
         <span class="tree-icon-slot" aria-hidden="true">${icon(getBookmarkPlatformIcon(bookmark.platform))}</span>
         <button class="tree-main tree-main--bookmark" type="button" data-action="open-bookmark" data-bookmark-id="${bookmarkSelectionKey(bookmark)}">
           <span class="tree-label-row">
             <span class="tree-title-meta">
-              <div class="tree-label tree-label--bookmark">${escapeHtml(bookmark.title || untitled)}</div>
+              <span class="tree-title-line">
+                <span class="tree-kind-badge">${escapeHtml(typeLabel)}</span>
+                <span class="tree-label tree-label--bookmark">${escapeHtml(bookmark.title || untitled)}</span>
+              </span>
               <div class="tree-subtitle">${escapeHtml(subtitle)}</div>
             </span>
           </span>

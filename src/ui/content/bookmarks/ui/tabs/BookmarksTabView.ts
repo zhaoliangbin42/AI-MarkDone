@@ -1,4 +1,4 @@
-import type { Bookmark } from '../../../../../core/bookmarks/types';
+import type { Bookmark, BookmarksKindFilter } from '../../../../../core/bookmarks/types';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
@@ -23,6 +23,7 @@ import {
 type Refs = {
     query: HTMLInputElement;
     platform: PlatformDropdown;
+    kindButtons: Record<BookmarksKindFilter, HTMLButtonElement>;
     sortTimeBtn: HTMLButtonElement;
     sortAlphaBtn: HTMLButtonElement;
     importFile: HTMLInputElement;
@@ -104,6 +105,30 @@ export class BookmarksTabView {
             onChange: (value) => this.controller.setPlatform(value),
         });
 
+        const kind = document.createElement('div');
+        kind.className = 'bookmark-kind-filter';
+        kind.dataset.role = 'bookmark-kind-filter';
+        kind.setAttribute('role', 'group');
+        kind.setAttribute('aria-label', t('bookmarkTypeFilterLabel'));
+        const kindButtons = {} as Record<BookmarksKindFilter, HTMLButtonElement>;
+        for (const option of [
+            { value: 'all', label: t('bookmarkTypeAll') },
+            { value: 'page', label: t('bookmarkTypePages') },
+            { value: 'message', label: t('bookmarkTypeMessages') },
+        ] as Array<{ value: BookmarksKindFilter; label: string }>) {
+            const el = document.createElement('button');
+            el.type = 'button';
+            el.className = 'bookmark-kind-filter__button';
+            el.dataset.value = option.value;
+            el.textContent = option.label;
+            el.setAttribute('aria-pressed', 'false');
+            el.addEventListener('click', () => {
+                this.controller.setKindFilter(option.value);
+            });
+            kindButtons[option.value] = el;
+            kind.appendChild(el);
+        }
+
         const sortTimeBtn = this.makeIconButton({
             icon: sortTimeIcon,
             label: t('sortByTimeLabel'),
@@ -158,7 +183,7 @@ export class BookmarksTabView {
 
         const toolbarRight = document.createElement('div');
         toolbarRight.className = 'toolbar-actions';
-        toolbarRight.append(sortGroup, actionsGroup, importFile);
+        toolbarRight.append(kind, sortGroup, actionsGroup, importFile);
 
         toolbar.append(search, platform.getElement(), toolbarRight);
 
@@ -170,6 +195,7 @@ export class BookmarksTabView {
         this.refs = {
             query,
             platform,
+            kindButtons,
             sortTimeBtn,
             sortAlphaBtn,
             importFile,
@@ -218,6 +244,11 @@ export class BookmarksTabView {
             label: value === 'All' ? t('allPlatforms') : value,
         })));
         this.refs.platform.setValue(snap.vm.platform);
+        for (const [kind, button] of Object.entries(this.refs.kindButtons) as Array<[BookmarksKindFilter, HTMLButtonElement]>) {
+            const selected = kind === snap.vm.kind;
+            button.dataset.active = selected ? '1' : '0';
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        }
 
         const selectedBookmarkCount = this.countSelectedBookmarks(snap.selectedKeys);
         this.renderBatchBar(this.refs.batch, selectedBookmarkCount);
@@ -403,6 +434,10 @@ export class BookmarksTabView {
     }
 
     private async openPreviewInReader(b: Bookmark): Promise<void> {
+        if (b.kind === 'page') {
+            await this.goTo(b);
+            return;
+        }
         const snap = this.snapshot;
         if (!snap) return;
         await this.actions.showPreview({

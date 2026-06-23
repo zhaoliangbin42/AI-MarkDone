@@ -847,6 +847,7 @@ export function getIconWithColor(
 // -------------------------------------------------------------------------------------
 
 export const bookmarkIcon = Icons.bookmark;
+export const bookmarkCheckIcon = Icons.bookmarkCheck;
 export const pinIcon = Icons.pin;
 export const settingsIcon = Icons.settings;
 export const coffeeIcon = Icons.coffee;

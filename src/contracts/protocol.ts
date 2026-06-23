@@ -40,6 +40,7 @@ export type SettingsCategory =
 export type BookmarksListPayload = {
     query?: string;
     platform?: string;
+    kind?: 'all' | 'page' | 'message';
     folderPath?: string;
     recursive?: boolean;
     sortMode?: BookmarksSortMode;
@@ -59,6 +60,15 @@ export type BookmarksSavePayload = {
 };
 
 export type BookmarksRemovePayload = { url: string; position: number };
+export type BookmarksPageSavePayload = {
+    url: string;
+    title: string;
+    platform?: string;
+    timestamp?: number;
+    folderPath?: string;
+};
+export type BookmarksPageRemovePayload = { url: string };
+export type BookmarksPageStatusPayload = { url: string };
 
 export type BookmarksExportPayload = { preserveStructure?: boolean };
 
@@ -71,7 +81,9 @@ export type BookmarksImportPayload = {
 
 export type BookmarksPositionsPayload = { url: string };
 
-export type BookmarksBulkItem = { url: string; position: number };
+export type BookmarksBulkItem =
+    | { kind?: 'message'; url: string; position: number }
+    | { kind: 'page'; url: string };
 export type BookmarksBulkRemovePayload = { items: BookmarksBulkItem[]; folderPaths?: string[] };
 export type BookmarksBulkMovePayload = { items: BookmarksBulkItem[]; targetFolderPath: string };
 export type BookmarksExportSelectedPayload = { items: BookmarksBulkItem[]; preserveStructure?: boolean };
@@ -214,6 +226,9 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:positions'; payload: BookmarksPositionsPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:save'; payload: BookmarksSavePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:remove'; payload: BookmarksRemovePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:page:save'; payload: BookmarksPageSavePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:page:remove'; payload: BookmarksPageRemovePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:page:status'; payload: BookmarksPageStatusPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:bulkRemove'; payload: BookmarksBulkRemovePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:bulkMove'; payload: BookmarksBulkMovePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:export'; payload?: BookmarksExportPayload }
@@ -276,6 +291,9 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'bookmarks:positions',
         'bookmarks:save',
         'bookmarks:remove',
+        'bookmarks:page:save',
+        'bookmarks:page:remove',
+        'bookmarks:page:status',
         'bookmarks:bulkRemove',
         'bookmarks:bulkMove',
         'bookmarks:export',

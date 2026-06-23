@@ -4,7 +4,7 @@ import type { ProtocolErrorCode } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from '../../../contracts/storage';
 import type { Bookmark, Folder } from '../../../core/bookmarks/types';
 import { checkQuota } from '../../../core/bookmarks/quota';
-import { normalizeUrlWithoutProtocol } from '../../../core/bookmarks/keys';
+import { buildBookmarkStorageKeyForBookmark, buildPageBookmarkStorageKey, normalizeUrlWithoutProtocol } from '../../../core/bookmarks/keys';
 import { PathUtils, PathValidationError } from '../../../core/bookmarks/path';
 import { logger } from '../../../core/logger';
 import {
@@ -15,8 +15,10 @@ import {
     planFolderRelocate,
     planImportBookmarks,
     planRemoveBookmark,
+    planRemovePageBookmark,
     planRepair,
     planSaveBookmark,
+    planSavePageBookmark,
 } from '../../../services/bookmarks/bookmarksService';
 import { backgroundStorageQueue } from '../../../drivers/background/storage/asyncQueue';
 import { localStoragePort } from '../../../drivers/background/storage/localStoragePort';
@@ -59,11 +61,29 @@ function toProtocolErrorCode(error: unknown): { code: ProtocolErrorCode; message
 const DEFAULT_FOLDER_PATH = 'Import';
 
 function parsePositionFromKey(key: string, urlWithoutProtocol: string): number | null {
+    if (key.startsWith(`${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}page:`)) return null;
     const prefix = `${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}${urlWithoutProtocol}:`;
     if (!key.startsWith(prefix)) return null;
     const posStr = key.slice(prefix.length);
     const pos = Number.parseInt(posStr, 10);
     return Number.isFinite(pos) && pos > 0 ? pos : null;
+}
+
+function normalizeBookmarkRef(item: unknown): { key: string; id: string } | null {
+    if (!item || typeof item !== 'object') return null;
+    const rec = item as Record<string, unknown>;
+    if (rec.kind === 'page') {
+        if (typeof rec.url !== 'string' || !rec.url.trim()) return null;
+        return {
+            key: buildPageBookmarkStorageKey(rec.url),
+            id: `page:${normalizeUrlWithoutProtocol(rec.url)}`,
+        };
+    }
+    if (typeof rec.url !== 'string' || typeof rec.position !== 'number') return null;
+    return {
+        key: `${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}${normalizeUrlWithoutProtocol(rec.url)}:${rec.position}`,
+        id: `message:${normalizeUrlWithoutProtocol(rec.url)}:${rec.position}`,
+    };
 }
 
 function getQuotaBytesFallback(): number {
@@ -155,6 +175,36 @@ function normalizeStoredBookmark(key: string, raw: unknown, now: number): Bookma
     const rec = raw as Record<string, unknown>;
 
     const url = typeof rec.url === 'string' ? rec.url : null;
+    const kind = rec.kind === 'page' || key.startsWith(`${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}page:`) ? 'page' : 'message';
+    if (kind === 'page') {
+        if (!url) return null;
+        const timestamp = typeof rec.timestamp === 'number' ? rec.timestamp : null;
+        if (timestamp === null) return null;
+        const keyPrefix = `${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}page:`;
+        const urlWithoutProtocol = typeof rec.urlWithoutProtocol === 'string'
+            ? rec.urlWithoutProtocol
+            : (key.startsWith(keyPrefix) ? key.slice(keyPrefix.length) : normalizeUrlWithoutProtocol(url));
+        const title = typeof rec.title === 'string' && rec.title.trim().length > 0
+            ? rec.title
+            : url;
+        const platform = typeof rec.platform === 'string' && rec.platform.trim().length > 0
+            ? rec.platform
+            : 'ChatGPT';
+        const folderPath = typeof rec.folderPath === 'string' && rec.folderPath.trim().length > 0 && rec.folderPath !== '/'
+            ? rec.folderPath
+            : 'Import';
+        return {
+            kind: 'page',
+            url,
+            urlWithoutProtocol,
+            pageKey: typeof rec.pageKey === 'string' && rec.pageKey.trim().length > 0 ? rec.pageKey : urlWithoutProtocol,
+            timestamp: timestamp || now,
+            title,
+            platform,
+            folderPath,
+        };
+    }
+
     const position = typeof rec.position === 'number' ? rec.position : null;
     const messageId = typeof rec.messageId === 'string' && rec.messageId.trim().length > 0
         ? rec.messageId
@@ -192,6 +242,7 @@ function normalizeStoredBookmark(key: string, raw: unknown, now: number): Bookma
     const aiResponse = typeof rec.aiResponse === 'string' ? rec.aiResponse : undefined;
 
     return {
+        kind: rec.kind === 'message' ? 'message' : undefined,
         url,
         urlWithoutProtocol,
         position,
@@ -408,6 +459,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 folderPath: payload.folderPath,
                 recursive: payload.recursive,
                 sortMode: payload.sortMode,
+                kind: (payload as any).kind,
             });
             return { response: ok(request.id, request.type, result) };
         }
@@ -430,10 +482,10 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
         }
         case 'bookmarks:exportSelected': {
             const items = Array.isArray(request.payload.items) ? request.payload.items : [];
-            const unique = new Map<string, { url: string; position: number }>();
+            const unique = new Map<string, { key: string; id: string }>();
             for (const it of items) {
-                if (!it || typeof it.url !== 'string' || typeof it.position !== 'number') continue;
-                unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
+                const ref = normalizeBookmarkRef(it);
+                if (ref) unique.set(ref.id, ref);
             }
             const selected = Array.from(unique.values());
             if (selected.length === 0) {
@@ -442,7 +494,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 return { response: ok(request.id, request.type, result) };
             }
 
-            const keys = selected.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`);
+            const keys = selected.map((it) => it.key);
             const raw = await localStoragePort.get(keys);
             const bookmarks: Bookmark[] = [];
             for (const key of keys) {
@@ -487,13 +539,48 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 return { response: ok(request.id, request.type, { removed: plan.removeKeys.length }) };
             });
         }
+        case 'bookmarks:page:status': {
+            const key = buildPageBookmarkStorageKey(request.payload.url);
+            const index = await bookmarksIndexStore.buildIndexIfMissing(now);
+            return { response: ok(request.id, request.type, { saved: index.includes(key) }) };
+        }
+        case 'bookmarks:page:save': {
+            return backgroundStorageQueue.enqueue(async () => {
+                const index = await bookmarksIndexStore.buildIndexIfMissing(now);
+                const usedBytes = await localStoragePort.getBytesInUse(null);
+                const plan = planSavePageBookmark({
+                    input: request.payload,
+                    existingIndex: index,
+                    now,
+                    usedBytes,
+                    quotaBytes,
+                });
+                if (!plan.quota.canProceed) {
+                    return { response: err(request.id, request.type, 'QUOTA_EXCEEDED', plan.quota.message || 'Storage quota exceeded') };
+                }
+                await localStoragePort.set({
+                    ...plan.setPatch,
+                    [STORAGE_KEYS.bookmarksIndexV1]: plan.updatedIndex,
+                });
+                return { response: ok(request.id, request.type, { warnings: plan.warnings }) };
+            });
+        }
+        case 'bookmarks:page:remove': {
+            return backgroundStorageQueue.enqueue(async () => {
+                const index = await bookmarksIndexStore.buildIndexIfMissing(now);
+                const plan = planRemovePageBookmark({ url: request.payload.url, existingIndex: index });
+                await localStoragePort.remove(plan.removeKeys);
+                await bookmarksIndexStore.setIndex(plan.updatedIndex);
+                return { response: ok(request.id, request.type, { removed: plan.removeKeys.length }) };
+            });
+        }
         case 'bookmarks:bulkRemove': {
             return backgroundStorageQueue.enqueue(async () => {
                 const items = Array.isArray(request.payload.items) ? request.payload.items : [];
-                const unique = new Map<string, { url: string; position: number }>();
+                const unique = new Map<string, { key: string; id: string }>();
                 for (const it of items) {
-                    if (!it || typeof it.url !== 'string' || typeof it.position !== 'number') continue;
-                    unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
+                    const ref = normalizeBookmarkRef(it);
+                    if (ref) unique.set(ref.id, ref);
                 }
                 const toRemove = Array.from(unique.values());
                 const requestedFolderPaths = Array.isArray(request.payload.folderPaths)
@@ -513,9 +600,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 }
 
                 const index = await bookmarksIndexStore.buildIndexIfMissing(now);
-                const removeSet = new Set(
-                    toRemove.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`),
-                );
+                const removeSet = new Set(toRemove.map((it) => it.key));
                 let nextFolderPaths: string[] | null = null;
 
                 if (requestedFolderPaths.length > 0) {
@@ -536,7 +621,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                         if (requestedFolderPaths.some((selectedPath) => (
                             bookmark.folderPath === selectedPath || PathUtils.isDescendantOf(bookmark.folderPath, selectedPath)
                         ))) {
-                            removeSet.add(`${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}${bookmark.urlWithoutProtocol}:${bookmark.position}`);
+                            removeSet.add(buildBookmarkStorageKeyForBookmark(bookmark));
                         }
                     }
 
@@ -577,10 +662,10 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
         case 'bookmarks:bulkMove': {
             return backgroundStorageQueue.enqueue(async () => {
                 const items = Array.isArray(request.payload.items) ? request.payload.items : [];
-                const unique = new Map<string, { url: string; position: number }>();
+                const unique = new Map<string, { key: string; id: string }>();
                 for (const it of items) {
-                    if (!it || typeof it.url !== 'string' || typeof it.position !== 'number') continue;
-                    unique.set(`${it.url}::${it.position}`, { url: it.url, position: it.position });
+                    const ref = normalizeBookmarkRef(it);
+                    if (ref) unique.set(ref.id, ref);
                 }
                 const toMove = Array.from(unique.values());
                 if (toMove.length === 0) return { response: ok(request.id, request.type, { moved: 0, missing: 0 }) };
@@ -608,7 +693,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                     });
                 }
 
-                const keys = toMove.map((it) => `bookmark:${normalizeUrlWithoutProtocol(it.url)}:${it.position}`);
+                const keys = toMove.map((it) => it.key);
                 const existing = await localStoragePort.get(keys);
                 const patch: Record<string, unknown> = {};
                 let moved = 0;
@@ -692,7 +777,7 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
 
                 const bookmarkPatch: Record<string, unknown> = {};
                 for (const b of bookmarksToUpsert) {
-                    const key = `${LEGACY_STORAGE_KEYS.bookmarkKeyPrefix}${b.urlWithoutProtocol}:${b.position}`;
+                    const key = buildBookmarkStorageKeyForBookmark(b);
                     bookmarkPatch[key] = b;
                 }
 

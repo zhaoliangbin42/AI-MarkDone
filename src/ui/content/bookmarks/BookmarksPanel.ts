@@ -310,6 +310,7 @@ export class BookmarksPanel {
         const initResults = await Promise.allSettled([
             this.controller.refreshAll(),
             this.controller.refreshPositionsForUrl(window.location.href.split('#')[0] || window.location.href),
+            this.controller.refreshPageBookmarkStatus?.(window.location.href.split('#')[0] || window.location.href) ?? Promise.resolve(false),
             this.controller.refreshUiState(),
             this.loadSettings(),
         ]);
