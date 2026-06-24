@@ -82,8 +82,8 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 1. ChatGPT content runtime 仍通过既有 `readerContentSource` 生成 fresh `ReaderItem[]`
 2. Background 只持有 `sessionId + sourceTabId + readerTabId` 路由与可恢复快照，不理解 ChatGPT 正文结构
-3. Extension page 复用 ReaderPanel、Reader settings surface、Markdown rendering、bookmark、copy/comment/Sticky/prompt 与 conversation Reader action service；发送弹框必须复用同一个 tokenized SendPopover，通过 SendPort 在 content adapter 与 detached `readerSession:draft` / `readerSession:send` 之间切换，不得退回 `window.prompt` 或一次性原生弹框
-4. Reader header refresh 必须复用同一条 fresh Reader source：官网内 Reader 直接刷新，detached Reader 通过 `readerSession:refresh` 回源 content runtime 刷新；draft/send/locate 同样继续回源执行，不能在 extension page 直接操作 ChatGPT DOM；detached locate 必须激活源 ChatGPT tab 并定位目标消息，但不得关闭 detached Reader tab
+3. Extension page 复用 ReaderPanel、Reader settings surface、Markdown rendering、bookmark、copy/comment/Sticky/prompt 与 conversation Reader action service；发送弹框必须复用同一个 tokenized SendPopover，通过完整 SendPort contract 在 content adapter 与 detached reader-session bridge 之间切换：draft 读写走 `readerSession:draft`，发送前准备走 `readerSession:beforeSend`，真实提交走 `readerSession:send`，不得退回 `window.prompt` 或一次性原生弹框
+4. Reader header refresh 必须复用同一条 fresh Reader source：官网内 Reader 直接刷新，detached Reader 通过 `readerSession:refresh` 回源 content runtime 刷新；draft/beforeSend/send/locate 同样继续回源执行，不能在 extension page 直接操作 ChatGPT DOM；detached send 会在转发前 best-effort 激活源 ChatGPT tab 后调用官方 composer 发送链路，detached locate 必须激活源 ChatGPT tab 并定位目标消息，但不得关闭 detached Reader tab
 5. 首次打开的实验性说明属于用户意图确认边界，必须复用现有 modal/notice family，不新增孤立提示框组件
 6. Reader 专属配置由 Reader 内 settings dialog 拥有；Settings 页面不再承载 Reader rendering、Reader typography、Reader prompt/template 或 Reader presentation 控件
 7. Reader panel resize 只保存相对于 viewport 的比例，viewport 变化后由 Reader surface 自己重算并 clamp；调用方不得传入 CSS 或绝对几何值覆盖 shared Reader
