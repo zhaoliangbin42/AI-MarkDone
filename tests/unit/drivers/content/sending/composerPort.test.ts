@@ -3,6 +3,7 @@ import type { SiteAdapter } from '../../../../../src/drivers/content/adapters/ba
 import {
     clickSend,
     readComposer,
+    replaceComposerTextRange,
     waitForSendButtonRecovery,
     waitSendReady,
     watchSendButton,
@@ -140,6 +141,61 @@ describe('composerPort', () => {
         editable.innerHTML = '<p>a</p><p><br></p><p>b</p>';
         const adapter2 = { getComposerInputElement: () => editable, getComposerKind: () => 'contenteditable' } as any as SiteAdapter;
         expect(readComposer(adapter2)).toEqual({ ok: true, kind: 'contenteditable', text: 'a\n\nb' });
+    });
+
+    it('replaces a textarea text range and restores the requested caret', async () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = 'Before /re after';
+        textarea.selectionStart = 'Before /re'.length;
+        textarea.selectionEnd = textarea.selectionStart;
+        document.body.appendChild(textarea);
+
+        const adapter = {
+            getComposerInputElement: () => textarea,
+            getComposerKind: () => 'textarea',
+        } as any as SiteAdapter;
+
+        const res = await replaceComposerTextRange(adapter, {
+            start: 'Before '.length,
+            end: 'Before /re'.length,
+            replacement: 'Rewrite:\n',
+            cursorIndex: 'Before Rewrite:\n'.length,
+        }, { focus: false });
+
+        expect(res.ok).toBe(true);
+        expect(textarea.value).toBe('Before Rewrite:\n after');
+        expect(textarea.selectionStart).toBe('Before Rewrite:\n'.length);
+        expect(textarea.selectionEnd).toBe('Before Rewrite:\n'.length);
+    });
+
+    it('replaces a contenteditable text range with ProseMirror-like blocks and restores the caret', async () => {
+        const editable = document.createElement('div');
+        editable.id = 'prompt-textarea';
+        editable.className = 'ProseMirror';
+        editable.setAttribute('contenteditable', 'true');
+        editable.innerHTML = '<p>Before \\sum</p><p>after</p>';
+        document.body.appendChild(editable);
+
+        const adapter = {
+            getComposerInputElement: () => editable,
+            getComposerKind: () => 'contenteditable',
+        } as any as SiteAdapter;
+
+        const res = await replaceComposerTextRange(adapter, {
+            start: 'Before '.length,
+            end: 'Before \\sum'.length,
+            replacement: 'Summarize:',
+            cursorIndex: 'Before Summarize:'.length,
+        }, { focus: false });
+
+        expect(res.ok).toBe(true);
+        expect(parseContenteditableToPlainText(editable)).toBe('Before Summarize:\nafter');
+
+        const selection = window.getSelection();
+        expect(selection?.rangeCount).toBe(1);
+        expect(selection?.isCollapsed).toBe(true);
+        expect(selection?.anchorNode?.textContent ?? '').toBe('Before Summarize:');
+        expect(selection?.anchorOffset).toBe('Before Summarize:'.length);
     });
 
     it('watchSendButton rebinds when the native send button node is replaced', () => {

@@ -1,6 +1,7 @@
 import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtResponse, type ExtRequest } from '../../contracts/protocol';
 import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNotice } from './handlers/bookmarks';
 import { handleCloudBackupRequest } from './handlers/cloudBackup';
+import { handlePromptsRequest } from './handlers/prompts';
 import { handleReaderSessionRequest, handleReaderSessionTabRemoved } from './handlers/readerSession';
 import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
@@ -245,6 +246,8 @@ runtime?.onMessage?.addListener?.((msg: unknown, sender: any, sendResponse: (r: 
     void (async () => {
         const readerSession = await handleReaderSessionRequest(msg, sender);
         if (readerSession) return readerSession;
+        const prompts = await handlePromptsRequest(msg);
+        if (prompts) return prompts;
         const settings = await handleSettingsRequest(msg);
         if (settings) return settings;
         const cloudBackup = await handleCloudBackupRequest(msg);

@@ -12,6 +12,8 @@ import type { ReaderCommentRecord } from './commentSession';
 
 export type { CommentTemplateSegment, CommentTemplateTokenKey, ReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
 
+const CURSOR_MARKER = '{{cursor}}';
+
 export type ReaderCommentExportPrompts = {
     userPrompt: string;
     commentTemplate: CommentTemplateSegment[];
@@ -68,6 +70,10 @@ function formatNumberedMultilineItem(index: number, content: string): string {
     return [numbered, ...indented].join('\n');
 }
 
+function stripComposerCursorMarker(value: string): string {
+    return value.split(CURSOR_MARKER).join('');
+}
+
 export function buildCommentsExport(
     comments: ReaderCommentRecord[],
     prompts: ReaderCommentExportPrompts,
@@ -77,8 +83,8 @@ export function buildCommentsExport(
         renderCommentTemplate(prompts.commentTemplate, record),
     ));
 
-    if (lines.length < 1) return '';
-    const prefix = prompts.userPrompt.trim();
+    const prefix = stripComposerCursorMarker(prompts.userPrompt).trim();
+    if (lines.length < 1) return prefix;
     if (!prefix) return lines.join('\n');
     return prompts.promptPosition === 'bottom'
         ? [...lines, '', prefix].join('\n')

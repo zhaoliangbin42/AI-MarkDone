@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
     bookmarksIndexBuiltAt: 'aimd:bookmarks:index_built_at',
     bookmarksJournalV1: 'aimd:bookmarks:journal:v1',
     bookmarksQuarantinePrefixV1: 'aimd:bookmarks:quarantine:v1:',
+    promptLibraryV1: 'aimd:prompts:library:v1',
     cloudBackupStatusGoogleDriveV1: 'aimd:cloud_backup:status:googleDrive:v1',
 } as const;
 

@@ -21,6 +21,7 @@ const readerPanelCtor = vi.fn(function () {
         setContentMaxWidthPx: vi.fn(),
         setReaderSettings: vi.fn(),
         setReaderSettingsController: vi.fn(),
+        setPromptManagerController: vi.fn(),
         setCommentExportSettings: vi.fn(),
     };
 });
@@ -165,6 +166,26 @@ const messageStepperCtor = vi.fn(function () {
         setPageBookmarkControlVisible: messageStepperSetPageBookmarkControlVisible,
         setPageBookmarked: messageStepperSetPageBookmarked,
         setThemeOverrides: messageStepperSetThemeOverrides,
+    };
+});
+const promptLibraryClient = {
+    listPrompts: vi.fn(async () => []),
+    savePrompt: vi.fn(),
+    deletePrompt: vi.fn(),
+    restoreDefaults: vi.fn(),
+    recordUse: vi.fn(),
+};
+const createPromptLibraryClient = vi.fn(() => promptLibraryClient);
+const promptAutocompleteInit = vi.fn();
+const promptAutocompleteDispose = vi.fn();
+const promptAutocompleteOpenManager = vi.fn(async () => undefined);
+const promptAutocompleteSetThemeOverrides = vi.fn();
+const promptAutocompleteCtor = vi.fn(function () {
+    return {
+        init: promptAutocompleteInit,
+        dispose: promptAutocompleteDispose,
+        openManager: promptAutocompleteOpenManager,
+        setThemeOverrides: promptAutocompleteSetThemeOverrides,
     };
 });
 const pageWidthInit = vi.fn();
@@ -348,6 +369,14 @@ vi.mock('@/ui/content/controllers/ChatGPTMessageStepperController', () => ({
     ChatGPTMessageStepperController: messageStepperCtor,
 }));
 
+vi.mock('@/drivers/content/prompts/promptLibraryClient', () => ({
+    createPromptLibraryClient,
+}));
+
+vi.mock('@/ui/content/controllers/ChatGPTPromptAutocompleteController', () => ({
+    ChatGPTPromptAutocompleteController: promptAutocompleteCtor,
+}));
+
 vi.mock('@/ui/content/controllers/ChatGPTPageWidthController', () => ({
     ChatGPTPageWidthController: pageWidthCtor,
 }));
@@ -385,6 +414,7 @@ vi.mock('@/contracts/protocol', async () => {
 afterEach(() => {
     vi.clearAllMocks();
     runtimeSendMessage.mockImplementation(async () => ({ ok: true }));
+    promptLibraryClient.listPrompts.mockImplementation(async () => []);
     bookmarksControllerRefreshPageBookmarkStatus.mockImplementation(async () => false);
     bookmarksControllerTogglePageBookmarkForCurrentPage.mockImplementation(async () => ({ ok: true, data: { saved: true } }));
     bookmarksControllerIsCurrentPageBookmarked.mockReturnValue(false);
@@ -581,6 +611,95 @@ describe('content runtime entry', () => {
         expect(officialNavigationCtor).toHaveBeenCalledTimes(1);
         expect(officialNavigationSetEnabled).toHaveBeenCalledWith(false);
         expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
+    });
+
+    it('initializes prompt autocomplete and wires the lower-right prompt button to the manager', async () => {
+        adapterPlatformId = 'chatgpt';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(createPromptLibraryClient).toHaveBeenCalledTimes(1);
+        expect(promptAutocompleteCtor).toHaveBeenCalledWith(
+            expect.objectContaining({ getPlatformId: expect.any(Function) }),
+            expect.objectContaining({
+                listPrompts: promptLibraryClient.listPrompts,
+                recordUse: promptLibraryClient.recordUse,
+                savePrompt: expect.any(Function),
+                deletePrompt: expect.any(Function),
+                restoreDefaults: expect.any(Function),
+            }),
+        );
+        expect(promptAutocompleteInit).toHaveBeenCalledTimes(1);
+
+        const anchor = document.createElement('button');
+        const onOpenPrompts = messageStepperCtor.mock.calls[0]?.[1]?.onOpenPrompts;
+        await onOpenPrompts?.(anchor);
+
+        expect(promptAutocompleteOpenManager).toHaveBeenCalledWith(anchor);
+    });
+
+    it('shares the prompt manager with Reader settings and syncs Reader prompts from the unified prompt library', async () => {
+        adapterPlatformId = 'chatgpt';
+        const cachedCommentExport = {
+            prompts: [{ id: 'legacy-reader', title: 'Legacy Reader', content: 'Legacy body.' }],
+            template: [{ type: 'text', value: 'Template' }],
+            promptPosition: 'bottom',
+        };
+        settingsGetCached.mockReturnValue({
+            language: 'auto',
+            platforms: { chatgpt: true },
+            behavior: {
+                showSaveMessages: true,
+                showWordCount: true,
+                enableClickToCopy: true,
+                saveContextOnly: false,
+                _contextOnlyConfirmed: true,
+            },
+            formula: {
+                clickCopyMarkdown: false,
+                assetActions: { copyPng: true, copySvg: false, savePng: true, saveSvg: false },
+            },
+            reader: {
+                renderCodeInReader: true,
+                showOutlineInReader: true,
+                contentMaxWidthPx: 1000,
+                commentExport: cachedCommentExport,
+            },
+            export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
+            chatgptDirectory: { enabled: false, mode: 'preview', promptLabelMode: 'head', hideOfficialNavigation: true },
+            chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
+            bookmarks: { sortMode: 'alpha-asc' },
+            appearance: { fontSizePx: 16, accentColor: null },
+        });
+        promptLibraryClient.listPrompts.mockImplementation(async () => [{
+            id: 'shared-reader',
+            title: 'Shared Reader',
+            content: 'Shared body.',
+            triggerText: '',
+            contexts: ['composer', 'readerComment'],
+            favorite: false,
+            enabled: true,
+            createdAt: 1,
+            updatedAt: 2,
+            lastUsedAt: null,
+        }]);
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const reader = readerPanelCtor.mock.results[0]?.value;
+        expect(reader?.setPromptManagerController).toHaveBeenCalledWith(expect.objectContaining({
+            onOpenManager: expect.any(Function),
+        }));
+        const anchor = document.createElement('button');
+        await reader?.setPromptManagerController.mock.calls[0]?.[0]?.onOpenManager(anchor);
+        expect(promptAutocompleteOpenManager).toHaveBeenCalledWith(anchor);
+        expect(promptLibraryClient.listPrompts).toHaveBeenCalledWith({});
+        expect(reader?.setCommentExportSettings).toHaveBeenCalledWith({
+            ...cachedCommentExport,
+            prompts: [{ id: 'shared-reader', title: 'Shared Reader', content: 'Shared body.' }],
+        });
     });
 
     it('routes ChatGPT pending bookmark navigation through the directory helper', async () => {

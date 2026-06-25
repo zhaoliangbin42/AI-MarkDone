@@ -1,7 +1,55 @@
-import { describe, expect, it } from 'vitest';
-import { applyPlainTextToContenteditable, parseContenteditableToPlainText } from '../../../../src/core/sending/contenteditable';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+    applyPlainTextToContenteditable,
+    getContenteditableCaretClientRect,
+    parseContenteditableToPlainText,
+    setContenteditablePlainTextSelection,
+} from '../../../../src/core/sending/contenteditable';
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+    return {
+        x: left,
+        y: top,
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        toJSON: () => ({}),
+    } as DOMRect;
+}
+
+function installRangeLayoutMock(clientRects: DOMRect[] = [], boundingRect = rect(0, 0, 0, 0)): () => void {
+    const originalGetClientRects = Range.prototype.getClientRects;
+    const originalGetBoundingClientRect = Range.prototype.getBoundingClientRect;
+    Object.defineProperty(Range.prototype, 'getClientRects', {
+        configurable: true,
+        value: vi.fn(() => clientRects),
+    });
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+        configurable: true,
+        value: vi.fn(() => boundingRect),
+    });
+    return () => {
+        Object.defineProperty(Range.prototype, 'getClientRects', {
+            configurable: true,
+            value: originalGetClientRects,
+        });
+        Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+            configurable: true,
+            value: originalGetBoundingClientRect,
+        });
+    };
+}
 
 describe('sending/contenteditable', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        window.getSelection()?.removeAllRanges();
+        vi.restoreAllMocks();
+    });
+
     it('parses ProseMirror-like blocks with exact newlines', () => {
         const el = document.createElement('div');
         el.setAttribute('contenteditable', 'true');
@@ -22,5 +70,47 @@ describe('sending/contenteditable', () => {
 
         expect(parseContenteditableToPlainText(el)).toBe('a\n\nb');
     });
-});
 
+    it('returns the viewport rect for a collapsed caret inside the contenteditable root', () => {
+        const restore = installRangeLayoutMock([rect(120, 240, 0, 18)]);
+        const el = document.createElement('div');
+        el.setAttribute('contenteditable', 'true');
+        applyPlainTextToContenteditable(el, 'hello');
+        document.body.appendChild(el);
+        setContenteditablePlainTextSelection(el, 5);
+
+        expect(getContenteditableCaretClientRect(el)).toMatchObject({
+            left: 120,
+            top: 240,
+            bottom: 258,
+        });
+        restore();
+    });
+
+    it('returns null when the selection is outside the contenteditable root', () => {
+        const restore = installRangeLayoutMock([rect(120, 240, 0, 18)]);
+        const el = document.createElement('div');
+        const outside = document.createElement('div');
+        el.setAttribute('contenteditable', 'true');
+        outside.setAttribute('contenteditable', 'true');
+        applyPlainTextToContenteditable(el, 'inside');
+        applyPlainTextToContenteditable(outside, 'outside');
+        document.body.append(el, outside);
+        setContenteditablePlainTextSelection(outside, 3);
+
+        expect(getContenteditableCaretClientRect(el)).toBeNull();
+        restore();
+    });
+
+    it('returns null for non-collapsed contenteditable selections', () => {
+        const restore = installRangeLayoutMock([rect(120, 240, 40, 18)]);
+        const el = document.createElement('div');
+        el.setAttribute('contenteditable', 'true');
+        applyPlainTextToContenteditable(el, 'hello');
+        document.body.appendChild(el);
+        setContenteditablePlainTextSelection(el, 1, 4);
+
+        expect(getContenteditableCaretClientRect(el)).toBeNull();
+        restore();
+    });
+});

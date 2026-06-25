@@ -47,11 +47,11 @@ describe('commentExport', () => {
         });
     });
 
-    it('returns an empty string when there are no comments', () => {
+    it('returns the cleaned prompt when there are no comments', () => {
         expect(buildCommentsExport([], {
-            userPrompt: 'Top line',
+            userPrompt: 'Top line\n{{cursor}}',
             commentTemplate: '针对\n【选中文字】\n我的评价是：\n【用户评论】\n---------------',
-        })).toBe('');
+        })).toBe('Top line');
     });
 
     it('formats comments as an enumerated multiline list using markdown source placeholders', () => {
@@ -154,5 +154,22 @@ describe('commentExport', () => {
                 'Line 2',
             ].join('\n'),
         );
+    });
+
+    it('removes the composer cursor marker from Reader exports', () => {
+        const result = buildCommentsExport(
+            [makeComment({ sourceMarkdown: 'alpha', comment: 'beta' })],
+            {
+                userPrompt: 'Line 1\n{{cursor}}\nLine 2',
+                commentTemplate: [
+                    { type: 'token', key: 'selected_source' },
+                    { type: 'text', value: '\n--\n' },
+                    { type: 'token', key: 'user_comment' },
+                ],
+            },
+        );
+
+        expect(result).not.toContain('{{cursor}}');
+        expect(result).toContain('Line 1\n\nLine 2');
     });
 });

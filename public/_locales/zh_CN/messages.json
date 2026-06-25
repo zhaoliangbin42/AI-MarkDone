@@ -2499,6 +2499,58 @@
         "message": "取消",
         "description": "Message for detachedReaderExperimentalCancel"
     },
+    "promptManagerTitle": {
+        "message": "Prompts",
+        "description": "Title for the prompt manager"
+    },
+    "promptSearchPlaceholder": {
+        "message": "搜索 Prompt",
+        "description": "Placeholder for prompt manager search"
+    },
+    "promptAdd": {
+        "message": "添加 Prompt",
+        "description": "Action label for adding a prompt"
+    },
+    "promptEdit": {
+        "message": "编辑 Prompt",
+        "description": "Action label for editing a prompt"
+    },
+    "promptDelete": {
+        "message": "删除 Prompt",
+        "description": "Action label for deleting a prompt"
+    },
+    "promptNoPrompts": {
+        "message": "暂无 Prompt",
+        "description": "Empty state for prompt manager"
+    },
+    "promptUntitled": {
+        "message": "未命名 Prompt",
+        "description": "Fallback prompt title"
+    },
+    "promptTitleLabel": {
+        "message": "标题",
+        "description": "Prompt title field label"
+    },
+    "promptTriggerLabel": {
+        "message": "触发文本",
+        "description": "Prompt trigger field label"
+    },
+    "promptContentLabel": {
+        "message": "Prompt",
+        "description": "Prompt content field label"
+    },
+    "promptInsertCursorPlaceholder": {
+        "message": "光标位置",
+        "description": "Button label for inserting the prompt cursor placeholder"
+    },
+    "promptContentRequired": {
+        "message": "Prompt 内容不能为空。",
+        "description": "Prompt validation message when content is empty"
+    },
+    "promptSaveFailed": {
+        "message": "Prompt 保存失败。",
+        "description": "Prompt save generic error message"
+    },
     "detachedReaderClosed": {
         "message": "独立阅读器已关闭。",
         "description": "Message for detachedReaderClosed"

@@ -73,12 +73,14 @@ describe('ChatGPTMessageStepperController', () => {
 
     it('renders left and right message step buttons and routes clicks around the active round', async () => {
         const onOpenDetachedReader = vi.fn(async () => undefined);
-        const controller = new ChatGPTMessageStepperController(adapter, { onOpenDetachedReader });
+        const onOpenPrompts = vi.fn();
+        const controller = new ChatGPTMessageStepperController(adapter, { onOpenDetachedReader, onOpenPrompts });
         controllers.push(controller);
         controller.init();
 
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
         const split = host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')!;
+        const prompts = host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')!;
         const previous = host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')!;
         const next = host.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
 
@@ -86,10 +88,12 @@ describe('ChatGPTMessageStepperController', () => {
         expect(Array.from(host.querySelectorAll<HTMLButtonElement>('button')).map((button) => button.dataset.action)).toEqual([
             'toggle-page-bookmark',
             'open-detached-reader',
+            'open-prompts',
             'previous-message',
             'next-message',
         ]);
         expect(split.getAttribute('aria-label')).toBe('Open Reader in split view');
+        expect(prompts.getAttribute('aria-label')).toBe('Prompts');
         expect(previous.getAttribute('aria-label')).toBe('Previous message');
         expect(next.getAttribute('aria-label')).toBe('Next message');
         const style = document.getElementById('aimd-chatgpt-message-stepper-style')?.textContent ?? '';
@@ -100,6 +104,8 @@ describe('ChatGPTMessageStepperController', () => {
         split.click();
         await Promise.resolve();
         expect(onOpenDetachedReader).toHaveBeenCalledTimes(1);
+        prompts.click();
+        expect(onOpenPrompts).toHaveBeenCalledTimes(1);
 
         previous.click();
         await Promise.resolve();

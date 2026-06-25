@@ -2499,6 +2499,58 @@
         "message": "Cancel",
         "description": "Message for detachedReaderExperimentalCancel"
     },
+    "promptManagerTitle": {
+        "message": "Prompts",
+        "description": "Title for the prompt manager"
+    },
+    "promptSearchPlaceholder": {
+        "message": "Search prompts",
+        "description": "Placeholder for prompt manager search"
+    },
+    "promptAdd": {
+        "message": "Add prompt",
+        "description": "Action label for adding a prompt"
+    },
+    "promptEdit": {
+        "message": "Edit prompt",
+        "description": "Action label for editing a prompt"
+    },
+    "promptDelete": {
+        "message": "Delete prompt",
+        "description": "Action label for deleting a prompt"
+    },
+    "promptNoPrompts": {
+        "message": "No prompts",
+        "description": "Empty state for prompt manager"
+    },
+    "promptUntitled": {
+        "message": "Untitled prompt",
+        "description": "Fallback prompt title"
+    },
+    "promptTitleLabel": {
+        "message": "Title",
+        "description": "Prompt title field label"
+    },
+    "promptTriggerLabel": {
+        "message": "Trigger text",
+        "description": "Prompt trigger field label"
+    },
+    "promptContentLabel": {
+        "message": "Prompt",
+        "description": "Prompt content field label"
+    },
+    "promptInsertCursorPlaceholder": {
+        "message": "Cursor position",
+        "description": "Button label for inserting the prompt cursor placeholder"
+    },
+    "promptContentRequired": {
+        "message": "Prompt content is required.",
+        "description": "Prompt validation message when content is empty"
+    },
+    "promptSaveFailed": {
+        "message": "Prompt save failed.",
+        "description": "Prompt save generic error message"
+    },
     "detachedReaderClosed": {
         "message": "Detached Reader closed.",
         "description": "Message for detachedReaderClosed"

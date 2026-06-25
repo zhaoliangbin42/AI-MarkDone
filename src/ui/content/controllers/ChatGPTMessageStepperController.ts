@@ -1,5 +1,5 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, splitViewIcon } from '../../../assets/icons';
+import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, messageSquareTextIcon, splitViewIcon } from '../../../assets/icons';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import {
     collectChatGPTRoundPositions,
@@ -95,6 +95,7 @@ export class ChatGPTMessageStepperController {
         private readonly adapter: SiteAdapter,
         private readonly options: {
             onOpenDetachedReader?: () => Promise<void> | void;
+            onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
             onTogglePageBookmark?: () => Promise<{ saved: boolean }> | { saved: boolean } | void;
             onRefreshPageBookmarkState?: (url: string) => Promise<boolean> | boolean;
         } = {},
@@ -185,9 +186,13 @@ export class ChatGPTMessageStepperController {
         const detachedReader = this.createButton('open-detached-reader', 'Open Reader in split view', () => {
             void this.options.onOpenDetachedReader?.();
         }, splitViewIcon);
+        const prompts = this.createButton('open-prompts', 'Prompts', () => {
+            if (prompts.hidden || prompts.disabled) return;
+            void this.options.onOpenPrompts?.(prompts);
+        }, messageSquareTextIcon);
         previous.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'left';
         next.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'right';
-        host.append(pageBookmark, detachedReader, previous, next);
+        host.append(pageBookmark, detachedReader, prompts, previous, next);
         document.body.appendChild(host);
         this.host = host;
         this.pageBookmarkButton = pageBookmark;

@@ -1,8 +1,18 @@
 import type { ComposerKind } from '../../../core/sending/types';
-import { applyPlainTextToContenteditable, parseContenteditableToPlainText } from '../../../core/sending/contenteditable';
+import {
+    applyPlainTextToContenteditable,
+    parseContenteditableToPlainText,
+    setContenteditablePlainTextSelection,
+} from '../../../core/sending/contenteditable';
 import type { SiteAdapter } from '../adapters/base';
 
 export type WriteStrategy = 'auto' | 'inputEvent' | 'execCommand' | 'dom';
+export type ComposerTextRangeReplacement = {
+    start: number;
+    end: number;
+    replacement: string;
+    cursorIndex?: number;
+};
 type SendButtonWatchOptions = {
     pollMs?: number;
 };
@@ -100,6 +110,36 @@ function applyTextToInput(input: HTMLElement | HTMLTextAreaElement | HTMLInputEl
     input.textContent = text;
 }
 
+function readComposerTextFromInput(input: HTMLElement | HTMLTextAreaElement | HTMLInputElement, kind: ComposerKind): string {
+    if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) return input.value;
+    if (kind === 'contenteditable' && input.getAttribute('contenteditable') === 'true') {
+        return parseContenteditableToPlainText(input);
+    }
+    return input.textContent || '';
+}
+
+function clampTextRangeIndex(value: number, text: string): number {
+    if (!Number.isFinite(value)) return text.length;
+    return Math.max(0, Math.min(text.length, Math.floor(value)));
+}
+
+function dispatchReplacementEvents(
+    input: HTMLElement | HTMLTextAreaElement | HTMLInputElement,
+    replacement: string,
+): void {
+    try {
+        input.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            cancelable: false,
+            inputType: 'insertReplacementText',
+            data: replacement,
+        }));
+    } catch {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function tryInputEvent(input: HTMLElement | HTMLTextAreaElement | HTMLInputElement, kind: ComposerKind, text: string): boolean {
     try {
         applyTextToInput(input, kind, text);
@@ -158,15 +198,7 @@ export function readComposer(adapter: SiteAdapter): { ok: true; kind: ComposerKi
     if (!input) return { ok: false, message: 'Composer input not found' };
     const kind = detectComposerKind(adapter, input);
 
-    if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
-        return { ok: true, kind, text: input.value };
-    }
-
-    if (kind === 'contenteditable' && input.getAttribute('contenteditable') === 'true') {
-        return { ok: true, kind, text: parseContenteditableToPlainText(input) };
-    }
-
-    return { ok: true, kind, text: input.textContent || '' };
+    return { ok: true, kind, text: readComposerTextFromInput(input, kind) };
 }
 
 export async function clearComposer(
@@ -242,6 +274,50 @@ export async function writeComposer(
         if (attempt()) return { ok: true, kind };
     }
     return { ok: false, message: 'All write strategies failed' };
+}
+
+export async function replaceComposerTextRange(
+    adapter: SiteAdapter,
+    range: ComposerTextRangeReplacement,
+    opts?: { focus?: boolean },
+): Promise<{ ok: true; kind: ComposerKind; text: string } | { ok: false; message: string }> {
+    const input = getComposerInput(adapter);
+    if (!input) return { ok: false, message: 'Composer input not found' };
+    const kind = detectComposerKind(adapter, input);
+    const focus = opts?.focus ?? true;
+    if (focus) (input as HTMLElement).focus?.();
+
+    const current = readComposerTextFromInput(input, kind);
+    const start = clampTextRangeIndex(range.start, current);
+    const end = Math.max(start, clampTextRangeIndex(range.end, current));
+    const replacement = range.replacement;
+    const next = `${current.slice(0, start)}${replacement}${current.slice(end)}`;
+    const cursor = clampTextRangeIndex(
+        range.cursorIndex ?? start + replacement.length,
+        next,
+    );
+
+    try {
+        if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
+            setReactValue(input, next);
+            input.setSelectionRange(cursor, cursor);
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            return { ok: true, kind, text: next };
+        }
+
+        if (kind === 'contenteditable' && input.getAttribute('contenteditable') === 'true') {
+            applyPlainTextToContenteditable(input, next);
+            setContenteditablePlainTextSelection(input, cursor, cursor);
+            dispatchReplacementEvents(input, replacement);
+            return { ok: true, kind, text: next };
+        }
+
+        input.textContent = next;
+        dispatchReplacementEvents(input, replacement);
+        return { ok: true, kind, text: next };
+    } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : 'Replace failed' };
+    }
 }
 
 export async function waitSendReady(

@@ -34,6 +34,7 @@ type OpenParams = {
     settings: AppSettings['reader'];
     onChange: (patch: ReaderSettingsPatch) => Promise<void> | void;
     onPreview: (patch: ReaderSettingsPatch) => void;
+    onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
     onClose?: () => void;
 };
 
@@ -142,7 +143,7 @@ export class ReaderSettingsPopover {
             this.createActionRow(
                 t('readerCommentPromptListLabel'),
                 this.formatPromptSummary(settings.commentExport),
-                () => this.openPromptSettings(),
+                (anchor) => this.openPromptSettings(anchor),
             ),
             this.createActionRow(
                 t('readerCommentTemplateSettingsLabel'),
@@ -231,14 +232,14 @@ export class ReaderSettingsPopover {
         return row;
     }
 
-    private createActionRow(labelText: string, desc: string, onClick: () => void, actionLabel = t('btnEdit'), action?: string): HTMLElement {
+    private createActionRow(labelText: string, desc: string, onClick: (anchor: HTMLElement) => void, actionLabel = t('btnEdit'), action?: string): HTMLElement {
         const row = this.createBaseRow(labelText, desc);
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'secondary-btn secondary-btn--compact';
         if (action) button.dataset.action = action;
         button.textContent = actionLabel;
-        button.addEventListener('click', onClick);
+        button.addEventListener('click', () => onClick(button));
         row.appendChild(button);
         return row;
     }
@@ -281,8 +282,12 @@ export class ReaderSettingsPopover {
         this.updateSettings(next);
     }
 
-    private openPromptSettings(): void {
+    private openPromptSettings(anchor?: HTMLElement): void {
         if (!this.rootEl || !this.params || !this.settings) return;
+        if (anchor && this.params.onOpenPromptManager) {
+            void this.params.onOpenPromptManager(anchor);
+            return;
+        }
         this.promptSettingsPopover.open({
             parent: this.rootEl,
             settings: this.settings.commentExport,

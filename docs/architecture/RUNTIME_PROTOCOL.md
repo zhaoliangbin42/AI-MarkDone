@@ -128,6 +128,31 @@
 - source tab frozen/discarded、content script 不可达或扩展重载导致 session 丢失时，调用方应展示只读快照、source unavailable 或 session expired 状态，不抛 unchecked runtime error
 - 当前合规边界接受 `src/contracts/protocol.ts` 对 `ReaderSessionSnapshot` 的外层结构校验配合 background sender-tab binding、Reader Markdown sanitize、extension session storage 共同作为 v1 防线；更细的 item-level schema/size validation 或 source URL 复核可以作为后续防御深度增强，但不是当前协议可用性的前置条件
 
+### Prompt library
+
+- `prompts:list`
+- `prompts:save`
+- `prompts:delete`
+- `prompts:restoreDefaults`
+- `prompts:recordUse`
+
+用途：
+
+- background 持有 Prompt Library 的 local-storage 写入权，正文存储在 `browser.storage.local` 的 `aimd:prompts:library:v1`
+- content runtime 和 Reader 只通过 `prompts:*` protocol 读取或修改 Prompt，不直接访问 storage
+- 首次读取时会 seed 5 条默认 Prompt，并把真实持久化过的 Reader 旧 `commentExport.prompts` 迁移进同一个 shared library；Reader 的 `promptPosition` 和 comment template 仍保留在 reader settings 中
+- `prompts:list` 继续兼容 `context: "composer" | "readerComment" | "all"`、`query` 与 `includeDisabled` 参数，但 Prompt 本身不再按场景分库；Reader 与 ChatGPT manager 读取同一套 prompts
+- `prompts:save` 会规范化 title、反斜杠 triggerText、兼容字段与 timestamps；空正文返回 `INVALID_REQUEST`；同一非空 triggerText 在不同 prompt 之间冲突时返回 `CONFLICT`
+- `prompts:restoreDefaults` 只补回缺失的内置 Prompt，不删除用户 Prompt，也不覆盖用户改过的默认 Prompt
+- `prompts:recordUse` 只记录 `lastUsedAt`，用于本地排序，不上传、不同步、不改变 prompt 内容
+
+关键语义：
+
+- Prompt Library 是私有、本地能力；v1 不做云同步、团队共享、公共市场、文件夹或 prompt chain
+- Prompt 本身统一；ChatGPT 官方 composer 使用 Prompt 时只插入 Prompt 内容，Reader 注释导出使用同一 Prompt 内容再按 Reader comment template 与 `promptPosition` 拼接注释
+- triggerText 只用于 ChatGPT composer 的 `\` 联想；没有 triggerText 的 Prompt 仍可在 Reader 中使用，也会出现在 Prompt manager 中
+- Prompt 内容里的 `{{cursor}}` 是 content runtime 本地插入标记，写入 composer 时会被移除并用于设置光标位置；Reader 导出会清理该标记；background 不解释该标记
+
 ### Settings
 
 - `settings:getAll`

@@ -110,4 +110,43 @@ describe('protocol', () => {
             payload: { snapshot: { ...snapshot, items: 'bad' } },
         })).toBe(false);
     });
+
+    it('accepts prompt library requests and rejects malformed save payloads', () => {
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:list',
+            payload: { context: 'composer' },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:save',
+            payload: {
+                prompt: {
+                    id: 'prompt-custom',
+                    title: 'Summarize',
+                    content: 'Summarize this.',
+                    triggerText: '\\sum',
+                    contexts: ['composer', 'readerComment'],
+                    enabled: true,
+                },
+            },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:delete',
+            payload: { id: 'prompt-custom' },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:save',
+            payload: { prompt: { id: 'missing-content', title: 'Bad' } },
+        })).toBe(false);
+    });
 });

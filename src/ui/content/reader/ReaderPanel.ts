@@ -104,6 +104,10 @@ export type ReaderPanelSettingsController = {
     onChange: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
 };
 
+export type ReaderPanelPromptManagerController = {
+    onOpenManager: (anchor: HTMLElement) => Promise<void> | void;
+};
+
 type ReaderPanelState = {
     theme: Theme;
     items: ReaderItem[];
@@ -168,6 +172,7 @@ export class ReaderPanel {
     private readonly settingsPopover = new ReaderSettingsPopover();
     private readonly commentPromptPicker = new CommentPromptPickerPopover();
     private settingsController: ReaderPanelSettingsController | null = null;
+    private promptManagerController: ReaderPanelPromptManagerController | null = null;
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
@@ -288,6 +293,10 @@ export class ReaderPanel {
 
     setReaderSettingsController(controller: ReaderPanelSettingsController | null): void {
         this.settingsController = controller;
+    }
+
+    setPromptManagerController(controller: ReaderPanelPromptManagerController | null): void {
+        this.promptManagerController = controller;
     }
 
     setReaderSettings(settings: AppSettings['reader']): void {
@@ -917,6 +926,9 @@ export class ReaderPanel {
             onChange: async (patch) => {
                 await this.settingsController?.onChange(patch);
             },
+            onOpenPromptManager: this.promptManagerController
+                ? (anchor) => this.promptManagerController?.onOpenManager(anchor)
+                : undefined,
         });
     }
 

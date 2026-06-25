@@ -170,6 +170,24 @@ export type CloudBackupDeleteSnapshotPayload = { provider: CloudBackupProviderId
 export type SettingsGetCategoryPayload = { category: SettingsCategory };
 export type SettingsSetCategoryPayload = { category: SettingsCategory; value: unknown };
 export type ContentReadyPayload = { platform: 'chatgpt' | 'gemini' | 'claude' | 'deepseek'; url: string };
+export type PromptContext = 'composer' | 'readerComment';
+export type PromptsListPayload = { context?: PromptContext | 'all'; query?: string; includeDisabled?: boolean };
+export type PromptsSavePayload = {
+    prompt: {
+        id?: string;
+        title?: string;
+        content: string;
+        triggerText?: string;
+        favorite?: boolean;
+        enabled?: boolean;
+        contexts?: PromptContext[];
+        createdAt?: number;
+        updatedAt?: number;
+        lastUsedAt?: number | null;
+    };
+};
+export type PromptsDeletePayload = { id: string };
+export type PromptsRecordUsePayload = { id: string; usedAt?: number };
 
 export type ReaderSessionSerializableItem = {
     id: string;
@@ -220,6 +238,11 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:send'; payload: ReaderSessionSendPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:locate'; payload: ReaderSessionLocatePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:close'; payload: ReaderSessionByIdPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'prompts:list'; payload?: PromptsListPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'prompts:save'; payload: PromptsSavePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'prompts:delete'; payload: PromptsDeletePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'prompts:restoreDefaults' }
+    | { v: ProtocolVersion; id: RequestId; type: 'prompts:recordUse'; payload: PromptsRecordUsePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getAll' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:setCategory'; payload: SettingsSetCategoryPayload }
@@ -266,6 +289,26 @@ export function createRequestId(): RequestId {
     return `req_${Date.now().toString(16)}_${rand}`;
 }
 
+function isPromptContext(value: unknown): value is PromptContext {
+    return value === 'composer' || value === 'readerComment';
+}
+
+function isPromptContexts(value: unknown): value is PromptContext[] {
+    return Array.isArray(value) && value.every(isPromptContext);
+}
+
+function isOptionalString(value: unknown): boolean {
+    return value === undefined || typeof value === 'string';
+}
+
+function isOptionalBoolean(value: unknown): boolean {
+    return value === undefined || typeof value === 'boolean';
+}
+
+function isOptionalNumber(value: unknown): boolean {
+    return value === undefined || (typeof value === 'number' && Number.isFinite(value));
+}
+
 export function isExtRequest(value: unknown): value is ExtRequest {
     if (typeof value !== 'object' || value === null) return false;
     const rec = value as Record<string, unknown>;
@@ -286,6 +329,11 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'readerSession:send',
         'readerSession:locate',
         'readerSession:close',
+        'prompts:list',
+        'prompts:save',
+        'prompts:delete',
+        'prompts:restoreDefaults',
+        'prompts:recordUse',
         'settings:getAll',
         'settings:getCategory',
         'settings:setCategory',
@@ -364,6 +412,54 @@ export function isExtRequest(value: unknown): value is ExtRequest {
             return sessionPayload.position === undefined || typeof sessionPayload.position === 'number' || typeof sessionPayload.messageId === 'string' || sessionPayload.messageId === null;
         }
         return true;
+    }
+
+    if (type === 'prompts:restoreDefaults') {
+        return rec.payload === undefined;
+    }
+
+    if (type.startsWith('prompts:')) {
+        const payload = rec.payload;
+        if (type === 'prompts:list') {
+            if (payload === undefined) return true;
+            if (typeof payload !== 'object' || payload === null) return false;
+            const listPayload = payload as Record<string, unknown>;
+            return (
+                (listPayload.context === undefined || listPayload.context === 'all' || isPromptContext(listPayload.context))
+                && isOptionalString(listPayload.query)
+                && isOptionalBoolean(listPayload.includeDisabled)
+            );
+        }
+
+        if (typeof payload !== 'object' || payload === null) return false;
+        const promptPayload = payload as Record<string, unknown>;
+        if (type === 'prompts:delete') {
+            return typeof promptPayload.id === 'string' && promptPayload.id.trim().length > 0;
+        }
+        if (type === 'prompts:recordUse') {
+            return (
+                typeof promptPayload.id === 'string'
+                && promptPayload.id.trim().length > 0
+                && isOptionalNumber(promptPayload.usedAt)
+            );
+        }
+        if (type === 'prompts:save') {
+            const prompt = promptPayload.prompt;
+            if (typeof prompt !== 'object' || prompt === null) return false;
+            const promptRecord = prompt as Record<string, unknown>;
+            return (
+                isOptionalString(promptRecord.id)
+                && isOptionalString(promptRecord.title)
+                && typeof promptRecord.content === 'string'
+                && isOptionalString(promptRecord.triggerText)
+                && isOptionalBoolean(promptRecord.favorite)
+                && isOptionalBoolean(promptRecord.enabled)
+                && (promptRecord.contexts === undefined || isPromptContexts(promptRecord.contexts))
+                && isOptionalNumber(promptRecord.createdAt)
+                && isOptionalNumber(promptRecord.updatedAt)
+                && (promptRecord.lastUsedAt === null || isOptionalNumber(promptRecord.lastUsedAt))
+            );
+        }
     }
 
     return true;
