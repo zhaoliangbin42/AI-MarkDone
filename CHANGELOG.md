@@ -9,14 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Bookmarks: Added ChatGPT page-level bookmarks from the lower-right page controls. Page bookmarks save the current conversation URL and title, appear in the existing bookmark manager, and can be filtered separately from message bookmarks.
-- Prompts: Added a unified local Prompt Library with ChatGPT composer `\` autocomplete, five default prompts, a lower-right Prompts button, shared Reader prompt management, safe Reader prompt migration, and Reader annotation export that reuses the same prompts.
+- Prompts: Added a unified local Prompt Library with ChatGPT composer `\` autocomplete, four default prompts for Humanizer Skill polishing, prompt optimization, Skill Creator generation, and natural translation, a lower-right Prompts button, shared Reader prompt management, safe Reader prompt migration, and Reader annotation export that reuses the same prompts.
 - Settings: Added an optional ChatGPT “Enter inserts a new line” toggle. When enabled, plain Enter creates a newline in the ChatGPT composer, while the send button and Cmd/Ctrl + Enter still send.
 - Settings: Added a ChatGPT chat-width slider that can widen the conversation area from normal up to 200%.
 - Settings: Added a slider for ChatGPT directory right spacing so users can add extra room when browser scrollbars overlap the right-side rail.
+- Settings: Added a Buttons & Entrypoints subpage that centralizes all visible button toggles, including message toolbar actions, lower-right ChatGPT buttons, and formula hover actions.
+- Settings: Added Reader workflow controls to the bookmark settings page while keeping Reader-only display controls inside the Reader settings dialog.
+
+### Changed
+- ChatGPT: The AI-MarkDone directory rail now defaults on and can still be turned off from Settings.
+- Prompts: Prompt triggers are now saved and shown as plain text while still matching ChatGPT composer `\` autocomplete.
+- Prompts: Built-in default prompts are now fixed English seed records, including the OpenAI Codex Skill Creator GitHub reference for the Skill Creator default.
+- Prompts: Disabled prompts now stay in the manager, keep their trigger reserved, and are hidden from composer autocomplete and the Reader prompt picker until re-enabled.
+- Prompts: The Prompt manager is wider and taller, keeps editor actions visible with an internal scroll area, supports bounded prompt-content resizing, supports page-session drag placement, and keeps drag-handle ordering reused by autocomplete and Reader prompt lists.
+- Prompts: Unmodified built-in prompts stay managed and can receive future default updates, while edited defaults become user-owned prompts and are no longer overwritten.
+- Prompts: The Skill Creator default now points to the full OpenAI Codex sample Skill package, and legacy Reader migration keeps the point-by-point annotation prompt without restoring the other untouched Reader defaults.
+- Reader: The Reader content width control is now a bounded slider instead of a numeric field.
 
 ### Fixed
+- Prompts: The Settings, Reader, Detached Reader, and lower-right ChatGPT entries now open the same Prompt manager, row clicks edit prompts consistently, stale legacy Reader prompt counts are gone, and the manager stays fixed-width with internal scrolling so it is not clipped by the bottom of the page or by a resized editor textarea.
+- Prompts: Reader annotation copy and Reader Send popover comment insertion now fetch enabled prompts directly from the shared Prompt Library on demand; legacy `reader.commentExport.prompts` is migration-only and no longer acts as a runtime prompt snapshot.
 - Prompts: Improved ChatGPT composer prompt autocomplete positioning so the suggestion popover anchors to the current text cursor and keeps short lists close to the cursor.
+- Prompts: ChatGPT composer `\` autocomplete now claims Enter as prompt confirmation as soon as the candidate box is open, without requiring the Enter-newline setting.
 - Prompts: Fixed the Prompt manager appearing at the top-left of ChatGPT during page load when theme settings sync before the composer is ready.
+- Reader: Reader and Detached Reader Send popovers now support the shared `\` Prompt autocomplete, with suggestions anchored to the textarea cursor and detached when the popover closes.
 - Reader: Detached Reader sending now uses the full SendPort flow, prepares the source ChatGPT page before submit, and activates the source tab before triggering the official send action.
 - Reader: Selecting text inside code blocks, inline code, or tables now keeps copy, annotations, and sticky pins limited to the exact selected text instead of expanding to the whole Markdown block.
 
