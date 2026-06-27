@@ -18,6 +18,7 @@ import {
     normalizeChatGPTDirectoryRightInsetPx,
     normalizeChatGPTDirectorySettings,
     normalizeChatGPTPageWidthScale,
+    normalizeReaderOpenMode,
     normalizeThemeAccentColor,
 } from '../../../../../core/settings/migrations';
 import {
@@ -27,6 +28,8 @@ import {
     MIN_PNG_EXPORT_WIDTH,
     PNG_EXPORT_PIXEL_RATIO_STEP,
     PNG_EXPORT_WIDTH_STEP,
+    normalizePngCustomWidth,
+    normalizePngPixelRatio,
     resolvePngExportPixelRatio,
     resolvePngExportWidth,
     type PngExportWidthPreset,
@@ -51,6 +54,9 @@ import {
 import { createBookmarksInlineSelect, createBookmarksInlineSelectControl } from '../components/BookmarksInlineSelect';
 import { FormulaAssetSettingsPopover } from '../popovers/FormulaAssetSettingsPopover';
 import { CloudBackupSettingsPanel, type CloudBackupSettingsPanelActions } from '../cloudBackup/CloudBackupSettingsPanel';
+import { createDefaultCommentTemplate, type CommentTemplateSegment } from '../../../../../core/settings/readerCommentExport';
+import { buildCommentsExport, normalizeCommentTemplate, normalizeReaderCommentExportSettings } from '../../../../../services/reader/commentExport';
+import { ReaderCommentTemplateSettingsPopover } from '../../../reader/ReaderCommentTemplateSettingsPopover';
 
 export type SettingsTabViewActions = {
     loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
@@ -77,12 +83,6 @@ type SelectRef = {
     setValue: (value: string) => void;
     close: () => void;
     onChange: (listener: (value: string) => void) => void;
-};
-
-type NumberFieldRef = {
-    root: HTMLElement;
-    field: HTMLElement;
-    input: HTMLInputElement;
 };
 
 type SliderFieldRef = {
@@ -114,7 +114,7 @@ type Refs = {
         copyMarkdownDelimiters: HTMLInputElement;
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
-        assetFontSize: NumberFieldRef;
+        assetFontSize: SliderFieldRef;
     };
     advanced: {
         root: HTMLElement;
@@ -124,20 +124,32 @@ type Refs = {
     };
     export: {
         pngWidthPreset: SelectRef;
-        pngWidth: NumberFieldRef;
-        pngPixelRatio: NumberFieldRef;
+        pngWidth: SliderFieldRef;
+        pngPixelRatio: SliderFieldRef;
     };
     chatgptDirectory: {
         restorePositionAfterSend: HTMLInputElement;
         enterKeyNewline: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         showPageBookmarkControl: HTMLInputElement;
+        showDetachedReaderControl: HTMLInputElement;
+        showPromptControl: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
         pageWidthScale: SliderFieldRef;
         enabled: HTMLInputElement;
         mode: SelectRef;
         promptLabelMode: HTMLInputElement;
         rightInset: SliderFieldRef;
+    };
+    reader: {
+        defaultOpenMode: SelectRef;
+        renderCode: HTMLInputElement;
+        showOutline: HTMLInputElement;
+        promptPositionBottom: HTMLInputElement;
+        promptsButton: HTMLButtonElement;
+        promptsSummary: HTMLElement;
+        templateButton: HTMLButtonElement;
+        templateSummary: HTMLElement;
     };
     language: SelectRef;
     storageText: HTMLElement;
@@ -152,12 +164,16 @@ export class SettingsTabView {
     private refs: Refs;
     private selectRefs: SelectRef[] = [];
     private readonly formulaAssetSettingsPopover = new FormulaAssetSettingsPopover();
+    private readonly readerCommentTemplateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
     private readonly outsideDismissBoundary: TransientOutsideDismissBoundaryHandle;
     private advancedExpanded = false;
+    private mainPageRoot: HTMLElement | null = null;
+    private buttonsPageRoot: HTMLElement | null = null;
 
-    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions }) {
+    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void }) {
         this.modal = params.modal;
         this.actions = params.actions ?? {};
+        this.onOpenPromptManager = params.onOpenPromptManager;
 
         this.root = document.createElement('div');
         this.root.className = 'aimd-settings';
@@ -182,99 +198,63 @@ export class SettingsTabView {
             deepseek: this.createToggle(platformsGroup.body, `${Icons.deepseek} DeepSeek`, t('enableFormulaOnlyOnDeepSeek')),
         };
 
-        const pageActionsGroup = this.createGroup(Icons.settings, t('toolbarPageActionsSettingsLabel'));
-        const showMessageToolbar = this.createToggle(pageActionsGroup.body, t('messageToolbarLabel'), t('messageToolbarDesc'));
-        const showSaveMessages = this.createToggle(pageActionsGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
-        const showWordCount = this.createToggle(pageActionsGroup.body, t('wordCountLabel'), t('wordCountDesc'));
-        const saveContextOnly = this.createToggle(pageActionsGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
-
-        const formulaClickCopyMarkdown = this.createToggle(
-            pageActionsGroup.body,
-            t('formulaClickCopyMarkdownLabel'),
-            t('formulaClickCopyMarkdownDesc'),
+        const buttonsEntryGroup = this.createGroup(Icons.settings, t('buttonsEntrypointsSettingsLabel'));
+        const buttonsEntry = this.createActionRow(
+            buttonsEntryGroup.body,
+            t('buttonsEntrypointsSettingsLabel'),
+            t('buttonsEntrypointsSettingsDesc'),
+            'settings-buttons-page-entry',
         );
-        const formulaCopyMarkdownDelimiters = this.createToggle(
-            pageActionsGroup.body,
-            t('formulaCopyMarkdownDelimitersLabel'),
-            t('formulaCopyMarkdownDelimitersDesc'),
+
+        const buttonsContent = document.createElement('div');
+        buttonsContent.className = 'settings-grid settings-content settings-secondary-page';
+        buttonsContent.hidden = true;
+        buttonsContent.dataset.role = 'settings-buttons-page';
+        const buttonsHeader = document.createElement('div');
+        buttonsHeader.className = 'settings-secondary-header';
+        const buttonsBack = document.createElement('button');
+        buttonsBack.type = 'button';
+        buttonsBack.className = 'secondary-btn settings-secondary-back';
+        buttonsBack.dataset.role = 'settings-buttons-page-back';
+        buttonsBack.textContent = t('btnBack');
+        const buttonsTitle = document.createElement('h3');
+        buttonsTitle.className = 'card-title settings-secondary-title';
+        buttonsTitle.innerHTML = `${Icons.settings}<span>${t('buttonsEntrypointsSettingsLabel')}</span>`;
+        buttonsHeader.append(buttonsBack, buttonsTitle);
+
+        const buttonsGroup = this.createGroup(Icons.settings, t('buttonsEntrypointsSettingsLabel'));
+        const showMessageToolbar = this.createToggle(buttonsGroup.body, t('messageToolbarLabel'), t('messageToolbarDesc'));
+        const showSaveMessages = this.createToggle(buttonsGroup.body, t('saveMessagesLabel'), t('saveMessagesDesc'));
+        const showWordCount = this.createToggle(buttonsGroup.body, t('wordCountLabel'), t('wordCountDesc'));
+        const chatGptShowPageBookmarkControl = this.createToggle(
+            buttonsGroup.body,
+            t('chatgptShowPageBookmarkControlLabel'),
+            t('chatgptShowPageBookmarkControlDesc'),
+        );
+        const chatGptShowDetachedReaderControl = this.createToggle(
+            buttonsGroup.body,
+            t('chatgptShowDetachedReaderControlLabel'),
+            t('chatgptShowDetachedReaderControlDesc'),
+        );
+        const chatGptShowPromptControl = this.createToggle(
+            buttonsGroup.body,
+            t('chatgptShowPromptControlLabel'),
+            t('chatgptShowPromptControlDesc'),
+        );
+        const chatGptShowMessageStepper = this.createToggle(
+            buttonsGroup.body,
+            t('chatgptShowMessageStepperLabel'),
+            t('chatgptShowMessageStepperDesc'),
         );
         const formulaAssetActions = this.createActionRow(
-            pageActionsGroup.body,
+            buttonsGroup.body,
             t('formulaAssetActionsLabel'),
             t('formulaAssetActionsDesc'),
             'settings-formula-asset-actions',
         );
-        const formulaAssetFontSize = this.createNumberRow(
-            pageActionsGroup.body,
-            t('formulaAssetFontSizeLabel'),
-            t('formulaAssetFontSizeDesc'),
-            MIN_FORMULA_ASSET_FONT_SIZE_PX,
-            MAX_FORMULA_ASSET_FONT_SIZE_PX,
-            FORMULA_ASSET_FONT_SIZE_STEP_PX,
-            'settings-formula-asset-font-size-value',
-        );
+        buttonsContent.append(buttonsHeader, buttonsGroup.root);
 
-        const pngExportWidth = this.createPngExportWidthRow(
-            pageActionsGroup.body,
-            t('pngExportWidthPresetLabel'),
-            t('pngExportWidthPresetDesc'),
-            [
-                { value: 'mobile', label: t('pngExportWidthPresetMobile') },
-                { value: 'tablet', label: t('pngExportWidthPresetTablet') },
-                { value: 'desktop', label: t('pngExportWidthPresetDesktop') },
-                { value: 'custom', label: t('pngExportWidthPresetCustom') },
-            ],
-            'png-width-preset',
-            MIN_PNG_EXPORT_WIDTH,
-            MAX_PNG_EXPORT_WIDTH,
-            PNG_EXPORT_WIDTH_STEP,
-        );
-        const pngPixelRatio = this.createNumberRow(
-            pageActionsGroup.body,
-            t('pngExportPixelRatioLabel'),
-            t('pngExportPixelRatioDesc'),
-            MIN_PNG_EXPORT_PIXEL_RATIO,
-            MAX_PNG_EXPORT_PIXEL_RATIO,
-            PNG_EXPORT_PIXEL_RATIO_STEP,
-            'settings-export-pixel-ratio-value',
-        );
-
-        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptSettingsLabel'));
-        const chatGptRestorePositionAfterSend = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptRestorePositionAfterSendLabel'),
-            t('chatgptRestorePositionAfterSendDesc'),
-        );
-        const chatGptEnterKeyNewline = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptEnterKeyNewlineLabel'),
-            t('chatgptEnterKeyNewlineDesc'),
-        );
-        const chatGptShowMessageStepper = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptShowMessageStepperLabel'),
-            t('chatgptShowMessageStepperDesc'),
-        );
-        const chatGptShowPageBookmarkControl = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptShowPageBookmarkControlLabel'),
-            t('chatgptShowPageBookmarkControlDesc'),
-        );
-        const chatGptArrowKeyMessageNavigation = this.createToggle(
-            chatGptDirectoryGroup.body,
-            t('chatgptArrowKeyMessageNavigationLabel'),
-            t('chatgptArrowKeyMessageNavigationDesc'),
-        );
-        const chatGptPageWidthScale = this.createSliderRow(
-            chatGptDirectoryGroup.body,
-            t('chatgptPageWidthScaleLabel'),
-            t('chatgptPageWidthScaleDesc'),
-            MIN_CHATGPT_PAGE_WIDTH_SCALE,
-            MAX_CHATGPT_PAGE_WIDTH_SCALE,
-            CHATGPT_PAGE_WIDTH_SCALE_STEP,
-            'settings-chatgpt-page-width-scale-value',
-            (value) => value <= MIN_CHATGPT_PAGE_WIDTH_SCALE ? t('chatgptPageWidthScaleNormal') : `${value}%`,
-        );
+        const chatGptDirectoryGroup = this.createGroup(Icons.chatgpt, t('chatgptReadingInputSettingsLabel'));
         const chatGptDirectoryEnabled = this.createToggle(
             chatGptDirectoryGroup.body,
             t('chatgptDirectoryEnabledLabel'),
@@ -304,6 +284,111 @@ export class SettingsTabView {
             CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
             'settings-chatgpt-directory-right-inset-value',
             (value) => `${value}px`,
+        );
+        const chatGptRestorePositionAfterSend = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptRestorePositionAfterSendLabel'),
+            t('chatgptRestorePositionAfterSendDesc'),
+        );
+        const chatGptEnterKeyNewline = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptEnterKeyNewlineLabel'),
+            t('chatgptEnterKeyNewlineDesc'),
+        );
+        const chatGptArrowKeyMessageNavigation = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptArrowKeyMessageNavigationLabel'),
+            t('chatgptArrowKeyMessageNavigationDesc'),
+        );
+        const chatGptPageWidthScale = this.createSliderRow(
+            chatGptDirectoryGroup.body,
+            t('chatgptPageWidthScaleLabel'),
+            t('chatgptPageWidthScaleDesc'),
+            MIN_CHATGPT_PAGE_WIDTH_SCALE,
+            MAX_CHATGPT_PAGE_WIDTH_SCALE,
+            CHATGPT_PAGE_WIDTH_SCALE_STEP,
+            'settings-chatgpt-page-width-scale-value',
+            (value) => value <= MIN_CHATGPT_PAGE_WIDTH_SCALE ? t('chatgptPageWidthScaleNormal') : `${value}%`,
+        );
+
+        const readerGroup = this.createGroup(Icons.bookOpen, t('readerWorkflowSettingsLabel'));
+        const readerDefaultOpenMode = this.createSelect(
+            readerGroup.body,
+            t('readerDefaultOpenModeLabel'),
+            t('readerDefaultOpenModeDesc'),
+            [
+                { value: 'fullscreen', label: t('readerOpenModeFullscreen') },
+                { value: 'panel', label: t('readerOpenModePanel') },
+            ],
+            'reader-default-open-mode',
+        );
+        const readerRenderCode = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
+        const readerShowOutline = this.createToggle(readerGroup.body, t('readerOutlineToggleLabel'), t('readerOutlineToggleDesc'));
+        const readerPromptPositionBottom = this.createToggle(
+            readerGroup.body,
+            t('readerCommentPromptPositionBottomLabel'),
+            t('readerCommentPromptPositionBottomDesc'),
+        );
+        const readerPrompts = this.createActionRow(
+            readerGroup.body,
+            t('readerCommentPromptListLabel'),
+            t('readerCommentPromptListDesc'),
+            'settings-reader-prompts',
+        );
+        const readerTemplate = this.createActionRow(
+            readerGroup.body,
+            t('readerCommentTemplateSettingsLabel'),
+            t('readerCommentTemplateSettingsDesc'),
+            'settings-reader-comment-template',
+        );
+
+        const copyExportGroup = this.createGroup(Icons.copy, t('copyFormulaExportSettingsLabel'));
+        const saveContextOnly = this.createToggle(copyExportGroup.body, t('contextOnlySaveLabel'), t('contextOnlySaveDesc'));
+        const formulaClickCopyMarkdown = this.createToggle(
+            copyExportGroup.body,
+            t('formulaClickCopyMarkdownLabel'),
+            t('formulaClickCopyMarkdownDesc'),
+        );
+        const formulaCopyMarkdownDelimiters = this.createToggle(
+            copyExportGroup.body,
+            t('formulaCopyMarkdownDelimitersLabel'),
+            t('formulaCopyMarkdownDelimitersDesc'),
+        );
+        const formulaAssetFontSize = this.createSliderRow(
+            copyExportGroup.body,
+            t('formulaAssetFontSizeLabel'),
+            t('formulaAssetFontSizeDesc'),
+            MIN_FORMULA_ASSET_FONT_SIZE_PX,
+            MAX_FORMULA_ASSET_FONT_SIZE_PX,
+            FORMULA_ASSET_FONT_SIZE_STEP_PX,
+            'settings-formula-asset-font-size-value',
+            (value) => `${value}px`,
+        );
+
+        const pngExportWidth = this.createPngExportWidthRow(
+            copyExportGroup.body,
+            t('pngExportWidthPresetLabel'),
+            t('pngExportWidthPresetDesc'),
+            [
+                { value: 'mobile', label: t('pngExportWidthPresetMobile') },
+                { value: 'tablet', label: t('pngExportWidthPresetTablet') },
+                { value: 'desktop', label: t('pngExportWidthPresetDesktop') },
+                { value: 'custom', label: t('pngExportWidthPresetCustom') },
+            ],
+            'png-width-preset',
+            MIN_PNG_EXPORT_WIDTH,
+            MAX_PNG_EXPORT_WIDTH,
+            PNG_EXPORT_WIDTH_STEP,
+        );
+        const pngPixelRatio = this.createSliderRow(
+            copyExportGroup.body,
+            t('pngExportPixelRatioLabel'),
+            t('pngExportPixelRatioDesc'),
+            MIN_PNG_EXPORT_PIXEL_RATIO,
+            MAX_PNG_EXPORT_PIXEL_RATIO,
+            PNG_EXPORT_PIXEL_RATIO_STEP,
+            'settings-export-pixel-ratio-value',
+            (value) => `${value}x`,
         );
         // Language group
         const languageGroup = this.createGroup(Icons.languages, t('settingsLanguageLabel'));
@@ -376,14 +461,20 @@ export class SettingsTabView {
 
         content.append(
             platformsGroup.root,
-            pageActionsGroup.root,
+            buttonsEntryGroup.root,
             chatGptDirectoryGroup.root,
+            readerGroup.root,
+            copyExportGroup.root,
             languageGroup.root,
             storageGroup.root,
             advancedGroup.root,
         );
-        scroll.appendChild(content);
+        scroll.append(content, buttonsContent);
         this.root.appendChild(scroll);
+        this.mainPageRoot = content;
+        this.buttonsPageRoot = buttonsContent;
+        buttonsEntry.button.addEventListener('click', () => this.showSettingsPage('buttons'));
+        buttonsBack.addEventListener('click', () => this.showSettingsPage('main'));
 
         const storageText = storageInfo.querySelector<HTMLElement>('[data-field="storage_usage"]')!;
 
@@ -418,12 +509,24 @@ export class SettingsTabView {
                 enterKeyNewline: chatGptEnterKeyNewline.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 showPageBookmarkControl: chatGptShowPageBookmarkControl.input,
+                showDetachedReaderControl: chatGptShowDetachedReaderControl.input,
+                showPromptControl: chatGptShowPromptControl.input,
                 arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
                 pageWidthScale: chatGptPageWidthScale,
                 enabled: chatGptDirectoryEnabled.input,
                 mode: chatGptDirectoryMode,
                 promptLabelMode: chatGptDirectoryPromptLabelMode.input,
                 rightInset: chatGptDirectoryRightInset,
+            },
+            reader: {
+                defaultOpenMode: readerDefaultOpenMode,
+                renderCode: readerRenderCode.input,
+                showOutline: readerShowOutline.input,
+                promptPositionBottom: readerPromptPositionBottom.input,
+                promptsButton: readerPrompts.button,
+                promptsSummary: readerPrompts.summary,
+                templateButton: readerTemplate.button,
+                templateSummary: readerTemplate.summary,
             },
             language,
             storageText,
@@ -447,12 +550,20 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.enterKeyNewline.dataset.role = 'settings-chatgpt-enter-key-newline';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.showPageBookmarkControl.dataset.role = 'settings-chatgpt-show-page-bookmark-control';
+        this.refs.chatgptDirectory.showDetachedReaderControl.dataset.role = 'settings-chatgpt-show-detached-reader-control';
+        this.refs.chatgptDirectory.showPromptControl.dataset.role = 'settings-chatgpt-show-prompt-control';
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
         this.refs.chatgptDirectory.pageWidthScale.input.dataset.role = 'settings-chatgpt-page-width-scale';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
         this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
         this.refs.chatgptDirectory.rightInset.input.dataset.role = 'settings-chatgpt-directory-right-inset';
+        this.refs.reader.defaultOpenMode.trigger.dataset.role = 'settings-reader-default-open-mode';
+        this.refs.reader.renderCode.dataset.role = 'settings-render-code-reader';
+        this.refs.reader.showOutline.dataset.role = 'settings-reader-outline';
+        this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-comment-prompt-position-bottom';
+        this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
+        this.refs.reader.templateButton.dataset.role = 'settings-reader-comment-template';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
 
         this.bindHandlers();
@@ -470,9 +581,18 @@ export class SettingsTabView {
     dismissTransientUi(): void {
         this.closeSelectMenus();
         this.formulaAssetSettingsPopover.close();
+        this.readerCommentTemplateSettingsPopover.close();
     }
 
     consumeEscape(): boolean {
+        if (this.buttonsPageRoot && !this.buttonsPageRoot.hidden) {
+            this.showSettingsPage('main');
+            return true;
+        }
+        if (this.readerCommentTemplateSettingsPopover.isOpen()) {
+            this.readerCommentTemplateSettingsPopover.close();
+            return true;
+        }
         if (this.formulaAssetSettingsPopover.isOpen()) {
             this.formulaAssetSettingsPopover.close();
             return true;
@@ -513,7 +633,8 @@ export class SettingsTabView {
             reader: {
                 ...DEFAULT_SETTINGS.reader,
                 ...params.settings.reader,
-                commentExport: params.settings.reader?.commentExport ?? DEFAULT_SETTINGS.reader.commentExport,
+                defaultOpenMode: normalizeReaderOpenMode(params.settings.reader?.defaultOpenMode),
+                commentExport: normalizeReaderCommentExportSettings(params.settings.reader?.commentExport),
             },
         };
         this.storageUsage = params.storageUsage;
@@ -523,6 +644,14 @@ export class SettingsTabView {
     destroy(): void {
         this.outsideDismissBoundary.detach();
         this.dismissTransientUi();
+    }
+
+    private showSettingsPage(page: 'main' | 'buttons'): void {
+        if (!this.mainPageRoot || !this.buttonsPageRoot) return;
+        this.dismissTransientUi();
+        const showButtons = page === 'buttons';
+        this.mainPageRoot.hidden = showButtons;
+        this.buttonsPageRoot.hidden = !showButtons;
     }
 
     private bindHandlers(): void {
@@ -594,13 +723,16 @@ export class SettingsTabView {
             event.preventDefault();
             this.openFormulaAssetSettingsPopover();
         });
+        this.refs.formula.assetFontSize.input.addEventListener('input', () => {
+            this.syncSliderValue(this.refs.formula.assetFontSize);
+        });
         this.refs.formula.assetFontSize.input.addEventListener('change', () => {
             const next = normalizeFormulaAssetFontSizePx(this.refs.formula.assetFontSize.input.value);
             this.settings.formula = this.normalizeFormulaSettings({
                 ...this.settings.formula,
                 assetFontSizePx: next,
             });
-            this.applySettingsToDom();
+            this.syncSliderValue(this.refs.formula.assetFontSize, next);
             void this.actions.setFormulaSettings?.({ assetFontSizePx: next });
         });
         this.refs.advanced.button.addEventListener('click', () => {
@@ -613,25 +745,23 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setExportSettings?.({ pngWidthPreset: nextPreset });
         });
+        this.refs.export.pngWidth.input.addEventListener('input', () => {
+            this.syncSliderValue(this.refs.export.pngWidth);
+        });
         this.refs.export.pngWidth.input.addEventListener('change', () => {
-            const raw = Number.parseInt(this.refs.export.pngWidth.input.value, 10);
-            if (!Number.isFinite(raw)) {
-                this.applySettingsToDom();
-                return;
-            }
-            this.settings.export.pngCustomWidth = raw;
-            this.applySettingsToDom();
-            void this.actions.setExportSettings?.({ pngCustomWidth: raw });
+            const next = normalizePngCustomWidth(this.refs.export.pngWidth.input.value);
+            this.settings.export.pngCustomWidth = next;
+            this.syncSliderValue(this.refs.export.pngWidth, next);
+            void this.actions.setExportSettings?.({ pngCustomWidth: next });
+        });
+        this.refs.export.pngPixelRatio.input.addEventListener('input', () => {
+            this.syncSliderValue(this.refs.export.pngPixelRatio);
         });
         this.refs.export.pngPixelRatio.input.addEventListener('change', () => {
-            const raw = Number.parseFloat(this.refs.export.pngPixelRatio.input.value);
-            if (!Number.isFinite(raw)) {
-                this.applySettingsToDom();
-                return;
-            }
-            this.settings.export.pngPixelRatio = raw;
-            this.applySettingsToDom();
-            void this.actions.setExportSettings?.({ pngPixelRatio: raw });
+            const next = normalizePngPixelRatio(this.refs.export.pngPixelRatio.input.value);
+            this.settings.export.pngPixelRatio = next;
+            this.syncSliderValue(this.refs.export.pngPixelRatio, next);
+            void this.actions.setExportSettings?.({ pngPixelRatio: next });
         });
         this.refs.chatgptDirectory.restorePositionAfterSend.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.restorePositionAfterSend.checked;
@@ -652,6 +782,16 @@ export class SettingsTabView {
             const next = this.refs.chatgptDirectory.showPageBookmarkControl.checked;
             this.settings.chatgptBehavior.showPageBookmarkControl = next;
             void this.actions.setChatGptBehaviorSettings?.({ showPageBookmarkControl: next });
+        });
+        this.refs.chatgptDirectory.showDetachedReaderControl.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.showDetachedReaderControl.checked;
+            this.settings.chatgptBehavior.showDetachedReaderControl = next;
+            void this.actions.setChatGptBehaviorSettings?.({ showDetachedReaderControl: next });
+        });
+        this.refs.chatgptDirectory.showPromptControl.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.showPromptControl.checked;
+            this.settings.chatgptBehavior.showPromptControl = next;
+            void this.actions.setChatGptBehaviorSettings?.({ showPromptControl: next });
         });
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked;
@@ -691,6 +831,36 @@ export class SettingsTabView {
             this.syncSliderValue(this.refs.chatgptDirectory.rightInset, next);
             void this.actions.setChatGptDirectorySettings?.({ rightInsetPx: next });
         });
+        this.refs.reader.defaultOpenMode.onChange((value) => {
+            const next = normalizeReaderOpenMode(value);
+            this.settings.reader.defaultOpenMode = next;
+            void this.actions.setReaderSettings?.({ defaultOpenMode: next });
+        });
+        this.refs.reader.renderCode.addEventListener('change', () => {
+            const next = this.refs.reader.renderCode.checked;
+            this.settings.reader.renderCodeInReader = next;
+            void this.actions.setReaderSettings?.({ renderCodeInReader: next });
+        });
+        this.refs.reader.showOutline.addEventListener('change', () => {
+            const next = this.refs.reader.showOutline.checked;
+            this.settings.reader.showOutlineInReader = next;
+            void this.actions.setReaderSettings?.({ showOutlineInReader: next });
+        });
+        this.refs.reader.promptPositionBottom.addEventListener('change', () => {
+            const commentExport = normalizeReaderCommentExportSettings({
+                ...this.settings.reader.commentExport,
+                promptPosition: this.refs.reader.promptPositionBottom.checked ? 'bottom' : 'top',
+            });
+            this.settings.reader.commentExport = commentExport;
+            this.applySettingsToDom();
+            void this.actions.setReaderSettings?.({ commentExport });
+        });
+        this.refs.reader.promptsButton.addEventListener('click', () => {
+            void this.onOpenPromptManager?.(this.refs.reader.promptsButton);
+        });
+        this.refs.reader.templateButton.addEventListener('click', () => {
+            this.openReaderCommentTemplateSettings();
+        });
         // Language
         this.refs.language.onChange((value) => {
             this.settings.language = value as any;
@@ -698,6 +868,8 @@ export class SettingsTabView {
             void setLocale(value as AppSettings['language']);
         });
     }
+
+    private readonly onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
 
     private applySettingsToDom(): void {
         const s = this.settings;
@@ -714,22 +886,30 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
         this.refs.formula.copyMarkdownDelimiters.checked = Boolean(s.formula.copyMarkdownDelimiters);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
-        this.refs.formula.assetFontSize.input.value = String(normalizeFormulaAssetFontSizePx(s.formula.assetFontSizePx));
+        this.syncSliderValue(this.refs.formula.assetFontSize, normalizeFormulaAssetFontSizePx(s.formula.assetFontSizePx));
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
-        this.refs.export.pngWidth.input.value = String(resolvePngExportWidth(s.export));
+        this.syncSliderValue(this.refs.export.pngWidth, resolvePngExportWidth(s.export));
         this.refs.export.pngWidth.input.disabled = s.export.pngWidthPreset !== 'custom';
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
-        this.refs.export.pngPixelRatio.input.value = String(resolvePngExportPixelRatio(s.export));
+        this.syncSliderValue(this.refs.export.pngPixelRatio, resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
         this.refs.chatgptDirectory.enterKeyNewline.checked = Boolean(s.chatgptBehavior.enterKeyNewline);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.showPageBookmarkControl.checked = Boolean(s.chatgptBehavior.showPageBookmarkControl);
+        this.refs.chatgptDirectory.showDetachedReaderControl.checked = Boolean(s.chatgptBehavior.showDetachedReaderControl);
+        this.refs.chatgptDirectory.showPromptControl.checked = Boolean(s.chatgptBehavior.showPromptControl);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
         this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, normalizeChatGPTPageWidthScale(s.chatgptBehavior.pageWidthScale));
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode === 'expanded' ? 'expanded' : 'preview');
         this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
         this.syncSliderValue(this.refs.chatgptDirectory.rightInset, normalizeChatGPTDirectoryRightInsetPx(s.chatgptDirectory.rightInsetPx));
+        this.refs.reader.defaultOpenMode.setValue(normalizeReaderOpenMode(s.reader.defaultOpenMode));
+        this.refs.reader.renderCode.checked = Boolean(s.reader.renderCodeInReader);
+        this.refs.reader.showOutline.checked = Boolean(s.reader.showOutlineInReader);
+        this.refs.reader.promptPositionBottom.checked = s.reader.commentExport?.promptPosition === 'bottom';
+        this.refs.reader.promptsSummary.textContent = this.formatReaderPromptSummary();
+        this.refs.reader.templateSummary.textContent = this.formatReaderTemplateSummary(s.reader.commentExport?.template ?? []);
         this.refs.language.setValue(s.language);
 
         this.syncToggle(this.refs.platforms.chatgpt);
@@ -746,9 +926,14 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.enterKeyNewline);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.showPageBookmarkControl);
+        this.syncToggle(this.refs.chatgptDirectory.showDetachedReaderControl);
+        this.syncToggle(this.refs.chatgptDirectory.showPromptControl);
         this.syncToggle(this.refs.chatgptDirectory.arrowKeyMessageNavigation);
         this.syncToggle(this.refs.chatgptDirectory.enabled);
         this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
+        this.syncToggle(this.refs.reader.renderCode);
+        this.syncToggle(this.refs.reader.showOutline);
+        this.syncToggle(this.refs.reader.promptPositionBottom);
 
         this.refs.storageText.textContent = usagePercent;
         this.renderAdvancedSettings();
@@ -861,7 +1046,7 @@ export class SettingsTabView {
         min: number,
         max: number,
         step: number,
-    ): { preset: SelectRef; width: NumberFieldRef } {
+    ): { preset: SelectRef; width: SliderFieldRef } {
         const item = document.createElement('div');
         item.className = 'settings-row settings-item settings-export-width-row';
         const info = document.createElement('div');
@@ -883,38 +1068,12 @@ export class SettingsTabView {
         preset.shell.classList.add('settings-export-width-preset');
         this.selectRefs.push(preset);
 
-        const width = this.createNumberField(min, max, step);
+        const width = this.createSliderField(min, max, step, 'settings-export-width-value', (value) => `${value}px`);
         width.field.classList.add('settings-export-width-value');
         controls.append(preset.shell, width.field);
         item.append(info, controls);
         parent.appendChild(item);
         return { preset, width };
-    }
-
-    private createNumberRow(
-        parent: HTMLElement,
-        labelText: string,
-        desc: string,
-        min: number,
-        max: number,
-        step: number,
-        valueClassName: string,
-    ): NumberFieldRef {
-        const item = document.createElement('div');
-        item.className = 'settings-row settings-item';
-        const info = document.createElement('div');
-        info.className = 'settings-label settings-item-info';
-        const label = document.createElement('strong');
-        label.textContent = labelText;
-        const summary = document.createElement('p');
-        summary.textContent = desc;
-        info.append(label, summary);
-
-        const field = this.createNumberField(min, max, step);
-        field.field.classList.add(valueClassName);
-        item.append(info, field.field);
-        parent.appendChild(item);
-        return field;
     }
 
     private createSliderRow(
@@ -937,6 +1096,19 @@ export class SettingsTabView {
         summary.textContent = desc;
         info.append(label, summary);
 
+        const slider = this.createSliderField(min, max, step, valueClassName, format);
+        item.append(info, slider.field);
+        parent.appendChild(item);
+        return { ...slider, root: item };
+    }
+
+    private createSliderField(
+        min: number,
+        max: number,
+        step: number,
+        valueClassName: string,
+        format: (value: number) => string,
+    ): SliderFieldRef {
         const field = document.createElement('div');
         field.className = 'settings-slider-field';
         field.classList.add(valueClassName);
@@ -952,14 +1124,12 @@ export class SettingsTabView {
         value.className = 'settings-slider-value';
 
         field.append(input, value);
-        item.append(info, field);
-        parent.appendChild(item);
-        return { root: item, field, input, value, format };
+        return { root: field, field, input, value, format };
     }
 
     private syncSliderValue(ref: SliderFieldRef, normalized?: number): void {
-        const next = normalized ?? Number.parseInt(ref.input.value, 10);
-        const value = Number.isFinite(next) ? next : Number.parseInt(ref.input.min, 10);
+        const next = normalized ?? Number.parseFloat(ref.input.value);
+        const value = Number.isFinite(next) ? next : Number.parseFloat(ref.input.min);
         ref.input.value = String(value);
         ref.value.textContent = ref.format(value);
     }
@@ -1162,22 +1332,6 @@ export class SettingsTabView {
         });
     }
 
-    private createNumberField(min: number, max: number, step: number): NumberFieldRef {
-        const field = document.createElement('div');
-        field.className = 'settings-number-field';
-        field.dataset.disabled = '0';
-
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.className = 'settings-number';
-        input.min = String(min);
-        input.max = String(max);
-        input.step = String(step);
-        input.inputMode = Number.isInteger(step) ? 'numeric' : 'decimal';
-        field.appendChild(input);
-        return { root: field, field, input };
-    }
-
     private createSelect(
         parent: HTMLElement,
         labelText: string,
@@ -1226,6 +1380,96 @@ export class SettingsTabView {
         if (count === 0) return t('formulaAssetActionsSummaryNone');
         if (count === 5) return t('formulaAssetActionsSummaryAll');
         return t('formulaAssetActionsSummaryCount', [String(count)]);
+    }
+
+    private formatReaderPromptSummary(): string {
+        return t('readerCommentPromptListDesc');
+    }
+
+    private formatReaderTemplateSummary(template: CommentTemplateSegment[]): string {
+        const normalized = normalizeCommentTemplate(template)
+            .map((segment) => {
+                if (segment.type === 'text') return segment.value;
+                return segment.key === 'selected_source'
+                    ? t('readerCommentTemplateTokenSelectedSource')
+                    : t('readerCommentTemplateTokenUserComment');
+            })
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return normalized || t('readerCommentTemplateSettingsDesc');
+    }
+
+    private updateReaderCommentExport(commentExport: AppSettings['reader']['commentExport']): void {
+        const normalized = normalizeReaderCommentExportSettings(commentExport);
+        this.settings.reader.commentExport = normalized;
+        this.applySettingsToDom();
+        void this.actions.setReaderSettings?.({ commentExport: normalized });
+    }
+
+    private buildReaderTemplatePreview(template: CommentTemplateSegment[]): string {
+        const commentExport = normalizeReaderCommentExportSettings(this.settings.reader.commentExport);
+        return buildCommentsExport(
+            [
+                {
+                    id: 'preview-comment-1',
+                    itemId: 'preview-item',
+                    quoteText: 'quote',
+                    sourceMarkdown: '`sample_source()`',
+                    comment: 'Needs clarification.',
+                    selectors: { textQuote: { exact: '', prefix: '', suffix: '' }, textPosition: { start: 0, end: 0 }, domRange: null, atomicRefs: [] },
+                    createdAt: 1,
+                    updatedAt: 1,
+                },
+                {
+                    id: 'preview-comment-2',
+                    itemId: 'preview-item',
+                    quoteText: 'quote',
+                    sourceMarkdown: '**another sample**',
+                    comment: 'Consider tightening this wording.',
+                    selectors: { textQuote: { exact: '', prefix: '', suffix: '' }, textPosition: { start: 0, end: 0 }, domRange: null, atomicRefs: [] },
+                    createdAt: 2,
+                    updatedAt: 2,
+                },
+            ],
+            {
+                userPrompt: commentExport.prompts[0]?.content ?? '',
+                promptPosition: commentExport.promptPosition,
+                commentTemplate: template,
+            },
+        );
+    }
+
+    private openReaderCommentTemplateSettings(): void {
+        this.dismissTransientUi();
+        const current = normalizeReaderCommentExportSettings(this.settings.reader.commentExport);
+        this.readerCommentTemplateSettingsPopover.open({
+            parent: this.root,
+            template: current.template,
+            preview: this.buildReaderTemplatePreview(current.template),
+            labels: {
+                title: t('readerCommentTemplateSettingsLabel'),
+                close: t('btnClose'),
+                template: t('readerCommentTemplate'),
+                templateHint: t('readerCommentTemplateHint'),
+                templatePlaceholder: t('readerCommentTemplatePlaceholder'),
+                insertPlaceholder: t('readerCommentTemplateInsertPlaceholder'),
+                insertSelectedSource: t('readerCommentTemplateInsertSelectedSource'),
+                insertUserComment: t('readerCommentTemplateInsertUserComment'),
+                tokenSelectedSource: t('readerCommentTemplateTokenSelectedSource'),
+                tokenUserComment: t('readerCommentTemplateTokenUserComment'),
+                preview: t('readerCommentTemplatePreviewLabel'),
+                restoreDefault: t('readerCommentTemplateRestoreDefault'),
+                save: t('btnSave'),
+                cancel: t('btnCancel'),
+                copied: t('btnCopied'),
+            },
+            onBuildPreview: (template) => this.buildReaderTemplatePreview(template),
+            onRestoreDefault: () => createDefaultCommentTemplate(),
+            onSave: (template) => {
+                this.updateReaderCommentExport({ ...current, template });
+            },
+        });
     }
 
     private openFormulaAssetSettingsPopover(): void {

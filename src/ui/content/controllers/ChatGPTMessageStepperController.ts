@@ -77,10 +77,14 @@ export class ChatGPTMessageStepperController {
     private keyboardEnabled = true;
     private navigationVisibleEnabled = true;
     private pageBookmarkVisibleEnabled = true;
+    private detachedReaderVisibleEnabled = true;
+    private promptVisibleEnabled = true;
     private pageBookmarked = false;
     private pageBookmarkStatusUrl: string | null = null;
     private host: HTMLDivElement | null = null;
     private pageBookmarkButton: HTMLButtonElement | null = null;
+    private detachedReaderButton: HTMLButtonElement | null = null;
+    private promptsButton: HTMLButtonElement | null = null;
     private previousButton: HTMLButtonElement | null = null;
     private nextButton: HTMLButtonElement | null = null;
     private rounds: ChatGPTRoundPosition[] = [];
@@ -127,6 +131,8 @@ export class ChatGPTMessageStepperController {
         this.host?.remove();
         this.host = null;
         this.pageBookmarkButton = null;
+        this.detachedReaderButton = null;
+        this.promptsButton = null;
         this.previousButton = null;
         this.nextButton = null;
         this.rounds = [];
@@ -153,6 +159,22 @@ export class ChatGPTMessageStepperController {
         if (!this.initialized) return;
         this.ensureHost();
         this.syncPageBookmarkButton();
+        this.refreshState();
+    }
+
+    setDetachedReaderControlVisible(enabled: boolean): void {
+        this.detachedReaderVisibleEnabled = enabled;
+        if (!this.initialized) return;
+        this.ensureHost();
+        this.syncAuxiliaryButtonVisibility();
+        this.refreshState();
+    }
+
+    setPromptControlVisible(enabled: boolean): void {
+        this.promptVisibleEnabled = enabled;
+        if (!this.initialized) return;
+        this.ensureHost();
+        this.syncAuxiliaryButtonVisibility();
         this.refreshState();
     }
 
@@ -196,10 +218,13 @@ export class ChatGPTMessageStepperController {
         document.body.appendChild(host);
         this.host = host;
         this.pageBookmarkButton = pageBookmark;
+        this.detachedReaderButton = detachedReader;
+        this.promptsButton = prompts;
         this.previousButton = previous;
         this.nextButton = next;
         this.syncNavigationVisibility();
         this.syncPageBookmarkButton();
+        this.syncAuxiliaryButtonVisibility();
     }
 
     private createButton(action: string, label: string, onClick: () => void, icon: string = chevronRightIcon): HTMLButtonElement {
@@ -460,6 +485,11 @@ export class ChatGPTMessageStepperController {
             if (!button) continue;
             button.hidden = !this.navigationVisibleEnabled;
         }
+    }
+
+    private syncAuxiliaryButtonVisibility(): void {
+        if (this.detachedReaderButton) this.detachedReaderButton.hidden = !this.detachedReaderVisibleEnabled;
+        if (this.promptsButton) this.promptsButton.hidden = !this.promptVisibleEnabled;
     }
 
     private syncPageBookmarkButton(): void {

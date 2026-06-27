@@ -23,7 +23,7 @@ function bookmark(params: Partial<Bookmark> & { position: number; title: string;
 }
 
 describe('bookmarks panel model', () => {
-    it('filters by query/platform and respects selectedFolderPath', () => {
+    it('filters by query and selectedFolderPath without applying platform filters', () => {
         const folders = [folder('Import'), folder('Work')];
         const bookmarks = [
             bookmark({ position: 1, title: 'Alpha', folderPath: 'Import', platform: 'ChatGPT' }),
@@ -35,8 +35,7 @@ describe('bookmarks panel model', () => {
             folders,
             bookmarks,
             state: {
-                query: 'be',
-                platform: 'ChatGPT',
+                query: '',
                 kind: 'all',
                 sortMode: 'alpha-asc',
                 selectedFolderPath: 'Work',
@@ -46,8 +45,7 @@ describe('bookmarks panel model', () => {
             },
         });
 
-        expect(vm.bookmarks).toHaveLength(1);
-        expect(vm.bookmarks[0].title).toBe('Beta');
+        expect(vm.bookmarks.map((item) => item.title)).toEqual(['Beta', 'Gamma']);
         expect(vm.selectedCount).toBe(1);
     });
 
@@ -72,7 +70,6 @@ describe('bookmarks panel model', () => {
             bookmarks,
             state: {
                 query: '',
-                platform: 'All',
                 kind: 'page',
                 sortMode: 'alpha-asc',
                 selectedFolderPath: null,

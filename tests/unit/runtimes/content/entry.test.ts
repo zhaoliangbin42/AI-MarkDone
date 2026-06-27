@@ -26,7 +26,7 @@ const readerPanelCtor = vi.fn(function () {
     };
 });
 const sendControllerCtor = vi.fn(function () {
-    return { setTheme: vi.fn(), setThemeOverrides: vi.fn() };
+    return { setTheme: vi.fn(), setThemeOverrides: vi.fn(), setPromptAutocompleteController: vi.fn() };
 });
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
@@ -155,6 +155,8 @@ const messageStepperDispose = vi.fn();
 const messageStepperSetKeyboardEnabled = vi.fn();
 const messageStepperSetVisible = vi.fn();
 const messageStepperSetPageBookmarkControlVisible = vi.fn();
+const messageStepperSetDetachedReaderControlVisible = vi.fn();
+const messageStepperSetPromptControlVisible = vi.fn();
 const messageStepperSetPageBookmarked = vi.fn();
 const messageStepperSetThemeOverrides = vi.fn();
 const messageStepperCtor = vi.fn(function () {
@@ -164,6 +166,8 @@ const messageStepperCtor = vi.fn(function () {
         setKeyboardEnabled: messageStepperSetKeyboardEnabled,
         setVisible: messageStepperSetVisible,
         setPageBookmarkControlVisible: messageStepperSetPageBookmarkControlVisible,
+        setDetachedReaderControlVisible: messageStepperSetDetachedReaderControlVisible,
+        setPromptControlVisible: messageStepperSetPromptControlVisible,
         setPageBookmarked: messageStepperSetPageBookmarked,
         setThemeOverrides: messageStepperSetThemeOverrides,
     };
@@ -601,6 +605,9 @@ describe('content runtime entry', () => {
         expect(messageStepperCtor).toHaveBeenCalledTimes(1);
         expect(messageStepperInit).toHaveBeenCalledTimes(1);
         expect(messageStepperSetVisible).toHaveBeenCalledWith(true);
+        expect(messageStepperSetPageBookmarkControlVisible).toHaveBeenCalledWith(true);
+        expect(messageStepperSetDetachedReaderControlVisible).toHaveBeenCalledWith(true);
+        expect(messageStepperSetPromptControlVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
         expect(pageWidthCtor).toHaveBeenCalledTimes(1);
         expect(pageWidthInit).toHaveBeenCalledTimes(1);
@@ -630,22 +637,31 @@ describe('content runtime entry', () => {
             }),
         );
         expect(promptAutocompleteInit).toHaveBeenCalledTimes(1);
+        expect(sendControllerCtor.mock.results[0]?.value.setPromptAutocompleteController).toHaveBeenCalledWith(
+            promptAutocompleteCtor.mock.results[0]?.value,
+        );
 
         const anchor = document.createElement('button');
         const onOpenPrompts = messageStepperCtor.mock.calls[0]?.[1]?.onOpenPrompts;
         await onOpenPrompts?.(anchor);
 
         expect(promptAutocompleteOpenManager).toHaveBeenCalledWith(anchor);
+
+        const settingsAnchor = document.createElement('button');
+        const onOpenPromptManager = bookmarksPanelCtor.mock.calls[0]?.[2]?.onOpenPromptManager;
+        await onOpenPromptManager?.(settingsAnchor);
+
+        expect(promptAutocompleteOpenManager.mock.calls).toContainEqual([settingsAnchor]);
     });
 
-    it('shares the prompt manager with Reader settings and syncs Reader prompts from the unified prompt library', async () => {
+    it('shares the prompt manager with Reader settings and provides Reader prompts from the unified prompt library on demand', async () => {
         adapterPlatformId = 'chatgpt';
         const cachedCommentExport = {
             prompts: [{ id: 'legacy-reader', title: 'Legacy Reader', content: 'Legacy body.' }],
             template: [{ type: 'text', value: 'Template' }],
             promptPosition: 'bottom',
         };
-        settingsGetCached.mockReturnValue({
+        const cachedSettings = {
             language: 'auto',
             platforms: { chatgpt: true },
             behavior: {
@@ -670,7 +686,8 @@ describe('content runtime entry', () => {
             chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true },
             bookmarks: { sortMode: 'alpha-asc' },
             appearance: { fontSizePx: 16, accentColor: null },
-        });
+        };
+        settingsGetCached.mockReturnValue(cachedSettings);
         promptLibraryClient.listPrompts.mockImplementation(async () => [{
             id: 'shared-reader',
             title: 'Shared Reader',
@@ -695,11 +712,18 @@ describe('content runtime entry', () => {
         const anchor = document.createElement('button');
         await reader?.setPromptManagerController.mock.calls[0]?.[0]?.onOpenManager(anchor);
         expect(promptAutocompleteOpenManager).toHaveBeenCalledWith(anchor);
-        expect(promptLibraryClient.listPrompts).toHaveBeenCalledWith({});
-        expect(reader?.setCommentExportSettings).toHaveBeenCalledWith({
-            ...cachedCommentExport,
-            prompts: [{ id: 'shared-reader', title: 'Shared Reader', content: 'Shared body.' }],
-        });
+
+        const prompts = await reader?.setPromptManagerController.mock.calls[0]?.[0]?.listReaderPrompts();
+        expect(promptLibraryClient.listPrompts).toHaveBeenCalledWith({ context: 'readerComment' });
+        expect(prompts).toEqual([{ id: 'shared-reader', title: 'Shared Reader', content: 'Shared body.' }]);
+        expect(reader?.setCommentExportSettings).not.toHaveBeenCalled();
+
+        promptLibraryClient.listPrompts.mockResolvedValueOnce([]);
+        settingsSubscriber!({ settings: cachedSettings });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(reader?.setCommentExportSettings).not.toHaveBeenCalled();
     });
 
     it('routes ChatGPT pending bookmark navigation through the directory helper', async () => {
@@ -975,7 +999,15 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: false, rightInsetPx: 40 },
-                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: true, showMessageStepper: false, showPageBookmarkControl: false, enableArrowKeyMessageNavigation: false },
+                chatgptBehavior: {
+                    restorePositionAfterSend: false,
+                    enterKeyNewline: true,
+                    showMessageStepper: false,
+                    showPageBookmarkControl: false,
+                    showDetachedReaderControl: false,
+                    showPromptControl: false,
+                    enableArrowKeyMessageNavigation: false,
+                },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -983,6 +1015,8 @@ describe('content runtime entry', () => {
 
         expect(messageStepperSetVisible).toHaveBeenLastCalledWith(false);
         expect(messageStepperSetPageBookmarkControlVisible).toHaveBeenLastCalledWith(false);
+        expect(messageStepperSetDetachedReaderControlVisible).toHaveBeenLastCalledWith(false);
+        expect(messageStepperSetPromptControlVisible).toHaveBeenLastCalledWith(false);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(false);
         expect(sendPositionRestoreSetEnterKeyNewlineEnabled).toHaveBeenLastCalledWith(true);
         expect(composerEnterSetEnabled).toHaveBeenLastCalledWith(true);

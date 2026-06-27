@@ -42,6 +42,8 @@ export type ChatGPTBehaviorSettings = {
     enterKeyNewline: boolean;
     showMessageStepper: boolean;
     showPageBookmarkControl: boolean;
+    showDetachedReaderControl: boolean;
+    showPromptControl: boolean;
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
 };
@@ -155,6 +157,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
         enterKeyNewline: false,
         showMessageStepper: true,
         showPageBookmarkControl: true,
+        showDetachedReaderControl: true,
+        showPromptControl: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
     },

@@ -57,6 +57,8 @@ const baseSettings = {
         enterKeyNewline: false,
         showMessageStepper: true,
         showPageBookmarkControl: true,
+        showDetachedReaderControl: true,
+        showPromptControl: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: 100,
     },
@@ -66,7 +68,7 @@ const baseSettings = {
 } as any;
 
 describe('SettingsTabView', () => {
-    it('groups toolbar, formula, and export settings under page actions while keeping Reader and ChatGPT settings separate', () => {
+    it('orders the main settings page by reading flow and moves button visibility into a secondary page', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const view = new SettingsTabView({ modal });
         view.setState({
@@ -76,33 +78,40 @@ describe('SettingsTabView', () => {
 
         const root = view.getElement();
         const groupTitles = Array.from(root.querySelectorAll<HTMLElement>('.settings-group-title'))
+            .filter((title) => !title.closest('[hidden]'))
             .map((title) => title.textContent?.replace(/\s+/g, ' ').trim());
         expect(groupTitles).toEqual([
             'platforms',
-            'toolbarPageActionsSettingsLabel',
-            'chatgptSettingsLabel',
+            'buttonsEntrypointsSettingsLabel',
+            'chatgptReadingInputSettingsLabel',
+            'readerWorkflowSettingsLabel',
+            'copyFormulaExportSettingsLabel',
             'settingsLanguageLabel',
             'dataManagement',
         ]);
 
-        const pageActionsGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
-            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('toolbarPageActionsSettingsLabel'))!;
-        expect(pageActionsGroup.querySelector('[data-role="settings-show-message-toolbar"]')).toBeTruthy();
-        expect(pageActionsGroup.querySelector('[data-role="settings-show-save-messages"]')).toBeTruthy();
-        expect(pageActionsGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
-        expect(pageActionsGroup.querySelector('[data-role="settings-formula-copy-markdown-delimiters"]')).toBeTruthy();
-        expect(pageActionsGroup.querySelector('[data-role="settings-formula-asset-font-size"]')).toBeTruthy();
-        expect(pageActionsGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
-
-        expect(root.querySelector('[data-role="settings-reader-prompts"]')).toBeNull();
-        expect(root.querySelector('[data-role="settings-render-code-reader"]')).toBeNull();
+        const buttonsPage = root.querySelector<HTMLElement>('[data-role="settings-buttons-page"]')!;
+        const mainPage = root.querySelector<HTMLElement>('.settings-content:not([data-role="settings-buttons-page"])')!;
+        expect(buttonsPage.hidden).toBe(true);
+        root.querySelector<HTMLButtonElement>('[data-role="settings-buttons-page-entry"]')!.click();
+        expect(mainPage.hidden).toBe(true);
+        expect(buttonsPage.hidden).toBe(false);
+        expect(buttonsPage.querySelector('[data-role="settings-show-message-toolbar"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-show-save-messages"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-show-word-count"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-chatgpt-show-page-bookmark-control"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-chatgpt-show-detached-reader-control"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-chatgpt-show-prompt-control"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-chatgpt-show-message-stepper"]')).toBeTruthy();
+        expect(buttonsPage.querySelector('[data-role="settings-formula-asset-actions"]')).toBeTruthy();
+        root.querySelector<HTMLButtonElement>('[data-role="settings-buttons-page-back"]')!.click();
+        expect(mainPage.hidden).toBe(false);
+        expect(buttonsPage.hidden).toBe(true);
 
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
-            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptSettingsLabel'))!;
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptReadingInputSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeTruthy();
-        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-message-stepper"]')).toBeTruthy();
-        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-show-page-bookmark-control"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-page-width-scale"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-retired-notice"]')).toBeNull();
@@ -112,6 +121,23 @@ describe('SettingsTabView', () => {
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-right-inset"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-directory-hide-official-navigation"]')).toBeNull();
         expect(chatGptGroup.textContent).toContain('chatgptDirectoryEnabledDesc');
+
+        const readerGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('readerWorkflowSettingsLabel'))!;
+        expect(readerGroup.querySelector('[data-role="settings-reader-default-open-mode"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-render-code-reader"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-reader-outline"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-reader-comment-prompt-position-bottom"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-reader-comment-template"]')).toBeTruthy();
+
+        const copyExportGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
+            .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('copyFormulaExportSettingsLabel'))!;
+        expect(copyExportGroup.querySelector('[data-role="settings-save-context-only"]')).toBeTruthy();
+        expect(copyExportGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
+        expect(copyExportGroup.querySelector('[data-role="settings-formula-copy-markdown-delimiters"]')).toBeTruthy();
+        expect(copyExportGroup.querySelector('[data-role="settings-formula-asset-font-size"]')).toBeTruthy();
+        expect(copyExportGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
     });
 
     it('exposes ChatGPT full runtime and formula-only platform toggles', () => {
@@ -206,6 +232,9 @@ describe('SettingsTabView', () => {
         expect(promptLabelMode.checked).toBe(false);
         expect(rightInset.value).toBe('0');
         expect(rightInset.type).toBe('range');
+        expect(rightInset.min).toBe('0');
+        expect(rightInset.max).toBe('40');
+        expect(rightInset.step).toBe('4');
 
         enabled.checked = false;
         enabled.dispatchEvent(new Event('change', { bubbles: true }));
@@ -236,6 +265,9 @@ describe('SettingsTabView', () => {
 
         const slider = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-chatgpt-page-width-scale"]')!;
         expect(slider.type).toBe('range');
+        expect(slider.min).toBe('100');
+        expect(slider.max).toBe('200');
+        expect(slider.step).toBe('5');
         expect(slider.value).toBe('100');
 
         slider.value = '147';
@@ -365,6 +397,62 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPageBookmarkControl: false });
     });
 
+    it('lets users hide the lower-right ChatGPT Split View and Prompts buttons independently', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const splitView = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-detached-reader-control"]')!;
+        const prompts = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-prompt-control"]')!;
+
+        expect(splitView.checked).toBe(true);
+        expect(prompts.checked).toBe(true);
+
+        splitView.checked = false;
+        splitView.dispatchEvent(new Event('change', { bubbles: true }));
+        prompts.checked = false;
+        prompts.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showDetachedReaderControl: false });
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPromptControl: false });
+    });
+
+    it('opens the shared Prompt manager from the Reader workflow row without insert mode', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onOpenPromptManager = vi.fn();
+        const settings = structuredClone(baseSettings);
+        settings.reader.commentExport.prompts = [
+            { id: 'legacy-1', title: 'Legacy 1', content: 'Legacy 1' },
+            { id: 'legacy-2', title: 'Legacy 2', content: 'Legacy 2' },
+            { id: 'legacy-3', title: 'Legacy 3', content: 'Legacy 3' },
+        ];
+
+        const view = new SettingsTabView({ modal, onOpenPromptManager });
+        view.setState({
+            settings,
+            storageUsage: null,
+        });
+
+        const button = view.getElement().querySelector<HTMLButtonElement>('[data-role="settings-reader-prompts"]')!;
+        const summary = button.closest('.settings-row')?.querySelector<HTMLElement>('.reader-settings-summary');
+        expect(summary?.textContent).toBe('readerCommentPromptListDesc');
+        expect(summary?.textContent).not.toContain('Legacy');
+        expect(summary?.textContent).not.toContain('3');
+
+        button.click();
+
+        expect(onOpenPromptManager).toHaveBeenCalledWith(button);
+    });
+
     it('renders shipped platform icon wrappers and storage/export content', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onExportAllBookmarks = vi.fn(async () => undefined);
@@ -433,8 +521,10 @@ describe('SettingsTabView', () => {
         expect(cards[0].textContent).toContain('googleDriveBackupCardTitle');
         expect(cards[0].textContent).toContain('cloudBackupExperimentalLabel');
         expect(cards[0].textContent?.toLowerCase()).not.toContain('sync');
+        expect(cards[0].textContent?.toLowerCase()).not.toContain('prompt');
         expect(cards[1].dataset.role).toBe('settings-data-backup-card');
         expect(cards[1].textContent).toContain('localBackupCardTitle');
+        expect(cards[1].textContent?.toLowerCase()).not.toContain('prompt');
         expect(googleDriveRow).toBeTruthy();
         expect(cards[0].contains(googleDriveRow)).toBe(true);
         expect(googleDriveRow.textContent).toContain('Google Drive');
@@ -583,6 +673,10 @@ describe('SettingsTabView', () => {
 
         expect(markdownToggle.checked).toBe(true);
         expect(delimiterToggle.checked).toBe(true);
+        expect(assetFontSizeInput.type).toBe('range');
+        expect(assetFontSizeInput.min).toBe('16');
+        expect(assetFontSizeInput.max).toBe('72');
+        expect(assetFontSizeInput.step).toBe('1');
         expect(assetFontSizeInput.value).toBe('36');
         markdownToggle.checked = false;
         markdownToggle.dispatchEvent(new Event('change', { bubbles: true }));
@@ -646,7 +740,15 @@ describe('SettingsTabView', () => {
         expect(controls?.contains(widthInput)).toBe(true);
         expect(presetTrigger.closest('.settings-export-width-preset')).toBeTruthy();
         expect(widthInput.closest('.settings-export-width-value')).toBeTruthy();
+        expect(widthInput.type).toBe('range');
+        expect(widthInput.min).toBe('360');
+        expect(widthInput.max).toBe('1200');
+        expect(widthInput.step).toBe('20');
         expect(pixelRatioInput.value).toBe('1');
+        expect(pixelRatioInput.type).toBe('range');
+        expect(pixelRatioInput.min).toBe('1');
+        expect(pixelRatioInput.max).toBe('3');
+        expect(pixelRatioInput.step).toBe('0.5');
         expect(exportControls).toHaveLength(3);
 
         presetTrigger.click();
@@ -658,7 +760,7 @@ describe('SettingsTabView', () => {
         widthInput.value = '410';
         widthInput.dispatchEvent(new Event('change', { bubbles: true }));
         expect(widthInput.value).toBe('420');
-        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngCustomWidth: 410 });
+        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngCustomWidth: 420 });
 
         presetTrigger.click();
         root.querySelector<HTMLButtonElement>('.settings-select-option[data-value="mobile"]')!.click();
@@ -669,10 +771,10 @@ describe('SettingsTabView', () => {
         pixelRatioInput.value = '2.7';
         pixelRatioInput.dispatchEvent(new Event('change', { bubbles: true }));
         expect(pixelRatioInput.value).toBe('2.5');
-        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngPixelRatio: 2.7 });
+        expect(onSetExportSettings).toHaveBeenLastCalledWith({ pngPixelRatio: 2.5 });
     });
 
-    it('does not expose Reader-specific settings in the Settings page', () => {
+    it('copies Reader workflow settings into Settings without Reader-only display controls', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
 
         const view = new SettingsTabView({ modal });
@@ -685,10 +787,16 @@ describe('SettingsTabView', () => {
         const advancedButton = root.querySelector<HTMLButtonElement>('[data-role="settings-advanced-toggle"]')!;
 
         expect(advancedButton).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-default-open-mode"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-render-code-reader"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-outline"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-comment-prompt-position-bottom"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-comment-template"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-reader-content-width"]')).toBeNull();
-        expect(root.querySelector('[data-role="settings-reader-show-outline"]')).toBeNull();
-        expect(root.querySelector('[data-role="settings-reader-prompt-position-bottom"]')).toBeNull();
-        expect(root.querySelector('[data-role="settings-reader-template"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-body-font-size"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-panel-size-ratio"]')).toBeNull();
+        expect(root.querySelector('[data-role="settings-reader-detached-notice-reset"]')).toBeNull();
 
         advancedButton.click();
         expect(root.querySelector('[data-role="settings-reader-content-width"]')).toBeNull();
@@ -771,11 +879,14 @@ describe('SettingsTabView', () => {
         expect(css).toContain('white-space: nowrap;');
         expect(css).toContain('.settings-export-width-controls .settings-export-width-preset {');
         expect(css).toContain('.settings-export-width-controls .settings-export-width-value {');
-        expect(css).toContain('width: 88px;');
+        expect(css).toContain('flex: 0 1 260px;');
+        expect(css).toContain('width: min(260px, 100%);');
+        expect(css).toContain('.settings-slider-field {');
+        expect(css).toContain('.settings-slider {');
         expect(css).toContain('.settings-export-width-preset .settings-select-trigger {');
         expect(css).toContain('min-width: 120px;');
         expect(css).toContain('.settings-export-pixel-ratio-value {');
-        expect(css).toContain('width: 88px;');
+        expect(css).toContain('width: min(240px, 100%);');
         expect(css).not.toContain('--_bookmarks-settings-control-min-width');
         expect(css).not.toContain('--_bookmarks-settings-control-max-width');
         expect(css).not.toContain('flex: 1 1 190px;');

@@ -3,11 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { BookmarksTabView } from '@/ui/content/bookmarks/ui/tabs/BookmarksTabView';
 
 describe('BookmarksTabView', () => {
-    it('keeps distinct platform icons in the filter menu', () => {
+    it('removes the platform filter and keeps search with bookmark actions in one toolbar row', () => {
         const controller = {
             setQuery: vi.fn(),
-            setPlatform: vi.fn(),
-            getPlatforms: vi.fn(() => ['All', 'ChatGPT', 'Gemini', 'Claude', 'DeepSeek']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             toggleFolderExpanded: vi.fn(),
             toggleFolderSelection: vi.fn(),
@@ -23,7 +21,7 @@ describe('BookmarksTabView', () => {
         view.update({
             vm: {
                 query: '',
-                platform: 'All',
+                kind: 'all',
                 bookmarks: [],
                 folderTree: [],
                 selectedFolderPath: null,
@@ -37,23 +35,16 @@ describe('BookmarksTabView', () => {
         } as any);
 
         const root = view.getElement();
-        const options = Array.from(root.querySelectorAll<HTMLElement>('.platform-dropdown__option'));
-        const optionByLabel = new Map(
-            options.map((opt) => [opt.querySelector('.platform-dropdown__label')?.textContent ?? '', opt] as const)
-        );
+        const toolbar = root.querySelector<HTMLElement>('.toolbar-row--bookmarks')!;
+        const search = root.querySelector<HTMLElement>('[data-role="bookmark-query"]')!.closest('.search-field');
+        const rightActions = toolbar.querySelector<HTMLElement>(':scope > .toolbar-actions')!;
 
-        const chatgptIconHtml = optionByLabel.get('ChatGPT')?.querySelector('.platform-option-icon')?.innerHTML;
-        const geminiIconHtml = optionByLabel.get('Gemini')?.querySelector('.platform-option-icon')?.innerHTML;
-        const claudeIconHtml = optionByLabel.get('Claude')?.querySelector('.platform-option-icon')?.innerHTML;
-        const deepseekIconHtml = optionByLabel.get('DeepSeek')?.querySelector('.platform-option-icon')?.innerHTML;
-
-        expect(chatgptIconHtml).toBeTruthy();
-        expect(geminiIconHtml).toBeTruthy();
-        expect(claudeIconHtml).toBeTruthy();
-        expect(deepseekIconHtml).toBeTruthy();
-        expect(geminiIconHtml).not.toBe(chatgptIconHtml);
-        expect(claudeIconHtml).not.toBe(chatgptIconHtml);
-        expect(deepseekIconHtml).not.toBe(chatgptIconHtml);
+        expect(root.querySelector('.platform-dropdown')).toBeNull();
+        expect(search?.parentElement).toBe(toolbar);
+        expect(rightActions.parentElement).toBe(toolbar);
+        expect(rightActions.querySelector('[data-role="bookmark-kind-filter"]')).toBeTruthy();
+        expect(rightActions.querySelector('[data-action="toggle-sort-time"]')).toBeTruthy();
+        expect(rightActions.querySelector('[data-action="create-folder"]')).toBeTruthy();
     });
 
     it('uses a folder-specific move label instead of the batch move-selected copy', () => {
@@ -105,7 +96,7 @@ describe('BookmarksTabView', () => {
         expect(moveFolderButton?.getAttribute('title')).toBe('moveFolder');
     });
 
-    it('does not attach hover tooltip metadata to the All Platforms trigger or option', () => {
+    it('does not render the obsolete platform filter even when the controller still exposes legacy platform helpers', () => {
         const controller = {
             setQuery: vi.fn(),
             setPlatform: vi.fn(),
@@ -139,14 +130,11 @@ describe('BookmarksTabView', () => {
         } as any);
 
         const root = view.getElement();
-        const trigger = root.querySelector<HTMLButtonElement>('.platform-dropdown__trigger');
-        const allOption = Array.from(root.querySelectorAll<HTMLButtonElement>('.platform-dropdown__option'))
-            .find((option) => option.dataset.value === 'All');
 
-        expect(trigger?.hasAttribute('title')).toBe(false);
-        expect(trigger?.dataset.tooltip).toBeUndefined();
-        expect(allOption?.hasAttribute('title')).toBe(false);
-        expect(allOption?.dataset.tooltip).toBeUndefined();
+        expect(root.querySelector('.platform-dropdown')).toBeNull();
+        expect(root.querySelector('.platform-dropdown__trigger')).toBeNull();
+        expect(controller.getPlatforms).not.toHaveBeenCalled();
+        expect(controller.setPlatform).not.toHaveBeenCalled();
     });
 
     it('shows the ascending alphabetical icon when sort mode is alpha-asc', () => {

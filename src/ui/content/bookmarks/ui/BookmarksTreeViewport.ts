@@ -149,7 +149,6 @@ function getTreeVisibleBookmarks(snapshot: BookmarksPanelSnapshot): Bookmark[] {
     return filterBookmarks({
         bookmarks: allBookmarks,
         query: snapshot.vm.query,
-        platform: snapshot.vm.platform,
         kind: snapshot.vm.kind,
     });
 }
@@ -438,7 +437,8 @@ export class BookmarksTreeViewport {
             return { mode: 'inline', html: folderTreeHtml };
         }
 
-        const emptyHint = snapshot.vm.query || snapshot.vm.platform !== 'All'
+        const hasActiveFilter = Boolean(snapshot.vm.query) || snapshot.vm.kind !== 'all';
+        const emptyHint = hasActiveFilter
             ? tr('noResultsHint', 'Clear the active filters or select a broader folder scope.')
             : tr('emptyBookmarksHint', 'Create a folder or import bookmarks to start browsing saved messages.');
 
@@ -447,7 +447,7 @@ export class BookmarksTreeViewport {
             html: `
               <div class="empty-state">
                 <div class="empty-icon">${icon(folderIcon)}</div>
-        <strong>${escapeHtml(snapshot.vm.query || snapshot.vm.platform !== 'All' ? t('noResultsTitle') : t('noFoldersYet'))}</strong>
+        <strong>${escapeHtml(hasActiveFilter ? t('noResultsTitle') : t('noFoldersYet'))}</strong>
                 <p>${escapeHtml(emptyHint)}</p>
                 <div class="empty-actions">
                   <button class="${buttonClass('primary')}" type="button" data-action="create-folder-empty">${escapeHtml(t('createFirstFolderBtn'))}</button>

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Bookmarks: Added ChatGPT page-level bookmarks from the lower-right page controls. Page bookmarks save the current conversation URL and title, appear in the existing bookmark manager, and can be filtered separately from message bookmarks.
 - Prompts: Added a unified local Prompt Library with ChatGPT composer `\` autocomplete, four default prompts for Humanizer Skill polishing, prompt optimization, Skill Creator generation, and natural translation, a lower-right Prompts button, shared Reader prompt management, safe Reader prompt migration, and Reader annotation export that reuses the same prompts.
+- Prompts: Added a portable JSON Prompt Library model and safe merge planner for future manual backup or sync work, without adding Prompt cloud sync in this version.
 - Settings: Added an optional ChatGPT “Enter inserts a new line” toggle. When enabled, plain Enter creates a newline in the ChatGPT composer, while the send button and Cmd/Ctrl + Enter still send.
 - Settings: Added a ChatGPT chat-width slider that can widen the conversation area from normal up to 200%.
 - Settings: Added a slider for ChatGPT directory right spacing so users can add extra room when browser scrollbars overlap the right-side rail.
@@ -17,13 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added Reader workflow controls to the bookmark settings page while keeping Reader-only display controls inside the Reader settings dialog.
 
 ### Changed
+- Bookmarks: Removed the obsolete platform filter from the bookmarks manager and kept search, page/message filtering, sorting, and import/export actions on one toolbar row.
 - ChatGPT: The AI-MarkDone directory rail now defaults on and can still be turned off from Settings.
 - Prompts: Prompt triggers are now saved and shown as plain text while still matching ChatGPT composer `\` autocomplete.
 - Prompts: Built-in default prompts are now fixed English seed records, including the OpenAI Codex Skill Creator GitHub reference for the Skill Creator default.
 - Prompts: Disabled prompts now stay in the manager, keep their trigger reserved, and are hidden from composer autocomplete and the Reader prompt picker until re-enabled.
 - Prompts: The Prompt manager is wider and taller, keeps editor actions visible with an internal scroll area, supports bounded prompt-content resizing, supports page-session drag placement, and keeps drag-handle ordering reused by autocomplete and Reader prompt lists.
-- Prompts: Unmodified built-in prompts stay managed and can receive future default updates, while edited defaults become user-owned prompts and are no longer overwritten.
-- Prompts: The Skill Creator default now points to the full OpenAI Codex sample Skill package, and legacy Reader migration keeps the point-by-point annotation prompt without restoring the other untouched Reader defaults.
+- Prompts: Unmodified built-in prompts stay managed and can receive default seed updates, including same-version pre-release text changes, while edited defaults become user-owned prompts and are no longer overwritten.
+- Prompts: The Skill Creator default now points to the full OpenAI Codex sample Skill package and asks for one self-contained code-block prompt that embeds every generated Skill file, while legacy Reader migration keeps the point-by-point annotation prompt without restoring the other untouched Reader defaults.
 - Reader: The Reader content width control is now a bounded slider instead of a numeric field.
 
 ### Fixed
@@ -160,7 +162,7 @@ AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上
 
 ### Changed
 - AI-MarkDone now focuses on ChatGPT as the only active AI page runtime. Gemini, Claude, and DeepSeek page injection, host permissions, adapters, settings toggles, popup links, and copy parity fixtures have been retired.
-- Existing saved bookmarks and backups from Gemini, Claude, and DeepSeek remain available in the bookmarks library for viewing, filtering, export, local import, and Google Drive backup/restore.
+- Existing saved bookmarks and backups from Gemini, Claude, and DeepSeek remain available in the bookmarks library for viewing, search, page/message filtering, export, local import, and Google Drive backup/restore.
 - Save Messages now opens with only the current message selected by default instead of selecting every message in the conversation.
 - ChatGPT: Temporarily retired the AI-MarkDone right-side directory rail because ChatGPT now provides native conversation navigation; Reader locate and bookmark navigation still use the shared positioning helper.
 - Google Drive backup now gives OAuth sign-in and Drive backup/restore requests longer RPC timeouts so the UI does not report a timeout while the Google authorization flow is still in progress.

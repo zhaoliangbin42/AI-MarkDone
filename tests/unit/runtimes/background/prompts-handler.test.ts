@@ -69,11 +69,10 @@ describe('background prompts handler', () => {
         const composerRes = await handlePromptsRequest(req('prompts:list', { context: 'composer' }));
         expect(composerRes?.response.ok).toBe(true);
         expect((composerRes?.response as any).data.prompts.map((prompt: any) => prompt.triggerText).filter(Boolean)).toEqual([
-            '\\sum',
-            '\\rewrite',
-            '\\translate',
-            '\\brainstorm',
-            '\\review',
+            'humanize',
+            'prompt',
+            'skill',
+            'translate',
         ]);
 
         const readerRes = await handlePromptsRequest(req('prompts:list'));
@@ -81,16 +80,16 @@ describe('background prompts handler', () => {
         const readerPrompts = (readerRes?.response as any).data.prompts;
         expect(readerPrompts).toEqual(expect.arrayContaining([
             expect.objectContaining({ id: 'reader-a', contexts: ['composer', 'readerComment'] }),
-            expect.objectContaining({ id: 'composer-default-summarize' }),
-            expect.objectContaining({ id: 'composer-default-rewrite' }),
+            expect.objectContaining({ id: 'composer-default-humanizer' }),
+            expect.objectContaining({ id: 'composer-default-prompt-optimizer' }),
+            expect.objectContaining({ id: 'composer-default-skill-creator' }),
             expect.objectContaining({ id: 'composer-default-translate' }),
-            expect.objectContaining({ id: 'composer-default-brainstorm' }),
-            expect.objectContaining({ id: 'composer-default-review' }),
         ]));
         expect(localStore[STORAGE_KEYS.promptLibraryV1].migratedReaderCommentPrompts).toBe(true);
+        expect(localStore[STORAGE_KEYS.promptLibraryV1].defaultPromptSetVersion).toBe(4);
     });
 
-    it('does not migrate untouched Reader defaults when settings are absent', async () => {
+    it('preserves one Reader annotation default when settings are absent', async () => {
         const localStore: StorageMap = {};
         const syncStore: StorageMap = {};
         (globalThis as any).browser = {
@@ -103,11 +102,11 @@ describe('background prompts handler', () => {
         await handlePromptsRequest(req('prompts:list'));
 
         expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts.map((prompt: any) => prompt.id)).toEqual([
-            'composer-default-summarize',
-            'composer-default-rewrite',
+            'composer-default-humanizer',
+            'composer-default-prompt-optimizer',
+            'composer-default-skill-creator',
             'composer-default-translate',
-            'composer-default-brainstorm',
-            'composer-default-review',
+            'prompt-2',
         ]);
     });
 
@@ -132,7 +131,7 @@ describe('background prompts handler', () => {
             },
         }));
         expect(saveRes?.response.ok).toBe(true);
-        expect((saveRes?.response as any).data.prompt.triggerText).toBe('\\draft');
+        expect((saveRes?.response as any).data.prompt.triggerText).toBe('draft');
 
         const listRes = await handlePromptsRequest(req('prompts:list', { context: 'composer', query: 'draft' }));
         expect((listRes?.response as any).data.prompts.map((prompt: any) => prompt.id)).toContain('custom');
@@ -148,7 +147,7 @@ describe('background prompts handler', () => {
             },
         }));
         const runtimeList = await handlePromptsRequest(req('prompts:list', { context: 'composer', query: 'disabled' }));
-        expect((runtimeList?.response as any).data.prompts.map((prompt: any) => prompt.id)).toContain('disabled-custom');
+        expect((runtimeList?.response as any).data.prompts.map((prompt: any) => prompt.id)).not.toContain('disabled-custom');
         const managerList = await handlePromptsRequest(req('prompts:list', { context: 'composer', query: 'disabled', includeDisabled: true }));
         expect((managerList?.response as any).data.prompts.map((prompt: any) => prompt.id)).toContain('disabled-custom');
 
@@ -159,6 +158,144 @@ describe('background prompts handler', () => {
         const deleteRes = await handlePromptsRequest(req('prompts:delete', { id: 'custom' }));
         expect(deleteRes?.response.ok).toBe(true);
         expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts.some((prompt: any) => prompt.id === 'custom')).toBe(false);
+    });
+
+    it('preserves prompt order when saving existing prompts and supports explicit reorder', async () => {
+        const localStore: StorageMap = {
+            [STORAGE_KEYS.promptLibraryV1]: {
+                version: 1,
+                migratedReaderCommentPrompts: true,
+                seededComposerDefaults: true,
+                defaultPromptSetVersion: 4,
+                prompts: [
+                    {
+                        id: 'first',
+                        title: 'First',
+                        content: 'First prompt',
+                        triggerText: 'first',
+                        contexts: ['composer', 'readerComment'],
+                        favorite: false,
+                        enabled: true,
+                        createdAt: 1,
+                        updatedAt: 1,
+                        lastUsedAt: null,
+                    },
+                    {
+                        id: 'second',
+                        title: 'Second',
+                        content: 'Second prompt',
+                        triggerText: 'second',
+                        contexts: ['composer', 'readerComment'],
+                        favorite: false,
+                        enabled: true,
+                        createdAt: 2,
+                        updatedAt: 2,
+                        lastUsedAt: null,
+                    },
+                    {
+                        id: 'third',
+                        title: 'Third',
+                        content: 'Third prompt',
+                        triggerText: 'third',
+                        contexts: ['composer', 'readerComment'],
+                        favorite: false,
+                        enabled: true,
+                        createdAt: 3,
+                        updatedAt: 3,
+                        lastUsedAt: null,
+                    },
+                ],
+            },
+        };
+        const syncStore: StorageMap = {};
+        (globalThis as any).browser = {
+            runtime: { getManifest: () => ({ manifest_version: 3 }) },
+            storage: { local: createArea(localStore), sync: createArea(syncStore) },
+        };
+
+        const { handlePromptsRequest } = await import('../../../../src/runtimes/background/handlers/prompts');
+
+        const saveExisting = await handlePromptsRequest(req('prompts:save', {
+            prompt: {
+                id: 'second',
+                title: 'Second edited',
+                content: 'Second prompt edited',
+                triggerText: 'second',
+                contexts: ['composer', 'readerComment'],
+                enabled: true,
+            },
+        }));
+        expect(saveExisting?.response.ok).toBe(true);
+        expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts.map((prompt: any) => prompt.id)).toEqual([
+            'first',
+            'second',
+            'third',
+        ]);
+
+        const reorder = await handlePromptsRequest(req('prompts:reorder' as any, {
+            ids: ['third', 'first', 'second'],
+        }));
+
+        expect(reorder?.response.ok).toBe(true);
+        expect((reorder?.response as any).data.prompts.map((prompt: any) => prompt.id)).toEqual([
+            'third',
+            'first',
+            'second',
+        ]);
+        expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts.map((prompt: any) => prompt.id)).toEqual([
+            'third',
+            'first',
+            'second',
+        ]);
+    });
+
+    it('does not rewrite normalized libraries on list and records use without changing updatedAt', async () => {
+        const localStore: StorageMap = {
+            [STORAGE_KEYS.promptLibraryV1]: {
+                version: 1,
+                migratedReaderCommentPrompts: true,
+                seededComposerDefaults: true,
+                defaultPromptSetVersion: 4,
+                prompts: [
+                    {
+                        id: 'stable',
+                        title: 'Stable',
+                        content: 'Stable prompt',
+                        triggerText: 'stable',
+                        contexts: ['composer', 'readerComment'],
+                        favorite: false,
+                        enabled: true,
+                        createdAt: 10,
+                        updatedAt: 20,
+                        lastUsedAt: null,
+                        managedDefaultId: null,
+                        managedDefaultVersion: null,
+                    },
+                ],
+            },
+        };
+        const syncStore: StorageMap = {};
+        const localArea = createArea(localStore);
+        (globalThis as any).browser = {
+            runtime: { getManifest: () => ({ manifest_version: 3 }) },
+            storage: { local: localArea, sync: createArea(syncStore) },
+        };
+
+        const { handlePromptsRequest } = await import('../../../../src/runtimes/background/handlers/prompts');
+
+        const list = await handlePromptsRequest(req('prompts:list', { context: 'readerComment' }));
+        expect(list?.response.ok).toBe(true);
+        expect(localArea.set).not.toHaveBeenCalled();
+
+        const useRes = await handlePromptsRequest(req('prompts:recordUse', { id: 'stable', usedAt: 5000 }));
+
+        expect(useRes?.response.ok).toBe(true);
+        expect(localArea.set).toHaveBeenCalledTimes(1);
+        expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts[0]).toMatchObject({
+            id: 'stable',
+            updatedAt: 20,
+            lastUsedAt: 5000,
+        });
     });
 
     it('rejects empty prompt content and composer trigger conflicts', async () => {
@@ -231,7 +368,7 @@ describe('background prompts handler', () => {
                         id: 'custom',
                         title: 'Custom',
                         content: 'Do not delete me.',
-                        triggerText: '\\custom',
+                        triggerText: 'custom',
                         contexts: ['composer', 'readerComment'],
                         favorite: false,
                         enabled: true,
@@ -269,10 +406,10 @@ describe('background prompts handler', () => {
         expect(prompts.find((prompt: any) => prompt.id === 'custom')?.content).toBe('Do not delete me.');
         expect(prompts.find((prompt: any) => prompt.id === 'composer-default-summarize')?.content).toBe('Do not overwrite my edit.');
         expect(prompts.map((prompt: any) => prompt.id)).toEqual(expect.arrayContaining([
-            'composer-default-rewrite',
+            'composer-default-humanizer',
+            'composer-default-prompt-optimizer',
+            'composer-default-skill-creator',
             'composer-default-translate',
-            'composer-default-brainstorm',
-            'composer-default-review',
         ]));
     });
 });

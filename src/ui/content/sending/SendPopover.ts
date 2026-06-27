@@ -21,7 +21,7 @@ type State = {
 };
 
 type CommentInsertContext = {
-    prompts: ReaderCommentPrompt[];
+    listReaderPrompts: () => Promise<ReaderCommentPrompt[]> | ReaderCommentPrompt[];
     template: CommentTemplateSegment[];
     promptPosition: ReaderCommentPromptPosition;
     comments: ReaderCommentRecord[];
@@ -42,6 +42,10 @@ export type SendPort = {
     writeDraft?: (text: string) => void | Promise<void>;
     beforeSubmit?: () => void;
     submit: (text: string) => Promise<SendPortResult>;
+};
+
+export type SendPopoverPromptAutocompleteController = {
+    attachExternalComposer: (input: HTMLTextAreaElement) => () => void;
 };
 
 const DEFAULT_WIDTH = 420;
@@ -78,6 +82,8 @@ export class SendPopover {
     private anchorPositionReset: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private readonly promptPicker = new CommentPromptPickerPopover();
+    private promptAutocompleteController: SendPopoverPromptAutocompleteController | null = null;
+    private detachPromptAutocomplete: (() => void) | null = null;
 
     setTheme(theme: Theme): void {
         this.state.theme = theme;
@@ -86,6 +92,12 @@ export class SendPopover {
 
     setThemeOverrides(_overrides: UserThemeOverrides): void {
         // Anchored send popovers inherit token variables from the toolbar shadow root.
+    }
+
+    setPromptAutocompleteController(controller: SendPopoverPromptAutocompleteController | null): void {
+        this.promptAutocompleteController = controller;
+        if (!this.state.open || !this.popoverEl) return;
+        this.attachPromptAutocomplete(this.popoverEl.querySelector<HTMLTextAreaElement>('[data-role="text"]'));
     }
 
     isOpen(): boolean {
@@ -154,6 +166,7 @@ export class SendPopover {
         if (textarea) {
             this.hydrateDraftText(pop, textarea, params.initialText);
             this.installDraftEventBoundary(textarea);
+            this.attachPromptAutocomplete(textarea);
         }
         window.setTimeout(() => textarea?.focus(), 0);
 
@@ -165,26 +178,30 @@ export class SendPopover {
         pop.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit(params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="resize"]')?.addEventListener('mousedown', (event) => this.startResize(event, params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')?.addEventListener('click', () => {
-            if (!this.canInsertPromptContent(params.commentInsert)) return;
+            const context = params.commentInsert;
+            if (!this.canInsertPromptContent(context)) return;
             const button = pop.querySelector<HTMLElement>('[data-action="insert-comments"]');
             const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
             if (!button || !textarea) return;
-            this.promptPicker.open({
-                shadow: params.shadow,
-                container: this.getPopoverSurface(params.shadow, params.anchor),
-                anchorEl: button,
-                theme: this.state.theme,
-                prompts: params.commentInsert.prompts,
-                labels: {
-                    title: t('readerCommentPromptPickerTitle'),
-                    close: t('btnClose'),
-                    empty: t('readerCommentPromptPickerEmpty'),
-                },
-                onSelect: (promptId) => {
-                    const compiled = this.buildInsertablePromptContent(params.commentInsert!, promptId);
-                    if (!compiled.trim()) return;
-                    this.insertIntoTextarea(textarea, compiled);
-                },
+            void this.listReaderPrompts(context).then((prompts) => {
+                if (!this.state.open || this.popoverEl !== pop) return;
+                this.promptPicker.open({
+                    shadow: params.shadow,
+                    container: this.getPopoverSurface(params.shadow, params.anchor),
+                    anchorEl: button,
+                    theme: this.state.theme,
+                    prompts,
+                    labels: {
+                        title: t('readerCommentPromptPickerTitle'),
+                        close: t('btnClose'),
+                        empty: t('readerCommentPromptPickerEmpty'),
+                    },
+                    onSelect: (promptId) => {
+                        const compiled = this.buildInsertablePromptContent(context, prompts, promptId);
+                        if (!compiled.trim()) return;
+                        this.insertIntoTextarea(textarea, compiled);
+                    },
+                });
             });
         });
 
@@ -265,6 +282,8 @@ export class SendPopover {
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         this.promptPicker.close(shadow);
+        this.detachPromptAutocomplete?.();
+        this.detachPromptAutocomplete = null;
 
         if (this.onShadowPointerDown) {
             shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
@@ -313,6 +332,13 @@ export class SendPopover {
         installInputEventBoundary(textarea);
     }
 
+    private attachPromptAutocomplete(textarea: HTMLTextAreaElement | null): void {
+        this.detachPromptAutocomplete?.();
+        this.detachPromptAutocomplete = null;
+        if (!textarea || !this.promptAutocompleteController) return;
+        this.detachPromptAutocomplete = this.promptAutocompleteController.attachExternalComposer(textarea);
+    }
+
     private setStatus(text: string): void {
         const el = this.popoverEl?.querySelector<HTMLElement>('[data-role="status"]');
         if (el) el.textContent = text;
@@ -351,12 +377,23 @@ export class SendPopover {
     }
 
     private canInsertPromptContent(context: CommentInsertContext | null | undefined): context is CommentInsertContext {
-        return Boolean(context && context.prompts.length > 0);
+        return Boolean(context);
     }
 
-    private buildInsertablePromptContent(context: CommentInsertContext, promptId?: string | null): string {
+    private async listReaderPrompts(context: CommentInsertContext): Promise<ReaderCommentPrompt[]> {
+        try {
+            const prompts = await context.listReaderPrompts();
+            return Array.isArray(prompts)
+                ? prompts.map((prompt) => ({ ...prompt }))
+                : [];
+        } catch {
+            return [];
+        }
+    }
+
+    private buildInsertablePromptContent(context: CommentInsertContext, prompts: ReaderCommentPrompt[], promptId?: string | null): string {
         const resolved = resolveReaderCommentExportPrompts({
-            prompts: context.prompts,
+            prompts,
             template: context.template,
             promptPosition: context.promptPosition,
         }, promptId);

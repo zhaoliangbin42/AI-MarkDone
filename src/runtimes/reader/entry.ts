@@ -9,6 +9,8 @@ import { createConversationReaderActions } from '../../ui/content/reader/convers
 import { setLocale, t } from '../../ui/content/components/i18n';
 import { SendPopover } from '../../ui/content/sending/SendPopover';
 import { createDetachedReaderSendPort } from '../../ui/content/sending/detachedReaderSendPort';
+import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
+import { ChatGPTPromptAutocompleteController } from '../../ui/content/controllers/ChatGPTPromptAutocompleteController';
 import type { ReaderItem } from '../../services/reader/types';
 import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
@@ -122,7 +124,23 @@ async function run(): Promise<void> {
 
     const panel = new ReaderPanel();
     const sendPopover = new SendPopover();
+    const promptLibraryClient = createPromptLibraryClient();
+    const promptManager = new ChatGPTPromptAutocompleteController({
+        getPlatformId: () => 'reader',
+        getComposerInputElement: () => null,
+        getComposerKind: () => 'contenteditable',
+    } as any, promptLibraryClient);
+    const listReaderPromptsFromLibrary = async () => {
+        const prompts = await promptLibraryClient.listPrompts({ context: 'readerComment' });
+        return prompts.map((prompt) => ({
+            id: prompt.id,
+            title: prompt.title,
+            content: prompt.content,
+        }));
+    };
+    sendPopover.setPromptAutocompleteController(promptManager);
     panel.setThemeOverrides(currentThemeOverrides);
+    promptManager.setThemeOverrides(currentThemeOverrides);
     panel.setReaderSettings(settings.reader);
     panel.setReaderSettingsController({
         onChange: async (patch) => {
@@ -136,6 +154,7 @@ async function run(): Promise<void> {
             };
             currentThemeOverrides = syncDetachedReaderTheme(session?.snapshot.theme ?? 'light', settings);
             panel.setThemeOverrides(currentThemeOverrides);
+            promptManager.setThemeOverrides(currentThemeOverrides);
             await sendExtRequest({
                 v: PROTOCOL_VERSION,
                 id: createRequestId(),
@@ -143,6 +162,10 @@ async function run(): Promise<void> {
                 payload: { category: 'reader', value: settings.reader },
             });
         },
+    });
+    panel.setPromptManagerController({
+        onOpenManager: (anchor) => promptManager.openManager(anchor),
+        listReaderPrompts: listReaderPromptsFromLibrary,
     });
 
     let session = await getSession(sessionId);

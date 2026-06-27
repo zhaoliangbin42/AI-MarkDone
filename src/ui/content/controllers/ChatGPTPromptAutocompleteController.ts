@@ -15,16 +15,31 @@ import {
 import { findPromptTriggerToken, type PromptTriggerToken } from '../../../core/prompts/slashTrigger';
 import type { PromptLibraryClient } from '../../../drivers/content/prompts/promptLibraryClient';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
-import { checkIcon, messageSquareTextIcon, pencilIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
+import { checkIcon, gripHorizontalIcon, messageSquareTextIcon, pencilIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { installTransientOutsideDismissBoundary, markTransientRoot, type TransientOutsideDismissBoundaryHandle } from '../components/transientUi';
 import { t } from '../components/i18n';
 
 type ComposerInput = HTMLElement | HTMLTextAreaElement | HTMLInputElement;
 type Mode = 'autocomplete' | 'manager' | 'edit';
+type ManagerPlacement = { left: number; top: number };
+type ViewportFrame = { left: number; top: number; width: number; height: number; right: number; bottom: number };
 
 const HOST_ID = 'aimd-chatgpt-prompt-popover-host';
 const REBIND_DELAY_MS = 200;
+const POPOVER_MARGIN_PX = 16;
+const POPOVER_GAP_PX = 8;
+const POPOVER_MIN_WIDTH_PX = 300;
+const AUTOCOMPLETE_WIDTH_PX = 420;
+const MANAGER_WIDTH_PX = 520;
+const AUTOCOMPLETE_FALLBACK_HEIGHT_PX = 220;
+const MANAGER_FIXED_HEIGHT_PX = 112;
+const MANAGER_ROW_HEIGHT_PX = 64;
+const MANAGER_STATUS_HEIGHT_PX = 36;
+const MANAGER_MAX_HEIGHT_PX = 630;
+const EDITOR_FALLBACK_HEIGHT_PX = 560;
+const POPOVER_MIN_MAX_HEIGHT_PX = 180;
+const TEXTAREA_CARET_MARKER = '\u200b';
 
 function escapeHtml(value: string): string {
     return value.replace(/[&<>"']/g, (char) => ({
@@ -66,6 +81,7 @@ function getTokenKey(token: PromptTriggerToken): string {
 export class ChatGPTPromptAutocompleteController {
     private initialized = false;
     private composer: ComposerInput | null = null;
+    private composerOverride: ComposerInput | null = null;
     private observer: MutationObserver | null = null;
     private rebindTimer: number | null = null;
     private composing = false;
@@ -84,6 +100,12 @@ export class ChatGPTPromptAutocompleteController {
     private editPrompt: PromptRecord | null = null;
     private statusMessage = '';
     private themeOverrides: UserThemeOverrides = {};
+    private promptDragId: string | null = null;
+    private promptDragDirty = false;
+    private promptDragCleanup: (() => void) | null = null;
+    private managerPlacement: ManagerPlacement | null = null;
+    private managerPanelDragCleanup: (() => void) | null = null;
+    private managerViewportClampCleanup: (() => void) | null = null;
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -93,13 +115,32 @@ export class ChatGPTPromptAutocompleteController {
     init(): void {
         if (this.initialized) return;
         this.initialized = true;
+        this.bindGlobalKeydown();
         this.bindComposer();
         this.observeComposerReplacements();
+    }
+
+    attachExternalComposer(input: ComposerInput): () => void {
+        this.composerOverride = input;
+        if (!this.initialized) {
+            this.initialized = true;
+            this.bindGlobalKeydown();
+            this.observeComposerReplacements();
+        }
+        this.bindComposer();
+        return () => {
+            if (this.composerOverride !== input) return;
+            if (this.mode === 'autocomplete') this.close();
+            this.composerOverride = null;
+            this.bindComposer();
+        };
     }
 
     dispose(): void {
         if (!this.initialized && !this.host) return;
         this.initialized = false;
+        this.composerOverride = null;
+        this.detachGlobalKeydown();
         this.detachComposer();
         this.observer?.disconnect();
         this.observer = null;
@@ -107,6 +148,7 @@ export class ChatGPTPromptAutocompleteController {
             window.clearTimeout(this.rebindTimer);
             this.rebindTimer = null;
         }
+        this.managerPlacement = null;
         this.close();
     }
 
@@ -127,7 +169,12 @@ export class ChatGPTPromptAutocompleteController {
         await this.loadPrompts({ force: true, context: 'all', includeDisabled: true });
         this.ensureHost();
         this.render();
-        this.positionNear(anchor ?? this.getComposerInput(), 'above');
+        if (this.managerPlacement) {
+            this.managerPlacement = this.applyManagerPlacement(this.managerPlacement);
+        } else {
+            this.positionNear(anchor ?? this.getComposerInput(), 'above');
+        }
+        this.installManagerViewportClamp();
         this.installOutsideDismiss();
         this.shadow?.querySelector<HTMLInputElement>('[data-role="prompt-search"]')?.focus();
     }
@@ -135,6 +182,14 @@ export class ChatGPTPromptAutocompleteController {
     close(): void {
         this.outsideDismiss?.detach();
         this.outsideDismiss = null;
+        this.managerViewportClampCleanup?.();
+        this.managerViewportClampCleanup = null;
+        this.managerPanelDragCleanup?.();
+        this.managerPanelDragCleanup = null;
+        this.promptDragCleanup?.();
+        this.promptDragCleanup = null;
+        this.promptDragId = null;
+        this.promptDragDirty = false;
         this.host?.remove();
         this.host = null;
         this.shadow = null;
@@ -179,6 +234,14 @@ export class ChatGPTPromptAutocompleteController {
         this.observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
     }
 
+    private bindGlobalKeydown(): void {
+        window.addEventListener('keydown', this.onGlobalKeyDownCapture, true);
+    }
+
+    private detachGlobalKeydown(): void {
+        window.removeEventListener('keydown', this.onGlobalKeyDownCapture, true);
+    }
+
     private scheduleRebind(): void {
         if (!this.initialized || this.rebindTimer != null) return;
         this.rebindTimer = window.setTimeout(() => {
@@ -188,12 +251,37 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private getComposerInput(): ComposerInput | null {
+        if (this.composerOverride) {
+            if (this.composerOverride.isConnected) return this.composerOverride;
+            this.composerOverride = null;
+        }
         try {
             return this.adapter.getComposerInputElement?.() ?? null;
         } catch {
             return null;
         }
     }
+
+    private getActiveComposerAdapter(): SiteAdapter {
+        if (!this.composerOverride) return this.adapter;
+        return {
+            getComposerInputElement: () => this.getComposerInput(),
+            getComposerKind: () => {
+                const input = this.getComposerInput();
+                if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) return 'textarea';
+                if (input instanceof HTMLElement && (input.isContentEditable || input.getAttribute('contenteditable') === 'true')) {
+                    return 'contenteditable';
+                }
+                return 'unknown';
+            },
+        } as SiteAdapter;
+    }
+
+    private onGlobalKeyDownCapture = (event: KeyboardEvent): void => {
+        if (!this.isAutocompleteKeyEvent(event)) return;
+        if (!this.isEventFromActiveComposer(event)) return;
+        this.handleAutocompleteKeydown(event);
+    };
 
     private onComposerInput = (): void => {
         if (this.composing) return;
@@ -220,9 +308,27 @@ export class ChatGPTPromptAutocompleteController {
     };
 
     private onComposerKeyDownCapture = (event: KeyboardEvent): void => {
-        if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
-        if (this.mode !== 'autocomplete') return;
+        if (!this.isAutocompleteKeyEvent(event)) return;
+        this.handleAutocompleteKeydown(event);
+    };
 
+    private isAutocompleteKeyEvent(event: KeyboardEvent): boolean {
+        return !event.defaultPrevented
+            && !event.isComposing
+            && event.keyCode !== 229
+            && this.mode === 'autocomplete';
+    }
+
+    private isEventFromActiveComposer(event: KeyboardEvent): boolean {
+        const input = this.getComposerInput();
+        if (!input) return false;
+        const path = event.composedPath?.() ?? [];
+        if (path.includes(input)) return true;
+        const target = event.target;
+        return target instanceof Node && (target === input || input.contains(target));
+    }
+
+    private handleAutocompleteKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
@@ -245,7 +351,7 @@ export class ChatGPTPromptAutocompleteController {
         event.preventDefault();
         event.stopPropagation();
         void this.insertPrompt(prompt, this.activeToken);
-    };
+    }
 
     private getCaretRange(): { start: number; end: number } | null {
         const input = this.getComposerInput();
@@ -264,7 +370,7 @@ export class ChatGPTPromptAutocompleteController {
 
     private async refreshAutocomplete(): Promise<void> {
         if (!this.initialized || this.mode === 'manager' || this.mode === 'edit') return;
-        const read = readComposer(this.adapter);
+        const read = readComposer(this.getActiveComposerAdapter());
         if (!read.ok) {
             if (this.mode === 'autocomplete') this.close();
             return;
@@ -294,7 +400,7 @@ export class ChatGPTPromptAutocompleteController {
         if (currentRequest !== this.requestId) return;
         const suggestions = filterPromptRecords(
             prompts.filter((prompt) => prompt.triggerText.trim()),
-            { query: token.query },
+            { query: token.query, match: 'trigger' },
         );
         if (suggestions.length < 1) {
             if (this.mode === 'autocomplete') this.close();
@@ -335,7 +441,7 @@ export class ChatGPTPromptAutocompleteController {
         host.style.position = 'fixed';
         host.style.left = '0px';
         host.style.top = '0px';
-        host.style.zIndex = 'var(--aimd-z-panel)';
+        host.style.zIndex = 'var(--aimd-z-tooltip)';
         const shadow = host.attachShadow({ mode: 'open' });
         const root = document.createElement('div');
         root.className = 'prompt-popover';
@@ -394,17 +500,25 @@ export class ChatGPTPromptAutocompleteController {
     private renderManager(): void {
         if (!this.root) return;
         const prompts = (this.promptsCache ?? []).filter((prompt) => matchesManagerQuery(prompt, this.managerQuery));
-        const rows = prompts.map((prompt) => `
-            <div class="manager-row" data-prompt-id="${escapeHtml(prompt.id)}">
-              <button class="manager-row__main" type="button" data-action="insert-prompt" data-prompt-id="${escapeHtml(prompt.id)}">
+        const rows = prompts.map((prompt) => {
+            const body = `<button class="manager-row__main" type="button" data-action="edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}">
                 <span class="manager-row__title">${escapeHtml(prompt.title)}</span>
                 <span class="manager-row__meta">${escapeHtml(prompt.triggerText)}</span>
                 <span class="manager-row__content">${escapeHtml(prompt.content.replace('{{cursor}}', '').trim())}</span>
-              </button>
+              </button>`;
+            return `
+            <div class="manager-row" data-prompt-id="${escapeHtml(prompt.id)}">
+              <button class="icon-btn prompt-drag-handle" type="button" data-action="reorder-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('readerStickyDrag'))}" title="${escapeHtml(t('readerStickyDrag'))}">${gripHorizontalIcon}</button>
+              ${body}
+              <label class="prompt-enabled-toggle">
+                <span>${escapeHtml(t('promptEnabledLabel'))}</span>
+                <input type="checkbox" data-action="toggle-prompt-enabled" data-prompt-id="${escapeHtml(prompt.id)}" ${prompt.enabled ? 'checked' : ''} />
+              </label>
               <button class="icon-btn" type="button" data-action="edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('promptEdit'))}">${pencilIcon}</button>
               <button class="icon-btn icon-btn--danger" type="button" data-action="delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('promptDelete'))}">${trashIcon}</button>
             </div>
-        `).join('');
+        `;
+        }).join('');
         this.root.className = 'prompt-popover prompt-popover--manager';
         this.root.innerHTML = `
           <div class="prompt-header">
@@ -428,6 +542,7 @@ export class ChatGPTPromptAutocompleteController {
             });
         }
         this.root.querySelector<HTMLButtonElement>('[data-action="close-prompts"]')?.addEventListener('click', () => this.close());
+        this.installManagerPanelDrag();
         this.root.querySelector<HTMLButtonElement>('[data-action="add-prompt"]')?.addEventListener('click', () => {
             this.editPrompt = {
                 id: createPromptId(),
@@ -444,12 +559,6 @@ export class ChatGPTPromptAutocompleteController {
             this.mode = 'edit';
             this.render();
         });
-        this.root.querySelectorAll<HTMLButtonElement>('[data-action="insert-prompt"]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const prompt = this.findPrompt(button.dataset.promptId);
-                if (prompt) void this.insertPrompt(prompt, null);
-            });
-        });
         this.root.querySelectorAll<HTMLButtonElement>('[data-action="edit-prompt"]').forEach((button) => {
             button.addEventListener('click', () => {
                 const prompt = this.findPrompt(button.dataset.promptId);
@@ -457,6 +566,27 @@ export class ChatGPTPromptAutocompleteController {
                 this.editPrompt = { ...prompt, contexts: [...prompt.contexts] };
                 this.mode = 'edit';
                 this.render();
+            });
+        });
+        this.root.querySelectorAll<HTMLButtonElement>('[data-action="reorder-prompt"]').forEach((button) => {
+            button.addEventListener('pointerdown', (event) => {
+                this.startPromptPointerDrag(event, button.dataset.promptId ?? '');
+            });
+        });
+        this.root.querySelectorAll<HTMLInputElement>('[data-action="toggle-prompt-enabled"]').forEach((input) => {
+            installInputEventBoundary(input);
+            input.addEventListener('change', async () => {
+                const prompt = this.findPrompt(input.dataset.promptId);
+                if (!prompt) return;
+                try {
+                    await this.client.savePrompt({ ...prompt, enabled: input.checked });
+                    this.invalidatePromptCache();
+                    await this.loadPrompts({ force: true, context: 'all', includeDisabled: true });
+                    this.render();
+                } catch (error) {
+                    this.statusMessage = error instanceof Error ? error.message : t('promptSaveFailed');
+                    this.render();
+                }
             });
         });
         this.root.querySelectorAll<HTMLButtonElement>('[data-action="delete-prompt"]').forEach((button) => {
@@ -471,6 +601,88 @@ export class ChatGPTPromptAutocompleteController {
         });
     }
 
+    private startPromptPointerDrag(event: PointerEvent, sourceId: string): void {
+        if (!sourceId || this.mode !== 'manager') return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.promptDragCleanup?.();
+        this.promptDragId = sourceId;
+        this.promptDragDirty = false;
+        this.setPromptDragState(sourceId, true);
+
+        const onMove = (moveEvent: PointerEvent) => {
+            if (!this.promptDragId) return;
+            moveEvent.preventDefault();
+            const target = this.findManagerRowAtPointer(moveEvent.clientY);
+            const targetId = target?.dataset.promptId ?? '';
+            if (!targetId || targetId === this.promptDragId) return;
+            this.reorderPromptCache(this.promptDragId, targetId);
+            this.promptDragDirty = true;
+            this.render();
+            this.setPromptDragState(this.promptDragId, true);
+        };
+        const onEnd = () => {
+            const draggedId = this.promptDragId;
+            const shouldPersist = this.promptDragDirty;
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onEnd);
+            document.removeEventListener('pointercancel', onEnd);
+            this.promptDragCleanup = null;
+            this.promptDragId = null;
+            this.promptDragDirty = false;
+            if (draggedId) this.setPromptDragState(draggedId, false);
+            if (shouldPersist) void this.persistPromptOrder();
+        };
+
+        this.promptDragCleanup = onEnd;
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onEnd, { once: true });
+        document.addEventListener('pointercancel', onEnd, { once: true });
+    }
+
+    private findManagerRowAtPointer(clientY: number): HTMLElement | null {
+        const rows = Array.from(this.root?.querySelectorAll<HTMLElement>('.manager-row') ?? []);
+        return rows.find((row) => {
+            const rect = row.getBoundingClientRect();
+            return clientY >= rect.top && clientY <= rect.bottom;
+        }) ?? null;
+    }
+
+    private setPromptDragState(id: string, dragging: boolean): void {
+        const row = Array.from(this.root?.querySelectorAll<HTMLElement>('.manager-row') ?? [])
+            .find((candidate) => candidate.dataset.promptId === id);
+        if (!row) return;
+        if (dragging) {
+            row.dataset.dragging = '1';
+            return;
+        }
+        delete row.dataset.dragging;
+    }
+
+    private reorderPromptCache(sourceId: string, targetId: string): void {
+        const prompts = this.promptsCache ?? [];
+        const sourceIndex = prompts.findIndex((prompt) => prompt.id === sourceId);
+        const targetIndex = prompts.findIndex((prompt) => prompt.id === targetId);
+        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+        const next = [...prompts];
+        const [prompt] = next.splice(sourceIndex, 1);
+        next.splice(targetIndex, 0, prompt!);
+        this.promptsCache = next;
+    }
+
+    private async persistPromptOrder(): Promise<void> {
+        if (!this.promptsCache || !this.client.reorderPrompts) return;
+        try {
+            this.promptsCache = await this.client.reorderPrompts(this.promptsCache.map((prompt) => prompt.id));
+            this.statusMessage = '';
+            this.render();
+        } catch (error) {
+            this.statusMessage = error instanceof Error ? error.message : t('promptSaveFailed');
+            this.render();
+        }
+    }
+
     private renderEditor(): void {
         if (!this.root || !this.editPrompt) return;
         const prompt = this.editPrompt;
@@ -480,19 +692,25 @@ export class ChatGPTPromptAutocompleteController {
             <div class="prompt-header__title">${messageSquareTextIcon}<span>${escapeHtml(prompt.content ? t('promptEdit') : t('promptAdd'))}</span></div>
             <button class="icon-btn" type="button" data-action="cancel-edit" aria-label="${escapeHtml(t('btnBack'))}">${xIcon}</button>
           </div>
-          <label class="field"><span>${escapeHtml(t('promptTitleLabel'))}</span><input data-role="prompt-title" type="text" value="${escapeHtml(prompt.title)}" /></label>
-          <label class="field"><span>${escapeHtml(t('promptTriggerLabel'))}</span><input data-role="prompt-trigger" type="text" value="${escapeHtml(prompt.triggerText)}" placeholder="\\sum" /></label>
-          <label class="field"><span>${escapeHtml(t('promptContentLabel'))}</span><textarea data-role="prompt-content" rows="7">${escapeHtml(prompt.content)}</textarea></label>
-          <div class="placeholder-row">
-            <button class="secondary-btn" type="button" data-action="insert-cursor-placeholder">${escapeHtml(t('promptInsertCursorPlaceholder'))}</button>
+          <div class="prompt-editor-body">
+            <label class="field"><span>${escapeHtml(t('promptTitleLabel'))}</span><input data-role="prompt-title" type="text" value="${escapeHtml(prompt.title)}" /></label>
+            <label class="field"><span>${escapeHtml(t('promptTriggerLabel'))}</span><input data-role="prompt-trigger" type="text" value="${escapeHtml(prompt.triggerText)}" placeholder="translate" /></label>
+            <label class="field"><span>${escapeHtml(t('promptContentLabel'))}</span><textarea data-role="prompt-content" rows="7">${escapeHtml(prompt.content)}</textarea></label>
+            <div class="placeholder-row">
+              <button class="secondary-btn" type="button" data-action="insert-cursor-placeholder">${escapeHtml(t('promptInsertCursorPlaceholder'))}</button>
+            </div>
+            ${this.statusMessage ? `<div class="prompt-status">${escapeHtml(this.statusMessage)}</div>` : ''}
           </div>
-          ${this.statusMessage ? `<div class="prompt-status">${escapeHtml(this.statusMessage)}</div>` : ''}
           <div class="prompt-footer">
             <button class="secondary-btn" type="button" data-action="cancel-edit">${escapeHtml(t('btnCancel'))}</button>
             <button class="primary-btn" type="button" data-action="save-prompt">${checkIcon}<span>${escapeHtml(t('btnSave'))}</span></button>
           </div>
         `;
         this.root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea').forEach((input) => installInputEventBoundary(input));
+        this.syncCursorPlaceholderButtonState();
+        this.root.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]')?.addEventListener('input', () => {
+            this.syncCursorPlaceholderButtonState();
+        });
         this.root.querySelectorAll<HTMLButtonElement>('[data-action="cancel-edit"]').forEach((button) => {
             button.addEventListener('click', () => {
                 this.mode = 'manager';
@@ -507,6 +725,7 @@ export class ChatGPTPromptAutocompleteController {
         this.root.querySelector<HTMLButtonElement>('[data-action="insert-cursor-placeholder"]')?.addEventListener('click', () => {
             this.insertCursorPlaceholder();
         });
+        this.installManagerPanelDrag();
     }
 
     private async saveEditor(): Promise<void> {
@@ -526,7 +745,7 @@ export class ChatGPTPromptAutocompleteController {
                 triggerText,
                 content,
                 contexts: ['composer', 'readerComment'],
-                enabled: true,
+                enabled: this.editPrompt.enabled,
                 favorite: this.editPrompt.favorite,
             });
             this.invalidatePromptCache();
@@ -545,12 +764,24 @@ export class ChatGPTPromptAutocompleteController {
         const textarea = this.root?.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]');
         if (!textarea) return;
         const marker = '{{cursor}}';
+        if (textarea.value.includes(marker)) {
+            this.syncCursorPlaceholderButtonState();
+            return;
+        }
         const start = textarea.selectionStart ?? textarea.value.length;
         const end = textarea.selectionEnd ?? start;
         textarea.value = `${textarea.value.slice(0, start)}${marker}${textarea.value.slice(end)}`;
         const nextCursor = start + marker.length;
         textarea.setSelectionRange(nextCursor, nextCursor);
         textarea.focus();
+        this.syncCursorPlaceholderButtonState();
+    }
+
+    private syncCursorPlaceholderButtonState(): void {
+        const textarea = this.root?.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]');
+        const button = this.root?.querySelector<HTMLButtonElement>('[data-action="insert-cursor-placeholder"]');
+        if (!textarea || !button) return;
+        button.disabled = textarea.value.includes('{{cursor}}');
     }
 
     private findPrompt(id: string | undefined): PromptRecord | null {
@@ -559,10 +790,10 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private async insertPrompt(prompt: PromptRecord, token: PromptTriggerToken | null): Promise<void> {
-        const read = readComposer(this.adapter);
+        const read = readComposer(this.getActiveComposerAdapter());
         if (!read.ok) return;
         const range = this.createReplacementRange(read.text, prompt.content, token);
-        const result = await replaceComposerTextRange(this.adapter, range, { focus: true });
+        const result = await replaceComposerTextRange(this.getActiveComposerAdapter(), range, { focus: true });
         if (!result.ok) return;
         void this.client.recordUse(prompt.id).catch(() => undefined);
         this.dismissedTokenKey = null;
@@ -605,40 +836,259 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private positionNear(anchor: HTMLElement | null, preferred: 'above' | 'below'): void {
-        if (!this.host) return;
-        const width = Math.min(420, Math.max(300, window.innerWidth - 32));
-        const height = this.mode === 'autocomplete' ? 220 : 520;
+        if (!this.host || !this.root) return;
+        const { width, height } = this.applyPopoverGeometry();
+        const viewport = this.getViewportFrame();
         const rect = anchor?.getBoundingClientRect?.();
-        const fallbackLeft = Math.max(16, window.innerWidth - width - 16);
-        const fallbackTop = Math.max(16, window.innerHeight - height - 64);
+        const fallbackLeft = Math.max(viewport.left + POPOVER_MARGIN_PX, viewport.right - width - POPOVER_MARGIN_PX);
+        const fallbackTop = Math.max(viewport.top + POPOVER_MARGIN_PX, viewport.bottom - height - (POPOVER_MARGIN_PX * 4));
         if (!rect) {
             this.host.style.left = `${fallbackLeft}px`;
             this.host.style.top = `${fallbackTop}px`;
-            this.host.style.width = `${width}px`;
             return;
         }
-        const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
-        const aboveTop = rect.top - height - 8;
-        const belowTop = rect.bottom + 8;
-        const canFitAbove = aboveTop >= 16;
-        const preferredTop = preferred === 'above' && canFitAbove ? aboveTop : belowTop;
-        const top = Math.max(16, Math.min(preferredTop, window.innerHeight - height - 16));
-        this.host.style.left = `${left}px`;
-        this.host.style.top = `${top}px`;
-        this.host.style.width = `${width}px`;
+        const rawLeft = this.mode === 'autocomplete' ? rect.left : rect.right - width;
+        const maxLeft = Math.max(viewport.left + POPOVER_MARGIN_PX, viewport.right - width - POPOVER_MARGIN_PX);
+        const left = Math.max(viewport.left + POPOVER_MARGIN_PX, Math.min(rawLeft, maxLeft));
+        const aboveTop = rect.top - height - POPOVER_GAP_PX;
+        const belowTop = rect.bottom + POPOVER_GAP_PX;
+        const spaceAbove = rect.top - viewport.top - POPOVER_MARGIN_PX;
+        const spaceBelow = viewport.bottom - rect.bottom - POPOVER_MARGIN_PX;
+        const preferredTop = preferred === 'above'
+            ? (aboveTop >= viewport.top + POPOVER_MARGIN_PX || spaceAbove >= spaceBelow ? aboveTop : belowTop)
+            : (belowTop + height <= viewport.bottom - POPOVER_MARGIN_PX || spaceBelow >= spaceAbove ? belowTop : aboveTop);
+        const placement = this.clampManagerPlacement({ left, top: preferredTop }, width, height);
+        this.host.style.left = `${placement.left}px`;
+        this.host.style.top = `${placement.top}px`;
+    }
+
+    private resolvePopoverGeometry(): { width: number; height: number; maxHeight: number } {
+        const viewport = this.getViewportFrame();
+        const viewportWidth = Math.max(0, viewport.width);
+        const viewportHeight = Math.max(0, viewport.height);
+        const preferredWidth = this.mode === 'autocomplete' ? AUTOCOMPLETE_WIDTH_PX : MANAGER_WIDTH_PX;
+        const width = Math.min(preferredWidth, Math.max(POPOVER_MIN_WIDTH_PX, viewportWidth - (POPOVER_MARGIN_PX * 2)));
+        const viewportMaxHeight = Math.max(POPOVER_MIN_MAX_HEIGHT_PX, viewportHeight - (POPOVER_MARGIN_PX * 2));
+        const maxHeight = this.mode === 'autocomplete' ? viewportMaxHeight : Math.min(MANAGER_MAX_HEIGHT_PX, viewportMaxHeight);
+        const measuredHeight = this.root?.getBoundingClientRect().height ?? 0;
+        const fallbackHeight = this.estimatePopoverHeight(maxHeight);
+        const height = Math.min(maxHeight, Math.max(measuredHeight, fallbackHeight));
+        return { width, height, maxHeight };
+    }
+
+    private applyPopoverGeometry(): { width: number; height: number; maxHeight: number } {
+        const geometry = this.resolvePopoverGeometry();
+        if (!this.host) return geometry;
+        this.host.style.width = `${geometry.width}px`;
+        this.host.style.setProperty('--aimd-prompt-popover-max-height', `${geometry.maxHeight}px`);
+        return geometry;
+    }
+
+    private getViewportFrame(): ViewportFrame {
+        const visual = window.visualViewport;
+        const left = Number.isFinite(visual?.offsetLeft) ? visual!.offsetLeft : 0;
+        const top = Number.isFinite(visual?.offsetTop) ? visual!.offsetTop : 0;
+        const width = Math.max(0, Number.isFinite(visual?.width) ? visual!.width : (window.innerWidth || document.documentElement.clientWidth || 0));
+        const height = Math.max(0, Number.isFinite(visual?.height) ? visual!.height : (window.innerHeight || document.documentElement.clientHeight || 0));
+        return {
+            left,
+            top,
+            width,
+            height,
+            right: left + width,
+            bottom: top + height,
+        };
+    }
+
+    private clampManagerPlacement(placement: ManagerPlacement, width: number, height: number): ManagerPlacement {
+        const viewport = this.getViewportFrame();
+        const minLeft = viewport.left + POPOVER_MARGIN_PX;
+        const minTop = viewport.top + POPOVER_MARGIN_PX;
+        const maxLeft = Math.max(minLeft, viewport.right - width - POPOVER_MARGIN_PX);
+        const maxTop = Math.max(minTop, viewport.bottom - height - POPOVER_MARGIN_PX);
+        return {
+            left: Math.round(Math.max(minLeft, Math.min(placement.left, maxLeft))),
+            top: Math.round(Math.max(minTop, Math.min(placement.top, maxTop))),
+        };
+    }
+
+    private applyManagerPlacement(placement: ManagerPlacement): ManagerPlacement {
+        if (!this.host) return placement;
+        const { width, height } = this.applyPopoverGeometry();
+        const clamped = this.clampManagerPlacement(placement, width, height);
+        this.host.style.left = `${clamped.left}px`;
+        this.host.style.top = `${clamped.top}px`;
+        return clamped;
+    }
+
+    private readCurrentManagerPlacement(): ManagerPlacement {
+        const rect = this.host?.getBoundingClientRect();
+        const left = Number.parseFloat(this.host?.style.left ?? '');
+        const top = Number.parseFloat(this.host?.style.top ?? '');
+        return {
+            left: Number.isFinite(left) ? left : (rect?.left ?? POPOVER_MARGIN_PX),
+            top: Number.isFinite(top) ? top : (rect?.top ?? POPOVER_MARGIN_PX),
+        };
+    }
+
+    private clampOpenManagerPlacement(): void {
+        if (!this.host || !this.root || (this.mode !== 'manager' && this.mode !== 'edit')) return;
+        const current = this.managerPlacement ?? this.readCurrentManagerPlacement();
+        const clamped = this.applyManagerPlacement(current);
+        if (this.managerPlacement) this.managerPlacement = clamped;
+    }
+
+    private installManagerViewportClamp(): void {
+        this.managerViewportClampCleanup?.();
+        const onViewportChange = () => this.clampOpenManagerPlacement();
+        const visualViewport = window.visualViewport;
+        window.addEventListener('resize', onViewportChange);
+        visualViewport?.addEventListener('resize', onViewportChange);
+        visualViewport?.addEventListener('scroll', onViewportChange);
+        this.managerViewportClampCleanup = () => {
+            window.removeEventListener('resize', onViewportChange);
+            visualViewport?.removeEventListener('resize', onViewportChange);
+            visualViewport?.removeEventListener('scroll', onViewportChange);
+        };
+    }
+
+    private installManagerPanelDrag(): void {
+        const header = this.root?.querySelector<HTMLElement>('.prompt-header');
+        header?.addEventListener('pointerdown', (event) => this.startManagerPanelDrag(event));
+    }
+
+    private startManagerPanelDrag(event: PointerEvent): void {
+        if (!this.host || (this.mode !== 'manager' && this.mode !== 'edit')) return;
+        if (event.button !== 0 || this.isManagerPanelDragExcludedTarget(event.target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.managerPanelDragCleanup?.();
+        const start = this.readCurrentManagerPlacement();
+        const priorPlacement = this.managerPlacement;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        let moved = false;
+
+        const onMove = (moveEvent: PointerEvent) => {
+            moveEvent.preventDefault();
+            moved = true;
+            this.managerPlacement = this.applyManagerPlacement({
+                left: start.left + (moveEvent.clientX - startX),
+                top: start.top + (moveEvent.clientY - startY),
+            });
+        };
+        const onEnd = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onEnd);
+            document.removeEventListener('pointercancel', onEnd);
+            this.managerPanelDragCleanup = null;
+            if (!moved) this.managerPlacement = priorPlacement;
+        };
+
+        this.managerPanelDragCleanup = onEnd;
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onEnd, { once: true });
+        document.addEventListener('pointercancel', onEnd, { once: true });
+    }
+
+    private isManagerPanelDragExcludedTarget(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return true;
+        return !!target.closest('button, input, textarea, select, [contenteditable="true"], [data-action="reorder-prompt"], .prompt-drag-handle');
+    }
+
+    private estimatePopoverHeight(maxHeight: number): number {
+        if (this.mode === 'autocomplete') return Math.min(maxHeight, AUTOCOMPLETE_FALLBACK_HEIGHT_PX);
+        if (this.mode === 'edit') return Math.min(maxHeight, EDITOR_FALLBACK_HEIGHT_PX);
+        const promptCount = (this.promptsCache ?? []).filter((prompt) => matchesManagerQuery(prompt, this.managerQuery)).length;
+        const rowCount = Math.max(1, promptCount);
+        const statusHeight = this.statusMessage ? MANAGER_STATUS_HEIGHT_PX : 0;
+        return Math.min(maxHeight, MANAGER_FIXED_HEIGHT_PX + statusHeight + (rowCount * MANAGER_ROW_HEIGHT_PX));
     }
 
     private getCaretClientRect(): DOMRect | null {
         const input = this.getComposerInput();
+        if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
+            return this.getTextInputCaretClientRect(input);
+        }
         if (input instanceof HTMLElement && (input.isContentEditable || input.getAttribute('contenteditable') === 'true')) {
             return getContenteditableCaretClientRect(input);
         }
         return null;
     }
 
+    private getTextInputCaretClientRect(input: HTMLTextAreaElement | HTMLInputElement): DOMRect | null {
+        const position = input.selectionStart ?? input.value.length;
+        const rect = input.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        const style = window.getComputedStyle(input);
+        const mirror = document.createElement('div');
+        const marker = document.createElement('span');
+        const copyProperties = [
+            'boxSizing',
+            'borderTopWidth',
+            'borderRightWidth',
+            'borderBottomWidth',
+            'borderLeftWidth',
+            'paddingTop',
+            'paddingRight',
+            'paddingBottom',
+            'paddingLeft',
+            'fontFamily',
+            'fontSize',
+            'fontWeight',
+            'fontStyle',
+            'letterSpacing',
+            'lineHeight',
+            'textTransform',
+            'textIndent',
+            'textAlign',
+            'tabSize',
+            'wordBreak',
+        ] as const;
+
+        mirror.style.position = 'fixed';
+        mirror.style.left = '0';
+        mirror.style.top = '0';
+        mirror.style.width = `${rect.width}px`;
+        mirror.style.height = 'auto';
+        mirror.style.visibility = 'hidden';
+        mirror.style.pointerEvents = 'none';
+        mirror.style.whiteSpace = input instanceof HTMLTextAreaElement ? 'pre-wrap' : 'pre';
+        mirror.style.overflowWrap = 'break-word';
+        mirror.style.overflow = 'hidden';
+        copyProperties.forEach((property) => {
+            mirror.style[property] = style[property];
+        });
+        mirror.textContent = input.value.slice(0, position);
+        marker.dataset.aimdTextareaCaret = '1';
+        marker.textContent = TEXTAREA_CARET_MARKER;
+        mirror.appendChild(marker);
+        document.body.appendChild(mirror);
+
+        const markerLeft = marker.offsetLeft;
+        const markerTop = marker.offsetTop;
+        mirror.remove();
+
+        const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) || 16;
+        const left = rect.left + markerLeft - input.scrollLeft;
+        const top = rect.top + markerTop - input.scrollTop;
+        return {
+            x: left,
+            y: top,
+            left,
+            top,
+            width: 0,
+            height: lineHeight,
+            right: left,
+            bottom: top + lineHeight,
+            toJSON: () => ({}),
+        } as DOMRect;
+    }
+
     private positionAutocompleteNearCaret(): void {
         if (!this.host || !this.root) return;
-        const width = Math.min(420, Math.max(300, window.innerWidth - 32));
+        const { width } = this.resolvePopoverGeometry();
         this.host.style.width = `${width}px`;
         const caretRect = this.getCaretClientRect();
         if (!caretRect) {
@@ -646,10 +1096,10 @@ export class ChatGPTPromptAutocompleteController {
             return;
         }
 
-        const margin = 16;
-        const gap = 8;
+        const margin = POPOVER_MARGIN_PX;
+        const gap = POPOVER_GAP_PX;
         const measuredHeight = this.root.getBoundingClientRect().height;
-        const height = measuredHeight > 0 ? measuredHeight : 220;
+        const height = measuredHeight > 0 ? measuredHeight : AUTOCOMPLETE_FALLBACK_HEIGHT_PX;
         const maxLeft = Math.max(margin, window.innerWidth - width - margin);
         const left = Math.max(margin, Math.min(caretRect.left, maxLeft));
         const aboveTop = caretRect.top - height - gap;
@@ -679,7 +1129,9 @@ export class ChatGPTPromptAutocompleteController {
 }
 .prompt-popover {
   width: 100%;
-  max-height: min(520px, calc(100vh - var(--aimd-space-8)));
+  max-height: var(--aimd-prompt-popover-max-height, min(520px, calc(100vh - var(--aimd-space-8))));
+  min-height: 0;
+  display: grid;
   overflow: hidden;
   border: 1px solid var(--aimd-border-subtle);
   border-radius: var(--aimd-radius-lg);
@@ -689,13 +1141,32 @@ export class ChatGPTPromptAutocompleteController {
 .prompt-popover--autocomplete {
   max-height: min(240px, calc(100vh - var(--aimd-space-8)));
 }
-.prompt-list,
-.manager-list {
+.prompt-popover--manager {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+.prompt-popover--editor {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.prompt-list {
   display: grid;
   gap: var(--aimd-space-1);
   max-height: min(360px, calc(100vh - var(--aimd-space-12)));
   overflow: auto;
   padding: var(--aimd-space-2);
+}
+.manager-list {
+  display: grid;
+  gap: var(--aimd-space-1);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--aimd-space-2);
+}
+.prompt-editor-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--aimd-space-3);
 }
 .prompt-row,
 .manager-row__main {
@@ -745,6 +1216,17 @@ export class ChatGPTPromptAutocompleteController {
   font-size: var(--aimd-font-size-xs);
   font-family: var(--aimd-font-family-mono);
 }
+.prompt-enabled-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aimd-space-1);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-font-size-xs);
+  white-space: nowrap;
+}
+.prompt-enabled-toggle input {
+  accent-color: var(--aimd-interactive-primary);
+}
 .prompt-header,
 .prompt-toolbar,
 .prompt-footer {
@@ -756,6 +1238,16 @@ export class ChatGPTPromptAutocompleteController {
 }
 .prompt-header {
   border-bottom: 1px solid var(--aimd-border-subtle);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.prompt-header:active {
+  cursor: grabbing;
+}
+.prompt-header button {
+  touch-action: auto;
+  user-select: auto;
 }
 .prompt-header__title {
   display: inline-flex;
@@ -788,9 +1280,22 @@ export class ChatGPTPromptAutocompleteController {
 }
 .manager-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: var(--aimd-space-1);
+}
+.prompt-drag-handle {
+  cursor: grab;
+}
+.prompt-drag-handle:active {
+  cursor: grabbing;
+}
+.manager-row[data-dragging="1"] {
+  opacity: 0.72;
+}
+.manager-row[data-dragging="1"] .prompt-drag-handle {
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-interactive-selected);
 }
 .icon-btn,
 .primary-btn,
@@ -829,6 +1334,18 @@ export class ChatGPTPromptAutocompleteController {
   background: var(--aimd-interactive-primary);
   color: var(--aimd-text-on-primary);
 }
+.prompt-footer {
+  border-top: 1px solid var(--aimd-border-subtle);
+}
+.secondary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.secondary-btn:disabled:hover,
+.secondary-btn:disabled:focus-visible {
+  background: transparent;
+  color: var(--aimd-text-primary);
+}
 .field {
   display: grid;
   gap: var(--aimd-space-1);
@@ -839,6 +1356,8 @@ export class ChatGPTPromptAutocompleteController {
 .field textarea {
   resize: vertical;
   min-height: 132px;
+  max-height: min(320px, calc(var(--aimd-prompt-popover-max-height, 630px) - 220px));
+  overflow-y: auto;
 }
 .placeholder-row {
   display: grid;

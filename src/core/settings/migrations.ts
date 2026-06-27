@@ -122,6 +122,8 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         enterKeyNewline: Boolean((record as any).enterKeyNewline ?? DEFAULT_SETTINGS.chatgptBehavior.enterKeyNewline),
         showMessageStepper: Boolean((record as any).showMessageStepper ?? DEFAULT_SETTINGS.chatgptBehavior.showMessageStepper),
         showPageBookmarkControl: Boolean((record as any).showPageBookmarkControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPageBookmarkControl),
+        showDetachedReaderControl: Boolean((record as any).showDetachedReaderControl ?? DEFAULT_SETTINGS.chatgptBehavior.showDetachedReaderControl),
+        showPromptControl: Boolean((record as any).showPromptControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPromptControl),
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
         pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
     };

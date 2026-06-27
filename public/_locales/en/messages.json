@@ -468,11 +468,11 @@
         "description": "Message for advancedSettingsDesc"
     },
     "readerCommentPromptListLabel": {
-        "message": "User prompts",
+        "message": "Prompts",
         "description": "Message for readerCommentPromptListLabel"
     },
     "readerCommentPromptListDesc": {
-        "message": "Manage reusable prompt headers for annotation export.",
+        "message": "Open the unified Prompt manager for ChatGPT input and Reader annotations.",
         "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
@@ -943,6 +943,26 @@
         "message": "Toolbar & Page Actions",
         "description": "Message for toolbarPageActionsSettingsLabel"
     },
+    "buttonsEntrypointsSettingsLabel": {
+        "message": "Buttons & Entrypoints",
+        "description": "Message for buttonsEntrypointsSettingsLabel"
+    },
+    "buttonsEntrypointsSettingsDesc": {
+        "message": "Manage every visible AI-MarkDone button from one page.",
+        "description": "Message for buttonsEntrypointsSettingsDesc"
+    },
+    "chatgptReadingInputSettingsLabel": {
+        "message": "ChatGPT Reading & Input",
+        "description": "Message for chatgptReadingInputSettingsLabel"
+    },
+    "readerWorkflowSettingsLabel": {
+        "message": "Reader & Comment Workflow",
+        "description": "Message for readerWorkflowSettingsLabel"
+    },
+    "copyFormulaExportSettingsLabel": {
+        "message": "Copy, Formula & Export",
+        "description": "Message for copyFormulaExportSettingsLabel"
+    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT Directory",
         "description": "Message for chatgptDirectorySettingsLabel"
@@ -990,6 +1010,22 @@
     "chatgptShowPageBookmarkControlDesc": {
         "message": "Show a current-page bookmark button in the lower-right ChatGPT controls.",
         "description": "Message for chatgptShowPageBookmarkControlDesc"
+    },
+    "chatgptShowDetachedReaderControlLabel": {
+        "message": "Detached Reader Split View",
+        "description": "Message for chatgptShowDetachedReaderControlLabel"
+    },
+    "chatgptShowDetachedReaderControlDesc": {
+        "message": "Show the Split View button in the lower-right ChatGPT controls.",
+        "description": "Message for chatgptShowDetachedReaderControlDesc"
+    },
+    "chatgptShowPromptControlLabel": {
+        "message": "Prompts button",
+        "description": "Message for chatgptShowPromptControlLabel"
+    },
+    "chatgptShowPromptControlDesc": {
+        "message": "Show the Prompts button in the lower-right ChatGPT controls.",
+        "description": "Message for chatgptShowPromptControlDesc"
     },
     "chatgptArrowKeyMessageNavigationLabel": {
         "message": "Use arrow keys to move between messages",
@@ -1080,7 +1116,7 @@
         "description": "Message for noResultsTitle"
     },
     "noResultsHint": {
-        "message": "Try clearing search, platform, or folder filters.",
+        "message": "Try clearing search, type, or folder filters.",
         "description": "Message for noResultsHint"
     },
     "clearFiltersBtn": {
@@ -2539,8 +2575,12 @@
         "message": "Prompt",
         "description": "Prompt content field label"
     },
+    "promptEnabledLabel": {
+        "message": "Enabled",
+        "description": "Prompt enabled toggle label"
+    },
     "promptInsertCursorPlaceholder": {
-        "message": "Cursor position",
+        "message": "Insert cursor",
         "description": "Button label for inserting the prompt cursor placeholder"
     },
     "promptContentRequired": {

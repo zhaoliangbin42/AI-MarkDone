@@ -7,6 +7,7 @@ export type PromptLibraryClient = {
     savePrompt(prompt: Partial<PromptRecord> & { content: string }): Promise<PromptRecord>;
     deletePrompt(id: string): Promise<void>;
     restoreDefaults(): Promise<PromptRecord[]>;
+    reorderPrompts?(ids: string[]): Promise<PromptRecord[]>;
     recordUse(id: string): Promise<void>;
 };
 
@@ -49,6 +50,17 @@ export function createPromptLibraryClient(): PromptLibraryClient {
                 v: PROTOCOL_VERSION,
                 id: createRequestId(),
                 type: 'prompts:restoreDefaults',
+            });
+            if (!response.ok) throw new Error(response.error.message);
+            const prompts = (response.data as { prompts?: PromptRecord[] } | undefined)?.prompts;
+            return Array.isArray(prompts) ? prompts : [];
+        },
+        async reorderPrompts(ids) {
+            const response = await sendExtRequest({
+                v: PROTOCOL_VERSION,
+                id: createRequestId(),
+                type: 'prompts:reorder',
+                payload: { ids },
             });
             if (!response.ok) throw new Error(response.error.message);
             const prompts = (response.data as { prompts?: PromptRecord[] } | undefined)?.prompts;

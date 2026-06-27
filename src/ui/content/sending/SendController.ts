@@ -4,7 +4,7 @@ import type { ReaderCommentRecord } from '../../../services/reader/commentSessio
 import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
 import { SendModal } from './SendModal';
 import { createContentSendPort } from './contentSendPort';
-import { type SendPort, SendPopover } from './SendPopover';
+import { type SendPort, SendPopover, type SendPopoverPromptAutocompleteController } from './SendPopover';
 import type { UserThemeOverrides } from '../../../style/tokens';
 
 export class SendController {
@@ -30,6 +30,10 @@ export class SendController {
         this.popover.setThemeOverrides(this.themeOverrides);
     }
 
+    setPromptAutocompleteController(controller: SendPopoverPromptAutocompleteController | null): void {
+        this.popover.setPromptAutocompleteController(controller);
+    }
+
     isOpen(): boolean {
         return this.modal.isOpen() || this.popover.isOpen();
     }
@@ -49,7 +53,7 @@ export class SendController {
         anchor: HTMLElement;
         initialText?: string;
         commentInsert?: {
-            prompts: ReaderCommentPrompt[];
+            listReaderPrompts: () => Promise<ReaderCommentPrompt[]> | ReaderCommentPrompt[];
             template: CommentTemplateSegment[];
             promptPosition: ReaderCommentPromptPosition;
             comments: ReaderCommentRecord[];

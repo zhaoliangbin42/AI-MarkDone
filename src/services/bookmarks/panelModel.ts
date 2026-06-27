@@ -4,7 +4,6 @@ import { buildFolderTree, filterBookmarks, sortBookmarks } from '../../core/book
 
 export type BookmarksPanelState = {
     query: string;
-    platform: string;
     kind: BookmarksKindFilter;
     sortMode: BookmarksSortMode;
     selectedFolderPath: string | null;
@@ -18,7 +17,6 @@ export type BookmarksPanelViewModel = {
     bookmarks: Bookmark[];
     selectedCount: number;
     query: string;
-    platform: string;
     kind: BookmarksKindFilter;
     sortMode: BookmarksSortMode;
     selectedFolderPath: string | null;
@@ -39,7 +37,7 @@ export function computeBookmarksPanelViewModel(params: {
     });
 
     let items = params.bookmarks;
-    items = filterBookmarks({ bookmarks: items, query: state.query, platform: state.platform, kind: state.kind });
+    items = filterBookmarks({ bookmarks: items, query: state.query, kind: state.kind });
 
     if (state.selectedFolderPath) {
         const fp = PathUtils.normalize(state.selectedFolderPath);
@@ -58,7 +56,6 @@ export function computeBookmarksPanelViewModel(params: {
         bookmarks: items,
         selectedCount: state.selectedKeys.size,
         query: state.query,
-        platform: state.platform,
         kind: state.kind,
         sortMode: state.sortMode,
         selectedFolderPath: state.selectedFolderPath,

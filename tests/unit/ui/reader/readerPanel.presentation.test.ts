@@ -38,6 +38,7 @@ import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
 import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss } from '@/drivers/content/export/katexAssets';
+import { clearReaderCommentScope, saveReaderComment } from '@/services/reader/commentSession';
 
 async function flushMotionFrames(): Promise<void> {
     await new Promise<void>((resolve) => {
@@ -70,6 +71,7 @@ describe('ReaderPanel presentation', () => {
     afterEach(() => {
         vi.clearAllMocks();
         vi.useRealTimers();
+        clearReaderCommentScope('reader-panel-comments-v1');
         document.querySelector('#aimd-reader-panel-host')?.remove();
     });
 
@@ -375,10 +377,129 @@ describe('ReaderPanel presentation', () => {
             expect(onChange).toHaveBeenCalledWith({ bodyFontSizePx: 17 });
             expect(shell.getAttribute('style')).toContain('--aimd-reader-markdown-body-size: 17px');
 
+            const contentWidth = settingsPanel.querySelector<HTMLInputElement>('[data-role="reader-settings-content-width"]')!;
+            expect(contentWidth.type).toBe('range');
+            expect(contentWidth.min).toBe('480');
+            expect(contentWidth.max).toBe('1600');
+            expect(contentWidth.step).toBe('20');
+            expect(contentWidth.value).toBe('1000');
+
+            contentWidth.value = '1531';
+            contentWidth.dispatchEvent(new Event('change', { bubbles: true }));
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(onChange).toHaveBeenCalledWith({ contentMaxWidthPx: 1540 });
+            expect(settingsPanel.querySelector<HTMLElement>('[data-role="reader-settings-content-width-value"]')?.textContent).toBe('1540px');
+
             settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-detached-notice-reset"]')!.click();
             await Promise.resolve();
 
             expect(onChange).toHaveBeenCalledWith({ detachedNoticeConfirmed: false });
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('routes Reader settings Prompt management through the shared manager only', async () => {
+        const panel = new ReaderPanel();
+        const onOpenManager = vi.fn(async () => undefined);
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            detachedNoticeConfirmed: true,
+        });
+        panel.setPromptManagerController({ onOpenManager });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
+            const settingsPanel = shadow.querySelector<HTMLElement>('.panel-window--reader-settings')!;
+            const promptButton = settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-prompt-manager"]')!;
+            promptButton.click();
+            await Promise.resolve();
+
+            expect(onOpenManager).toHaveBeenCalledWith(promptButton);
+            expect(shadow.querySelector('.reader-prompt-settings')).toBeNull();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('loads current shared prompts when opening the Reader annotation copy picker', async () => {
+        clearReaderCommentScope('reader-panel-comments-v1');
+        saveReaderComment('reader-panel-comments-v1', {
+            id: 'comment-1',
+            itemId: 'a',
+            quoteText: 'alpha',
+            sourceMarkdown: '`alpha()`',
+            comment: 'Tighten wording.',
+            selectors: {
+                textQuote: { exact: 'alpha', prefix: '', suffix: '' },
+                textPosition: { start: 0, end: 5 },
+                domRange: null,
+                atomicRefs: [],
+            },
+            createdAt: 1,
+            updatedAt: 1,
+        });
+        const panel = new ReaderPanel();
+        const listReaderPrompts = vi.fn(async () => [
+            { id: 'fresh', title: 'Fresh Shared Prompt', content: 'Use the current shared prompt with a long body that should stay out of the picker row.' },
+        ]);
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            commentExport: {
+                ...DEFAULT_SETTINGS.reader.commentExport,
+                prompts: [{ id: 'legacy', title: 'Legacy Snapshot', content: 'Do not use this snapshot.' }],
+            },
+        });
+        panel.setPromptManagerController({
+            onOpenManager: vi.fn(async () => undefined),
+            listReaderPrompts,
+        });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'alpha' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(listReaderPrompts).toHaveBeenCalledTimes(1);
+            const promptItem = shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="fresh"]')!;
+            expect(promptItem.querySelector('.comment-prompt-picker__item-title')?.textContent).toBe('Fresh Shared Prompt');
+            const preview = promptItem.querySelector<HTMLElement>('.comment-prompt-picker__item-content')!;
+            expect(preview.textContent).toBe('Use the current shared prompt with a long body that should stay out of the picker row.');
+            expect(preview.textContent).not.toContain('\n');
+            expect(shadow.querySelector('.comment-prompt-picker__item[data-prompt-id="legacy"]')).toBeNull();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('does not open the retired Reader-only Prompt editor when no shared manager is available', async () => {
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            detachedNoticeConfirmed: true,
+        });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
+            const settingsPanel = shadow.querySelector<HTMLElement>('.panel-window--reader-settings')!;
+            settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-prompt-manager"]')!.click();
+            await Promise.resolve();
+
+            expect(shadow.querySelector('.reader-prompt-settings')).toBeNull();
         } finally {
             panel.hide();
         }

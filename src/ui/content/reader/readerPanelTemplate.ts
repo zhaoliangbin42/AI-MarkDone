@@ -1204,6 +1204,64 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   font: inherit;
 }
 
+.reader-settings-slider-field {
+  width: min(260px, 100%);
+  min-width: min(180px, 100%);
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(58px, auto);
+  align-items: center;
+  gap: var(--aimd-space-3);
+}
+
+.reader-settings-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--aimd-radius-full);
+  background: color-mix(in srgb, var(--aimd-border-strong) 70%, transparent);
+  outline: none;
+  cursor: pointer;
+}
+
+.reader-settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--aimd-radius-full);
+  border: 2px solid var(--aimd-bg-surface);
+  background: var(--aimd-interactive-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+}
+
+.reader-settings-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--aimd-radius-full);
+  border: 2px solid var(--aimd-bg-surface);
+  background: var(--aimd-interactive-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  cursor: pointer;
+}
+
+.reader-settings-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--aimd-focus-ring);
+}
+
+.reader-settings-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--aimd-focus-ring);
+}
+
+.reader-settings-slider__value {
+  min-width: 58px;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  font-weight: var(--aimd-font-medium);
+  text-align: right;
+  white-space: nowrap;
+}
+
 .reader-settings-toggle {
   position: relative;
   display: inline-flex;
@@ -1245,79 +1303,6 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 
 .reader-settings-toggle input:checked + .reader-settings-toggle__track::after {
   transform: translateX(18px);
-}
-
-.reader-prompt-settings {
-  overflow: hidden;
-}
-
-.reader-prompt-settings__back {
-  margin-inline-end: var(--aimd-space-1);
-}
-
-.reader-prompt-settings__back .aimd-icon {
-  transform: rotate(180deg);
-}
-
-.reader-prompt-settings__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--aimd-space-2);
-  min-height: 220px;
-}
-
-.reader-prompt-settings__row {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--aimd-space-2);
-  min-height: var(--aimd-size-control-action-panel);
-  padding: var(--aimd-space-2) var(--aimd-space-3);
-  border-radius: var(--aimd-radius-xl);
-  border: 1px solid transparent;
-  background: transparent;
-}
-
-.reader-prompt-settings__row:hover,
-.reader-prompt-settings__row:focus-within {
-  background: color-mix(in srgb, var(--aimd-button-secondary-hover) 90%, var(--aimd-surface-hover));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 20%, transparent);
-}
-
-.reader-prompt-settings__row-main {
-  all: unset;
-  display: grid;
-  gap: var(--aimd-space-1);
-  min-width: 0;
-  cursor: pointer;
-}
-
-.reader-prompt-settings__row-title {
-  color: var(--aimd-text-primary);
-  font-size: var(--aimd-text-sm);
-  font-weight: var(--aimd-font-medium);
-}
-
-.reader-prompt-settings__row-content {
-  color: var(--aimd-text-secondary);
-  font-size: var(--aimd-text-xs);
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.reader-prompt-settings__row-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--aimd-space-1);
-}
-
-.reader-prompt-settings__drag {
-  cursor: grab;
-  touch-action: none;
-  color: var(--aimd-text-secondary);
 }
 
 .reader-settings-popover__field {
@@ -1408,7 +1393,8 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 .reader-settings-template__editor:focus-visible,
 .reader-settings-popover__input:focus-visible,
 .reader-settings-popover__textarea:focus-visible,
-.reader-settings-number-input:focus-visible {
+.reader-settings-number-input:focus-visible,
+.reader-settings-slider:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 58%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);

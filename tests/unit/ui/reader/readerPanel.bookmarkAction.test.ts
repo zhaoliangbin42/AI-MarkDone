@@ -182,11 +182,15 @@ describe('ReaderPanel bookmark action injection', () => {
         `;
 
         const adapter = new ChatGPTAdapter();
+        const listReaderPrompts = vi.fn(async () => [
+            { id: 'p1', title: 'Prompt', content: 'Please revise the content according to my annotations below.' },
+        ]);
         const readerPanel = {
             show: vi.fn(async () => undefined),
             getCommentExportContext: vi.fn(() => ({
-                prompts: [{ id: 'p1', title: 'Prompt', content: 'Please revise the content according to my annotations below.' }],
+                listReaderPrompts,
                 template: [{ type: 'token', key: 'selected_source' }],
+                promptPosition: 'top',
                 comments: [],
             })),
         } as any;
@@ -216,8 +220,9 @@ describe('ReaderPanel bookmark action injection', () => {
 
         expect(sendController.togglePopover).toHaveBeenCalledTimes(1);
         expect(sendController.togglePopover.mock.calls[0][0].commentInsert).toEqual({
-            prompts: [{ id: 'p1', title: 'Prompt', content: 'Please revise the content according to my annotations below.' }],
+            listReaderPrompts,
             template: [{ type: 'token', key: 'selected_source' }],
+            promptPosition: 'top',
             comments: [],
         });
     });

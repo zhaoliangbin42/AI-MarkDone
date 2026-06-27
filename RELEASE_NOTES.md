@@ -53,7 +53,7 @@ This release narrows AI-MarkDone to ChatGPT as the only active AI page runtime, 
 
 ### Changed
 - Retired Gemini, Claude, and DeepSeek page injection, host permissions, adapters, settings toggles, popup links, and copy parity fixtures.
-- Existing saved bookmarks and backups from retired platforms remain available for viewing, filtering, export, local import, and Google Drive backup/restore.
+- Existing saved bookmarks and backups from retired platforms remain available for viewing, search, page/message filtering, export, local import, and Google Drive backup/restore.
 - Save Messages now opens with only the current message selected by default.
 - Temporarily retired the AI-MarkDone right-side navigation rail now that ChatGPT provides native conversation navigation.
 - Expanded the sponsor thank-you list and switched it to a two-column layout on wider panels.

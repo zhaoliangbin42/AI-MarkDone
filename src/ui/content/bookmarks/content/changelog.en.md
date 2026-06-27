@@ -394,7 +394,7 @@ The hardest part here was moving source copy into Reader without falling back to
 - Reader now lets you add Dynamic Annotations directly to selected content. When you select text, floating copy and annotate actions appear nearby.
 - Annotations stay linked to the original selection, remain highlighted inside Reader, and can be reopened and edited later.
 - Added an annotation export template that you can configure in `Settings > Reader > Annotations copy template`.
-- Added a Prompt Library so you can manage multiple reusable prompt headers in `Settings > Reader > User prompts`.
+- Added a Prompt Library so you can manage reusable prompts in `Settings > Reader > Prompts`.
 - Annotation results can now be copied in one click or inserted directly above the send box in the lower-left Reader input area.
 - The bookmarks panel now includes dedicated Changelog, About, and FAQ pages.
 

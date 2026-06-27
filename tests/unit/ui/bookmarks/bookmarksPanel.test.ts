@@ -56,6 +56,7 @@ import { setLocale } from '@/ui/content/components/i18n';
 import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { settingsClientRpc } from '@/drivers/shared/clients/settingsClientRpc';
 import { browser } from '@/drivers/shared/browser';
+import { markTransientRoot } from '@/ui/content/components/transientUi';
 
 function readLocaleJson(locale: 'en' | 'zh_CN'): any {
     const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
@@ -120,12 +121,12 @@ describe('BookmarksPanel', () => {
         expect(css).not.toContain('--_bookmarks-action-height:');
         expect(css).toContain('width: min(var(--aimd-panel-wide-max-width), 100%);');
         expect(css).toContain('height: min(var(--aimd-panel-wide-max-height), calc(100vh - var(--_bookmarks-panel-edge-offset)));');
-        expect(css).toContain('.platform-dropdown__option {');
-        expect(css).toContain('justify-content: flex-start;');
         expect(css).toContain('.search-field {');
         expect(css).toContain('font-size: var(--aimd-text-sm);');
-        expect(css).toContain('.platform-dropdown__label {');
-        expect(css).toContain('.platform-dropdown__option {');
+        expect(css).toContain('grid-template-columns: minmax(0, 1fr) auto;');
+        expect(css).toContain('.toolbar-row--bookmarks > .toolbar-actions {');
+        expect(css).not.toContain('grid-column: 1 / -1;');
+        expect(css).not.toContain('.platform-dropdown');
         expect(css).toContain('font-size: var(--aimd-text-sm);');
         expect(css).toContain('.tree-title-meta');
         expect(css).toContain('.tree-item:hover .tree-main--bookmark .tree-subtitle');
@@ -166,7 +167,7 @@ describe('BookmarksPanel', () => {
         expect(css).toContain('font-size: var(--aimd-text-base);');
         expect(css).toContain('font-weight: var(--aimd-font-medium);');
         expect(css).toContain('gap: var(--aimd-space-1);');
-        expect(css).not.toContain('grid-template-columns: auto minmax(0, 1fr);');
+        expect(css).not.toMatch(/\.settings-label\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);/s);
         expect(css).toContain('.settings-label__icon {');
         expect(css).toContain('.tree-label--folder {');
         expect(css).toContain('.tree-label--bookmark {');
@@ -355,7 +356,6 @@ describe('BookmarksPanel', () => {
         const aboutTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="about"]');
         const faqTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="faq"]');
         const sponsorTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="sponsor"]');
-        const platformTrigger = shadow.querySelector<HTMLButtonElement>('.platform-dropdown__trigger');
         const bookmarksPanel = shadow.querySelector<HTMLElement>('.tab-panel--bookmarks');
         const settingsPanel = shadow.querySelector<HTMLElement>('.settings-panel');
         const changelogPanel = shadow.querySelector<HTMLElement>('.changelog-panel');
@@ -386,9 +386,7 @@ describe('BookmarksPanel', () => {
         expect(sponsorPanel?.dataset.active).toBe('0');
         expect(feedbackPanel?.dataset.active).toBe('0');
         expect(panelWindow?.querySelector('.panel-footer')).toBeNull();
-
-        platformTrigger!.click();
-        expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('1');
+        expect(shadow.querySelector('.platform-dropdown')).toBeNull();
 
         settingsTabButton!.click();
 
@@ -423,7 +421,7 @@ describe('BookmarksPanel', () => {
         expect(platformIconHtml).toContain('Claude');
         expect(platformIconHtml).toContain('DeepSeek');
         expect(refreshedSettingsPanel?.querySelectorAll('.settings-card:first-child .settings-label__icon').length).toBe(4);
-        expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
+        expect(shadow.querySelector('.platform-dropdown')).toBeNull();
 
         changelogTabButton!.click();
 
@@ -1176,11 +1174,11 @@ describe('BookmarksPanel', () => {
         panel.hide();
     });
 
-    it('uses the shipped DeepSeek official icon in the platform selector even when the platform value casing differs', async () => {
+    it('renders the bookmarks toolbar without the obsolete platform filter', async () => {
         const snapshot = {
             vm: {
                 query: '',
-                platform: 'deepseek',
+                kind: 'all',
                 bookmarks: [],
                 folderTree: [],
                 selectedFolderPath: null,
@@ -1220,72 +1218,17 @@ describe('BookmarksPanel', () => {
         await panel.show();
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
-        const triggerIconHtml = shadow.querySelector('.platform-dropdown__trigger .platform-option-icon')?.innerHTML ?? '';
+        const toolbar = shadow.querySelector<HTMLElement>('.toolbar-row--bookmarks')!;
+        const search = shadow.querySelector<HTMLElement>('[data-role="bookmark-query"]')!.closest('.search-field');
+        const rightActions = toolbar.querySelector<HTMLElement>(':scope > .toolbar-actions')!;
 
-        shadow.querySelector<HTMLButtonElement>('.platform-dropdown__trigger')!.click();
-        const option = Array.from(shadow.querySelectorAll<HTMLElement>('.platform-dropdown__option'))
-            .find((node) => node.querySelector('.platform-dropdown__label')?.textContent === 'deepseek');
-        const optionIconHtml = option?.querySelector('.platform-option-icon')?.innerHTML ?? '';
-
-        expect(triggerIconHtml).toContain('DeepSeek');
-        expect(triggerIconHtml).toContain('#4D6BFE');
-        expect(optionIconHtml).toContain('DeepSeek');
-        expect(optionIconHtml).toContain('#4D6BFE');
-
-        panel.hide();
-    });
-
-    it('closes the platform menu when clicking blank space outside the dropdown', async () => {
-        const snapshot = {
-            vm: {
-                query: '',
-                platform: 'All',
-                bookmarks: [],
-                folderTree: [],
-                selectedFolderPath: null,
-                sortMode: 'time-desc',
-            },
-            folders: [],
-            folderPaths: [],
-            selectedKeys: new Set(),
-            previewId: null,
-            status: 'Ready',
-        };
-
-        const controller = {
-            subscribe: vi.fn((fn: (snap: any) => void) => {
-                fn(snapshot);
-                return () => {};
-            }),
-            refreshAll: vi.fn(async () => undefined),
-            refreshPositionsForUrl: vi.fn(async () => undefined),
-            refreshUiState: vi.fn(async () => undefined),
-            getTheme: vi.fn(() => 'light'),
-            getPlatforms: vi.fn(() => ['All', 'ChatGPT', 'DeepSeek']),
-            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
-            setQuery: vi.fn(),
-            setPlatform: vi.fn(),
-            setSortMode: vi.fn(),
-            toggleFolderExpanded: vi.fn(),
-            toggleFolderSelection: vi.fn(),
-            toggleBookmarkSelection: vi.fn(),
-            selectFolder: vi.fn(),
-            getBookmarkRowSubtitle: vi.fn(() => ''),
-            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
-            setPanelStatus: vi.fn(),
-        } as any;
-
-        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
-        await panel.show();
-
-        const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
-        shadow.querySelector<HTMLButtonElement>('.platform-dropdown__trigger')!.click();
-        expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('1');
-
-        shadow.querySelector<HTMLElement>('.tab-panel--bookmarks')!
-            .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-
-        expect(shadow.querySelector('.platform-dropdown__menu')?.getAttribute('data-open')).toBe('0');
+        expect(shadow.querySelector('.platform-dropdown')).toBeNull();
+        expect(search?.parentElement).toBe(toolbar);
+        expect(rightActions.parentElement).toBe(toolbar);
+        expect(rightActions.querySelector('[data-role="bookmark-kind-filter"]')).toBeTruthy();
+        expect(rightActions.querySelector('[data-action="toggle-sort-time"]')).toBeTruthy();
+        expect(controller.getPlatforms).not.toHaveBeenCalled();
+        expect(controller.setPlatform).not.toHaveBeenCalled();
         panel.hide();
     });
 
@@ -1584,6 +1527,64 @@ describe('BookmarksPanel', () => {
         expect(panelShell?.dataset.motionState).toBe('closing');
         panelShell?.dispatchEvent(new Event('animationend', { bubbles: true }));
         expect(document.getElementById('aimd-bookmarks-panel-host')).toBeNull();
+    });
+
+    it('does not close the panel when clicking a shared transient popover above settings', async () => {
+        const snapshot = {
+            vm: {
+                query: '',
+                platform: 'All',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Ready',
+        };
+
+        const controller = {
+            subscribe: vi.fn((fn: (snap: any) => void) => {
+                fn(snapshot);
+                return () => {};
+            }),
+            refreshAll: vi.fn(async () => undefined),
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            refreshUiState: vi.fn(async () => undefined),
+            getTheme: vi.fn(() => 'light'),
+            getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            setQuery: vi.fn(),
+            setPlatform: vi.fn(),
+            setSortMode: vi.fn(),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            toggleBookmarkSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            getBookmarkRowSubtitle: vi.fn(() => ''),
+            exportAll: vi.fn(async () => ({ ok: true, data: { payload: {} } })),
+            setPanelStatus: vi.fn(),
+        } as any;
+
+        const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
+        await panel.show();
+
+        const host = document.getElementById('aimd-bookmarks-panel-host')!;
+        const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLButtonElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
+        await flushUi();
+        const panelShell = shadow.querySelector<HTMLElement>('.panel-window--bookmarks')!;
+        const transientPopover = markTransientRoot(document.createElement('div'));
+        shadow.append(transientPopover);
+
+        transientPopover.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+
+        expect(panelShell.dataset.motionState).not.toBe('closing');
+        expect(document.getElementById('aimd-bookmarks-panel-host')).toBe(host);
+        panel.hide();
     });
 
     it('keeps the mock tree interactions intact for folder expand and folder checkbox selection', async () => {
@@ -2951,7 +2952,7 @@ describe('BookmarksPanel', () => {
         panel.hide();
     });
 
-    it('shows folder counts and expandable children from query/platform filters even when controller restores a selected folder scope', async () => {
+    it('shows folder counts and expandable children from query filters even when controller restores a selected folder scope', async () => {
         const importBookmark = {
             title: 'Import item',
             userMessage: 'Prompt A',

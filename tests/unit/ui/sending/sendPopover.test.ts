@@ -248,6 +248,40 @@ describe('SendPopover', () => {
         pop.close(shadow, { syncBack: false });
     });
 
+    it('attaches prompt autocomplete to the draft textarea while the send popover is open', () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const detach = vi.fn();
+        const promptAutocomplete = {
+            attachExternalComposer: vi.fn(() => detach),
+        };
+        const pop = new SendPopover();
+        pop.setPromptAutocompleteController(promptAutocomplete);
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: { submit: vi.fn(async () => ({ ok: true as const })) },
+            theme: 'light',
+            initialText: '\\tr',
+        });
+
+        const textarea = footerLeft.querySelector<HTMLTextAreaElement>('.send-popover__input')!;
+        expect(promptAutocomplete.attachExternalComposer).toHaveBeenCalledWith(textarea);
+
+        pop.close(shadow, { syncBack: false });
+
+        expect(detach).toHaveBeenCalledTimes(1);
+    });
+
     it('hydrates async send port drafts without overwriting local typing', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
@@ -313,7 +347,7 @@ describe('SendPopover', () => {
             theme: 'light',
             initialText: 'Hello \nworld',
             commentInsert: {
-                prompts: [
+                listReaderPrompts: async () => [
                     { id: 'strict', title: 'Strict', content: 'Review these comments:' },
                 ],
                 template: [
@@ -348,6 +382,8 @@ describe('SendPopover', () => {
 
         footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')!.click();
         await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
         const panelSurface = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
         const pickerLayer = panelSurface.querySelector<HTMLElement>('.comment-prompt-picker-layer')!;
         expect(pickerLayer.parentElement).toBe(panelSurface);
@@ -369,6 +405,55 @@ describe('SendPopover', () => {
         );
         expect(textarea.selectionStart).toBe(textarea.selectionEnd);
         expect(textarea.selectionStart).toBe(textarea.value.indexOf('world'));
+    });
+
+    it('loads reader prompts on demand and keeps picker preview text to one row', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const adapter = {
+            getComposerInputElement: () => null,
+            getComposerSendButtonElement: () => null,
+        } as any;
+        const listReaderPrompts = vi.fn(async () => [
+            { id: 'fresh', title: 'Fresh Prompt', content: 'Fresh shared prompt with {{cursor}}\na deliberately long body that should not wrap in the picker row.' },
+        ]);
+
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: createContentSendPort(adapter),
+            theme: 'light',
+            initialText: 'Draft',
+            commentInsert: {
+                listReaderPrompts,
+                template: [{ type: 'token', key: 'selected_source' }],
+                promptPosition: 'top',
+                comments: [],
+            },
+        });
+
+        footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(listReaderPrompts).toHaveBeenCalledTimes(1);
+        const panelSurface = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+        const promptItem = panelSurface.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="fresh"]')!;
+        expect(promptItem.querySelector('.comment-prompt-picker__item-title')?.textContent).toBe('Fresh Prompt');
+        const preview = promptItem.querySelector<HTMLElement>('.comment-prompt-picker__item-content')!;
+        expect(preview.textContent).toBe('Fresh shared prompt with a deliberately long body that should not wrap in the picker row.');
+        expect(preview.textContent).not.toContain('{{cursor}}');
+        expect(preview.textContent).not.toContain('\n');
     });
 
     it('keeps the insert comments action enabled when prompts are available even without reader annotations', async () => {
@@ -396,8 +481,9 @@ describe('SendPopover', () => {
             theme: 'light',
             initialText: 'Draft',
             commentInsert: {
-                prompts: [{ id: 'strict', title: 'Strict', content: 'Please revise the content according to my annotations below.' }],
+                listReaderPrompts: async () => [{ id: 'strict', title: 'Strict', content: 'Please revise the content according to my annotations below.' }],
                 template: [{ type: 'token', key: 'selected_source' }],
+                promptPosition: 'top',
                 comments: [],
             },
         });
@@ -411,6 +497,8 @@ describe('SendPopover', () => {
         expect(button?.querySelector('path[d="M12 7v6"]')).toBeTruthy();
 
         button?.click();
+        await Promise.resolve();
+        await Promise.resolve();
         await Promise.resolve();
         const panelSurface = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
         panelSurface.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!.click();
@@ -450,8 +538,9 @@ describe('SendPopover', () => {
             theme: 'light',
             initialText: 'Draft',
             commentInsert: {
-                prompts: [{ id: 'strict', title: 'Strict', content: 'Please revise the content according to my annotations below.' }],
+                listReaderPrompts: async () => [{ id: 'strict', title: 'Strict', content: 'Please revise the content according to my annotations below.' }],
                 template: [{ type: 'token', key: 'selected_source' }],
+                promptPosition: 'top',
                 comments: [],
             },
         });
@@ -461,6 +550,8 @@ describe('SendPopover', () => {
         textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
         footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
         await Promise.resolve();
 
         const promptButton = shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="strict"]')!;
@@ -479,7 +570,7 @@ describe('SendPopover', () => {
         host.remove();
     });
 
-    it('keeps the insert comments action visible but disabled when no prompts are available', () => {
+    it('shows the prompt picker empty state when the provider returns no prompts', async () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });
 
@@ -504,15 +595,23 @@ describe('SendPopover', () => {
             theme: 'light',
             initialText: '',
             commentInsert: {
-                prompts: [],
+                listReaderPrompts: async () => [],
                 template: [{ type: 'token', key: 'selected_source' }],
+                promptPosition: 'top',
                 comments: [],
             },
         });
 
         const button = footerLeft.querySelector<HTMLButtonElement>('[data-action="insert-comments"]');
         expect(button).toBeTruthy();
-        expect(button?.disabled).toBe(true);
+        expect(button?.disabled).toBe(false);
+
+        button?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(shadow.querySelector('.comment-prompt-picker__empty')?.textContent).toBe('readerCommentPromptPickerEmpty');
     });
 
     it('does not rewrite the official composer during open when reading an initial draft', async () => {

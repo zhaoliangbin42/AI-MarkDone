@@ -106,6 +106,7 @@ describe('ChatGPTMessageStepperController', () => {
         expect(onOpenDetachedReader).toHaveBeenCalledTimes(1);
         prompts.click();
         expect(onOpenPrompts).toHaveBeenCalledTimes(1);
+        expect(onOpenPrompts).toHaveBeenCalledWith(prompts);
 
         previous.click();
         await Promise.resolve();
@@ -167,6 +168,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         expect(host.dataset.visible).toBe('1');
         expect(split.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
         expect(previous.hidden).toBe(true);
         expect(next.hidden).toBe(true);
 
@@ -189,8 +191,31 @@ describe('ChatGPTMessageStepperController', () => {
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
         expect(host.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')?.hidden).toBe(true);
         expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
+    });
+
+    it('lets settings hide Split View and Prompts without hiding navigation buttons', async () => {
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+
+        controller.setDetachedReaderControlVisible(false);
+        controller.setPromptControlVisible(false);
+
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
+
+        controller.setDetachedReaderControlVisible(true);
+        controller.setPromptControlVisible(true);
+
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
     });
 
     it('toggles page bookmark state through the lower-right button', async () => {
@@ -302,6 +327,7 @@ describe('ChatGPTMessageStepperController', () => {
         const hiddenHost = document.getElementById('aimd-chatgpt-message-stepper')!;
         expect(hiddenHost).toBeTruthy();
         expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
         expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(true);
         expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(true);
 

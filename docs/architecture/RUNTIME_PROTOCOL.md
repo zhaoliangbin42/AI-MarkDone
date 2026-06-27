@@ -141,7 +141,7 @@
 
 - background 持有 Prompt Library 的 local-storage 写入权，正文存储在 `browser.storage.local` 的 `aimd:prompts:library:v1`
 - content runtime 和 Reader 只通过 `prompts:*` protocol 读取或修改 Prompt，不直接访问 storage
-- 首次读取时会 seed 4 条固定英文 v4 默认 Prompt（Humanize Text With a Skill、Turn Rough Ideas Into Prompts、Create a Reusable Skill、Translate Naturally），其中 Skill Creator 默认指向 OpenAI Codex `skill-creator` sample 目录；默认 seed 不随界面语言切换；未修改过的默认 Prompt 由 `managedDefaultId` 继续接管并可随默认集升级，用户改过的默认 Prompt 会转为用户接管并不再覆盖；真实持久化过的 Reader 旧 `commentExport.prompts` 会迁移进同一个 shared library，其中旧 Reader 未改默认只保留 `Point-by-Point Revision` 作为普通可管理 Prompt，其余未改旧默认跳过；Reader 的 `promptPosition` 和 comment template 仍保留在 reader settings 中
+- 首次读取时会 seed 4 条固定英文 v4 默认 Prompt（Humanize Text With a Skill、Turn Rough Ideas Into Prompts、Create a Reusable Skill、Translate Naturally），其中 Skill Creator 默认指向 OpenAI Codex `skill-creator` sample 目录，并要求最终输出一个自包含代码块 Prompt 来封装所有生成的 Skill 文件；默认 seed 不随界面语言切换；未修改过的默认 Prompt 由 `managedDefaultId` 继续接管，读取时会通过历史默认快照识别未编辑默认 Prompt，即使 `defaultPromptSetVersion` 未变化也会随当前默认 seed 升级；用户改过的默认 Prompt 会转为用户接管并不再覆盖；真实持久化过的 Reader 旧 `commentExport.prompts` 会迁移进同一个 shared library，其中旧 Reader 未改默认只保留 `Point-by-Point Revision` 作为普通可管理 Prompt，其余未改旧默认跳过；Reader 的 `promptPosition` 和 comment template 仍保留在 reader settings 中
 - `prompts:list` 继续兼容 `context: "composer" | "readerComment" | "all"`、`query` 与 `includeDisabled` 参数，但 Prompt 本身不再按场景分库；Reader 与 ChatGPT manager 读取同一套 prompts
 - `prompts:list`/library load 是纯读取：已规范化的 library 不会因读取被写回，已有 `updatedAt` 不会被刷新；只有默认集迁移、旧 Reader prompt 迁移或坏数据修复需要落盘
 - `prompts:save` 会规范化 title、纯文本 triggerText（保存时去掉旧 `\`/`/` 前缀）、兼容字段与 timestamps；空正文返回 `INVALID_REQUEST`；同一非空 triggerText 在不同 prompt 之间冲突时返回 `CONFLICT`
@@ -149,10 +149,12 @@
 - `prompts:restoreDefaults` 只补回缺失的内置 Prompt，不删除用户 Prompt，也不覆盖用户改过的默认 Prompt
 - `prompts:recordUse` 只记录 `lastUsedAt`，不上传、不同步、不改变 prompt 内容，也不刷新 `updatedAt`
 - `reader.commentExport.prompts` 只作为旧设置迁移输入和兼容字段；Reader picker、SendPopover、Settings、Reader 设置和 detached Reader 设置中的 Prompt 管理入口不得再把它当作运行时 Prompt 来源、数量来源或旧 Reader-only 编辑器入口
+- portable Prompt JSON import/export helpers 属于 `src/core/prompts/promptLibrary.ts` 的 core-only 合同，不新增 runtime protocol，不让 UI 直连 storage，也不改变 `prompts:*` 作为唯一运行时读写入口
 
 关键语义：
 
 - Prompt Library 是私有、本地能力；v1 不做云同步、团队共享、公共市场、文件夹或 prompt chain
+- 当前 Google Drive backup 只处理书签，不读取或写入 `aimd:prompts:library:v1`；未来如增加手动导入/导出或 Drive 同步，应消费 portable JSON 模型，而不是直接暴露完整 local storage record
 - Prompt 本身统一；ChatGPT 官方 composer 使用 Prompt 时只插入 Prompt 内容，Reader picker 与 Reader SendPopover 按需通过 `prompts:list({ context: "readerComment" })` 获取当前 enabled Prompt，再按 Reader comment template 与 `promptPosition` 拼接注释
 - triggerText 以纯文本保存和展示，用于 ChatGPT composer 与 Reader SendPopover textarea 的 `\` 联想匹配；没有 triggerText 的 Prompt 仍可在 Reader 中使用，也会出现在 Prompt manager 中
 - Prompt 内容里的 `{{cursor}}` 是 content runtime 本地插入标记，写入 ChatGPT composer 或 Reader SendPopover textarea 时会被移除并用于设置光标位置；Reader 导出会清理该标记；background 不解释该标记

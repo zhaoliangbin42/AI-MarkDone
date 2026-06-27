@@ -77,7 +77,6 @@ export class BookmarksPanelController {
 
     private state: BookmarksPanelState = {
         query: '',
-        platform: 'All',
         kind: 'all',
         sortMode: 'time-desc',
         selectedFolderPath: null,
@@ -140,7 +139,6 @@ export class BookmarksPanelController {
             folderTreeRoots: vm.folderTree.length,
             selectedKeys: this.state.selectedKeys.size,
             query: this.state.query,
-            platform: this.state.platform,
             sortMode: this.state.sortMode,
         });
         return {
@@ -241,11 +239,6 @@ export class BookmarksPanelController {
 
     setQuery(query: string): void {
         this.state.query = query;
-        this.emit();
-    }
-
-    setPlatform(platform: string): void {
-        this.state.platform = platform;
         this.emit();
     }
 
@@ -525,12 +518,6 @@ export class BookmarksPanelController {
 
     getSelectedFolderPaths(): string[] {
         return getSelectedFolderPaths(this.state.selectedKeys);
-    }
-
-    getPlatforms(): string[] {
-        const set = new Set<string>();
-        this.bookmarks.forEach((b) => set.add(b.platform || 'ChatGPT'));
-        return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
     }
 
     getSortModes(): Array<{ id: BookmarksSortMode; label: string }> {

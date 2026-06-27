@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { attachDialogKeyboardScope } from '@/ui/content/components/dialogKeyboardScope';
+import { markTransientRoot } from '@/ui/content/components/transientUi';
 
 describe('attachDialogKeyboardScope', () => {
     it('calls onEscape and ignores composing ESC', () => {
@@ -77,5 +78,35 @@ describe('attachDialogKeyboardScope', () => {
         handle.detach();
         root.remove();
         outside.remove();
+    });
+
+    it('does not steal focus from a shared transient popover outside the root', async () => {
+        const root = document.createElement('div');
+        root.tabIndex = -1;
+        const panelInput = document.createElement('input');
+        root.appendChild(panelInput);
+        document.body.appendChild(root);
+
+        const transient = markTransientRoot(document.createElement('div'));
+        const promptInput = document.createElement('input');
+        transient.appendChild(promptInput);
+        document.body.appendChild(transient);
+
+        const handle = attachDialogKeyboardScope({ root, onEscape: () => {} });
+
+        promptInput.focus();
+        promptInput.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+        await Promise.resolve();
+
+        expect(document.activeElement).toBe(promptInput);
+
+        root.appendChild(document.createElement('span'));
+        await Promise.resolve();
+
+        expect(document.activeElement).toBe(promptInput);
+
+        handle.detach();
+        root.remove();
+        transient.remove();
     });
 });

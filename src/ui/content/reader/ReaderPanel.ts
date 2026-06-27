@@ -104,8 +104,18 @@ export type ReaderPanelSettingsController = {
     onChange: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
 };
 
+export type ReaderCommentPromptProvider = () => Promise<ReaderCommentExportSettings['prompts']> | ReaderCommentExportSettings['prompts'];
+
+export type ReaderCommentExportContext = {
+    comments: ReaderCommentRecord[];
+    listReaderPrompts: ReaderCommentPromptProvider;
+    template: ReaderCommentExportSettings['template'];
+    promptPosition: ReaderCommentExportSettings['promptPosition'];
+};
+
 export type ReaderPanelPromptManagerController = {
     onOpenManager: (anchor: HTMLElement) => Promise<void> | void;
+    listReaderPrompts?: ReaderCommentPromptProvider;
 };
 
 type ReaderPanelState = {
@@ -319,11 +329,11 @@ export class ReaderPanel {
         }
     }
 
-    getCommentExportContext(): { comments: ReaderCommentRecord[]; prompts: ReaderCommentExportSettings['prompts']; template: ReaderCommentExportSettings['template']; promptPosition: ReaderCommentExportSettings['promptPosition'] } | null {
+    getCommentExportContext(): ReaderCommentExportContext | null {
         const comments = this.getCurrentComments();
         return {
             comments: comments.map((record) => ({ ...record })),
-            prompts: this.commentExportSettings.prompts.map((prompt) => ({ ...prompt })),
+            listReaderPrompts: () => this.listReaderPrompts(),
             template: this.commentExportSettings.template.map((segment) => ({ ...segment })),
             promptPosition: this.commentExportSettings.promptPosition,
         };
@@ -579,7 +589,7 @@ export class ReaderPanel {
                 await this.copyCurrent();
                 return;
             case 'reader-copy-comments':
-                this.openCommentExportPopover();
+                void this.openCommentExportPopover();
                 return;
             case 'reader-settings':
                 this.openReaderSettingsPopover();
@@ -1774,7 +1784,7 @@ export class ReaderPanel {
         });
     }
 
-    private openCommentExportPopover(): void {
+    private async openCommentExportPopover(): Promise<void> {
         if (!this.overlaySession) return;
         const comments = this.getCurrentComments();
         if (comments.length < 1) {
@@ -1782,6 +1792,8 @@ export class ReaderPanel {
             return;
         }
 
+        const prompts = await this.listReaderPrompts();
+        if (!this.overlaySession) return;
         const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
         const pickerContainer = this.overlaySession.surfaceRoot;
         const anchorButton = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy-comments"]');
@@ -1793,15 +1805,18 @@ export class ReaderPanel {
             anchorEl: anchorButton,
             placement: 'center',
             theme: this.state.theme,
-            prompts: this.commentExportSettings.prompts,
+            prompts,
             labels: {
                 title: this.getLabel('readerCommentPromptPickerTitle', 'Choose prompt'),
                 close: this.getLabel('btnClose', 'Close'),
                 empty: this.getLabel('readerCommentPromptPickerEmpty', 'No prompts available.'),
             },
             onSelect: (promptId) => {
-                const prompts = resolveReaderCommentExportPrompts(this.commentExportSettings, promptId);
-                const compiledExport = buildCommentsExport(comments, prompts);
+                const resolvedPrompts = resolveReaderCommentExportPrompts({
+                    ...this.commentExportSettings,
+                    prompts,
+                }, promptId);
+                const compiledExport = buildCommentsExport(comments, resolvedPrompts);
                 this.commentExportPopover.open({
                     shadow,
                     container,
@@ -1829,6 +1844,19 @@ export class ReaderPanel {
             },
             onClose: () => this.syncCommentUi(),
         });
+    }
+
+    private async listReaderPrompts(): Promise<ReaderCommentExportSettings['prompts']> {
+        const provider = this.promptManagerController?.listReaderPrompts;
+        if (!provider) return [];
+        try {
+            const prompts = await provider();
+            return Array.isArray(prompts)
+                ? prompts.map((prompt) => ({ ...prompt }))
+                : [];
+        } catch {
+            return [];
+        }
     }
 
     private installTransientButtonBoundary(button: HTMLElement): void {

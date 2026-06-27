@@ -1,5 +1,7 @@
 export type DialogKeyboardScopeHandle = { detach(): void };
 
+import { eventWithinTransientRoot, TRANSIENT_ROOT_ATTR } from './transientUi';
+
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
     const focusables = container.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -22,6 +24,10 @@ function elementInRoot(root: HTMLElement, el: HTMLElement | null): boolean {
     if (!el) return false;
     if (el === root) return true;
     return root.contains(el);
+}
+
+function elementInTransientRoot(el: HTMLElement | null): boolean {
+    return Boolean(el?.closest?.(`[${TRANSIENT_ROOT_ATTR}]`));
 }
 
 function findFirstFocusable(root: HTMLElement): HTMLElement | null {
@@ -55,6 +61,7 @@ export function attachDialogKeyboardScope(opts: {
         // When focus is inside a shadow tree, `document.activeElement` will be the shadow host (i.e., `root`).
         const active = document.activeElement as HTMLElement | null;
         if (elementInRoot(opts.root, active)) return;
+        if (elementInTransientRoot(active)) return;
         // Focus escaped (e.g., element removed by ESC). Bring it back.
         focusFallback();
     };
@@ -94,8 +101,10 @@ export function attachDialogKeyboardScope(opts: {
 
     const onPointerDownCapture = (e: PointerEvent) => {
         if (!opts.root.isConnected) return;
+        if (eventWithinTransientRoot(e)) return;
         const active = document.activeElement as HTMLElement | null;
         if (elementInRoot(opts.root, active)) return;
+        if (elementInTransientRoot(active)) return;
 
         // For composed events coming out of shadow DOM, `e.target` may be retargeted to the shadow host.
         // Use `composedPath()` to find the real clicked element.
@@ -117,6 +126,7 @@ export function attachDialogKeyboardScope(opts: {
     const onDocumentFocusInCapture = (e: FocusEvent) => {
         if (!opts.root.isConnected) return;
         if (!isTopMost(internalScope)) return;
+        if (eventWithinTransientRoot(e)) return;
         const target = e.target as HTMLElement | null;
         if (elementInRoot(opts.root, target)) return;
         // Focus moved outside (e.g., an input was removed, or the user clicked the page).
@@ -130,6 +140,7 @@ export function attachDialogKeyboardScope(opts: {
         // any further key events reaching the dialog root. Repair focus opportunistically.
         const active = document.activeElement as HTMLElement | null;
         if (elementInRoot(opts.root, active)) return;
+        if (elementInTransientRoot(active)) return;
         focusFallback();
     });
 

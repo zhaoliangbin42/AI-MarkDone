@@ -211,19 +211,27 @@ export class BookmarksPanel {
         const panel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.panel-window');
         if (!panel) return;
 
+        if (eventWithinTransientRoot(event)) {
+            return;
+        }
+
         if (!panel.contains(target)) {
             this.hide();
             return;
         }
 
-        if (!eventWithinTransientRoot(event)) {
-            this.bookmarksView?.dismissTransientUi?.();
-            this.settingsView?.dismissTransientUi?.();
-            this.feedbackView?.dismissTransientUi?.();
-        }
+        this.bookmarksView?.dismissTransientUi?.();
+        this.settingsView?.dismissTransientUi?.();
+        this.feedbackView?.dismissTransientUi?.();
     };
 
-    constructor(controller: BookmarksPanelController, readerPanel: ReaderPanel) {
+    constructor(
+        controller: BookmarksPanelController,
+        readerPanel: ReaderPanel,
+        private readonly options: {
+            onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
+        } = {},
+    ) {
         this.controller = controller;
         this.readerPanel = readerPanel;
     }
@@ -656,7 +664,6 @@ export class BookmarksPanel {
             visibleBookmarks: nextSnapshot.vm.bookmarks.length,
             selectedKeys: nextSnapshot.selectedKeys.size,
             query: nextSnapshot.vm.query,
-            platform: nextSnapshot.vm.platform,
         });
         return true;
     }
@@ -697,6 +704,7 @@ export class BookmarksPanel {
                 this.settingsView = new SettingsTabView({
                     modal: this.modalHost,
                     actions: this.createSettingsActions(),
+                    onOpenPromptManager: this.options.onOpenPromptManager,
                 });
             } catch (error) {
                 logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create settings tab view; keeping the shell open.', {

@@ -4,7 +4,7 @@
 
 AI-MarkDone fully supports ChatGPT. Gemini, Claude, and DeepSeek support formula copy, along with any formula image/MathML actions you have enabled.
 
-If you saved bookmarks from those platforms before, they stay in your bookmark library for viewing, filtering, export, and backup.
+If you saved bookmarks from those platforms before, they stay in your bookmark library for viewing, search, page/message filtering, export, and backup.
 
 ## What does the extension actually do, and where do I find each feature?
 
@@ -48,17 +48,17 @@ Yes.
 
 The relevant settings are here:
 
-- Settings -> Reader -> User prompts
+- Settings -> Reader -> Prompts
 - Settings -> Reader -> Annotations copy template
 
 They do different jobs:
 
-- User prompts are reusable prompt headers, such as "Please revise the following passages" or "Rewrite this in a more academic tone"
+- Prompts are reusable instructions, such as "Please revise the following passages" or "Rewrite this in a more academic tone"
 - Annotations copy template controls how each annotated item is assembled, for example whether the selected source appears before your note or after it
 
 If you want a simple setup that works well, I would start with:
 
-- two or three reusable prompt headers for your common use cases
+- two or three reusable prompts for your common use cases
 - a very plain template that shows the original text first and your annotation second
 
 That usually gives the model the clearest context.
@@ -111,7 +111,7 @@ The simplest workflow is: save first, organize later.
 Click the extension icon to open the bookmarks panel. From there you can:
 
 - search bookmarks
-- filter by platform
+- filter by page or message type
 - create folders
 - move items
 - import or export

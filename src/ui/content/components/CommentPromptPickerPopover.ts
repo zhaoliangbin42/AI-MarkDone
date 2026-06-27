@@ -89,7 +89,7 @@ function getCss(): string {
   cursor: pointer;
   display: grid;
   gap: var(--aimd-space-1);
-  padding: var(--aimd-space-3);
+  padding: var(--aimd-space-2) var(--aimd-space-3);
   border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 80%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
@@ -102,17 +102,23 @@ function getCss(): string {
 }
 
 .comment-prompt-picker__item-title {
+  display: block;
   font-size: var(--aimd-text-sm);
   line-height: 1.3;
   font-weight: var(--aimd-font-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comment-prompt-picker__item-content {
-  font-size: var(--aimd-text-xs);
-  line-height: 1.45;
+  display: block;
   color: var(--aimd-text-secondary);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  font-size: var(--aimd-text-xs);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comment-prompt-picker__empty {
@@ -161,6 +167,10 @@ function getCss(): string {
   height: var(--aimd-size-control-glyph-panel);
 }
 `;
+}
+
+function getPromptPreview(content: string): string {
+    return content.replace('{{cursor}}', '').replace(/\s+/g, ' ').trim();
 }
 
 export class CommentPromptPickerPopover {
@@ -220,12 +230,13 @@ export class CommentPromptPickerPopover {
                 button.type = 'button';
                 button.className = 'comment-prompt-picker__item';
                 button.dataset.promptId = prompt.id;
+                button.setAttribute('aria-label', prompt.title);
                 const title = document.createElement('span');
                 title.className = 'comment-prompt-picker__item-title';
                 title.textContent = prompt.title;
                 const content = document.createElement('span');
                 content.className = 'comment-prompt-picker__item-content';
-                content.textContent = prompt.content;
+                content.textContent = getPromptPreview(prompt.content);
                 button.append(title, content);
                 button.addEventListener('click', () => {
                     params.onSelect(prompt.id);

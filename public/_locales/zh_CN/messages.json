@@ -468,11 +468,11 @@
         "description": "Message for advancedSettingsDesc"
     },
     "readerCommentPromptListLabel": {
-        "message": "用户提示词",
+        "message": "Prompts",
         "description": "Message for readerCommentPromptListLabel"
     },
     "readerCommentPromptListDesc": {
-        "message": "管理用于注释导出的可复用提示词前缀。",
+        "message": "打开统一的 Prompt 管理器，同一套提示词用于 ChatGPT 输入和 Reader 注释。",
         "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
@@ -943,6 +943,26 @@
         "message": "工具栏与页面操作",
         "description": "Message for toolbarPageActionsSettingsLabel"
     },
+    "buttonsEntrypointsSettingsLabel": {
+        "message": "按钮与入口",
+        "description": "Message for buttonsEntrypointsSettingsLabel"
+    },
+    "buttonsEntrypointsSettingsDesc": {
+        "message": "集中管理 AI-MarkDone 所有可见按钮。",
+        "description": "Message for buttonsEntrypointsSettingsDesc"
+    },
+    "chatgptReadingInputSettingsLabel": {
+        "message": "ChatGPT 阅读与输入",
+        "description": "Message for chatgptReadingInputSettingsLabel"
+    },
+    "readerWorkflowSettingsLabel": {
+        "message": "Reader 与注释工作流",
+        "description": "Message for readerWorkflowSettingsLabel"
+    },
+    "copyFormulaExportSettingsLabel": {
+        "message": "复制、公式与导出",
+        "description": "Message for copyFormulaExportSettingsLabel"
+    },
     "chatgptDirectorySettingsLabel": {
         "message": "ChatGPT 目录条",
         "description": "Message for chatgptDirectorySettingsLabel"
@@ -990,6 +1010,22 @@
     "chatgptShowPageBookmarkControlDesc": {
         "message": "在 ChatGPT 页面右下角显示当前页面收藏按钮。",
         "description": "Message for chatgptShowPageBookmarkControlDesc"
+    },
+    "chatgptShowDetachedReaderControlLabel": {
+        "message": "独立阅读器 Split View",
+        "description": "Message for chatgptShowDetachedReaderControlLabel"
+    },
+    "chatgptShowDetachedReaderControlDesc": {
+        "message": "在 ChatGPT 右下角控制区显示 Split View 按钮。",
+        "description": "Message for chatgptShowDetachedReaderControlDesc"
+    },
+    "chatgptShowPromptControlLabel": {
+        "message": "Prompts 按钮",
+        "description": "Message for chatgptShowPromptControlLabel"
+    },
+    "chatgptShowPromptControlDesc": {
+        "message": "在 ChatGPT 右下角控制区显示 Prompts 按钮。",
+        "description": "Message for chatgptShowPromptControlDesc"
     },
     "chatgptArrowKeyMessageNavigationLabel": {
         "message": "使用左右方向键切换消息",
@@ -1080,7 +1116,7 @@
         "description": "Message for noResultsTitle"
     },
     "noResultsHint": {
-        "message": "尝试清空搜索、平台或文件夹过滤条件。",
+        "message": "尝试清空搜索、类型或文件夹过滤条件。",
         "description": "Message for noResultsHint"
     },
     "clearFiltersBtn": {
@@ -2539,8 +2575,12 @@
         "message": "Prompt",
         "description": "Prompt content field label"
     },
+    "promptEnabledLabel": {
+        "message": "启用",
+        "description": "Prompt enabled toggle label"
+    },
     "promptInsertCursorPlaceholder": {
-        "message": "光标位置",
+        "message": "插入光标",
         "description": "Button label for inserting the prompt cursor placeholder"
     },
     "promptContentRequired": {

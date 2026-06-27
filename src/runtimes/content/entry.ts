@@ -88,7 +88,6 @@ if (adapter) {
     const sendController = new SendController();
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
-    const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
         ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
@@ -105,31 +104,13 @@ if (adapter) {
     const chatGptComposerEnter = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTComposerEnterController(adapter)
         : null;
-    const basePromptLibraryClient = adapter.getPlatformId() === 'chatgpt'
+    const promptLibraryClient = adapter.getPlatformId() === 'chatgpt'
         ? createPromptLibraryClient()
-        : null;
-    const promptLibraryClient = basePromptLibraryClient
-        ? {
-            ...basePromptLibraryClient,
-            savePrompt: async (...args: Parameters<typeof basePromptLibraryClient.savePrompt>) => {
-                const saved = await basePromptLibraryClient.savePrompt(...args);
-                void syncReaderCommentPromptsFromLibrary();
-                return saved;
-            },
-            deletePrompt: async (...args: Parameters<typeof basePromptLibraryClient.deletePrompt>) => {
-                await basePromptLibraryClient.deletePrompt(...args);
-                void syncReaderCommentPromptsFromLibrary();
-            },
-            restoreDefaults: async (...args: Parameters<typeof basePromptLibraryClient.restoreDefaults>) => {
-                const prompts = await basePromptLibraryClient.restoreDefaults(...args);
-                void syncReaderCommentPromptsFromLibrary();
-                return prompts;
-            },
-        }
         : null;
     const chatGptPromptAutocomplete = promptLibraryClient
         ? new ChatGPTPromptAutocompleteController(adapter, promptLibraryClient)
         : null;
+    sendController.setPromptAutocompleteController(chatGptPromptAutocomplete);
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
@@ -175,6 +156,9 @@ if (adapter) {
     const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTPageWidthController()
         : null;
+    const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel, {
+        onOpenPromptManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
+    });
     const headerIcon = new HeaderIconOrchestrator(adapter, {
         onToggle: () => bookmarksPanel.toggle(),
     });
@@ -289,25 +273,14 @@ if (adapter) {
         await markDetachedReaderNoticeConfirmed();
     }
 
-    async function syncReaderCommentPromptsFromLibrary(commentExport?: typeof DEFAULT_SETTINGS.reader.commentExport): Promise<void> {
-        if (!basePromptLibraryClient) return;
-        try {
-            const prompts = await basePromptLibraryClient.listPrompts({});
-            if (prompts.length < 1) return;
-            const currentCommentExport = commentExport
-                ?? settingsClient.getCached()?.reader?.commentExport
-                ?? DEFAULT_SETTINGS.reader.commentExport;
-            readerPanel.setCommentExportSettings({
-                ...currentCommentExport,
-                prompts: prompts.map((prompt) => ({
-                    id: prompt.id,
-                    title: prompt.title,
-                    content: prompt.content,
-                })),
-            });
-        } catch (error) {
-            logger.debug('[AI-MarkDone][Prompts] Failed to sync reader comment prompts', error);
-        }
+    async function listReaderPromptsFromLibrary() {
+        if (!promptLibraryClient) return [];
+        const prompts = await promptLibraryClient.listPrompts({ context: 'readerComment' });
+        return prompts.map((prompt) => ({
+            id: prompt.id,
+            title: prompt.title,
+            content: prompt.content,
+        }));
     }
 
     const initChatGptIfNeeded = () => {
@@ -354,6 +327,8 @@ if (adapter) {
         chatGptComposerEnter?.setEnabled(Boolean(next.enterKeyNewline));
         chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
         chatGptMessageStepper?.setPageBookmarkControlVisible(Boolean(next.showPageBookmarkControl));
+        chatGptMessageStepper?.setDetachedReaderControlVisible(Boolean(next.showDetachedReaderControl));
+        chatGptMessageStepper?.setPromptControlVisible(Boolean(next.showPromptControl));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
         chatGptPageWidth?.setScale(next.pageWidthScale);
     };
@@ -404,7 +379,6 @@ if (adapter) {
     syncThemeOverrides(cachedSettings);
     if (cachedSettings?.reader) {
         readerPanel.setReaderSettings(cachedSettings.reader);
-        void syncReaderCommentPromptsFromLibrary(cachedSettings.reader.commentExport);
     }
     readerPanel.setReaderSettingsController({
         onChange: async (patch) => {
@@ -414,6 +388,7 @@ if (adapter) {
     });
     readerPanel.setPromptManagerController({
         onOpenManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
+        listReaderPrompts: listReaderPromptsFromLibrary,
     });
     mathClick.setFormulaSettings(resolveFormulaSettings(cachedSettings?.formula));
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
@@ -437,7 +412,6 @@ if (adapter) {
         if (!nextRuntimeEnabled) disableRuntime();
         syncFormulaSettings(snap.settings.formula);
         readerPanel.setReaderSettings(snap.settings.reader);
-        void syncReaderCommentPromptsFromLibrary(snap.settings.reader.commentExport);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         syncThemeOverrides(snap.settings);

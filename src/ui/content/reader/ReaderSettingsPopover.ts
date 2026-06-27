@@ -12,7 +12,6 @@ import {
 } from '../../../core/settings/types';
 import {
     createDefaultCommentTemplate,
-    createDefaultReaderCommentPrompts,
     type CommentTemplateSegment,
     type ReaderCommentExportSettings,
 } from '../../../core/settings/readerCommentExport';
@@ -23,7 +22,6 @@ import { createIcon } from '../components/Icon';
 import { t } from '../components/i18n';
 import type { ModalHost } from '../components/ModalHost';
 import { createReaderSettingsDialogShell } from './ReaderSettingsDialogShell';
-import { ReaderPromptSettingsPopover } from './ReaderPromptSettingsPopover';
 import { ReaderCommentTemplateSettingsPopover } from './ReaderCommentTemplateSettingsPopover';
 
 type ReaderSettingsPatch = Partial<AppSettings['reader']>;
@@ -43,7 +41,6 @@ export class ReaderSettingsPopover {
     private params: OpenParams | null = null;
     private settings: AppSettings['reader'] | null = null;
     private onWindowKeyDown: ((event: KeyboardEvent) => void) | null = null;
-    private readonly promptSettingsPopover = new ReaderPromptSettingsPopover();
     private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
 
     isOpen(): boolean {
@@ -51,7 +48,6 @@ export class ReaderSettingsPopover {
     }
 
     close(): void {
-        this.promptSettingsPopover.close();
         this.templateSettingsPopover.close();
         if (!this.rootEl) return;
         this.detachWindowKeyDown();
@@ -144,6 +140,8 @@ export class ReaderSettingsPopover {
                 t('readerCommentPromptListLabel'),
                 this.formatPromptSummary(settings.commentExport),
                 (anchor) => this.openPromptSettings(anchor),
+                t('btnEdit'),
+                'reader-settings-prompt-manager',
             ),
             this.createActionRow(
                 t('readerCommentTemplateSettingsLabel'),
@@ -200,20 +198,35 @@ export class ReaderSettingsPopover {
 
     private createContentWidthRow(settings: AppSettings['reader']): HTMLElement {
         const row = this.createBaseRow(t('readerContentWidthLabel'), t('readerContentWidthDesc'));
+        const control = document.createElement('div');
+        control.className = 'reader-settings-slider-field';
         const input = document.createElement('input');
-        input.className = 'reader-settings-number-input';
-        input.type = 'number';
+        input.className = 'reader-settings-slider';
+        input.type = 'range';
         input.min = String(MIN_READER_CONTENT_MAX_WIDTH_PX);
         input.max = String(MAX_READER_CONTENT_MAX_WIDTH_PX);
         input.step = String(READER_CONTENT_MAX_WIDTH_STEP_PX);
-        input.value = String(settings.contentMaxWidthPx ?? DEFAULT_READER_CONTENT_MAX_WIDTH_PX);
         input.dataset.role = 'reader-settings-content-width';
+        const value = document.createElement('span');
+        value.className = 'reader-settings-slider__value';
+        value.dataset.role = 'reader-settings-content-width-value';
+        const syncValue = (nextValue?: number) => {
+            const next = nextValue ?? normalizeReaderContentMaxWidthPx(input.value);
+            input.value = String(next);
+            value.textContent = `${next}px`;
+        };
+        syncValue(settings.contentMaxWidthPx ?? DEFAULT_READER_CONTENT_MAX_WIDTH_PX);
+        input.addEventListener('input', () => {
+            const next = normalizeReaderContentMaxWidthPx(input.value);
+            value.textContent = `${next}px`;
+        });
         input.addEventListener('change', () => {
             const next = normalizeReaderContentMaxWidthPx(input.value);
-            input.value = String(next);
+            syncValue(next);
             void this.applyPatch({ contentMaxWidthPx: next });
         });
-        row.appendChild(input);
+        control.append(input, value);
+        row.appendChild(control);
         return row;
     }
 
@@ -286,46 +299,7 @@ export class ReaderSettingsPopover {
         if (!this.rootEl || !this.params || !this.settings) return;
         if (anchor && this.params.onOpenPromptManager) {
             void this.params.onOpenPromptManager(anchor);
-            return;
         }
-        this.promptSettingsPopover.open({
-            parent: this.rootEl,
-            settings: this.settings.commentExport,
-            labels: {
-                title: t('readerCommentPromptListLabel'),
-                close: t('btnClose'),
-                addPrompt: t('readerCommentPromptAdd'),
-                restoreDefaults: t('readerCommentPromptRestoreDefaults'),
-                editPrompt: t('readerCommentPromptEdit'),
-                untitledPrompt: t('readerCommentPromptUntitled'),
-                back: t('btnBack'),
-                titleLabel: t('readerCommentPromptTitleLabel'),
-                contentLabel: t('readerCommentPromptContentLabel'),
-                titlePlaceholder: t('readerCommentPromptTitlePlaceholder'),
-                contentPlaceholder: t('readerCommentPromptContentPlaceholder'),
-                empty: t('readerCommentPromptEmpty'),
-                save: t('btnSave'),
-                cancel: t('btnCancel'),
-                delete: t('btnDelete'),
-            },
-            createPromptId: () => `prompt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-            onChange: (next) => void this.updateCommentExport(next),
-            onConfirmDelete: () => this.params!.modalHost.confirm({
-                kind: 'warning',
-                title: t('readerCommentPromptDeleteTitle'),
-                message: t('readerCommentPromptDeleteMessage'),
-                confirmText: t('btnDelete'),
-                cancelText: t('btnCancel'),
-            }),
-            onConfirmRestoreDefaults: () => this.params!.modalHost.confirm({
-                kind: 'warning',
-                title: t('readerCommentPromptRestoreDefaultsTitle'),
-                message: t('readerCommentPromptRestoreDefaultsMessage'),
-                confirmText: t('readerCommentPromptRestoreDefaults'),
-                cancelText: t('btnCancel'),
-            }),
-            onRestoreDefaults: () => createDefaultReaderCommentPrompts(),
-        });
     }
 
     private openTemplateSettings(): void {
@@ -394,9 +368,8 @@ export class ReaderSettingsPopover {
     }
 
     private formatPromptSummary(commentExport: ReaderCommentExportSettings): string {
-        const first = commentExport.prompts[0];
-        if (!first) return t('readerCommentPromptListDesc');
-        return `${first.title} · ${commentExport.prompts.length}`;
+        void commentExport;
+        return t('readerCommentPromptListDesc');
     }
 
     private formatTemplateSummary(template: CommentTemplateSegment[]): string {

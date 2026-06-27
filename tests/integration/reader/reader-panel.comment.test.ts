@@ -59,6 +59,13 @@ function installLayoutMocks(range: Range, markdownRoot: HTMLElement, unitElement
     });
 }
 
+function setReaderPromptProvider(panel: ReaderPanel, prompts: Array<{ id: string; title: string; content: string }>): void {
+    panel.setPromptManagerController({
+        onOpenManager: vi.fn(async () => undefined),
+        listReaderPrompts: async () => prompts,
+    });
+}
+
 describe('ReaderPanel comments', () => {
     beforeEach(() => {
         clearReaderCommentScope(scopeId);
@@ -146,6 +153,10 @@ describe('ReaderPanel comments', () => {
             ],
             promptPosition: 'bottom',
         });
+        setReaderPromptProvider(panel, [
+            { id: 'default', title: 'Default', content: 'Please review the following comments:' },
+            { id: 'research-review', title: 'Research review', content: 'Summarize these comments:' },
+        ]);
 
         await panel.show(
             [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
@@ -177,6 +188,8 @@ describe('ReaderPanel comments', () => {
         await Promise.resolve();
 
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
         await Promise.resolve();
         shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="research-review"]')!.click();
         await Promise.resolve();
@@ -264,6 +277,9 @@ describe('ReaderPanel comments', () => {
                 { type: 'token', key: 'user_comment' },
             ],
         });
+        setReaderPromptProvider(panel, [
+            { id: 'default', title: 'Default', content: 'Please review the following comments:' },
+        ]);
 
         await panel.show(
             [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
@@ -313,6 +329,8 @@ describe('ReaderPanel comments', () => {
 
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
         await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
 
         const pickerLayer = shadow.querySelector<HTMLElement>('.comment-prompt-picker-layer')!;
         const picker = shadow.querySelector<HTMLElement>('.comment-prompt-picker')!;
@@ -338,6 +356,10 @@ describe('ReaderPanel comments', () => {
                 { type: 'token', key: 'user_comment' },
             ],
         });
+        setReaderPromptProvider(panel, [
+            { id: 'first', title: 'First', content: 'First prompt:' },
+            { id: 'second', title: 'Second', content: 'Second prompt:' },
+        ]);
 
         await panel.show(
             [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
@@ -367,6 +389,8 @@ describe('ReaderPanel comments', () => {
         await Promise.resolve();
 
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
         await Promise.resolve();
         shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="first"]')!.click();
         await Promise.resolve();
@@ -409,6 +433,9 @@ describe('ReaderPanel comments', () => {
                 { type: 'text', value: '\n</annotation>' },
             ],
         });
+        setReaderPromptProvider(panel, [
+            { id: 'default', title: 'Default', content: 'Please revise the content according to my annotations below.' },
+        ]);
 
         await panel.show(
             [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
@@ -419,8 +446,9 @@ describe('ReaderPanel comments', () => {
         const context = panel.getCommentExportContext();
         expect(context).toBeTruthy();
         expect(context?.comments).toEqual([]);
-        expect(context?.prompts).toHaveLength(1);
-        expect(context?.prompts[0]?.content).toBe('Please revise the content according to my annotations below.');
+        await expect(context?.listReaderPrompts()).resolves.toEqual([
+            { id: 'default', title: 'Default', content: 'Please revise the content according to my annotations below.' },
+        ]);
         expect(context?.template).toHaveLength(5);
     });
 

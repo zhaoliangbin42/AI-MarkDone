@@ -2,7 +2,6 @@ import type { Bookmark, BookmarksKindFilter } from '../../../../../core/bookmark
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
-import { PlatformDropdown } from '../components/PlatformDropdown';
 import { BookmarksTreeViewport } from '../BookmarksTreeViewport';
 import { buildImportMergeReviewModalBody } from '../importMergeReview';
 import { createNoopBookmarksTabActions, type BookmarksTabActions, getMoveTargetParent } from './bookmarksTabActions';
@@ -22,7 +21,6 @@ import {
 
 type Refs = {
     query: HTMLInputElement;
-    platform: PlatformDropdown;
     kindButtons: Record<BookmarksKindFilter, HTMLButtonElement>;
     sortTimeBtn: HTMLButtonElement;
     sortAlphaBtn: HTMLButtonElement;
@@ -100,10 +98,6 @@ export class BookmarksTabView {
             this.controller.setQuery(query.value);
         });
         search.appendChild(query);
-
-        const platform = new PlatformDropdown({
-            onChange: (value) => this.controller.setPlatform(value),
-        });
 
         const kind = document.createElement('div');
         kind.className = 'bookmark-kind-filter';
@@ -185,7 +179,7 @@ export class BookmarksTabView {
         toolbarRight.className = 'toolbar-actions';
         toolbarRight.append(kind, sortGroup, actionsGroup, importFile);
 
-        toolbar.append(search, platform.getElement(), toolbarRight);
+        toolbar.append(search, toolbarRight);
 
         const batch = document.createElement('div');
         batch.className = 'batch-bar';
@@ -194,7 +188,6 @@ export class BookmarksTabView {
 
         this.refs = {
             query,
-            platform,
             kindButtons,
             sortTimeBtn,
             sortAlphaBtn,
@@ -221,12 +214,10 @@ export class BookmarksTabView {
     }
 
     dismissTransientUi(): void {
-        this.refs.platform.close();
         this.treeViewport.dismissTransientUi();
     }
 
     destroy(): void {
-        this.refs.platform.close();
         this.treeViewport.destroy();
     }
 
@@ -238,12 +229,6 @@ export class BookmarksTabView {
             this.refs.query.value = snap.vm.query;
         }
 
-        const platforms = this.controller.getPlatforms();
-        this.refs.platform.setItems(platforms.map((value) => ({
-            value,
-            label: value === 'All' ? t('allPlatforms') : value,
-        })));
-        this.refs.platform.setValue(snap.vm.platform);
         for (const [kind, button] of Object.entries(this.refs.kindButtons) as Array<[BookmarksKindFilter, HTMLButtonElement]>) {
             const selected = kind === snap.vm.kind;
             button.dataset.active = selected ? '1' : '0';

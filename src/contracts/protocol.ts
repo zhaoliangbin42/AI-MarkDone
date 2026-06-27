@@ -187,6 +187,7 @@ export type PromptsSavePayload = {
     };
 };
 export type PromptsDeletePayload = { id: string };
+export type PromptsReorderPayload = { ids: string[] };
 export type PromptsRecordUsePayload = { id: string; usedAt?: number };
 
 export type ReaderSessionSerializableItem = {
@@ -242,6 +243,7 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:save'; payload: PromptsSavePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:delete'; payload: PromptsDeletePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:restoreDefaults' }
+    | { v: ProtocolVersion; id: RequestId; type: 'prompts:reorder'; payload: PromptsReorderPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:recordUse'; payload: PromptsRecordUsePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getAll' }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
@@ -333,6 +335,7 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'prompts:save',
         'prompts:delete',
         'prompts:restoreDefaults',
+        'prompts:reorder',
         'prompts:recordUse',
         'settings:getAll',
         'settings:getCategory',
@@ -435,6 +438,11 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         const promptPayload = payload as Record<string, unknown>;
         if (type === 'prompts:delete') {
             return typeof promptPayload.id === 'string' && promptPayload.id.trim().length > 0;
+        }
+        if (type === 'prompts:reorder') {
+            return Array.isArray(promptPayload.ids)
+                && promptPayload.ids.length > 0
+                && promptPayload.ids.every((id) => typeof id === 'string' && id.trim().length > 0);
         }
         if (type === 'prompts:recordUse') {
             return (

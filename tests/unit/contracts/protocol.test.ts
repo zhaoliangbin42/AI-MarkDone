@@ -145,8 +145,40 @@ describe('protocol', () => {
         expect(isExtRequest({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
+            type: 'prompts:reorder',
+            payload: { ids: ['prompt-b', 'prompt-a'] },
+        })).toBe(true);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:reorder',
+            payload: { ids: [] },
+        })).toBe(false);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
             type: 'prompts:save',
             payload: { prompt: { id: 'missing-content', title: 'Bad' } },
+        })).toBe(false);
+    });
+
+    it('does not expose portable prompt import or export as runtime protocol actions', () => {
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:export',
+        })).toBe(false);
+
+        expect(isExtRequest({
+            v: PROTOCOL_VERSION,
+            id: createRequestId(),
+            type: 'prompts:import',
+            payload: {
+                version: 1,
+                prompts: [],
+            },
         })).toBe(false);
     });
 });

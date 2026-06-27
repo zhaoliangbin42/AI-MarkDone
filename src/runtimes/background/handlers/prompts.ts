@@ -7,9 +7,12 @@ import { backgroundStorageQueue } from '../../../drivers/background/storage/asyn
 import { loadAndNormalize } from '../../../services/settings/settingsService';
 import {
     addMissingDefaultComposerPrompts,
+    DEFAULT_PROMPT_SET_VERSION,
     filterPromptRecords,
     normalizePromptForSave,
     normalizePromptLibrary,
+    promptLibrariesEqual,
+    preparePromptForUserSave,
     type PromptListContext,
     type PromptLibraryV1,
 } from '../../../core/prompts/promptLibrary';
@@ -36,7 +39,7 @@ async function loadLibrary(): Promise<PromptLibraryV1> {
     const library = normalizePromptLibrary(existing, {
         readerCommentPrompts: await loadReaderCommentPrompts(),
     });
-    if (existing !== library) {
+    if (!promptLibrariesEqual(existing, library)) {
         await localStoragePort.set({ [STORAGE_KEYS.promptLibraryV1]: library });
     }
     return library;
@@ -58,6 +61,25 @@ function hasComposerTriggerConflict(library: PromptLibraryV1, prompt: ReturnType
     ));
 }
 
+function reorderPromptsByIds(library: PromptLibraryV1, ids: unknown): PromptLibraryV1 | null {
+    if (!Array.isArray(ids)) return null;
+    const requestedIds = ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+    if (requestedIds.length < 1) return null;
+    const seen = new Set<string>();
+    const uniqueIds = requestedIds.filter((id) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+    });
+    const promptsById = new Map(library.prompts.map((prompt) => [prompt.id, prompt]));
+    const ordered = uniqueIds
+        .map((id) => promptsById.get(id))
+        .filter((prompt): prompt is PromptLibraryV1['prompts'][number] => Boolean(prompt));
+    const orderedIds = new Set(ordered.map((prompt) => prompt.id));
+    const remaining = library.prompts.filter((prompt) => !orderedIds.has(prompt.id));
+    return { ...library, prompts: [...ordered, ...remaining] };
+}
+
 export async function handlePromptsRequest(request: ExtRequest): Promise<HandlerResult | null> {
     if (!request.type.startsWith('prompts:')) return null;
 
@@ -77,17 +99,19 @@ export async function handlePromptsRequest(request: ExtRequest): Promise<Handler
         case 'prompts:save': {
             return backgroundStorageQueue.enqueue(async () => {
                 const library = await loadLibrary();
-                const prompt = normalizePromptForSave(request.payload.prompt);
+                const normalizedPrompt = normalizePromptForSave(request.payload.prompt);
+                const existingPrompt = library.prompts.find((entry) => entry.id === normalizedPrompt.id);
+                const prompt = preparePromptForUserSave(existingPrompt, normalizedPrompt);
                 if (!prompt.content.trim()) {
                     return { response: err(request.id, request.type, 'INVALID_REQUEST', 'Prompt content is required') };
                 }
                 if (hasComposerTriggerConflict(library, prompt)) {
                     return { response: err(request.id, request.type, 'CONFLICT', 'Prompt trigger text already exists') };
                 }
-                const prompts = [
-                    ...library.prompts.filter((entry) => entry.id !== prompt.id),
-                    prompt,
-                ];
+                const existingIndex = library.prompts.findIndex((entry) => entry.id === prompt.id);
+                const prompts = existingIndex >= 0
+                    ? library.prompts.map((entry) => entry.id === prompt.id ? prompt : entry)
+                    : [...library.prompts, prompt];
                 const next = { ...library, prompts };
                 await saveLibrary(next);
                 return { response: ok(request.id, request.type, { prompt }) };
@@ -107,8 +131,20 @@ export async function handlePromptsRequest(request: ExtRequest): Promise<Handler
                 const next = {
                     ...library,
                     seededComposerDefaults: true,
+                    defaultPromptSetVersion: DEFAULT_PROMPT_SET_VERSION,
                     prompts: addMissingDefaultComposerPrompts(library.prompts),
                 };
+                await saveLibrary(next);
+                return { response: ok(request.id, request.type, { prompts: next.prompts }) };
+            });
+        }
+        case 'prompts:reorder': {
+            return backgroundStorageQueue.enqueue(async () => {
+                const library = await loadLibrary();
+                const next = reorderPromptsByIds(library, request.payload?.ids);
+                if (!next) {
+                    return { response: err(request.id, request.type, 'INVALID_REQUEST', 'Prompt order is required') };
+                }
                 await saveLibrary(next);
                 return { response: ok(request.id, request.type, { prompts: next.prompts }) };
             });
@@ -119,7 +155,7 @@ export async function handlePromptsRequest(request: ExtRequest): Promise<Handler
                 const usedAt = Number.isFinite(request.payload.usedAt) ? Number(request.payload.usedAt) : Date.now();
                 const prompts = library.prompts.map((prompt) => (
                     prompt.id === request.payload.id
-                        ? { ...prompt, lastUsedAt: usedAt, updatedAt: Math.max(prompt.updatedAt, usedAt) }
+                        ? { ...prompt, lastUsedAt: usedAt }
                         : prompt
                 ));
                 await saveLibrary({ ...library, prompts });

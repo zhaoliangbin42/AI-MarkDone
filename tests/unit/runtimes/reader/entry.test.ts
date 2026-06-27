@@ -9,6 +9,7 @@ const panelSetTheme = vi.fn();
 const panelSetThemeOverrides = vi.fn();
 const panelSetReaderSettings = vi.fn();
 const panelSetReaderSettingsController = vi.fn();
+const panelSetPromptManagerController = vi.fn();
 const panelGetCommentExportContext = vi.fn(() => null);
 const panelShow = vi.fn(async () => undefined);
 const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved title', folderPath: 'Saved/Folder' }));
@@ -20,6 +21,7 @@ const readerPanelCtor = vi.fn(function () {
         setThemeOverrides: panelSetThemeOverrides,
         setReaderSettings: panelSetReaderSettings,
         setReaderSettingsController: panelSetReaderSettingsController,
+        setPromptManagerController: panelSetPromptManagerController,
         getCommentExportContext: panelGetCommentExportContext,
         show: panelShow,
         hide: vi.fn(),
@@ -102,6 +104,27 @@ describe('detached reader runtime entry', () => {
             if (request.type === 'readerSession:draft') {
                 return { ok: true, data: { text: 'source composer draft' } };
             }
+            if (request.type === 'prompts:list') {
+                return {
+                    ok: true,
+                    data: {
+                        prompts: [
+                            {
+                                id: 'rewrite',
+                                title: 'Rewrite Clearly',
+                                content: 'Rewrite this clearly:\n{{cursor}}',
+                                triggerText: 'rewrite',
+                                contexts: ['composer', 'readerComment'],
+                                favorite: false,
+                                enabled: true,
+                                createdAt: 1,
+                                updatedAt: 1,
+                                lastUsedAt: null,
+                            },
+                        ],
+                    },
+                };
+            }
             return { ok: true, data: {} };
         });
 
@@ -129,6 +152,91 @@ describe('detached reader runtime entry', () => {
             'dark',
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
+    });
+
+    it('wires detached Reader Prompt settings to the shared Prompt manager', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = { ...DEFAULT_SETTINGS, language: 'en' };
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light',
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings } };
+            }
+            if (request.type === 'readerSession:get') {
+                return { ok: true, data: { session } };
+            }
+            if (request.type === 'readerSession:draft') {
+                return { ok: true, data: { text: 'source composer draft' } };
+            }
+            if (request.type === 'prompts:list') {
+                return {
+                    ok: true,
+                    data: {
+                        prompts: [
+                            {
+                                id: 'prompt-1',
+                                title: 'Reader shared prompt',
+                                content: 'Please review this.',
+                                triggerText: 'review',
+                                contexts: ['composer', 'readerComment'],
+                                favorite: false,
+                                enabled: true,
+                                createdAt: 1,
+                                updatedAt: 1,
+                                lastUsedAt: null,
+                            },
+                        ],
+                    },
+                };
+            }
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(panelSetPromptManagerController).toHaveBeenCalledWith(expect.objectContaining({
+            onOpenManager: expect.any(Function),
+            listReaderPrompts: expect.any(Function),
+        }));
+
+        const readerPrompts = await panelSetPromptManagerController.mock.calls[0][0].listReaderPrompts();
+        expect(readerPrompts).toEqual([
+            { id: 'prompt-1', title: 'Reader shared prompt', content: 'Please review this.' },
+        ]);
+        expect(sendExtRequest).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'prompts:list',
+            payload: { context: 'readerComment' },
+        }));
+
+        const anchor = document.createElement('button');
+        document.body.appendChild(anchor);
+        await panelSetPromptManagerController.mock.calls[0][0].onOpenManager(anchor);
+        await Promise.resolve();
+
+        expect(sendExtRequest).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'prompts:list',
+            payload: { context: 'all', includeDisabled: true },
+        }));
+        const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+        expect(host).toBeTruthy();
+        expect(host.shadowRoot?.querySelector('[data-action="insert-prompt"]')).toBeNull();
     });
 
     it('opens the shared send popover for detached send instead of using a native prompt', async () => {
@@ -159,6 +267,27 @@ describe('detached reader runtime entry', () => {
             if (request.type === 'readerSession:draft') {
                 return { ok: true, data: { text: 'source composer draft' } };
             }
+            if (request.type === 'prompts:list') {
+                return {
+                    ok: true,
+                    data: {
+                        prompts: [
+                            {
+                                id: 'rewrite',
+                                title: 'Rewrite Clearly',
+                                content: 'Rewrite this clearly:\n{{cursor}}',
+                                triggerText: 'rewrite',
+                                contexts: ['composer', 'readerComment'],
+                                favorite: false,
+                                enabled: true,
+                                createdAt: 1,
+                                updatedAt: 1,
+                                lastUsedAt: null,
+                            },
+                        ],
+                    },
+                };
+            }
             return { ok: true, data: {} };
         });
         const promptSpy = vi.spyOn(window, 'prompt');
@@ -173,6 +302,7 @@ describe('detached reader runtime entry', () => {
         expect(sendAction).toBeTruthy();
 
         const host = document.createElement('div');
+        document.body.appendChild(host);
         const shadow = host.attachShadow({ mode: 'open' });
         const panel = document.createElement('div');
         panel.className = 'panel-window panel-window--reader';
@@ -200,6 +330,16 @@ describe('detached reader runtime entry', () => {
         expect(popover).toBeTruthy();
         const input = popover!.querySelector<HTMLTextAreaElement>('[data-role="text"]')!;
         expect(input.value).toBe('source composer draft');
+        input.value = '\\re';
+        input.setSelectionRange(input.value.length, input.value.length);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        const promptHost = document.getElementById('aimd-chatgpt-prompt-popover-host');
+        expect(promptHost?.shadowRoot?.querySelector('[data-role="prompt-suggestion"]')?.textContent).toContain('Rewrite Clearly');
+
         input.value = 'hello from detached';
         popover!.querySelector<HTMLButtonElement>('[data-action="send"]')!.click();
         await Promise.resolve();
