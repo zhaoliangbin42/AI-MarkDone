@@ -1,10 +1,10 @@
 {
     "extName": {
-        "message": "AI-MarkDone — ChatGPT 导航、阅读与知识整理插件",
+        "message": "AI-MarkDone — ChatGPT Productivity Suite",
         "description": "Message for extName"
     },
     "extDescription": {
-        "message": "专注 ChatGPT 的提效插件：阅读模式、书签管理、Google Drive 备份、LaTeX 公式复制与 Markdown 导出。",
+        "message": "为 ChatGPT 工作流提速：阅读、书签、Prompts、备份与 Markdown/PDF/PNG 导出。",
         "description": "Message for extDescription"
     },
     "btnCopy": {
@@ -994,6 +994,14 @@
     "chatgptEnterKeyNewlineDesc": {
         "message": "开启后，在 ChatGPT 输入框中按 Enter 换行；发送请使用发送按钮，或在 Mac 按 Cmd + Enter、Windows 按 Ctrl + Enter。",
         "description": "Message for chatgptEnterKeyNewlineDesc"
+    },
+    "chatgptPromptAutocompleteLabel": {
+        "message": "Prompt 联想",
+        "description": "Message for chatgptPromptAutocompleteLabel"
+    },
+    "chatgptPromptAutocompleteDesc": {
+        "message": "在 ChatGPT 输入框或阅读器发送框输入 \\ 时显示 Prompt 候选。关闭后仍可手动打开 Prompts 面板。",
+        "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
         "message": "显示右下角消息切换按钮",

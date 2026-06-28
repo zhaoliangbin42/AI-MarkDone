@@ -59,7 +59,13 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(html).toContain('class="message-section"');
         expect(html).toContain('break-before: page');
         expect(html).toContain('@media print');
-        expect(html).toContain('--aimd-text-primary: #000000');
+        expect(html).toContain('#aimd-pdf-export-container {\n  --aimd-ref-color-neutral-0: #FFFFFF;');
+        expect(html).toContain('#aimd-pdf-export-container {\n  --aimd-sys-color-surface: var(--aimd-ref-color-neutral-0);');
+        expect(html).toContain('--aimd-bg-primary: var(--aimd-sys-color-surface);');
+        expect(html).toContain('--aimd-text-primary: var(--aimd-sys-color-text-primary);');
+        expect(html).toContain('html, body {\n    background: #ffffff !important;\n    color: #000000 !important;\n    color-scheme: light !important;');
+        expect(html).toContain('@page { margin: 2cm; background: #ffffff; }');
+        expect(html).not.toContain(':root {\n    /* Force high-contrast print colors');
         expect(html).not.toContain('katex-styles-bundled');
         expect(html).toContain('class="reader-markdown markdown-body"');
         expect(html).toContain('#aimd-pdf-export-container .reader-markdown {\n  font-family: inherit;');

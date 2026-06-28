@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./public/icons/icon128.png" alt="AI-MarkDone Logo" width="100" height="100">
-  <h1>AI-MarkDone — 专注 ChatGPT 的提效增强扩展</h1>
+  <h1>AI-MarkDone — ChatGPT Productivity Suite</h1>
   <p>
     <a href="https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh">
       <img src="https://img.shields.io/chrome-web-store/v/bmdhdihdbhjbkfaaainidcjbgidkbeoh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store">
@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.6.0-10A37F" alt="Version 4.6.0">
+    <img src="https://img.shields.io/badge/Version-4.7.0-10A37F" alt="Version 4.7.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -203,12 +203,14 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.6.0
-- 新增独立阅读器视图，可从 ChatGPT 页面右下角打开，绕开长消息页面卡顿。
-- 阅读器支持默认全屏、字号调节、宽度调节，并与网页内阅读器对齐发送、刷新、定位和书签链路。
-- 重构单公式 PNG/SVG/MathML 导出链路，优先复用页面已渲染公式，提升中文、下大括号和复杂公式导出稳定性。
-- 点击复制公式时，可以选择是否自动添加 `$...$` 或 `$$...$$` 数学环境。
-- 修复行内 `$$...$$` 误识别、ChatGPT 组件块外壳清理，以及公式图片导出稳定性问题。
+### 4.7.0
+- 新增本地 Prompts 面板，并支持在 ChatGPT 输入框和阅读器发送框中用 `\` 快速唤起候选。
+- 新增 Prompt 联想开关，可关闭输入 `\` 时自动出现的候选，同时保留手动打开 Prompts 面板。
+- 新增 ChatGPT 页面级收藏入口，可从右下角按钮收藏当前对话页面。
+- 新增 ChatGPT 内容宽度、目录条边距和 Enter 换行设置。
+- 复制公式和 Markdown 源码输出支持多种公式包围格式。
+- 优化 Reader 在表格、代码块等闭合 Markdown 块中的局部选区复制。
+- 修复 PDF 导出背景色跟随主题的问题，导出结果保持白底深色文字。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

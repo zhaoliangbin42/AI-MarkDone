@@ -336,6 +336,7 @@ if (adapter) {
         chatGptMessageStepper?.setPageBookmarkControlVisible(Boolean(next.showPageBookmarkControl));
         chatGptMessageStepper?.setDetachedReaderControlVisible(Boolean(next.showDetachedReaderControl));
         chatGptMessageStepper?.setPromptControlVisible(Boolean(next.showPromptControl));
+        chatGptPromptAutocomplete?.setEnabled(Boolean(next.promptAutocomplete));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
         chatGptPageWidth?.setScale(next.pageWidthScale);
     };

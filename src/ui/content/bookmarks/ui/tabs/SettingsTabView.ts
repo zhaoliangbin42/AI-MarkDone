@@ -133,6 +133,7 @@ type Refs = {
     chatgptDirectory: {
         restorePositionAfterSend: HTMLInputElement;
         enterKeyNewline: HTMLInputElement;
+        promptAutocomplete: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         showPageBookmarkControl: HTMLInputElement;
         showDetachedReaderControl: HTMLInputElement;
@@ -297,6 +298,11 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptEnterKeyNewlineLabel'),
             t('chatgptEnterKeyNewlineDesc'),
+        );
+        const chatGptPromptAutocomplete = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptPromptAutocompleteLabel'),
+            t('chatgptPromptAutocompleteDesc'),
         );
         const chatGptArrowKeyMessageNavigation = this.createToggle(
             chatGptDirectoryGroup.body,
@@ -520,6 +526,7 @@ export class SettingsTabView {
             chatgptDirectory: {
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
                 enterKeyNewline: chatGptEnterKeyNewline.input,
+                promptAutocomplete: chatGptPromptAutocomplete.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 showPageBookmarkControl: chatGptShowPageBookmarkControl.input,
                 showDetachedReaderControl: chatGptShowDetachedReaderControl.input,
@@ -562,6 +569,7 @@ export class SettingsTabView {
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
         this.refs.chatgptDirectory.enterKeyNewline.dataset.role = 'settings-chatgpt-enter-key-newline';
+        this.refs.chatgptDirectory.promptAutocomplete.dataset.role = 'settings-chatgpt-prompt-autocomplete';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.showPageBookmarkControl.dataset.role = 'settings-chatgpt-show-page-bookmark-control';
         this.refs.chatgptDirectory.showDetachedReaderControl.dataset.role = 'settings-chatgpt-show-detached-reader-control';
@@ -796,6 +804,11 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.enterKeyNewline = next;
             void this.actions.setChatGptBehaviorSettings?.({ enterKeyNewline: next });
         });
+        this.refs.chatgptDirectory.promptAutocomplete.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.promptAutocomplete.checked;
+            this.settings.chatgptBehavior.promptAutocomplete = next;
+            void this.actions.setChatGptBehaviorSettings?.({ promptAutocomplete: next });
+        });
         this.refs.chatgptDirectory.showMessageStepper.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.showMessageStepper.checked;
             this.settings.chatgptBehavior.showMessageStepper = next;
@@ -918,6 +931,7 @@ export class SettingsTabView {
         this.syncSliderValue(this.refs.export.pngPixelRatio, resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
         this.refs.chatgptDirectory.enterKeyNewline.checked = Boolean(s.chatgptBehavior.enterKeyNewline);
+        this.refs.chatgptDirectory.promptAutocomplete.checked = Boolean(s.chatgptBehavior.promptAutocomplete);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.showPageBookmarkControl.checked = Boolean(s.chatgptBehavior.showPageBookmarkControl);
         this.refs.chatgptDirectory.showDetachedReaderControl.checked = Boolean(s.chatgptBehavior.showDetachedReaderControl);
@@ -947,6 +961,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.enterKeyNewline);
+        this.syncToggle(this.refs.chatgptDirectory.promptAutocomplete);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.showPageBookmarkControl);
         this.syncToggle(this.refs.chatgptDirectory.showDetachedReaderControl);

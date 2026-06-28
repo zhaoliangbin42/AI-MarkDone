@@ -197,6 +197,7 @@ describe('settingsService', () => {
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
             showPromptControl: false,
+            promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 147,
             unrelated: true,
@@ -209,6 +210,7 @@ describe('settingsService', () => {
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
             showPromptControl: false,
+            promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
         });
@@ -228,6 +230,7 @@ describe('settingsService', () => {
             showPageBookmarkControl: true,
             showDetachedReaderControl: true,
             showPromptControl: true,
+            promptAutocomplete: true,
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
         });

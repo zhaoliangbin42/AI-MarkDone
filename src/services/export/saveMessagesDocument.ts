@@ -36,6 +36,10 @@ export function tokenCssAsRoot(theme: 'light' | 'dark'): string {
     return getTokenCss(theme).replace(/:host/g, ':root');
 }
 
+export function tokenCssAsScope(theme: 'light' | 'dark', scope: string): string {
+    return getTokenCss(theme).replace(/:host/g, scope);
+}
+
 export function renderMarkdownForPdfExport(markdown: string): string {
     return renderMarkdownToSanitizedHtml(markdown, { softBreaks: true, highlightCode: false });
 }

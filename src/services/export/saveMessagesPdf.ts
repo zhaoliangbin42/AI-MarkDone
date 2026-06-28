@@ -5,7 +5,7 @@ import {
     escapeExportHtml,
     renderMarkdownForPdfExport,
     selectTurns,
-    tokenCssAsRoot,
+    tokenCssAsScope,
     type ExportDocumentBuildOptions,
 } from './saveMessagesDocument';
 
@@ -28,23 +28,16 @@ export function buildPdfPrintPlan(
     const selected = selectTurns(turns, selectedIndices);
     if (selected.length === 0) return null;
 
-    const tokens = tokenCssAsRoot('light');
+    const tokens = tokenCssAsScope('light', `#${CONTAINER_ID}`);
     const scopedMarkdownCss = buildScopedMarkdownCss(`#${CONTAINER_ID}`);
     const baseCss = `
 ${tokens}
 
 @media print {
-  :root {
-    /* Force high-contrast print colors (legacy expectation: black text on white paper). */
-    --aimd-bg-primary: #ffffff;
-    --aimd-bg-secondary: #f6f8fa;
-    --aimd-text-primary: #000000;
-    --aimd-text-secondary: #333333;
-    --aimd-border-default: #d0d7de;
-  }
   html, body {
-    background: var(--aimd-bg-primary) !important;
-    color: var(--aimd-text-primary) !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    color-scheme: light !important;
   }
   body > *:not(#${CONTAINER_ID}) { display: none !important; }
   #${CONTAINER_ID} {
@@ -59,7 +52,7 @@ ${tokens}
   }
 }
 
-@page { margin: 2cm; }
+@page { margin: 2cm; background: #ffffff; }
 
 #${CONTAINER_ID} {
   display: none;
@@ -68,6 +61,7 @@ ${tokens}
   padding: 20px;
   background: var(--aimd-bg-primary);
   color: var(--aimd-text-primary);
+  color-scheme: light;
 }
 
 /* Base markdown styles (legacy parity; scoped to print container) */

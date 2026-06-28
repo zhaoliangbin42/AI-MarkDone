@@ -1,5 +1,65 @@
 # Changelog
 
+# 4.7.0
+2026-06-28
+
+Hi everyone. This update took a while too. It fixes a few known issues and adds several features people have been asking for: Prompt management, page bookmarks, ChatGPT width controls, Enter for new lines, extra spacing for the right-side directory rail, formula copy formats, and a cleaner PDF export background.
+
+## ==A quick note about my first iOS app: Mappamory==
+
+==Before getting back to AI-MarkDone, I want to briefly introduce my first iOS app, Mappamory. It came from a small problem that feels especially common when people move around a lot: someone grew up in one state, went to college in another, now works in a different city, and maybe still has family somewhere else. You remember the person, but the places blur. Later, when you are traveling through Austin, Seattle, Boston, or wherever, you may not remember which friend once said they lived nearby.==
+
+==Mappamory is built for that person-first kind of memory. Contacts are good for phone numbers and addresses, Notes is good for text, and Google Maps or Apple Maps are good for places. But none of them are quite made for "show me all the places connected to this person" or "who do I know around this city?" With Mappamory, you can save multiple places for a friend, classmate, client, or colleague, add tags like hometown, school, work, or favorite spot, and then open everything on a map when it becomes useful.==
+
+==Like AI-MarkDone, I want Mappamory to feel clean, quiet, and respectful. It is not a social network and it is not for tracking anyone's live location. It does not share addresses with other people, and it does not need network access. Everything comes from what you choose to record, and it stays on your phone like a private contact book with a map attached.==
+
+![Mappamory - friends map contacts](icons/mappamory-changelog-4.6.0.png)
+
+==Mappamory has just launched and is still moving quickly. If you download it before July 31, please contact me on X and I will give you a one-year redemption code. Feedback, support, and sharing are all very welcome. This app is not a random side idea for me; it comes from something I actually need, and I plan to keep maintaining it and adding more useful features.==
+
+==Download: [https://apps.apple.com/cn/app/mappamory/id6769453796](https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB)==
+
+## Prompts panel
+
+Back to AI-MarkDone. The part I most want to talk about in this release is the new Prompts panel.
+
+Many of you probably already use some kind of prompt manager. At first, I did not think AI-MarkDone needed to include one. But if one extension is needed for feature A, another for feature B, and another for feature C, the browser slowly gets crowded. Since AI-MarkDone already focuses on reading, copying, organizing, and sending long ChatGPT conversations, it makes sense to bring a lightweight prompt workflow into the same place.
+
+So this release adds a local Prompt Library. It is not a cloud service and not a prompt marketplace. It is just a small local tool for prompts you use often. You can manage them from the Prompts panel, and you can type `\` in either the ChatGPT composer or the Reader send box to quickly bring up matching prompts.
+
+I also included a few default prompts, mostly as examples for people who are still building their own workflow. If you already have your own prompts, you can skip, edit, or delete them.
+
+Two of them are the ones I find most interesting:
+
+1. Web ChatGPT can still borrow the idea of Skills. `Humanize Text With a Skill`, for example, shows the basic pattern: give ChatGPT a Skill link from GitHub, ask it to read the Skill instructions first, and then use that method to polish the text.
+2. If Skills are awkward to call directly in the browser, why not package a Skill as a Prompt? This came from my own thinking about what a Skill really is. `Create a Reusable Skill` is a small experiment around that idea: describe the Skill you want, add the workflow, steps, and constraints, and ChatGPT will try to understand that process and flatten the whole Skill into one complete Prompt. The result may include instructions, and it may even include runnable scripts. In that sense, it is a flattened form of a Skill. The basic workflow is: first use this Prompt to generate the Skill Prompt you want, then copy the generated Prompt into a new chat and run it there. In theory, the new chat should then behave according to that Skill.
+
+This is still experimental, and I have not tested every edge of it myself. Treat it as something to play with. It may not work perfectly every time, but I hope it gives people a useful idea: a Prompt does not have to be just a short instruction. It can also be a process, a set of constraints, or a small working method.
+
+As usual, I tried to keep the feature quiet. You can open Prompts from the lower-right controls, use `\` for fast insertion, hide the lower-right entry point, or separately turn off the automatic `\` suggestions while keeping the Prompts panel available manually.
+
+I will also keep sharing ChatGPT usage notes and thoughts about AI workflows on X. And one small reminder: click the extension icon from time to time. Each update includes a changelog, and I use it to explain not only what changed, but also why I made those choices.
+
+## Added
+
+- Added an option to make Enter insert a new line in the ChatGPT composer. When enabled, plain Enter adds a line break, while Cmd/Ctrl + Enter still sends. Thanks to Xiaohongshu user @Puppy Capital.
+- Added page-level bookmarks. The lower-right controls now include a bookmark button for saving the current ChatGPT conversation page. Thanks to Xiaohongshu user @Colin 的 AI 杠杆.
+- Added a ChatGPT content-width control for wider long-form reading. Thanks to Xiaohongshu user @Wesley.
+- Added right-side directory rail spacing control, useful when a browser scrollbar overlaps the rail. Thanks to Xiaohongshu users @Puppy Capital and @i-.
+- Added a local Prompts panel for managing reusable prompts. Thanks to Xiaohongshu user @谦卑于世.
+- Added `\` prompt autocomplete in both the official ChatGPT composer and the Reader send box.
+- Added a setting to turn off automatic `\` Prompt suggestions while keeping the Prompts panel available manually.
+- Added multiple formula source wrapper formats, including Markdown dollar, LaTeX bracket, raw LaTeX, equation, and equation*. Thanks to Email user @Jiangpeng Wang.
+
+## Improved
+
+- Reader selection copy is more precise. Partial selections inside tables, code blocks, and other closed blocks now copy only the selected text; the full block format is preserved only when the whole block is selected. Thanks to GitHub user @rqhu1995.
+- Markdown copy and Markdown export now apply your selected formula format at the output boundary, without changing Reader display or PDF/PNG rendering.
+
+## Fixed
+
+- Fixed PDF export inheriting the current theme background. Exported PDFs now stay white with dark text, which is better for saving and printing. Thanks to Xiaohongshu user @i-.
+
 # 4.6.0
 2026-06-18
 

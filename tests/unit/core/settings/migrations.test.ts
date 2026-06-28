@@ -28,6 +28,7 @@ describe('settings migrations', () => {
         expect(next.chatgptBehavior.showPageBookmarkControl).toBe(true);
         expect(next.chatgptBehavior.showDetachedReaderControl).toBe(true);
         expect(next.chatgptBehavior.showPromptControl).toBe(true);
+        expect(next.chatgptBehavior.promptAutocomplete).toBe(true);
         expect(next.chatgptBehavior.enterKeyNewline).toBe(false);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next.chatgptBehavior.pageWidthScale).toBe(100);
@@ -151,6 +152,7 @@ describe('settings migrations', () => {
                 showPageBookmarkControl: false,
                 showDetachedReaderControl: false,
                 showPromptControl: false,
+                promptAutocomplete: false,
                 enableArrowKeyMessageNavigation: false,
                 pageWidthScale: 147,
             },
@@ -169,6 +171,7 @@ describe('settings migrations', () => {
             showPageBookmarkControl: true,
             showDetachedReaderControl: true,
             showPromptControl: true,
+            promptAutocomplete: true,
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
         });
@@ -179,6 +182,7 @@ describe('settings migrations', () => {
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
             showPromptControl: false,
+            promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
         });

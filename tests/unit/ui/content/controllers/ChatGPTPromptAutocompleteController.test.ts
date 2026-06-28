@@ -158,6 +158,33 @@ describe('ChatGPTPromptAutocompleteController', () => {
         controller.dispose();
     });
 
+    it('does not open autocomplete or query prompts while disabled', async () => {
+        const composer = createComposer('\\re');
+        const client = {
+            listPrompts: vi.fn(async () => [createPrompt({ id: 'rewrite' })]),
+            recordUse: vi.fn(),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        controller.init();
+        controller.setEnabled(false);
+
+        composer.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        await tick();
+
+        expect(client.listPrompts).not.toHaveBeenCalled();
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        controller.dispose();
+    });
+
     it('positions autocomplete above the contenteditable caret using the rendered popover height', async () => {
         setViewport(800, 600);
         const restoreRange = installAutocompleteLayoutMock({

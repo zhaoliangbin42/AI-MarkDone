@@ -1,5 +1,24 @@
 # Release Notes
 
+## v4.7.0 (2026-06-28)
+
+This release adds a local Prompt Library, several ChatGPT page controls requested by users, more flexible formula source output, and a cleaner PDF export path.
+
+### Added
+- Added a local Prompts panel with shared `\` autocomplete in the official ChatGPT composer and the Reader send box.
+- Added a setting to turn off `\` Prompt autocomplete while keeping the Prompts panel available manually.
+- Added ChatGPT page-level bookmarks from the lower-right controls.
+- Added settings for Enter-newline behavior, ChatGPT content width, and right-side directory spacing.
+- Added separate formula source-format settings for single-formula copy and Markdown source copy/export.
+
+### Changed
+- Markdown copy and Markdown export now apply the selected formula source format only at the output boundary, without changing Reader display or PDF/PNG rendering.
+- Reader selection copy is more precise inside tables, code blocks, inline code, and other closed Markdown blocks.
+
+### Fixed
+- Fixed PDF export inheriting the current theme background; exported PDFs now keep a white background with dark text.
+- Improved Prompt manager placement, sizing, and shared behavior across Settings, Reader, Detached Reader, and ChatGPT page entries.
+
 ## v4.6.0 (2026-06-18)
 
 This release adds a detached Reader for long ChatGPT conversations, aligns Reader actions across in-page and detached modes, and improves formula export reliability for Markdown-heavy and math-heavy work.

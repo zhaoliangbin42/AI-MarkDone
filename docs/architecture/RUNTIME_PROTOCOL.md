@@ -156,7 +156,7 @@
 - Prompt Library 是私有、本地能力；v1 不做云同步、团队共享、公共市场、文件夹或 prompt chain
 - 当前 Google Drive backup 只处理书签，不读取或写入 `aimd:prompts:library:v1`；未来如增加手动导入/导出或 Drive 同步，应消费 portable JSON 模型，而不是直接暴露完整 local storage record
 - Prompt 本身统一；ChatGPT 官方 composer 使用 Prompt 时只插入 Prompt 内容，Reader picker 与 Reader SendPopover 按需通过 `prompts:list({ context: "readerComment" })` 获取当前 enabled Prompt，再按 Reader comment template 与 `promptPosition` 拼接注释
-- triggerText 以纯文本保存和展示，用于 ChatGPT composer 与 Reader SendPopover textarea 的 `\` 联想匹配；没有 triggerText 的 Prompt 仍可在 Reader 中使用，也会出现在 Prompt manager 中
+- triggerText 以纯文本保存和展示，用于 ChatGPT composer 与 Reader SendPopover textarea 的 `\` 联想匹配；没有 triggerText 的 Prompt 仍可在 Reader 中使用，也会出现在 Prompt manager 中；是否自动打开 `\` 联想由 settings 的 `chatgptBehavior.promptAutocomplete` 控制，不属于 Prompt Library record 或 `prompts:*` 协议状态
 - Prompt 内容里的 `{{cursor}}` 是 content runtime 本地插入标记，写入 ChatGPT composer 或 Reader SendPopover textarea 时会被移除并用于设置光标位置；Reader 导出会清理该标记；background 不解释该标记
 
 ### Settings
@@ -169,6 +169,8 @@
 用途：
 
 - settings 读取、分类更新、重置
+- `chatgptBehavior` 是 ChatGPT page-behavior / input-behavior 类开关的 settings SSOT；background 只通过 `settings:setCategory` 持久化该 category，content runtime 与 Reader runtime 读取规范化后的 settings 并把 `chatgptBehavior.promptAutocomplete` 同步给 `ChatGPTPromptAutocompleteController`
+- `chatgptBehavior.promptAutocomplete` 默认开启，只控制 ChatGPT composer 与 Reader SendPopover 输入 `\` 时是否自动显示候选；关闭后不读取或写入 Prompt Library，不改变 Prompt 启用状态、triggerText、排序或手动 Prompt manager 入口
 
 ### Bookmarks
 

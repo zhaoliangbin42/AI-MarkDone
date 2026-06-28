@@ -44,6 +44,7 @@ export type ChatGPTBehaviorSettings = {
     showPageBookmarkControl: boolean;
     showDetachedReaderControl: boolean;
     showPromptControl: boolean;
+    promptAutocomplete: boolean;
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
 };
@@ -159,6 +160,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         showPageBookmarkControl: true,
         showDetachedReaderControl: true,
         showPromptControl: true,
+        promptAutocomplete: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
     },

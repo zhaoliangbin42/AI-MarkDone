@@ -1,10 +1,10 @@
 {
     "extName": {
-        "message": "AI-MarkDone — ChatGPT Reader & Organizer",
+        "message": "AI-MarkDone — ChatGPT Productivity Suite",
         "description": "Message for extName"
     },
     "extDescription": {
-        "message": "AI-MarkDone for ChatGPT: reader, bookmarks, Google Drive backup, LaTeX copy, Markdown copy, and PNG/PDF export.",
+        "message": "Supercharge your ChatGPT workflow: reader, bookmarks, Prompts, and Markdown/PDF/PNG export.",
         "description": "Message for extDescription"
     },
     "btnCopy": {
@@ -994,6 +994,14 @@
     "chatgptEnterKeyNewlineDesc": {
         "message": "When enabled, pressing Enter in the ChatGPT input box inserts a new line. Send with the send button, or press Cmd + Enter on Mac and Ctrl + Enter on Windows.",
         "description": "Message for chatgptEnterKeyNewlineDesc"
+    },
+    "chatgptPromptAutocompleteLabel": {
+        "message": "Prompt autocomplete",
+        "description": "Message for chatgptPromptAutocompleteLabel"
+    },
+    "chatgptPromptAutocompleteDesc": {
+        "message": "Show Prompt suggestions when typing \\ in the ChatGPT input box or Reader send box. The Prompts panel can still be opened manually.",
+        "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
         "message": "Show lower-right message buttons",

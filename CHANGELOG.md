@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.7.0] - 2026-06-28
+
 ### Added
 - Bookmarks: Added ChatGPT page-level bookmarks from the lower-right page controls. Page bookmarks save the current conversation URL and title, appear in the existing bookmark manager, and can be filtered separately from message bookmarks.
 - Prompts: Added a unified local Prompt Library with ChatGPT composer `\` autocomplete, four default prompts for Humanizer Skill polishing, prompt optimization, Skill Creator generation, and natural translation, a lower-right Prompts button, shared Reader prompt management, safe Reader prompt migration, and Reader annotation export that reuses the same prompts.
 - Prompts: Added a portable JSON Prompt Library model and safe merge planner for future manual backup or sync work, without adding Prompt cloud sync in this version.
 - Settings: Added an optional ChatGPT “Enter inserts a new line” toggle. When enabled, plain Enter creates a newline in the ChatGPT composer, while the send button and Cmd/Ctrl + Enter still send.
+- Settings: Added a Prompt autocomplete toggle so users can turn off `\` suggestions in the ChatGPT composer and Reader send box while keeping the Prompts manager available.
 - Settings: Added a ChatGPT chat-width slider that can widen the conversation area from normal up to 200%.
 - Settings: Added a slider for ChatGPT directory right spacing so users can add extra room when browser scrollbars overlap the right-side rail.
 - Settings: Added a Buttons & Entrypoints subpage that centralizes all visible button toggles, including message toolbar actions, lower-right ChatGPT buttons, and formula hover actions.

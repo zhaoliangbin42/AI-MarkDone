@@ -143,6 +143,7 @@ async function run(): Promise<void> {
     sendPopover.setPromptAutocompleteController(promptManager);
     panel.setThemeOverrides(currentThemeOverrides);
     promptManager.setThemeOverrides(currentThemeOverrides);
+    promptManager.setEnabled(Boolean(settings.chatgptBehavior?.promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete));
     panel.setReaderSettings(settings.reader);
     panel.setReaderSettingsController({
         onChange: async (patch) => {

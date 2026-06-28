@@ -193,12 +193,14 @@ const promptAutocompleteInit = vi.fn();
 const promptAutocompleteDispose = vi.fn();
 const promptAutocompleteOpenManager = vi.fn(async () => undefined);
 const promptAutocompleteSetThemeOverrides = vi.fn();
+const promptAutocompleteSetEnabled = vi.fn();
 const promptAutocompleteCtor = vi.fn(function () {
     return {
         init: promptAutocompleteInit,
         dispose: promptAutocompleteDispose,
         openManager: promptAutocompleteOpenManager,
         setThemeOverrides: promptAutocompleteSetThemeOverrides,
+        setEnabled: promptAutocompleteSetEnabled,
     };
 });
 const pageWidthInit = vi.fn();
@@ -791,7 +793,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: false, mode: 'expanded', promptLabelMode: 'headTail', hideOfficialNavigation: true },
-                chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: false, pageWidthScale: 145 },
+                chatgptBehavior: { restorePositionAfterSend: true, enterKeyNewline: false, showMessageStepper: true, promptAutocomplete: false, enableArrowKeyMessageNavigation: false, pageWidthScale: 145 },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -849,7 +851,7 @@ describe('content runtime entry', () => {
                 },
                 export: { pngWidthPreset: 'desktop', pngCustomWidth: 920 },
                 chatgptDirectory: { enabled: true, mode: 'preview', promptLabelMode: 'head', hideOfficialNavigation: true },
-                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, enableArrowKeyMessageNavigation: true, pageWidthScale: 100 },
+                chatgptBehavior: { restorePositionAfterSend: false, enterKeyNewline: false, showMessageStepper: true, promptAutocomplete: true, enableArrowKeyMessageNavigation: true, pageWidthScale: 100 },
                 bookmarks: { sortMode: 'alpha-asc' },
                 appearance: { fontSizePx: 16, accentColor: null },
             },
@@ -862,6 +864,8 @@ describe('content runtime entry', () => {
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
         expect(composerEnterInit).toHaveBeenCalledTimes(2);
         expect(composerEnterSetEnabled).toHaveBeenLastCalledWith(false);
+        expect(promptAutocompleteSetEnabled).toHaveBeenCalledWith(false);
+        expect(promptAutocompleteSetEnabled).toHaveBeenLastCalledWith(true);
         expect(messageStepperInit).toHaveBeenCalledTimes(2);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(true);
         expect(pageWidthInit).toHaveBeenCalledTimes(2);

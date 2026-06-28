@@ -106,6 +106,7 @@ export class ChatGPTPromptAutocompleteController {
     private managerPlacement: ManagerPlacement | null = null;
     private managerPanelDragCleanup: (() => void) | null = null;
     private managerViewportClampCleanup: (() => void) | null = null;
+    private enabled = true;
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -116,7 +117,7 @@ export class ChatGPTPromptAutocompleteController {
         if (this.initialized) return;
         this.initialized = true;
         this.bindGlobalKeydown();
-        this.bindComposer();
+        if (this.enabled) this.bindComposer();
         this.observeComposerReplacements();
     }
 
@@ -127,13 +128,24 @@ export class ChatGPTPromptAutocompleteController {
             this.bindGlobalKeydown();
             this.observeComposerReplacements();
         }
-        this.bindComposer();
+        if (this.enabled) this.bindComposer();
         return () => {
             if (this.composerOverride !== input) return;
             if (this.mode === 'autocomplete') this.close();
             this.composerOverride = null;
-            this.bindComposer();
+            if (this.enabled) this.bindComposer();
         };
+    }
+
+    setEnabled(enabled: boolean): void {
+        if (this.enabled === enabled) return;
+        this.enabled = enabled;
+        if (!enabled) {
+            if (this.mode === 'autocomplete') this.close();
+            this.detachComposer();
+            return;
+        }
+        if (this.initialized) this.bindComposer();
     }
 
     dispose(): void {
@@ -243,7 +255,7 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private scheduleRebind(): void {
-        if (!this.initialized || this.rebindTimer != null) return;
+        if (!this.initialized || !this.enabled || this.rebindTimer != null) return;
         this.rebindTimer = window.setTimeout(() => {
             this.rebindTimer = null;
             this.bindComposer();
@@ -278,22 +290,26 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private onGlobalKeyDownCapture = (event: KeyboardEvent): void => {
+        if (!this.enabled) return;
         if (!this.isAutocompleteKeyEvent(event)) return;
         if (!this.isEventFromActiveComposer(event)) return;
         this.handleAutocompleteKeydown(event);
     };
 
     private onComposerInput = (): void => {
+        if (!this.enabled) return;
         if (this.composing) return;
         void this.refreshAutocomplete();
     };
 
     private onComposerKeyUp = (): void => {
+        if (!this.enabled) return;
         if (this.composing) return;
         void this.refreshAutocomplete();
     };
 
     private onComposerClick = (): void => {
+        if (!this.enabled) return;
         if (this.composing) return;
         void this.refreshAutocomplete();
     };
@@ -304,10 +320,12 @@ export class ChatGPTPromptAutocompleteController {
 
     private onCompositionEnd = (): void => {
         this.composing = false;
+        if (!this.enabled) return;
         void this.refreshAutocomplete();
     };
 
     private onComposerKeyDownCapture = (event: KeyboardEvent): void => {
+        if (!this.enabled) return;
         if (!this.isAutocompleteKeyEvent(event)) return;
         this.handleAutocompleteKeydown(event);
     };
