@@ -1,3 +1,9 @@
+import {
+    DEFAULT_FORMULA_SOURCE_FORMAT,
+    normalizeFormulaSourceFormat,
+    type FormulaSourceFormat,
+} from '../math/formulaSourceFormat';
+
 export type FormulaAssetActionSettings = {
     copyPng: boolean;
     copySvg: boolean;
@@ -8,7 +14,8 @@ export type FormulaAssetActionSettings = {
 
 export type FormulaSettings = {
     clickCopyMarkdown: boolean;
-    copyMarkdownDelimiters: boolean;
+    clickCopyFormulaFormat: FormulaSourceFormat;
+    markdownCopyFormulaFormat: FormulaSourceFormat;
     assetActions: FormulaAssetActionSettings;
     assetFontSizePx: number;
 };
@@ -27,7 +34,8 @@ export function normalizeFormulaAssetFontSizePx(value: unknown): number {
 
 export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
     clickCopyMarkdown: true,
-    copyMarkdownDelimiters: true,
+    clickCopyFormulaFormat: DEFAULT_FORMULA_SOURCE_FORMAT,
+    markdownCopyFormulaFormat: DEFAULT_FORMULA_SOURCE_FORMAT,
     assetActions: {
         copyPng: false,
         copySvg: false,
@@ -37,3 +45,13 @@ export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
     },
     assetFontSizePx: DEFAULT_FORMULA_ASSET_FONT_SIZE_PX,
 };
+
+export function normalizeLegacyClickCopyFormulaFormat(record: Record<string, unknown>): FormulaSourceFormat {
+    if ('clickCopyFormulaFormat' in record) {
+        return normalizeFormulaSourceFormat(record.clickCopyFormulaFormat);
+    }
+    if ('copyMarkdownDelimiters' in record) {
+        return record.copyMarkdownDelimiters === false ? 'raw' : DEFAULT_FORMULA_SOURCE_FORMAT;
+    }
+    return DEFAULT_FORMULA_SETTINGS.clickCopyFormulaFormat;
+}

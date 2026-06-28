@@ -12,6 +12,7 @@ import { createDetachedReaderSendPort } from '../../ui/content/sending/detachedR
 import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
 import { ChatGPTPromptAutocompleteController } from '../../ui/content/controllers/ChatGPTPromptAutocompleteController';
 import type { ReaderItem } from '../../services/reader/types';
+import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
 import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
 type ReaderSessionRecord = {
@@ -118,6 +119,7 @@ async function run(): Promise<void> {
     }
 
     let settings = await loadSettings();
+    setReaderMarkdownCopyFormulaFormat(settings.formula.markdownCopyFormulaFormat);
     await setLocale(settings.language ?? DEFAULT_SETTINGS.language);
     let currentThemeOverrides = getThemeOverrides(settings);
     ensurePageTokens(currentThemeOverrides);

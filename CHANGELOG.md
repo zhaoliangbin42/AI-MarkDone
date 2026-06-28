@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added a slider for ChatGPT directory right spacing so users can add extra room when browser scrollbars overlap the right-side rail.
 - Settings: Added a Buttons & Entrypoints subpage that centralizes all visible button toggles, including message toolbar actions, lower-right ChatGPT buttons, and formula hover actions.
 - Settings: Added Reader workflow controls to the bookmark settings page while keeping Reader-only display controls inside the Reader settings dialog.
+- Formula: Added separate formula source format choices for clicking a single formula and for copying or saving Markdown source, with Markdown dollar, LaTeX bracket, raw LaTeX, equation, and equation* formats.
 
 ### Changed
 - Bookmarks: Removed the obsolete platform filter from the bookmarks manager and kept search, page/message filtering, sorting, and import/export actions on one toolbar row.
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prompts: Unmodified built-in prompts stay managed and can receive default seed updates, including same-version pre-release text changes, while edited defaults become user-owned prompts and are no longer overwritten.
 - Prompts: The Skill Creator default now points to the full OpenAI Codex sample Skill package and asks for one self-contained code-block prompt that embeds every generated Skill file, while legacy Reader migration keeps the point-by-point annotation prompt without restoring the other untouched Reader defaults.
 - Reader: The Reader content width control is now a bounded slider instead of a numeric field.
+- Formula: Markdown copy and Markdown export now apply the selected formula source format at the source-output boundary without changing Reader display or PDF/PNG rendering.
 
 ### Fixed
 - Prompts: The Settings, Reader, Detached Reader, and lower-right ChatGPT entries now open the same Prompt manager, row clicks edit prompts consistently, stale legacy Reader prompt counts are gone, and the manager stays fixed-width with internal scrolling so it is not clipped by the bottom of the page or by a resized editor textarea.

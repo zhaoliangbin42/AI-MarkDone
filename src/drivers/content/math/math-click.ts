@@ -3,6 +3,12 @@ import { extractLatexSource } from '../../../core/latex/extractLatexSource';
 import { copyTextToClipboard } from '../clipboard/clipboard';
 import { getDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import type { MarkdownParserAdapter } from '../adapters/parser/MarkdownParserAdapter';
+import {
+    DEFAULT_FORMULA_SOURCE_FORMAT,
+    formatFormulaSource,
+    normalizeFormulaSourceFormat,
+    type FormulaSourceFormat,
+} from '../../../core/math/formulaSourceFormat';
 
 const STYLE_ID = 'aimd-math-click-style';
 function ensureMathClickStyle(): void {
@@ -38,7 +44,7 @@ export type MathClickHandlerOptions = {
     onFormulaHoverLeave?: () => void;
     onFormulaDisable?: () => void;
     clickCopyMarkdown?: boolean;
-    copyMarkdownDelimiters?: boolean;
+    clickCopyFormulaFormat?: FormulaSourceFormat;
     parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
 };
 
@@ -65,8 +71,8 @@ export class MathClickHandler {
         this.options.clickCopyMarkdown = enabled;
     }
 
-    setCopyMarkdownDelimiters(enabled: boolean): void {
-        this.options.copyMarkdownDelimiters = enabled;
+    setClickCopyFormulaFormat(format: FormulaSourceFormat): void {
+        this.options.clickCopyFormulaFormat = normalizeFormulaSourceFormat(format);
     }
 
     enable(container: HTMLElement): void {
@@ -346,7 +352,7 @@ export class MathClickHandler {
         const success = await copyTextToClipboard(formatFormulaClickCopySource(
             formula.source,
             formula.displayMode,
-            this.options.copyMarkdownDelimiters !== false,
+            normalizeFormulaSourceFormat(this.options.clickCopyFormulaFormat ?? DEFAULT_FORMULA_SOURCE_FORMAT),
         ));
 
         if (success) {
@@ -403,10 +409,8 @@ export class MathClickHandler {
     }
 }
 
-export function formatFormulaClickCopySource(source: string, displayMode: boolean, includeDelimiters: boolean): string {
-    const trimmed = source.trim();
-    if (!includeDelimiters) return trimmed;
-    return displayMode ? `$$\n${trimmed}\n$$` : `$${trimmed}$`;
+export function formatFormulaClickCopySource(source: string, displayMode: boolean, format: FormulaSourceFormat): string {
+    return formatFormulaSource(source, displayMode, format);
 }
 
 function isDisplayMathElement(element: Element): boolean {

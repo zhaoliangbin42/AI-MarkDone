@@ -7,6 +7,7 @@ import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient
 import type { BookmarksBulkItem } from '../../../contracts/protocol';
 import type { Result } from '../../../drivers/shared/clients/bookmarksClient';
 import { computeBookmarksPanelViewModel, type BookmarksPanelState, type BookmarksPanelViewModel } from '../../../services/bookmarks/panelModel';
+import { formatReaderMarkdownForCopy } from '../../../services/reader/readerMarkdownCopy';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { isSamePageUrl, scrollToBookmarkTargetWithRetry, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
 import { t } from '../components/i18n';
@@ -332,7 +333,7 @@ export class BookmarksPanelController {
     async copyBookmarkMarkdown(bookmark: Bookmark): Promise<void> {
         const text = bookmark.kind === 'page'
             ? `${bookmark.title}\n${bookmark.url}`
-            : bookmark.aiResponse ?? '';
+            : formatReaderMarkdownForCopy(bookmark.aiResponse ?? '');
         const ok = await copyTextToClipboard(text);
         this.setStatus(ok ? t('btnCopied') : t('copyFailed'));
     }

@@ -35,7 +35,8 @@ describe('settings migrations', () => {
         expect(next.behavior.showMessageToolbar).toBe(true);
         expect(next.behavior.enableClickToCopy).toBe(false);
         expect(next.formula.clickCopyMarkdown).toBe(false);
-        expect(next.formula.copyMarkdownDelimiters).toBe(true);
+        expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
+        expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
@@ -231,7 +232,8 @@ describe('settings migrations', () => {
         } as any);
         expect(explicit.formula).toEqual({
             clickCopyMarkdown: false,
-            copyMarkdownDelimiters: false,
+            clickCopyFormulaFormat: 'raw',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 72,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
@@ -264,7 +266,8 @@ describe('settings migrations', () => {
 
         expect(next.version).toBe(4);
         expect(next.formula.clickCopyMarkdown).toBe(true);
-        expect(next.formula.copyMarkdownDelimiters).toBe(false);
+        expect(next.formula.clickCopyFormulaFormat).toBe('raw');
+        expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,

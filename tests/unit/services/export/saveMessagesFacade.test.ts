@@ -53,14 +53,20 @@ describe('exportTurnsMarkdown', () => {
     });
 
     it('builds markdown and triggers download when selection is present', async () => {
-        const res = await exportTurnsMarkdown(turns, [0], metadata, { t });
+        const res = await exportTurnsMarkdown([
+            { user: 'Question $q$', assistant: 'Inline $x+y$', index: 0 },
+        ], [0], metadata, {
+            t,
+            markdownFormulaFormat: 'latex-brackets',
+        });
         expect(res.ok).toBe(true);
         expect(res.noop).toBe(false);
         expect(downloadText).toHaveBeenCalledTimes(1);
 
         const arg = (downloadText as any).mock.calls[0][0];
         expect(arg.filename.endsWith('.md')).toBe(true);
-        expect(arg.content).toContain('MD');
+        expect(arg.content).toContain('Question \\(q\\)');
+        expect(arg.content).toContain('Inline \\(x+y\\)');
     });
 });
 

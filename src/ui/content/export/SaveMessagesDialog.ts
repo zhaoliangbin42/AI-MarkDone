@@ -5,6 +5,11 @@ import {
     resolvePngExportWidth,
     type ExportSettings,
 } from '../../../core/settings/export';
+import {
+    DEFAULT_FORMULA_SOURCE_FORMAT,
+    normalizeFormulaSourceFormat,
+    type FormulaSourceFormat,
+} from '../../../core/math/formulaSourceFormat';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
@@ -53,6 +58,7 @@ export class SaveMessagesDialog {
     };
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
     private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
+    private markdownFormulaFormat: FormulaSourceFormat = DEFAULT_FORMULA_SOURCE_FORMAT;
     private themeOverrides: UserThemeOverrides = {};
 
     private state: State = {
@@ -78,6 +84,10 @@ export class SaveMessagesDialog {
     setExportSettings(settings: ExportSettings): void {
         this.resolvedPngWidth = resolvePngExportWidth(settings);
         this.resolvedPngPixelRatio = resolvePngExportPixelRatio(settings);
+    }
+
+    setMarkdownFormulaFormat(format: FormulaSourceFormat): void {
+        this.markdownFormulaFormat = normalizeFormulaSourceFormat(format);
     }
 
     setTheme(theme: Theme): void {
@@ -336,7 +346,10 @@ export class SaveMessagesDialog {
                               if (this.overlaySession && !this.closing) this.render();
                           },
                       })
-                    : await exportTurnsMarkdown(turns, selectedIndices, metadata, { t: this.exportT });
+                    : await exportTurnsMarkdown(turns, selectedIndices, metadata, {
+                          t: this.exportT,
+                          markdownFormulaFormat: this.markdownFormulaFormat,
+                      });
 
             if (!res.ok) return;
             if (format !== 'pdf') this.close();

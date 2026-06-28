@@ -40,9 +40,11 @@ import {
     FORMULA_ASSET_FONT_SIZE_STEP_PX,
     MAX_FORMULA_ASSET_FONT_SIZE_PX,
     MIN_FORMULA_ASSET_FONT_SIZE_PX,
+    normalizeLegacyClickCopyFormulaFormat,
     normalizeFormulaAssetFontSizePx,
     type FormulaSettings,
 } from '../../../../../core/settings/formula';
+import { normalizeFormulaSourceFormat, type FormulaSourceFormat } from '../../../../../core/math/formulaSourceFormat';
 import type { ModalHost } from '../../../components/ModalHost';
 import { setLocale, t } from '../../../components/i18n';
 import { createIcon } from '../../../components/Icon';
@@ -111,7 +113,8 @@ type Refs = {
     };
     formula: {
         clickCopyMarkdown: HTMLInputElement;
-        copyMarkdownDelimiters: HTMLInputElement;
+        clickCopyFormulaFormat: SelectRef;
+        markdownCopyFormulaFormat: SelectRef;
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
         assetFontSize: SliderFieldRef;
@@ -349,10 +352,19 @@ export class SettingsTabView {
             t('formulaClickCopyMarkdownLabel'),
             t('formulaClickCopyMarkdownDesc'),
         );
-        const formulaCopyMarkdownDelimiters = this.createToggle(
+        const formulaClickCopyFormulaFormat = this.createSelect(
             copyExportGroup.body,
-            t('formulaCopyMarkdownDelimitersLabel'),
-            t('formulaCopyMarkdownDelimitersDesc'),
+            t('formulaClickCopyFormulaFormatLabel'),
+            t('formulaClickCopyFormulaFormatDesc'),
+            this.getFormulaSourceFormatOptions(),
+            'formula-click-copy-format',
+        );
+        const formulaMarkdownCopyFormulaFormat = this.createSelect(
+            copyExportGroup.body,
+            t('formulaMarkdownCopyFormulaFormatLabel'),
+            t('formulaMarkdownCopyFormulaFormatDesc'),
+            this.getFormulaSourceFormatOptions(),
+            'formula-markdown-copy-format',
         );
         const formulaAssetFontSize = this.createSliderRow(
             copyExportGroup.body,
@@ -493,7 +505,8 @@ export class SettingsTabView {
             },
             formula: {
                 clickCopyMarkdown: formulaClickCopyMarkdown.input,
-                copyMarkdownDelimiters: formulaCopyMarkdownDelimiters.input,
+                clickCopyFormulaFormat: formulaClickCopyFormulaFormat,
+                markdownCopyFormulaFormat: formulaMarkdownCopyFormulaFormat,
                 assetActionsButton: formulaAssetActions.button,
                 assetActionsSummary: formulaAssetActions.summary,
                 assetFontSize: formulaAssetFontSize,
@@ -540,7 +553,8 @@ export class SettingsTabView {
         this.refs.behavior.showWordCount.dataset.role = 'settings-show-word-count';
         this.refs.behavior.saveContextOnly.dataset.role = 'settings-save-context-only';
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
-        this.refs.formula.copyMarkdownDelimiters.dataset.role = 'settings-formula-copy-markdown-delimiters';
+        this.refs.formula.clickCopyFormulaFormat.trigger.dataset.role = 'settings-formula-click-copy-format';
+        this.refs.formula.markdownCopyFormulaFormat.trigger.dataset.role = 'settings-formula-markdown-copy-format';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
         this.refs.formula.assetFontSize.input.dataset.role = 'settings-formula-asset-font-size';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
@@ -710,14 +724,23 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setFormulaSettings?.({ clickCopyMarkdown: next });
         });
-        this.refs.formula.copyMarkdownDelimiters.addEventListener('change', () => {
-            const next = this.refs.formula.copyMarkdownDelimiters.checked;
+        this.refs.formula.clickCopyFormulaFormat.onChange((value) => {
+            const next = normalizeFormulaSourceFormat(value);
             this.settings.formula = this.normalizeFormulaSettings({
                 ...this.settings.formula,
-                copyMarkdownDelimiters: next,
+                clickCopyFormulaFormat: next,
             });
             this.applySettingsToDom();
-            void this.actions.setFormulaSettings?.({ copyMarkdownDelimiters: next });
+            void this.actions.setFormulaSettings?.({ clickCopyFormulaFormat: next });
+        });
+        this.refs.formula.markdownCopyFormulaFormat.onChange((value) => {
+            const next = normalizeFormulaSourceFormat(value);
+            this.settings.formula = this.normalizeFormulaSettings({
+                ...this.settings.formula,
+                markdownCopyFormulaFormat: next,
+            });
+            this.applySettingsToDom();
+            void this.actions.setFormulaSettings?.({ markdownCopyFormulaFormat: next });
         });
         this.refs.formula.assetActionsButton.addEventListener('click', (event) => {
             event.preventDefault();
@@ -884,7 +907,8 @@ export class SettingsTabView {
         this.refs.behavior.showWordCount.checked = Boolean(s.behavior.showWordCount);
         this.refs.behavior.saveContextOnly.checked = Boolean(s.behavior.saveContextOnly);
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
-        this.refs.formula.copyMarkdownDelimiters.checked = Boolean(s.formula.copyMarkdownDelimiters);
+        this.refs.formula.clickCopyFormulaFormat.setValue(s.formula.clickCopyFormulaFormat);
+        this.refs.formula.markdownCopyFormulaFormat.setValue(s.formula.markdownCopyFormulaFormat);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
         this.syncSliderValue(this.refs.formula.assetFontSize, normalizeFormulaAssetFontSizePx(s.formula.assetFontSizePx));
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
@@ -921,7 +945,6 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.showWordCount);
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
-        this.syncToggle(this.refs.formula.copyMarkdownDelimiters);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.enterKeyNewline);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
@@ -1351,6 +1374,16 @@ export class SettingsTabView {
         return ref;
     }
 
+    private getFormulaSourceFormatOptions(): Array<{ value: FormulaSourceFormat; label: string }> {
+        return [
+            { value: 'markdown-dollar', label: t('formulaSourceFormatMarkdownDollar') },
+            { value: 'latex-brackets', label: t('formulaSourceFormatLatexBrackets') },
+            { value: 'raw', label: t('formulaSourceFormatRaw') },
+            { value: 'equation', label: t('formulaSourceFormatEquation') },
+            { value: 'equation-star', label: t('formulaSourceFormatEquationStar') },
+        ];
+    }
+
     private closeSelectMenus(): void {
         for (const selectRef of this.selectRefs) selectRef.close();
     }
@@ -1362,7 +1395,8 @@ export class SettingsTabView {
             : {};
         return {
             clickCopyMarkdown: Boolean(record.clickCopyMarkdown ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown),
-            copyMarkdownDelimiters: Boolean(record.copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters),
+            clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record as Record<string, unknown>),
+            markdownCopyFormulaFormat: normalizeFormulaSourceFormat(record.markdownCopyFormulaFormat),
             assetFontSizePx: normalizeFormulaAssetFontSizePx(record.assetFontSizePx),
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),

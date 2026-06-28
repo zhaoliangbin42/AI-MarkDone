@@ -273,7 +273,7 @@ describe('MathClickHandler', () => {
         container.remove();
     });
 
-    it('copies raw LaTeX when Markdown delimiters are disabled', async () => {
+    it('copies raw LaTeX when raw source format is selected', async () => {
         const { writeText } = setClipboardMock();
         const container = document.createElement('div');
         container.innerHTML = `
@@ -285,7 +285,7 @@ describe('MathClickHandler', () => {
         `;
         document.body.appendChild(container);
 
-        const handler = new MathClickHandler({ copyMarkdownDelimiters: false });
+        const handler = new MathClickHandler({ clickCopyFormulaFormat: 'raw' });
         handler.enable(container);
 
         const target = container.querySelector('.katex-display') as HTMLElement;
@@ -293,6 +293,30 @@ describe('MathClickHandler', () => {
         await Promise.resolve();
 
         expect(writeText).toHaveBeenCalledWith('\\sum_i x_i');
+        handler.disable();
+        container.remove();
+    });
+
+    it('copies display LaTeX with equation wrappers when selected', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span class="katex-display">
+            <span class="katex">
+              <annotation encoding="application/x-tex">a^2+b^2=c^2</annotation>
+            </span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const handler = new MathClickHandler({ clickCopyFormulaFormat: 'equation-star' });
+        handler.enable(container);
+
+        const target = container.querySelector('.katex-display') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledWith('\\begin{equation*}\na^2+b^2=c^2\n\\end{equation*}');
         handler.disable();
         container.remove();
     });

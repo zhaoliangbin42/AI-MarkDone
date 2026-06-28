@@ -42,7 +42,8 @@ describe('SettingsClient', () => {
             ...structuredClone(DEFAULT_SETTINGS),
             formula: {
                 clickCopyMarkdown: true,
-                copyMarkdownDelimiters: true,
+                clickCopyFormulaFormat: 'markdown-dollar',
+                markdownCopyFormulaFormat: 'markdown-dollar',
                 assetFontSizePx: 36,
                 assetActions: {
                     copyPng: true,

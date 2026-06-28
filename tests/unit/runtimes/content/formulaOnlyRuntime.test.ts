@@ -110,11 +110,16 @@ import {
     startFormulaOnlyRuntime,
     type FormulaPlatformProfile,
 } from '@/runtimes/content/formulaOnlyRuntime';
+import {
+    formatReaderMarkdownForCopy,
+    setReaderMarkdownCopyFormulaFormat,
+} from '@/services/reader/readerMarkdownCopy';
 
 function enabledFormulaSettings() {
     return {
         clickCopyMarkdown: true,
-        copyMarkdownDelimiters: true,
+        clickCopyFormulaFormat: 'markdown-dollar',
+        markdownCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
@@ -129,7 +134,8 @@ function enabledFormulaSettings() {
 function disabledFormulaSettings() {
     return {
         clickCopyMarkdown: false,
-        copyMarkdownDelimiters: true,
+        clickCopyFormulaFormat: 'markdown-dollar',
+        markdownCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: false,
@@ -146,6 +152,7 @@ afterEach(() => {
     mocks.settingsCached = null;
     mocks.settingsSubscriber = null;
     mocks.runtimeMessageListener = null;
+    setReaderMarkdownCopyFormulaFormat('markdown-dollar');
     document.body.innerHTML = '';
 });
 
@@ -207,6 +214,20 @@ describe('formula-only content runtime', () => {
         await Promise.resolve();
 
         expect(mocks.bookmarksPanelToggle).toHaveBeenCalledTimes(1);
+        runtime.dispose();
+    });
+
+    it('syncs the Markdown copy formula format for shared bookmark Markdown copies', () => {
+        mocks.settingsCached = {
+            formula: {
+                ...enabledFormulaSettings(),
+                markdownCopyFormulaFormat: 'latex-brackets',
+            },
+        };
+
+        const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://gemini.google.com/app')!);
+
+        expect(formatReaderMarkdownForCopy('Inline $x+y$')).toBe('Inline \\(x+y\\)');
         runtime.dispose();
     });
 

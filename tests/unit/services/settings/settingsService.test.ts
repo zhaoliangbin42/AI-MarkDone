@@ -16,7 +16,8 @@ describe('settingsService', () => {
         const next = loadAndNormalize(null);
 
         expect(next.version).toBe(4);
-        expect(next.formula.copyMarkdownDelimiters).toBe(true);
+        expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
+        expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
@@ -346,7 +347,8 @@ describe('settingsService', () => {
 
         expect(next.formula).toEqual({
             clickCopyMarkdown: false,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,
@@ -365,7 +367,8 @@ describe('settingsService', () => {
             version: 4,
             formula: {
                 clickCopyMarkdown: true,
-                copyMarkdownDelimiters: false,
+                clickCopyFormulaFormat: 'raw',
+                markdownCopyFormulaFormat: 'latex-brackets',
                 assetFontSizePx: 44,
                 assetActions: {
                     copyPng: true,
@@ -380,7 +383,8 @@ describe('settingsService', () => {
         const next = planSetCategory(current, 'appearance', { fontSizePx: 18 }).next;
 
         expect(next.appearance.fontSizePx).toBe(18);
-        expect(next.formula.copyMarkdownDelimiters).toBe(false);
+        expect(next.formula.clickCopyFormulaFormat).toBe('raw');
+        expect(next.formula.markdownCopyFormulaFormat).toBe('latex-brackets');
         expect(next.formula.assetFontSizePx).toBe(44);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,
@@ -395,7 +399,8 @@ describe('settingsService', () => {
         const next = planReset().next;
 
         expect(next.version).toBe(4);
-        expect(next.formula.copyMarkdownDelimiters).toBe(true);
+        expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
+        expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,

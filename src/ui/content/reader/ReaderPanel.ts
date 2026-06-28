@@ -7,7 +7,7 @@ import {
 } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
-import { copyReaderItemMarkdownToClipboard } from '../../../services/reader/readerMarkdownCopy';
+import { copyReaderItemMarkdownToClipboard, formatReaderMarkdownForCopy } from '../../../services/reader/readerMarkdownCopy';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { AppSettings } from '../../../core/settings/types';
 import {
@@ -1605,7 +1605,7 @@ export class ReaderPanel {
         copyButton.innerHTML = createIcon(copyIcon).outerHTML;
         copyButton.addEventListener('click', async () => {
             if (!selection.sourceMarkdown.trim()) return;
-            const ok = await copyTextToClipboard(selection.sourceMarkdown);
+            const ok = await copyTextToClipboard(formatReaderMarkdownForCopy(selection.sourceMarkdown));
             showEphemeralTooltip({
                 root: this.overlaySession?.shadow ?? document,
                 anchor: copyButton,

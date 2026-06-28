@@ -11,6 +11,7 @@ import { browser } from '../../drivers/shared/browser';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
 import { getFormulaPlatformParserAdapter } from './formulaPlatformParsers';
 import type { MarkdownParserAdapter } from '../../drivers/content/adapters/parser/MarkdownParserAdapter';
+import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
 
 export type FormulaOnlyPlatformId = 'gemini' | 'claude' | 'deepseek';
 
@@ -253,6 +254,7 @@ export class FormulaOnlyRuntime {
         const platformEnabled = Boolean(settings?.platforms?.[this.profile.id] ?? DEFAULT_SETTINGS.platforms[this.profile.id]);
         const next = resolveFormulaSettings(settings?.formula);
         this.formulaController.setFormulaSettings(next);
+        setReaderMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
         if (!platformEnabled || !shouldEnableFormulaInteractions(next)) {
             this.observer.disconnect();
             this.formulaController.disable();

@@ -1,4 +1,10 @@
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
+import {
+    DEFAULT_FORMULA_SOURCE_FORMAT,
+    normalizeFormulaSourceFormat,
+    rewriteMarkdownFormulaSources,
+    type FormulaSourceFormat,
+} from '../../core/math/formulaSourceFormat';
 
 export type MarkdownExportResult = {
     filename: string;
@@ -28,7 +34,8 @@ export function buildMarkdownExport(
     turns: ChatTurn[],
     selectedIndices: number[],
     metadata: ConversationMetadata,
-    t: TranslateFn
+    t: TranslateFn,
+    options: { formulaFormat?: FormulaSourceFormat } = {},
 ): MarkdownExportResult | null {
     const selected = selectedIndices.map((i) => turns[i]).filter((x): x is ChatTurn => Boolean(x));
     if (selected.length === 0) return null;
@@ -37,14 +44,15 @@ export function buildMarkdownExport(
     let markdown = `# ${markdownTitle}\n\n`;
     markdown += `> ${t('exportMetadata', [metadata.platform, new Date(metadata.exportedAt).toLocaleString()])}\n\n`;
 
+    const formulaFormat = normalizeFormulaSourceFormat(options.formulaFormat ?? DEFAULT_FORMULA_SOURCE_FORMAT);
     selected.forEach((msg, i) => {
         const messageNum = i + 1;
         if (i > 0) {
             markdown += `\n<div align="center">◆ ◆ ◆</div>\n\n`;
         }
         markdown += `# ${t('exportMessagePrefix', `${messageNum}`)}\n\n`;
-        markdown += `## ${t('exportUserLabel')}\n\n${msg.user}\n\n`;
-        markdown += `## ${t('exportAssistantLabel')}\n\n${msg.assistant}\n\n`;
+        markdown += `## ${t('exportUserLabel')}\n\n${rewriteMarkdownFormulaSources(msg.user, formulaFormat)}\n\n`;
+        markdown += `## ${t('exportAssistantLabel')}\n\n${rewriteMarkdownFormulaSources(msg.assistant, formulaFormat)}\n\n`;
     });
 
     return {
@@ -52,4 +60,3 @@ export function buildMarkdownExport(
         markdown,
     };
 }
-

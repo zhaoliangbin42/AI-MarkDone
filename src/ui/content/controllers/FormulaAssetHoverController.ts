@@ -4,6 +4,7 @@ import { showEphemeralTooltip } from '../../../utils/tooltip';
 import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal';
 import { runFormulaAssetAction, type FormulaAssetAction } from '../../../services/math/formulaAssetActions';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
+import { normalizeFormulaSourceFormat } from '../../../core/math/formulaSourceFormat';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { copyIcon, downloadIcon } from '../../../assets/icons';
@@ -45,7 +46,8 @@ export class FormulaAssetHoverController {
     setFormulaSettings(settings: FormulaSettings): void {
         this.formulaSettings = {
             clickCopyMarkdown: Boolean(settings.clickCopyMarkdown),
-            copyMarkdownDelimiters: settings.copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters,
+            clickCopyFormulaFormat: normalizeFormulaSourceFormat(settings.clickCopyFormulaFormat),
+            markdownCopyFormulaFormat: normalizeFormulaSourceFormat(settings.markdownCopyFormulaFormat),
             assetFontSizePx: settings.assetFontSizePx ?? DEFAULT_FORMULA_SETTINGS.assetFontSizePx,
             assetActions: {
                 ...DEFAULT_FORMULA_SETTINGS.assetActions,
@@ -53,7 +55,7 @@ export class FormulaAssetHoverController {
             },
         };
         this.mathClick.setClickCopyMarkdown(this.formulaSettings.clickCopyMarkdown);
-        this.mathClick.setCopyMarkdownDelimiters(this.formulaSettings.copyMarkdownDelimiters);
+        this.mathClick.setClickCopyFormulaFormat(this.formulaSettings.clickCopyFormulaFormat);
         if (!this.hasEnabledAssetAction()) this.closeHoverAction();
     }
 

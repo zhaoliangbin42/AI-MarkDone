@@ -33,6 +33,7 @@ import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
+import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
 import { readComposer, writeComposer } from '../../drivers/content/sending/composerPort';
@@ -198,9 +199,15 @@ if (adapter) {
         }
     };
 
-    const syncFormulaSettings = (settings: typeof DEFAULT_SETTINGS.formula | undefined) => {
+    const syncFormulaSettings = (
+        settings: typeof DEFAULT_SETTINGS.formula | undefined,
+        options: { applyInteractionGate?: boolean } = {},
+    ) => {
         const next = resolveFormulaSettings(settings);
         mathClick.setFormulaSettings(next);
+        setReaderMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
+        saveMessagesDialog.setMarkdownFormulaFormat(next.markdownCopyFormulaFormat);
+        if (options.applyInteractionGate === false) return;
         if (!runtimeEnabled) {
             mathClick.disable();
             return;
@@ -390,7 +397,7 @@ if (adapter) {
         onOpenManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
         listReaderPrompts: listReaderPromptsFromLibrary,
     });
-    mathClick.setFormulaSettings(resolveFormulaSettings(cachedSettings?.formula));
+    syncFormulaSettings(cachedSettings?.formula, { applyInteractionGate: false });
     saveMessagesDialog.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     messageToolbars.setExportSettings(cachedSettings?.export ?? DEFAULT_SETTINGS.export);
     messageToolbars.setBehaviorFlags({

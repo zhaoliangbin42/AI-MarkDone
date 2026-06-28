@@ -58,7 +58,8 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 44,
             assetActions: {
                 copyPng: true,
@@ -131,7 +132,8 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: {
                 copyPng: true,
@@ -176,7 +178,8 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,
@@ -218,7 +221,8 @@ describe('FormulaAssetHoverController', () => {
         const controller = new FormulaAssetHoverController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,

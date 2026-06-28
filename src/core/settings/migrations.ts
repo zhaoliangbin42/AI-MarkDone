@@ -31,7 +31,13 @@ import {
     type ThemeAccentColor,
 } from './types';
 import { normalizeExportSettings } from './export';
-import { DEFAULT_FORMULA_SETTINGS, normalizeFormulaAssetFontSizePx, type FormulaSettings } from './formula';
+import {
+    DEFAULT_FORMULA_SETTINGS,
+    normalizeFormulaAssetFontSizePx,
+    normalizeLegacyClickCopyFormulaFormat,
+    type FormulaSettings,
+} from './formula';
+import { normalizeFormulaSourceFormat } from '../math/formulaSourceFormat';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,7 +75,8 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
 
     return {
         clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
-        copyMarkdownDelimiters: Boolean((record as any).copyMarkdownDelimiters ?? DEFAULT_FORMULA_SETTINGS.copyMarkdownDelimiters),
+        clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record),
+        markdownCopyFormulaFormat: normalizeFormulaSourceFormat((record as any).markdownCopyFormulaFormat),
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),

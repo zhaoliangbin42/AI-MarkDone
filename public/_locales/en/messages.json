@@ -1363,13 +1363,41 @@
         "message": "Click a formula to copy its original LaTeX / Markdown source.",
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
-    "formulaCopyMarkdownDelimitersLabel": {
-        "message": "Include math delimiters",
-        "description": "Message for formulaCopyMarkdownDelimitersLabel"
+    "formulaClickCopyFormulaFormatLabel": {
+        "message": "Formula click copy format",
+        "description": "Message for formulaClickCopyFormulaFormatLabel"
     },
-    "formulaCopyMarkdownDelimitersDesc": {
-        "message": "Copy inline formulas as $...$ and display formulas as $$...$$ when clicking a formula.",
-        "description": "Message for formulaCopyMarkdownDelimitersDesc"
+    "formulaClickCopyFormulaFormatDesc": {
+        "message": "Choose how a single clicked formula is wrapped when copied.",
+        "description": "Message for formulaClickCopyFormulaFormatDesc"
+    },
+    "formulaMarkdownCopyFormulaFormatLabel": {
+        "message": "Markdown copy formula format",
+        "description": "Message for formulaMarkdownCopyFormulaFormatLabel"
+    },
+    "formulaMarkdownCopyFormulaFormatDesc": {
+        "message": "Choose how formulas are wrapped when copying or saving Markdown source.",
+        "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
+    },
+    "formulaSourceFormatMarkdownDollar": {
+        "message": "$...$ / $$...$$",
+        "description": "Message for formulaSourceFormatMarkdownDollar"
+    },
+    "formulaSourceFormatLatexBrackets": {
+        "message": "\\(...\\) / \\[...\\]",
+        "description": "Message for formulaSourceFormatLatexBrackets"
+    },
+    "formulaSourceFormatRaw": {
+        "message": "Raw LaTeX",
+        "description": "Message for formulaSourceFormatRaw"
+    },
+    "formulaSourceFormatEquation": {
+        "message": "LaTeX equation",
+        "description": "Message for formulaSourceFormatEquation"
+    },
+    "formulaSourceFormatEquationStar": {
+        "message": "LaTeX equation*",
+        "description": "Message for formulaSourceFormatEquationStar"
     },
     "formulaAssetActionsLabel": {
         "message": "Formula image actions",

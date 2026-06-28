@@ -15,7 +15,8 @@ const baseSettings = {
     },
     formula: {
         clickCopyMarkdown: true,
-        copyMarkdownDelimiters: true,
+        clickCopyFormulaFormat: 'markdown-dollar',
+        markdownCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
@@ -135,7 +136,8 @@ describe('SettingsTabView', () => {
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('copyFormulaExportSettingsLabel'))!;
         expect(copyExportGroup.querySelector('[data-role="settings-save-context-only"]')).toBeTruthy();
         expect(copyExportGroup.querySelector('[data-role="settings-formula-click-copy-markdown"]')).toBeTruthy();
-        expect(copyExportGroup.querySelector('[data-role="settings-formula-copy-markdown-delimiters"]')).toBeTruthy();
+        expect(copyExportGroup.querySelector('[data-role="settings-formula-click-copy-format"]')).toBeTruthy();
+        expect(copyExportGroup.querySelector('[data-role="settings-formula-markdown-copy-format"]')).toBeTruthy();
         expect(copyExportGroup.querySelector('[data-role="settings-formula-asset-font-size"]')).toBeTruthy();
         expect(copyExportGroup.querySelector('[data-role="settings-export-png-width-preset"]')).toBeTruthy();
     });
@@ -667,12 +669,14 @@ describe('SettingsTabView', () => {
 
         const root = view.getElement();
         const markdownToggle = root.querySelector<HTMLInputElement>('[data-role="settings-formula-click-copy-markdown"]')!;
-        const delimiterToggle = root.querySelector<HTMLInputElement>('[data-role="settings-formula-copy-markdown-delimiters"]')!;
+        const clickFormatSelect = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-click-copy-format"]')!;
+        const markdownFormatSelect = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-markdown-copy-format"]')!;
         const assetFontSizeInput = root.querySelector<HTMLInputElement>('[data-role="settings-formula-asset-font-size"]')!;
         const assetButton = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-asset-actions"]')!;
 
         expect(markdownToggle.checked).toBe(true);
-        expect(delimiterToggle.checked).toBe(true);
+        expect(clickFormatSelect.textContent).toContain('formulaSourceFormatMarkdownDollar');
+        expect(markdownFormatSelect.textContent).toContain('formulaSourceFormatMarkdownDollar');
         expect(assetFontSizeInput.type).toBe('range');
         expect(assetFontSizeInput.min).toBe('16');
         expect(assetFontSizeInput.max).toBe('72');
@@ -681,9 +685,12 @@ describe('SettingsTabView', () => {
         markdownToggle.checked = false;
         markdownToggle.dispatchEvent(new Event('change', { bubbles: true }));
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ clickCopyMarkdown: false });
-        delimiterToggle.checked = false;
-        delimiterToggle.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(onSetFormulaSettings).toHaveBeenCalledWith({ copyMarkdownDelimiters: false });
+        clickFormatSelect.click();
+        root.querySelector<HTMLButtonElement>('[data-menu="formula-click-copy-format"][data-value="raw"]')!.click();
+        expect(onSetFormulaSettings).toHaveBeenCalledWith({ clickCopyFormulaFormat: 'raw' });
+        markdownFormatSelect.click();
+        root.querySelector<HTMLButtonElement>('[data-menu="formula-markdown-copy-format"][data-value="latex-brackets"]')!.click();
+        expect(onSetFormulaSettings).toHaveBeenCalledWith({ markdownCopyFormulaFormat: 'latex-brackets' });
         assetFontSizeInput.value = '44';
         assetFontSizeInput.dispatchEvent(new Event('change', { bubbles: true }));
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ assetFontSizePx: 44 });

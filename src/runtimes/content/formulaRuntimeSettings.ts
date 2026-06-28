@@ -1,11 +1,13 @@
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { normalizeFormulaAssetFontSizePx } from '../../core/settings/formula';
+import { normalizeFormulaSourceFormat } from '../../core/math/formulaSourceFormat';
 
 export function resolveFormulaSettings(settings: typeof DEFAULT_SETTINGS.formula | undefined): typeof DEFAULT_SETTINGS.formula {
     return {
         ...DEFAULT_SETTINGS.formula,
         ...settings,
-        copyMarkdownDelimiters: settings?.copyMarkdownDelimiters ?? DEFAULT_SETTINGS.formula.copyMarkdownDelimiters,
+        clickCopyFormulaFormat: normalizeFormulaSourceFormat(settings?.clickCopyFormulaFormat),
+        markdownCopyFormulaFormat: normalizeFormulaSourceFormat(settings?.markdownCopyFormulaFormat),
         assetFontSizePx: normalizeFormulaAssetFontSizePx(settings?.assetFontSizePx),
         assetActions: {
             ...DEFAULT_SETTINGS.formula.assetActions,

@@ -10,6 +10,7 @@ import type {
     ExportProgressCallback,
     TranslateFn,
 } from './saveMessagesTypes';
+import type { FormulaSourceFormat } from '../../core/math/formulaSourceFormat';
 import { buildMarkdownExport } from './saveMessagesMarkdown';
 import { buildPdfPrintPlan } from './saveMessagesPdf';
 import { buildPngExportPlans, type BuildPngExportPlanOptions } from './saveMessagesPng';
@@ -20,6 +21,7 @@ export type ExportResult =
 
 export type ExportOptions = {
     t: TranslateFn;
+    markdownFormulaFormat?: FormulaSourceFormat;
     png?: BuildPngExportPlanOptions;
     onProgress?: ExportProgressCallback;
     signal?: AbortSignal;
@@ -33,7 +35,9 @@ export async function exportTurnsMarkdown(
 ): Promise<ExportResult> {
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
     try {
-        const out = buildMarkdownExport(turns, selectedIndices, metadata, options.t);
+        const out = buildMarkdownExport(turns, selectedIndices, metadata, options.t, {
+            formulaFormat: options.markdownFormulaFormat,
+        });
         if (!out) return { ok: true, noop: true };
         downloadText({ filename: out.filename, content: out.markdown, mime: 'text/markdown;charset=utf-8' });
         return { ok: true, noop: false };

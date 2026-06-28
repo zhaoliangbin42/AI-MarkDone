@@ -1363,13 +1363,41 @@
         "message": "点击公式时复制原始 LaTeX / Markdown 源码。",
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
-    "formulaCopyMarkdownDelimitersLabel": {
-        "message": "包含公式定界符",
-        "description": "Message for formulaCopyMarkdownDelimitersLabel"
+    "formulaClickCopyFormulaFormatLabel": {
+        "message": "点击公式复制格式",
+        "description": "Message for formulaClickCopyFormulaFormatLabel"
     },
-    "formulaCopyMarkdownDelimitersDesc": {
-        "message": "点击复制公式时，行内公式复制为 $...$，行间公式复制为 $$...$$。",
-        "description": "Message for formulaCopyMarkdownDelimitersDesc"
+    "formulaClickCopyFormulaFormatDesc": {
+        "message": "设置点击单个公式时复制出来的包围格式。",
+        "description": "Message for formulaClickCopyFormulaFormatDesc"
+    },
+    "formulaMarkdownCopyFormulaFormatLabel": {
+        "message": "Markdown 复制公式格式",
+        "description": "Message for formulaMarkdownCopyFormulaFormatLabel"
+    },
+    "formulaMarkdownCopyFormulaFormatDesc": {
+        "message": "设置复制或保存整段 Markdown 源码时的公式包围格式。",
+        "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
+    },
+    "formulaSourceFormatMarkdownDollar": {
+        "message": "$...$ / $$...$$",
+        "description": "Message for formulaSourceFormatMarkdownDollar"
+    },
+    "formulaSourceFormatLatexBrackets": {
+        "message": "\\(...\\) / \\[...\\]",
+        "description": "Message for formulaSourceFormatLatexBrackets"
+    },
+    "formulaSourceFormatRaw": {
+        "message": "裸 LaTeX",
+        "description": "Message for formulaSourceFormatRaw"
+    },
+    "formulaSourceFormatEquation": {
+        "message": "LaTeX equation",
+        "description": "Message for formulaSourceFormatEquation"
+    },
+    "formulaSourceFormatEquationStar": {
+        "message": "LaTeX equation*",
+        "description": "Message for formulaSourceFormatEquationStar"
     },
     "formulaAssetActionsLabel": {
         "message": "公式悬浮动作",

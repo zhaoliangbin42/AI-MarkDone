@@ -798,7 +798,8 @@ describe('content runtime entry', () => {
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
@@ -959,7 +960,8 @@ describe('content runtime entry', () => {
         }));
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
             clickCopyMarkdown: false,
-            copyMarkdownDelimiters: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
         });
