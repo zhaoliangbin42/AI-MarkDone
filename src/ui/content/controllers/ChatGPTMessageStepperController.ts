@@ -1,6 +1,7 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, messageSquareTextIcon, splitViewIcon } from '../../../assets/icons';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
+import type { Theme } from '../../../core/types/theme';
 import {
     collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
@@ -94,6 +95,7 @@ export class ChatGPTMessageStepperController {
     private navigationLockUntil = 0;
     private navigationRequestId = 0;
     private themeOverrides: UserThemeOverrides = {};
+    private theme: Theme = this.resolveInitialTheme();
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -188,6 +190,12 @@ export class ChatGPTMessageStepperController {
         this.ensureStyle({ force: true });
     }
 
+    setTheme(theme: Theme): void {
+        this.theme = theme;
+        if (this.host) this.host.setAttribute('data-aimd-theme', theme);
+        this.ensureStyle({ force: true });
+    }
+
     private ensureHost(): void {
         if (this.host?.isConnected) return;
         const existing = document.getElementById(HOST_ID);
@@ -198,7 +206,7 @@ export class ChatGPTMessageStepperController {
         host.className = 'aimd-chatgpt-message-stepper';
         host.dataset.aimdRole = 'chatgpt-message-stepper';
         host.dataset.visible = '0';
-        host.setAttribute('data-aimd-theme', this.resolveTheme());
+        host.setAttribute('data-aimd-theme', this.theme);
 
         const pageBookmark = this.createButton('toggle-page-bookmark', 'Bookmark current page', () => {
             void this.handlePageBookmarkClick();
@@ -419,7 +427,7 @@ export class ChatGPTMessageStepperController {
             && (isChatGPTConversationPage(window.location.href) || this.rounds.length > 0);
         if (this.host) {
             this.host.dataset.visible = visible ? '1' : '0';
-            this.host.setAttribute('data-aimd-theme', this.resolveTheme());
+            this.host.setAttribute('data-aimd-theme', this.theme);
         }
         this.refreshPageBookmarkStatusIfNeeded();
         if (!visible) {
@@ -532,7 +540,7 @@ export class ChatGPTMessageStepperController {
         }
     }
 
-    private resolveTheme(): 'light' | 'dark' {
+    private resolveInitialTheme(): Theme {
         return document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
     }
 }

@@ -439,6 +439,7 @@ if (adapter) {
         saveMessagesDialog.setTheme(theme);
         bookmarkSaveDialog.setTheme(theme);
         chatGptDirectory?.setTheme(theme);
+        chatGptMessageStepper?.setTheme(theme);
     });
 
     const handleDetachedReaderRequest = async (request: ExtRequest): Promise<ExtResponse> => {

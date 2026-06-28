@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prompts: Improved ChatGPT composer prompt autocomplete positioning so the suggestion popover anchors to the current text cursor and keeps short lists close to the cursor.
 - Prompts: ChatGPT composer `\` autocomplete now claims Enter as prompt confirmation as soon as the candidate box is open, without requiring the Enter-newline setting.
 - Prompts: Fixed the Prompt manager appearing at the top-left of ChatGPT during page load when theme settings sync before the composer is ready.
+- ChatGPT: Lower-right page controls now follow live light/dark theme updates, keeping button icons readable in dark mode.
 - Reader: Reader and Detached Reader Send popovers now support the shared `\` Prompt autocomplete, with suggestions anchored to the textarea cursor and detached when the popover closes.
 - Reader: Detached Reader sending now uses the full SendPort flow, prepares the source ChatGPT page before submit, and activates the source tab before triggering the official send action.
 - Reader: Selecting text inside code blocks, inline code, or tables now keeps copy, annotations, and sticky pins limited to the exact selected text instead of expanding to the whole Markdown block.

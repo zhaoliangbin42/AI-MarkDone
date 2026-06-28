@@ -8,7 +8,14 @@ const mathClickCtor = vi.fn(function () {
     return { enable: mathClickEnable, disable: mathClickDisable, setFormulaSettings: mathClickSetFormulaSettings };
 });
 const themeInit = vi.fn();
-const themeSubscribe = vi.fn();
+let themeListener: ((theme: 'light' | 'dark') => void) | null = null;
+const themeSubscribe = vi.fn((listener: (theme: 'light' | 'dark') => void) => {
+    themeListener = listener;
+    listener('light');
+    return () => {
+        if (themeListener === listener) themeListener = null;
+    };
+});
 const themeManagerCtor = vi.fn(function () {
     return { init: themeInit, subscribe: themeSubscribe };
 });
@@ -158,6 +165,7 @@ const messageStepperSetPageBookmarkControlVisible = vi.fn();
 const messageStepperSetDetachedReaderControlVisible = vi.fn();
 const messageStepperSetPromptControlVisible = vi.fn();
 const messageStepperSetPageBookmarked = vi.fn();
+const messageStepperSetTheme = vi.fn();
 const messageStepperSetThemeOverrides = vi.fn();
 const messageStepperCtor = vi.fn(function () {
     return {
@@ -169,6 +177,7 @@ const messageStepperCtor = vi.fn(function () {
         setDetachedReaderControlVisible: messageStepperSetDetachedReaderControlVisible,
         setPromptControlVisible: messageStepperSetPromptControlVisible,
         setPageBookmarked: messageStepperSetPageBookmarked,
+        setTheme: messageStepperSetTheme,
         setThemeOverrides: messageStepperSetThemeOverrides,
     };
 });
@@ -438,6 +447,7 @@ afterEach(() => {
     }));
     readComposer.mockReturnValue({ ok: true, kind: 'contenteditable', text: 'source draft' });
     settingsGetCached.mockReturnValue(null);
+    themeListener = null;
     adapterPlatformId = 'chatgpt';
     formulaOnlyProfile = null;
     settingsSubscriber = null;
@@ -609,6 +619,9 @@ describe('content runtime entry', () => {
         expect(messageStepperSetDetachedReaderControlVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetPromptControlVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
+        expect(messageStepperSetTheme).toHaveBeenCalledWith('light');
+        themeListener?.('dark');
+        expect(messageStepperSetTheme).toHaveBeenLastCalledWith('dark');
         expect(pageWidthCtor).toHaveBeenCalledTimes(1);
         expect(pageWidthInit).toHaveBeenCalledTimes(1);
         expect(pageWidthSetScale).toHaveBeenCalledWith(130);
