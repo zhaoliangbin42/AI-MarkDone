@@ -584,6 +584,23 @@ describe('ChatGPTDirectoryController', () => {
         expect(style).toContain('inline-size: 30em');
     });
 
+    it('keeps the directory rail scrollable while hiding its visual scrollbar', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+
+        const style = rail.getElement().shadowRoot?.querySelector('style')?.textContent ?? '';
+        const listRule = style.match(/\.rail__list\s*\{[^}]+\}/)?.[0] ?? '';
+        const expandedRule = style.match(/\.rail__list\[data-mode="expanded"\]\[data-expanded="1"\]\s*\{[^}]+\}/)?.[0] ?? '';
+
+        expect(listRule).toContain('overflow: hidden auto;');
+        expect(listRule).toContain('scrollbar-width: none;');
+        expect(style).toContain('.rail__list::-webkit-scrollbar');
+        expect(style).toContain('width: 0;');
+        expect(style).toContain('height: 0;');
+        expect(expandedRule).not.toContain('scrollbar-gutter');
+
+        rail.dispose();
+    });
+
     it('ships scoped token styles for the body-level directory preview', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;

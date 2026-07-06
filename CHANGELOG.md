@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- ChatGPT: Hid the right-side directory rail's internal scrollbar while keeping long directories scrollable.
+
 ## [4.7.0] - 2026-06-28
 
 ### Added
