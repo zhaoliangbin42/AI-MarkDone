@@ -1104,6 +1104,8 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 
 .dialog-body--reader-settings {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: var(--aimd-space-3);
   min-height: 0;
   overflow: auto;

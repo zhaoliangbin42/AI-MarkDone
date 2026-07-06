@@ -401,6 +401,31 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('keeps Reader settings rows content-sized when opened from the header', async () => {
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            detachedNoticeConfirmed: true,
+        });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
+            const settingsPanel = shadow.querySelector<HTMLElement>('.panel-window--reader-settings')!;
+            const styleText = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent ?? '').join('\n');
+
+            expect(settingsPanel).toBeTruthy();
+            expect(styleText).toContain('.dialog-body--reader-settings {');
+            expect(styleText).toContain('grid-auto-rows: max-content;');
+            expect(styleText).toContain('align-content: start;');
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('routes Reader settings Prompt management through the shared manager only', async () => {
         const panel = new ReaderPanel();
         const onOpenManager = vi.fn(async () => undefined);

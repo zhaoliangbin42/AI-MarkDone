@@ -307,6 +307,7 @@ Motion:
 
 - Form controls use shared form tokens for size, border, focus, and disabled state.
 - Labels and help text belong to the form row contract.
+- Form rows must preserve label and help-text intrinsic height in constrained panels; panel or dialog bodies own scrolling instead of compressing row content.
 - Error copy should be close to the control and use semantic danger tokens.
 
 ### 7.4 Panels

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - ChatGPT: Hid the right-side directory rail's internal scrollbar while keeping long directories scrollable.
+- Reader: Reader settings rows now keep their label and help text readable on short screens, with the settings dialog scrolling instead of compressing fields.
 
 ## [4.7.0] - 2026-06-28
 
