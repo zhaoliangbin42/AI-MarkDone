@@ -1,16 +1,27 @@
-import type { ReaderCommentExportSettings, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../core/settings/readerCommentExport';
+import type {
+    ReaderCommentExportSettings,
+    ReaderCommentPrompt,
+    ReaderCommentPromptPosition,
+    ReaderCommentSortMode,
+} from '../../core/settings/readerCommentExport';
 import {
     createDefaultCommentTemplate,
     createDefaultReaderCommentPrompts,
     createDefaultReaderCommentExportSettings,
     DEFAULT_READER_COMMENT_PROMPT_POSITION,
+    DEFAULT_READER_COMMENT_SORT_MODE,
     normalizeCommentTemplate,
     normalizeReaderCommentExportSettings,
     type CommentTemplateSegment,
 } from '../../core/settings/readerCommentExport';
-import type { ReaderCommentRecord } from './commentSession';
+import { sortReaderComments, type ReaderCommentRecord } from './commentSession';
 
-export type { CommentTemplateSegment, CommentTemplateTokenKey, ReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
+export type {
+    CommentTemplateSegment,
+    CommentTemplateTokenKey,
+    ReaderCommentExportSettings,
+    ReaderCommentSortMode,
+} from '../../core/settings/readerCommentExport';
 
 const CURSOR_MARKER = '{{cursor}}';
 
@@ -18,6 +29,7 @@ export type ReaderCommentExportPrompts = {
     userPrompt: string;
     commentTemplate: CommentTemplateSegment[];
     promptPosition?: ReaderCommentPromptPosition;
+    sortMode?: ReaderCommentSortMode;
 };
 
 export {
@@ -46,6 +58,7 @@ export function resolveReaderCommentExportPrompts(settings: ReaderCommentExportS
         userPrompt: prompt.content,
         commentTemplate: settings.template,
         promptPosition: settings.promptPosition ?? DEFAULT_READER_COMMENT_PROMPT_POSITION,
+        sortMode: settings.sortMode ?? DEFAULT_READER_COMMENT_SORT_MODE,
     };
 }
 
@@ -78,7 +91,8 @@ export function buildCommentsExport(
     comments: ReaderCommentRecord[],
     prompts: ReaderCommentExportPrompts,
 ): string {
-    const lines = comments.map((record, index) => formatNumberedMultilineItem(
+    const sortedComments = sortReaderComments(comments, prompts.sortMode);
+    const lines = sortedComments.map((record, index) => formatNumberedMultilineItem(
         index + 1,
         renderCommentTemplate(prompts.commentTemplate, record),
     ));

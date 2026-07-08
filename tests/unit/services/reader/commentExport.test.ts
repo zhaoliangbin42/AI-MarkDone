@@ -44,6 +44,7 @@ describe('commentExport', () => {
             userPrompt: 'Second prompt',
             commentTemplate: settings.template,
             promptPosition: 'top',
+            sortMode: 'created',
         });
     });
 
@@ -152,6 +153,55 @@ describe('commentExport', () => {
                 '',
                 'Line 1',
                 'Line 2',
+            ].join('\n'),
+        );
+    });
+
+    it('sorts exported comments by text position when configured', () => {
+        const result = buildCommentsExport(
+            [
+                makeComment({
+                    id: 'created-first',
+                    sourceMarkdown: 'later text',
+                    comment: 'created first',
+                    createdAt: 1,
+                    selectors: {
+                        textQuote: { exact: '', prefix: '', suffix: '' },
+                        textPosition: { start: 80, end: 90 },
+                        domRange: null,
+                        atomicRefs: [],
+                    },
+                }),
+                makeComment({
+                    id: 'created-second',
+                    sourceMarkdown: 'earlier text',
+                    comment: 'created second',
+                    createdAt: 2,
+                    selectors: {
+                        textQuote: { exact: '', prefix: '', suffix: '' },
+                        textPosition: { start: 10, end: 20 },
+                        domRange: null,
+                        atomicRefs: [],
+                    },
+                }),
+            ],
+            {
+                userPrompt: '',
+                sortMode: 'position',
+                commentTemplate: [
+                    { type: 'token', key: 'selected_source' },
+                    { type: 'text', value: '\n' },
+                    { type: 'token', key: 'user_comment' },
+                ],
+            },
+        );
+
+        expect(result).toBe(
+            [
+                '1. earlier text',
+                '   created second',
+                '2. later text',
+                '   created first',
             ].join('\n'),
         );
     });

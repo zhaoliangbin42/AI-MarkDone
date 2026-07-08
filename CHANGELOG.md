@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Reader: Added an annotations list in the Reader header, with ordering by creation time or by text position and per-annotation deletion.
+- Reader: Added a code-block word-wrap toggle, with LaTeX and TeX blocks wrapped by default.
+
+### Changed
+- Reader: Annotation copy/export and Reader Send annotation insertion now follow the configured annotation order.
+
+### Fixed
+- Reader: The annotations list now keeps a fixed bounded panel and scrolls annotations internally, preventing long lists from clipping the top controls or growing with annotation text length.
+- Reader: Annotations created from the first rendered heading or other structural text now keep a real text position, so text-position sorting no longer pushes them to the bottom.
+
 ## [4.7.0] - 2026-06-28
 
 ### Added

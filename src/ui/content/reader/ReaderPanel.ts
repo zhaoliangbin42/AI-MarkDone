@@ -48,6 +48,7 @@ import {
     normalizeReaderCommentExportSettings,
     resolveReaderCommentExportPrompts,
     type ReaderCommentExportSettings,
+    type ReaderCommentSortMode,
 } from '../../../services/reader/commentExport';
 import { listReaderComments, removeReaderComment, saveReaderComment, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
@@ -62,9 +63,10 @@ import type { UserThemeOverrides } from '../../../style/tokens';
 import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss, hasKatexMarkup } from '../../../drivers/content/export/katexAssets';
 import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
+import { ReaderCommentListPopover } from './ReaderCommentListPopover';
 import { ReaderSettingsPopover } from './ReaderSettingsPopover';
 import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
-import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
+import { decorateReaderCodeBlocksHtml, toggleReaderCodeWrap } from './readerCodeBlockEnhancer';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
 import { showChangelogNoticeIfNeeded } from '../changelog/ChangelogNoticePresenter';
 
@@ -111,6 +113,7 @@ export type ReaderCommentExportContext = {
     listReaderPrompts: ReaderCommentPromptProvider;
     template: ReaderCommentExportSettings['template'];
     promptPosition: ReaderCommentExportSettings['promptPosition'];
+    sortMode: ReaderCommentExportSettings['sortMode'];
 };
 
 export type ReaderPanelPromptManagerController = {
@@ -175,10 +178,18 @@ const STICKY_WIDTH_MIN_PX = 240;
 const STICKY_WIDTH_FALLBACK_MAX_PX = 460;
 const STICKY_WIDTH_MAX_RATIO = 2 / 3;
 
+function areThemeOverridesEqual(left: UserThemeOverrides, right: UserThemeOverrides): boolean {
+    const leftKeys = Object.keys(left) as Array<keyof UserThemeOverrides>;
+    const rightKeys = Object.keys(right) as Array<keyof UserThemeOverrides>;
+    if (leftKeys.length !== rightKeys.length) return false;
+    return leftKeys.every((key) => left[key] === right[key]);
+}
+
 export class ReaderPanel {
     private overlaySession: OverlaySession | null = null;
     private readonly commentPopover = new ReaderCommentPopover();
     private readonly commentExportPopover = new ReaderCommentExportPopover();
+    private readonly commentListPopover = new ReaderCommentListPopover();
     private readonly settingsPopover = new ReaderSettingsPopover();
     private readonly commentPromptPicker = new CommentPromptPickerPopover();
     private settingsController: ReaderPanelSettingsController | null = null;
@@ -255,7 +266,9 @@ export class ReaderPanel {
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
+        const next = { ...overrides };
+        if (areThemeOverridesEqual(this.themeOverrides, next)) return;
+        this.themeOverrides = next;
         this.overlaySession?.setThemeOverrides(this.themeOverrides);
         if (this.state.visible) this.render();
     }
@@ -282,7 +295,7 @@ export class ReaderPanel {
 
     setCommentExportSettings(settings: AppSettings['reader']['commentExport']): void {
         this.commentExportSettings = normalizeReaderCommentExportSettings(settings);
-        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+        this.syncReaderSettingsSurfaces();
     }
 
     setContentMaxWidthPx(widthPx: number): void {
@@ -310,6 +323,7 @@ export class ReaderPanel {
     }
 
     setReaderSettings(settings: AppSettings['reader']): void {
+        const previous = this.getReaderSettingsSnapshot();
         const normalized = this.normalizeReaderSettings(settings);
         this.renderCodeInReader = normalized.renderCodeInReader;
         this.state.showOutlineInReader = normalized.showOutlineInReader;
@@ -319,13 +333,24 @@ export class ReaderPanel {
         this.state.detachedNoticeConfirmed = normalized.detachedNoticeConfirmed;
         this.state.contentMaxWidthPx = normalized.contentMaxWidthPx;
         this.commentExportSettings = normalized.commentExport;
-        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+        this.syncReaderSettingsSurfaces();
         if (this.state.visible) {
             if (this.state.fullscreen && this.state.defaultOpenMode === 'panel') {
                 this.state.fullscreen = false;
             }
-            this.render();
-            void this.renderCurrentContent();
+            const needsContentRender = previous.renderCodeInReader !== normalized.renderCodeInReader;
+            const needsShellRender = needsContentRender
+                || previous.showOutlineInReader !== normalized.showOutlineInReader
+                || previous.defaultOpenMode !== normalized.defaultOpenMode
+                || previous.panelSizeRatio.widthRatio !== normalized.panelSizeRatio.widthRatio
+                || previous.panelSizeRatio.heightRatio !== normalized.panelSizeRatio.heightRatio
+                || previous.bodyFontSizePx !== normalized.bodyFontSizePx
+                || previous.contentMaxWidthPx !== normalized.contentMaxWidthPx;
+            if (needsContentRender) {
+                void this.renderCurrentContent();
+            } else if (needsShellRender) {
+                this.render();
+            }
         }
     }
 
@@ -336,6 +361,7 @@ export class ReaderPanel {
             listReaderPrompts: () => this.listReaderPrompts(),
             template: this.commentExportSettings.template.map((segment) => ({ ...segment })),
             promptPosition: this.commentExportSettings.promptPosition,
+            sortMode: this.commentExportSettings.sortMode,
         };
     }
 
@@ -537,6 +563,7 @@ export class ReaderPanel {
         if (this.overlaySession?.shadow) {
             this.commentPopover.close(this.overlaySession.shadow, false);
             this.commentExportPopover.close(this.overlaySession.shadow);
+            this.commentListPopover.close(this.overlaySession.shadow);
             this.settingsPopover.close();
             this.commentPromptPicker.close(this.overlaySession.shadow);
         }
@@ -588,6 +615,9 @@ export class ReaderPanel {
             case 'reader-copy':
                 await this.copyCurrent();
                 return;
+            case 'reader-comment-list':
+                this.openCommentListPopover();
+                return;
             case 'reader-copy-comments':
                 void this.openCommentExportPopover();
                 return;
@@ -596,6 +626,9 @@ export class ReaderPanel {
                 return;
             case 'reader-copy-code':
                 await this.copyCodeBlock(actionEl);
+                return;
+            case 'reader-code-wrap-toggle':
+                toggleReaderCodeWrap(actionEl);
                 return;
             case 'reader-fullscreen':
                 this.toggleFullscreen();
@@ -837,6 +870,8 @@ export class ReaderPanel {
         this.state.activeOutlineId = rendered.outlineItems[0]?.id ?? '';
         this.state.renderedHtml = decorateReaderCodeBlocksHtml(rendered.html, {
             copyLabel: this.getLabel('btnCopyText', 'Copy code'),
+            wrapLabel: this.getLabel('readerCodeWrapEnable', 'Enable word wrap'),
+            unwrapLabel: this.getLabel('readerCodeWrapDisable', 'Disable word wrap'),
         });
         this.render(false);
         void this.ensureKatexStylesForHtml(this.state.renderedHtml, token);
@@ -978,6 +1013,16 @@ export class ReaderPanel {
             this.commentExportSettings = normalizeReaderCommentExportSettings(patch.commentExport);
         }
         this.render();
+    }
+
+    private syncReaderSettingsSurfaces(): void {
+        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+        if (this.commentListPopover.isOpen()) {
+            this.commentListPopover.update({
+                comments: this.getCurrentComments(),
+                sortMode: this.commentExportSettings.sortMode,
+            });
+        }
     }
 
     private getReaderSettingsSnapshot(): AppSettings['reader'] {
@@ -1519,16 +1564,17 @@ export class ReaderPanel {
         return this.state.items[this.state.index] ?? null;
     }
 
-    private getCurrentComments(): ReaderCommentRecord[] {
+    private getCurrentComments(sortMode: ReaderCommentSortMode = this.commentExportSettings.sortMode): ReaderCommentRecord[] {
         const item = this.getCurrentItem();
         if (!item) return [];
-        return listReaderComments(READER_COMMENT_SCOPE_ID, item.id);
+        return listReaderComments(READER_COMMENT_SCOPE_ID, item.id, sortMode);
     }
 
     private syncCommentControls(): void {
-        const button = this.overlaySession?.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]');
-        if (!button) return;
-        button.disabled = this.getCurrentComments().length < 1;
+        const disabled = this.getCurrentComments().length < 1;
+        this.overlaySession?.surfaceRoot
+            .querySelectorAll<HTMLButtonElement>('[data-action="reader-copy-comments"], [data-action="reader-comment-list"]')
+            .forEach((button) => { button.disabled = disabled; });
     }
 
     private syncCommentUi(): void {
@@ -1708,36 +1754,57 @@ export class ReaderPanel {
         button.style.top = `${Math.max(0, top)}px`;
         this.installTransientButtonBoundary(button);
         button.addEventListener('click', () => {
-            this.activeCommentId = record.id;
-            this.syncCommentUi();
-            const markdownRoot = this.getMarkdownRoot();
-            const resolved = markdownRoot ? resolveReaderCommentAnchor(markdownRoot, record) : null;
-            const contentAnchorRect = resolved?.unionRect ? this.toViewportRect(resolved.unionRect) : null;
-            this.openCommentPopover({
-                mode: 'edit',
-                anchorRect: contentAnchorRect ?? button.getBoundingClientRect(),
-                initialText: record.comment,
-                selectedSource: record.sourceMarkdown,
-                onSave: (value) => {
-                    saveReaderComment(READER_COMMENT_SCOPE_ID, {
-                        ...record,
-                        comment: value,
-                        updatedAt: Date.now(),
-                    });
-                    this.activeCommentId = record.id;
-                    this.syncCommentUi();
-                },
-                onDelete: () => {
-                    removeReaderComment(READER_COMMENT_SCOPE_ID, record.itemId, record.id);
-                    this.activeCommentId = null;
-                    this.syncCommentUi();
-                    this.syncCommentControls();
-                    this.notify(this.getLabel('readerCommentDeleted', 'Annotation deleted'));
-                },
-                onCancel: () => this.syncCommentUi(),
-            });
+            this.openExistingComment(record, button.getBoundingClientRect());
         });
         return button;
+    }
+
+    private openExistingComment(record: ReaderCommentRecord, fallbackRect: DOMRect, options?: { scrollIntoView?: boolean }): void {
+        this.activeCommentId = record.id;
+        this.syncCommentUi();
+        const markdownRoot = this.getMarkdownRoot();
+        const resolved = markdownRoot ? resolveReaderCommentAnchor(markdownRoot, record) : null;
+        if (options?.scrollIntoView && resolved?.unionRect) {
+            this.scrollCommentRectIntoView(resolved.unionRect);
+        }
+        const contentAnchorRect = resolved?.unionRect ? this.toViewportRect(resolved.unionRect) : null;
+        this.openCommentPopover({
+            mode: 'edit',
+            anchorRect: contentAnchorRect ?? fallbackRect,
+            initialText: record.comment,
+            selectedSource: record.sourceMarkdown,
+            onSave: (value) => {
+                saveReaderComment(READER_COMMENT_SCOPE_ID, {
+                    ...record,
+                    comment: value,
+                    updatedAt: Date.now(),
+                });
+                this.activeCommentId = record.id;
+                this.syncCommentUi();
+            },
+            onDelete: () => {
+                removeReaderComment(READER_COMMENT_SCOPE_ID, record.itemId, record.id);
+                this.activeCommentId = null;
+                this.syncCommentUi();
+                this.syncCommentControls();
+                this.notify(this.getLabel('readerCommentDeleted', 'Annotation deleted'));
+            },
+            onCancel: () => this.syncCommentUi(),
+        });
+    }
+
+    private scrollCommentRectIntoView(rect: ReaderCommentRect): void {
+        const body = this.getReaderBody();
+        const markdownRoot = this.getMarkdownRoot();
+        if (!body || !markdownRoot) return;
+        const bodyRect = body.getBoundingClientRect();
+        const markdownRect = markdownRoot.getBoundingClientRect();
+        const top = Math.max(0, body.scrollTop + markdownRect.top + rect.top - bodyRect.top - this.getTokenSize('--aimd-space-4', 16));
+        if (typeof body.scrollTo === 'function') {
+            body.scrollTo({ top, behavior: 'smooth' });
+            return;
+        }
+        body.scrollTop = top;
     }
 
     private openCommentPopover(params: {
@@ -1782,6 +1849,73 @@ export class ReaderPanel {
                 this.syncCommentUi();
             },
         });
+    }
+
+    private openCommentListPopover(): void {
+        if (!this.overlaySession) return;
+        const comments = this.getCurrentComments();
+        if (comments.length < 1) {
+            this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
+            return;
+        }
+
+        const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+        if (!container) return;
+        this.commentListPopover.open({
+            shadow: this.overlaySession.shadow,
+            container,
+            theme: this.state.theme,
+            comments,
+            sortMode: this.commentExportSettings.sortMode,
+            labels: {
+                title: this.getLabel('readerCommentListTitle', 'Annotations'),
+                close: this.getLabel('btnClose', 'Close'),
+                empty: this.getLabel('readerCommentListEmpty', 'No annotations yet.'),
+                sortByCreated: this.getLabel('readerCommentSortCreated', 'Sort by creation time'),
+                sortByPosition: this.getLabel('readerCommentSortPosition', 'Sort by text position'),
+                selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
+                userComment: this.getLabel('readerCommentUserComment', 'Annotation'),
+                createdAt: this.getLabel('readerCommentCreatedAt', 'Created'),
+                textPosition: this.getLabel('readerCommentTextPosition', 'Position'),
+                delete: this.getLabel('btnDelete', 'Delete'),
+            },
+            onSortChange: (sortMode) => this.updateCommentSortMode(sortMode),
+            onSelect: (selected) => {
+                const current = this.getCurrentComments('created').find((record) => record.id === selected.id);
+                if (!current) {
+                    this.syncCommentControls();
+                    this.notify(this.getLabel('readerCommentDeleted', 'Annotation deleted'));
+                    return;
+                }
+                this.openExistingComment(current, container.getBoundingClientRect(), { scrollIntoView: true });
+            },
+            onDelete: (selected) => {
+                removeReaderComment(READER_COMMENT_SCOPE_ID, selected.itemId, selected.id);
+                if (this.activeCommentId === selected.id) this.activeCommentId = null;
+                this.syncCommentUi();
+                this.syncCommentControls();
+                this.commentListPopover.update({
+                    comments: this.getCurrentComments(),
+                    sortMode: this.commentExportSettings.sortMode,
+                });
+                this.notify(this.getLabel('readerCommentDeleted', 'Annotation deleted'));
+            },
+            onClose: () => this.syncCommentUi(),
+        });
+    }
+
+    private async updateCommentSortMode(sortMode: ReaderCommentSortMode): Promise<void> {
+        const next = normalizeReaderCommentExportSettings({
+            ...this.commentExportSettings,
+            sortMode,
+        });
+        this.commentExportSettings = next;
+        this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+        this.commentListPopover.update({
+            comments: this.getCurrentComments(),
+            sortMode: next.sortMode,
+        });
+        await this.settingsController?.onChange({ commentExport: next });
     }
 
     private async openCommentExportPopover(): Promise<void> {

@@ -51,6 +51,30 @@ describe('commentSession', () => {
         expect(comments[0]?.updatedAt).toBe(30);
     });
 
+    it('can list comments by text position while keeping creation time as the default order', () => {
+        saveReaderComment(scopeId, createRecord({ id: 'late-position', createdAt: 10, selectors: {
+            textQuote: { exact: 'late', prefix: '', suffix: '' },
+            textPosition: { start: 40, end: 44 },
+            domRange: null,
+            atomicRefs: [],
+        } }));
+        saveReaderComment(scopeId, createRecord({ id: 'early-position', createdAt: 20, selectors: {
+            textQuote: { exact: 'early', prefix: '', suffix: '' },
+            textPosition: { start: 5, end: 10 },
+            domRange: null,
+            atomicRefs: [],
+        } }));
+
+        expect(listReaderComments(scopeId, 'item-1').map((record) => record.id)).toEqual([
+            'late-position',
+            'early-position',
+        ]);
+        expect(listReaderComments(scopeId, 'item-1', 'position').map((record) => record.id)).toEqual([
+            'early-position',
+            'late-position',
+        ]);
+    });
+
     it('removes an existing comment and clears the item bucket when it becomes empty', () => {
         saveReaderComment(scopeId, createRecord());
 

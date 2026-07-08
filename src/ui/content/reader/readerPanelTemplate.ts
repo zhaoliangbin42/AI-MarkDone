@@ -4,6 +4,7 @@ import {
     externalLinkIcon,
     gripHorizontalIcon,
     maximizeIcon,
+    messageSquareTextIcon,
     messageSquareShareIcon,
     minimizeIcon,
     panelLeftIcon,
@@ -171,6 +172,7 @@ export function getReaderPanelHtml(params: {
     <div class="panel-header__actions">
       <div class="panel-header__actions-group" data-role="header-custom-actions"></div>
       ${state.showOpenConversation && canOpenConversation ? `<button class="icon-btn" data-action="reader-open-conversation" aria-label="${escapeHtml(openConversationLabel)}" title="${escapeHtml(openConversationLabel)}">${iconMarkup(externalLinkIcon)}</button>` : ''}
+      <button class="icon-btn" data-action="reader-comment-list" aria-label="${escapeHtml(getLabel('readerCommentListTitle', 'Annotations'))}" title="${escapeHtml(getLabel('readerCommentListTitle', 'Annotations'))}">${iconMarkup(messageSquareTextIcon)}</button>
       <button class="icon-btn" data-action="reader-copy-comments" aria-label="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}" title="${escapeHtml(getLabel('readerCommentCopyComments', 'Copy annotations'))}">${iconMarkup(messageSquareShareIcon)}</button>
       ${state.showCopy ? `<button class="icon-btn" data-action="reader-copy" aria-label="${escapeHtml(copyLabel)}" title="${escapeHtml(copyLabel)}">${iconMarkup(copyIcon)}</button>` : ''}
       <button class="icon-btn" data-action="reader-settings" aria-label="${escapeHtml(settingsLabel)}" title="${escapeHtml(settingsLabel)}">${iconMarkup(settingsIcon)}</button>
@@ -727,9 +729,18 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   color: var(--aimd-text-secondary);
 }
 
+.reader-code-block__wrap,
 .reader-code-block__copy {
   flex: 0 0 auto;
+}
+
+.reader-code-block__wrap {
   margin-left: auto;
+}
+
+.reader-code-block__wrap[aria-pressed="true"] {
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-interactive-selected);
 }
 
 .reader-code-block__scroll {
@@ -744,6 +755,19 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+}
+
+.reader-code-block--soft-wrap .reader-code-block__scroll {
+  overflow-x: hidden;
+}
+
+.reader-code-block--soft-wrap .reader-code-block__scroll pre {
+  overflow: visible;
+}
+
+.reader-code-block--soft-wrap .reader-code-block__scroll pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .reader-markdown :where(.katex-display) {
