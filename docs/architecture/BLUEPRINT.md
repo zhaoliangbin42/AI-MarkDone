@@ -126,7 +126,8 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 - `docs/architecture/DEPENDENCY_RULES.md`（协议文件只能在 contract 层）
 - `docs/architecture/RUNTIME_PROTOCOL.md`（当前协议语义与错误模型）
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`（适配器与协议协作方式）
+- `src/drivers/content/adapters/base.ts`（适配器源代码契约）
+- `docs/architecture/CURRENT_STATE.md`（当前适配器与平台边界）
 
 ### 3.2 Site Adapter Contract（站点差异收敛点）
 
@@ -141,7 +142,8 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 契约位置：
 
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`
+- `src/drivers/content/adapters/base.ts`
+- `docs/architecture/CURRENT_STATE.md`
 
 ### 3.3 Storage Contract（单一写入路径）
 

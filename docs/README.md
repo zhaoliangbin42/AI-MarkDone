@@ -33,9 +33,12 @@ These are transition-execution documents, not long-lived architecture authority:
 
 ### Contracts
 
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`
-- `docs/antigravity/platform/CAPABILITY_MATRIX.md`
 - `docs/FEATURES.md`
+  - product capabilities, acceptance boundaries, and platform support policy
+- `src/drivers/content/adapters/base.ts`
+  - source-level site adapter contract
+- `docs/architecture/CURRENT_STATE.md`
+  - active platform runtime inventory and adapter behavior boundaries
 
 ### Governance
 
@@ -89,8 +92,9 @@ These are transition-execution documents, not long-lived architecture authority:
 - Content/background messaging
   - `docs/architecture/RUNTIME_PROTOCOL.md`
 - Platform adapters and support level
-  - `docs/antigravity/platform/ADAPTER_CONTRACT.md`
-  - `docs/antigravity/platform/CAPABILITY_MATRIX.md`
+  - `src/drivers/content/adapters/base.ts`
+  - `docs/architecture/CURRENT_STATE.md`
+  - `docs/FEATURES.md`
 - Testing and release gates
   - `docs/testing/CURRENT_TEST_GATES.md`
   - `docs/testing/TESTING_BLUEPRINT.md`

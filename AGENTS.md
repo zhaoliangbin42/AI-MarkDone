@@ -95,8 +95,6 @@ Start here:
 - [docs/architecture/DEPENDENCY_RULES.md](docs/architecture/DEPENDENCY_RULES.md)
 - [docs/architecture/RUNTIME_PROTOCOL.md](docs/architecture/RUNTIME_PROTOCOL.md)
 - [docs/architecture/BROWSER_COMPATIBILITY.md](docs/architecture/BROWSER_COMPATIBILITY.md)
-- [docs/antigravity/platform/ADAPTER_CONTRACT.md](docs/antigravity/platform/ADAPTER_CONTRACT.md)
-- [docs/antigravity/platform/CAPABILITY_MATRIX.md](docs/antigravity/platform/CAPABILITY_MATRIX.md)
 - [docs/design.md](docs/design.md)
 - [docs/testing/CURRENT_TEST_GATES.md](docs/testing/CURRENT_TEST_GATES.md)
 - [docs/testing/TESTING_BLUEPRINT.md](docs/testing/TESTING_BLUEPRINT.md)
@@ -105,7 +103,9 @@ Start here:
 ## Change Routing
 
 - Adapter or platform behavior
-  - read `docs/antigravity/platform/ADAPTER_CONTRACT.md`
+  - read `src/drivers/content/adapters/base.ts`
+  - read `docs/architecture/CURRENT_STATE.md`
+  - read `docs/FEATURES.md`
 - Architecture or layer boundaries
   - read `docs/architecture/CURRENT_STATE.md`
   - read `docs/architecture/BLUEPRINT.md`

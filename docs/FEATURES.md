@@ -2,7 +2,7 @@
 
 目的：用 **一个** 权威文档固化当前产品能力、验收口径与测试映射，避免多份功能文档漂移。
 
-范围：本文件定义“能力在支持的平台上应如何工作”。各平台支持状态与支持级别，以 `docs/antigravity/platform/CAPABILITY_MATRIX.md` 为准。
+范围：本文件定义“能力在支持的平台上应如何工作”，并持有当前平台支持状态与支持级别。当前落地运行时边界同步记录在 `docs/architecture/CURRENT_STATE.md`。
 
 术语：
 
@@ -18,7 +18,7 @@
 
 | Topic | Decision | Rationale |
 |---|---|---|
-| Platform support policy | Capability behavior is defined here, support level lives in `CAPABILITY_MATRIX.md` | 把“产品能力”与“平台支持状态”分开治理，减少文档职责混叠。 |
+| Platform support policy | Capability behavior and support level are defined here; implementation inventory lives in `CURRENT_STATE.md` | 把“产品能力/支持承诺”与“当前实现路径”分开治理，减少文档职责混叠。 |
 | UI entrypoints | **No legacy global toolbar**; compact global page controls are allowed only for ChatGPT navigation and Detached Reader | 减少注入点与 UI 干扰；常规消息动作仍聚焦“每条消息工具栏 + ReaderPanel”，但右下角 ChatGPT message stepper 所在的页面级控制组可承载低频全局动作。Detached Reader 不属于单条消息 toolbar 动作，应放在 stepper 左侧的同组全局按钮。 |
 | Action icon click | Background sends `ping` → `ui:toggle_toolbar` → Content toggles **BookmarksPanel** | 扩展图标作为稳定入口；点击前先轻量确认当前 ChatGPT tab 的 content script 可达，失效 tab 静默降级，页面恢复后通过 `content:ready` 重新接回。 |
 | Per-message toolbar placement | Official action bar row only; no content fallback | 避免把官方工具栏挤到下方；官方 action row 缺失时不注入，等待后续 DOM 信号重扫。 |
@@ -198,7 +198,7 @@
 
 - 新增 i18n 能力扩展（例如更多 locale 或整站文案重写）
 - 独立 Settings 页面（当前沿用 BookmarksPanel Settings tab 入口）
-- 超出 `CAPABILITY_MATRIX.md` 当前支持范围的平台承诺；Gemini、Claude、DeepSeek 当前保留公式复制 runtime
+- 超出本文件当前支持范围的平台承诺；Gemini、Claude、DeepSeek 当前保留公式复制 runtime
 
 ---
 

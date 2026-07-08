@@ -7,9 +7,9 @@
 
 ## Start Here
 
-- Read `docs/antigravity/platform/ADAPTER_CONTRACT.md`
-- Read `docs/antigravity/platform/CAPABILITY_MATRIX.md`
+- Read `src/drivers/content/adapters/base.ts`
 - Read `docs/architecture/CURRENT_STATE.md`
+- Read `docs/FEATURES.md`
 - Read `docs/architecture/BROWSER_COMPATIBILITY.md`
 - Inspect current adapters in `src/drivers/content/adapters/sites/*`
 
@@ -31,8 +31,8 @@
    - theme sync
    - sending, only if the platform supports it
 7. Update the authoritative docs:
-   - `ADAPTER_CONTRACT.md` if method semantics changed
-   - `CAPABILITY_MATRIX.md` if support level changed
+   - `src/drivers/content/adapters/base.ts` and `CURRENT_STATE.md` if method semantics changed
+   - `FEATURES.md` and `CURRENT_STATE.md` if support level changed
    - `CURRENT_STATE.md` if runtime boundaries or active adapter inventory changed
 8. Finish with `npm run build`.
 
@@ -41,8 +41,9 @@
 - `.codex/rules/critical-rules.md`
 - `.codex/rules/documentation.md`
 - `docs/architecture/BLUEPRINT.md`
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`
-- `docs/antigravity/platform/CAPABILITY_MATRIX.md`
+- `src/drivers/content/adapters/base.ts`
+- `docs/architecture/CURRENT_STATE.md`
+- `docs/FEATURES.md`
 
 ## Done When
 
