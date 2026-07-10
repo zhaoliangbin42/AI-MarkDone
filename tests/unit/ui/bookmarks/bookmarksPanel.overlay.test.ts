@@ -24,6 +24,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
 }));
 
 import { BookmarksPanel } from '@/ui/content/bookmarks/BookmarksPanel';
+import { ChatGPTMessageStepperController } from '@/ui/content/controllers/ChatGPTMessageStepperController';
 
 describe('BookmarksPanel overlay surface', () => {
     beforeEach(() => {
@@ -76,7 +77,19 @@ describe('BookmarksPanel overlay surface', () => {
         } as any;
 
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
-        await panel.show();
+        const stepper = new ChatGPTMessageStepperController({
+            getPlatformId: () => 'chatgpt',
+            getConversationGroupRefs: () => [],
+            getMessageSelector: () => '[data-no-message]',
+        } as any, {
+            onOpenBookmarksPanel: () => panel.toggle(),
+        });
+        stepper.init();
+
+        document.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.click();
+        await vi.waitFor(() => {
+            expect(document.getElementById('aimd-bookmarks-panel-host')).toBeTruthy();
+        });
 
         const host = document.getElementById('aimd-bookmarks-panel-host');
         expect(host).toBeTruthy();
@@ -92,5 +105,6 @@ describe('BookmarksPanel overlay surface', () => {
         expect(shadow.querySelector('[data-aimd-style-id="aimd-bookmarks-panel-structure"]')).toBeTruthy();
 
         panel.hide();
+        stepper.dispose();
     });
 });

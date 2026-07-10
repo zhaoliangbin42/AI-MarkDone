@@ -361,6 +361,7 @@ Rules:
 - Validate shared stylesheet paths in Chrome-like and Firefox-like environments.
 - Do not branch by browser name when feature detection is enough.
 - Do not inject global page CSS for product UI unless an adapter contract explicitly requires it.
+- The ChatGPT lower-right page-control cluster is a documented light-DOM exception: it owns one uniquely identified fixed host under `document.body`, uses only uniquely prefixed AI-MarkDone selectors and `--aimd-*` token CSS, and must not modify ChatGPT-owned header or conversation DOM.
 - Theme switching uses `data-aimd-theme` and token variables, not host-page selectors.
 - Style modules must be idempotent across repeated hydration, teardown, and re-scan.
 

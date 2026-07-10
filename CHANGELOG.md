@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- ChatGPT: Moved the AI-MarkDone bookmarks panel entry from the ChatGPT header into the lower-right page controls so it no longer interferes with third-party selection translation popups.
 - ChatGPT: Hid the right-side directory rail's internal scrollbar while keeping long directories scrollable.
 - Reader: Reader settings rows now keep their label and help text readable on short screens, with the settings dialog scrolling instead of compressing fields.
 

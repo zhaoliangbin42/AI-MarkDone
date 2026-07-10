@@ -110,7 +110,7 @@ When outside-dismiss, transient popovers, or nested overlays are involved, that 
 
 Examples:
 
-- `header icon -> bookmarks panel toggle -> panel open`
+- `lower-right AI-MarkDone entry -> bookmarks panel toggle -> panel open`
 - `toolbar action -> reader popover open`
 - `settings trigger -> modal/dialog open`
 

@@ -182,26 +182,6 @@ export abstract class SiteAdapter {
         return null;
     }
 
-    /**
-     * Optional stable anchor for the page-level header icon entry.
-     *
-     * Why: page headers are often re-rendered independently from message containers.
-     * The runtime owns lifecycle; adapters own header DOM differences.
-     */
-    getHeaderIconAnchorElement(): HTMLElement | null {
-        return null;
-    }
-
-    /**
-     * Platform-specific injection strategy for the page-level header icon host.
-     */
-    injectHeaderIcon(iconHost: HTMLElement): boolean {
-        const anchor = this.getHeaderIconAnchorElement();
-        if (!anchor) return false;
-        anchor.appendChild(iconHost);
-        return true;
-    }
-
     // =========================
     // Optional platform extras
     // =========================
