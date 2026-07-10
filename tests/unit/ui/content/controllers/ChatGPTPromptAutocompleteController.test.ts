@@ -417,6 +417,54 @@ describe('ChatGPTPromptAutocompleteController', () => {
         controller.dispose();
     });
 
+    it('keeps a hovered suggestion mounted so a pointer click inserts it', async () => {
+        const composer = createComposer('\\');
+        const prompts = [
+            createPrompt({
+                id: 'rewrite',
+                title: 'Rewrite Clearly',
+                triggerText: 'rewrite',
+                content: 'Rewrite this clearly.',
+            }),
+            createPrompt({
+                id: 'translate',
+                title: 'Translate Naturally',
+                triggerText: 'translate',
+                content: 'Translate this naturally.',
+            }),
+        ];
+        const client = {
+            listPrompts: vi.fn(async () => prompts),
+            recordUse: vi.fn(async () => undefined),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        controller.init();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await tick();
+
+        const shadow = document.getElementById('aimd-chatgpt-prompt-popover-host')!.shadowRoot!;
+        const suggestion = shadow.querySelectorAll<HTMLButtonElement>('[data-role="prompt-suggestion"]')[1]!;
+        suggestion.dispatchEvent(new MouseEvent('mouseenter'));
+
+        expect(suggestion.isConnected).toBe(true);
+        suggestion.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        suggestion.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        await tick();
+
+        expect(parseContenteditableToPlainText(composer)).toBe('Translate this naturally.');
+        expect(client.recordUse).toHaveBeenCalledWith('translate');
+        controller.dispose();
+    });
+
     it('matches ChatGPT composer autocomplete only against trigger text', async () => {
         const composer = createComposer('\\tran');
         const prompt = createPrompt({

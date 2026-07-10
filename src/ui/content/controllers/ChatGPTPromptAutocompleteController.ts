@@ -506,7 +506,9 @@ export class ChatGPTPromptAutocompleteController {
         this.root.querySelectorAll<HTMLButtonElement>('[data-role="prompt-suggestion"]').forEach((button) => {
             button.addEventListener('mouseenter', () => {
                 this.selectedIndex = Number(button.dataset.index ?? 0);
-                this.render();
+                this.root?.querySelectorAll<HTMLButtonElement>('[data-role="prompt-suggestion"]').forEach((row) => {
+                    row.classList.toggle('is-active', row === button);
+                });
             });
             button.addEventListener('click', () => {
                 const prompt = this.suggestions[Number(button.dataset.index ?? 0)];
