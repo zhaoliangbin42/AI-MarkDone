@@ -36,4 +36,19 @@ describe('bookmarks path utils', () => {
         expect(PathUtils.updatePathPrefix('Work', 'Projects', 'Work')).toBe('Projects');
         expect(PathUtils.updatePathPrefix('Work', 'Projects', 'Personal/Notes')).toBe('Personal/Notes');
     });
+
+    it('matches exact and descendant paths against a pre-indexed folder scope', () => {
+        const matchesScope = PathUtils.createScopeMatcher([
+            'Work/Research',
+            'Personal',
+            'Work/Research',
+        ]);
+
+        expect(matchesScope('Work/Research')).toBe(true);
+        expect(matchesScope('Work/Research/July')).toBe(true);
+        expect(matchesScope('Personal/Travel')).toBe(true);
+        expect(matchesScope('Work/Researcher')).toBe(false);
+        expect(matchesScope('Archive/Work/Research')).toBe(false);
+        expect(matchesScope('../invalid')).toBe(false);
+    });
 });

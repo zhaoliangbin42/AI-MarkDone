@@ -403,6 +403,45 @@ describe('background bookmarks handler', () => {
         expect(store.folderPaths).toEqual(['Import']);
     });
 
+    it('matches large bulk folder removals through a pre-indexed path scope', async () => {
+        const count = 500;
+        const folderPaths = Array.from({ length: count }, (_, index) => `Folder-${index}`);
+        const store: StorageMap = {
+            folderPaths,
+            'aimd:bookmarks:index:v1': folderPaths.map((_path, index) => `bookmark:chatgpt.com/c/perf:${index + 1}`),
+        };
+        for (let index = 0; index < count; index += 1) {
+            const path = folderPaths[index]!;
+            store[`folder:${path}`] = { path, name: path, depth: 1, createdAt: index, updatedAt: index };
+            store[`bookmark:chatgpt.com/c/perf:${index + 1}`] = {
+                url: 'https://chatgpt.com/c/perf',
+                urlWithoutProtocol: 'chatgpt.com/c/perf',
+                position: index + 1,
+                userMessage: `u${index}`,
+                aiResponse: `a${index}`,
+                timestamp: index,
+                title: `T${index}`,
+                platform: 'ChatGPT',
+                folderPath: path,
+            };
+        }
+        (globalThis as any).browser = createInMemoryBrowser(store);
+
+        const { handleBookmarksRequest } = await import('../../../../src/runtimes/background/handlers/bookmarks');
+        const { PathUtils } = await import('../../../../src/core/bookmarks/path');
+        const descendantSpy = vi.spyOn(PathUtils, 'isDescendantOf');
+
+        const bulk = await handleBookmarksRequest(req('bookmarks:bulkRemove', {
+            items: [],
+            folderPaths,
+        }));
+
+        expect(bulk?.response.ok).toBe(true);
+        expect(descendantSpy.mock.calls.length).toBeLessThan(count * 10);
+        expect(store.folderPaths).toEqual([]);
+        expect(store['aimd:bookmarks:index:v1']).toEqual([]);
+    });
+
     it('returns storage usage derived from real local storage bytes and quota', async () => {
         const store: StorageMap = {
             'bookmark:chatgpt.com/c/1:1': {

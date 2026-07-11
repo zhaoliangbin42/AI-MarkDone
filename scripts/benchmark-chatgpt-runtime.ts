@@ -138,6 +138,19 @@ async function preparePage(context: BrowserContext, rounds: number): Promise<Pag
     return page;
 }
 
+async function collectUsedJsHeapAfterGc(context: BrowserContext, page: Page): Promise<number | null> {
+    const session = await context.newCDPSession(page);
+    try {
+        await session.send('HeapProfiler.collectGarbage');
+        return page.evaluate(() => {
+            const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory;
+            return typeof memory?.usedJSHeapSize === 'number' ? memory.usedJSHeapSize : null;
+        });
+    } finally {
+        await session.detach();
+    }
+}
+
 async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutations: number): Promise<RuntimeMetrics> {
     const userDataDir = await mkdtemp(join(tmpdir(), 'aimd-perf-'));
     const context = await chromium.launchPersistentContext(userDataDir, {
@@ -228,10 +241,9 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         await page.waitForTimeout(500);
         const recovery = await collectPhase(page);
 
-        const finalMetrics = await page.evaluate(() => {
+        const finalDomMetrics = await page.evaluate(() => {
             const allElements = Array.from(document.querySelectorAll<HTMLElement>('*'));
             const actionRows = Array.from(document.querySelectorAll<HTMLElement>('[data-turn="assistant"] div.z-0.flex'));
-            const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory;
             return {
                 toolbarCount: document.querySelectorAll('[data-aimd-role="message-toolbar"]').length,
                 duplicateActionRows: actionRows.filter(
@@ -242,9 +254,10 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
                     (sum, element) => sum + (element.shadowRoot?.querySelectorAll('*').length ?? 0),
                     0,
                 ),
-                usedJsHeapBytes: typeof memory?.usedJSHeapSize === 'number' ? memory.usedJSHeapSize : null,
             };
         });
+        const usedJsHeapBytes = await collectUsedJsHeapAfterGc(context, page);
+        const finalMetrics = { ...finalDomMetrics, usedJsHeapBytes };
 
         if (finalMetrics.toolbarCount !== rounds || finalMetrics.duplicateActionRows !== 0) {
             throw new Error(

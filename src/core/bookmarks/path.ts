@@ -84,6 +84,35 @@ export class PathUtils {
         return normalizedChild.startsWith(normalizedParent + this.SEPARATOR);
     }
 
+    static createScopeMatcher(paths: Iterable<string>): (path: string) => boolean {
+        const roots = new Set<string>();
+        for (const path of paths) {
+            try {
+                const normalized = this.normalize(path);
+                if (normalized) roots.add(normalized);
+            } catch {
+                // Ignore malformed scope roots; callers treat them as non-matches.
+            }
+        }
+
+        return (path: string): boolean => {
+            let current: string;
+            try {
+                current = this.normalize(path);
+            } catch {
+                return false;
+            }
+
+            while (current) {
+                if (roots.has(current)) return true;
+                const separatorIndex = current.lastIndexOf(this.SEPARATOR);
+                if (separatorIndex < 0) break;
+                current = current.slice(0, separatorIndex);
+            }
+            return false;
+        };
+    }
+
     static getAncestors(path: string): string[] {
         if (!path) return [];
         const normalized = this.normalize(path);

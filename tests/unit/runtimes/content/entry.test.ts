@@ -1050,7 +1050,7 @@ describe('content runtime entry', () => {
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('headTail');
         expect(directorySetRightInsetPx).toHaveBeenLastCalledWith(40);
-        expect(officialNavigationSetEnabled).toHaveBeenLastCalledWith(true);
+        expect(officialNavigationSetEnabled).toHaveBeenLastCalledWith(false);
     });
 
     it('does not create a detached reader session when the experimental notice is cancelled', async () => {

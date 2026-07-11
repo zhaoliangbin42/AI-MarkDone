@@ -28,6 +28,8 @@ export class ScanScheduler {
     private pendingReasons = new Set<ScanReason>();
     private scheduledAt = 0;
     private firstPendingAt: number | null = null;
+    private deferredHandles = new Map<number, 'idle' | 'timeout'>();
+    private disposed = false;
 
     constructor(scanFn: ScanFn, options: SchedulerOptions) {
         this.scanFn = scanFn;
@@ -35,6 +37,7 @@ export class ScanScheduler {
     }
 
     schedule(reason: ScanReason): void {
+        if (this.disposed) return;
         this.pendingReasons.add(reason);
         const now = Date.now();
         if (this.firstPendingAt === null) {
@@ -56,6 +59,7 @@ export class ScanScheduler {
     }
 
     dispose(): void {
+        this.disposed = true;
         if (this.timer !== null) {
             window.clearTimeout(this.timer);
             this.timer = null;
@@ -63,9 +67,11 @@ export class ScanScheduler {
         this.pendingReasons.clear();
         this.scheduledAt = 0;
         this.firstPendingAt = null;
+        this.cancelDeferredRuns();
     }
 
     private flush(): void {
+        if (this.disposed) return;
         this.timer = null;
         this.scheduledAt = 0;
         this.firstPendingAt = null;
@@ -73,7 +79,10 @@ export class ScanScheduler {
         this.pendingReasons.clear();
         this.lastRunAt = Date.now();
 
+        let deferredHandle: number | null = null;
         const run = () => {
+            if (deferredHandle !== null) this.deferredHandles.delete(deferredHandle);
+            if (this.disposed) return;
             this.scanFn(reasons);
         };
 
@@ -83,9 +92,28 @@ export class ScanScheduler {
             | undefined;
 
         if (typeof ric === 'function') {
-            ric.call(globalScope, run, { timeout: this.options.idleTimeoutMs });
+            let ranSynchronously = false;
+            const runFromIdle = () => {
+                ranSynchronously = true;
+                run();
+            };
+            const handle = ric.call(globalScope, runFromIdle, { timeout: this.options.idleTimeoutMs });
+            if (!ranSynchronously) {
+                deferredHandle = handle;
+                this.deferredHandles.set(handle, 'idle');
+            }
         } else {
-            window.setTimeout(run, 0);
+            deferredHandle = window.setTimeout(run, 0);
+            this.deferredHandles.set(deferredHandle, 'timeout');
         }
+    }
+
+    private cancelDeferredRuns(): void {
+        const cancelIdleCallback = (window as any).cancelIdleCallback as ((handle: number) => void) | undefined;
+        for (const [handle, kind] of this.deferredHandles) {
+            if (kind === 'idle') cancelIdleCallback?.call(window, handle);
+            else window.clearTimeout(handle);
+        }
+        this.deferredHandles.clear();
     }
 }

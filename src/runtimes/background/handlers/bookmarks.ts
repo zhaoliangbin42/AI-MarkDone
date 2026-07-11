@@ -584,16 +584,18 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 }
                 const toRemove = Array.from(unique.values());
                 const requestedFolderPaths = Array.isArray(request.payload.folderPaths)
-                    ? request.payload.folderPaths
-                        .filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
-                        .map((path) => {
-                            try {
-                                return PathUtils.normalize(path);
-                            } catch {
-                                return null;
-                            }
-                        })
-                        .filter((path): path is string => Boolean(path))
+                    ? Array.from(new Set(
+                        request.payload.folderPaths
+                            .filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
+                            .map((path) => {
+                                try {
+                                    return PathUtils.normalize(path);
+                                } catch {
+                                    return null;
+                                }
+                            })
+                            .filter((path): path is string => Boolean(path)),
+                    ))
                     : [];
                 if (toRemove.length === 0 && requestedFolderPaths.length === 0) {
                     return { response: ok(request.id, request.type, { removed: 0 }) };
@@ -610,17 +612,12 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                         readLastSelectedFolderPath(),
                     ]);
 
-                    const affectedFolderPaths = folderPaths.filter((path) => (
-                        requestedFolderPaths.some((selectedPath) => (
-                            path === selectedPath || PathUtils.isDescendantOf(path, selectedPath)
-                        ))
-                    ));
+                    const matchesRequestedFolder = PathUtils.createScopeMatcher(requestedFolderPaths);
+                    const affectedFolderPaths = folderPaths.filter(matchesRequestedFolder);
                     const affectedFolderPathSet = new Set(affectedFolderPaths);
 
                     for (const bookmark of bookmarks) {
-                        if (requestedFolderPaths.some((selectedPath) => (
-                            bookmark.folderPath === selectedPath || PathUtils.isDescendantOf(bookmark.folderPath, selectedPath)
-                        ))) {
+                        if (matchesRequestedFolder(bookmark.folderPath)) {
                             removeSet.add(buildBookmarkStorageKeyForBookmark(bookmark));
                         }
                     }
@@ -630,15 +627,14 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                     }
 
                     const remainingFolderPaths = folderPaths.filter((path) => !affectedFolderPathSet.has(path));
+                    const remainingFolderPathSet = new Set(remainingFolderPaths);
                     nextFolderPaths = remainingFolderPaths;
 
-                    if (lastSelected && requestedFolderPaths.some((selectedPath) => (
-                        lastSelected === selectedPath || PathUtils.isDescendantOf(lastSelected, selectedPath)
-                    ))) {
+                    if (lastSelected && matchesRequestedFolder(lastSelected)) {
                         const nextSelected = PathUtils.getPathChain(lastSelected)
                             .slice(0, -1)
                             .reverse()
-                            .find((candidate) => remainingFolderPaths.includes(candidate)) ?? null;
+                            .find((candidate) => remainingFolderPathSet.has(candidate)) ?? null;
                         if (nextSelected) {
                             await localStoragePort.set({ [LEGACY_STORAGE_KEYS.lastSelectedFolderPath]: nextSelected });
                         } else {
@@ -767,10 +763,9 @@ export async function handleBookmarksRequest(request: ExtRequest): Promise<Handl
                 // If some folders fail to create, force affected bookmarks into Import to avoid hidden entries.
                 let bookmarksToUpsert = plan.bookmarksToUpsert;
                 if (ensure.failedPaths.length > 0) {
-                    const failedPrefixes = ensure.failedPaths.map((p) => `${p}/`);
+                    const matchesFailedFolder = PathUtils.createScopeMatcher(ensure.failedPaths);
                     bookmarksToUpsert = bookmarksToUpsert.map((b) => {
-                        const affected = ensure.failedPaths.includes(b.folderPath)
-                            || failedPrefixes.some((prefix) => b.folderPath.startsWith(prefix));
+                        const affected = matchesFailedFolder(b.folderPath);
                         return affected ? { ...b, folderPath: DEFAULT_FOLDER_PATH } : b;
                     });
                 }

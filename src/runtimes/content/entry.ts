@@ -318,7 +318,7 @@ if (adapter) {
         chatGptDirectory.setPromptLabelMode(next.promptLabelMode === 'headTail' ? 'headTail' : 'head');
         chatGptDirectory.setRightInsetPx(next.rightInsetPx);
         chatGptDirectory.setEnabled(Boolean(next.enabled));
-        chatGptOfficialNavigationVisibility?.setEnabled(Boolean(next.enabled));
+        chatGptOfficialNavigationVisibility?.setEnabled(Boolean(next.enabled && next.hideOfficialNavigation));
     };
 
     const syncChatGptBehaviorSettings = (settings: typeof DEFAULT_SETTINGS.chatgptBehavior | undefined) => {

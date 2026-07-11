@@ -21,9 +21,11 @@ import {
     getBookmarkIdentityKey,
 } from './bookmarksPanelControllerHelpers';
 import {
+    buildFolderCheckboxStateIndex,
     getDescendantKeysForFolder,
     getSelectedBookmarkItems,
     getSelectedFolderPaths,
+    type FolderCheckboxState,
 } from './bookmarksPanelControllerSelection';
 import type { UserThemeOverrides } from '../../../style/tokens';
 
@@ -90,6 +92,7 @@ export class BookmarksPanelController {
     private status: string = '';
     private storageUsage: StorageUsageResponse | null = null;
     private refreshSeq: number = 0;
+    private folderCheckboxStateByPath: Map<string, FolderCheckboxState> | null = null;
 
     private listeners = new Set<(snapshot: BookmarksPanelSnapshot) => void>();
 
@@ -158,6 +161,10 @@ export class BookmarksPanelController {
         this.listeners.forEach((l) => l(snap));
     }
 
+    private invalidateFolderCheckboxStateIndex(): void {
+        this.folderCheckboxStateByPath = null;
+    }
+
     private setStatus(text: string): void {
         this.status = text;
         this.emit();
@@ -182,6 +189,7 @@ export class BookmarksPanelController {
             this.folders = foldersRes.data.folders;
             this.folderPaths = foldersRes.data.folderPaths;
         }
+        this.invalidateFolderCheckboxStateIndex();
         this.storageUsage = storageUsageRes.ok ? storageUsageRes.data : null;
 
         if (!listRes.ok && !foldersRes.ok) {
@@ -273,22 +281,22 @@ export class BookmarksPanelController {
     }
 
     getFolderCheckboxState(path: string): { checked: boolean; indeterminate: boolean } {
-        const keys = getDescendantKeysForFolder({
-            path,
-            folders: this.folders,
-            bookmarks: this.bookmarks,
-        });
-        if (keys.length === 0) {
-            return {
-                checked: this.state.selectedKeys.has(folderKey(path)),
+        if (!this.folderCheckboxStateByPath) {
+            this.folderCheckboxStateByPath = buildFolderCheckboxStateIndex({
+                folders: this.folders,
+                bookmarks: this.bookmarks,
+                selectedKeys: this.state.selectedKeys,
+            });
+        }
+        try {
+            const normalized = PathUtils.normalize(path);
+            return this.folderCheckboxStateByPath.get(normalized) ?? {
+                checked: this.state.selectedKeys.has(folderKey(normalized)),
                 indeterminate: false,
             };
+        } catch {
+            return { checked: false, indeterminate: false };
         }
-        let selected = 0;
-        for (const k of keys) if (this.state.selectedKeys.has(k)) selected += 1;
-        if (selected === 0) return { checked: false, indeterminate: false };
-        if (selected === keys.length) return { checked: true, indeterminate: false };
-        return { checked: false, indeterminate: true };
     }
 
     toggleFolderSelection(path: string): void {
@@ -305,6 +313,7 @@ export class BookmarksPanelController {
         } else {
             allKeys.forEach((k) => this.state.selectedKeys.add(k));
         }
+        this.invalidateFolderCheckboxStateIndex();
         this.emit();
     }
 
@@ -313,11 +322,13 @@ export class BookmarksPanelController {
         const key = bookmarkKey(id);
         if (this.state.selectedKeys.has(key)) this.state.selectedKeys.delete(key);
         else this.state.selectedKeys.add(key);
+        this.invalidateFolderCheckboxStateIndex();
         this.emit();
     }
 
     clearSelection(): void {
         this.state.selectedKeys.clear();
+        this.invalidateFolderCheckboxStateIndex();
         this.emit();
     }
 
