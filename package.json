@@ -31,6 +31,7 @@
         "verify:entry-format:safari": "bash scripts/verify-extension-entry-format.sh safari"
     },
     "dependencies": {
+        "@mathjax/mathjax-mhchem-font-extension": "^4.1.1",
         "@mathjax/mathjax-newcm-font": "^4.1.1",
         "@mathjax/src": "^4.1.1",
         "html-to-image": "^1.11.13",

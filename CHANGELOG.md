@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Formula: SVG copy and save now produce compact standalone vector files without embedded page HTML or fonts, while preserving Chinese text, long formulas, and natural proportions.
 - Prompts: Clicking an autocomplete suggestion now reliably inserts it instead of doing nothing.
 - ChatGPT: Moved the AI-MarkDone bookmarks panel entry from the ChatGPT header into the lower-right page controls so it no longer interferes with third-party selection translation popups.
 - ChatGPT: Hid the right-side directory rail's internal scrollbar while keeping long directories scrollable.

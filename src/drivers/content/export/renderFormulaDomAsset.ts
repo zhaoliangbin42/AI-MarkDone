@@ -1,4 +1,4 @@
-import { toCanvas, toSvg } from 'html-to-image';
+import { toCanvas } from 'html-to-image';
 import { getKatexCssWithEmbeddedFonts } from './katexAssets';
 
 export type FormulaDomCaptureOptions = {
@@ -168,23 +168,6 @@ function resolveSafePixelRatio(requested: number, width: number, height: number)
     return Math.max(0.1, Math.min(requested, dimensionRatio, areaRatio));
 }
 
-function dataUrlToBlob(dataUrl: string, type: string): Blob {
-    const marker = 'base64,';
-    const base64Index = dataUrl.indexOf(marker);
-    if (base64Index >= 0) {
-        const binary = atob(dataUrl.slice(base64Index + marker.length));
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) {
-            bytes[index] = binary.charCodeAt(index);
-        }
-        return new Blob([bytes], { type });
-    }
-
-    const commaIndex = dataUrl.indexOf(',');
-    const payload = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
-    return new Blob([decodeURIComponent(payload)], { type });
-}
-
 function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
@@ -257,22 +240,6 @@ ${fontCss.css}
         fontEmbedCss: fontCss.css,
         cleanup: () => root.remove(),
     };
-}
-
-export async function renderFormulaDomSvgBlob(options: FormulaDomCaptureOptions): Promise<Blob> {
-    const prepared = await prepareFormulaNode(options);
-    try {
-        const svgDataUrl = await toSvg(prepared.node, {
-            backgroundColor: options.backgroundColor,
-            cacheBust: true,
-            fontEmbedCSS: prepared.fontEmbedCss,
-            width: prepared.width,
-            height: prepared.height,
-        });
-        return dataUrlToBlob(svgDataUrl, 'image/svg+xml');
-    } finally {
-        prepared.cleanup();
-    }
 }
 
 export async function renderFormulaDomPngBlob(options: FormulaDomCaptureOptions): Promise<Blob> {

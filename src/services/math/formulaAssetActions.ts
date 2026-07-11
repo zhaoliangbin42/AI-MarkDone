@@ -2,7 +2,7 @@ import { copyImageBlobToClipboard } from '../../drivers/content/clipboard/copyIm
 import { copyMathmlToClipboard } from '../../drivers/content/clipboard/copyMathmlToClipboard';
 import { copySvgBlobToClipboard } from '../../drivers/content/clipboard/copySvgToClipboard';
 import { downloadBlob } from '../../drivers/content/export/downloadBlob';
-import { renderFormulaDomPngBlob, renderFormulaDomSvgBlob } from '../../drivers/content/export/renderFormulaDomAsset';
+import { renderFormulaDomPngBlob } from '../../drivers/content/export/renderFormulaDomAsset';
 import { rasterizeFormulaSvgToPngBlob } from '../../drivers/content/export/renderFormulaPng';
 import { DEFAULT_FORMULA_FONT_SIZE_PX, renderFormulaMathmlAsset, renderFormulaSvgAsset } from './formulaAssetRenderer';
 
@@ -33,17 +33,6 @@ function clipboardError(code: 'CLIPBOARD_UNSUPPORTED' | 'CLIPBOARD_WRITE_FAILED'
 }
 
 async function renderSvgBlob(options: RunFormulaAssetActionOptions, source: string): Promise<Blob> {
-    if (options.sourceElement) {
-        try {
-            return await renderFormulaDomSvgBlob({
-                sourceElement: options.sourceElement,
-                fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
-            });
-        } catch {
-            // Fall through to the MathJax renderer for non-DOM formulas or capture failures.
-        }
-    }
-
     const asset = await renderFormulaSvgAsset({
         source,
         displayMode: options.displayMode,

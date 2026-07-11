@@ -140,6 +140,10 @@ describe('formula renderer entry', () => {
             expect(response.ok).toBe(true);
             if (!response.ok) throw new Error(response.message);
             expect(response.asset.svg.match(/<svg\b/g)).toHaveLength(1);
+            expect(new Blob([response.asset.svg]).size).toBeLessThan(100_000);
+            expect(response.asset.svg).not.toContain('foreignObject');
+            expect(response.asset.svg).not.toContain('data:font');
+            expect(response.asset.svg).not.toMatch(/(?:href|src)="https?:/);
             for (const glyph of expectedGlyphs) {
                 expect(response.asset.svg).toContain(glyph);
             }
@@ -160,6 +164,81 @@ describe('formula renderer entry', () => {
         expect(response.asset.svg).not.toContain('NaN');
         expect(response.asset.width).toBeGreaterThan(36);
         expect(response.asset.viewBox).not.toContain('NaN');
+        expect(response.asset.svg).toContain('preserveAspectRatio="xMidYMid meet"');
+        expect(response.asset.svg).not.toContain('foreignObject');
+        expect(response.asset.svg).not.toContain('data:font');
+        expect(new DOMParser().parseFromString(response.asset.svg, 'image/svg+xml').querySelector('parsererror')).toBeNull();
+    });
+
+    it('uses the configured CJK fallback font while laying out an underbrace', async () => {
+        const response = await renderFormula(String.raw`\underbrace{\text{频率选择性多径信道}}_{\text{原本难处理}}`, true);
+
+        expect(response.ok).toBe(true);
+        if (!response.ok) throw new Error(response.message);
+        expect(response.asset.svg).toContain('data-variant="-explicitFont"');
+        expect(response.asset.svg).toContain('PingFang SC');
+        expect(response.asset.svg).toContain('频率选择性多径信道');
+        expect(response.asset.svg).not.toContain('NaN');
+    });
+
+    it.each([
+        [String.raw`\ce{H2O + CO2 -> H2CO3}`, 'mhchem'],
+        [String.raw`\cancel{x}+\qty(2)`, 'cancel and physics'],
+        [String.raw`\begin{dcases}x & x>0\\-x & x\le0\end{dcases}`, 'mathtools'],
+    ])('renders the safe %s extension set without leaving literal commands in the SVG', async (source) => {
+        const response = await renderFormula(source, true);
+
+        expect(response.ok).toBe(true);
+        if (!response.ok) throw new Error(response.message);
+        const parsed = new DOMParser().parseFromString(response.asset.svg, 'image/svg+xml');
+        expect(parsed.querySelector('[data-mml-node="merror"]')).toBeNull();
+        expect(parsed.querySelector('[data-mml-node="mtext"][fill="red"][stroke="red"]')).toBeNull();
+        expect(response.asset.svg).not.toContain('foreignObject');
+        expect(response.asset.svg).not.toContain('NaN');
+    });
+
+    it('fails explicitly when TeX contains a command outside the supported package set', async () => {
+        const response = await renderFormula(String.raw`x+\definitelyUnknownCommand{y}`, false);
+
+        expect(response).toEqual(expect.objectContaining({
+            ok: false,
+            message: expect.stringContaining('Unsupported TeX command'),
+        }));
+    });
+
+    it('resolves inherited formula color to black while preserving explicit child colors', async () => {
+        const response = await renderFormula(String.raw`x+\color{red}{y}`, false);
+
+        expect(response.ok).toBe(true);
+        if (!response.ok) throw new Error(response.message);
+        const parsed = new DOMParser().parseFromString(response.asset.svg, 'image/svg+xml');
+        expect(parsed.documentElement.firstElementChild).toEqual(expect.objectContaining({
+            tagName: 'g',
+        }));
+        expect(parsed.documentElement.firstElementChild?.getAttribute('fill')).toBe('#000000');
+        expect(parsed.querySelector('[fill="red"]')).not.toBeNull();
+    });
+
+    it('preserves natural dimensions for long horizontal and vertical formulas', async () => {
+        const horizontal = Array.from({ length: 100 }, (_, index) => `x_{${index}}`).join('+');
+        const vertical = String.raw`\begin{aligned}`
+            + Array.from({ length: 50 }, (_, index) => `y_{${index}}&=x_{${index}}+1`).join(String.raw`\\`)
+            + String.raw`\end{aligned}`;
+
+        const [horizontalResponse, verticalResponse] = await Promise.all([
+            renderFormula(horizontal, true),
+            renderFormula(vertical, true),
+        ]);
+
+        expect(horizontalResponse.ok).toBe(true);
+        expect(verticalResponse.ok).toBe(true);
+        if (!horizontalResponse.ok || !verticalResponse.ok) return;
+        expect(horizontalResponse.asset.width).toBeGreaterThan(4000);
+        expect(horizontalResponse.asset.height).toBeLessThan(200);
+        expect(verticalResponse.asset.height).toBeGreaterThan(1500);
+        expect(verticalResponse.asset.width).toBeLessThan(1000);
+        expect(horizontalResponse.asset.svg).not.toContain('NaN');
+        expect(verticalResponse.asset.svg).not.toContain('NaN');
     });
 
     it('uses the browser SVG content bounds when standalone SVG text is wider than the MathJax root viewBox', async () => {
@@ -176,11 +255,11 @@ describe('formula renderer entry', () => {
 
             expect(response.ok).toBe(true);
             if (!response.ok) throw new Error(response.message);
-            expect(response.asset.width).toBe(304);
-            expect(response.asset.height).toBe(91);
-            expect(response.asset.viewBox).toContain('8422.222222222223');
-            expect(response.asset.svg).toContain('width="304"');
-            expect(response.asset.svg).toContain('height="91"');
+            expect(response.asset.width).toBe(312);
+            expect(response.asset.height).toBe(99);
+            expect(response.asset.viewBox).toContain('8644.444444444445');
+            expect(response.asset.svg).toContain('width="312"');
+            expect(response.asset.svg).toContain('height="99"');
         } finally {
             if (originalGetBBox) {
                 (SVGSVGElement.prototype as any).getBBox = originalGetBBox;
