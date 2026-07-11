@@ -1,5 +1,10 @@
 # Release Notes
 
+## v4.8.1 (2026-07-11)
+
+### Fixed
+- Fixed Reader content, Sticky, and outline scrollbars retaining a light native track in dark mode.
+
 ## v4.8.0 (2026-07-11)
 
 This release improves Reader annotation management, reduces conflicts with selection-translation extensions, and fixes several Reader, Prompt, navigation, and formula-export issues reported by users.

@@ -79,7 +79,7 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.7.0',
+                pendingVersion: '4.8.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -97,17 +97,17 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.7.0");
-            expect(modal?.textContent).toContain('2026-06-28');
-            expect(modal?.textContent).toContain('new Prompts panel');
-            expect(modal?.querySelector<HTMLImageElement>('.info-media__image')?.src).toContain('icons/mappamory-changelog-4.6.0.png');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.8.1");
+            expect(modal?.textContent).toContain('2026-07-11');
+            expect(modal?.textContent).toContain('Reader scrollbars');
+            expect(modal?.querySelector<HTMLImageElement>('.info-media__image')).toBeNull();
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.7.0');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.8.1');
         } finally {
             panel.hide();
         }
@@ -701,6 +701,18 @@ describe('ReaderPanel presentation', () => {
         expect(narrowCss).toContain('position: absolute;');
         expect(narrowCss).toContain('box-shadow: var(--aimd-shadow-panel);');
         expect(narrowCss).not.toContain('grid-template-columns');
+    });
+
+    it('themes Reader scrollbars from shared light and dark tokens', () => {
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/readerPanelTemplate.ts'), 'utf8');
+
+        expect(source).toContain('.reader-body,\n.reader-sticky-list,\n.reader-outline-rail__list {');
+        expect(source).toContain('scrollbar-color: var(--aimd-scrollbar-thumb) transparent;');
+        expect(source).toContain('.reader-body::-webkit-scrollbar-track,');
+        expect(source).toContain('background: transparent;');
+        expect(source).toContain('.reader-body::-webkit-scrollbar-thumb,');
+        expect(source).toContain('background: var(--aimd-scrollbar-thumb);');
+        expect(source).toContain('background: var(--aimd-scrollbar-thumb-hover);');
     });
 
     it('keeps the reader outline rail scoped, token-driven, and responsive', () => {

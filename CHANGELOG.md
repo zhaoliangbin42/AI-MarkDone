@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.8.1] - 2026-07-11
+
+### Fixed
+- Reader: Reader content, Sticky, and outline scrollbars now follow the active light or dark theme instead of keeping a light native track in dark mode.
+
 ## [4.8.0] - 2026-07-11
 
 ### Added
