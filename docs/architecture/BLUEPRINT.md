@@ -137,6 +137,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 group refs，包括完整 body roots、user prompt title 与稳定 anchor hints，不得在 UI 层按 ChatGPT selector 重新推导 user/assistant 轮次
+- ChatGPT DOM round refs 必须由 adapter-owned page index 按相关宿主 DOM revision 缓存；同一 revision 内的 toolbar、directory、stepper 与 navigation 调用只能消费同一有序 snapshot。索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping 变化，conversation root 更换或 runtime disable 时必须重绑或释放 observer
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
 

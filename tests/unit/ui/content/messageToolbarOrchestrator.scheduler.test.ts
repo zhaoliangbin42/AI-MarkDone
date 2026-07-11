@@ -166,4 +166,37 @@ describe('MessageToolbarOrchestrator scheduler integration', () => {
         await Promise.resolve();
         expect(readerPanel.show).toHaveBeenCalledTimes(1);
     });
+
+    it('does not rewrite stable message-position attributes on an unchanged rescan', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"></div>
+          </div>
+        `;
+
+        const adapter = new FakeScheduledToolbarAdapter();
+        adapter.streaming = false;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        });
+        const message = document.querySelector('.assistant-message');
+        if (!(message instanceof HTMLElement)) throw new Error('fixture message is missing');
+        const observer = new MutationObserver(() => undefined);
+        observer.observe(message, {
+            attributes: true,
+            attributeFilter: ['data-aimd-msg-position'],
+        });
+
+        try {
+            (orchestrator as any).scanAndInject();
+            observer.takeRecords();
+            (orchestrator as any).scanAndInject();
+
+            expect(observer.takeRecords()).toHaveLength(0);
+        } finally {
+            observer.disconnect();
+            orchestrator.dispose();
+        }
+    });
 });

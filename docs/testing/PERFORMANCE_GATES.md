@@ -9,6 +9,7 @@ This document is the execution contract for the 2026 ChatGPT content-runtime per
 - Use the median of the three runs for timing, long-task, and heap comparisons.
 - The fixture contains 200 user/assistant rounds, 200 frame-paced streaming text mutations, and replacement of every tenth official action row.
 - The benchmark uses the built Chrome extension in real Chromium. It does not access a live ChatGPT account or network content.
+- Each phase reports a mutation breakdown by DOM mutation type and attribute name so self-authored extension writes can be distinguished from host streaming changes.
 - Before reading `usedJsHeapBytes`, the benchmark explicitly requests a renderer garbage collection through the Chromium DevTools Protocol. This makes heap medians comparable instead of depending on incidental browser GC timing.
 - Reliability invariants are absolute on every run; timing and heap budgets use the three-run median because browser scheduling has normal variance.
 
@@ -77,6 +78,16 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Final three-run runtime medians: toolbar ready 625.5 ms; cold long-task total 482 ms; cold maximum 217 ms; idle mutation records 0 per 2 seconds; streaming long-task total 740 ms; streaming maximum 196 ms; official-row recovery 171.3 ms; post-GC used JS heap 7,606,159 bytes.
 - Toolbar reliability remained 200/200 with zero duplicates on every run. `content.js` remained within its accepted budget at 1,846,951 raw bytes and 485,648 gzip bytes.
 - The phase boundary passed all 1,201 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
+
+### Phase 3 — 2026-07-11
+
+- Added one adapter-owned `ChatGPTPageIndex` snapshot per relevant DOM revision. Toolbar, directory, message-stepper, send-position restore, and navigation callers now reuse the same ordered DOM round refs and mapped `ConversationTurnRef[]` instead of repeating full-page and per-turn selector scans.
+- Host child, text, and identity-attribute changes invalidate the snapshot. AI-MarkDone toolbar insertion and `data-aimd-*` bookkeeping do not self-invalidate it; replacing the conversation root rebinds the index automatically. Disabling the content runtime disconnects and clears the adapter-owned index.
+- A 200-round regression test proves that all subsequent unchanged callers add zero `querySelectorAll` calls after the first discovery. Existing adapter-fold, navigation, directory, stepper, toolbar, Reader, and entry behavior tests remain aligned.
+- Stable `data-aimd-msg-position` values are now written only when they change. The benchmark mutation breakdown confirmed that this removed 800 redundant streaming attribute writes: streaming mutation records fell from 1,000 to the 200 host text updates themselves.
+- Final three-run runtime medians: toolbar ready 469.3 ms; cold long-task total 134 ms; cold maximum 81 ms; idle mutation records 0 per 2 seconds; streaming long-task total 0 ms; streaming maximum 0 ms; streaming mutation records 200; official-row recovery 167.4 ms; post-GC used JS heap 7,696,433 bytes.
+- Toolbar reliability remained 200/200 with zero duplicates on every run. The final cache-lifecycle build remained within its accepted budget at 1,848,873 raw bytes and 486,241 gzip bytes.
+- The phase boundary passed all 1,209 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
 
 ## Scope protections
 

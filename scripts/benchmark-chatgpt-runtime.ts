@@ -10,6 +10,7 @@ type PhaseMetrics = {
     longTaskTotalMs: number;
     maxLongTaskMs: number;
     mutationRecords: number;
+    mutationBreakdown: Record<string, number>;
 };
 
 type RuntimeMetrics = {
@@ -30,6 +31,7 @@ type HarnessState = {
     phaseStartedAt: number;
     longTasks: number[];
     mutationRecords: number;
+    mutationBreakdown: Record<string, number>;
 };
 
 const DEFAULT_ROUNDS = 200;
@@ -85,6 +87,7 @@ async function installHarness(page: Page): Promise<void> {
             phaseStartedAt: performance.now(),
             longTasks: [],
             mutationRecords: 0,
+            mutationBreakdown: {},
         };
         (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__ = state;
 
@@ -94,6 +97,12 @@ async function installHarness(page: Page): Promise<void> {
 
         new MutationObserver((records) => {
             state.mutationRecords += records.length;
+            for (const record of records) {
+                const key = record.type === 'attributes'
+                    ? `attributes:${record.attributeName ?? 'unknown'}`
+                    : record.type;
+                state.mutationBreakdown[key] = (state.mutationBreakdown[key] ?? 0) + 1;
+            }
         }).observe(document, {
             attributes: true,
             childList: true,
@@ -109,6 +118,7 @@ async function resetPhase(page: Page): Promise<void> {
         state.phaseStartedAt = performance.now();
         state.longTasks = [];
         state.mutationRecords = 0;
+        state.mutationBreakdown = {};
     });
 }
 
@@ -121,6 +131,7 @@ async function collectPhase(page: Page): Promise<PhaseMetrics> {
             longTaskTotalMs: state.longTasks.reduce((sum, duration) => sum + duration, 0),
             maxLongTaskMs: Math.max(0, ...state.longTasks),
             mutationRecords: state.mutationRecords,
+            mutationBreakdown: { ...state.mutationBreakdown },
         };
     });
 }

@@ -28,6 +28,9 @@ export abstract class SiteAdapter {
     abstract getPlatformId(): string;
     abstract getThemeDetector(): ThemeDetector;
 
+    /** Release adapter-owned observers or caches when a content runtime is disabled. */
+    dispose?(): void;
+
     // =========================
     // Copy / Message discovery
     // =========================

@@ -717,6 +717,13 @@ export class MessageToolbarOrchestrator {
         return Number.isFinite(fallback) ? fallback : 0;
     }
 
+    private writeMessagePosition(messageElement: HTMLElement, position: number): void {
+        const next = `${position}`;
+        if (messageElement.dataset.aimdMsgPosition !== next) {
+            messageElement.dataset.aimdMsgPosition = next;
+        }
+    }
+
     private guardMessageReady(_messageElement: HTMLElement): { ok: false; message: string } | null {
         try {
             return this.adapter.isStreamingMessage(_messageElement) ? { ok: false, message: t('streamingStatus') } : null;
@@ -1020,7 +1027,7 @@ export class MessageToolbarOrchestrator {
         nodes.forEach((messageElement, index) => {
             const position = index + 1;
             this.messagePositionByElement.set(messageElement, position);
-            messageElement.dataset.aimdMsgPosition = `${position}`;
+            this.writeMessagePosition(messageElement, position);
 
             const turnRoot = this.adapter.getTurnRootElement?.(messageElement) ?? null;
             const currentSegmentIndex = segmentCountByTurn.get(turnRoot) ?? 0;
@@ -1088,7 +1095,7 @@ export class MessageToolbarOrchestrator {
         const position = this.messageOrder.length + 1;
         this.messageOrder.push(messageElement);
         this.messagePositionByElement.set(messageElement, position);
-        messageElement.dataset.aimdMsgPosition = `${position}`;
+        this.writeMessagePosition(messageElement, position);
 
         const turnRoot = this.adapter.getTurnRootElement?.(messageElement) ?? null;
         const selector = this.adapter.getMessageSelector();

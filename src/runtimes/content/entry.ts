@@ -375,6 +375,7 @@ if (adapter) {
         chatGptPromptAutocomplete?.dispose();
         chatGptMessageStepper?.dispose();
         chatGptPageWidth?.dispose();
+        contentAdapter.dispose?.();
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).

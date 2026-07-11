@@ -1,4 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
+import { ChatGPTPageIndex, type ChatGPTPageSnapshot } from './ChatGPTPageIndex';
 
 export type ChatGPTDomRoundRef = {
     position: number;
@@ -428,7 +429,7 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
     return rounds;
 }
 
-export function collectChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
+function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
     const root = getDiscoveryRoot(adapter);
     const turnWrapperRounds = collectTurnWrapperRoundRefs(adapter, root);
     if (turnWrapperRounds.length > 0) return turnWrapperRounds;
@@ -503,6 +504,34 @@ export function collectChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoun
     }
 
     return rounds;
+}
+
+const pageIndexByAdapter = new WeakMap<SiteAdapter, ChatGPTPageIndex>();
+
+function getChatGPTPageIndex(adapter: SiteAdapter): ChatGPTPageIndex {
+    const existing = pageIndexByAdapter.get(adapter);
+    if (existing) return existing;
+
+    const index = new ChatGPTPageIndex({
+        resolveRoot: () => getDiscoveryRoot(adapter),
+        discover: () => discoverChatGPTDomRoundRefs(adapter),
+    });
+    pageIndexByAdapter.set(adapter, index);
+    return index;
+}
+
+export function getChatGPTPageSnapshot(adapter: SiteAdapter): ChatGPTPageSnapshot {
+    return getChatGPTPageIndex(adapter).getSnapshot();
+}
+
+export function collectChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
+    return getChatGPTPageSnapshot(adapter).rounds;
+}
+
+export function disposeChatGPTPageIndex(adapter: SiteAdapter): void {
+    const index = pageIndexByAdapter.get(adapter);
+    index?.dispose();
+    pageIndexByAdapter.delete(adapter);
 }
 
 export function collectChatGPTDomRoundAnchors(adapter: SiteAdapter): Array<{ position: number; anchorEl: HTMLElement }> {

@@ -4,7 +4,11 @@ import { chatgptMarkdownParserAdapter } from '../parser/chatgpt';
 import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 import { logger } from '../../../../core/logger';
 import { cleanChatGPTReferenceNoise } from '../../chatgpt/normalizeReaderMarkdown';
-import { collectChatGPTDomRoundRefs } from '../../chatgpt/domConversationDiscovery';
+import {
+    collectChatGPTDomRoundRefs,
+    disposeChatGPTPageIndex,
+    type ChatGPTDomRoundRef,
+} from '../../chatgpt/domConversationDiscovery';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -24,6 +28,11 @@ const detector: ThemeDetector = {
 };
 
 export class ChatGPTAdapter extends SiteAdapter {
+    private conversationGroupCache: {
+        rounds: ChatGPTDomRoundRef[];
+        groups: ConversationGroupRef[];
+    } | null = null;
+
     private normalizePromptText(text: string): string {
         return text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
     }
@@ -225,7 +234,12 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getConversationGroupRefs(): ConversationGroupRef[] {
-        return collectChatGPTDomRoundRefs(this).map((roundRef, assistantIndex) => ({
+        const rounds = collectChatGPTDomRoundRefs(this);
+        if (this.conversationGroupCache?.rounds === rounds) {
+            return this.conversationGroupCache.groups;
+        }
+
+        const groups = rounds.map((roundRef, assistantIndex) => ({
             id: roundRef.id,
             assistantRootEl: roundRef.assistantRootEl,
             assistantMessageEl: roundRef.assistantMessageEl,
@@ -238,6 +252,13 @@ export class ChatGPTAdapter extends SiteAdapter {
             assistantIndex,
             isStreaming: roundRef.isStreaming,
         }));
+        this.conversationGroupCache = { rounds, groups };
+        return groups;
+    }
+
+    dispose(): void {
+        disposeChatGPTPageIndex(this);
+        this.conversationGroupCache = null;
     }
 
     getHeavySubtreeRefs(bodyEls: HTMLElement[]): HTMLElement[] {

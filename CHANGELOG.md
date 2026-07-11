@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader: Annotation copy/export and Reader Send annotation insertion now follow the configured annotation order.
 - Performance: Production extension scripts are now safely minified with enforced bundle budgets, substantially reducing installed code size without changing toolbar behavior.
 - Performance: Reduced ChatGPT idle-page work and large bookmark batch costs by replacing repeated full scans, removing official-navigation DOM write loops, and cancelling deferred scans during teardown.
+- Performance: Shared ChatGPT message discovery across toolbars, navigation, and directory controls, avoiding repeated unchanged-page scans and redundant message-position DOM writes.
 
 ### Fixed
 - Formula: SVG copy and save now produce compact standalone vector files without embedded page HTML or fonts, while preserving Chinese text, long formulas, and natural proportions.

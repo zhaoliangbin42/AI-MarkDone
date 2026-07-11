@@ -75,11 +75,18 @@ function mapGroupRefsToTurns(adapter: SiteAdapter, groupRefs: ConversationGroupR
     return refs;
 }
 
+const mappedTurnCache = new WeakMap<ConversationGroupRef[], ConversationTurnRef[]>();
+
 export function collectConversationTurnRefs(adapter: SiteAdapter): ConversationTurnRef[] {
     try {
         if (adapter.getConversationGroupRefs) {
             const groupRefs = adapter.getConversationGroupRefs();
-            return groupRefs.length > 0 ? mapGroupRefsToTurns(adapter, groupRefs) : [];
+            const cached = mappedTurnCache.get(groupRefs);
+            if (cached) return cached;
+
+            const turns = groupRefs.length > 0 ? mapGroupRefsToTurns(adapter, groupRefs) : [];
+            mappedTurnCache.set(groupRefs, turns);
+            return turns;
         }
     } catch {
         // Fall back to legacy assistant-segment discovery if a platform-owned grouping hook fails.
