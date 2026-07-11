@@ -291,6 +291,14 @@
         "message": "复制",
         "description": "Message for btnCopyText"
     },
+    "readerCodeWrapEnable": {
+        "message": "开启自动换行",
+        "description": "Tooltip for enabling Reader code block word wrap"
+    },
+    "readerCodeWrapDisable": {
+        "message": "关闭自动换行",
+        "description": "Tooltip for disabling Reader code block word wrap"
+    },
     "readerCommentAction": {
         "message": "注释",
         "description": "Message for readerCommentAction"
@@ -326,6 +334,26 @@
     "readerCommentCopyComments": {
         "message": "复制注释",
         "description": "Message for readerCommentCopyComments"
+    },
+    "readerCommentListTitle": {
+        "message": "注释列表",
+        "description": "Title for the Reader annotations list"
+    },
+    "readerCommentListEmpty": {
+        "message": "当前还没有注释。",
+        "description": "Empty state for the Reader annotations list"
+    },
+    "readerCommentUserComment": {
+        "message": "注释",
+        "description": "Label for a user annotation in the Reader annotations list"
+    },
+    "readerCommentCreatedAt": {
+        "message": "创建时间",
+        "description": "Label for annotation creation time"
+    },
+    "readerCommentTextPosition": {
+        "message": "文本位置",
+        "description": "Label for annotation text position"
     },
     "readerCommentCopyEmpty": {
         "message": "当前还没有可复制的注释。",
@@ -482,6 +510,22 @@
     "readerCommentPromptPositionBottomDesc": {
         "message": "开启后，复制内容会先显示注释列表，再把选中的用户提示词追加到底部。",
         "description": "Message for readerCommentPromptPositionBottomDesc"
+    },
+    "readerCommentSortModeLabel": {
+        "message": "注释顺序",
+        "description": "Label for Reader annotation ordering"
+    },
+    "readerCommentSortModeDesc": {
+        "message": "选择注释列表和复制注释时按创建时间排序，还是按正文位置排序。",
+        "description": "Description for Reader annotation ordering"
+    },
+    "readerCommentSortCreated": {
+        "message": "按创建时间排序",
+        "description": "Annotation sort option by creation time"
+    },
+    "readerCommentSortPosition": {
+        "message": "按文本位置排序",
+        "description": "Annotation sort option by text position"
     },
     "readerCommentTemplateSettingsLabel": {
         "message": "注释复制模板",

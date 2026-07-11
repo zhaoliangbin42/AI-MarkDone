@@ -1,4 +1,4 @@
-import { isTextSelectableAtomicUnitKind, resolveRenderedAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
+import { resolveRenderedAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
 import { buildAtomicSelectionExport } from './atomicExport';
 import type {
     ReaderCommentAtomicRef,
@@ -83,7 +83,7 @@ function collectVisibleText(root: HTMLElement): string {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             if (!node.textContent) return NodeFilter.FILTER_REJECT;
-            if (isNonTextSelectableUnitTextNode(node)) return NodeFilter.FILTER_REJECT;
+            if (isTextOffsetExcludedUnitTextNode(node)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         },
     });
@@ -93,24 +93,57 @@ function collectVisibleText(root: HTMLElement): string {
     return text;
 }
 
-function getTextOffset(root: HTMLElement, container: Node, localOffset: number): number | null {
-    if (!(container instanceof Text)) return null;
+function clampOffset(value: number, max: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(value, max));
+}
 
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-            if (!node.textContent) return NodeFilter.FILTER_REJECT;
-            if (isNonTextSelectableUnitTextNode(node)) return NodeFilter.FILTER_REJECT;
-            return NodeFilter.FILTER_ACCEPT;
-        },
-    });
+function countSelectableText(node: Node): number {
+    if (node instanceof Text) {
+        return isTextOffsetExcludedUnitTextNode(node) ? 0 : node.data.length;
+    }
 
     let count = 0;
-    while (walker.nextNode()) {
-        const node = walker.currentNode as Text;
-        if (node === container) return count + localOffset;
-        count += node.data.length;
-    }
-    return null;
+    node.childNodes.forEach((child) => {
+        count += countSelectableText(child);
+    });
+    return count;
+}
+
+function getTextOffset(root: HTMLElement, container: Node, localOffset: number): number | null {
+    if (!root.contains(container)) return null;
+
+    let count = 0;
+    let found = false;
+
+    const visit = (node: Node): void => {
+        if (found) return;
+
+        if (node === container) {
+            if (node instanceof Text) {
+                if (!isTextOffsetExcludedUnitTextNode(node)) {
+                    count += clampOffset(localOffset, node.data.length);
+                }
+            } else {
+                const childLimit = clampOffset(localOffset, node.childNodes.length);
+                for (let index = 0; index < childLimit; index += 1) {
+                    count += countSelectableText(node.childNodes.item(index));
+                }
+            }
+            found = true;
+            return;
+        }
+
+        if (node instanceof Text) {
+            if (!isTextOffsetExcludedUnitTextNode(node)) count += node.data.length;
+            return;
+        }
+
+        node.childNodes.forEach(visit);
+    };
+
+    visit(root);
+    return found ? count : null;
 }
 
 function buildTextPosition(root: HTMLElement, range: Range): ReaderCommentTextPositionSelector {
@@ -120,11 +153,15 @@ function buildTextPosition(root: HTMLElement, range: Range): ReaderCommentTextPo
     };
 }
 
-function isNonTextSelectableUnitTextNode(node: Node): boolean {
+function isTextOffsetExcludedUnitTextNode(node: Node): boolean {
     const unitElement = node.parentElement?.closest<HTMLElement>('[data-aimd-unit-id]');
     if (!unitElement) return false;
     const kind = resolveRenderedAtomicUnitKind(unitElement);
-    return !kind || !isTextSelectableAtomicUnitKind(kind);
+    return !kind
+        || kind === 'inline-math'
+        || kind === 'display-math'
+        || kind === 'image'
+        || kind === 'thematic-break';
 }
 
 function buildTextQuote(root: HTMLElement, exact: string): ReaderCommentTextQuoteSelector {

@@ -1,7 +1,12 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
-import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
+import type {
+    CommentTemplateSegment,
+    ReaderCommentPrompt,
+    ReaderCommentPromptPosition,
+    ReaderCommentSortMode,
+} from '../../../core/settings/readerCommentExport';
 import { SendModal } from './SendModal';
 import { createContentSendPort } from './contentSendPort';
 import { type SendPort, SendPopover, type SendPopoverPromptAutocompleteController } from './SendPopover';
@@ -56,6 +61,7 @@ export class SendController {
             listReaderPrompts: () => Promise<ReaderCommentPrompt[]> | ReaderCommentPrompt[];
             template: CommentTemplateSegment[];
             promptPosition: ReaderCommentPromptPosition;
+            sortMode?: ReaderCommentSortMode;
             comments: ReaderCommentRecord[];
         } | null;
     }): void {

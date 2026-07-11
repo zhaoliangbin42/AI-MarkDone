@@ -7,12 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Reader: Added an annotations list in the Reader header, with ordering by creation time or by text position and per-annotation deletion.
+- Reader: Added a code-block word-wrap toggle, with LaTeX and TeX blocks wrapped by default.
+
+### Changed
+- Reader: Annotation copy/export and Reader Send annotation insertion now follow the configured annotation order.
+
 ### Fixed
 - Formula: SVG copy and save now produce compact standalone vector files without embedded page HTML or fonts, while preserving Chinese text, long formulas, and natural proportions.
 - Prompts: Clicking an autocomplete suggestion now reliably inserts it instead of doing nothing.
 - ChatGPT: Moved the AI-MarkDone bookmarks panel entry from the ChatGPT header into the lower-right page controls so it no longer interferes with third-party selection translation popups.
 - ChatGPT: Hid the right-side directory rail's internal scrollbar while keeping long directories scrollable.
 - Reader: Reader settings rows now keep their label and help text readable on short screens, with the settings dialog scrolling instead of compressing fields.
+- Reader: The annotations list now keeps a fixed bounded panel and scrolls annotations internally, preventing long lists from clipping the top controls or growing with annotation text length.
+- Reader: Annotations created from the first rendered heading or other structural text now keep a real text position, so text-position sorting no longer pushes them to the bottom.
 
 ## [4.7.0] - 2026-06-28
 

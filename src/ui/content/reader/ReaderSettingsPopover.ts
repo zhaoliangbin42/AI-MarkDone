@@ -136,6 +136,7 @@ export class ReaderSettingsPopover {
                 settings.commentExport.promptPosition === 'bottom',
                 (checked) => this.updateCommentExport({ ...settings.commentExport, promptPosition: checked ? 'bottom' : 'top' }),
             ),
+            this.createCommentSortModeRow(settings),
             this.createActionRow(
                 t('readerCommentPromptListLabel'),
                 this.formatPromptSummary(settings.commentExport),
@@ -165,6 +166,24 @@ export class ReaderSettingsPopover {
             button.dataset.active = settings.defaultOpenMode === mode ? '1' : '0';
             button.textContent = mode === 'fullscreen' ? t('readerOpenModeFullscreen') : t('readerOpenModePanel');
             button.addEventListener('click', () => this.applyPatch({ defaultOpenMode: mode }));
+            control.appendChild(button);
+        }
+        row.appendChild(control);
+        return row;
+    }
+
+    private createCommentSortModeRow(settings: AppSettings['reader']): HTMLElement {
+        const row = this.createBaseRow(t('readerCommentSortModeLabel'), t('readerCommentSortModeDesc'));
+        const control = document.createElement('div');
+        control.className = 'reader-settings-segmented';
+        const modes: Array<ReaderCommentExportSettings['sortMode']> = ['created', 'position'];
+        for (const mode of modes) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'reader-settings-segmented__button';
+            button.dataset.active = settings.commentExport.sortMode === mode ? '1' : '0';
+            button.textContent = mode === 'position' ? t('readerCommentSortPosition') : t('readerCommentSortCreated');
+            button.addEventListener('click', () => this.updateCommentExport({ ...settings.commentExport, sortMode: mode }));
             control.appendChild(button);
         }
         row.appendChild(control);
@@ -363,6 +382,7 @@ export class ReaderSettingsPopover {
                 userPrompt: commentExport.prompts[0]?.content ?? '',
                 promptPosition: commentExport.promptPosition,
                 commentTemplate: template,
+                sortMode: commentExport.sortMode,
             },
         );
     }
