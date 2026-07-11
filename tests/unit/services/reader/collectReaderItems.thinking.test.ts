@@ -8,7 +8,7 @@ describe('collectReaderItems (ChatGPT Thinking)', () => {
     it(
         'creates one reader page per conversation turn by merging assistant segments inside the same turn',
         async () => {
-            const html = readFileSync('mocks/ChatGPT/ChatGPT-Thinking.html', 'utf-8');
+            const html = readFileSync('tests/testdata/chatgpt/thinking.html', 'utf-8');
             document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
             const adapter = new ChatGPTAdapter();
@@ -27,4 +27,3 @@ describe('collectReaderItems (ChatGPT Thinking)', () => {
         20_000
     );
 });
-

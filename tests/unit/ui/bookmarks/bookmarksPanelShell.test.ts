@@ -89,13 +89,17 @@ describe('BookmarksPanelShell', () => {
             path.join(process.cwd(), 'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts'),
             'utf8',
         );
+        const mobileSidebarBlock = Array.from(css.matchAll(/\.bookmarks-sidebar\s*\{([^}]*)\}/g))
+            .map((match) => match[1] ?? '')
+            .find((block) => block.includes('grid-template-columns: repeat(3, minmax(0, 1fr));'));
+        const mobileShellBlock = Array.from(css.matchAll(/\.bookmarks-shell\s*\{([^}]*)\}/g))
+            .map((match) => match[1] ?? '')
+            .find((block) => block.includes('grid-template-columns: 1fr;'));
 
-        expect(css).toContain('.bookmarks-sidebar {');
-        expect(css).toContain('display: grid;');
-        expect(css).toContain('width: 100%;');
-        expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
-        expect(css).toContain('grid-template-rows: auto minmax(0, 1fr);');
-        expect(css).not.toContain('width: auto;');
+        expect(mobileSidebarBlock).toContain('display: grid;');
+        expect(mobileSidebarBlock).toContain('width: 100%;');
+        expect(mobileSidebarBlock).not.toContain('width: auto;');
+        expect(mobileShellBlock).toContain('grid-template-rows: auto minmax(0, 1fr);');
     });
 
     it('is the only shell source of truth used by BookmarksPanel', () => {

@@ -26,6 +26,7 @@
         "test:release": "vitest run tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts",
         "test:acceptance": "vitest run tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/governance/manifest-generation.test.ts tests/unit/governance/release-scripts.test.ts tests/unit/governance/supported-hosts-consistency.test.ts tests/unit/governance/i18n-keys.test.ts tests/unit/ui/i18n/i18n.test.ts tests/unit/drivers/shared/browserApi.test.ts tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts tests/unit/runtimes/content/entry.test.ts",
         "test:core": "vitest run",
+        "perf:chatgpt": "tsx scripts/benchmark-chatgpt-runtime.ts",
         "verify:entry-format:chrome": "bash scripts/verify-extension-entry-format.sh chrome",
         "verify:entry-format:firefox": "bash scripts/verify-extension-entry-format.sh firefox",
         "verify:entry-format:safari": "bash scripts/verify-extension-entry-format.sh safari"

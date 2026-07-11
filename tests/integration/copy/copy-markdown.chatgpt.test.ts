@@ -5,7 +5,7 @@ import { copyMarkdownFromPage } from '@/services/copy/copy-markdown';
 
 describe('copyMarkdownFromPage (ChatGPT)', () => {
     it('extracts current code-viewer blocks as fenced markdown without leaking header chrome', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-deepresearch.html', 'utf-8');
+        const html = readFileSync('tests/testdata/chatgpt/code-viewer.html', 'utf-8');
         document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
         const adapter = new ChatGPTAdapter();

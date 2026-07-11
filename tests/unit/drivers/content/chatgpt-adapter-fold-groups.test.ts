@@ -7,7 +7,7 @@ import { copyMarkdownFromTurn } from '@/services/copy/copy-turn-markdown';
 
 describe('ChatGPTAdapter fold groups', () => {
     it('pairs assistant turns with their preceding user turns on the fold fixture', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-fold.html', 'utf-8');
+        const html = readFileSync('tests/testdata/chatgpt/fold-groups.html', 'utf-8');
         document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
         const adapter = new ChatGPTAdapter();
@@ -31,7 +31,7 @@ describe('ChatGPTAdapter fold groups', () => {
     });
 
     it('uses assistant message ids as stable group ids even when the fixture already contains stale fold metadata', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-fold.html', 'utf-8');
+        const html = readFileSync('tests/testdata/chatgpt/fold-groups.html', 'utf-8');
         document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
         const adapter = new ChatGPTAdapter();

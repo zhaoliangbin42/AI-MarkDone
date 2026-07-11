@@ -39,7 +39,7 @@ function withDom(html: string, url: string, fn: (dom: JSDOM) => void): void {
 
 describe('Copy parity (ChatGPT)', () => {
     it('preserves code-viewer content as fenced markdown for the current ChatGPT DOM', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-deepresearch.html', 'utf-8');
+        const html = readFileSync('tests/testdata/chatgpt/code-viewer.html', 'utf-8');
         withDom(html, 'https://chatgpt.com/c/mock', () => {
             const adapter = new ChatGPTAdapter();
             const messages = Array.from(document.querySelectorAll(adapter.getMessageSelector())).filter(

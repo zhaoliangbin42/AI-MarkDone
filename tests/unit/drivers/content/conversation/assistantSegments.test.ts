@@ -5,7 +5,7 @@ import { listAssistantSegmentElements } from '@/drivers/content/conversation/ass
 
 describe('listAssistantSegmentElements', () => {
     it('matches querySelectorAll order and length (ChatGPT Thinking fixture)', () => {
-        const html = readFileSync('mocks/ChatGPT/ChatGPT-Thinking.html', 'utf-8');
+        const html = readFileSync('tests/testdata/chatgpt/thinking.html', 'utf-8');
         document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
         const adapter = new ChatGPTAdapter();
@@ -18,4 +18,3 @@ describe('listAssistantSegmentElements', () => {
         expect(actual.map((el) => el.getAttribute('data-message-id'))).toEqual(expected.map((el) => el.getAttribute('data-message-id')));
     });
 });
-

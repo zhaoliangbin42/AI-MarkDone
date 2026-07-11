@@ -57,6 +57,7 @@ These are transition-execution documents, not long-lived architecture authority:
 ### Testing
 
 - `docs/testing/CURRENT_TEST_GATES.md`
+- `docs/testing/PERFORMANCE_GATES.md`
 - `docs/testing/TESTING_BLUEPRINT.md`
 - `docs/testing/E2E_REGRESSION_GUIDE.md`
 
@@ -97,6 +98,7 @@ These are transition-execution documents, not long-lived architecture authority:
   - `docs/FEATURES.md`
 - Testing and release gates
   - `docs/testing/CURRENT_TEST_GATES.md`
+  - `docs/testing/PERFORMANCE_GATES.md`
   - `docs/testing/TESTING_BLUEPRINT.md`
   - `docs/testing/E2E_REGRESSION_GUIDE.md`
 - Style-system and UI workflow changes

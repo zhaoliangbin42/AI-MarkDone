@@ -139,7 +139,7 @@ describe('BookmarksPanelController', () => {
         }, 'Archive');
 
         expect(bulkMoveMock).toHaveBeenCalledWith({
-            items: [{ url: 'https://chat.openai.com/c/123', position: 8 }],
+            items: [{ kind: 'message', url: 'https://chat.openai.com/c/123', position: 8 }],
             targetFolderPath: 'Archive',
         });
     });
@@ -197,7 +197,7 @@ describe('BookmarksPanelController', () => {
 
         expect(navigateChatGPTDirectoryTargetMock).toHaveBeenCalledWith(
             adapter,
-            bookmark,
+            { position: 50, messageId: 'payload-a50' },
             { timeoutMs: 2000, intervalMs: 200 },
         );
     });
@@ -240,7 +240,7 @@ describe('BookmarksPanelController', () => {
         await controller.batchDelete();
 
         expect(bulkRemoveMock).toHaveBeenCalledWith({
-            items: [{ url: 'https://chat.openai.com/c/123', position: 8 }],
+            items: [{ kind: 'message', url: 'https://chat.openai.com/c/123', position: 8 }],
             folderPaths: ['Work', 'Work/Research'],
         });
     });

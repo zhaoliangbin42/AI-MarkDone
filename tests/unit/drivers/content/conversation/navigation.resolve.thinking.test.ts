@@ -8,7 +8,7 @@ describe('resolveConversationTarget (ChatGPT Thinking)', () => {
     it(
         'maps legacy assistant segment positions to the owning turn primary message (正文)',
         () => {
-            const html = readFileSync('mocks/ChatGPT/ChatGPT-Thinking.html', 'utf-8');
+            const html = readFileSync('tests/testdata/chatgpt/thinking.html', 'utf-8');
             document.documentElement.innerHTML = `<head></head><body>${html}</body>`;
 
             const adapter = new ChatGPTAdapter();

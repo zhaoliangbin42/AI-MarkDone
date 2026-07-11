@@ -4,6 +4,7 @@ This document defines the **current executable test and verification gates** for
 
 For long-term testing direction, see `docs/testing/TESTING_BLUEPRINT.md`.
 For full manual regression, see `docs/testing/E2E_REGRESSION_GUIDE.md`.
+For ChatGPT runtime and bundle performance work, see `docs/testing/PERFORMANCE_GATES.md`.
 
 ---
 
@@ -50,6 +51,8 @@ If the change touches multiple modules, user-visible flows, or high-risk paths, 
 - `npm run build`
 
 Use targeted tests in addition when the failure mode is local and well defined.
+
+For performance refactors, also run the phase-specific gates in `PERFORMANCE_GATES.md`. A phase may not advance when its correctness, reliability, bundle, or runtime threshold is red.
 
 For large structural refactors, the minimum acceptable closing gate is:
 
