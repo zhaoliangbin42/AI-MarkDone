@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.8.0] - 2026-07-11
+
 ### Added
 - Reader: Added an annotations list in the Reader header, with ordering by creation time or by text position and per-annotation deletion.
 - Reader: Added a code-block word-wrap toggle, with LaTeX and TeX blocks wrapped by default.

@@ -1,5 +1,46 @@
 # Changelog
 
+# 4.8.0
+2026-07-11
+
+Hi everyone, and thank you for your continued support. This update brings several useful improvements and fixes a number of issues reported by the community.
+
+## How it works
+
+### Why could selection-translation extensions stop working?
+
+Some users reported that selection-translation popups could stop appearing after AI-MarkDone was enabled.
+
+Different translation extensions work in different ways, so we cannot confirm one universal root cause. Our working theory is that many of them watch text selection, pointer events, focus changes, and nearby page structure before mounting a popup beside the selection. AI-MarkDone previously inserted its bookmarks entry into ChatGPT's own header, which meant multiple extensions could be observing or modifying the same sensitive area.
+
+Even when neither extension intentionally blocks the other, changes in DOM structure, event order, focus, or overlay detection can still prevent a popup from appearing. AI-MarkDone now leaves the ChatGPT header alone and places the bookmarks-panel entry inside its own lower-right controls. This reduces interference with the host page and with other extensions that depend on selection behavior.
+
+This explanation remains an informed hypothesis, but reducing our footprint inside ChatGPT's native UI is the safer and more compatible boundary.
+
+### Why did Reader annotations need a management layer?
+
+Special thanks to GitHub user @rqhu1995 for contributing the Reader annotation-management improvements in this release.
+
+Reader annotations originally focused on the act of marking text: select a passage, add a note, and return to it through the highlight and gutter anchor. That works well for a few annotations, but becomes harder to manage once a long response contains many of them.
+
+Reader now provides one annotations list with creation-time and text-position ordering, direct navigation, editing, and deletion. Copy, export, and Send insertion reuse the same ordering preference.
+
+Text position is intentionally different from a screen coordinate. Fonts, Reader width, and rendering can all move content around, so a pixel location would be fragile. Instead, annotations keep text ranges and surrounding context, then resolve them against the current Reader content. LaTeX and TeX code blocks also wrap by default and can be toggled manually, making long formula source easier to read.
+
+Thank you again to @rqhu1995 for the contribution. Issues and pull requests from the community are always welcome.
+
+## Improved
+
+- Improved Reader annotation management with one list for creation-time or text-position sorting, direct navigation, editing, and deletion. Copy, export, and Send insertion now share the selected order. Thanks to GitHub user @rqhu1995.
+
+## Fixed
+
+- Hid the right-side directory rail's internal scrollbar in dark mode while preserving scrolling. Thanks to Xiaohongshu user @Puppy Capital.
+- Fixed compressed and misaligned Reader settings rows on short screens by preserving row height and scrolling the settings content when needed. Thanks to Xiaohongshu user @Puppy Capital.
+- Moved the bookmarks-panel entry out of ChatGPT's header so it no longer interferes with selection-translation popups. Thanks to Email user @xiangzhu xu.
+- Fixed custom Prompt insertion when an autocomplete suggestion is clicked with the mouse. Thanks to Xiaohongshu user @Lunas.
+- Fixed oversized formula SVG exports and improved compatibility with PowerPoint and other applications by producing compact, standalone vector files. Thanks to Xiaohongshu user @DXL.
+
 # 4.7.0
 2026-06-28
 
