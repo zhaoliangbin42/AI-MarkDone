@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.8.1-10A37F" alt="Version 4.8.1">
+    <img src="https://img.shields.io/badge/Version-4.8.0-10A37F" alt="Version 4.8.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -204,8 +204,13 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 4.8.1
-- Fixed Reader content, Sticky, and outline scrollbars retaining a light native track in dark mode.
+### 4.8.0
+- Improved Reader annotation management with sorting, direct navigation, editing, and deletion from one list.
+- Kept annotation ordering consistent across Reader copy, export, and Send insertion.
+- Moved the bookmarks-panel entry out of ChatGPT's header to reduce conflicts with selection-translation extensions.
+- Fixed short-screen Reader settings layout and custom Prompt insertion by mouse click.
+- Hid the directory rail's internal scrollbar while preserving scrolling.
+- Made formula SVG exports smaller, standalone, and more compatible with PowerPoint and similar applications.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

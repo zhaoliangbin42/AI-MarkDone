@@ -1,14 +1,5 @@
 # Changelog
 
-# 4.8.1
-2026-07-11
-
-This patch fixes Reader scrollbars retaining a light native appearance in dark mode.
-
-## Fixed
-
-- Reader content, Sticky, and outline scrollbars now follow the active light or dark theme with transparent tracks.
-
 # 4.8.0
 2026-07-11
 

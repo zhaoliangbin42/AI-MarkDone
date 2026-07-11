@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.8.1-10A37F" alt="Version 4.8.1">
+    <img src="https://img.shields.io/badge/Version-4.8.0-10A37F" alt="Version 4.8.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -203,8 +203,13 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.8.1
-- 修复阅读器正文、Sticky 列表和内部目录在深色模式下仍然显示浅色滚动条的问题。
+### 4.8.0
+- 改进阅读器注释管理，支持在统一列表中排序、定位、编辑和删除注释。
+- 注释复制、导出和发送插入现在使用一致的排序方式。
+- 将书签面板入口移出 ChatGPT 官方顶部区域，减少与划词翻译插件的冲突。
+- 修复矮屏下阅读器设置条目错位，以及鼠标点击自定义 Prompt 时插入失效的问题。
+- 隐藏右侧导航条内部滚动条，同时保留正常滚动能力。
+- 缩小公式 SVG 文件体积，并提升对 PowerPoint 等软件的兼容性。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

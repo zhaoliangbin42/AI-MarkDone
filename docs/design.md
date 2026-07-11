@@ -186,7 +186,6 @@ Rules:
 - KaTeX formulas derive from the Reader body scale, but their assets have two scopes: selector/layout CSS stays inside the Reader Shadow DOM, while KaTeX `@font-face` rules are registered at the document layer so detached Reader pages do not depend on ChatGPT host-page fonts.
 - Reader settings changes apply live to any open Reader surface after settings persistence succeeds.
 - Reader content width remains a separate measure control; it does not imply font scaling.
-- Reader content, Sticky, and outline scrolling surfaces must use the shared `--aimd-scrollbar-thumb` and `--aimd-scrollbar-thumb-hover` tokens, keep their tracks transparent, and provide both Firefox `scrollbar-color` and WebKit scrollbar paths so dark mode never falls back to a light native track.
 
 ### 5.2 Current Typography Values
 

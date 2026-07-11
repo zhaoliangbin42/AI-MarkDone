@@ -528,42 +528,6 @@ ${getPanelChromeCss()}
   padding: calc(var(--aimd-space-6) + var(--aimd-space-1) / 2) calc(var(--aimd-space-6) + var(--aimd-space-1)) var(--aimd-space-5);
 }
 
-.reader-body,
-.reader-sticky-list,
-.reader-outline-rail__list {
-  scrollbar-width: thin;
-  scrollbar-color: var(--aimd-scrollbar-thumb) transparent;
-}
-
-.reader-body::-webkit-scrollbar,
-.reader-sticky-list::-webkit-scrollbar,
-.reader-outline-rail__list::-webkit-scrollbar {
-  width: var(--aimd-space-3);
-  height: var(--aimd-space-3);
-}
-
-.reader-body::-webkit-scrollbar-track,
-.reader-sticky-list::-webkit-scrollbar-track,
-.reader-outline-rail__list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.reader-body::-webkit-scrollbar-thumb,
-.reader-sticky-list::-webkit-scrollbar-thumb,
-.reader-outline-rail__list::-webkit-scrollbar-thumb {
-  border: var(--aimd-space-1) solid transparent;
-  border-radius: var(--aimd-radius-full);
-  background: var(--aimd-scrollbar-thumb);
-  background-clip: content-box;
-}
-
-.reader-body::-webkit-scrollbar-thumb:hover,
-.reader-sticky-list::-webkit-scrollbar-thumb:hover,
-.reader-outline-rail__list::-webkit-scrollbar-thumb:hover {
-  background: var(--aimd-scrollbar-thumb-hover);
-  background-clip: content-box;
-}
-
 .reader-body-wrap[data-has-outline="1"] .reader-body {
   padding-right: calc(var(--aimd-space-6) + var(--aimd-size-control-icon-panel) + var(--aimd-space-4));
 }
