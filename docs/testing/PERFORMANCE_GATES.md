@@ -130,6 +130,15 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Toolbar reliability remained 200/200 with zero duplicates on all three runs; no feature module loaded before the explicit trigger. Post-GC startup heap fell 41.1% from Phase 6 while shadow descendants remained 7,603.
 - The phase boundary passed all 1,234 core tests and the complete Chrome, Firefox, and Safari WebExtension builds, including classic/module parsing, facade export execution, manifest resource consistency, extension-origin trigger checks, and per-entry plus aggregate bundle budgets.
 
+### Phase 8 — 2026-07-11
+
+- Final three-run soak on the accepted Phase 7 build retained the 200/200 toolbar and zero-duplicate invariants. Medians were 51 ms cold long-task total, 51 ms cold maximum, 0 ms streaming long-task total / maximum, 200 streaming host mutations, and 165.7 ms official-row recovery; all final thresholds remained green.
+- A headed Chromium session loaded the production Chrome extension against a 200-round synthetic ChatGPT page. An in-page route transition from `/c/aimd-soak-a` to `/c/aimd-soak-b` retained 200 toolbars and zero invalid action rows.
+- The real Settings → Buttons & Entrypoints control disabled the message toolbar to 0 hosts and restored it to exactly 200 with zero duplicates. This exercised storage/protocol propagation and the full runtime disable/re-enable lifecycle rather than calling the orchestrator directly.
+- Switching the host document from light to dark and back propagated `data-aimd-theme` to the page, all sampled message toolbars, and the lower-right stepper while retaining 200/200 reliability. Bookmarks opened, closed, and reopened through the real lower-right trigger after the route change; Reader also mounted through a real per-message trigger. The browser console reported zero errors and warnings.
+- Final automated closeout passed 1,234/1,234 core tests, 36/36 smoke tests, 120/120 acceptance tests, TypeScript checking, and complete Chrome/Firefox/Safari WebExtension builds with every entry-format, facade-export, resource, and bundle-size gate green.
+- The automated browser fixture deliberately avoids a live ChatGPT account and network content. Safari parity here means source/manifest/build/module verification; signed Safari wrapper and real Safari hardware remain release-stage checks under the existing Safari runbook, not performance-program blockers.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.
