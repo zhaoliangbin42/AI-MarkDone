@@ -126,6 +126,47 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         );
     });
 
+    it('invalidates the shared Reader item when that message content changes', async () => {
+        document.body.innerHTML = `
+          <title>Reader Cache Invalidation Test</title>
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">Before update</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        vi.mocked(collectFreshCurrentReaderItem)
+            .mockResolvedValueOnce({ id: 'm1', userPrompt: 'Prompt', content: 'Before update', meta: { position: 7 } } as any)
+            .mockResolvedValueOnce({ id: 'm1', userPrompt: 'Prompt', content: 'After update', meta: { position: 7 } } as any);
+
+        const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
+            readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
+        }) as any;
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const content = assistant.querySelector('.content') as HTMLElement;
+        const copyAction = orchestrator.getActionsForMessage(assistant, () => null)
+            .find((action: any) => action.id === 'copy_markdown');
+        orchestrator.rebindObserverIfNeeded(true);
+
+        try {
+            await copyAction.onClick();
+            await copyAction.hoverAction.onClick({ signal: new AbortController().signal, onProgress: vi.fn() });
+            expect(collectFreshCurrentReaderItem).toHaveBeenCalledTimes(1);
+
+            const text = content.firstChild;
+            if (!(text instanceof Text)) throw new Error('fixture text node is missing');
+            text.data = 'After update';
+            await Promise.resolve();
+
+            await copyAction.onClick();
+
+            expect(collectFreshCurrentReaderItem).toHaveBeenCalledTimes(2);
+            expect(copyTextToClipboard).toHaveBeenLastCalledWith('After update');
+        } finally {
+            orchestrator.dispose();
+        }
+    });
+
     it('uses the same configured PNG export width as the batch export path', async () => {
         document.body.innerHTML = `
           <title>PNG Width Test</title>

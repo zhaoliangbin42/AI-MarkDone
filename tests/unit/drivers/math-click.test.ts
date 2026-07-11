@@ -13,6 +13,120 @@ function setClipboardMock() {
 }
 
 describe('MathClickHandler', () => {
+    it('uses one shared document observer instead of one observer per enabled message', () => {
+        const originalMutationObserver = globalThis.MutationObserver;
+        const observedTargets: Node[] = [];
+        class FakeMutationObserver {
+            observe(target: Node): void {
+                observedTargets.push(target);
+            }
+            disconnect(): void {}
+        }
+        vi.stubGlobal('MutationObserver', FakeMutationObserver);
+        const containers = Array.from({ length: 3 }, () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            return container;
+        });
+        const handler = new MathClickHandler();
+
+        try {
+            containers.forEach((container) => handler.enable(container));
+
+            expect(observedTargets.filter((target) => containers.includes(target as HTMLElement))).toHaveLength(0);
+            const documentObserverCount = observedTargets.filter((target) => target === document.body).length;
+            expect(documentObserverCount).toBeGreaterThanOrEqual(1);
+            expect(documentObserverCount).toBeLessThanOrEqual(2);
+        } finally {
+            handler.disable();
+            containers.forEach((container) => container.remove());
+            vi.stubGlobal('MutationObserver', originalMutationObserver);
+        }
+    });
+
+    it('does not rescan a container that is already enabled', () => {
+        const container = document.createElement('div');
+        container.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">x</annotation></span>';
+        document.body.appendChild(container);
+        const querySelectorAll = vi.spyOn(container, 'querySelectorAll');
+        const handler = new MathClickHandler();
+
+        try {
+            handler.enable(container);
+            const firstScanQueries = querySelectorAll.mock.calls.length;
+            handler.enable(container);
+
+            expect(firstScanQueries).toBeGreaterThan(0);
+            expect(querySelectorAll.mock.calls.length).toBe(firstScanQueries);
+        } finally {
+            handler.disable();
+            querySelectorAll.mockRestore();
+            container.remove();
+        }
+    });
+
+    it('stops observing a message after its container leaves the page', async () => {
+        vi.useFakeTimers();
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const handler = new MathClickHandler();
+
+        try {
+            handler.enable(container);
+            container.remove();
+            await Promise.resolve();
+
+            const detachedFormula = document.createElement('span');
+            detachedFormula.className = 'katex-error';
+            detachedFormula.textContent = '\\gamma_1';
+            container.appendChild(detachedFormula);
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(20);
+
+            detachedFormula.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            await Promise.resolve();
+            expect(writeText).not.toHaveBeenCalled();
+        } finally {
+            handler.disable();
+            container.remove();
+            vi.useRealTimers();
+        }
+    });
+
+    it('keeps observing a message that is reparented within the page', async () => {
+        vi.useFakeTimers();
+        const { writeText } = setClipboardMock();
+        const firstParent = document.createElement('div');
+        const secondParent = document.createElement('div');
+        const container = document.createElement('div');
+        firstParent.appendChild(container);
+        document.body.append(firstParent, secondParent);
+        const handler = new MathClickHandler();
+
+        try {
+            handler.enable(container);
+            secondParent.appendChild(container);
+            await Promise.resolve();
+
+            const formula = document.createElement('span');
+            formula.className = 'katex-error';
+            formula.textContent = '\\delta_1';
+            container.appendChild(formula);
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(20);
+
+            formula.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            await Promise.resolve();
+            expect(writeText).toHaveBeenCalledWith('$\\delta_1$');
+        } finally {
+            handler.disable();
+            firstParent.remove();
+            secondParent.remove();
+            vi.useRealTimers();
+        }
+    });
+
     it('emits hover context from the same extracted LaTeX source', () => {
         const onFormulaHoverEnter = vi.fn();
         const container = document.createElement('div');

@@ -99,6 +99,16 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Toolbar reliability remained 200/200 with zero duplicates on every run; every run recovered all 20 replaced official action rows well under 500 ms. `content.js` remained within budget at 1,849,255 raw bytes and 486,402 gzip bytes.
 - The phase boundary passed all 1,213 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
 
+### Phase 5 — 2026-07-11
+
+- Consolidated the three content-runtime `RouteWatcher` consumers onto one shared poll timer and one `popstate` / `hashchange` listener pair. The hub remains alive until the final consumer stops and preserves the same transition for every active subscriber.
+- Replaced one formula `MutationObserver` per enabled message with one document-level observer filtered to enabled containers. Formula discovery now uses one combined selector pass, repeated enable calls are idempotent, detached containers release listeners, and in-page message reparenting remains active.
+- Unrelated settings updates no longer disable and rescan every formula container when the formula interaction gate is unchanged.
+- Current-message Reader promises remain shared between Copy Markdown and Copy PNG, but mutations invalidate only the owning message. Message-set or ordering changes clear the full cache before a full reconcile, preventing stale content without discarding unrelated cached items.
+- Final three-run runtime medians: toolbar ready 459.8 ms; cold long-task total 133 ms; cold maximum 81 ms; idle mutation records 0 per 2 seconds; streaming long-task total 0 ms; streaming maximum 0 ms; streaming mutation records 200; official-row recovery 165.0 ms; post-GC used JS heap 7,579,789 bytes.
+- Toolbar reliability remained 200/200 with zero duplicates on every run; every run recovered all 20 replaced official action rows in no more than 165.5 ms. `content.js` remained within budget at 1,850,553 raw bytes and 486,924 gzip bytes.
+- The phase boundary passed all 1,223 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

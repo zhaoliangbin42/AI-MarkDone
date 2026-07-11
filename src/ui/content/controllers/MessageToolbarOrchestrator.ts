@@ -200,6 +200,25 @@ export class MessageToolbarOrchestrator {
         this.currentReaderItemByMessageKey.clear();
     }
 
+    private invalidateReaderItemForMessage(messageElement: HTMLElement): void {
+        try {
+            this.currentReaderItemByMessageKey.delete(this.getReaderItemCacheKey(messageElement));
+        } catch {
+            // A transient host DOM can make message identity unavailable; stale content is worse than a cache miss.
+            this.clearReaderItemCache();
+        }
+    }
+
+    private markMessageDirty(messageElement: HTMLElement): void {
+        this.dirtyMessages.add(messageElement);
+        this.invalidateReaderItemForMessage(messageElement);
+    }
+
+    private requireFullRescan(): void {
+        this.needsFullRescan = true;
+        this.clearReaderItemCache();
+    }
+
     private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
         return collectFreshCurrentReaderItem(this.adapter, messageElement, {
             chatGptConversationEngine: this.chatGptConversationEngine,
@@ -669,7 +688,7 @@ export class MessageToolbarOrchestrator {
             }
 
             hasRecoverable = true;
-            this.dirtyMessages.add(state.message);
+            this.markMessageDirty(state.message);
             const attempts = this.chatGptToolbarRecoveryAttemptsByMessageKey.get(messageKey) ?? 0;
             this.chatGptToolbarRecoveryAttemptsByMessageKey.set(messageKey, attempts + 1);
         }
@@ -1116,7 +1135,7 @@ export class MessageToolbarOrchestrator {
         for (const messageElement of sortedCandidates) {
             const position = this.resolveIncrementalPosition(messageElement);
             if (!position) {
-                this.needsFullRescan = true;
+                this.requireFullRescan();
                 return null;
             }
         }
@@ -1613,6 +1632,8 @@ export class MessageToolbarOrchestrator {
             const removedNodes = Array.from(mutation.removedNodes || []);
             const addedNodes = Array.from(mutation.addedNodes || []);
             const changedNodes = [...removedNodes, ...addedNodes];
+            const targetMessage = this.getMessageForMutationTarget(mutation.target);
+            const isCharacterData = 'type' in mutation && mutation.type === 'characterData';
             const intentionallyRemovedHosts = new Set<Node>();
             const externallyRemovedHosts = new Set<Node>();
             for (const node of removedNodes) {
@@ -1624,17 +1645,25 @@ export class MessageToolbarOrchestrator {
                 }
             }
 
-            const hasHostPageChange = changedNodes.some((node) => !this.isToolbarManagedHostNode(node));
+            const hasHostPageChange = isCharacterData
+                ? targetMessage !== null
+                : changedNodes.some((node) => !this.isToolbarManagedHostNode(node));
             if (!hasHostPageChange && externallyRemovedHosts.size === 0) continue;
             if (hasHostPageChange) this.invalidateTurnIndex();
-            const targetMessage = this.getMessageForMutationTarget(mutation.target);
+            if (isCharacterData) {
+                if (targetMessage) {
+                    this.markMessageDirty(targetMessage);
+                    shouldSchedule = true;
+                }
+                continue;
+            }
 
             for (const node of removedNodes) {
                 if (intentionallyRemovedHosts.has(node)) continue;
                 if (externallyRemovedHosts.has(node)) {
                     const record = this.getRecordForToolbarHost(node);
                     if (record?.message.isConnected) {
-                        this.dirtyMessages.add(record.message);
+                        this.markMessageDirty(record.message);
                         shouldSchedule = true;
                     }
                     continue;
@@ -1642,7 +1671,7 @@ export class MessageToolbarOrchestrator {
                 const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorRemoval(node, mutation.target);
                 if (chatGptActionMessages.length > 0) {
                     for (const message of chatGptActionMessages) {
-                        this.dirtyMessages.add(message);
+                        this.markMessageDirty(message);
                     }
                     shouldSchedule = true;
                     continue;
@@ -1650,13 +1679,13 @@ export class MessageToolbarOrchestrator {
 
                 const removedMessages = this.collectMutationMessageCandidates(node);
                 if (removedMessages.length > 0) {
-                    this.needsFullRescan = true;
+                    this.requireFullRescan();
                     shouldSchedule = true;
                     continue;
                 }
 
                 if (targetMessage) {
-                    this.dirtyMessages.add(targetMessage);
+                    this.markMessageDirty(targetMessage);
                     shouldSchedule = true;
                 }
             }
@@ -1667,23 +1696,23 @@ export class MessageToolbarOrchestrator {
                     const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorMutation(node);
                     if (chatGptActionMessages.length > 0) {
                         for (const message of chatGptActionMessages) {
-                            this.dirtyMessages.add(message);
+                            this.markMessageDirty(message);
                         }
                         shouldSchedule = true;
                         continue;
                     }
                     if (targetMessage) {
-                        this.dirtyMessages.add(targetMessage);
+                        this.markMessageDirty(targetMessage);
                         shouldSchedule = true;
                         continue;
                     }
                     if (!this.nodeContainsActionBarAnchor(node)) continue;
-                    this.needsFullRescan = true;
+                    this.requireFullRescan();
                     shouldSchedule = true;
                     continue;
                 }
                 for (const candidate of candidates) {
-                    this.dirtyMessages.add(candidate);
+                    this.markMessageDirty(candidate);
                 }
                 shouldSchedule = true;
             }
@@ -1706,6 +1735,6 @@ export class MessageToolbarOrchestrator {
         this.observedContainer = nextContainer;
         this.needsFullRescan = true;
         this.observer = new MutationObserver((mutations) => this.handleObservedMutations(mutations));
-        this.observer.observe(nextContainer, { childList: true, subtree: true });
+        this.observer.observe(nextContainer, { childList: true, characterData: true, subtree: true });
     }
 }

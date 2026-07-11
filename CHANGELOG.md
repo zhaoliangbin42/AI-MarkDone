@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance: Reduced ChatGPT idle-page work and large bookmark batch costs by replacing repeated full scans, removing official-navigation DOM write loops, and cancelling deferred scans during teardown.
 - Performance: Shared ChatGPT message discovery across toolbars, navigation, and directory controls, avoiding repeated unchanged-page scans and redundant message-position DOM writes.
 - ChatGPT: Made message-toolbar recovery event-driven across streaming updates, individual host removal, delayed action rows, and full conversation-root replacement without routine page-wide rescans.
+- Performance: Shared route and formula observers across ChatGPT runtime features, avoided unchanged-settings formula rescans, and invalidated cached message content only when its owning message changes.
 
 ### Fixed
 - Formula: SVG copy and save now produce compact standalone vector files without embedded page HTML or fonts, while preserving Chinese text, long formulas, and natural proportions.

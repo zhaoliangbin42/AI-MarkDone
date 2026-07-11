@@ -182,6 +182,7 @@ if (adapter) {
         : false;
     let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
     let currentThemeOverrides: UserThemeOverrides = getThemeOverrides(cachedSettings);
+    let formulaInteractionsEnabled: boolean | null = null;
     writeDebugState({
         Content: 'loaded',
         Platform: adapter.getPlatformId(),
@@ -189,8 +190,12 @@ if (adapter) {
         DirectoryAvailable: Boolean(chatGptDirectory),
     });
     const syncClickToCopy = (enabled: boolean) => {
-        mathClick.disable();
-        if (!enabled) return;
+        if (formulaInteractionsEnabled === enabled) return;
+        formulaInteractionsEnabled = enabled;
+        if (!enabled) {
+            mathClick.disable();
+            return;
+        }
         for (const messageElement of discoverMessageElements(document, adapter.getMessageSelector())) {
             mathClick.enable(messageElement);
         }
@@ -206,7 +211,7 @@ if (adapter) {
         saveMessagesDialog.setMarkdownFormulaFormat(next.markdownCopyFormulaFormat);
         if (options.applyInteractionGate === false) return;
         if (!runtimeEnabled) {
-            mathClick.disable();
+            syncClickToCopy(false);
             return;
         }
         syncClickToCopy(shouldEnableFormulaInteractions(next));

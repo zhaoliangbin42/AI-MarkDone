@@ -11,6 +11,23 @@ import {
 } from '../../../core/math/formulaSourceFormat';
 
 const STYLE_ID = 'aimd-math-click-style';
+const FORMULA_CANDIDATE_SELECTOR = [
+    '.katex-display',
+    '.math-block',
+    'mjx-container[display="true"]',
+    'mjx-container[display="block"]',
+    '.math-inline',
+    'mjx-container',
+    '.MathJax',
+    '.katex',
+    '.katex-error',
+    '[data-latex-source]',
+    '[data-latex]',
+    '[data-tex]',
+    '[data-math]',
+    '[data-original-tex]',
+].join(', ');
+
 function ensureMathClickStyle(): void {
     if (typeof document === 'undefined') return;
     if (document.getElementById(STYLE_ID)) return;
@@ -60,7 +77,8 @@ export type MathClickHandlerOptions = {
  */
 export class MathClickHandler {
     private activeElements = new Set<Element>();
-    private observers = new Map<HTMLElement, MutationObserver>();
+    private containers = new Set<HTMLElement>();
+    private observer: MutationObserver | null = null;
     private elementListeners = new Map<Element, ListenerRecord>();
     private pendingNodes = new Set<Element>();
     private idleTimer: number | ReturnType<typeof setTimeout> | null = null;
@@ -76,62 +94,85 @@ export class MathClickHandler {
     }
 
     enable(container: HTMLElement): void {
+        if (this.containers.has(container)) return;
         ensureMathClickStyle();
         getDocumentTooltipDelegate();
+        this.containers.add(container);
         this.processContainer(container);
+        this.ensureObserver();
+    }
 
-        if (this.observers.has(container)) {
-            return;
-        }
-
-        const observer = new MutationObserver((mutations) => {
-            let queued = false;
-
-            for (const mutation of mutations) {
-                for (const node of Array.from(mutation.addedNodes)) {
-                    if (node instanceof HTMLElement) {
-                        queued = true;
-                        this.queueNodeForProcessing(node);
-                    } else if (node instanceof DocumentFragment) {
-                        node.querySelectorAll('*').forEach((child) => {
-                            if (child instanceof Element) {
-                                queued = true;
-                                this.queueNodeForProcessing(child);
-                            }
-                        });
-                    }
-                }
-            }
-
-            if (queued) {
-                logger.debug('[AI-MarkDone][MathClick] Queued new nodes for math extraction');
-            }
-        });
-
-        observer.observe(container, { childList: true, subtree: true });
-        this.observers.set(container, observer);
+    private ensureObserver(): void {
+        if (this.observer || typeof MutationObserver !== 'function') return;
+        const root = document.body ?? document.documentElement;
+        this.observer = new MutationObserver((mutations) => this.handleMutations(mutations));
+        this.observer.observe(root, { childList: true, subtree: true });
     }
 
     disable(): void {
-        this.observers.forEach((observer) => observer.disconnect());
-        this.observers.clear();
-
-        this.elementListeners.forEach((listeners) => {
-            const { target, mouseenter, mouseleave, focusin, focusout, click } = listeners;
-            target.style.backgroundColor = '';
-            target.style.cursor = '';
-            target.style.transition = '';
-            target.removeEventListener('mouseenter', mouseenter);
-            target.removeEventListener('mouseleave', mouseleave);
-            target.removeEventListener('focusin', focusin);
-            target.removeEventListener('focusout', focusout);
-            target.removeEventListener('click', click);
-        });
-        this.elementListeners.clear();
+        this.observer?.disconnect();
+        this.observer = null;
+        this.containers.clear();
+        for (const element of Array.from(this.elementListeners.keys())) this.detachHandlers(element);
         this.activeElements.clear();
         this.pendingNodes.clear();
         this.clearIdleTimer();
         this.options.onFormulaDisable?.();
+    }
+
+    private handleMutations(mutations: MutationRecord[]): void {
+        let queued = false;
+        for (const mutation of mutations) {
+            for (const node of Array.from(mutation.removedNodes)) {
+                if (this.handleRemovedNode(node)) queued = true;
+            }
+            for (const node of Array.from(mutation.addedNodes)) {
+                if (!(node instanceof Element)) continue;
+                if (!this.getEnabledContainer(node)) continue;
+                queued = true;
+                this.queueNodeForProcessing(node);
+            }
+        }
+
+        if (this.containers.size === 0) {
+            this.observer?.disconnect();
+            this.observer = null;
+        }
+        if (queued) logger.debug('[AI-MarkDone][MathClick] Queued new nodes for math extraction');
+    }
+
+    private handleRemovedNode(node: Node): boolean {
+        const removedElement = node instanceof Element ? node : null;
+        if (!removedElement) return false;
+
+        for (const container of Array.from(this.containers)) {
+            if (!container.isConnected && (container === removedElement || removedElement.contains(container))) {
+                this.containers.delete(container);
+            }
+        }
+
+        let queued = false;
+        for (const [element, listeners] of Array.from(this.elementListeners.entries())) {
+            const formulaRemoved = removedElement.contains(element);
+            const targetRemoved = removedElement.contains(listeners.target);
+            if (!formulaRemoved && !targetRemoved) continue;
+
+            this.detachHandlers(element);
+            if (element.isConnected && this.getEnabledContainer(element)) {
+                this.queueNodeForProcessing(element);
+                queued = true;
+            }
+        }
+        return queued;
+    }
+
+    private getEnabledContainer(node: Node): HTMLElement | null {
+        let cursor = node instanceof HTMLElement ? node : node.parentElement;
+        while (cursor) {
+            if (this.containers.has(cursor)) return cursor;
+            cursor = cursor.parentElement;
+        }
+        return null;
     }
 
     private processContainer(container: HTMLElement): void {
@@ -145,8 +186,11 @@ export class MathClickHandler {
 
     private collectMathElements(container: HTMLElement): Element[] {
         const elements: Element[] = [];
+        const seen = new Set<Element>();
         const addUnique = (el: Element) => {
-            if (!elements.includes(el)) elements.push(el);
+            if (seen.has(el)) return;
+            seen.add(el);
+            elements.push(el);
         };
 
         const addCandidate = (el: Element) => {
@@ -154,53 +198,31 @@ export class MathClickHandler {
             addUnique(el);
         };
 
-        // Include container itself when it matches (MutationObserver can deliver leaf nodes).
-        if (container.matches('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')) {
-            addCandidate(container);
-        }
-        if (container.matches('.math-inline, mjx-container, .MathJax')) {
-            addCandidate(container);
-        }
-        if (container.matches('.katex')) {
-            if (!container.closest('.katex-display') && !container.closest('.math-block') && !container.closest('.math-inline')) {
-                addCandidate(container);
-            }
-        }
-        if (container.matches('.katex-error')) {
-            const text = container.textContent?.trim() || '';
-            if (text.length > 0 && text.length < 200) {
-                addCandidate(container);
-            }
-        }
-        if (container.matches('[data-latex-source], [data-latex], [data-tex], [data-math], [data-original-tex]')) {
-            if (!container.closest('.katex, .katex-display, .math-block, .math-inline, mjx-container, .MathJax')) {
-                addCandidate(container);
-            }
-        }
-
-        container.querySelectorAll('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]').forEach(addCandidate);
-        container.querySelectorAll('.math-inline, mjx-container, .MathJax').forEach(addCandidate);
-
-        container.querySelectorAll('.katex').forEach((el) => {
-            if (el.closest('.katex-display') || el.closest('.math-block') || el.closest('.math-inline')) {
+        const considerCandidate = (element: Element): void => {
+            if (element.matches('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')) {
+                addCandidate(element);
                 return;
             }
-            addCandidate(el);
-        });
-
-        container.querySelectorAll('.katex-error').forEach((el) => {
-            const text = el.textContent?.trim() || '';
-            if (text.length > 0 && text.length < 200) {
-                addCandidate(el);
-            }
-        });
-
-        container.querySelectorAll('[data-latex-source], [data-latex], [data-tex], [data-math], [data-original-tex]').forEach((el) => {
-            if (el.closest('.katex, .katex-display, .math-block, .math-inline, mjx-container, .MathJax')) {
+            if (element.matches('.math-inline, mjx-container, .MathJax')) {
+                addCandidate(element);
                 return;
             }
-            addCandidate(el);
-        });
+            if (element.matches('.katex')) {
+                if (!element.closest('.katex-display, .math-block, .math-inline')) addCandidate(element);
+                return;
+            }
+            if (element.matches('.katex-error')) {
+                const text = element.textContent?.trim() || '';
+                if (text.length > 0 && text.length < 200) addCandidate(element);
+                return;
+            }
+            if (!element.closest('.katex, .katex-display, .math-block, .math-inline, mjx-container, .MathJax')) {
+                addCandidate(element);
+            }
+        };
+
+        if (container.matches(FORMULA_CANDIDATE_SELECTOR)) considerCandidate(container);
+        container.querySelectorAll(FORMULA_CANDIDATE_SELECTOR).forEach(considerCandidate);
 
         return elements;
     }
@@ -241,6 +263,7 @@ export class MathClickHandler {
     private processPendingNodes(nodes: Element[]): void {
         nodes.forEach((node) => {
             if (!(node instanceof HTMLElement)) return;
+            if (!node.isConnected || !this.getEnabledContainer(node)) return;
             this.collectMathElements(node).forEach((element) => {
                 if (this.activeElements.has(element)) return;
                 this.attachHandlers(element);
@@ -259,6 +282,22 @@ export class MathClickHandler {
             globalScope.clearTimeout(this.idleTimer);
         }
         this.idleTimer = null;
+    }
+
+    private detachHandlers(element: Element): void {
+        const listeners = this.elementListeners.get(element);
+        if (!listeners) return;
+        const { target, mouseenter, mouseleave, focusin, focusout, click } = listeners;
+        target.style.backgroundColor = '';
+        target.style.cursor = '';
+        target.style.transition = '';
+        target.removeEventListener('mouseenter', mouseenter);
+        target.removeEventListener('mouseleave', mouseleave);
+        target.removeEventListener('focusin', focusin);
+        target.removeEventListener('focusout', focusout);
+        target.removeEventListener('click', click);
+        this.elementListeners.delete(element);
+        this.activeElements.delete(element);
     }
 
     private attachHandlers(element: Element): void {

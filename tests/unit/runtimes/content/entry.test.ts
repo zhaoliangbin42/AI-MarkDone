@@ -894,6 +894,44 @@ describe('content runtime entry', () => {
         });
     });
 
+    it('does not tear down and rescan formula interactions when unrelated settings change', async () => {
+        adapterPlatformId = 'chatgpt';
+        document.body.innerHTML = '<div data-testid="message"></div><div data-testid="message"></div>';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const settings = {
+            language: 'en',
+            platforms: { chatgpt: true },
+            behavior: { showMessageToolbar: true, showSaveMessages: true, showWordCount: true },
+            formula: {
+                clickCopyMarkdown: true,
+                assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: false, saveSvg: false },
+            },
+            reader: {},
+            export: {},
+            chatgptDirectory: { enabled: true },
+            chatgptBehavior: {},
+            bookmarks: {},
+            appearance: { fontSizePx: 16, accentColor: null },
+        };
+
+        settingsSubscriber!({ settings });
+        const enableCount = mathClickEnable.mock.calls.length;
+        const disableCount = mathClickDisable.mock.calls.length;
+        expect(enableCount).toBe(2);
+
+        settingsSubscriber!({
+            settings: {
+                ...settings,
+                appearance: { fontSizePx: 18, accentColor: '#2563eb' },
+            },
+        });
+
+        expect(mathClickEnable).toHaveBeenCalledTimes(enableCount);
+        expect(mathClickDisable).toHaveBeenCalledTimes(disableCount);
+    });
+
     it('keeps the extension-action bookmark panel entry working even when the current platform runtime is disabled', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
