@@ -505,6 +505,12 @@ describe('ReaderPanel comments', () => {
         expect(styles).toContain('.reader-comment-list__items');
         expect(styles).toContain('overflow: auto;');
         expect(styles).toContain('overscroll-behavior: contain;');
+        const commentListStyles = Array.from(shadow.querySelectorAll('style'))
+            .map((node) => node.textContent ?? '')
+            .find((css) => css.includes('.reader-comment-list__items')) ?? '';
+        expect(commentListStyles).toContain('line-height: var(--aimd-leading-normal);');
+        expect(commentListStyles).not.toContain('line-height: 1.4;');
+        expect(commentListStyles).not.toContain('line-height: 1.45;');
 
         shadow.querySelector<HTMLElement>('.reader-body')!.scrollTop = 137;
         shadow.querySelector<HTMLButtonElement>('.reader-comment-list__sort-button[data-sort-mode="position"]')!.click();

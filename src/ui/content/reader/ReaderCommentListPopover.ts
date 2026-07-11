@@ -151,7 +151,7 @@ function getCommentListCss(): string {
   gap: var(--aimd-space-2);
   color: var(--aimd-text-tertiary);
   font-size: var(--aimd-text-xs);
-  line-height: 1.4;
+  line-height: var(--aimd-leading-normal);
 }
 
 .reader-comment-list__item-meta .aimd-icon {
@@ -200,7 +200,7 @@ function getCommentListCss(): string {
   min-width: 0;
   color: var(--aimd-text-primary);
   font-size: var(--aimd-text-sm);
-  line-height: 1.45;
+  line-height: var(--aimd-leading-normal);
   overflow-wrap: anywhere;
   overflow: hidden;
   display: -webkit-box;

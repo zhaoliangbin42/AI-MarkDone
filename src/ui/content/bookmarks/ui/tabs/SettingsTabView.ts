@@ -150,7 +150,6 @@ type Refs = {
         renderCode: HTMLInputElement;
         showOutline: HTMLInputElement;
         promptPositionBottom: HTMLInputElement;
-        commentSortMode: SelectRef;
         promptsButton: HTMLButtonElement;
         promptsSummary: HTMLElement;
         templateButton: HTMLButtonElement;
@@ -338,16 +337,6 @@ export class SettingsTabView {
             readerGroup.body,
             t('readerCommentPromptPositionBottomLabel'),
             t('readerCommentPromptPositionBottomDesc'),
-        );
-        const readerCommentSortMode = this.createSelect(
-            readerGroup.body,
-            t('readerCommentSortModeLabel'),
-            t('readerCommentSortModeDesc'),
-            [
-                { value: 'created', label: t('readerCommentSortCreated') },
-                { value: 'position', label: t('readerCommentSortPosition') },
-            ],
-            'reader-comment-sort-mode',
         );
         const readerPrompts = this.createActionRow(
             readerGroup.body,
@@ -554,7 +543,6 @@ export class SettingsTabView {
                 renderCode: readerRenderCode.input,
                 showOutline: readerShowOutline.input,
                 promptPositionBottom: readerPromptPositionBottom.input,
-                commentSortMode: readerCommentSortMode,
                 promptsButton: readerPrompts.button,
                 promptsSummary: readerPrompts.summary,
                 templateButton: readerTemplate.button,
@@ -596,7 +584,6 @@ export class SettingsTabView {
         this.refs.reader.renderCode.dataset.role = 'settings-render-code-reader';
         this.refs.reader.showOutline.dataset.role = 'settings-reader-outline';
         this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-comment-prompt-position-bottom';
-        this.refs.reader.commentSortMode.trigger.dataset.role = 'settings-reader-comment-sort-mode';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
         this.refs.reader.templateButton.dataset.role = 'settings-reader-comment-template';
         this.refs.advanced.button.dataset.role = 'settings-advanced-toggle';
@@ -904,15 +891,6 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setReaderSettings?.({ commentExport });
         });
-        this.refs.reader.commentSortMode.onChange((value) => {
-            const commentExport = normalizeReaderCommentExportSettings({
-                ...this.settings.reader.commentExport,
-                sortMode: value,
-            });
-            this.settings.reader.commentExport = commentExport;
-            this.applySettingsToDom();
-            void this.actions.setReaderSettings?.({ commentExport });
-        });
         this.refs.reader.promptsButton.addEventListener('click', () => {
             void this.onOpenPromptManager?.(this.refs.reader.promptsButton);
         });
@@ -968,7 +946,6 @@ export class SettingsTabView {
         this.refs.reader.renderCode.checked = Boolean(s.reader.renderCodeInReader);
         this.refs.reader.showOutline.checked = Boolean(s.reader.showOutlineInReader);
         this.refs.reader.promptPositionBottom.checked = s.reader.commentExport?.promptPosition === 'bottom';
-        this.refs.reader.commentSortMode.setValue(s.reader.commentExport?.sortMode === 'position' ? 'position' : 'created');
         this.refs.reader.promptsSummary.textContent = this.formatReaderPromptSummary();
         this.refs.reader.templateSummary.textContent = this.formatReaderTemplateSummary(s.reader.commentExport?.template ?? []);
         this.refs.language.setValue(s.language);
