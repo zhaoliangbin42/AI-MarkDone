@@ -500,9 +500,8 @@ describe('ReaderPanel comments', () => {
         expect(items[0]?.textContent).toContain('Later text source');
         expect(items[1]?.textContent).toContain('Earlier text source');
         const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent ?? '').join('\n');
-        expect(styles).toContain('inline-size: 760px;');
-        expect(styles).toContain('block-size: min(720px, 100%);');
-        expect(styles).toContain('max-block-size: 100%;');
+        expect(styles).toContain('--_modal-width: min(760px');
+        expect(styles).toContain('--_modal-max-height: min(720px');
         expect(styles).toContain('.reader-comment-list__items');
         expect(styles).toContain('overflow: auto;');
         expect(styles).toContain('overscroll-behavior: contain;');
@@ -521,7 +520,9 @@ describe('ReaderPanel comments', () => {
             commentExport: expect.objectContaining({ sortMode: 'position' }),
         });
 
-        items[0]?.click();
+        items[0]?.querySelector<HTMLButtonElement>('[data-action="open"]')?.click();
+        shadow.querySelector<HTMLElement>('.mock-modal[role="dialog"]')
+            ?.dispatchEvent(new Event('animationend', { bubbles: true }));
         await Promise.resolve();
 
         expect(shadow.querySelector<HTMLElement>('.reader-comment-popover__selection-value')?.textContent).toContain('Earlier text source');
@@ -564,6 +565,61 @@ describe('ReaderPanel comments', () => {
         expect(items).toHaveLength(1);
         expect(items[0]?.textContent).toContain('Keep this source');
         expect(listReaderComments(scopeId, 'a').map((record) => record.id)).toEqual(['keep-me']);
+    });
+
+    it('opens the annotations list through the shared modal host and moves focus inside it', async () => {
+        const panel = new ReaderPanel();
+        seedComment({ id: 'focus-note' });
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Answer' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!;
+        trigger.focus();
+        trigger.click();
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal[role="dialog"]');
+        expect(dialog).toBeTruthy();
+        expect(dialog?.contains(shadow.activeElement)).toBe(true);
+    });
+
+    it('closes only the annotations list when Escape is pressed', async () => {
+        const panel = new ReaderPanel();
+        seedComment({ id: 'escape-note' });
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Answer' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!.click();
+        await Promise.resolve();
+
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal[role="dialog"]')!;
+        dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+        await Promise.resolve();
+        dialog.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await Promise.resolve();
+
+        expect(shadow.querySelector('.reader-comment-list')).toBeNull();
+        expect(document.querySelector('#aimd-reader-panel-host')).toBe(host);
+    });
+
+    it('keeps the delete action outside the annotation open control', async () => {
+        const panel = new ReaderPanel();
+        seedComment({ id: 'keyboard-delete-note' });
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Answer' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!.click();
+        await Promise.resolve();
+
+        const item = shadow.querySelector<HTMLElement>('.reader-comment-list__item')!;
+        const openButton = item.querySelector<HTMLButtonElement>('[data-action="open"]');
+        const deleteButton = item.querySelector<HTMLButtonElement>('[data-action="delete"]')!;
+        expect(openButton).toBeTruthy();
+        expect(openButton?.contains(deleteButton)).toBe(false);
+        expect(deleteButton.closest('[role="button"]')).toBeNull();
     });
 
     it('copies the same compiled text shown in the export popover even if settings change while it is open', async () => {

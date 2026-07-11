@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Hid the right-side directory rail's internal scrollbar while keeping long directories scrollable.
 - Reader: Reader settings rows now keep their label and help text readable on short screens, with the settings dialog scrolling instead of compressing fields.
 - Reader: The annotations list now keeps a fixed bounded panel and scrolls annotations internally, preventing long lists from clipping the top controls or growing with annotation text length.
+- Reader: The annotations list now uses the shared modal focus and keyboard contract, so Escape closes only the list and keyboard delete does not open the annotation editor.
 - Reader: Annotations created from the first rendered heading or other structural text now keep a real text position, so text-position sorting no longer pushes them to the bottom.
 
 ## [4.7.0] - 2026-06-28

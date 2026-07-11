@@ -563,7 +563,7 @@ export class ReaderPanel {
         if (this.overlaySession?.shadow) {
             this.commentPopover.close(this.overlaySession.shadow, false);
             this.commentExportPopover.close(this.overlaySession.shadow);
-            this.commentListPopover.close(this.overlaySession.shadow);
+            this.commentListPopover.close();
             this.settingsPopover.close();
             this.commentPromptPicker.close(this.overlaySession.shadow);
         }
@@ -1859,12 +1859,9 @@ export class ReaderPanel {
             return;
         }
 
-        const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
-        if (!container) return;
         this.commentListPopover.open({
             shadow: this.overlaySession.shadow,
-            container,
-            theme: this.state.theme,
+            modalHost: this.overlaySession.modalHost,
             comments,
             sortMode: this.commentExportSettings.sortMode,
             labels: {
@@ -1887,7 +1884,9 @@ export class ReaderPanel {
                     this.notify(this.getLabel('readerCommentDeleted', 'Annotation deleted'));
                     return;
                 }
-                this.openExistingComment(current, container.getBoundingClientRect(), { scrollIntoView: true });
+                const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+                if (!panel) return;
+                this.openExistingComment(current, panel.getBoundingClientRect(), { scrollIntoView: true });
             },
             onDelete: (selected) => {
                 removeReaderComment(READER_COMMENT_SCOPE_ID, selected.itemId, selected.id);

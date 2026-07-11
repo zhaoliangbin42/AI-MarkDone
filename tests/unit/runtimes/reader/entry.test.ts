@@ -56,6 +56,7 @@ vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
 
 afterEach(() => {
     vi.clearAllMocks();
+    panelGetCommentExportContext.mockReturnValue(null);
     vi.resetModules();
     document.documentElement.removeAttribute('data-aimd-theme');
     window.location.hash = '';
@@ -257,6 +258,24 @@ describe('detached reader runtime entry', () => {
             },
         };
         window.location.hash = '#sessionId=session-1';
+        panelGetCommentExportContext.mockReturnValue({
+            listReaderPrompts: async () => [{ id: 'review', title: 'Review', content: 'Review these notes:' }],
+            template: [{ type: 'token', key: 'selected_source' }],
+            promptPosition: 'top',
+            sortMode: 'position',
+            comments: [
+                {
+                    id: 'later', itemId: 'item-1', quoteText: 'later', sourceMarkdown: 'Later note', comment: 'later',
+                    selectors: { textQuote: { exact: '', prefix: '', suffix: '' }, textPosition: { start: 20, end: 30 }, domRange: null, atomicRefs: [] },
+                    createdAt: 1, updatedAt: 1,
+                },
+                {
+                    id: 'earlier', itemId: 'item-1', quoteText: 'earlier', sourceMarkdown: 'Earlier note', comment: 'earlier',
+                    selectors: { textQuote: { exact: '', prefix: '', suffix: '' }, textPosition: { start: 2, end: 10 }, domRange: null, atomicRefs: [] },
+                    createdAt: 2, updatedAt: 2,
+                },
+            ],
+        });
         sendExtRequest.mockImplementation(async (request: any) => {
             if (request.type === 'settings:getAll') {
                 return { ok: true, data: { settings } };
@@ -330,6 +349,13 @@ describe('detached reader runtime entry', () => {
         expect(popover).toBeTruthy();
         const input = popover!.querySelector<HTMLTextAreaElement>('[data-role="text"]')!;
         expect(input.value).toBe('source composer draft');
+        popover!.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="review"]')!.click();
+        await Promise.resolve();
+        expect(input.value.indexOf('Earlier note')).toBeLessThan(input.value.indexOf('Later note'));
         input.value = '\\re';
         input.setSelectionRange(input.value.length, input.value.length);
         input.dispatchEvent(new Event('input', { bubbles: true }));

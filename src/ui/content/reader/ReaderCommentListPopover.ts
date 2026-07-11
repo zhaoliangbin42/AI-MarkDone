@@ -1,15 +1,13 @@
-import { fileTextIcon, messageSquareTextIcon, trashIcon, xIcon } from '../../../assets/icons';
-import type { Theme } from '../../../core/types/theme';
+import { fileTextIcon, trashIcon } from '../../../assets/icons';
 import type { ReaderCommentSortMode } from '../../../core/settings/readerCommentExport';
 import { sortReaderComments, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { ensureStyle } from '../../../style/shadow';
 import { createIcon } from '../components/Icon';
-import { markTransientRoot } from '../components/transientUi';
+import type { ModalHost } from '../components/ModalHost';
 
 type OpenParams = {
     shadow: ShadowRoot;
-    container: HTMLElement;
-    theme: Theme;
+    modalHost: ModalHost;
     comments: ReaderCommentRecord[];
     sortMode: ReaderCommentSortMode;
     labels: {
@@ -30,15 +28,6 @@ type OpenParams = {
     onClose?: () => void;
 };
 
-function escapeHtml(input: string): string {
-    return input
-        .split('&').join('&amp;')
-        .split('<').join('&lt;')
-        .split('>').join('&gt;')
-        .split('"').join('&quot;')
-        .split("'").join('&#39;');
-}
-
 function compactText(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
@@ -58,61 +47,28 @@ function formatTextPosition(record: ReaderCommentRecord): string {
 
 function getCommentListCss(): string {
     return `
-.reader-comment-list-layer {
-  position: absolute;
-  inset: 0;
-  box-sizing: border-box;
-  padding: var(--aimd-space-4);
-  display: grid;
-  place-items: center;
-  pointer-events: none;
+.mock-modal--reader-comment-list {
+  --_modal-width: min(760px, calc(100% - var(--aimd-space-5) * 2));
+  --_modal-max-height: min(720px, calc(100% - var(--aimd-space-5) * 2));
+}
+
+.mock-modal--reader-comment-list .mock-modal__content {
   overflow: hidden;
 }
 
 .reader-comment-list {
-  box-sizing: border-box;
-  pointer-events: auto;
-  inline-size: 760px;
-  max-inline-size: 100%;
-  block-size: min(720px, 100%);
-  max-block-size: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--aimd-space-4);
-  padding: var(--aimd-space-4);
-  border-radius: var(--aimd-radius-2xl);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-surface) 98%, var(--aimd-bg-primary));
-  box-shadow: var(--aimd-shadow-lg);
   overflow: hidden;
 }
 
-.reader-comment-list__head,
 .reader-comment-list__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--aimd-space-3);
-}
-
-.reader-comment-list__title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--aimd-space-2);
-  min-width: 0;
-  margin: 0;
-  color: var(--aimd-text-primary);
-  font-size: var(--aimd-text-sm);
-  line-height: 1.4;
-  font-weight: var(--aimd-font-medium);
-}
-
-.reader-comment-list__title .aimd-icon {
-  color: var(--aimd-interactive-primary);
-}
-
-.reader-comment-list__close {
-  color: var(--aimd-text-secondary);
 }
 
 .reader-comment-list__sort {
@@ -145,7 +101,6 @@ function getCommentListCss(): string {
 
 .reader-comment-list__items {
   flex: 1 1 auto;
-  block-size: 100%;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
@@ -168,7 +123,6 @@ function getCommentListCss(): string {
 .reader-comment-list__item {
   box-sizing: border-box;
   min-width: 0;
-  cursor: pointer;
   display: grid;
   gap: var(--aimd-space-2);
   padding: var(--aimd-space-3);
@@ -178,11 +132,9 @@ function getCommentListCss(): string {
 }
 
 .reader-comment-list__item:hover,
-.reader-comment-list__item:focus-visible,
 .reader-comment-list__item:focus-within {
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 42%, var(--aimd-border-default));
   background: color-mix(in srgb, var(--aimd-surface-hover) 82%, var(--aimd-bg-primary));
-  outline: none;
 }
 
 .reader-comment-list__item-head {
@@ -217,6 +169,21 @@ function getCommentListCss(): string {
   color: var(--aimd-color-danger);
 }
 
+.reader-comment-list__open {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  min-width: 0;
+  display: grid;
+  gap: var(--aimd-space-2);
+  border-radius: var(--aimd-radius-lg);
+}
+
+.reader-comment-list__open:focus-visible {
+  outline: 2px solid var(--aimd-focus-ring);
+  outline-offset: var(--aimd-space-1);
+}
+
 .reader-comment-list__item-body {
   display: grid;
   gap: var(--aimd-space-1);
@@ -249,66 +216,40 @@ function getCommentListCss(): string {
 
 export class ReaderCommentListPopover {
     private rootEl: HTMLElement | null = null;
-    private onShadowPointerDown: ((event: Event) => void) | null = null;
-    private onDocumentPointerDown: ((event: Event) => void) | null = null;
     private params: OpenParams | null = null;
+    private closeModal: (() => void) | null = null;
+    private pendingSelection: ReaderCommentRecord | null = null;
 
     isOpen(): boolean {
-        return Boolean(this.rootEl);
+        return Boolean(this.rootEl?.isConnected);
     }
 
-    close(shadow?: ShadowRoot): void {
-        const activeShadow = shadow ?? this.params?.shadow;
-        if (!this.rootEl) return;
-        if (activeShadow && this.onShadowPointerDown) {
-            activeShadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
-        }
-        if (this.onDocumentPointerDown) {
-            document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
-        }
-        this.onShadowPointerDown = null;
-        this.onDocumentPointerDown = null;
-        this.rootEl.remove();
-        this.rootEl = null;
-        this.params = null;
+    close(): void {
+        this.pendingSelection = null;
+        this.closeModal?.();
     }
 
     open(params: OpenParams): void {
-        this.close(params.shadow);
+        this.close();
         this.params = params;
         ensureStyle(params.shadow, getCommentListCss(), { id: 'aimd-reader-comment-list-style', cache: 'shared' });
 
-        const layer = markTransientRoot(document.createElement('div'));
-        layer.className = 'reader-comment-list-layer';
-
-        const popover = document.createElement('div');
-        popover.className = 'reader-comment-list';
-        popover.setAttribute('data-aimd-theme', params.theme);
-        popover.innerHTML = `
-          <div class="reader-comment-list__head">
-            <h3 class="reader-comment-list__title">${createIcon(messageSquareTextIcon).outerHTML}<span>${escapeHtml(params.labels.title)}</span></h3>
-            <button class="icon-btn reader-comment-list__close" type="button" data-action="close" aria-label="${escapeHtml(params.labels.close)}">${createIcon(xIcon).outerHTML}</button>
-          </div>
+        const body = document.createElement('div');
+        body.className = 'reader-comment-list';
+        body.innerHTML = `
           <div class="reader-comment-list__toolbar">
             <div class="reader-comment-list__sort" role="group">
-              <button class="reader-comment-list__sort-button" type="button" data-sort-mode="created">${escapeHtml(params.labels.sortByCreated)}</button>
-              <button class="reader-comment-list__sort-button" type="button" data-sort-mode="position">${escapeHtml(params.labels.sortByPosition)}</button>
+              <button class="reader-comment-list__sort-button" type="button" data-sort-mode="created"></button>
+              <button class="reader-comment-list__sort-button" type="button" data-sort-mode="position"></button>
             </div>
           </div>
           <div class="reader-comment-list__items" data-role="items"></div>
         `;
+        body.querySelector<HTMLButtonElement>('[data-sort-mode="created"]')!.textContent = params.labels.sortByCreated;
+        body.querySelector<HTMLButtonElement>('[data-sort-mode="position"]')!.textContent = params.labels.sortByPosition;
+        this.rootEl = body;
 
-        layer.appendChild(popover);
-        params.container.appendChild(layer);
-        this.rootEl = layer;
-        this.renderList();
-
-        popover.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => {
-            params.onClose?.();
-            this.close(params.shadow);
-        });
-
-        popover.querySelectorAll<HTMLButtonElement>('[data-sort-mode]').forEach((button) => {
+        body.querySelectorAll<HTMLButtonElement>('[data-sort-mode]').forEach((button) => {
             button.addEventListener('click', () => {
                 const next = button.dataset.sortMode === 'position' ? 'position' : 'created';
                 if (!this.params || this.params.sortMode === next) return;
@@ -317,19 +258,36 @@ export class ReaderCommentListPopover {
                 this.renderList();
             });
         });
+        this.renderList();
 
-        this.onShadowPointerDown = (event: Event) => {
-            if (this.shouldIgnorePointerDown(event)) return;
-            params.onClose?.();
-            this.close(params.shadow);
-        };
-        this.onDocumentPointerDown = (event: Event) => {
-            if (this.shouldIgnorePointerDown(event)) return;
-            params.onClose?.();
-            this.close(params.shadow);
-        };
-        params.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
-        document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
+        void params.modalHost.showCustom({
+            kind: 'info',
+            title: params.labels.title,
+            body,
+            dialogClassName: 'mock-modal--reader-comment-list',
+            footer: (footer, close) => {
+                this.closeModal = close;
+                const closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.className = 'mock-modal__button mock-modal__button--secondary';
+                closeButton.dataset.action = 'modal-cancel';
+                closeButton.textContent = params.labels.close;
+                closeButton.addEventListener('click', () => {
+                    params.onClose?.();
+                    close();
+                });
+                footer.appendChild(closeButton);
+            },
+            onDismiss: () => params.onClose?.(),
+            onClosed: () => {
+                const selected = this.pendingSelection;
+                this.pendingSelection = null;
+                this.rootEl = null;
+                this.closeModal = null;
+                this.params = null;
+                if (selected) params.onSelect({ ...selected });
+            },
+        });
     }
 
     update(params: { comments?: ReaderCommentRecord[]; sortMode?: ReaderCommentSortMode }): void {
@@ -353,7 +311,10 @@ export class ReaderCommentListPopover {
 
         const comments = sortReaderComments(this.params.comments, this.params.sortMode);
         if (comments.length < 1) {
-            list.innerHTML = `<div class="reader-comment-list__empty">${escapeHtml(this.params.labels.empty)}</div>`;
+            const empty = document.createElement('div');
+            empty.className = 'reader-comment-list__empty';
+            empty.textContent = this.params.labels.empty;
+            list.replaceChildren(empty);
             return;
         }
 
@@ -364,52 +325,57 @@ export class ReaderCommentListPopover {
         const item = document.createElement('article');
         item.className = 'reader-comment-list__item';
         item.dataset.commentId = record.id;
-        item.tabIndex = 0;
-        item.setAttribute('role', 'button');
 
-        const source = compactText(record.sourceMarkdown || record.quoteText);
-        const comment = compactText(record.comment);
-        item.innerHTML = `
-          <div class="reader-comment-list__item-head">
-            <div class="reader-comment-list__item-meta">
-              <span>${escapeHtml(this.params!.labels.createdAt)}: ${escapeHtml(formatDate(record.createdAt))}</span>
-              <span>${createIcon(fileTextIcon).outerHTML}${escapeHtml(this.params!.labels.textPosition)}: ${escapeHtml(formatTextPosition(record))}</span>
-            </div>
-            <button class="icon-btn icon-btn--danger reader-comment-list__delete" type="button" data-action="delete" aria-label="${escapeHtml(this.params!.labels.delete)}" title="${escapeHtml(this.params!.labels.delete)}">${createIcon(trashIcon).outerHTML}</button>
-          </div>
-          <div class="reader-comment-list__item-body">
-            <span class="reader-comment-list__label">${escapeHtml(this.params!.labels.selectedSource)}</span>
-            <span class="reader-comment-list__text">${escapeHtml(source || '-')}</span>
-          </div>
-          <div class="reader-comment-list__item-body">
-            <span class="reader-comment-list__label">${escapeHtml(this.params!.labels.userComment)}</span>
-            <span class="reader-comment-list__text reader-comment-list__text--comment">${escapeHtml(comment || '-')}</span>
-          </div>
-        `;
-        const open = () => {
-            const params = this.params;
-            if (!params) return;
-            this.close(params.shadow);
-            params.onSelect({ ...record });
-        };
-        item.addEventListener('click', open);
-        item.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            open();
-        });
-        item.querySelector<HTMLButtonElement>('[data-action="delete"]')?.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
+        const head = document.createElement('div');
+        head.className = 'reader-comment-list__item-head';
+        const meta = document.createElement('div');
+        meta.className = 'reader-comment-list__item-meta';
+        const created = document.createElement('span');
+        created.textContent = `${this.params!.labels.createdAt}: ${formatDate(record.createdAt)}`;
+        const position = document.createElement('span');
+        position.appendChild(createIcon(fileTextIcon));
+        position.append(`${this.params!.labels.textPosition}: ${formatTextPosition(record)}`);
+        meta.append(created, position);
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'icon-btn icon-btn--danger reader-comment-list__delete';
+        deleteButton.dataset.action = 'delete';
+        deleteButton.setAttribute('aria-label', this.params!.labels.delete);
+        deleteButton.title = this.params!.labels.delete;
+        deleteButton.appendChild(createIcon(trashIcon));
+        deleteButton.addEventListener('click', () => {
             const params = this.params;
             if (!params) return;
             void Promise.resolve(params.onDelete({ ...record }));
         });
+        head.append(meta, deleteButton);
+
+        const openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'reader-comment-list__open';
+        openButton.dataset.action = 'open';
+        const source = this.createTextSection(this.params!.labels.selectedSource, compactText(record.sourceMarkdown || record.quoteText));
+        const comment = this.createTextSection(this.params!.labels.userComment, compactText(record.comment), true);
+        openButton.append(source, comment);
+        openButton.addEventListener('click', () => {
+            this.pendingSelection = { ...record };
+            this.closeModal?.();
+        });
+        item.append(head, openButton);
         return item;
     }
 
-    private shouldIgnorePointerDown(event: Event): boolean {
-        const path = (event.composedPath?.() ?? []) as EventTarget[];
-        return path.includes(this.rootEl as EventTarget);
+    private createTextSection(label: string, value: string, comment: boolean = false): HTMLElement {
+        const section = document.createElement('span');
+        section.className = 'reader-comment-list__item-body';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'reader-comment-list__label';
+        labelEl.textContent = label;
+        const text = document.createElement('span');
+        text.className = `reader-comment-list__text${comment ? ' reader-comment-list__text--comment' : ''}`;
+        text.textContent = value || '-';
+        section.append(labelEl, text);
+        return section;
     }
 }
