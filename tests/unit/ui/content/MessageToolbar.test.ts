@@ -3,6 +3,29 @@ import { MessageToolbar } from '@/ui/content/MessageToolbar';
 import { vi } from 'vitest';
 
 describe('MessageToolbar', () => {
+    it('defers task-progress DOM and styles until a secondary task actually starts', () => {
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const })),
+                hoverAction: {
+                    id: 'copy_png',
+                    label: 'Copy as PNG',
+                    icon: '<svg viewBox="0 0 16 16"></svg>',
+                    onClick: vi.fn(async () => ({ ok: true as const })),
+                },
+            },
+        ], { showStats: false });
+        const shadow = toolbar.getElement().shadowRoot!;
+
+        expect(shadow.querySelector('[data-role="task-progress"]')).toBeNull();
+        expect(shadow.querySelector('style[data-aimd-style-id="aimd-task-progress-panel-base"]')).toBeNull();
+
+        toolbar.dispose();
+    });
+
     it('uses 30px icon buttons in both content and actionbar placements', () => {
         const toolbar = new MessageToolbar('light', [], { showStats: false });
         const shadow = toolbar.getElement().shadowRoot;

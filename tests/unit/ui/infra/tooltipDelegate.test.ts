@@ -25,6 +25,31 @@ function createTarget(rect: Partial<DOMRect>): HTMLButtonElement {
 }
 
 describe('TooltipDelegate', () => {
+    it('does not allocate a mutation observer when title upgrading is disabled', () => {
+        const OriginalMutationObserver = globalThis.MutationObserver;
+        const constructors = vi.fn();
+        class FakeMutationObserver {
+            constructor() {
+                constructors();
+            }
+            observe(): void {}
+            disconnect(): void {}
+        }
+        vi.stubGlobal('MutationObserver', FakeMutationObserver);
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        document.body.appendChild(host);
+
+        try {
+            const delegate = new TooltipDelegate(shadow, { upgradeTitles: false });
+            expect(constructors).not.toHaveBeenCalled();
+            delegate.disconnect();
+        } finally {
+            host.remove();
+            vi.stubGlobal('MutationObserver', OriginalMutationObserver);
+        }
+    });
+
     it('anchors tooltips above the target instead of pinning them to the pointer position', async () => {
         vi.useFakeTimers();
         window.innerWidth = 1440;

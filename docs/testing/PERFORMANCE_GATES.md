@@ -109,6 +109,15 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Toolbar reliability remained 200/200 with zero duplicates on every run; every run recovered all 20 replaced official action rows in no more than 165.5 ms. `content.js` remained within budget at 1,850,553 raw bytes and 486,924 gzip bytes.
 - The phase boundary passed all 1,223 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
 
+### Phase 6 — 2026-07-11
+
+- Message toolbars no longer mount the Copy PNG task-progress subtree or its CSS during normal page load. The first real secondary task creates the panel on demand; progress updates, cancellation, completion feedback, tokens, and action behavior remain covered through the user-facing hover trigger.
+- `TooltipDelegate` no longer allocates a `MutationObserver` when `upgradeTitles` is disabled. Message toolbars and hover portals already provide `data-tooltip` directly, so their previous per-shadow observers had no useful work.
+- Shadow descendants fell from 9,603 to 7,603 for 200 messages, a reduction of 2,000 nodes (20.8%) without lazy-loading or removing any toolbar action.
+- Final three-run runtime medians: toolbar ready 456.1 ms; cold long-task total 82 ms; cold maximum 82 ms; idle mutation records 0 per 2 seconds; streaming long-task total 0 ms; streaming maximum 0 ms; streaming mutation records 200; official-row recovery 154.6 ms; post-GC used JS heap 7,495,205 bytes.
+- Toolbar reliability remained 200/200 with zero duplicates on every run. `content.js` remained within budget at 1,850,809 raw bytes and 486,982 gzip bytes.
+- The phase boundary passed all 1,225 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

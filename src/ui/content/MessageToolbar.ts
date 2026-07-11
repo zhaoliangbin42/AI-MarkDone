@@ -58,7 +58,7 @@ export class MessageToolbar {
     private hoverActionCloseTimer: number | null = null;
     private hoverActionTriggerInside = false;
     private hoverActionPortalInside = false;
-    private taskProgressPanel: TaskProgressPanel;
+    private taskProgressPanel: TaskProgressPanel | null = null;
     private tooltipDelegate: TooltipDelegate;
     private activeTaskAbort: AbortController | null = null;
 
@@ -73,15 +73,7 @@ export class MessageToolbar {
         this.shadow = this.host.attachShadow({ mode: 'open' });
         ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-base', cache: 'shared' });
-        ensureStyle(this.shadow, TaskProgressPanel.getCss(), { id: 'aimd-task-progress-panel-base', cache: 'shared' });
         this.tooltipDelegate = new TooltipDelegate(this.shadow, { upgradeTitles: false });
-        this.taskProgressPanel = new TaskProgressPanel({
-            cancelLabel: t('btnCancel'),
-            onCancel: () => {
-                this.activeTaskAbort?.abort();
-                this.updateTaskProgress({ label: this.getTaskCancelledLabel(), value: 0, indeterminate: false });
-            },
-        });
         this.mount();
     }
 
@@ -90,7 +82,10 @@ export class MessageToolbar {
     }
 
     dispose(): void {
-        this.taskProgressPanel.dispose();
+        this.activeTaskAbort?.abort();
+        this.activeTaskAbort = null;
+        this.taskProgressPanel?.dispose();
+        this.taskProgressPanel = null;
         this.tooltipDelegate.disconnect();
         this.closeMenu();
         this.closeHoverAction();
@@ -246,8 +241,6 @@ export class MessageToolbar {
         menu.dataset.role = 'menu';
         menu.dataset.open = '0';
         bar.appendChild(menu);
-
-        bar.appendChild(this.taskProgressPanel.getElement());
 
         wrap.appendChild(bar);
         this.shadow.appendChild(wrap);
@@ -519,19 +512,34 @@ export class MessageToolbar {
     private openTaskProgress(anchor: HTMLElement, initial: ToolbarTaskProgressEvent): void {
         void anchor;
         this.closeHoverAction();
-        this.taskProgressPanel.open(initial);
+        this.getTaskProgressPanel().open(initial);
     }
 
     private updateTaskProgress(event: ToolbarTaskProgressEvent): void {
-        this.taskProgressPanel.update(event);
+        this.taskProgressPanel?.update(event);
     }
 
     private finishTaskProgress(label: string): void {
-        this.taskProgressPanel.finish(label);
+        this.taskProgressPanel?.finish(label);
     }
 
     private closeTaskProgress(): void {
-        this.taskProgressPanel.close();
+        this.taskProgressPanel?.close();
+    }
+
+    private getTaskProgressPanel(): TaskProgressPanel {
+        if (this.taskProgressPanel) return this.taskProgressPanel;
+
+        ensureStyle(this.shadow, TaskProgressPanel.getCss(), { id: 'aimd-task-progress-panel-base', cache: 'shared' });
+        this.taskProgressPanel = new TaskProgressPanel({
+            cancelLabel: t('btnCancel'),
+            onCancel: () => {
+                this.activeTaskAbort?.abort();
+                this.updateTaskProgress({ label: this.getTaskCancelledLabel(), value: 0, indeterminate: false });
+            },
+        });
+        this.shadow.querySelector<HTMLElement>('.bar')?.appendChild(this.taskProgressPanel.getElement());
+        return this.taskProgressPanel;
     }
 
     private getTaskCancelledLabel(): string {

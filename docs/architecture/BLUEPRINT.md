@@ -251,6 +251,7 @@ Surface profile / motion ownership 规则补充：
 - 组件样式必须使用 `--aimd-*` token
 - `--aimd-*` 是唯一 canonical design token source；外部样式框架不得成为第二套样式真源
 - Overlay、toolbar 与高频注入 UI 均使用自定义 CSS + token，保持轻量实现
+- 高频重复 surface 的低频子功能必须按首次真实触发创建；调用方已提供结构化 tooltip 数据时，不得为禁用的 title-upgrade 路径保留空转 observer
 - overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
 - 同一个 named surface 一旦拥有 2 个以上入口，baseline chrome 必须稳定；入口不得直接传 low-level layout/chrome flags，差异必须由 surface 自己声明 named profiles
 - shared overlay / modal motion 必须由正式 shared contract 持有；不得由 caller 自己注入 enter/exit chrome 或在单个 surface 私下复制一套近似动画

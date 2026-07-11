@@ -241,18 +241,20 @@ export class TooltipDelegate {
         root.addEventListener('focusin', this.onFocusIn, true);
         root.addEventListener('focusout', this.onFocusOut, true);
         root.addEventListener('pointerdown', this.onPointerDown, true);
-        this.observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                mutation.addedNodes.forEach((node) => {
-                    if (node instanceof HTMLElement) {
-                        this.refresh(node);
-                    }
-                });
+        if (this.upgradeTitles) {
+            this.observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node instanceof HTMLElement) {
+                            this.refresh(node);
+                        }
+                    });
+                }
+            });
+            const observedRoot = root instanceof ShadowRoot ? root : document.body;
+            if (observedRoot) {
+                this.observer.observe(observedRoot, { childList: true, subtree: true });
             }
-        });
-        const observedRoot = root instanceof ShadowRoot ? root : document.body;
-        if (observedRoot) {
-            this.observer.observe(observedRoot, { childList: true, subtree: true });
         }
     }
 
