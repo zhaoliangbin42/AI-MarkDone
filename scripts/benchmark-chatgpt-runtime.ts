@@ -155,12 +155,16 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
 
     try {
         const page = await preparePage(context, rounds);
+        page.on('pageerror', (error) => console.error(`[perf:pageerror] ${error.stack ?? error.message}`));
+        console.error('[perf] loading fixture');
         await page.goto('https://chatgpt.com/c/aimd-performance-fixture', { waitUntil: 'domcontentloaded' });
+        console.error('[perf] waiting for toolbars');
         await page.waitForFunction(
             (expected) => document.querySelectorAll('[data-aimd-role="message-toolbar"]').length === expected,
             rounds,
             { timeout: TOOLBAR_TIMEOUT_MS },
         );
+        console.error('[perf] toolbars ready');
         const toolbarReadyMs = await page.evaluate(() => {
             const state = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__;
             return performance.now() - state.phaseStartedAt;
@@ -171,6 +175,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         await resetPhase(page);
         await page.waitForTimeout(2_000);
         const idle = await collectPhase(page);
+        console.error('[perf] idle phase complete');
 
         await resetPhase(page);
         await page.evaluate(async (mutationCount) => {
@@ -178,11 +183,12 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             if (!target) throw new Error('Streaming target is missing');
             for (let index = 0; index < mutationCount; index += 1) {
                 target.textContent = `Answer 1 streaming token ${index + 1}`;
-                await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+                await new Promise<void>((resolveTick) => window.setTimeout(resolveTick, 16));
             }
         }, mutations);
         await page.waitForTimeout(500);
         const streaming = await collectPhase(page);
+        console.error('[perf] streaming phase complete');
 
         await resetPhase(page);
         const recoveryStartedAt = await page.evaluate(() => performance.now());
@@ -217,6 +223,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             { expectedRows: replacedRows, expectedToolbars: rounds },
             { timeout: RECOVERY_TIMEOUT_MS },
         );
+        console.error('[perf] toolbar recovery complete');
         const toolbarRecoveryMs = await page.evaluate((startedAt) => performance.now() - startedAt, recoveryStartedAt);
         await page.waitForTimeout(500);
         const recovery = await collectPhase(page);
@@ -255,6 +262,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             recovery,
         };
     } finally {
+        console.error('[perf] closing browser');
         await context.close();
         await rm(userDataDir, { recursive: true, force: true });
     }

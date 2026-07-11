@@ -3,6 +3,9 @@ import { resolve } from 'path';
 import { extensionSurfacePolicies } from './config/extension/surface';
 
 export default defineConfig({
+    esbuild: {
+        charset: 'ascii',
+    },
     publicDir: false,
     define: {
         __AIMD_ENABLE_SPONSOR_TAB__: JSON.stringify(extensionSurfacePolicies.safari.sponsorTab),
@@ -23,7 +26,7 @@ export default defineConfig({
         },
         outDir: 'dist-safari',
         emptyOutDir: false,
-        minify: false,
+        minify: 'esbuild',
         sourcemap: false,
         target: 'esnext',
     },

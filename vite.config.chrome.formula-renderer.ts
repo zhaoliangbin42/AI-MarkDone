@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+    esbuild: {
+        charset: 'ascii',
+    },
     build: {
         modulePreload: {
             polyfill: false,
@@ -18,7 +21,7 @@ export default defineConfig({
         },
         outDir: 'dist-chrome',
         emptyOutDir: false,
-        minify: false,
+        minify: 'esbuild',
         sourcemap: false,
         target: 'esnext',
     },
@@ -29,4 +32,3 @@ export default defineConfig({
         },
     },
 });
-

@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+    esbuild: {
+        charset: 'ascii',
+    },
     build: {
         modulePreload: {
             polyfill: false  // Disable Vite's modulepreload polyfill (uses document, incompatible with Service Worker)
@@ -20,7 +23,7 @@ export default defineConfig({
         },
         outDir: 'dist',
         emptyOutDir: true,
-        minify: false,
+        minify: 'esbuild',
         sourcemap: false,
         target: 'esnext',
     },

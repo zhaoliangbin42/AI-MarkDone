@@ -8,6 +8,9 @@ import { resolve } from 'path';
  * so the final `background.js` contains no top-level `import` statements.
  */
 export default defineConfig({
+    esbuild: {
+        charset: 'ascii',
+    },
     build: {
         modulePreload: {
             polyfill: false
@@ -23,7 +26,7 @@ export default defineConfig({
         },
         outDir: 'dist-chrome',
         emptyOutDir: false,
-        minify: false,
+        minify: 'esbuild',
         sourcemap: false,
         target: 'esnext',
     },

@@ -57,6 +57,16 @@ The initial repository baseline also requires `npm run test:core` to pass all 1,
 
 If a phase misses a threshold, work stays in that phase. The implementation may be revised or the threshold may be changed only with new evidence recorded in this document; a red gate must not be silently waived.
 
+## Accepted phase results
+
+### Phase 1 — 2026-07-11
+
+- `content.js`: 1,847,654 raw bytes and 485,855 gzip bytes, down 45.0% and 36.8% from Phase 0.
+- Three-run runtime medians: toolbar ready 619.2 ms; cold long-task total 541 ms; cold maximum 238 ms; streaming long-task total 754 ms; streaming maximum 193 ms; official-row recovery 160.9 ms; used JS heap 9,990,185 bytes.
+- Cold long-task total remained within the allowed 10% variance (+9.96%); streaming total was +2.3%; toolbar reliability remained 200/200 with zero duplicates.
+- Chrome, Firefox, and Safari builds passed classic-entry parsing, Chromium-compatible encoding, entry-format, and per-runtime bundle budgets.
+- Build investigation found that UTF-8 minifier output could preserve the Unicode noncharacter `U+FFFF`, which Chromium rejects when loading a manifest content script. All production builds now use ASCII-safe escaped output, and the entry gate rejects UTF-8 decoding failures and Unicode noncharacters.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

@@ -3,6 +3,9 @@ import { resolve } from 'path';
 import { extensionSurfacePolicies } from './config/extension/surface';
 
 export default defineConfig({
+    esbuild: {
+        charset: 'ascii',
+    },
     define: {
         __AIMD_ENABLE_SPONSOR_TAB__: JSON.stringify(extensionSurfacePolicies.firefox.sponsorTab),
         __AIMD_ENABLE_SOCIAL_FOLLOW_CARD__: JSON.stringify(extensionSurfacePolicies.firefox.socialFollowCard),
@@ -22,7 +25,7 @@ export default defineConfig({
         },
         outDir: 'dist-firefox',
         emptyOutDir: false,
-        minify: false,
+        minify: 'esbuild',
         sourcemap: false,
         target: 'esnext',
     },

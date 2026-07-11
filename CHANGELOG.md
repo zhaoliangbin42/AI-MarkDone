@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Reader: Annotation copy/export and Reader Send annotation insertion now follow the configured annotation order.
+- Performance: Production extension scripts are now safely minified with enforced bundle budgets, substantially reducing installed code size without changing toolbar behavior.
 
 ### Fixed
 - Formula: SVG copy and save now produce compact standalone vector files without embedded page HTML or fonts, while preserving Chinese text, long formulas, and natural proportions.

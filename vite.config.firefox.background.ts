@@ -8,6 +8,9 @@ import { resolve } from 'path';
  * but we build a single-entry bundle to avoid top-level `import` in output.
  */
 export default defineConfig({
+    esbuild: {
+        charset: 'ascii',
+    },
     build: {
         modulePreload: {
             polyfill: false
@@ -23,7 +26,7 @@ export default defineConfig({
         },
         outDir: 'dist-firefox',
         emptyOutDir: false,
-        minify: false,
+        minify: 'esbuild',
         sourcemap: false,
         target: 'esnext',
     },
