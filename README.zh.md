@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.7.0-10A37F" alt="Version 4.7.0">
+    <img src="https://img.shields.io/badge/Version-4.8.0-10A37F" alt="Version 4.8.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -203,14 +203,13 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.7.0
-- 新增本地 Prompts 面板，并支持在 ChatGPT 输入框和阅读器发送框中用 `\` 快速唤起候选。
-- 新增 Prompt 联想开关，可关闭输入 `\` 时自动出现的候选，同时保留手动打开 Prompts 面板。
-- 新增 ChatGPT 页面级收藏入口，可从右下角按钮收藏当前对话页面。
-- 新增 ChatGPT 内容宽度、目录条边距和 Enter 换行设置。
-- 复制公式和 Markdown 源码输出支持多种公式包围格式。
-- 优化 Reader 在表格、代码块等闭合 Markdown 块中的局部选区复制。
-- 修复 PDF 导出背景色跟随主题的问题，导出结果保持白底深色文字。
+### 4.8.0
+- 改进阅读器注释管理，支持在统一列表中排序、定位、编辑和删除注释。
+- 注释复制、导出和发送插入现在使用一致的排序方式。
+- 将书签面板入口移出 ChatGPT 官方顶部区域，减少与划词翻译插件的冲突。
+- 修复矮屏下阅读器设置条目错位，以及鼠标点击自定义 Prompt 时插入失效的问题。
+- 隐藏右侧导航条内部滚动条，同时保留正常滚动能力。
+- 缩小公式 SVG 文件体积，并提升对 PowerPoint 等软件的兼容性。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

@@ -10,31 +10,27 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-06-28');
-        expect(zh.entries[1]?.date).toBe('2026-06-18');
-        expect(en.entries[6]?.leadBlocks[0]).toEqual(
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-07-11');
+        expect(zh.entries[1]?.date).toBe('2026-06-28');
+        expect(en.entries[7]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
             }),
         );
         expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual([
-            '==先介绍一下我的第一个 iOS App：好友迹==',
-            'Prompts 面板',
-            '新增',
+            '原理解析',
             '优化',
             '修复',
         ]);
         expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual([
-            '==A quick note about my first iOS app: Mappamory==',
-            'Prompts panel',
-            'Added',
+            'How it works',
             'Improved',
             'Fixed',
         ]);
-        expect(zh.entries[0]?.sections[0]?.blocks).toContainEqual({
+        expect(zh.entries[1]?.sections[0]?.blocks).toContainEqual({
             type: 'image',
             alt: '好友迹 - 好友地图通讯录',
             src: 'icons/mappamory-changelog-4.6.0.png',

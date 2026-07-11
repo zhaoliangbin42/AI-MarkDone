@@ -1,5 +1,21 @@
 # Release Notes
 
+## v4.8.0 (2026-07-11)
+
+This release improves Reader annotation management, reduces conflicts with selection-translation extensions, and fixes several Reader, Prompt, navigation, and formula-export issues reported by users.
+
+### Improved
+- Added one Reader annotations list with creation-time and text-position ordering, direct navigation, editing, and deletion.
+- Kept annotation ordering consistent across Reader copy, export, and Send insertion.
+- Added optional wrapping for Reader code blocks, with LaTeX and TeX source wrapped by default.
+
+### Fixed
+- Moved the bookmarks-panel entry out of ChatGPT's header to avoid interfering with third-party selection-translation popups.
+- Hid the right-side directory rail's internal scrollbar while preserving scrolling.
+- Fixed compressed Reader settings rows on short screens.
+- Fixed mouse-click insertion for custom Prompt autocomplete suggestions.
+- Reworked formula SVG output into compact standalone vector files that are more compatible with PowerPoint and similar applications.
+
 ## v4.7.0 (2026-06-28)
 
 This release adds a local Prompt Library, several ChatGPT page controls requested by users, more flexible formula source output, and a cleaner PDF export path.
