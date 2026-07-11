@@ -162,12 +162,20 @@ describe('ReaderPanel (MVP)', () => {
         const codeBlock = await waitFor(() => markdownRoot.querySelector<HTMLElement>('.reader-code-block'));
         const language = markdownRoot.querySelector<HTMLElement>('.reader-code-block__language');
         const copyBtn = markdownRoot.querySelector<HTMLButtonElement>('[data-action="reader-copy-code"]');
+        const wrapBtn = markdownRoot.querySelector<HTMLButtonElement>('[data-action="reader-code-wrap-toggle"]');
         const scroll = markdownRoot.querySelector<HTMLElement>('.reader-code-block__scroll');
 
         expect(codeBlock).toBeTruthy();
         expect(language?.textContent).toBe('TS');
         expect(copyBtn).toBeTruthy();
+        expect(wrapBtn).toBeTruthy();
+        expect(codeBlock.classList.contains('reader-code-block--soft-wrap')).toBe(false);
+        expect(wrapBtn?.getAttribute('aria-pressed')).toBe('false');
         expect(scroll).toBeTruthy();
+
+        wrapBtn!.click();
+        expect(codeBlock.classList.contains('reader-code-block--soft-wrap')).toBe(true);
+        expect(wrapBtn?.getAttribute('aria-pressed')).toBe('true');
 
         copyBtn!.click();
         await Promise.resolve();

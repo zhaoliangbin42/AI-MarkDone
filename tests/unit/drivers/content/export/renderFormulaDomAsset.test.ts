@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
-    const toSvg = vi.fn(async () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg><foreignObject>中文</foreignObject></svg>')}`);
     const toCanvas = vi.fn(async () => {
         const canvas = document.createElement('canvas');
         canvas.width = 144;
@@ -13,28 +12,18 @@ const mocks = vi.hoisted(() => {
         mode: 'data-url' as const,
         css: '@font-face{font-family:KaTeX_Main;src:url("data:font/woff2;base64,AA==")}.katex{font-family:KaTeX_Main}',
     }));
-    return { getKatexCssWithEmbeddedFonts, toCanvas, toSvg };
+    return { getKatexCssWithEmbeddedFonts, toCanvas };
 });
 
 vi.mock('html-to-image', () => ({
     toCanvas: mocks.toCanvas,
-    toSvg: mocks.toSvg,
 }));
 
 vi.mock('@/drivers/content/export/katexAssets', () => ({
     getKatexCssWithEmbeddedFonts: mocks.getKatexCssWithEmbeddedFonts,
 }));
 
-import { renderFormulaDomPngBlob, renderFormulaDomSvgBlob } from '@/drivers/content/export/renderFormulaDomAsset';
-
-function blobText(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result ?? ''));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsText(blob);
-    });
-}
+import { renderFormulaDomPngBlob } from '@/drivers/content/export/renderFormulaDomAsset';
 
 describe('renderFormulaDomAsset', () => {
     beforeEach(() => {
@@ -42,18 +31,17 @@ describe('renderFormulaDomAsset', () => {
         vi.clearAllMocks();
     });
 
-    it('captures a KaTeX display formula with embedded fonts, configured font size, text, and nested SVG intact', async () => {
+    it('captures a KaTeX display formula as PNG with embedded fonts, configured font size, text, and nested SVG intact', async () => {
         const source = document.createElement('div');
         source.className = 'katex-display';
         source.innerHTML = '<span class="katex"><span class="base">中文</span><svg data-glyph="brace"></svg></span>';
         document.body.append(source);
 
-        const blob = await renderFormulaDomSvgBlob({ sourceElement: source.querySelector('.katex'), fontSizePx: 40 });
+        const blob = await renderFormulaDomPngBlob({ sourceElement: source.querySelector('.katex'), fontSizePx: 40 });
 
-        expect(blob.type).toBe('image/svg+xml');
-        expect(await blobText(blob)).toContain('中文');
+        expect(blob.type).toBe('image/png');
         expect(mocks.getKatexCssWithEmbeddedFonts).toHaveBeenCalledWith(expect.stringContaining('data-glyph="brace"'));
-        const [node, options] = mocks.toSvg.mock.calls[0]!;
+        const [node, options] = mocks.toCanvas.mock.calls[0]!;
         const clone = (node as HTMLElement).firstElementChild as HTMLElement;
         expect(clone.classList.contains('katex-display')).toBe(true);
         expect(clone.style.fontSize).toBe('40px');
@@ -155,12 +143,12 @@ describe('renderFormulaDomAsset', () => {
         };
 
         try {
-            await renderFormulaDomSvgBlob({ sourceElement: source, fontSizePx: 36 });
+            await renderFormulaDomPngBlob({ sourceElement: source, fontSizePx: 36 });
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
         }
 
-        const [frame, options] = mocks.toSvg.mock.calls[0]!;
+        const [frame, options] = mocks.toCanvas.mock.calls[0]!;
         const clone = (frame as HTMLElement).firstElementChild as HTMLElement;
         expect((frame as HTMLElement).style.width).toBe('148px');
         expect((frame as HTMLElement).style.height).toBe('63px');
@@ -223,13 +211,13 @@ describe('renderFormulaDomAsset', () => {
         HTMLElement.prototype.getBoundingClientRect = mockGetBoundingClientRect as typeof HTMLElement.prototype.getBoundingClientRect;
 
         try {
-            await renderFormulaDomSvgBlob({ sourceElement: source, fontSizePx: 36 });
+            await renderFormulaDomPngBlob({ sourceElement: source, fontSizePx: 36 });
         } finally {
             Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
             HTMLElement.prototype.getBoundingClientRect = originalHtmlGetBoundingClientRect;
         }
 
-        const [frame, options] = mocks.toSvg.mock.calls[0]!;
+        const [frame, options] = mocks.toCanvas.mock.calls[0]!;
         expect((frame as HTMLElement).style.width).toBe('40px');
         expect(options).toMatchObject({ width: 40, height: 28 });
     });

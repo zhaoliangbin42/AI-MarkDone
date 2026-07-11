@@ -37,7 +37,7 @@
 
 ## Related Documents
 
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`
+- `src/drivers/content/adapters/base.ts`
 - `docs/architecture/CURRENT_STATE.md`
 - `docs/architecture/BLUEPRINT.md`
 

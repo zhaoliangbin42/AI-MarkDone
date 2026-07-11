@@ -112,7 +112,7 @@ tests/
 
 原因：
 
-- content script 运行时一旦被 entry 格式问题打断，会导致工具栏注入、header icon、Reader 等上层 UI 全部“看起来一起失效”
+- content script 运行时一旦被 entry 格式问题打断，会导致工具栏注入、右下角页面控制区、Reader 等上层 UI 全部“看起来一起失效”
 - 这类问题可能通过单元测试和常规 build，但会在真实页面里以 `Unexpected token 'export'` 之类运行时错误暴露
 
 执行口径：

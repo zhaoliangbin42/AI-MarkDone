@@ -16,7 +16,6 @@ import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSave
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale, t } from '../../ui/content/components/i18n';
-import { HeaderIconOrchestrator } from '../../ui/content/controllers/HeaderIconOrchestrator';
 import { SendController } from '../../ui/content/sending/SendController';
 import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
@@ -112,8 +111,12 @@ if (adapter) {
         ? new ChatGPTPromptAutocompleteController(adapter, promptLibraryClient)
         : null;
     sendController.setPromptAutocompleteController(chatGptPromptAutocomplete);
+    const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel, {
+        onOpenPromptManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
+    });
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
+            onOpenBookmarksPanel: () => bookmarksPanel.toggle(),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
             onOpenPrompts: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
             onTogglePageBookmark: async () => {
@@ -157,12 +160,6 @@ if (adapter) {
     const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTPageWidthController()
         : null;
-    const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel, {
-        onOpenPromptManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
-    });
-    const headerIcon = new HeaderIconOrchestrator(adapter, {
-        onToggle: () => bookmarksPanel.toggle(),
-    });
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
         sendController,
@@ -362,7 +359,6 @@ if (adapter) {
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         initChatGptIfNeeded();
         messageToolbars.init();
-        headerIcon.init();
     };
 
     const disableRuntime = () => {
@@ -370,7 +366,6 @@ if (adapter) {
         runtimeEnabled = false;
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         messageToolbars.dispose();
-        headerIcon.dispose();
         chatGptDirectory?.dispose();
         chatGptOfficialNavigationVisibility?.dispose();
         chatGptConversationEngine?.dispose?.();
@@ -564,7 +559,6 @@ if (adapter) {
 
     if (runtimeEnabled) {
         messageToolbars.init();
-        headerIcon.init();
         initChatGptIfNeeded();
     }
 

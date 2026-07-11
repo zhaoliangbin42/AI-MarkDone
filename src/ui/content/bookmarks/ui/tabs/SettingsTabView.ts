@@ -1485,6 +1485,7 @@ export class SettingsTabView {
                 userPrompt: commentExport.prompts[0]?.content ?? '',
                 promptPosition: commentExport.promptPosition,
                 commentTemplate: template,
+                sortMode: commentExport.sortMode,
             },
         );
     }

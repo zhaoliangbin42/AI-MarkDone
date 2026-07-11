@@ -291,6 +291,14 @@
         "message": "Copy",
         "description": "Message for btnCopyText"
     },
+    "readerCodeWrapEnable": {
+        "message": "Enable word wrap",
+        "description": "Tooltip for enabling Reader code block word wrap"
+    },
+    "readerCodeWrapDisable": {
+        "message": "Disable word wrap",
+        "description": "Tooltip for disabling Reader code block word wrap"
+    },
     "readerCommentAction": {
         "message": "Annotate",
         "description": "Message for readerCommentAction"
@@ -326,6 +334,26 @@
     "readerCommentCopyComments": {
         "message": "Copy annotations",
         "description": "Message for readerCommentCopyComments"
+    },
+    "readerCommentListTitle": {
+        "message": "Annotations",
+        "description": "Title for the Reader annotations list"
+    },
+    "readerCommentListEmpty": {
+        "message": "No annotations yet.",
+        "description": "Empty state for the Reader annotations list"
+    },
+    "readerCommentUserComment": {
+        "message": "Annotation",
+        "description": "Label for a user annotation in the Reader annotations list"
+    },
+    "readerCommentCreatedAt": {
+        "message": "Created",
+        "description": "Label for annotation creation time"
+    },
+    "readerCommentTextPosition": {
+        "message": "Position",
+        "description": "Label for annotation text position"
     },
     "readerCommentCopyEmpty": {
         "message": "No annotations to copy yet.",
@@ -482,6 +510,22 @@
     "readerCommentPromptPositionBottomDesc": {
         "message": "When enabled, copied annotations appear first and the selected user prompt is appended at the bottom.",
         "description": "Message for readerCommentPromptPositionBottomDesc"
+    },
+    "readerCommentSortModeLabel": {
+        "message": "Annotation order",
+        "description": "Label for Reader annotation ordering"
+    },
+    "readerCommentSortModeDesc": {
+        "message": "Choose whether annotation lists and copied annotations follow creation time or text position.",
+        "description": "Description for Reader annotation ordering"
+    },
+    "readerCommentSortCreated": {
+        "message": "Sort by creation time",
+        "description": "Annotation sort option by creation time"
+    },
+    "readerCommentSortPosition": {
+        "message": "Sort by text position",
+        "description": "Annotation sort option by text position"
     },
     "readerCommentTemplateSettingsLabel": {
         "message": "Annotations copy template",

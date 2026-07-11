@@ -4,7 +4,7 @@
 
 长期产品能力与验收口径请以 `docs/FEATURES.md` 为准。
 
-说明：具体平台覆盖与支持状态以 `docs/antigravity/platform/CAPABILITY_MATRIX.md` 为准；这里定义重写阶段的交付顺序与验收粒度。
+说明：具体平台覆盖与支持状态以 `docs/FEATURES.md` 为准；这里定义重写阶段的交付顺序与验收粒度。
 
 状态标签说明：
 

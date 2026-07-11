@@ -449,6 +449,18 @@ export const Icons = {
   </svg>`,
 
     /**
+     * Wrap text icon
+     * Usage: Toggle code block word wrap
+     * Source: Lucide Icons (ISC License)
+     */
+    wrapText: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" x2="21" y1="6" y2="6"/>
+    <path d="M3 12h15a3 3 0 1 1 0 6h-4"/>
+    <path d="m16 16-2 2 2 2"/>
+    <line x1="3" x2="10" y1="18" y2="18"/>
+  </svg>`,
+
+    /**
      * Chevron down icon
      * Usage: Dropdown indicators
      */
@@ -884,6 +896,7 @@ export const sortAlphaAscIcon = Icons.sortAlphaAsc;
 export const bookOpenIcon = Icons.bookOpen;
 export const copyIcon = Icons.copy;
 export const fileCodeIcon = Icons.code;
+export const wrapTextIcon = Icons.wrapText;
 export const fileTextIcon = Icons.fileText;
 export const imageIcon = Icons.image;
 export const infoIcon = Icons.info;

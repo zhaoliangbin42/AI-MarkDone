@@ -72,13 +72,15 @@ describe('ChatGPTMessageStepperController', () => {
     });
 
     it('renders left and right message step buttons and routes clicks around the active round', async () => {
+        const onOpenBookmarksPanel = vi.fn();
         const onOpenDetachedReader = vi.fn(async () => undefined);
         const onOpenPrompts = vi.fn();
-        const controller = new ChatGPTMessageStepperController(adapter, { onOpenDetachedReader, onOpenPrompts });
+        const controller = new ChatGPTMessageStepperController(adapter, { onOpenBookmarksPanel, onOpenDetachedReader, onOpenPrompts });
         controllers.push(controller);
         controller.init();
 
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        const bookmarksPanel = host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')!;
         const split = host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')!;
         const prompts = host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')!;
         const previous = host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')!;
@@ -86,12 +88,15 @@ describe('ChatGPTMessageStepperController', () => {
 
         expect(host).toBeTruthy();
         expect(Array.from(host.querySelectorAll<HTMLButtonElement>('button')).map((button) => button.dataset.action)).toEqual([
+            'open-bookmarks-panel',
             'toggle-page-bookmark',
             'open-detached-reader',
             'open-prompts',
             'previous-message',
             'next-message',
         ]);
+        expect(bookmarksPanel.getAttribute('aria-label')).toBe('Bookmarks');
+        expect(bookmarksPanel.querySelector('img')?.getAttribute('alt')).toBe('AI-MarkDone');
         expect(split.getAttribute('aria-label')).toBe('Open Reader in split view');
         expect(prompts.getAttribute('aria-label')).toBe('Prompts');
         expect(previous.getAttribute('aria-label')).toBe('Previous message');
@@ -101,6 +106,8 @@ describe('ChatGPTMessageStepperController', () => {
         expect(style).toContain('border-radius: var(--aimd-radius-lg);');
         expect(style).toContain('background: var(--aimd-button-icon-hover);');
 
+        bookmarksPanel.click();
+        expect(onOpenBookmarksPanel).toHaveBeenCalledTimes(1);
         split.click();
         await Promise.resolve();
         expect(onOpenDetachedReader).toHaveBeenCalledTimes(1);
@@ -167,6 +174,7 @@ describe('ChatGPTMessageStepperController', () => {
         const next = host.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
 
         expect(host.dataset.visible).toBe('1');
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.hidden).toBe(false);
         expect(split.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
         expect(previous.hidden).toBe(true);
@@ -181,6 +189,33 @@ describe('ChatGPTMessageStepperController', () => {
         expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
     });
 
+    it('keeps the lower-right page controls visible when no message rounds are present', async () => {
+        Object.defineProperty(window, 'location', {
+            value: new URL('https://chatgpt.com/'),
+            configurable: true,
+        });
+        navigationMocks.collectChatGPTRoundPositions.mockReturnValue([]);
+        const onOpenBookmarksPanel = vi.fn();
+        const controller = new ChatGPTMessageStepperController(adapter, { onOpenBookmarksPanel });
+        controllers.push(controller);
+        controller.init();
+
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+
+        expect(host.dataset.visible).toBe('1');
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.disabled).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.disabled).toBe(true);
+
+        host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.click();
+        expect(onOpenBookmarksPanel).toHaveBeenCalledTimes(1);
+    });
+
     it('lets settings hide the page bookmark button without hiding other controls', async () => {
         const controller = new ChatGPTMessageStepperController(adapter);
         controllers.push(controller);
@@ -190,6 +225,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
         expect(host.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
@@ -207,6 +243,7 @@ describe('ChatGPTMessageStepperController', () => {
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
         expect(host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(true);
         expect(host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(true);
+        expect(host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.hidden).toBe(false);
@@ -326,6 +363,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         const hiddenHost = document.getElementById('aimd-chatgpt-message-stepper')!;
         expect(hiddenHost).toBeTruthy();
+        expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')?.hidden).toBe(false);
         expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')?.hidden).toBe(false);
         expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')?.hidden).toBe(false);
         expect(hiddenHost.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.hidden).toBe(true);

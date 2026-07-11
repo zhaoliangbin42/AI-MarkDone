@@ -6,12 +6,30 @@ import { SVG } from '@mathjax/src/js/output/svg.js';
 import { STATE } from '@mathjax/src/js/core/MathItem.js';
 import { SerializedMmlVisitor } from '@mathjax/src/js/core/MmlTree/SerializedMmlVisitor.js';
 import { MathJaxNewcmFont } from '@mathjax/mathjax-newcm-font/js/svg.js';
+import { MathJaxMhchemFontExtension } from '@mathjax/mathjax-mhchem-font-extension/js/svg.js';
 import '@mathjax/mathjax-newcm-font/js/svg/dynamic/calligraphic.js';
 import '@mathjax/mathjax-newcm-font/js/svg/dynamic/double-struck.js';
 import '@mathjax/mathjax-newcm-font/js/svg/dynamic/script.js';
 import '@mathjax/src/js/input/tex/ams/AmsConfiguration.js';
+import '@mathjax/src/js/input/tex/boldsymbol/BoldsymbolConfiguration.js';
+import '@mathjax/src/js/input/tex/braket/BraketConfiguration.js';
+import '@mathjax/src/js/input/tex/cancel/CancelConfiguration.js';
+import '@mathjax/src/js/input/tex/cases/CasesConfiguration.js';
+import '@mathjax/src/js/input/tex/centernot/CenternotConfiguration.js';
+import '@mathjax/src/js/input/tex/color/ColorConfiguration.js';
+import '@mathjax/src/js/input/tex/empheq/EmpheqConfiguration.js';
+import '@mathjax/src/js/input/tex/extpfeil/ExtpfeilConfiguration.js';
+import '@mathjax/src/js/input/tex/gensymb/GensymbConfiguration.js';
+import '@mathjax/src/js/input/tex/mathtools/MathtoolsConfiguration.js';
+import '@mathjax/src/js/input/tex/mhchem/MhchemConfiguration.js';
 import '@mathjax/src/js/input/tex/newcommand/NewcommandConfiguration.js';
 import '@mathjax/src/js/input/tex/noundefined/NoUndefinedConfiguration.js';
+import '@mathjax/src/js/input/tex/physics/PhysicsConfiguration.js';
+import '@mathjax/src/js/input/tex/textcomp/TextcompConfiguration.js';
+import '@mathjax/src/js/input/tex/unicode/UnicodeConfiguration.js';
+import '@mathjax/src/js/input/tex/units/UnitsConfiguration.js';
+import '@mathjax/src/js/input/tex/upgreek/UpgreekConfiguration.js';
+import '@mathjax/src/js/input/tex/verb/VerbConfiguration.js';
 import type { FormulaMathmlAsset, FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
 import {
     FORMULA_RENDERER_REQUEST_TYPE,
@@ -38,6 +56,33 @@ const FALLBACK_TEXT_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont,
 const DEFAULT_TEXT_VIEWBOX_Y = -750;
 const DEFAULT_TEXT_VIEWBOX_HEIGHT = 950;
 const SVG_VIEWPORT_PADDING_PX = 4;
+const TEXT_PADDING_EM = 0.2;
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const XMLNS_NAMESPACE = 'http://www.w3.org/2000/xmlns/';
+const CJK_CHARACTER_PATTERN = /[\u3400-\u9FFF\uF900-\uFAFF\u{20000}-\u{2FA1F}]/u;
+const TEX_PACKAGES = [
+    'base',
+    'ams',
+    'newcommand',
+    'boldsymbol',
+    'braket',
+    'cancel',
+    'cases',
+    'centernot',
+    'color',
+    'empheq',
+    'extpfeil',
+    'gensymb',
+    'mathtools',
+    'mhchem',
+    'physics',
+    'textcomp',
+    'unicode',
+    'units',
+    'upgreek',
+    'verb',
+    'noundefined',
+];
 
 function primeNewcmDynamicFontData(font: MathJaxNewcmFont): void {
     const dynamicFiles = (MathJaxNewcmFont as unknown as NewcmFontClassWithDynamicFiles).dynamicFiles;
@@ -50,16 +95,26 @@ const adaptor = browserAdaptor();
 RegisterHTMLHandler(adaptor);
 
 const tex = new TeX({
-    packages: ['base', 'ams', 'newcommand', 'noundefined'],
+    packages: TEX_PACKAGES,
 });
 const font = new MathJaxNewcmFont();
 primeNewcmDynamicFontData(font);
+font.addExtension(MathJaxMhchemFontExtension);
 const svg = new SVG({
     fontData: font,
     fontCache: 'none',
     displayOverflow: 'overflow',
     linebreaks: { inline: false },
+    mtextFont: FALLBACK_TEXT_FONT_FAMILY,
 });
+const measureUnknownText = svg.measureText.bind(svg);
+svg.measureText = (text, variant, cssFont) => {
+    const measured = measureUnknownText(text, variant, cssFont);
+    // Fallback font metrics can collapse before the browser resolves CJK glyphs.
+    return CJK_CHARACTER_PATTERN.test(text)
+        ? { ...measured, w: Math.max(measured.w, textWidthEm(text)) }
+        : measured;
+};
 const html = mathjax.document('', {
     InputJax: tex,
     OutputJax: svg,
@@ -95,7 +150,7 @@ function textWidthEm(text: string): number {
     for (const char of Array.from(text)) {
         if (/\s/u.test(char)) {
             width += 0.35;
-        } else if (/[\u3400-\u9FFF\uF900-\uFAFF]/u.test(char)) {
+        } else if (CJK_CHARACTER_PATTERN.test(char)) {
             width += 1;
         } else {
             width += 0.62;
@@ -166,18 +221,36 @@ function normalizeSvgViewBox(viewBox: string, size: { width: number; height: num
     return `${x} ${y} ${width} ${height}`;
 }
 
-function padSvgViewport(viewBox: string, size: { width: number; height: number }, fontSizePx: number): { viewBox: string; width: number; height: number } {
+function padSvgViewport(viewBox: string, size: { width: number; height: number }, fontSizePx: number, paddingPx: number): { viewBox: string; width: number; height: number } {
     const parsed = parseViewBox(viewBox);
-    const paddingUnits = SVG_VIEWPORT_PADDING_PX / fontSizePx * 1000;
+    const paddingUnits = paddingPx / fontSizePx * 1000;
     if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y) || !isFinitePositive(parsed.width) || !isFinitePositive(parsed.height)) {
         return { viewBox, width: size.width, height: size.height };
     }
 
     return {
         viewBox: `${parsed.x - paddingUnits} ${parsed.y - paddingUnits} ${parsed.width + paddingUnits * 2} ${parsed.height + paddingUnits * 2}`,
-        width: size.width + SVG_VIEWPORT_PADDING_PX * 2,
-        height: size.height + SVG_VIEWPORT_PADDING_PX * 2,
+        width: size.width + paddingPx * 2,
+        height: size.height + paddingPx * 2,
     };
+}
+
+function svgViewportPadding(svgElement: SVGSVGElement, fontSizePx: number): number {
+    return svgElement.querySelector('text')
+        ? Math.max(SVG_VIEWPORT_PADDING_PX, Math.ceil(fontSizePx * TEXT_PADDING_EM))
+        : SVG_VIEWPORT_PADDING_PX;
+}
+
+function assertSupportedSvg(svgElement: SVGSVGElement): void {
+    const renderError = svgElement.querySelector<SVGElement>('[data-mml-node="merror"]');
+    if (renderError) {
+        throw new Error(renderError.getAttribute('data-mjx-error') || 'MathJax could not render this formula.');
+    }
+
+    const unsupported = Array.from(svgElement.querySelectorAll<SVGElement>('[data-mml-node="mtext"][data-latex][fill="red"][stroke="red"]'))
+        .map((element) => element.getAttribute('data-latex') || '')
+        .find((latex) => latex.startsWith('\\'));
+    if (unsupported) throw new Error(`Unsupported TeX command: ${unsupported}.`);
 }
 
 function removeInvalidSvgNumbers(svgElement: SVGSVGElement): void {
@@ -195,10 +268,18 @@ function sanitizeSvg(svgElement: SVGSVGElement, width: number, height: number, v
     clone.querySelectorAll('text').forEach((text) => {
         text.setAttribute('font-family', FALLBACK_TEXT_FONT_FAMILY);
     });
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.querySelectorAll<SVGElement>('[stroke="currentColor"], [fill="currentColor"], [color="currentColor"]').forEach((element) => {
+        for (const attribute of ['stroke', 'fill', 'color']) {
+            if (element.getAttribute(attribute) === 'currentColor') element.setAttribute(attribute, '#000000');
+        }
+    });
+    clone.removeAttribute('xmlns');
+    clone.removeAttributeNS(XMLNS_NAMESPACE, 'xmlns');
+    clone.setAttributeNS(XMLNS_NAMESPACE, 'xmlns', SVG_NAMESPACE);
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('viewBox', viewBox);
+    clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     clone.removeAttribute('style');
     return new XMLSerializer().serializeToString(clone);
 }
@@ -228,13 +309,14 @@ async function renderFormulaSvgAsset(request: FormulaRendererRequest): Promise<F
         root.appendChild(rendered);
         const svgElement = getTopLevelSvgElement(root);
         if (!svgElement) throw new Error('MathJax did not produce SVG output.');
+        assertSupportedSvg(svgElement);
         const rawViewBox = svgElement.getAttribute('viewBox') || '0 0 1 1';
         const contentViewBox = readSvgContentViewBox(svgElement);
         const size = contentViewBox
             ? sizeFromViewBox(contentViewBox, fontSizePx) ?? readSvgSize(svgElement, fontSizePx, source)
             : readSvgSize(svgElement, fontSizePx, source);
         const normalizedViewBox = contentViewBox ?? normalizeSvgViewBox(rawViewBox, size, fontSizePx);
-        const paddedViewport = padSvgViewport(normalizedViewBox, size, fontSizePx);
+        const paddedViewport = padSvgViewport(normalizedViewBox, size, fontSizePx, svgViewportPadding(svgElement, fontSizePx));
         return {
             source,
             displayMode: request.displayMode,

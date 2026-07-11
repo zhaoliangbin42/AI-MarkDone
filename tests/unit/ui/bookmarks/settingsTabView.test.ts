@@ -131,6 +131,7 @@ describe('SettingsTabView', () => {
         expect(readerGroup.querySelector('[data-role="settings-render-code-reader"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-reader-outline"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-reader-comment-prompt-position-bottom"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-reader-comment-sort-mode"]')).toBeNull();
         expect(readerGroup.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-reader-comment-template"]')).toBeTruthy();
 

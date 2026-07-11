@@ -26,7 +26,6 @@ Tier A 文档位置应集中在：
 - `docs/adr/*`
 - `docs/governance/*`
 - `docs/design.md`（长期设计系统、样式规则与边界）
-- `docs/antigravity/platform/*`（契约与矩阵）
 - `docs/FEATURES.md`（冻结能力与验收口径）
 - `docs/testing/CURRENT_TEST_GATES.md`（当前测试与验证门禁）
 
@@ -53,8 +52,8 @@ Tier A 文档位置应集中在：
 
 当发生以下变更时，必须同步更新 Tier A：
 
-- 新增/修改站点适配器方法语义或返回语义（更新 `ADAPTER_CONTRACT.md`）
-- 新增平台或平台能力支持状态变化（更新 `CAPABILITY_MATRIX.md`）
+- 新增/修改站点适配器方法语义或返回语义（更新 `src/drivers/content/adapters/base.ts` 和 `docs/architecture/CURRENT_STATE.md`）
+- 新增平台或平台能力支持状态变化（更新 `docs/FEATURES.md` 和 `docs/architecture/CURRENT_STATE.md`）
 - 关键功能能力边界/验收口径变化（更新 `docs/FEATURES.md`）
 - 跨模块依赖方向发生变化（更新 `DEPENDENCY_RULES.md` + `BLUEPRINT.md`）
 - 当前落地边界发生变化（更新 `CURRENT_STATE.md`）

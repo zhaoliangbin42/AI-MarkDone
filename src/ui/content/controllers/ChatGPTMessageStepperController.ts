@@ -1,7 +1,8 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, messageSquareTextIcon, splitViewIcon } from '../../../assets/icons';
+import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, Icons, messageSquareTextIcon, splitViewIcon } from '../../../assets/icons';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import type { Theme } from '../../../core/types/theme';
+import { subscribeLocaleChange, t } from '../components/i18n';
 import {
     collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
@@ -83,6 +84,7 @@ export class ChatGPTMessageStepperController {
     private pageBookmarked = false;
     private pageBookmarkStatusUrl: string | null = null;
     private host: HTMLDivElement | null = null;
+    private bookmarksPanelButton: HTMLButtonElement | null = null;
     private pageBookmarkButton: HTMLButtonElement | null = null;
     private detachedReaderButton: HTMLButtonElement | null = null;
     private promptsButton: HTMLButtonElement | null = null;
@@ -91,6 +93,7 @@ export class ChatGPTMessageStepperController {
     private rounds: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
     private mutationObserver: MutationObserver | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private refreshAnimationFrame: number | null = null;
     private navigationLockUntil = 0;
     private navigationRequestId = 0;
@@ -100,6 +103,7 @@ export class ChatGPTMessageStepperController {
     constructor(
         private readonly adapter: SiteAdapter,
         private readonly options: {
+            onOpenBookmarksPanel?: () => Promise<void> | void;
             onOpenDetachedReader?: () => Promise<void> | void;
             onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
             onTogglePageBookmark?: () => Promise<{ saved: boolean }> | { saved: boolean } | void;
@@ -111,6 +115,7 @@ export class ChatGPTMessageStepperController {
         if (this.initialized) return;
         this.initialized = true;
         this.ensureHost();
+        this.unsubscribeLocale = subscribeLocaleChange(() => this.syncBookmarksPanelLabel());
         this.refreshState();
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
         window.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
@@ -126,12 +131,15 @@ export class ChatGPTMessageStepperController {
         document.removeEventListener('scroll', this.onScroll, { capture: true } as any);
         this.mutationObserver?.disconnect();
         this.mutationObserver = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
         if (this.refreshAnimationFrame !== null) {
             window.cancelAnimationFrame(this.refreshAnimationFrame);
             this.refreshAnimationFrame = null;
         }
         this.host?.remove();
         this.host = null;
+        this.bookmarksPanelButton = null;
         this.pageBookmarkButton = null;
         this.detachedReaderButton = null;
         this.promptsButton = null;
@@ -208,6 +216,9 @@ export class ChatGPTMessageStepperController {
         host.dataset.visible = '0';
         host.setAttribute('data-aimd-theme', this.theme);
 
+        const bookmarksPanel = this.createButton('open-bookmarks-panel', this.getBookmarksPanelLabel(), () => {
+            void this.options.onOpenBookmarksPanel?.();
+        }, Icons.createBrandIcon());
         const pageBookmark = this.createButton('toggle-page-bookmark', 'Bookmark current page', () => {
             void this.handlePageBookmarkClick();
         }, bookmarkIcon);
@@ -222,9 +233,10 @@ export class ChatGPTMessageStepperController {
         }, messageSquareTextIcon);
         previous.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'left';
         next.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'right';
-        host.append(pageBookmark, detachedReader, prompts, previous, next);
+        host.append(bookmarksPanel, pageBookmark, detachedReader, prompts, previous, next);
         document.body.appendChild(host);
         this.host = host;
+        this.bookmarksPanelButton = bookmarksPanel;
         this.pageBookmarkButton = pageBookmark;
         this.detachedReaderButton = detachedReader;
         this.promptsButton = prompts;
@@ -235,14 +247,33 @@ export class ChatGPTMessageStepperController {
         this.syncAuxiliaryButtonVisibility();
     }
 
-    private createButton(action: string, label: string, onClick: () => void, icon: string = chevronRightIcon): HTMLButtonElement {
+    private getBookmarksPanelLabel(): string {
+        const label = t('bookmarks');
+        return label === 'bookmarks' ? 'Bookmarks' : label;
+    }
+
+    private syncBookmarksPanelLabel(): void {
+        if (!this.bookmarksPanelButton) return;
+        const label = this.getBookmarksPanelLabel();
+        this.bookmarksPanelButton.setAttribute('aria-label', label);
+        this.bookmarksPanelButton.setAttribute('title', label);
+    }
+
+    private createButton(action: string, label: string, onClick: () => void, icon: string | HTMLElement = chevronRightIcon): HTMLButtonElement {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'aimd-chatgpt-message-stepper__button';
         button.dataset.action = action;
         button.setAttribute('aria-label', label);
         button.setAttribute('title', label);
-        button.innerHTML = `<span class="aimd-chatgpt-message-stepper__icon">${icon}</span>`;
+        const iconWrap = document.createElement('span');
+        iconWrap.className = 'aimd-chatgpt-message-stepper__icon';
+        if (typeof icon === 'string') {
+            iconWrap.innerHTML = icon;
+        } else {
+            iconWrap.appendChild(icon);
+        }
+        button.appendChild(iconWrap);
         button.addEventListener('click', () => {
             if (button.disabled || button.hidden) return;
             onClick();
@@ -311,7 +342,8 @@ export class ChatGPTMessageStepperController {
   display: none;
 }
 .aimd-chatgpt-message-stepper__icon,
-.aimd-chatgpt-message-stepper__icon svg {
+.aimd-chatgpt-message-stepper__icon svg,
+.aimd-chatgpt-message-stepper__icon img {
   width: var(--aimd-size-control-glyph-panel);
   height: var(--aimd-size-control-glyph-panel);
 }
@@ -422,9 +454,7 @@ export class ChatGPTMessageStepperController {
         if (!this.initialized) return;
         this.ensureHost();
         this.rounds = collectChatGPTRoundPositions(this.adapter);
-        const visible = this.adapter.getPlatformId() === 'chatgpt'
-            && this.rounds.length > 0
-            && (isChatGPTConversationPage(window.location.href) || this.rounds.length > 0);
+        const visible = this.adapter.getPlatformId() === 'chatgpt' && Boolean(this.bookmarksPanelButton);
         if (this.host) {
             this.host.dataset.visible = visible ? '1' : '0';
             this.host.setAttribute('data-aimd-theme', this.theme);
@@ -475,6 +505,7 @@ export class ChatGPTMessageStepperController {
 
     private syncButtons(): void {
         this.syncNavigationVisibility();
+        this.syncAuxiliaryButtonVisibility();
         const activeIndex = this.getActiveIndex();
         const canGoPrevious = activeIndex > 0;
         const canGoNext = activeIndex >= 0 && activeIndex < this.rounds.length - 1;

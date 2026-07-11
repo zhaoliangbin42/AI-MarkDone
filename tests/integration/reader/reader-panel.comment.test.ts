@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_SETTINGS, type AppSettings } from '@/core/settings/types';
 import { resolveReaderCommentAnchor } from '@/services/reader/commentAnchoring';
-import { clearReaderCommentScope, listReaderComments } from '@/services/reader/commentSession';
+import { clearReaderCommentScope, listReaderComments, saveReaderComment, type ReaderCommentRecord } from '@/services/reader/commentSession';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 
 const scopeId = 'reader-panel-comments-v1';
@@ -63,6 +64,25 @@ function setReaderPromptProvider(panel: ReaderPanel, prompts: Array<{ id: string
     panel.setPromptManagerController({
         onOpenManager: vi.fn(async () => undefined),
         listReaderPrompts: async () => prompts,
+    });
+}
+
+function seedComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentRecord {
+    return saveReaderComment(scopeId, {
+        id: 'seed-comment',
+        itemId: 'a',
+        quoteText: 'seed quote',
+        sourceMarkdown: 'seed source',
+        comment: 'seed note',
+        selectors: {
+            textQuote: { exact: '', prefix: '', suffix: '' },
+            textPosition: { start: 0, end: 0 },
+            domRange: null,
+            atomicRefs: [],
+        },
+        createdAt: 1,
+        updatedAt: 1,
+        ...overrides,
     });
 }
 
@@ -134,6 +154,72 @@ describe('ReaderPanel comments', () => {
 
         expect(nextShadow.querySelectorAll('.reader-comment-highlight').length).toBeGreaterThan(0);
         expect(nextShadow.querySelectorAll('.reader-comment-anchor').length).toBe(1);
+        getSelectionSpy.mockRestore();
+    });
+
+    it('captures a zero text position for annotations selected from the first rendered element boundary', async () => {
+        const panel = new ReaderPanel();
+        panel.setCommentExportSettings({
+            ...DEFAULT_SETTINGS.reader.commentExport,
+            sortMode: 'position',
+        });
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: '## Response and latest decision\n\nLater paragraph text.' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+        const heading = markdownRoot.querySelector('h2')!;
+        const range = document.createRange();
+        range.setStart(heading, 0);
+        range.setEnd(heading, heading.childNodes.length);
+        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
+
+        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        document.dispatchEvent(new Event('selectionchange'));
+        await Promise.resolve();
+
+        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
+        await Promise.resolve();
+        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        textarea.value = 'Top boundary annotation';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
+        await Promise.resolve();
+
+        const saved = listReaderComments(scopeId, 'a')[0]!;
+        expect(saved.selectors.textPosition).toEqual({
+            start: 0,
+            end: 'Response and latest decision'.length,
+        });
+
+        seedComment({
+            id: 'later-position',
+            sourceMarkdown: 'Later paragraph text.',
+            comment: 'Later annotation',
+            createdAt: 1,
+            updatedAt: 1,
+            selectors: {
+                textQuote: { exact: '', prefix: '', suffix: '' },
+                textPosition: { start: 80, end: 90 },
+                domRange: null,
+                atomicRefs: [],
+            },
+        });
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!.click();
+        await Promise.resolve();
+
+        const items = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-comment-list__item'));
+        expect(items).toHaveLength(2);
+        expect(items[0]?.textContent).toContain('Top boundary annotation');
+        expect(items[0]?.textContent).toContain(`Position: 0-${'Response and latest decision'.length}`);
+        expect(items[1]?.textContent).toContain('Later annotation');
+
         getSelectionSpy.mockRestore();
     });
 
@@ -340,6 +426,206 @@ describe('ReaderPanel comments', () => {
 
         rectSpy.mockRestore();
         getSelectionSpy.mockRestore();
+    });
+
+    it('lists annotations, switches to text-position order, and opens the selected annotation for editing', async () => {
+        const panel = new ReaderPanel();
+        const themeOverrides = {
+            baseFontScale: 1,
+            readerContentWidthPx: DEFAULT_SETTINGS.reader.contentMaxWidthPx,
+            readerBodyFontSizePx: DEFAULT_SETTINGS.reader.bodyFontSizePx,
+        };
+        panel.setThemeOverrides(themeOverrides);
+        const onChange = vi.fn(async (patch: Partial<AppSettings['reader']>) => {
+            panel.setReaderSettings({
+                ...DEFAULT_SETTINGS.reader,
+                commentExport: patch.commentExport ?? DEFAULT_SETTINGS.reader.commentExport,
+            });
+            panel.setThemeOverrides(themeOverrides);
+        });
+        panel.setReaderSettingsController({ onChange });
+        panel.setCommentExportSettings({
+            prompts: [
+                { id: 'default', title: 'Default', content: 'Please review the following comments:' },
+            ],
+            template: [
+                { type: 'token', key: 'selected_source' },
+            ],
+            promptPosition: 'top',
+            sortMode: 'created',
+        });
+        seedComment({
+            id: 'later-position',
+            sourceMarkdown: 'Later text source',
+            comment: 'Created first',
+            createdAt: 1,
+            updatedAt: 1,
+            selectors: {
+                textQuote: { exact: '', prefix: '', suffix: '' },
+                textPosition: { start: 80, end: 90 },
+                domRange: null,
+                atomicRefs: [],
+            },
+        });
+        seedComment({
+            id: 'earlier-position',
+            sourceMarkdown: 'Earlier text source',
+            comment: 'Created second',
+            createdAt: 2,
+            updatedAt: 2,
+            selectors: {
+                textQuote: { exact: '', prefix: '', suffix: '' },
+                textPosition: { start: 5, end: 15 },
+                domRange: null,
+                atomicRefs: [],
+            },
+        });
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const listButton = shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!;
+        expect(listButton.disabled).toBe(false);
+
+        listButton.click();
+        await Promise.resolve();
+
+        let items = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-comment-list__item'));
+        expect(items).toHaveLength(2);
+        expect(items[0]?.textContent).toContain('Later text source');
+        expect(items[1]?.textContent).toContain('Earlier text source');
+        const styles = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent ?? '').join('\n');
+        expect(styles).toContain('--_modal-width: min(760px');
+        expect(styles).toContain('--_modal-max-height: min(720px');
+        expect(styles).toContain('.reader-comment-list__items');
+        expect(styles).toContain('overflow: auto;');
+        expect(styles).toContain('overscroll-behavior: contain;');
+        const commentListStyles = Array.from(shadow.querySelectorAll('style'))
+            .map((node) => node.textContent ?? '')
+            .find((css) => css.includes('.reader-comment-list__items')) ?? '';
+        expect(commentListStyles).toContain('line-height: var(--aimd-leading-normal);');
+        expect(commentListStyles).not.toContain('line-height: 1.4;');
+        expect(commentListStyles).not.toContain('line-height: 1.45;');
+
+        shadow.querySelector<HTMLElement>('.reader-body')!.scrollTop = 137;
+        shadow.querySelector<HTMLButtonElement>('.reader-comment-list__sort-button[data-sort-mode="position"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(shadow.querySelector('.reader-comment-list')).toBeTruthy();
+        expect(shadow.querySelector<HTMLElement>('.reader-body')?.scrollTop).toBe(137);
+        items = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-comment-list__item'));
+        expect(items[0]?.textContent).toContain('Earlier text source');
+        expect(items[1]?.textContent).toContain('Later text source');
+        expect(onChange).toHaveBeenCalledWith({
+            commentExport: expect.objectContaining({ sortMode: 'position' }),
+        });
+
+        items[0]?.querySelector<HTMLButtonElement>('[data-action="open"]')?.click();
+        shadow.querySelector<HTMLElement>('.mock-modal[role="dialog"]')
+            ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await Promise.resolve();
+
+        expect(shadow.querySelector<HTMLElement>('.reader-comment-popover__selection-value')?.textContent).toContain('Earlier text source');
+        expect(shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')?.value).toBe('Created second');
+    });
+
+    it('deletes annotations from the list without closing the list', async () => {
+        const panel = new ReaderPanel();
+        seedComment({
+            id: 'delete-me',
+            sourceMarkdown: 'Delete this source',
+            comment: 'Remove this annotation',
+        });
+        seedComment({
+            id: 'keep-me',
+            sourceMarkdown: 'Keep this source',
+            comment: 'Keep this annotation',
+            createdAt: 2,
+            updatedAt: 2,
+        });
+
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            0,
+            'light',
+        );
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!.click();
+        await Promise.resolve();
+
+        let items = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-comment-list__item'));
+        expect(items).toHaveLength(2);
+        items[0]?.querySelector<HTMLButtonElement>('[data-action="delete"]')?.click();
+        await Promise.resolve();
+
+        expect(shadow.querySelector('.reader-comment-list')).toBeTruthy();
+        items = Array.from(shadow.querySelectorAll<HTMLElement>('.reader-comment-list__item'));
+        expect(items).toHaveLength(1);
+        expect(items[0]?.textContent).toContain('Keep this source');
+        expect(listReaderComments(scopeId, 'a').map((record) => record.id)).toEqual(['keep-me']);
+    });
+
+    it('opens the annotations list through the shared modal host and moves focus inside it', async () => {
+        const panel = new ReaderPanel();
+        seedComment({ id: 'focus-note' });
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Answer' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!;
+        trigger.focus();
+        trigger.click();
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal[role="dialog"]');
+        expect(dialog).toBeTruthy();
+        expect(dialog?.contains(shadow.activeElement)).toBe(true);
+    });
+
+    it('closes only the annotations list when Escape is pressed', async () => {
+        const panel = new ReaderPanel();
+        seedComment({ id: 'escape-note' });
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Answer' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!.click();
+        await Promise.resolve();
+
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal[role="dialog"]')!;
+        dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+        await Promise.resolve();
+        dialog.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await Promise.resolve();
+
+        expect(shadow.querySelector('.reader-comment-list')).toBeNull();
+        expect(document.querySelector('#aimd-reader-panel-host')).toBe(host);
+    });
+
+    it('keeps the delete action outside the annotation open control', async () => {
+        const panel = new ReaderPanel();
+        seedComment({ id: 'keyboard-delete-note' });
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Answer' }], 0, 'light');
+
+        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+        const shadow = host.shadowRoot as ShadowRoot;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-comment-list"]')!.click();
+        await Promise.resolve();
+
+        const item = shadow.querySelector<HTMLElement>('.reader-comment-list__item')!;
+        const openButton = item.querySelector<HTMLButtonElement>('[data-action="open"]');
+        const deleteButton = item.querySelector<HTMLButtonElement>('[data-action="delete"]')!;
+        expect(openButton).toBeTruthy();
+        expect(openButton?.contains(deleteButton)).toBe(false);
+        expect(deleteButton.closest('[role="button"]')).toBeNull();
     });
 
     it('copies the same compiled text shown in the export popover even if settings change while it is open', async () => {

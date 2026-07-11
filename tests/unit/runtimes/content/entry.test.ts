@@ -95,11 +95,6 @@ const messageToolbarCtor = vi.fn(function () {
         dispose: messageToolbarsDispose,
     };
 });
-const headerIconInit = vi.fn();
-const headerIconDispose = vi.fn();
-const headerIconCtor = vi.fn(function () {
-    return { init: headerIconInit, dispose: headerIconDispose };
-});
 const directoryInit = vi.fn();
 const directorySetEnabled = vi.fn();
 const directorySetDisplayMode = vi.fn();
@@ -319,10 +314,6 @@ vi.mock('@/ui/content/controllers/MessageToolbarOrchestrator', () => ({
     MessageToolbarOrchestrator: messageToolbarCtor,
 }));
 
-vi.mock('@/ui/content/controllers/HeaderIconOrchestrator', () => ({
-    HeaderIconOrchestrator: headerIconCtor,
-}));
-
 vi.mock('@/ui/content/bookmarks/BookmarksPanel', () => ({
     BookmarksPanel: bookmarksPanelCtor,
 }));
@@ -468,8 +459,6 @@ describe('content runtime entry', () => {
         expect(ensurePageTokens).toHaveBeenCalled();
         expect(messageToolbarCtor).not.toHaveBeenCalled();
         expect(messageToolbarsInit).not.toHaveBeenCalled();
-        expect(headerIconCtor).not.toHaveBeenCalled();
-        expect(headerIconInit).not.toHaveBeenCalled();
         expect(bookmarksControllerCtor).not.toHaveBeenCalled();
         expect(bookmarksPanelCtor).not.toHaveBeenCalled();
         expect(addListener).not.toHaveBeenCalled();
@@ -496,7 +485,6 @@ describe('content runtime entry', () => {
         expect(bookmarksControllerCtor).not.toHaveBeenCalled();
         expect(bookmarksPanelCtor).not.toHaveBeenCalled();
         expect(messageToolbarCtor).not.toHaveBeenCalled();
-        expect(headerIconCtor).not.toHaveBeenCalled();
         expect(engineCtor).not.toHaveBeenCalled();
         expect(addListener).not.toHaveBeenCalled();
         expect(runtimeSendMessage).toHaveBeenCalledWith(expect.objectContaining({
@@ -662,11 +650,32 @@ describe('content runtime entry', () => {
 
         expect(promptAutocompleteOpenManager).toHaveBeenCalledWith(anchor);
 
+        await messageStepperCtor.mock.calls[0]?.[1]?.onOpenBookmarksPanel?.();
+
+        expect(bookmarksToggle).toHaveBeenCalledTimes(1);
+
         const settingsAnchor = document.createElement('button');
         const onOpenPromptManager = bookmarksPanelCtor.mock.calls[0]?.[2]?.onOpenPromptManager;
         await onOpenPromptManager?.(settingsAnchor);
 
         expect(promptAutocompleteOpenManager.mock.calls).toContainEqual([settingsAnchor]);
+    });
+
+    it('does not inject the bookmarks entry into ChatGPT header actions', async () => {
+        adapterPlatformId = 'chatgpt';
+        document.body.innerHTML = `
+            <header id="page-header">
+                <div id="conversation-header-actions"><span data-host-action></span></div>
+            </header>
+        `;
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const headerActions = document.getElementById('conversation-header-actions');
+        expect(headerActions?.children).toHaveLength(1);
+        expect(headerActions?.firstElementChild?.hasAttribute('data-host-action')).toBe(true);
+        expect(document.getElementById('aimd-header-icon-btn')).toBeNull();
     });
 
     it('shares the prompt manager with Reader settings and provides Reader prompts from the unified prompt library on demand', async () => {
@@ -801,7 +810,6 @@ describe('content runtime entry', () => {
 
         const reader = readerPanelCtor.mock.results[0]?.value;
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
-        expect(headerIconDispose).toHaveBeenCalledTimes(1);
         expect(viewportResizeSuspendDispose).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreDispose).toHaveBeenCalledTimes(1);
         expect(composerEnterDispose).toHaveBeenCalledTimes(1);
@@ -857,7 +865,6 @@ describe('content runtime entry', () => {
             },
         });
 
-        expect(headerIconInit).toHaveBeenCalledTimes(2);
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
@@ -930,7 +937,6 @@ describe('content runtime entry', () => {
         runtimeMessageListener!({ v: 1, id: 'toggle_1', type: 'ui:toggle_toolbar' });
 
         expect(messageToolbarsDispose).toHaveBeenCalledTimes(1);
-        expect(headerIconDispose).toHaveBeenCalledTimes(1);
         expect(bookmarksToggle).toHaveBeenCalledTimes(1);
         expect(bookmarksHide).not.toHaveBeenCalled();
     });

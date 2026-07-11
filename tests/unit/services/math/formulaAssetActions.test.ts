@@ -6,7 +6,6 @@ vi.mock('@/drivers/content/export/renderFormulaPng', () => ({
 
 vi.mock('@/drivers/content/export/renderFormulaDomAsset', () => ({
     renderFormulaDomPngBlob: vi.fn(async () => new Blob(['dom-png'], { type: 'image/png' })),
-    renderFormulaDomSvgBlob: vi.fn(async () => new Blob(['dom-svg'], { type: 'image/svg+xml' })),
 }));
 
 vi.mock('@/drivers/content/clipboard/copyImageToClipboard', () => ({
@@ -29,7 +28,7 @@ import { copyImageBlobToClipboard } from '@/drivers/content/clipboard/copyImageT
 import { copyMathmlToClipboard } from '@/drivers/content/clipboard/copyMathmlToClipboard';
 import { copySvgBlobToClipboard } from '@/drivers/content/clipboard/copySvgToClipboard';
 import { downloadBlob } from '@/drivers/content/export/downloadBlob';
-import { renderFormulaDomPngBlob, renderFormulaDomSvgBlob } from '@/drivers/content/export/renderFormulaDomAsset';
+import { renderFormulaDomPngBlob } from '@/drivers/content/export/renderFormulaDomAsset';
 import { rasterizeFormulaSvgToPngBlob } from '@/drivers/content/export/renderFormulaPng';
 import {
     __resetFormulaAssetRendererForTests,
@@ -92,7 +91,7 @@ describe('formulaAssetActions', () => {
         });
     });
 
-    it('uses captured formula DOM for PNG and SVG when a source element is available', async () => {
+    it('uses captured formula DOM for PNG but native MathJax output for SVG when a source element is available', async () => {
         const source = String.raw`\underbrace{x}_{中文}`;
         const sourceElement = document.createElement('span');
 
@@ -103,23 +102,8 @@ describe('formulaAssetActions', () => {
 
         expect(renderFormulaDomPngBlob).toHaveBeenCalledTimes(2);
         expect(renderFormulaDomPngBlob).toHaveBeenCalledWith({ sourceElement, fontSizePx: 42, pixelRatio: undefined });
-        expect(renderFormulaDomSvgBlob).toHaveBeenCalledTimes(2);
-        expect(renderFormulaDomSvgBlob).toHaveBeenCalledWith({ sourceElement, fontSizePx: 42 });
         expect(rasterizeFormulaSvgToPngBlob).not.toHaveBeenCalled();
         expect(copyImageBlobToClipboard).toHaveBeenCalledWith(expect.objectContaining({ type: 'image/png' }));
-        const copiedSvg = vi.mocked(copySvgBlobToClipboard).mock.calls.at(-1)?.[0];
-        expect(copiedSvg ? await blobText(copiedSvg) : '').toBe('dom-svg');
-    });
-
-    it('falls back to the MathJax renderer when SVG formula DOM capture fails', async () => {
-        const source = String.raw`\mathcal{A}`;
-        const sourceElement = document.createElement('span');
-        vi.mocked(renderFormulaDomSvgBlob).mockRejectedValueOnce(new Error('capture failed'));
-
-        const result = await runFormulaAssetAction({ action: 'copy_svg', source, displayMode: false, sourceElement, fontSizePx: 38 });
-
-        expect(result).toEqual({ ok: true, status: 'copied' });
-        expect(renderFormulaDomSvgBlob).toHaveBeenCalledWith({ sourceElement, fontSizePx: 38 });
         const copiedSvg = vi.mocked(copySvgBlobToClipboard).mock.calls.at(-1)?.[0];
         expect(copiedSvg ? await blobText(copiedSvg) : '').toContain(`data-source="${source}"`);
     });

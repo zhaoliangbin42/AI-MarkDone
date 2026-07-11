@@ -307,6 +307,7 @@ Motion:
 
 - Form controls use shared form tokens for size, border, focus, and disabled state.
 - Labels and help text belong to the form row contract.
+- Form rows must preserve label and help-text intrinsic height in constrained panels; panel or dialog bodies own scrolling instead of compressing row content.
 - Error copy should be close to the control and use semantic danger tokens.
 
 ### 7.4 Panels
@@ -360,6 +361,7 @@ Rules:
 - Validate shared stylesheet paths in Chrome-like and Firefox-like environments.
 - Do not branch by browser name when feature detection is enough.
 - Do not inject global page CSS for product UI unless an adapter contract explicitly requires it.
+- The ChatGPT lower-right page-control cluster is a documented light-DOM exception: it owns one uniquely identified fixed host under `document.body`, uses only uniquely prefixed AI-MarkDone selectors and `--aimd-*` token CSS, and must not modify ChatGPT-owned header or conversation DOM.
 - Theme switching uses `data-aimd-theme` and token variables, not host-page selectors.
 - Style modules must be idempotent across repeated hydration, teardown, and re-scan.
 

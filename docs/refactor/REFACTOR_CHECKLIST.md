@@ -32,7 +32,7 @@
 - [x] 建立权威文档入口：`docs/README.md`
 - [x] 固化 to-be 蓝图：`docs/architecture/BLUEPRINT.md`
 - [x] 固化依赖规则：`docs/architecture/DEPENDENCY_RULES.md`
-- [x] 固化站点适配器契约：`docs/antigravity/platform/ADAPTER_CONTRACT.md`
+- [x] 固化站点适配器契约：`src/drivers/content/adapters/base.ts` + `docs/architecture/CURRENT_STATE.md`
 
 验证：
 

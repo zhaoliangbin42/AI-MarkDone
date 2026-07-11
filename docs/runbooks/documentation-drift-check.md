@@ -9,7 +9,7 @@
 3. 如果改的是 content/background 协议或错误码，更新 `docs/architecture/RUNTIME_PROTOCOL.md`
 4. 如果改的是高影响长期决策，新增或更新 `docs/adr/*`
 5. 如果改的是重复出现的排查步骤，考虑补到 `docs/runbooks/*`
-6. 如果改的是平台语义，检查 `ADAPTER_CONTRACT.md` 与 `CAPABILITY_MATRIX.md`
+6. 如果改的是平台语义，检查 `src/drivers/content/adapters/base.ts`、`docs/architecture/CURRENT_STATE.md` 与 `docs/FEATURES.md`
 
 ## Related Documents
 

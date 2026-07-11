@@ -1,4 +1,5 @@
 import type { ReaderAtomicUnitKind } from '../renderer/renderMarkdown';
+import type { ReaderCommentSortMode } from '../../core/settings/readerCommentExport';
 
 export type ReaderCommentTextQuoteSelector = {
     exact: string;
@@ -47,6 +48,24 @@ export type ReaderCommentRecord = {
 
 const scopes = new Map<string, Map<string, ReaderCommentRecord[]>>();
 
+function numericPosition(value: number | null | undefined): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
+}
+
+export function compareReaderComments(left: ReaderCommentRecord, right: ReaderCommentRecord, sortMode: ReaderCommentSortMode = 'created'): number {
+    if (sortMode === 'position') {
+        const positionDelta = numericPosition(left.selectors.textPosition.start) - numericPosition(right.selectors.textPosition.start);
+        if (positionDelta !== 0) return positionDelta;
+        const endDelta = numericPosition(left.selectors.textPosition.end) - numericPosition(right.selectors.textPosition.end);
+        if (endDelta !== 0) return endDelta;
+    }
+    return (left.createdAt - right.createdAt) || left.id.localeCompare(right.id);
+}
+
+export function sortReaderComments(comments: ReaderCommentRecord[], sortMode: ReaderCommentSortMode = 'created'): ReaderCommentRecord[] {
+    return [...comments].sort((left, right) => compareReaderComments(left, right, sortMode));
+}
+
 function getItemBucket(scopeId: string, itemId: string, create: boolean): ReaderCommentRecord[] | null {
     let scope = scopes.get(scopeId);
     if (!scope) {
@@ -65,8 +84,8 @@ function getItemBucket(scopeId: string, itemId: string, create: boolean): Reader
     return bucket;
 }
 
-export function listReaderComments(scopeId: string, itemId: string): ReaderCommentRecord[] {
-    return [...(getItemBucket(scopeId, itemId, false) ?? [])].sort((left, right) => left.createdAt - right.createdAt);
+export function listReaderComments(scopeId: string, itemId: string, sortMode: ReaderCommentSortMode = 'created'): ReaderCommentRecord[] {
+    return sortReaderComments(getItemBucket(scopeId, itemId, false) ?? [], sortMode);
 }
 
 export function saveReaderComment(scopeId: string, record: ReaderCommentRecord): ReaderCommentRecord {

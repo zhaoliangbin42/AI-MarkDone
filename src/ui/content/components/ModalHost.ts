@@ -35,8 +35,10 @@ type CustomOptions = {
     kind: ModalKind;
     title: string;
     body: HTMLElement;
+    dialogClassName?: string;
     footer?: (footer: HTMLElement, close: () => void) => void;
     onDismiss?: () => void;
+    onClosed?: () => void;
 };
 
 export class ModalHost {
@@ -204,6 +206,8 @@ export class ModalHost {
                 }
             },
             onDismiss: opts.onDismiss,
+            onClosed: opts.onClosed,
+            dialogClassName: opts.dialogClassName,
         });
     }
 
@@ -214,6 +218,8 @@ export class ModalHost {
         body?: (body: HTMLElement) => { input: HTMLInputElement; error: HTMLElement } | void;
         footer: (footer: HTMLElement, close: () => void, ctx?: { input: HTMLInputElement; error: HTMLElement }) => void;
         onDismiss?: () => void;
+        onClosed?: () => void;
+        dialogClassName?: string;
     }): Promise<void> {
         this.focusStack.push((document.activeElement as HTMLElement | null) ?? null);
 
@@ -222,7 +228,7 @@ export class ModalHost {
         overlay.dataset.kind = params.kind;
 
         const dialog = markTransientRoot(document.createElement('div'));
-        dialog.className = 'mock-modal';
+        dialog.className = ['mock-modal', params.dialogClassName].filter(Boolean).join(' ');
         dialog.dataset.kind = params.kind;
         dialog.setAttribute('role', 'dialog');
         dialog.setAttribute('aria-modal', 'true');
@@ -295,6 +301,7 @@ export class ModalHost {
                 onClosed: () => {
                     cleanup();
                     overlay.remove();
+                    params.onClosed?.();
                 },
                 fallbackMs: 600,
             });

@@ -126,7 +126,8 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 - `docs/architecture/DEPENDENCY_RULES.md`（协议文件只能在 contract 层）
 - `docs/architecture/RUNTIME_PROTOCOL.md`（当前协议语义与错误模型）
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`（适配器与协议协作方式）
+- `src/drivers/content/adapters/base.ts`（适配器源代码契约）
+- `docs/architecture/CURRENT_STATE.md`（当前适配器与平台边界）
 
 ### 3.2 Site Adapter Contract（站点差异收敛点）
 
@@ -134,14 +135,15 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 补充约束：
 
-- 页面级入口（例如 header bookmark icon）的 DOM 锚点与注入规则，同样属于 adapter 契约的一部分
+- 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 group refs，包括完整 body roots、user prompt title 与稳定 anchor hints，不得在 UI 层按 ChatGPT selector 重新推导 user/assistant 轮次
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
-- runtime 只允许持有平台无关的生命周期编排器（如 toolbar/header icon orchestrator），不得在入口层写平台选择器
+- runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
 
 契约位置：
 
-- `docs/antigravity/platform/ADAPTER_CONTRACT.md`
+- `src/drivers/content/adapters/base.ts`
+- `docs/architecture/CURRENT_STATE.md`
 
 ### 3.3 Storage Contract（单一写入路径）
 

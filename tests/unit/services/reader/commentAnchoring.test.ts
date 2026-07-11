@@ -84,6 +84,31 @@ describe('commentAnchoring', () => {
         expect(record.selectors.textPosition.end).not.toBeNull();
     });
 
+    it('captures zero text position when the selection starts at the first element boundary', () => {
+        document.body.innerHTML = '<div id="root"><h2 data-aimd-unit-id="h1" data-aimd-unit-kind="heading" data-aimd-md-start="0" data-aimd-md-end="32">Response and latest decision</h2><p>Later content.</p></div>';
+
+        const root = document.querySelector<HTMLElement>('#root')!;
+        const heading = root.querySelector('h2')!;
+        const range = document.createRange();
+        range.setStart(heading, 0);
+        range.setEnd(heading, heading.childNodes.length);
+
+        const record = createReaderCommentRecord({
+            id: 'c1',
+            itemId: 'item-1',
+            comment: 'note',
+            range,
+            root,
+            selectedUnits: [],
+        });
+
+        expect(record.quoteText).toBe('Response and latest decision');
+        expect(record.selectors.textPosition).toEqual({
+            start: 0,
+            end: 'Response and latest decision'.length,
+        });
+    });
+
     it('computes overlay rectangles from a selection layout', () => {
         document.body.innerHTML = `<div id="root"><p>Alpha beta gamma</p></div>`;
         const root = document.querySelector<HTMLElement>('#root')!;

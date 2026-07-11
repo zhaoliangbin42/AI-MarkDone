@@ -1,6 +1,12 @@
 import type { Theme } from '../../../core/types/theme';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
-import type { CommentTemplateSegment, ReaderCommentPrompt, ReaderCommentPromptPosition } from '../../../core/settings/readerCommentExport';
+import type {
+    CommentTemplateSegment,
+    ReaderCommentPrompt,
+    ReaderCommentPromptPosition,
+    ReaderCommentSortMode,
+} from '../../../core/settings/readerCommentExport';
+import { DEFAULT_READER_COMMENT_SORT_MODE } from '../../../core/settings/readerCommentExport';
 import { createIcon } from '../components/Icon';
 import { messageSquarePlusIcon, sendIcon, xIcon } from '../../../assets/icons';
 import { subscribeLocaleChange, t } from '../components/i18n';
@@ -24,6 +30,7 @@ type CommentInsertContext = {
     listReaderPrompts: () => Promise<ReaderCommentPrompt[]> | ReaderCommentPrompt[];
     template: CommentTemplateSegment[];
     promptPosition: ReaderCommentPromptPosition;
+    sortMode?: ReaderCommentSortMode;
     comments: ReaderCommentRecord[];
 };
 
@@ -396,6 +403,7 @@ export class SendPopover {
             prompts,
             template: context.template,
             promptPosition: context.promptPosition,
+            sortMode: context.sortMode ?? DEFAULT_READER_COMMENT_SORT_MODE,
         }, promptId);
 
         if (context.comments.length < 1) {
