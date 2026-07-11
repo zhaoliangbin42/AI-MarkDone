@@ -98,7 +98,7 @@
   - ChatGPT snapshot 正文进入 `ReaderItem[]` 前必须经过 `normalizeChatGPTReaderMarkdown()`：引用/file citation 噪声继续移除；ChatGPT 内部 annotation token 不能裸露到 Reader/Copy/Export/Bookmark。已知 `entity` token 归一成正文显示名，已知 GenUI math widget 归一成 Markdown inline/block math，未知 annotation token 安全丢弃。
   - ChatGPT Reader 的 `jump to message` 与书签面板的同页/跨页定位入口都复用同一条 directory navigation helper
   - ChatGPT 工具栏书签保存与高亮会先通过 skeleton/container 轮次映射到 payload 的绝对 `position`，再复用现有 `url + position` 书签身份，不改变底层存储 schema
-  - 消息工具栏只注入到 adapter 返回的官方 action row；ChatGPT 上若 assistant message 先出现而官方 action row 后 hydrate，`MessageToolbarOrchestrator` 会把可归属的 action-row mutation 映射回对应消息，并通过本地 lifecycle reconcile 从 `anchor_pending` 推进到 `injected`。如果 action row 已出现但首次 `injectToolbar` 在官网 hydration / network jitter 窗口失败，状态会进入 `stale` 并由 bounded targeted recovery 把该消息重新放回 incremental reconcile；该恢复只针对未注入成功的消息，不使用长期整页轮询、正文 fallback 或整页补扫作为常规路径
+  - 消息工具栏只注入到 adapter 返回的官方 action row；`MessageToolbarOrchestrator` 当前的唯一 reconcile 模型是 `dirtyMessages + incremental snapshot + anchor_pending/stale/injected lifecycle`。消息内文本/子树变化只标记所属消息，无关文本不调度；完整 message 结构变化、route/init 或无法归属的 action-row 变化才允许整页扫描。scheduled reconcile 不再追加第二次全量 pending-state 遍历。ChatGPT observer 绑定当前 `main` 的稳定父级，因此官网直接替换 conversation root 也能触发一次 full rebuild 并继续监听。若 assistant message 先出现而 action row 后 hydrate，可归属 mutation 只推进对应消息；若单个 toolbar host 被官网意外移除，会按已有 record 定向重建，而 controller 自己的 intentional removal 会被单独标记并忽略，避免自恢复循环。如果首次 `injectToolbar` 在 hydration / network jitter 窗口失败，状态进入 `stale`，由 bounded targeted recovery 递增退避地放回 incremental reconcile。不得使用长期整页轮询、正文 fallback 或常规整页补扫。
   - `drivers/content/virtualization/*` 与相关设计文档目前只保留为历史实验资产，不构成现行 shipping path
 
 ChatGPT 内容发现链路必须保持一条共享 family、两个投影：

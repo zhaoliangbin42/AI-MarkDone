@@ -89,6 +89,16 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Toolbar reliability remained 200/200 with zero duplicates on every run. The final cache-lifecycle build remained within its accepted budget at 1,848,873 raw bytes and 486,241 gzip bytes.
 - The phase boundary passed all 1,209 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
 
+### Phase 4 — 2026-07-11
+
+- Kept the existing `dirtyMessages` / incremental snapshot / `anchor_pending -> stale -> injected` lifecycle as the single toolbar reconciler instead of introducing a parallel abstraction. Mutation classification now maps content changes to the owning message, ignores unrelated text, and reserves full scans for initialization, routes, message-structure changes, or unresolvable action-row changes.
+- Removed the post-scan global pending-state pass. Each scheduled reconcile now updates only its full or incremental snapshot once and runs Reader-tail synchronization once.
+- ChatGPT observes the stable parent of the current `main`, allowing a direct conversation-root replacement to trigger a full rebuild and observer continuation. A real user-trigger-path regression test verifies that the replacement root receives exactly one toolbar.
+- Unexpected removal of an individual toolbar host now targets its existing record for reconstruction. Intentional removals are tracked separately so disabling or deleting a record cannot trigger a self-recovery loop. Existing delayed-anchor and bounded stale-injection recovery remain intact.
+- Final three-run runtime medians: toolbar ready 488.4 ms; cold long-task total 135 ms; cold maximum 81 ms; idle mutation records 0 per 2 seconds; streaming long-task total 0 ms; streaming maximum 0 ms; streaming mutation records 200; official-row recovery 166.1 ms; post-GC used JS heap 7,599,347 bytes.
+- Toolbar reliability remained 200/200 with zero duplicates on every run; every run recovered all 20 replaced official action rows well under 500 ms. `content.js` remained within budget at 1,849,255 raw bytes and 486,402 gzip bytes.
+- The phase boundary passed all 1,213 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

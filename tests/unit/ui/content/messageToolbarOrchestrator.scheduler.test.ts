@@ -67,11 +67,20 @@ class FakeScheduledToolbarAdapter extends SiteAdapter {
     }
 }
 
+class MainScopedToolbarAdapter extends FakeScheduledToolbarAdapter {
+    getPlatformId(): string {
+        return 'chatgpt';
+    }
+
+    getObserverContainer(): HTMLElement | null {
+        return document.querySelector('main');
+    }
+}
+
 function attachScheduler(orchestrator: MessageToolbarOrchestrator) {
     (orchestrator as any).scanScheduler = new ScanScheduler(
         () => {
             (orchestrator as any).scanAndInject();
-            (orchestrator as any).refreshPendingStates();
         },
         { debounceMs: 120, minIntervalMs: 250, idleTimeoutMs: 200, maxWaitMs: 1000 }
     );
@@ -196,6 +205,150 @@ describe('MessageToolbarOrchestrator scheduler integration', () => {
             expect(observer.takeRecords()).toHaveLength(0);
         } finally {
             observer.disconnect();
+            orchestrator.dispose();
+        }
+    });
+
+    it('reconciles text replacement inside one message without falling back to a full scan', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"></div>
+          </div>
+        `;
+
+        const adapter = new FakeScheduledToolbarAdapter();
+        adapter.streaming = false;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        });
+        (orchestrator as any).scanAndInject();
+        const fullScan = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+        const incrementalScan = vi.spyOn(orchestrator as any, 'buildIncrementalSnapshot');
+        const message = document.querySelector('.assistant-message');
+        const content = document.querySelector('.content');
+        if (!(message instanceof HTMLElement) || !(content instanceof HTMLElement)) {
+            throw new Error('fixture message content is missing');
+        }
+        const observer = new MutationObserver(() => undefined);
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        try {
+            content.textContent = 'Updated';
+            (orchestrator as any).handleObservedMutations(observer.takeRecords());
+            expect((orchestrator as any).dirtyMessages.has(message)).toBe(true);
+            (orchestrator as any).scanAndInject(new Set(['mutation']));
+
+            expect(incrementalScan).toHaveBeenCalled();
+            expect(fullScan).not.toHaveBeenCalled();
+            expect(getToolbar()).toBeTruthy();
+        } finally {
+            observer.disconnect();
+            orchestrator.dispose();
+        }
+    });
+
+    it('ignores text replacement outside assistant messages', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"></div>
+          </div>
+          <div class="unrelated">Unrelated</div>
+        `;
+
+        const adapter = new FakeScheduledToolbarAdapter();
+        adapter.streaming = false;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        });
+        (orchestrator as any).scanAndInject();
+        const scheduler = attachScheduler(orchestrator);
+        const fullScan = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+        const incrementalScan = vi.spyOn(orchestrator as any, 'buildIncrementalSnapshot');
+        const unrelated = document.querySelector('.unrelated');
+        if (!(unrelated instanceof HTMLElement)) throw new Error('fixture unrelated node is missing');
+        const observer = new MutationObserver(() => undefined);
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        try {
+            unrelated.textContent = 'Updated';
+            (orchestrator as any).handleObservedMutations(observer.takeRecords());
+            vi.advanceTimersByTime(500);
+            vi.runOnlyPendingTimers();
+
+            expect(fullScan).not.toHaveBeenCalled();
+            expect(incrementalScan).not.toHaveBeenCalled();
+        } finally {
+            observer.disconnect();
+            scheduler.dispose();
+            orchestrator.dispose();
+        }
+    });
+
+    it('does not run a second global pending-state pass after the scheduled reconcile', () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1">
+            <div class="content">First</div>
+            <div class="official-toolbar"></div>
+          </div>
+        `;
+
+        const adapter = new FakeScheduledToolbarAdapter();
+        adapter.streaming = false;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        });
+        const recordsBefore = (orchestrator as any).recordsByMessageKey.size;
+
+        try {
+            orchestrator.init();
+            vi.advanceTimersByTime(250);
+            vi.runOnlyPendingTimers();
+
+            expect(getToolbar()).toBeTruthy();
+            expect((orchestrator as any).recordsByMessageKey.size).toBe(recordsBefore + 1);
+        } finally {
+            orchestrator.dispose();
+        }
+    });
+
+    it('recovers toolbars when ChatGPT replaces the observed conversation root', async () => {
+        document.body.innerHTML = `
+          <main>
+            <div class="assistant-message" data-message-id="m1">
+              <div class="content">First</div>
+              <div class="official-toolbar"></div>
+            </div>
+          </main>
+        `;
+
+        const adapter = new MainScopedToolbarAdapter();
+        adapter.streaming = false;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        });
+
+        try {
+            orchestrator.init();
+            vi.advanceTimersByTime(1_000);
+            expect(document.querySelector('[data-message-id="m1"] [data-aimd-role="message-toolbar"]')).toBeTruthy();
+
+            const nextMain = document.createElement('main');
+            nextMain.innerHTML = `
+              <div class="assistant-message" data-message-id="m2">
+                <div class="content">Second</div>
+                <div class="official-toolbar"></div>
+              </div>
+            `;
+            document.querySelector('main')?.replaceWith(nextMain);
+            await Promise.resolve();
+            await Promise.resolve();
+            vi.advanceTimersByTime(1_000);
+
+            expect(nextMain.querySelector('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toBeTruthy();
+            expect(nextMain.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
+        } finally {
             orchestrator.dispose();
         }
     });

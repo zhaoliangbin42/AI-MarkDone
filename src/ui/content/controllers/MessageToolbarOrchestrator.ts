@@ -147,6 +147,7 @@ export class MessageToolbarOrchestrator {
     private chatGptToolbarRecoveryAttemptsByMessageKey = new Map<string, number>();
     private chatGptToolbarRecoveryTimer: number | null = null;
     private currentReaderItemByMessageKey = new Map<string, Promise<ReaderItem | null>>();
+    private intentionallyRemovedToolbarHosts = new WeakSet<HTMLElement>();
 
     private rebuildTurnIndex(): void {
         try {
@@ -529,8 +530,10 @@ export class MessageToolbarOrchestrator {
     private removeRecord(messageKey: string): void {
         const record = this.recordsByMessageKey.get(messageKey);
         if (!record) return;
+        const host = record.toolbar.getElement();
         record.toolbar.dispose();
-        record.toolbar.getElement().remove();
+        if (host.isConnected) this.intentionallyRemovedToolbarHosts.add(host);
+        host.remove();
         this.recordsByMessageKey.delete(messageKey);
         this.currentReaderItemByMessageKey.delete(`${record.boundAtUrl}::${messageKey}`);
     }
@@ -547,7 +550,6 @@ export class MessageToolbarOrchestrator {
         this.scanScheduler = new ScanScheduler(
             (reasons) => {
                 this.scanAndInject(reasons);
-                this.refreshPendingStates();
                 this.rebindObserverIfNeeded();
             },
             { debounceMs: 120, minIntervalMs: 250, idleTimeoutMs: 200, maxWaitMs: 1000 }
@@ -1239,46 +1241,6 @@ export class MessageToolbarOrchestrator {
         }
     }
 
-    private refreshPendingStates(): void {
-        if (this.turnRefs.length === 0) this.rebuildTurnIndex();
-        for (const [messageKey, record] of Array.from(this.recordsByMessageKey.entries())) {
-            const { message, toolbar } = record;
-            if (!document.contains(message)) {
-                this.removeRecord(messageKey);
-                this.clearChatGptToolbarState(messageKey);
-                continue;
-            }
-
-            const nextAnchor = this.getAnchorForMessage(message);
-            if (!nextAnchor) {
-                this.rememberChatGptToolbarState(record, 'anchor_pending', null);
-                this.removeRecord(messageKey);
-                continue;
-            }
-
-            if (nextAnchor !== record.anchor || !toolbar.getElement().isConnected) {
-                this.rememberChatGptToolbarState(record, 'stale', nextAnchor);
-                record.anchor = nextAnchor;
-                const refreshed = this.rebuildToolbarRecord(record);
-                if (!refreshed) {
-                    this.removeRecord(messageKey);
-                    continue;
-                }
-                this.recordsByMessageKey.set(messageKey, refreshed);
-                this.rememberChatGptToolbarState(refreshed, 'injected', nextAnchor);
-                continue;
-            }
-
-            const pending = this.adapter.isStreamingMessage(message);
-            if (record.pending !== pending) {
-                this.refreshWordCountForToolbar(toolbar, message, pending);
-            }
-            record.pending = pending;
-            this.rememberChatGptToolbarState(record, 'injected', nextAnchor);
-        }
-        void this.syncReaderTailPages();
-    }
-
     private refreshWordCountForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, pending: boolean): void {
         if (!this.behavior.showWordCount) return;
         if (pending) {
@@ -1444,6 +1406,14 @@ export class MessageToolbarOrchestrator {
         return node instanceof Element && node.matches('[data-aimd-role="message-toolbar"], .aimd-message-toolbar-host');
     }
 
+    private getRecordForToolbarHost(node: Node): ToolbarRecord | null {
+        if (!(node instanceof HTMLElement)) return null;
+        for (const record of this.recordsByMessageKey.values()) {
+            if (record.toolbar.getElement() === node) return record;
+        }
+        return null;
+    }
+
     private collectMutationMessageCandidates(node: Node): HTMLElement[] {
         if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return [];
         if (node instanceof Element && this.isToolbarManagedHostNode(node)) return [];
@@ -1451,6 +1421,19 @@ export class MessageToolbarOrchestrator {
             return discoverMessageElements(node, this.adapter.getMessageSelector());
         } catch {
             return [];
+        }
+    }
+
+    private getMessageForMutationTarget(target?: Node | null): HTMLElement | null {
+        const element = target instanceof Element ? target : target?.parentElement ?? null;
+        if (!element || this.isToolbarManagedHostNode(element)) return null;
+        try {
+            const message = element.matches(this.adapter.getMessageSelector())
+                ? element
+                : element.closest(this.adapter.getMessageSelector());
+            return message instanceof HTMLElement ? message : null;
+        } catch {
+            return null;
         }
     }
 
@@ -1628,8 +1611,34 @@ export class MessageToolbarOrchestrator {
 
         for (const mutation of Array.from(mutations)) {
             const removedNodes = Array.from(mutation.removedNodes || []);
+            const addedNodes = Array.from(mutation.addedNodes || []);
+            const changedNodes = [...removedNodes, ...addedNodes];
+            const intentionallyRemovedHosts = new Set<Node>();
+            const externallyRemovedHosts = new Set<Node>();
             for (const node of removedNodes) {
-                if (this.isToolbarManagedHostNode(node)) continue;
+                if (!this.isToolbarManagedHostNode(node)) continue;
+                if (node instanceof HTMLElement && this.intentionallyRemovedToolbarHosts.delete(node)) {
+                    intentionallyRemovedHosts.add(node);
+                } else {
+                    externallyRemovedHosts.add(node);
+                }
+            }
+
+            const hasHostPageChange = changedNodes.some((node) => !this.isToolbarManagedHostNode(node));
+            if (!hasHostPageChange && externallyRemovedHosts.size === 0) continue;
+            if (hasHostPageChange) this.invalidateTurnIndex();
+            const targetMessage = this.getMessageForMutationTarget(mutation.target);
+
+            for (const node of removedNodes) {
+                if (intentionallyRemovedHosts.has(node)) continue;
+                if (externallyRemovedHosts.has(node)) {
+                    const record = this.getRecordForToolbarHost(node);
+                    if (record?.message.isConnected) {
+                        this.dirtyMessages.add(record.message);
+                        shouldSchedule = true;
+                    }
+                    continue;
+                }
                 const chatGptActionMessages = this.collectChatGptMessagesFromActionAnchorRemoval(node, mutation.target);
                 if (chatGptActionMessages.length > 0) {
                     for (const message of chatGptActionMessages) {
@@ -1638,11 +1647,20 @@ export class MessageToolbarOrchestrator {
                     shouldSchedule = true;
                     continue;
                 }
-                this.needsFullRescan = true;
-                shouldSchedule = true;
+
+                const removedMessages = this.collectMutationMessageCandidates(node);
+                if (removedMessages.length > 0) {
+                    this.needsFullRescan = true;
+                    shouldSchedule = true;
+                    continue;
+                }
+
+                if (targetMessage) {
+                    this.dirtyMessages.add(targetMessage);
+                    shouldSchedule = true;
+                }
             }
 
-            const addedNodes = Array.from(mutation.addedNodes || []);
             for (const node of addedNodes) {
                 const candidates = this.collectMutationMessageCandidates(node);
                 if (candidates.length === 0) {
@@ -1651,6 +1669,11 @@ export class MessageToolbarOrchestrator {
                         for (const message of chatGptActionMessages) {
                             this.dirtyMessages.add(message);
                         }
+                        shouldSchedule = true;
+                        continue;
+                    }
+                    if (targetMessage) {
+                        this.dirtyMessages.add(targetMessage);
                         shouldSchedule = true;
                         continue;
                     }
@@ -1672,7 +1695,10 @@ export class MessageToolbarOrchestrator {
     }
 
     private rebindObserverIfNeeded(force: boolean = false): void {
-        const nextContainer = this.adapter.getObserverContainer() || document.body;
+        const adapterContainer = this.adapter.getObserverContainer() || document.body;
+        const nextContainer = this.usesChatGptToolbarLifecycle() && adapterContainer.matches('main')
+            ? adapterContainer.parentElement ?? adapterContainer
+            : adapterContainer;
         if (!force && this.observedContainer === nextContainer && this.observer) return;
 
         this.disposeObserversOnly();

@@ -140,6 +140,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 - ChatGPT DOM round refs 必须由 adapter-owned page index 按相关宿主 DOM revision 缓存；同一 revision 内的 toolbar、directory、stepper 与 navigation 调用只能消费同一有序 snapshot。索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping 变化，conversation root 更换或 runtime disable 时必须重绑或释放 observer
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
+- toolbar observer 只能作为事件信号：消息内 mutation 必须定向进入该消息的 incremental reconcile，无关文本必须忽略，只有 message 集合/顺序、route/init、conversation root replacement 或无法归属的官方 action-row 结构变化才能进入 full reconcile；不得在一次 scheduled reconcile 后再做第二次全量 toolbar 遍历
 
 契约位置：
 

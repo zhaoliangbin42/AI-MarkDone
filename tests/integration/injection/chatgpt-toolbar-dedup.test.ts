@@ -87,7 +87,6 @@ describe('ChatGPT toolbar injection dedup', () => {
 
             // A refresh pass should re-attach to the new anchor without duplicating.
             (orchestrator as any).scanAndInject();
-            (orchestrator as any).refreshPendingStates();
 
             const newAnchor = adapter.getToolbarAnchorElement?.(sampleMsg) ?? null;
             expect(newAnchor).toBeTruthy();

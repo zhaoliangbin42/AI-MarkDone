@@ -201,7 +201,12 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const oldActionBar = message.querySelector('.official-toolbar') as HTMLElement;
         oldActionBar.remove();
 
-        (orchestrator as any).refreshPendingStates();
+        (orchestrator as any).handleObservedMutations([{
+            target: message,
+            addedNodes: [],
+            removedNodes: [oldActionBar],
+        }]);
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
         expect(getToolbarCount()).toBe(0);
 
         const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
@@ -241,9 +246,15 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         expect(firstHost).toBeTruthy();
 
         const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
+        const actionBar = firstHost.parentElement as HTMLElement;
         firstHost.remove();
 
-        (orchestrator as any).refreshPendingStates();
+        (orchestrator as any).handleObservedMutations([{
+            target: actionBar,
+            addedNodes: [],
+            removedNodes: [firstHost],
+        }]);
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
 
         const nextHost = document.querySelector('[data-aimd-role="message-toolbar"]') as HTMLElement;
         expect(fullScanSpy).not.toHaveBeenCalled();
@@ -330,10 +341,16 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         expect(getToolbarCount()).toBe(2);
 
         const firstActionBar = document.querySelector('[data-message-id="m1"] .official-toolbar') as HTMLElement;
+        const secondMessage = document.querySelector('[data-message-id="m2"]') as HTMLElement;
         const secondActionBar = document.querySelector('[data-message-id="m2"] .official-toolbar') as HTMLElement;
         secondActionBar.remove();
 
-        (orchestrator as any).refreshPendingStates();
+        (orchestrator as any).handleObservedMutations([{
+            target: secondMessage,
+            addedNodes: [],
+            removedNodes: [secondActionBar],
+        }]);
+        (orchestrator as any).scanAndInject(new Set(['mutation']));
 
         expect(firstActionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
         expect(document.querySelector('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toBeNull();
