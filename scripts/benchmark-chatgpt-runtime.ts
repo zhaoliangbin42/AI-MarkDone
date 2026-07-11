@@ -1,4 +1,4 @@
-import { chromium, type BrowserContext, type Page } from '@playwright/test';
+import { chromium, type BrowserContext, type CDPSession, type Page } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -16,6 +16,8 @@ type PhaseMetrics = {
 type RuntimeMetrics = {
     toolbarReadyMs: number;
     toolbarRecoveryMs: number;
+    featureLoadMs: number;
+    featureModuleRequestCount: number;
     toolbarCount: number;
     duplicateActionRows: number;
     shadowRootCount: number;
@@ -38,6 +40,11 @@ const DEFAULT_ROUNDS = 200;
 const DEFAULT_MUTATIONS = 200;
 const TOOLBAR_TIMEOUT_MS = 15_000;
 const RECOVERY_TIMEOUT_MS = 8_000;
+const FEATURE_LOAD_TIMEOUT_MS = 8_000;
+
+function isContentFeatureModuleUrl(url: string): boolean {
+    return url.includes('/content-features.js') || url.includes('/content-feature-chunks/');
+}
 
 function readPositiveIntegerArg(name: string, fallback: number): number {
     const prefix = `--${name}=`;
@@ -177,8 +184,16 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         ],
     });
 
+    let featureNetworkSession: CDPSession | null = null;
     try {
         const page = await preparePage(context, rounds);
+        const featureModuleRequests = new Set<string>();
+        featureNetworkSession = await context.newCDPSession(page);
+        featureNetworkSession.on('Network.requestWillBeSent', (event) => {
+            const url = event.request.url;
+            if (isContentFeatureModuleUrl(url)) featureModuleRequests.add(url);
+        });
+        await featureNetworkSession.send('Network.enable');
         page.on('pageerror', (error) => console.error(`[perf:pageerror] ${error.stack ?? error.message}`));
         console.error('[perf] loading fixture');
         await page.goto('https://chatgpt.com/c/aimd-performance-fixture', { waitUntil: 'domcontentloaded' });
@@ -276,9 +291,35 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             );
         }
 
+        if (featureModuleRequests.size > 0) {
+            throw new Error(`Feature module loaded before an explicit user trigger: ${Array.from(featureModuleRequests).join(', ')}`);
+        }
+
+        const featureLoadStartedAt = await page.evaluate(() => performance.now());
+        await page.evaluate(() => {
+            const trigger = document.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]');
+            if (!trigger) throw new Error('Bookmarks panel trigger is missing');
+            trigger.click();
+        });
+        await page.waitForSelector('#aimd-bookmarks-panel-host', {
+            state: 'attached',
+            timeout: FEATURE_LOAD_TIMEOUT_MS,
+        });
+        const featureLoadMs = await page.evaluate((startedAt) => performance.now() - startedAt, featureLoadStartedAt);
+        const requestedFeatureUrls = Array.from(featureModuleRequests);
+        const hostOriginFeatureRequests = requestedFeatureUrls.filter((url) => /^https?:\/\//.test(url));
+        if (hostOriginFeatureRequests.length > 0) {
+            throw new Error(`Feature chunk resolved against the host page origin: ${hostOriginFeatureRequests.join(', ')}`);
+        }
+        if (!requestedFeatureUrls.some((url) => url.includes('/content-features.js'))) {
+            throw new Error('Explicit user trigger did not request content-features.js');
+        }
+
         return {
             toolbarReadyMs,
             toolbarRecoveryMs,
+            featureLoadMs,
+            featureModuleRequestCount: featureModuleRequests.size,
             ...finalMetrics,
             cold,
             idle,
@@ -287,6 +328,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         };
     } finally {
         console.error('[perf] closing browser');
+        await featureNetworkSession?.detach().catch(() => undefined);
         await context.close();
         await rm(userDataDir, { recursive: true, force: true });
     }

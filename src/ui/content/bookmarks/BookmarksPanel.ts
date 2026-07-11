@@ -27,7 +27,8 @@ import { SponsorTabView } from './ui/tabs/SponsorTabView';
 import { createBookmarksPanelShell, type BookmarksPanelTabSpec } from './ui/BookmarksPanelShell';
 import { buildImportMergeReviewModalBody } from './ui/importMergeReview';
 import { OverlaySession } from '../overlay/OverlaySession';
-import type { ReaderPanel } from '../reader/ReaderPanel';
+import type { ReaderPanelPort } from '../reader/ReaderPanelPort';
+import type { BookmarksPanelOptions } from './BookmarksPanelPort';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { logger } from '../../../core/logger';
@@ -166,7 +167,7 @@ function createFallbackTabView(className: string): BookmarksPanelTabView {
 
 export class BookmarksPanel {
     private readonly controller: BookmarksPanelController;
-    private readonly readerPanel: ReaderPanel;
+    private readonly readerPanel: ReaderPanelPort;
     private readonly uiState: UiState = {
         bookmarksTab: 'bookmarks',
         settings: structuredClone(DEFAULT_SETTINGS),
@@ -227,10 +228,8 @@ export class BookmarksPanel {
 
     constructor(
         controller: BookmarksPanelController,
-        readerPanel: ReaderPanel,
-        private readonly options: {
-            onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
-        } = {},
+        readerPanel: ReaderPanelPort,
+        private readonly options: BookmarksPanelOptions = {},
     ) {
         this.controller = controller;
         this.readerPanel = readerPanel;

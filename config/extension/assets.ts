@@ -8,6 +8,8 @@ const sharedNonIconWebAccessibleResources = [
     'page-bridges/*.js',
     'formula-renderer.html',
     'formula-renderer.js',
+    'content-features.js',
+    'content-feature-chunks/*.js',
 ] as const;
 
 const defaultWebAccessibleResources = [
@@ -22,6 +24,7 @@ const safariWebAccessibleResources = [
 
 export const extensionAssets = {
     contentEntry: 'content.js',
+    contentFeaturesEntry: 'content-features.js',
     backgroundEntry: 'background.js',
     popupPath: 'src/popup/popup.html',
     icons: {

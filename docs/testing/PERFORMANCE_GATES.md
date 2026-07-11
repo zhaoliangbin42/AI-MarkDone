@@ -11,6 +11,7 @@ This document is the execution contract for the 2026 ChatGPT content-runtime per
 - The benchmark uses the built Chrome extension in real Chromium. It does not access a live ChatGPT account or network content.
 - Each phase reports a mutation breakdown by DOM mutation type and attribute name so self-authored extension writes can be distinguished from host streaming changes.
 - Before reading `usedJsHeapBytes`, the benchmark explicitly requests a renderer garbage collection through the Chromium DevTools Protocol. This makes heap medians comparable instead of depending on incidental browser GC timing.
+- Startup/steady-state metrics and heap are captured before any heavy feature is triggered. The benchmark records all `content-features.js` / `content-feature-chunks/*` network requests through CDP, then clicks the real lower-right Bookmarks button and measures until `#aimd-bookmarks-panel-host` mounts.
 - Reliability invariants are absolute on every run; timing and heap budgets use the three-run median because browser scheduling has normal variance.
 
 The benchmark must always satisfy all of these invariants:
@@ -18,6 +19,7 @@ The benchmark must always satisfy all of these invariants:
 - 200 of 200 message toolbars appear.
 - every official action row contains exactly one AI-MarkDone toolbar.
 - all replaced official action rows recover within 500 ms.
+- no content feature module is requested before the explicit Bookmarks trigger; after the trigger the panel mounts within 500 ms and every feature URL remains on the extension origin rather than the host page origin.
 - no phase may increase an already accepted bundle or runtime median captured under the same measurement protocol by more than 10% without an explicit documented reason.
 - `npm run test:core` and `npm run build` remain green at every phase boundary.
 
@@ -54,7 +56,7 @@ The initial repository baseline also requires `npm run test:core` to pass all 1,
 | 4 | Event-driven toolbar reconciler | 200/200 toolbars; zero duplicates; official-row recovery <= 500 ms on every run; toolbar-ready median <= 750 ms; streaming long-task total <= 500 ms. |
 | 5 | Shared page-awareness, formula scan, and cache invalidation | streaming long-task total <= 400 ms; streaming maximum <= 150 ms; streaming mutation records <= 650; no stale route or message cache after navigation. |
 | 6 | Shared per-toolbar resources | shadow descendants <= 9,400; post-GC used JS heap <= 12,500,000 bytes; toolbar visual and action parity green. |
-| 7 | Host/feature bundle separation | ChatGPT startup `content.js` raw <= 1,300,000 bytes; gzip <= 350,000 bytes; feature panels load only from explicit user triggers; Chrome/Firefox/Safari build parity green. |
+| 7 | Host/feature bundle separation | ChatGPT startup `content.js` raw <= 1,300,000 bytes and gzip <= 350,000 bytes; facade <= 150,000 / 50,000 bytes; complete shared feature graph <= 1,650,000 / 450,000 bytes; zero pre-trigger feature requests; real Bookmarks trigger <= 500 ms with no host-origin chunks; Chrome/Firefox/Safari build parity green. |
 | 8 | Final soak and closeout | cold long-task total <= 325 ms; cold maximum <= 150 ms; streaming long-task total <= 375 ms; streaming maximum <= 140 ms; all reliability invariants pass for three runs plus manual long-thread/route/theme/settings regression. |
 
 If a phase misses a threshold, work stays in that phase. The implementation may be revised or the threshold may be changed only with new evidence recorded in this document; a red gate must not be silently waived.
@@ -118,10 +120,20 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Toolbar reliability remained 200/200 with zero duplicates on every run. `content.js` remained within budget at 1,850,809 raw bytes and 486,982 gzip bytes.
 - The phase boundary passed all 1,225 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets.
 
+### Phase 7 — 2026-07-11
+
+- Replaced static startup imports of `ReaderPanel`, `BookmarksPanel`, Save/Bookmark dialogs, and Copy PNG with typed lazy ports. `content.js` now imports one fixed extension URL through `browser.runtime.getURL()` only after a real user action; the ES module facade then loads each heavy feature independently.
+- Built `reader.js` and `content-features.js` in one Rollup graph so the detached Reader and content features share renderer code. The functional Chrome/Firefox feature graph is 1,609,873 raw bytes and 434,059 summed gzip bytes; Safari is 1,602,581 / 432,243 bytes. The facade itself is only 3,481 raw bytes / 1,349 gzip bytes.
+- The initial 1,350,000 / 375,000 graph proposal was based on an invalid build whose entry exports had been tree-shaken. The real trigger gate caught `createBookmarksPanel is not a function`; the build now preserves entry signatures and executes the emitted facade to verify all five callable exports. The corrected 1,650,000 / 450,000 budget leaves only 2.4% raw and 3.7% gzip headroom over the functional graph.
+- Feature-specific imports initially exposed another invalid path: Vite preload links resolved against `https://chatgpt.com`. All three module builds now use a relative base, which resolves preload dependencies against `import.meta.url`; the benchmark rejects any future HTTP(S) feature request. A Bookmarks trigger loads nine unique extension-origin module URLs and no host-origin URLs.
+- `content.js` is 612,061 raw bytes and 158,968 gzip bytes, down 66.9% and 67.4% from Phase 6. Three-run medians: toolbar ready 430.5 ms; cold long-task total 51 ms; cold maximum 51 ms; idle mutations 0; streaming long-task total / maximum 0 ms; streaming mutations 200; official-row recovery 165.7 ms; post-GC heap 4,413,608 bytes; first Bookmarks mount 90.6 ms.
+- Toolbar reliability remained 200/200 with zero duplicates on all three runs; no feature module loaded before the explicit trigger. Post-GC startup heap fell 41.1% from Phase 6 while shadow descendants remained 7,603.
+- The phase boundary passed all 1,234 core tests and the complete Chrome, Firefox, and Safari WebExtension builds, including classic/module parsing, facade export execution, manifest resource consistency, extension-origin trigger checks, and per-entry plus aggregate bundle budgets.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.
 - Do not reintroduce conversation DOM virtualization as part of this program.
 - Toolbar placement remains anchored to ChatGPT's official `copy-turn-action-button` row. There is no content-body fallback.
 - Official navigation hiding must fail open when the exact official selector no longer matches.
-- Bundle splitting must not use runtime syntax that violates extension entry-format gates.
+- Bundle splitting may use only the documented `browser.runtime.getURL()` feature facade exception in classic `content.js`; all emitted ES modules must pass module parsing, callable-export, manifest-resource, extension-origin, and bundle-budget gates.

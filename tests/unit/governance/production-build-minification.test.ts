@@ -28,4 +28,17 @@ describe('production build minification', () => {
         expect(pkg.scripts['verify:bundle-size']).toBe('tsx scripts/verify-extension-bundle-size.ts chrome firefox');
         expect(pkg.scripts['verify:bundle-size:safari']).toBe('tsx scripts/verify-extension-bundle-size.ts safari');
     });
+
+    it('builds the lazy content feature entry together with Reader so heavy renderer code can be shared', () => {
+        for (const target of ['chrome', 'firefox', 'safari']) {
+            const source = readFileSync(resolve(process.cwd(), `vite.config.${target}.reader.ts`), 'utf8');
+            expect(source).toContain("base: './'");
+            expect(source).toContain("reader: resolve(__dirname, 'src/runtimes/reader/entry.ts')");
+            expect(source).toContain("'content-features': resolve(__dirname, 'src/runtimes/content/contentFeatures.ts')");
+            expect(source).toContain("entryFileNames: '[name].js'");
+            expect(source).toContain("chunkFileNames: 'content-feature-chunks/[name]-[hash].js'");
+            expect(source).toContain("preserveEntrySignatures: 'exports-only'");
+            expect(source).not.toContain('inlineDynamicImports: true');
+        }
+    });
 });

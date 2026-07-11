@@ -65,7 +65,9 @@
                 "vendor/katex/fonts/*",
                 "page-bridges/*.js",
                 "formula-renderer.html",
-                "formula-renderer.js"
+                "formula-renderer.js",
+                "content-features.js",
+                "content-feature-chunks/*.js"
             ],
             "matches": [
                 "https://chatgpt.com/*",

@@ -40,6 +40,8 @@ describe('manifest resource consistency', () => {
 
         expect(chromeResources.length).toBeGreaterThan(0);
         expect(chromeResources).toEqual(firefoxResources);
+        expect(chromeResources).toContain('content-features.js');
+        expect(chromeResources).toContain('content-feature-chunks/*.js');
     });
 
     it('keeps Safari App Store resources on a strict allowlist without sponsor or social assets', () => {

@@ -318,6 +318,24 @@ vi.mock('@/ui/content/bookmarks/BookmarksPanel', () => ({
     BookmarksPanel: bookmarksPanelCtor,
 }));
 
+vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
+    createLazyReaderPanel: readerPanelCtor,
+    createLazyBookmarksPanel: bookmarksPanelCtor,
+    createLazySaveMessagesDialog: vi.fn(() => ({
+        open: vi.fn(async () => undefined),
+        setTheme: vi.fn(),
+        setThemeOverrides: vi.fn(),
+        setExportSettings: vi.fn(),
+        setMarkdownFormulaFormat: vi.fn(),
+    })),
+    createLazyBookmarkSaveDialog: vi.fn(() => ({
+        open: bookmarkSaveDialogOpen,
+        setTheme: bookmarkSaveDialogSetTheme,
+        setThemeOverrides: bookmarkSaveDialogSetThemeOverrides,
+    })),
+    createLazyCopyTurnsPng: vi.fn(() => vi.fn(async () => ({ ok: true, noop: false }))),
+}));
+
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
     bookmarkSaveDialog: {
         open: bookmarkSaveDialogOpen,

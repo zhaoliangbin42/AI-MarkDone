@@ -9,4 +9,15 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).toContain("await session.send('HeapProfiler.collectGarbage')");
         expect(source).toContain('collectUsedJsHeapAfterGc(context, page)');
     });
+
+    it('proves heavy content features stay unloaded until a real panel trigger', () => {
+        const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
+
+        expect(source).toContain('featureModuleRequests');
+        expect(source).toContain('[data-action="open-bookmarks-panel"]');
+        expect(source).toContain('#aimd-bookmarks-panel-host');
+        expect(source).toContain('Feature module loaded before an explicit user trigger');
+        expect(source).toContain('Feature chunk resolved against the host page origin');
+        expect(source).toContain('featureLoadMs');
+    });
 });

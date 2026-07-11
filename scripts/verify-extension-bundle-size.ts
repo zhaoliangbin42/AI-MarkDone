@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 import { resolve } from 'node:path';
 
@@ -11,8 +11,9 @@ type BundleBudget = {
 };
 
 const BUDGETS: BundleBudget[] = [
-    { file: 'content.js', maxRawBytes: 1_900_000, maxGzipBytes: 500_000 },
-    { file: 'reader.js', maxRawBytes: 1_200_000, maxGzipBytes: 350_000 },
+    { file: 'content.js', maxRawBytes: 1_300_000, maxGzipBytes: 350_000 },
+    { file: 'reader.js', maxRawBytes: 600_000, maxGzipBytes: 150_000 },
+    { file: 'content-features.js', maxRawBytes: 150_000, maxGzipBytes: 50_000 },
     { file: 'background.js', maxRawBytes: 150_000, maxGzipBytes: 40_000 },
     { file: 'formula-renderer.js', maxRawBytes: 1_700_000, maxGzipBytes: 600_000 },
 ];
@@ -49,6 +50,33 @@ async function verifyTarget(target: Target): Promise<string[]> {
         if (!rawOk || !gzipOk) {
             failures.push(
                 `${target}/${budget.file} exceeded its bundle budget (raw ${rawBytes}/${budget.maxRawBytes}, gzip ${gzipBytes}/${budget.maxGzipBytes})`,
+            );
+        }
+    }
+
+    const featureChunkDir = resolve(`dist-${target}`, 'content-feature-chunks');
+    const featureChunkFiles = (await readdir(featureChunkDir))
+        .filter((file) => file.endsWith('.js'))
+        .sort();
+    if (featureChunkFiles.length === 0) {
+        failures.push(`${target} did not emit any shared content feature chunks`);
+    } else {
+        const featureFiles = [
+            resolve(`dist-${target}`, 'reader.js'),
+            resolve(`dist-${target}`, 'content-features.js'),
+            ...featureChunkFiles.map((file) => resolve(featureChunkDir, file)),
+        ];
+        const featureBuffers = await Promise.all(featureFiles.map((file) => readFile(file)));
+        const rawBytes = featureBuffers.reduce((total, content) => total + content.byteLength, 0);
+        const gzipBytes = featureBuffers.reduce((total, content) => total + gzipSync(content).byteLength, 0);
+        const maxRawBytes = 1_650_000;
+        const maxGzipBytes = 450_000;
+        rows.push(
+            `${target}/content feature graph: raw ${formatBytes(rawBytes)} / ${formatBytes(maxRawBytes)}, gzip ${formatBytes(gzipBytes)} / ${formatBytes(maxGzipBytes)}`,
+        );
+        if (rawBytes > maxRawBytes || gzipBytes > maxGzipBytes) {
+            failures.push(
+                `${target}/content feature graph exceeded its bundle budget (raw ${rawBytes}/${maxRawBytes}, gzip ${gzipBytes}/${maxGzipBytes})`,
             );
         }
     }

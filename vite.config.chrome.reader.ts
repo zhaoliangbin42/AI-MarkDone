@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import { extensionSurfacePolicies } from './config/extension/surface';
 
 export default defineConfig({
+    base: './',
     esbuild: {
         charset: 'ascii',
     },
@@ -16,11 +17,15 @@ export default defineConfig({
             polyfill: false,
         },
         rollupOptions: {
-            input: resolve(__dirname, 'src/runtimes/reader/entry.ts'),
+            preserveEntrySignatures: 'exports-only',
+            input: {
+                reader: resolve(__dirname, 'src/runtimes/reader/entry.ts'),
+                'content-features': resolve(__dirname, 'src/runtimes/content/contentFeatures.ts'),
+            },
             output: {
-                entryFileNames: 'reader.js',
+                entryFileNames: '[name].js',
+                chunkFileNames: 'content-feature-chunks/[name]-[hash].js',
                 format: 'es',
-                inlineDynamicImports: true,
             },
         },
         outDir: 'dist-chrome',

@@ -257,7 +257,11 @@ describe('ReaderPanel bookmark action injection', () => {
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
             toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController });
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel,
+            bookmarksController,
+            bookmarkSaveDialog: bookmarkSaveDialog as any,
+        });
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
 
         (orchestrator as any).rebuildTurnIndex();

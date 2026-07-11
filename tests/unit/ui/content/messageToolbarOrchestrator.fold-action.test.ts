@@ -1089,7 +1089,12 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
             forceRefreshCurrentConversation: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController, chatGptConversationEngine }) as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel,
+            bookmarksController,
+            chatGptConversationEngine,
+            bookmarkSaveDialog,
+        }) as any;
 
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const toolbar = { setActionActive: vi.fn() };
@@ -1175,7 +1180,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         const adapter = new ChatGPTAdapter();
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel }) as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, saveMessagesDialog }) as any;
 
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
         const actions = orchestrator.getActionsForMessage(assistant, () => null);
@@ -1208,7 +1213,11 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
             selectFolder: vi.fn(),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController }) as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel,
+            bookmarksController,
+            bookmarkSaveDialog,
+        }) as any;
         orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'First' }));
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 

@@ -106,6 +106,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
+            copyTurnsPng: vi.mocked(copyTurnsPng),
         }) as any;
         const assistant = document.querySelector('.assistant-message') as HTMLElement;
         const actions = orchestrator.getActionsForMessage(assistant, () => null);
@@ -141,6 +142,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
+            copyTurnsPng: vi.mocked(copyTurnsPng),
         }) as any;
         const assistant = document.querySelector('.assistant-message') as HTMLElement;
         const content = assistant.querySelector('.content') as HTMLElement;
@@ -178,6 +180,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
+            copyTurnsPng: vi.mocked(copyTurnsPng),
         }) as any;
         orchestrator.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920, pngPixelRatio: 2.5 });
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
@@ -221,6 +224,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
+            copyTurnsPng: vi.mocked(copyTurnsPng),
         }) as any;
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 
@@ -259,6 +263,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
+            copyTurnsPng: vi.mocked(copyTurnsPng),
         }) as any;
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 

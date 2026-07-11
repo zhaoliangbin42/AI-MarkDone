@@ -6,7 +6,7 @@ import { PathUtils } from '../../../../../core/bookmarks/path';
 import { validateBookmarkTitle } from '../../../../../core/bookmarks/title';
 import { t } from '../../../components/i18n';
 import type { ModalHost } from '../../../components/ModalHost';
-import type { ReaderPanel } from '../../../reader/ReaderPanel';
+import type { ReaderPanelPort } from '../../../reader/ReaderPanelPort';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
 import { titleValidationMessage, validateFolderPathInput, validateFolderSegmentName } from '../../helpers/nameValidation';
 import { bookmarkSaveDialog } from '../../save/bookmarkSaveDialogSingleton';
@@ -116,7 +116,7 @@ export function createNoopBookmarksTabActions(): BookmarksTabActions {
 
 export function createBookmarksTabActions(params: {
     modal: ModalHost;
-    readerPanel: ReaderPanel;
+    readerPanel: ReaderPanelPort;
     onRequestHidePanel?: () => void;
     getSaveContextOnly?: () => boolean;
 }): BookmarksTabActions {

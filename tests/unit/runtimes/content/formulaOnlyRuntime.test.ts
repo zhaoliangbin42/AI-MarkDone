@@ -104,6 +104,14 @@ vi.mock('@/ui/content/bookmarks/BookmarksPanel', () => ({
     }),
 }));
 
+vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
+    createLazyReaderPanel: vi.fn(() => ({})),
+    createLazyBookmarksPanel: vi.fn(() => ({
+        toggle: mocks.bookmarksPanelToggle,
+        hide: mocks.bookmarksPanelHide,
+    })),
+}));
+
 import {
     FormulaOnlyRuntime,
     getFormulaOnlyPlatformProfile,

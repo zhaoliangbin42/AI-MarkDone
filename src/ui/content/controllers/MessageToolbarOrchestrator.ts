@@ -14,7 +14,7 @@ import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler'
 import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
-import { copyTurnsPng } from '../../../services/copy/copy-turn-png';
+import type { copyTurnsPng } from '../../../services/copy/copy-turn-png';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
 import {
     isCopyPngDebugEnabled,
@@ -30,14 +30,14 @@ import { resolveContent, type ReaderItem } from '../../../services/reader/types'
 import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '../../../services/reader/readerMarkdownCopy';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
-import type { ReaderPanel, ReaderPanelAction, ReaderPanelActionContext } from '../reader/ReaderPanel';
+import type { ReaderPanelAction, ReaderPanelActionContext } from '../reader/ReaderPanel';
+import type { ReaderPanelPort } from '../reader/ReaderPanelPort';
 import { createConversationReaderActions } from '../reader/conversationReaderActions';
 import type { SendController } from '../sending/SendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { WordCounter } from '../../../core/text/wordCounter';
 import { bookmarkIcon, copyIcon, downloadIcon, bookOpenIcon, imageIcon } from '../../../assets/icons';
-import { saveMessagesDialog } from '../export/SaveMessagesDialog';
-import { bookmarkSaveDialog } from '../bookmarks/save/bookmarkSaveDialogSingleton';
+import type { BookmarkSaveDialogPort, SaveMessagesDialogPort } from '../ContentDialogPorts';
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { buildChatGPTConversationTurns, resolveChatGPTConversationRound } from '../../../drivers/content/chatgpt/chatgptConversationSource';
@@ -111,6 +111,22 @@ type MessageToolbarBehaviorFlags = {
 
 const CHATGPT_TOOLBAR_RECOVERY_BASE_MS = 400;
 const CHATGPT_TOOLBAR_RECOVERY_MAX_MS = 4000;
+const unavailableSaveMessagesDialog: SaveMessagesDialogPort = {
+    open: async () => undefined,
+    setTheme: () => undefined,
+    setThemeOverrides: () => undefined,
+    setExportSettings: () => undefined,
+    setMarkdownFormulaFormat: () => undefined,
+};
+const unavailableBookmarkSaveDialog: BookmarkSaveDialogPort = {
+    open: async () => ({ ok: false, reason: 'cancel' }),
+    setTheme: () => undefined,
+    setThemeOverrides: () => undefined,
+};
+const unavailableCopyTurnsPng: typeof copyTurnsPng = async () => ({
+    ok: false,
+    error: { code: 'FEATURE_UNAVAILABLE', message: 'PNG copy is unavailable' },
+});
 
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
@@ -125,7 +141,7 @@ export class MessageToolbarOrchestrator {
     private routeWatcher: RouteWatcher | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private observedContainer: HTMLElement | null = null;
-    private readerPanel: ReaderPanel;
+    private readerPanel: ReaderPanelPort;
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
     private chatGptConversationEngine: ChatGPTConversationEngine | null = null;
@@ -148,6 +164,9 @@ export class MessageToolbarOrchestrator {
     private chatGptToolbarRecoveryTimer: number | null = null;
     private currentReaderItemByMessageKey = new Map<string, Promise<ReaderItem | null>>();
     private intentionallyRemovedToolbarHosts = new WeakSet<HTMLElement>();
+    private readonly saveMessagesDialog: SaveMessagesDialogPort;
+    private readonly bookmarkSaveDialog: BookmarkSaveDialogPort;
+    private readonly copyTurnsPng: typeof copyTurnsPng;
 
     private rebuildTurnIndex(): void {
         try {
@@ -320,7 +339,7 @@ export class MessageToolbarOrchestrator {
 
         if (!params.alreadyBookmarked) {
             const currentFolderPath = this.bookmarksController.getDefaultFolderPath();
-            const dialogRes = await bookmarkSaveDialog.open({
+            const dialogRes = await this.bookmarkSaveDialog.open({
                 theme: this.theme,
                 userPrompt,
                 existingTitle: userPrompt,
@@ -526,10 +545,13 @@ export class MessageToolbarOrchestrator {
     constructor(
         adapter: SiteAdapter,
         opts: {
-            readerPanel: ReaderPanel;
+            readerPanel: ReaderPanelPort;
             sendController?: SendController;
             bookmarksController?: BookmarksPanelController;
             chatGptConversationEngine?: ChatGPTConversationEngine;
+            saveMessagesDialog?: SaveMessagesDialogPort;
+            bookmarkSaveDialog?: BookmarkSaveDialogPort;
+            copyTurnsPng?: typeof copyTurnsPng;
             onMessageInjected?: (messageElement: HTMLElement) => void;
         }
     ) {
@@ -538,6 +560,9 @@ export class MessageToolbarOrchestrator {
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
         this.chatGptConversationEngine = opts.chatGptConversationEngine ?? null;
+        this.saveMessagesDialog = opts.saveMessagesDialog ?? unavailableSaveMessagesDialog;
+        this.bookmarkSaveDialog = opts.bookmarkSaveDialog ?? unavailableBookmarkSaveDialog;
+        this.copyTurnsPng = opts.copyTurnsPng ?? unavailableCopyTurnsPng;
         this.onMessageInjected = opts.onMessageInjected || null;
     }
 
@@ -704,7 +729,7 @@ export class MessageToolbarOrchestrator {
             record.toolbar.setTheme(theme);
         }
         this.readerPanel.setTheme(theme);
-        bookmarkSaveDialog.setTheme(theme);
+        this.bookmarkSaveDialog.setTheme(theme);
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
@@ -713,7 +738,7 @@ export class MessageToolbarOrchestrator {
             record.toolbar.setThemeOverrides(this.themeOverrides);
         }
         this.readerPanel.setThemeOverrides(this.themeOverrides);
-        bookmarkSaveDialog.setThemeOverrides(this.themeOverrides);
+        this.bookmarkSaveDialog.setThemeOverrides(this.themeOverrides);
     }
 
     setBehaviorFlags(flags: Partial<MessageToolbarBehaviorFlags>): void {
@@ -861,7 +886,7 @@ export class MessageToolbarOrchestrator {
                         selectedIndex: currentTurn.index,
                         turnCount: 1,
                     });
-                    const result = await copyTurnsPng([currentTurn], [0], metadata, {
+                    const result = await this.copyTurnsPng([currentTurn], [0], metadata, {
                         t: (key: string, args?: unknown) => {
                             if (typeof args === 'string' || Array.isArray(args)) return t(key, args);
                             return t(key);
@@ -928,7 +953,7 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
-                    await saveMessagesDialog.open(this.adapter, this.theme, {
+                    await this.saveMessagesDialog.open(this.adapter, this.theme, {
                         chatGptConversationEngine: this.chatGptConversationEngine,
                         startMessageElement: messageElement,
                     });

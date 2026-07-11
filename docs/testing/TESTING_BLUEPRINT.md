@@ -102,13 +102,14 @@ tests/
 
 ## 7. Entry Bundle Release Gates
 
-针对浏览器扩展 entry（尤其 `content.js` / `background.js`），构建门禁必须覆盖“运行时加载格式”而不只看 TypeScript/单测是否通过。
+针对浏览器扩展 entry（尤其 `content.js` / `background.js`）及其受控 feature module graph，构建门禁必须覆盖“运行时加载格式”而不只看 TypeScript/单测是否通过。
 
 要求：
 
-- entry bundle 不得包含 top-level `import`
-- entry bundle 不得包含会在运行时继续拉取 JS chunk 的动态加载语法（例如 `import('./assets/...')`、`await import(...)`、`__vitePreload(...)`）
-- 该门禁必须同时作用于 Chrome MV3 与 Firefox MV2 产物
+- manifest 直接执行的 classic entry bundle 不得包含 top-level `import`，并必须能作为 classic script 解析
+- `background.js` / `formula-renderer.js` 不得包含运行时 chunk 加载；`content.js` 只允许一个受控例外：用 `browser.runtime.getURL()` 生成固定 `content-features.js` URL 的动态 import。不得出现 bundler 自动生成的 host-relative `./assets/*` chunk、任意脚本文本执行或 host page URL
+- `reader.js`、`content-features.js` 与 `content-feature-chunks/*.js` 必须作为 ES modules 解析；feature facade 必须保留约定的 callable exports，preload/chunk URL 必须以 `import.meta.url` 解析到 extension origin
+- 三端 manifest 必须从共享 asset contract 暴露 facade/chunk resources；门禁同时作用于 Chrome MV3、Firefox MV2 与 Safari WebExtension 产物
 
 原因：
 
@@ -117,5 +118,5 @@ tests/
 
 执行口径：
 
-- 保持 `scripts/verify-extension-entry-format.sh` 作为 release gate
-- 每次引入新的 markdown/runtime enhancement、懒加载库或 content-side UI enhancement 时，必须重新验证 entry bundle 仍是单体可执行格式
+- 保持 `scripts/verify-extension-entry-format.sh` 作为 release gate，并执行 facade export 校验
+- 每次引入新的 markdown/runtime enhancement、懒加载库或 content-side UI enhancement 时，必须重新验证 classic startup entry 独立可执行、启动期没有 feature module 请求、真实 UI trigger 能加载对应 module 且没有 host-origin chunk 请求

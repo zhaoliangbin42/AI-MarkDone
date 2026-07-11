@@ -19,6 +19,7 @@
 | Component | Chrome | Firefox | Safari | 共享策略 |
 |:--|:--|:--|:--|:--|
 | Content Script | `content.js`（由 `src/runtimes/content/entry.ts` 编译） | 同上 | 同上 | ✅ 100% |
+| Lazy content features | `content-features.js` + `content-feature-chunks/*.js` ES modules | 同上 | 同上（待 Safari 实机验证） | 与 `reader.js` 共用一个 Rollup graph；只从 extension origin 按真实用户动作加载 |
 | Background | `src/runtimes/background/entry.ts`（编译） | 同上（用 MV2 manifest + polyfill 兼容） | 同上（待 Safari 实机验证） | ✅ 100% |
 | Manifest | `manifest.chrome.json` | `manifest.firefox.json` | `manifest.safari.json` | 由 `config/extension/*` + `scripts/generate-manifest.ts` 生成 |
 | Google Drive Backup | `identity` + manifest `oauth2` + WebAuth fallback | `identity.launchWebAuthFlow` + configured Web OAuth client | 不展示入口 | 云端副作用统一在 background provider，UI 只能走 `cloudBackup:*` 协议 |
@@ -49,18 +50,24 @@
 dist-chrome/
   background.js   (from src/runtimes/background/entry.ts)
   content.js      (from src/runtimes/content/entry.ts)
+  content-features.js, content-feature-chunks/*.js
+  reader.js       (shared feature graph entry)
   manifest.json   (from manifest.chrome.json)
   icons/, _locales/, vendor/katex/, src/popup/
 
 dist-firefox/
   background.js   (from src/runtimes/background/entry.ts)
   content.js      (from src/runtimes/content/entry.ts)
+  content-features.js, content-feature-chunks/*.js
+  reader.js       (shared feature graph entry)
   manifest.json   (from manifest.firefox.json)
   icons/, _locales/, vendor/katex/, src/popup/
 
 dist-safari/
   background.js   (from src/runtimes/background/entry.ts)
   content.js      (from src/runtimes/content/entry.ts)
+  content-features.js, content-feature-chunks/*.js
+  reader.js       (shared feature graph entry)
   manifest.json   (from manifest.safari.json)
   icons/, _locales/, page-bridges/, vendor/katex/, src/popup/
 ```
@@ -77,6 +84,8 @@ dist-safari/
 - manifest 生成入口：`scripts/generate-manifest.ts`
 - dist 资源准备入口：`scripts/prepare-extension-target.ts`
 
+三端 manifest 都把 `content-features.js` 与 `content-feature-chunks/*.js` 声明为受支持 host 可访问的 extension resources。classic `content.js` 只能以 `browser.runtime.getURL()` 解析固定 facade URL；模块构建使用相对 base，使 Vite preload 以 `import.meta.url` 解析到 `chrome-extension://` / `moz-extension://` / Safari extension origin，而不是当前网页 origin。`scripts/verify-extension-entry-format.sh` 同时验证 classic entries、全部 module chunks，以及 facade 的五个 callable exports；`scripts/verify-extension-bundle-size.ts` 对启动 entry 和完整共享 feature graph 分别设预算。
+
 Safari App Store target 的 surface policy 是合规差异，不是功能 fork：Chrome/Firefox 继续保留 sponsor tab、Buy Me Coffee 二维码、GitHub 支持 CTA、赞助感谢名单、About 小红书关注卡，以及 PNG/SVG 二进制剪贴板 copy 动作；Safari 在 build-time 关闭 sponsor tab、社交关注卡和 binary clipboard copy surfaces，并在 dist 阶段裁剪 `bmc_qr.png`、`wechat_qr.png`、`xiaohongshu_card.png` 以及对应 sponsor/social locale keys。Safari 的 Save/Export PNG/SVG 下载动作继续保留，底部 Feedback tab 的官网卡片、反馈邮箱与 support contact card 也继续保留。
 
 Google Drive Backup v1 是浏览器兼容性边界内的显式差异：Google Chrome 使用 `chrome.identity.getAuthToken()` 与 manifest `oauth2.client_id/scopes`，由浏览器托管授权缓存；支持 WebAuth 的浏览器使用 `identity.launchWebAuthFlow()` 与 `identity.getRedirectURL()`，并要求 Google Cloud Web OAuth client 配置 exact redirect URI；Firefox 使用同一 WebAuth 代码路径，必要时把 Firefox allizom redirect 转成 MDN 允许的 loopback redirect。Safari v1 不展示 Google Drive Backup，直到有可验证的 Safari auth 路径。所有 target 都不得把 refresh token、client secret、cookie、Google account id 或 Drive 文件内容写入协议响应、snapshot 或 `storage.sync`。
@@ -87,6 +96,7 @@ Google Drive Backup v1 是浏览器兼容性边界内的显式差异：Google Ch
 
 - 新增/修改 background 行为：以 `src/runtimes/background/entry.ts` 为共享入口，并同步验证 Chrome 与 Firefox 产物；Safari 相关变更应额外运行 `npm run build:safari:webext`
 - 新增/修改 content 行为：优先走 `src/drivers/shared/browser.ts` 的统一 API（避免直接依赖 `chrome.*`）
+- 新增重型 content surface：必须通过现有 lazy feature facade / typed port 接入，并同步更新三端 web-accessible resource、module export、bundle budget 与真实 trigger-path gate；不得静态带回 `content.js`
 - UI 与 service 层不得新增浏览器 target 分支；浏览器差异只能位于 `config/extension/*` 或 `src/drivers/shared/browser*`
 - 所有跨 runtime 通信：必须收敛到“单点协议定义”（见 `docs/architecture/BLUEPRINT.md` 的 protocol 章节）
 

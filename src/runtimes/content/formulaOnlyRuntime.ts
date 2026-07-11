@@ -2,9 +2,9 @@ import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import type { Theme } from '../../core/types/theme';
 import { PROTOCOL_VERSION, isExtRequest } from '../../contracts/protocol';
 import { SiteAdapter, type ThemeDetector } from '../../drivers/content/adapters/base';
-import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
-import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
+import type { BookmarksPanelPort } from '../../ui/content/bookmarks/BookmarksPanelPort';
+import type { ReaderPanelPort } from '../../ui/content/reader/ReaderPanelPort';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { browser } from '../../drivers/shared/browser';
@@ -12,6 +12,7 @@ import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formu
 import { getFormulaPlatformParserAdapter } from './formulaPlatformParsers';
 import type { MarkdownParserAdapter } from '../../drivers/content/adapters/parser/MarkdownParserAdapter';
 import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
+import { createLazyBookmarksPanel, createLazyReaderPanel } from './lazyContentFeatures';
 
 export type FormulaOnlyPlatformId = 'gemini' | 'claude' | 'deepseek';
 
@@ -192,18 +193,18 @@ export class FormulaOnlyRuntime {
     private readonly settingsClient = new SettingsClient();
     private readonly formulaController: FormulaAssetHoverController;
     private readonly panelAdapter: FormulaOnlyPanelAdapter;
-    private readonly readerPanel: ReaderPanel;
+    private readonly readerPanel: ReaderPanelPort;
     private readonly bookmarksController: BookmarksPanelController;
-    private readonly bookmarksPanel: BookmarksPanel;
+    private readonly bookmarksPanel: BookmarksPanelPort;
     private readonly observer: MutationObserver;
     private enabled = false;
     private started = false;
 
     constructor(private readonly profile: FormulaPlatformProfile) {
         this.panelAdapter = new FormulaOnlyPanelAdapter(profile);
-        this.readerPanel = new ReaderPanel();
+        this.readerPanel = createLazyReaderPanel();
         this.bookmarksController = new BookmarksPanelController(this.panelAdapter);
-        this.bookmarksPanel = new BookmarksPanel(this.bookmarksController, this.readerPanel);
+        this.bookmarksPanel = createLazyBookmarksPanel(this.bookmarksController, this.readerPanel);
         this.formulaController = new FormulaAssetHoverController({
             parserAdapter: profile.parserAdapter,
         });

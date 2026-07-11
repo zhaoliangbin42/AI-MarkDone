@@ -143,6 +143,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 - toolbar observer 只能作为事件信号：消息内 mutation 必须定向进入该消息的 incremental reconcile，无关文本必须忽略，只有 message 集合/顺序、route/init、conversation root replacement 或无法归属的官方 action-row 结构变化才能进入 full reconcile；不得在一次 scheduled reconcile 后再做第二次全量 toolbar 遍历
 - 同一 content runtime 内的 route-aware controllers 必须共享底层 URL poll/event hub，不得各自创建长期 timer；formula interaction 必须共享 document observer、按 enabled container 过滤 mutation，并让相同 gate 的 settings update 保持幂等
 - 当前消息 Reader item cache 只允许在同一消息 revision 内服务多个用户动作；可归属 mutation 精确失效该消息，消息集合/顺序、route 或 dispose 失效整个 cache
+- manifest content entry 必须保持轻量 classic startup graph；Reader、Bookmarks、Save/Bookmark dialogs 与 Copy PNG 通过 typed ports 延迟到真实用户动作。动态模块地址只能由 `browser.runtime.getURL()` 从固定 asset contract 生成，功能 facade 必须继续按 surface 分段加载，并与 detached Reader 共用构建图，避免把重型 renderer 重复打包或重新带回页面启动路径
 
 契约位置：
 

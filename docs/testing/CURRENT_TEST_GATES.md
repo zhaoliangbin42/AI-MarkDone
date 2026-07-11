@@ -54,6 +54,8 @@ Use targeted tests in addition when the failure mode is local and well defined.
 
 For performance refactors, also run the phase-specific gates in `PERFORMANCE_GATES.md`. A phase may not advance when its correctness, reliability, bundle, or runtime threshold is red.
 
+If the change affects lazy content feature loading, also run `tests/unit/governance/content-feature-boundary.test.ts`, `tests/unit/runtimes/content/lazyContentFeatures.test.ts`, the affected real trigger-path tests, `npm run build:all:webext`, and `npm run perf:chatgpt`. The benchmark must prove no feature module request before a real trigger, a successful BookmarksPanel mount after the lower-right button click, and zero host-origin feature chunk requests. Build verification must execute `content-features.js` and retain all callable facade exports.
+
 For large structural refactors, the minimum acceptable closing gate is:
 
 - affected feature family tests

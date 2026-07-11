@@ -18,6 +18,9 @@
   - `src/core/*`
   - `src/style/*`
 - 禁止直接依赖 background-only storage implementation
+- manifest 启动入口 `entry.ts` / `formulaOnlyRuntime.ts` 只能依赖重型 surface 的 port、controller 与 lazy factory；不得静态导入 `ReaderPanel`、`BookmarksPanel`、Save/Bookmark dialogs 或 Copy PNG 实现
+- `contentFeatures.ts` 是唯一重型 content feature module facade；它的公开方法必须按功能分别动态导入实现，不得重新变成一次触发即加载全部 surface 的静态聚合入口
+- lazy loader 只能通过 `browser.runtime.getURL()` + `config/extension/assets.ts` 中的固定 entry 名称加载扩展自身模块；不得拼接宿主 URL、读取页面提供的模块地址或执行任意脚本文本
 
 ### Background runtime
 

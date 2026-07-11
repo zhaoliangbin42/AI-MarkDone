@@ -35,11 +35,19 @@
 - 当前职责：
   - 先按 URL 分流：ChatGPT 进入完整 content runtime；Gemini、Claude、DeepSeek 进入 formula runtime；未知 host 不启动页面能力
   - 为 ChatGPT 选择当前站点 adapter
-  - 初始化 theme、math click、reader、send controller
-  - 初始化 bookmarks panel 与 message toolbar orchestrator
+  - 初始化 theme、math click、send controller，以及 Reader / Bookmarks / export / Copy PNG 的轻量 lazy ports
+  - 初始化 bookmarks controller 与 message toolbar orchestrator；重型 panel / dialog / renderer 实现不进入页面启动图
   - ChatGPT 完整 runtime 与 Gemini/Claude/DeepSeek formula runtime 都监听 background 发来的 `ui:toggle_toolbar`；ChatGPT 切换完整 BookmarksPanel，formula runtime 允许复用全局书签管理面板作为扩展图标入口
   - 启动后向 background 发送一次 `content:ready`，让长时间休眠/恢复后的 service worker 能重新识别当前 supported tab
   - 处理 best-effort 的书签跳转恢复
+
+当前 content feature 加载边界：
+
+- `content.js` 仍是 manifest 直接声明的 classic content script，只包含站点启动、controller、port 与 lazy loader；`ReaderPanel`、`BookmarksPanel`、`SaveMessagesDialog`、`BookmarkSaveDialog` 和 Copy PNG 实现不得被它静态导入。
+- `src/runtimes/content/lazyContentFeatures.ts` 只在真实用户动作首次调用对应 port 时，通过 `browser.runtime.getURL(extensionAssets.contentFeaturesEntry)` 动态导入扩展自身的 `content-features.js`。同一次页面生命周期共享 module promise；加载失败会清空 promise，允许下一次用户动作重试。
+- `content-features.js` 是保留公开导出的 ES module facade；每个 facade 方法再按 Reader、Bookmarks、Save Messages、bookmark save 或 Copy PNG 的实际触发分别加载对应 chunk。它与 detached `reader.js` 在同一个 Rollup graph 中构建，以共享 Markdown / Reader 依赖而不复制整套 renderer。
+- `content-features.js` 与 `content-feature-chunks/*.js` 只作为受控 web-accessible extension resources 暴露给受支持 host。chunk preload 必须用 `import.meta.url` 解析到扩展 origin，禁止退化为 ChatGPT host-origin 请求。
+- 右下角真实 Bookmarks 按钮是当前自动化 trigger-path gate：基准必须证明启动、idle、streaming 与 toolbar recovery 阶段没有 feature module 请求，点击后 facade 导出可调用、面板可挂载，且没有 host-origin chunk 请求。
 
 ### Background runtime
 

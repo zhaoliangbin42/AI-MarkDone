@@ -8,16 +8,12 @@ import { sendExtRequest } from '../../drivers/shared/rpc';
 import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtRequest, type ExtResponse } from '../../contracts/protocol';
 import { logger } from '../../core/logger';
 import { ensurePageTokens } from '../../style/pageTokens';
-import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
-import { BookmarksPanel } from '../../ui/content/bookmarks/BookmarksPanel';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
-import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
 import { setLocale, t } from '../../ui/content/components/i18n';
 import { SendController } from '../../ui/content/sending/SendController';
-import { saveMessagesDialog } from '../../ui/content/export/SaveMessagesDialog';
 import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
@@ -42,6 +38,13 @@ import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core
 import type { UserThemeOverrides } from '../../style/tokens';
 import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formulaOnlyRuntime';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
+import {
+    createLazyBookmarkSaveDialog,
+    createLazyBookmarksPanel,
+    createLazyCopyTurnsPng,
+    createLazyReaderPanel,
+    createLazySaveMessagesDialog,
+} from './lazyContentFeatures';
 
 const isDebugEnabled = () => {
     try {
@@ -84,7 +87,10 @@ if (adapter) {
     const contentAdapter = adapter;
     const themeManager = new ThemeManager();
     const mathClick = new FormulaAssetHoverController();
-    const readerPanel = new ReaderPanel();
+    const readerPanel = createLazyReaderPanel();
+    const saveMessagesDialog = createLazySaveMessagesDialog();
+    const bookmarkSaveDialog = createLazyBookmarkSaveDialog();
+    const copyTurnsPng = createLazyCopyTurnsPng();
     const sendController = new SendController();
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
@@ -111,7 +117,7 @@ if (adapter) {
         ? new ChatGPTPromptAutocompleteController(adapter, promptLibraryClient)
         : null;
     sendController.setPromptAutocompleteController(chatGptPromptAutocomplete);
-    const bookmarksPanel = new BookmarksPanel(bookmarksController, readerPanel, {
+    const bookmarksPanel = createLazyBookmarksPanel(bookmarksController, readerPanel, {
         onOpenPromptManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
     });
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
@@ -164,6 +170,9 @@ if (adapter) {
         readerPanel,
         sendController,
         bookmarksController,
+        saveMessagesDialog,
+        bookmarkSaveDialog,
+        copyTurnsPng,
         chatGptConversationEngine: chatGptConversationEngine ?? undefined,
         onMessageInjected: (messageElement) => {
             const formula = resolveFormulaSettings(settingsClient.getCached()?.formula);
